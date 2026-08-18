@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 1 Preview",
   "schema_version": 1,
   "phase": "phase-1-preview",
-  "as_of": "2026-08-18T22:39:53Z",
+  "as_of": "2026-08-18T22:48:12Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/e346cb5b-cb39-42ce-aa14-821ceb53e4ce, and the same URL is re-rendered and updated after every board change so the owner link stays live. The renderer, its client runtime and its stylesheet are ported from the OsteoJP repo rather than written from scratch. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof. The executor terminal (ORANGE) updates this JSON at every checkpoint. A card may not enter status=shipped with evidence=null; a launch gate condition may not be state=pass with evidence=null. Enforced by docs/board/validate-board.mjs, which must exit 0 before any checkpoint is considered recorded. GATE VOCABULARY: green_self_merge means ORANGE self-decides, commits locally, proceeds without approval. owner_merge means the card closes only on Ivan confirming the deployed screen on localhost, a local commit alone never closes it. stakeholder means client acceptance at phase end. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind journal is a local commit sha or command output pasted so a stranger can re-verify, kind screenshot is Ivan on-screen confirmation. PHASE 1 REALITY: no remote, no CI, no credentials exist in phase 1; the executor updates this JSON at every checkpoint. Every card is built and verified on localhost only, and every commit is local. ORANGE self-decides all creative and code-level questions and halts only on an absolute blocker, in which case the card moves to status=halted or status=blocked with blocked_on set and the reason written into notes.",
   "lanes": [
@@ -189,15 +189,19 @@
     {
       "id": "RC-02",
       "title": "Mock data layer complete: products, batches, suppliers, inbound orders, outbound issues, statuses, reminders, plus two fabricated realistic order confirmation PDFs.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "shipped",
       "priority": "high",
       "owner_terminal": "orange",
       "gate": "green_self_merge",
       "blocked_on": null,
       "last_checkpoint": "2026-08-18",
-      "evidence": null,
+      "evidence": {
+        "kind": "journal",
+        "ref": "82acbf74bbf2b21921d4f0616f29205db8ff59e2",
+        "at": "2026-08-18T22:48:12Z"
+      },
       "notes": "Every screen reads from this single module, so the data has to be believable before any screen is built: a demo dies on fake-looking data faster than on a missing feature. Products must match the client niche: bituminous shingle, metal roof tile, mineral wool, decorative plaster, klinker stone, drywall profiles, adhesives, rainwater systems. Each product carries SKU, name, category, one fixed unit of measure, a reorder threshold and current stock. Units are mixed on purpose across m2, lm, pcs, bag, kg, roll and m3, because the fixed-unit-per-product rule is part of what is being sold. Batches exist per inbound line and are created on arrival. Inbound orders are whole-order status only, Pending arrival or Arrived, with a supplier, a currency of EUR or RON, and an MDL field: currencies are EUR and RON with an MDL field, no live FX, so the MDL value is a stored number in the mock data, not a computed conversion. Outbound is issue-to-project and never a retail sale: client name, project name, quantities, optional sale price, status Awaiting shipment or Shipped. Projects are named like real ones, for example Acoperis Orhei 100m2, Fatada Costesti. Single warehouse, single user, no login. The two fabricated order confirmation PDFs are the upload fixtures for RC-04 and must look like real EU supplier confirmations. Deliberately not done: partial arrivals, partial shipments, multi-warehouse, any FX rate source."
     },
     {
