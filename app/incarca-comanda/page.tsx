@@ -134,7 +134,7 @@ export default function UploadOrderPage() {
             </Button>
           }
         />
-        <div className="mb-4 flex items-center gap-3 rounded-[12px] border border-rc-line bg-rc-white px-5 py-3.5">
+        <div className="mb-4 flex items-center gap-3 rounded-[12px] border border-rc-line bg-rc-white text-rc-black px-5 py-3.5">
           <span className="grid place-items-center w-9 h-9 rounded-[9px] bg-rc-orange-soft text-rc-orange-deep shrink-0">
             <Icon name="upload" />
           </span>

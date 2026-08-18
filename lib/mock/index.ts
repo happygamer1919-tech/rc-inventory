@@ -83,6 +83,15 @@ export function formatDate(iso: string | null): string {
   return `${d}.${m}.${y}`;
 }
 
+
+/** Normalizeaza textul pentru cautare: fara diacritice si fara majuscule.
+ *  Operatorul scrie repede si aproape niciodata cu diacritice, asa ca o cautare
+ *  dupa "tigla" trebuie sa gaseasca "Țiglă". Descompunerea NFD desparte si
+ *  s-virgula si t-virgula, nu doar accentele latine uzuale. */
+export function normalizeText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 /* ------------------------------------------------------------- cautari -- */
 
 export function getProduct(id: string): Product | undefined {
