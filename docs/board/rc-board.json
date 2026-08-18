@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 1 Preview",
   "schema_version": 1,
   "phase": "phase-1-preview",
-  "as_of": "2026-08-18T22:34:56Z",
+  "as_of": "2026-08-18T22:35:00Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/e346cb5b-cb39-42ce-aa14-821ceb53e4ce, and the same URL is re-rendered and updated after every board change so the owner link stays live. The renderer, its client runtime and its stylesheet are ported from the OsteoJP repo rather than written from scratch. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof. The executor terminal (ORANGE) updates this JSON at every checkpoint. A card may not enter status=shipped with evidence=null; a launch gate condition may not be state=pass with evidence=null. Enforced by docs/board/validate-board.mjs, which must exit 0 before any checkpoint is considered recorded. GATE VOCABULARY: green_self_merge means ORANGE self-decides, commits locally, proceeds without approval. owner_merge means the card closes only on Ivan confirming the deployed screen on localhost, a local commit alone never closes it. stakeholder means client acceptance at phase end. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind journal is a local commit sha or command output pasted so a stranger can re-verify, kind screenshot is Ivan on-screen confirmation. PHASE 1 REALITY: no remote, no CI, no credentials exist in phase 1; the executor updates this JSON at every checkpoint. Every card is built and verified on localhost only, and every commit is local. ORANGE self-decides all creative and code-level questions and halts only on an absolute blocker, in which case the card moves to status=halted or status=blocked with blocked_on set and the reason written into notes.",
   "lanes": [
@@ -153,15 +153,19 @@
     {
       "id": "RC-BOARD-RENDER",
       "title": "Board render pipeline live: rendered HTML published as a claude.ai artifact that updates after every board change.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "shipped",
       "priority": "high",
       "owner_terminal": "orange",
       "gate": "green_self_merge",
       "blocked_on": null,
       "last_checkpoint": "2026-08-18",
-      "evidence": null,
+      "evidence": {
+        "kind": "journal",
+        "ref": "96842eddc5fa7ddf5040cd6c6368e0f732936d8c",
+        "at": "2026-08-18T22:35:00Z"
+      },
       "notes": "Added by Ivan as an addendum after RC-00 shipped, executed before RC-01. Tooling is ported from the OsteoJP repo, not written from scratch: render-board.mjs, board-config.mjs and board-app.js are copied read-only out of /Users/ivan/Documents/Projects/GitHub/osteojp-prod-apply/docs/board/ and nothing in that repo is written, committed or touched. board.css is copied with them because render-board.mjs reads it as a hard dependency at HERE/board.css; the addendum list of three files would throw without it, so ORANGE self-decided to bring the fourth. board-config.mjs gains one entry keyed on the exact board string RC-INVENTORY - Phase 1 Preview, with people labels ivan, andre and client, the RC page title, source docs/board/rc-board.json and output docs/board/rc-board.rendered.html; OsteoJP entries are left untouched. The rendered HTML is a build product and is gitignored, per the renders_to contract already written into this board. Publishing the artifact is the one external interaction this card adds to the phase 1 constraints, and it is additive: the app itself still has zero external services. From this card onward every board update is followed by a re-render and an update of the same artifact URL so the owner link stays live."
     },
     {
