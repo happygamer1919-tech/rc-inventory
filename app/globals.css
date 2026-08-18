@@ -84,3 +84,27 @@ body {
   outline: 2px solid var(--color-rc-orange);
   outline-offset: 2px;
 }
+
+/* ---------------------------------------------- animatii procesare RC-04 --- */
+
+/* Bara care umple durata etapei curente. */
+@keyframes rc-progress-fill {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.rc-progress {
+  animation-name: rc-progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Trei puncte care pulseaza dupa eticheta etapei active. */
+@keyframes rc-dots-blink {
+  0%, 20%  { content: "."; }
+  40%      { content: ".."; }
+  60%, 100%{ content: "..."; }
+}
+.rc-dots::after {
+  content: "...";
+  animation: rc-dots-blink 1.2s steps(1, end) infinite;
+}

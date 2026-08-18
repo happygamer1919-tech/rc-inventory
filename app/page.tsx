@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Card,
@@ -15,28 +17,26 @@ import {
   formatMoney,
   formatNumber,
   formatQty,
-  isOutOfStock,
-  lowStockProducts,
-  PRODUCTS,
-  pendingInbound,
-  pendingOutbound,
-  recentActivity,
   supplierName,
-  totalStockValue,
   unitLabel,
 } from "@/lib/mock";
+import { useDerived, useStore } from "@/lib/store";
+import { buildActivity } from "@/lib/activity";
 
 // RC-03 Tabloul de bord.
 // Toate cifrele sunt calculate din datele RC-02 la randare, niciuna nu este
 // scrisa fix in pagina, ca sa ramana in acord cu ce arata celelalte ecrane.
 export default function Dashboard() {
-  const stockValue = totalStockValue();
-  const low = lowStockProducts();
-  const inbound = pendingInbound();
-  const outbound = pendingOutbound();
-  const activity = recentActivity(8);
+  const store = useStore();
+  const d = useDerived();
 
-  const outOfStockCount = low.filter(isOutOfStock).length;
+  const stockValue = d.stockValue;
+  const low = d.lowStock;
+  const inbound = d.pendingInbound;
+  const outbound = d.pendingOutbound;
+  const activity = buildActivity(store.inbound, store.outbound, 8);
+
+  const outOfStockCount = d.outOfStock.length;
   const inboundLines = inbound.reduce((s, o) => s + o.lines.length, 0);
   const outboundLines = outbound.reduce((s, o) => s + o.lines.length, 0);
 
@@ -52,7 +52,7 @@ export default function Dashboard() {
           label="Valoare totală stoc"
           value={formatNumber(stockValue)}
           suffix={DISPLAY_CURRENCY}
-          sub={`${formatNumber(PRODUCTS.length)} produse în catalog`}
+          sub={`${formatNumber(store.products.length)} produse în catalog`}
           icon="boxes"
         />
         <StatCard
@@ -151,7 +151,7 @@ export default function Dashboard() {
                     </Link>
                   </Td>
                   <Td align="right">
-                    {isOutOfStock(p) ? (
+                    {p.stock === 0 ? (
                       <Chip tone="danger">Epuizat</Chip>
                     ) : (
                       <span className="rc-num text-[13px] font-semibold text-rc-warn">
