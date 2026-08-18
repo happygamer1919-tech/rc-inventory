@@ -1,3 +1,86 @@
 @import "tailwindcss";
 
-/* Tokenii de design completi sosesc in RC-01. Aici doar baza. */
+/* ==========================================================================
+   RC-01 Sistem de design Rapid Construct
+   Paleta este cea reala a clientului, extrasa din rapidconstruct.md:
+   portocaliu #f47c1f (accentul dominant de pe site), negru si alb.
+   Doctrina: negru este fundalul, alb este suprafata, portocaliu este accentul.
+   Doar desktop. Fara fonturi externe: preview-ul trebuie sa ruleze cu reteaua
+   oprita, iar un link de font care esueaza in tacere arata mai rau decat lipsa lui.
+   ========================================================================== */
+
+@theme {
+  /* accent */
+  --color-rc-orange: #f47c1f;
+  --color-rc-orange-dark: #e27200;
+  --color-rc-orange-deep: #f06801;
+  --color-rc-orange-soft: #fff5ea;
+
+  /* fundal (negru) */
+  --color-rc-black: #0b0b0c;
+  --color-rc-ink: #16161a;
+  --color-rc-ink-2: #202027;
+
+  /* suprafata (alb) */
+  --color-rc-white: #ffffff;
+  --color-rc-paper: #f7f7f8;
+
+  /* linii si text */
+  --color-rc-line: #e6e6ea;
+  --color-rc-line-strong: #d3d3da;
+  --color-rc-muted: #6b6b73;
+  --color-rc-muted-2: #93939d;
+
+  /* semantice pentru stoc si statusuri */
+  --color-rc-danger: #c92a2a;
+  --color-rc-danger-soft: #fff0f0;
+  --color-rc-warn: #b7791f;
+  --color-rc-warn-soft: #fff8e6;
+  --color-rc-ok: #1f7a45;
+  --color-rc-ok-soft: #eefaf2;
+  --color-rc-info: #1e5fa8;
+  --color-rc-info-soft: #eef4fc;
+
+  /* tipografie */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* raze */
+  --radius-rc: 10px;
+  --radius-rc-lg: 14px;
+}
+
+/* ---------------------------------------------------------------- baza --- */
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-rc-black);
+  color: var(--color-rc-white);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Preview desktop-first: sub 1100px nu garantam nimic, dar nu rupem pagina. */
+.rc-shell {
+  min-width: 1100px;
+}
+
+/* Numere aliniate in tabele si carduri de statistici. */
+.rc-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Bara de derulare discreta pe fundal negru. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-rc-black); }
+::-webkit-scrollbar-thumb { background: #2c2c34; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a44; }
+
+/* Inel de focus vizibil, portocaliu, pentru navigare la tastatura. */
+:focus-visible {
+  outline: 2px solid var(--color-rc-orange);
+  outline-offset: 2px;
+}
