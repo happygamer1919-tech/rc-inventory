@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 1 Preview",
   "schema_version": 1,
   "phase": "phase-1-preview",
-  "as_of": "2026-08-18T23:01:46Z",
+  "as_of": "2026-08-18T23:05:32Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/e346cb5b-cb39-42ce-aa14-821ceb53e4ce, and the same URL is re-rendered and updated after every board change so the owner link stays live. The renderer, its client runtime and its stylesheet are ported from the OsteoJP repo rather than written from scratch. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof. The executor terminal (ORANGE) updates this JSON at every checkpoint. A card may not enter status=shipped with evidence=null; a launch gate condition may not be state=pass with evidence=null. Enforced by docs/board/validate-board.mjs, which must exit 0 before any checkpoint is considered recorded. GATE VOCABULARY: green_self_merge means ORANGE self-decides, commits locally, proceeds without approval. owner_merge means the card closes only on Ivan confirming the deployed screen on localhost, a local commit alone never closes it. stakeholder means client acceptance at phase end. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind journal is a local commit sha or command output pasted so a stranger can re-verify, kind screenshot is Ivan on-screen confirmation. PHASE 1 REALITY: no remote, no CI, no credentials exist in phase 1; the executor updates this JSON at every checkpoint. Every card is built and verified on localhost only, and every commit is local. ORANGE self-decides all creative and code-level questions and halts only on an absolute blocker, in which case the card moves to status=halted or status=blocked with blocked_on set and the reason written into notes.",
   "lanes": [
@@ -285,14 +285,19 @@
       "title": "Outbound form issues materials to a client project via searchable dropdowns with quantity and optional price.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "high",
       "owner_terminal": "orange",
       "gate": "owner_merge",
       "blocked_on": null,
       "last_checkpoint": "2026-08-18",
-      "evidence": null,
-      "notes": "Closes gate G6. Outbound here is issue-to-project, not a retail sale, and the form has to read that way: client name, project name, then the materials being sent to that site. Product and project pickers are searchable dropdowns because the catalogue is long and typing beats scrolling in a demo. Quantity is required and shown in the product's fixed unit; sale price is optional and clearly optional, because Rapid Construct often issues material to its own job without pricing it. Submitting creates an outbound issue with status Awaiting shipment. Deliberately not done: partial shipments, stock reservation logic, credit notes."
+      "evidence": {
+        "kind": "journal",
+        "ref": "33ad2ab20a733cd651fc42b0176065e55b55ff4b",
+        "at": "2026-08-18T23:05:32Z"
+      },
+      "notes": "Closes gate G6. Outbound here is issue-to-project, not a retail sale, and the form has to read that way: client name, project name, then the materials being sent to that site. Product and project pickers are searchable dropdowns because the catalogue is long and typing beats scrolling in a demo. Quantity is required and shown in the product's fixed unit; sale price is optional and clearly optional, because Rapid Construct often issues material to its own job without pricing it. Submitting creates an outbound issue with status Awaiting shipment. Deliberately not done: partial shipments, stock reservation logic, credit notes.",
+      "open_on_purpose": "Work is complete and committed, but the gate is owner_merge: RC-07 closes only when Ivan confirms on localhost that he can pick a client and project from searchable dropdowns, add products with quantities, leave the price blank or fill it, and submit."
     },
     {
       "id": "RC-08",
