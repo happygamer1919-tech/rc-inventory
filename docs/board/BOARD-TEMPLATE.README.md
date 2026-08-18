@@ -1,0 +1,3 @@
+# BOARD-TEMPLATE.json
+
+This file is the clean, reusable board template and nothing else. It must never carry project content: no real board name, no real phase slug, no real launch-gate conditions, no real cards, no real evidence, no real dates. Every string in it is a placeholder that explains what belongs in that field, and it stays that way so the next project can copy it unchanged. Project boards are authored as separate files alongside it (for this project, `rc-board.json`), and only those files are edited as work progresses. If you find yourself editing this template to record progress, you are editing the wrong file. Both the template and every project board are checked by `node docs/board/validate-board.mjs <file>`, which must exit 0.
