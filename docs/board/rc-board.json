@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 1 Preview",
   "schema_version": 1,
   "phase": "phase-1-preview",
-  "as_of": "2026-08-18T22:56:55Z",
+  "as_of": "2026-08-18T23:01:46Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/e346cb5b-cb39-42ce-aa14-821ceb53e4ce, and the same URL is re-rendered and updated after every board change so the owner link stays live. The renderer, its client runtime and its stylesheet are ported from the OsteoJP repo rather than written from scratch. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof. The executor terminal (ORANGE) updates this JSON at every checkpoint. A card may not enter status=shipped with evidence=null; a launch gate condition may not be state=pass with evidence=null. Enforced by docs/board/validate-board.mjs, which must exit 0 before any checkpoint is considered recorded. GATE VOCABULARY: green_self_merge means ORANGE self-decides, commits locally, proceeds without approval. owner_merge means the card closes only on Ivan confirming the deployed screen on localhost, a local commit alone never closes it. stakeholder means client acceptance at phase end. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind journal is a local commit sha or command output pasted so a stranger can re-verify, kind screenshot is Ivan on-screen confirmation. PHASE 1 REALITY: no remote, no CI, no credentials exist in phase 1; the executor updates this JSON at every checkpoint. Every card is built and verified on localhost only, and every commit is local. ORANGE self-decides all creative and code-level questions and halts only on an absolute blocker, in which case the card moves to status=halted or status=blocked with blocked_on set and the reason written into notes.",
   "lanes": [
@@ -266,14 +266,19 @@
       "title": "Inventory management table filters by product, category, supplier and stock level, with per-product drill-down showing batches and movements.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "high",
       "owner_terminal": "orange",
       "gate": "owner_merge",
       "blocked_on": null,
       "last_checkpoint": "2026-08-18",
-      "evidence": null,
-      "notes": "Closes gate G5. This is the screen the warehouse actually lives in, so it has to survive being clicked around rather than just looked at. All four filters work against the mock data and can be combined: product (search by name or SKU), category, supplier, and stock level (for example all, low stock, out of stock). Rows show SKU, name, category, unit, current stock and threshold, with low-stock rows visually marked. Clicking a row opens a per-product detail view listing that product's batches (from inbound arrivals, with quantity and arrival date) and its movement history (inbound in, outbound out, with the project the material went to). Single warehouse, so there is no location column. ORANGE self-decides table layout, whether the drill-down is a page or a panel, and sort behaviour."
+      "evidence": {
+        "kind": "journal",
+        "ref": "dbc51fc5f15beba2ec9deffdbaf53c99f87116f7",
+        "at": "2026-08-18T23:01:46Z"
+      },
+      "notes": "Closes gate G5. This is the screen the warehouse actually lives in, so it has to survive being clicked around rather than just looked at. All four filters work against the mock data and can be combined: product (search by name or SKU), category, supplier, and stock level (for example all, low stock, out of stock). Rows show SKU, name, category, unit, current stock and threshold, with low-stock rows visually marked. Clicking a row opens a per-product detail view listing that product's batches (from inbound arrivals, with quantity and arrival date) and its movement history (inbound in, outbound out, with the project the material went to). Single warehouse, so there is no location column. ORANGE self-decides table layout, whether the drill-down is a page or a panel, and sort behaviour.",
+      "open_on_purpose": "Work is complete and committed, but the gate is owner_merge: RC-06 closes only when Ivan confirms on localhost that all four filters change the visible rows and that a product opens its batches and movements."
     },
     {
       "id": "RC-07",
