@@ -1,7 +1,14 @@
 # ORANGE resume state
 
-Written at the end of the phase 1 executor run. Everything below is verified,
-not assumed.
+PHASE 1 COMPLETE. Awaiting the client demo and phase 2 authorization.
+
+Owner review wave closed on 2026-08-19: Ivan walked every screen on
+localhost:3000 and confirmed all nine launch gate conditions in one pass. All 13
+cards are shipped and the launch gate reads 9/9. Nothing is in flight and
+nothing is blocked.
+
+Written at the end of the phase 1 executor run and updated at closure.
+Everything below is verified, not assumed.
 
 ## Exact state
 
@@ -16,16 +23,24 @@ not assumed.
 
 ## Cards
 
-| Card | Gate | Status |
-|---|---|---|
-| RC-00 | green_self_merge | shipped |
-| RC-BOARD-RENDER | green_self_merge | shipped |
-| RC-01 | green_self_merge | shipped |
-| RC-02 | green_self_merge | shipped |
-| RC-03 .. RC-11 | owner_merge | in_flight, evidence set, open_on_purpose set |
+| Card | Gate | Status | Evidence kind |
+|---|---|---|---|
+| RC-00 | green_self_merge | shipped | journal |
+| RC-BOARD-RENDER | green_self_merge | shipped | journal |
+| RC-01 | green_self_merge | shipped | journal |
+| RC-02 | green_self_merge | shipped | journal |
+| RC-03 .. RC-11 | owner_merge | shipped | screenshot |
 
-Launch gate: 0/9. Every condition is still `fail` with `evidence: null`, by
-design. Gate conditions flip only on Ivan's confirmation, never on ORANGE's.
+13 of 13 shipped. The nine owner_merge cards carry `screenshot` evidence, which
+the doctrine defines as Ivan on-screen confirmation; each ref still carries the
+original commit sha so the code behind the card stays re-verifiable. No card
+carries `open_on_purpose` any more.
+
+Launch gate: 9/9. All nine conditions are `pass`, each with screenshot evidence
+naming the 2026-08-19 review wave. They were flipped on Ivan's confirmation,
+never on ORANGE's, which is what the doctrine requires.
+
+Closure commit: b785719686aeecde4bbe4f476855a2e6420c6dca
 
 ## How to run
 
@@ -53,7 +68,8 @@ Tailwind v4.3.3, TypeScript 7.0.2.
 
 ## Deferred, nothing blocked
 
-Nothing is blocked and nothing was abandoned. All 13 cards were executed.
+Nothing is blocked and nothing was abandoned. All 13 cards were executed and all
+13 are shipped.
 
 Deliberately not built in phase 1, recorded on the Settings screen and in
 docs/RUTA-DEMO.md so the client hears "scheduled for phase 2", not "forgotten":
@@ -61,7 +77,20 @@ partial arrivals, partial shipments, multiple warehouses, auth and roles,
 persistence across reloads, real alert delivery, editing categories and units,
 any FX rate source, and mobile layouts.
 
-One item for Ivan rather than for ORANGE: RC-03 through RC-11 are complete but
-cannot close without his on-screen confirmation. That review wave is the next
-action. His change requests belong in the `rodica_batch` lane, titled
-"REVIEW BATCH (IVAN)", and are worked as one pass rather than one at a time.
+## What comes next
+
+The review wave is done, so the next two events are outside this repo:
+
+1. The client demo. Walk `docs/RUTA-DEMO.md`, which carries the exact click
+   order and the line to say at each step, in Romanian.
+2. Phase 2 authorization. Until that arrives there is no work queued here.
+
+If Ivan raises changes after the client demo, they land as cards in the
+`rodica_batch` lane, titled "REVIEW BATCH (IVAN)", and are worked as one wave
+rather than one correction at a time.
+
+Phase 2 scope is already written down in two places that agree: the Settings
+screen in the app and the closing section of `docs/RUTA-DEMO.md`. Partial
+arrivals, partial shipments, multiple warehouses, auth and roles, persistence,
+real alert delivery, editing categories and units, an FX rate source, and mobile
+layouts.
