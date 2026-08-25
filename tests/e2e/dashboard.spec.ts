@@ -156,6 +156,49 @@ test.describe("Tablou de bord", () => {
     expect(real, `erori in consola: ${real.join(" | ")}`).toHaveLength(0);
   });
 
+
+  test("niciun ecran nu mai spune că datele sunt demonstrative", async ({ page }) => {
+    await signIn(page, ownerAccount());
+
+    // CRIT-12. Subsolul barei laterale este in invelisul aplicatiei, deci
+    // aparea pe toate ecranele autentificate, pe productie, spunand ca datele
+    // sunt demonstrative dupa ce P2-06 le facuse reale.
+    for (const path of [
+      "/",
+      "/inventar",
+      "/comenzi",
+      "/iesiri",
+      "/adauga-manual",
+      "/incarca-comanda",
+      "/memento",
+      "/setari",
+    ]) {
+      await page.goto(path);
+      const body = await page.locator("body").innerText();
+      expect(body, `text de previzualizare pe ${path}`).not.toContain("Previzualizare faza 1");
+      expect(body, `text demonstrativ pe ${path}`).not.toContain("Date demonstrative");
+    }
+  });
+
+  test("numărătorul de categorii folosește singularul când există una singură", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await page.goto("/setari");
+
+    const counter = page.getByTestId("category-count");
+    await expect(counter).toBeVisible();
+
+    const rows = await page.getByTestId("category-row").count();
+    const text = (await counter.innerText()).trim();
+
+    // Regula romaneasca, verificata pe numarul pe care il are chiar baza acum,
+    // nu pe unul inventat: 1 cere singularul, 2..19 pluralul simplu, 20+ "de".
+    if (rows === 1) expect(text).toBe("1 categorie");
+    else if (rows % 100 >= 1 && rows % 100 <= 19) expect(text).toBe(`${rows} categorii`);
+    else expect(text).toBe(`${rows} de categorii`);
+  });
+
   test("ecranul de memento citește praguri reale", async ({ page }) => {
     await signIn(page, ownerAccount());
     await ensureTestCategory(page);

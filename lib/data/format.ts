@@ -24,6 +24,29 @@ export function formatNumber(value: number): string {
   return NF.format(value);
 }
 
+/** Pluralul romanesc pentru un substantiv numarat.
+ *
+ *  Romana are trei forme, nu doua: 1 cere singularul, numerele al caror rest la
+ *  100 este intre 1 si 19 cer pluralul simplu, iar restul cer "de" plus plural.
+ *  Asa se ajunge la "1 categorie", "3 categorii" si "20 de categorii", si tot
+ *  asa la "119 categorii" dar "120 de categorii".
+ *
+ *  Zero ia pluralul simplu, "0 categorii", nu "0 de categorii". In practica
+ *  ecranele arata starea goala inainte sa ajunga la numarator, dar functia nu
+ *  se bazeaza pe asta.
+ *
+ *  DEFECT REPARAT LA CRIT-12: ecranul de setari scria `{n} categorii` direct,
+ *  deci cu o singura categorie afisa "1 categorii", iar o singura categorie
+ *  este exact ce are productia. */
+export function plural(count: number, one: string, many: string): string {
+  const n = Math.abs(Math.trunc(count));
+  const shown = formatNumber(count);
+  if (n === 1) return `${shown} ${one}`;
+  const lastTwo = n % 100;
+  if (n === 0 || (lastTwo >= 1 && lastTwo <= 19)) return `${shown} ${many}`;
+  return `${shown} de ${many}`;
+}
+
 /** Data in forma zi.luna.an. */
 export function formatDate(iso: string | null): string {
   if (!iso) return "-";

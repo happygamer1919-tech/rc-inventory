@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/primitives";
 import type { Category } from "@/lib/data/products";
 import { createCategory, renameCategory } from "@/lib/data/product-actions";
+import { plural } from "@/lib/data/format";
 
 export function CategorySettings({
   categories,
@@ -72,7 +73,7 @@ export function CategorySettings({
         hint="Fiecare produs aparține exact unei categorii."
         right={
           <span className="text-[12.5px] text-rc-muted" data-testid="category-count">
-            {categories.length} categorii
+            {plural(categories.length, "categorie", "categorii")}
           </span>
         }
       />
