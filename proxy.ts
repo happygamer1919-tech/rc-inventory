@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import { FORBIDDEN_PATH, LOGIN_PATH, OWNER_ONLY_PREFIXES } from "@/lib/routes";
+import { COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 
 /** Lista permisa. Orice altceva cere sesiune. */
 const PUBLIC_PATHS = new Set<string>([LOGIN_PATH]);
@@ -41,6 +42,7 @@ export async function proxy(request: NextRequest) {
     normaliseOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return request.cookies.getAll();

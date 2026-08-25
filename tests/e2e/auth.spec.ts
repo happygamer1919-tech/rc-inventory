@@ -176,3 +176,21 @@ test.describe("CRIT-10 acreditarile nu ajung niciodata in adresa", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------- CRIT-13 -- */
+
+// CRIT-13. Cookie-ul de sesiune poarta atributul Secure.
+//
+// Cookie-ul tine tokenul de acces si pe cel de reimprospatare. Fara Secure,
+// browserul l-ar trimite pe o cerere http simpla catre acelasi host.
+
+test("cookie-ul de sesiune este scris cu Secure si SameSite Lax", async ({ page, context }) => {
+  await signIn(page, ownerAccount());
+
+  const cookies = await context.cookies();
+  const session = cookies.find((c) => /^sb-.*-auth-token/.test(c.name));
+
+  expect(session, "cookie-ul de sesiune nu a fost gasit dupa autentificare").toBeDefined();
+  expect(session!.secure, "cookie-ul de sesiune nu are atributul Secure").toBe(true);
+  expect(session!.sameSite).toBe("Lax");
+});

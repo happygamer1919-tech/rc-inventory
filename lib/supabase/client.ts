@@ -6,7 +6,10 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseUrl } from "./env";
+import { COOKIE_OPTIONS } from "./cookies";
 
 export function createClient() {
-  return createBrowserClient(supabaseUrl(), supabaseAnonKey());
+  return createBrowserClient(supabaseUrl(), supabaseAnonKey(), {
+    cookieOptions: COOKIE_OPTIONS,
+  });
 }

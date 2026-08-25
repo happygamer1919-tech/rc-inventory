@@ -497,3 +497,27 @@ before hydration in which it will be. Either give it no named inputs, or give it
 an `action` that handles the post honestly. And when a login "sometimes does
 nothing" with no console error and no network call, suspect hydration before
 suspecting the credential.
+
+### CRIT-13: three clients write one cookie, so the flags go on all three
+**Tag:** auth
+**ERROR:** The Supabase session cookie on production was stored with
+`secure: false`. It carries the access token and the refresh token, 2577 bytes
+of it, so without the `Secure` attribute the browser would attach it to a plain
+`http://` request to the same host. Nothing in the repository set any cookie
+option: `createBrowserClient` and `createServerClient` were both called with two
+arguments, so every attribute was a library default and nobody had ever decided
+one.
+**SOLUTION:** A single `COOKIE_OPTIONS` in `lib/supabase/cookies.ts`, imported by
+all three clients that write that cookie: the browser client, the server client,
+and the one inside `proxy.ts`. RULE: when several call sites write the SAME
+cookie, its options belong in one shared constant, never set on the client that
+happened to be edited. Setting them on one and not the others is worse than
+setting none, because the cookie's attributes then depend on which request wrote
+it last, which looks correct exactly often enough not to be checked. Two
+findings worth keeping alongside it. `Secure` needs no environment branch:
+browsers accept `Secure` cookies on `http://localhost` because localhost is a
+secure context, and a branch on environment would have made production behave
+differently from what the tests exercised. And `httpOnly` stays false on purpose,
+because the `@supabase/ssr` browser client has to read the session out of the
+cookie to refresh the token; that is an accepted risk, written down in
+`docs/reports/critic-wave1.md` so it stays a decision rather than an oversight.
