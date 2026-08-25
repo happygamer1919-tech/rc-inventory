@@ -1,0 +1,44 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NOTE: the lint step is intentionally absent. eslint-config-next@16 bundles
+      # typescript-eslint, which hard-throws "does not support TS 7.0" against this
+      # repo's typescript@^7. Upstream tracking: typescript-eslint issue #10940.
+      # Lint is a follow-up ticket and must arrive through a PR.
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate board
+        run: node docs/board/validate-board.mjs docs/board/rc-board.json
