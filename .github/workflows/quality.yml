@@ -45,3 +45,84 @@ jobs:
       # silently be non-required.
       - name: Validate boards
         run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json
+
+      # ----------------------------------------------------------------------
+      # End to end, P2-07.
+      #
+      # EVERYTHING BELOW IS A STEP IN THIS JOB, NOT A SECOND JOB AND NOT A
+      # SECOND WORKFLOW. Branch protection names exactly one check, `quality`.
+      # A second job would appear green next to it and block nothing.
+      #
+      # The suite runs against a LOCAL Supabase stack started here, not against
+      # the eu-west-1 project. No production credential appears in this file or
+      # in repository secrets: the local stack's anon and service keys are the
+      # fixed, published demo keys, and they open nothing outside the runner.
+      # ----------------------------------------------------------------------
+
+      - name: Start local Supabase
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Launch database, auth and storage
+        # Which services run is decided by supabase/config.toml, not by flags
+        # here: one place to change, and no risk of a renamed container name
+        # breaking the workflow.
+        run: supabase start
+
+      - name: Apply migrations to the local stack
+        # db reset replays supabase/migrations from empty, in file order, which
+        # is the same order Ivan applies them by hand. If a migration is broken,
+        # CI says so here rather than on the day it is applied for real.
+        run: supabase db reset
+
+      - name: Export local Supabase credentials
+        run: |
+          set -euo pipefail
+          supabase status -o env > /tmp/supabase.env
+          # shellcheck disable=SC1091
+          source /tmp/supabase.env
+          {
+            echo "SUPABASE_URL=${API_URL}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed the two test accounts
+        env:
+          TEST_OWNER_EMAIL: owner@rc-inventory.local
+          TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
+          TEST_MANAGER_EMAIL: manager@rc-inventory.local
+          TEST_MANAGER_PASSWORD: ci-manager-pass-4Zw9BnLp
+        run: |
+          set -euo pipefail
+          node scripts/seed-test-accounts.mjs
+          # .env.local is what both the dev server and the Playwright runner
+          # read. It is gitignored and exists only on this runner.
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+            echo "TEST_OWNER_EMAIL=${TEST_OWNER_EMAIL}"
+            echo "TEST_OWNER_PASSWORD=${TEST_OWNER_PASSWORD}"
+            echo "TEST_MANAGER_EMAIL=${TEST_MANAGER_EMAIL}"
+            echo "TEST_MANAGER_PASSWORD=${TEST_MANAGER_PASSWORD}"
+          } > .env.local
+
+      - name: Install Playwright chromium
+        # Chromium only. Firefox and WebKit would triple the minutes to
+        # re-prove the same application logic on a desktop-only internal tool.
+        run: npx playwright install --with-deps chromium
+
+      - name: End to end
+        run: npx playwright test
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

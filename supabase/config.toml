@@ -1,0 +1,72 @@
+# supabase/config.toml
+#
+# Configuratia stivei Supabase LOCALE, folosita numai de CI si de dezvoltarea pe
+# masina proprie. Nu descrie si nu atinge proiectul din eu-west-1.
+#
+# DE CE EXISTA. Cardul P2-07 cere ca testele e2e sa ruleze in workflow-ul
+# quality, iar ele au nevoie de o baza de date cu autentificare. Cele doua
+# variante erau: sa punem credentialele proiectului real in secretele GitHub, sau
+# sa pornim o stiva locala in CI. Defaults-ul cardului alege singur: "CI runs
+# against local dev with a local or test Supabase configuration" si "no
+# production credential ever reaches a workflow file". Stiva locala nu are nevoie
+# de niciun secret: cheile ei sunt fixe, publicate de Supabase, si nu deschid
+# nimic in afara containerului.
+#
+# Se pornesc doar serviciile de care are nevoie suita: baza de date, API-ul,
+# autentificarea si stocarea. Studio, Inbucket, Realtime si Analytics sunt oprite
+# ca sa nu consume minute de CI pentru functii pe care niciun test nu le atinge.
+
+project_id = "rc-inventory"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[analytics]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3100"
+additional_redirect_urls = ["http://localhost:3100"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Fara inregistrare publica, la fel ca pe proiectul real: conturile se creeaza
+# prin API-ul de administrare, de catre scriptul de seed.
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+# Confirmarea prin email este oprita local: scriptul de seed creeaza conturile
+# cu email_confirm, iar in CI nu exista cutie postala de citit.
+enable_confirmations = false
+
+[edge_runtime]
+enabled = false
