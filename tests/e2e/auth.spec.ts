@@ -106,3 +106,73 @@ test.describe("Autentificare", () => {
     await expect(page).toHaveURL(/\/$/);
   });
 });
+
+/* ------------------------------------------------------------- CRIT-10 -- */
+
+// CRIT-10. Formularul de autentificare nu mai poate trimite acreditarile prin
+// bara de adresa.
+//
+// DEFECTUL, gasit pe productie: <form onSubmit={...}> nu avea `action`, iar
+// ambele campuri aveau `name`. Pana cand React se hidrateaza, butonul este un
+// control nativ `type="submit"`, deci un clic facea trimiterea implicita a
+// browserului: GET catre aceeasi adresa, cu fiecare camp cu `name` serializat in
+// sirul de interogare. Parola ajungea in bara de adresa, in istoricul
+// navigatorului de pe un calculator din depozit, in jurnalul de acces al
+// serverului si in antetul Referer al urmatoarei cereri.
+//
+// Doua verificari, pentru ca defectul are doua jumatati.
+
+test.describe("CRIT-10 acreditarile nu ajung niciodata in adresa", () => {
+  test("campurile de autentificare nu au atributul name, deci o trimitere nativa nu poarta nimic", async ({
+    page,
+  }) => {
+    await page.goto(LOGIN_PATH);
+    await expect(page.getByTestId("login-form")).toBeVisible();
+
+    // Fara `name` nu exista ce serializa. Aceasta este apararea structurala:
+    // nu depinde de momentul hidratarii si nu se poate pierde intr-o cursa.
+    await expect(page.locator("#email")).not.toHaveAttribute("name", /.*/);
+    await expect(page.locator("#password")).not.toHaveAttribute("name", /.*/);
+  });
+
+  test("o trimitere nativa fortata nu pune parola in sirul de interogare", async ({ page }) => {
+    const navigated: string[] = [];
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) navigated.push(frame.url());
+    });
+
+    // waitUntil "commit" intoarce controlul de indata ce raspunsul a inceput,
+    // deci codul de mai jos ruleaza inainte ca React sa se hidrateze. Aceasta
+    // este exact fereastra in care defectul a fost reprodus pe productie.
+    await page.goto(LOGIN_PATH, { waitUntil: "commit" });
+
+    await page.locator("#email").fill("cineva@rc-inventory.local");
+    await page.locator("#password").fill("parola-care-nu-are-voie-in-adresa");
+
+    // `force` trece peste asteptarea de actionabilitate: butonul este dezactivat
+    // pana la hidratare, iar un clic pe el trebuie sa nu faca nimic. Fara force
+    // testul ar astepta pana cand butonul se activeaza si ar verifica drumul
+    // hidratat, adica exact drumul care nu a fost niciodata defect.
+    await page
+      .getByTestId("login-submit")
+      .click({ force: true, noWaitAfter: true, timeout: 5_000 })
+      .catch(() => {});
+
+    // Si trimiterea nativa ceruta direct, care ocoleste complet onSubmit. Daca
+    // vreun `name` se intoarce vreodata in formular, acesta este testul care
+    // cade, indiferent de starea hidratarii.
+    await page.evaluate(() => {
+      const form = document.querySelector<HTMLFormElement>('[data-testid="login-form"]');
+      form?.submit();
+    });
+    await page.waitForTimeout(2_000);
+
+    navigated.push(page.url());
+
+    for (const url of navigated) {
+      const params = new URL(url).searchParams;
+      expect(params.has("password"), `parola in adresa: ${new URL(url).pathname}`).toBe(false);
+      expect(params.has("email"), `emailul in adresa: ${new URL(url).pathname}`).toBe(false);
+    }
+  });
+});

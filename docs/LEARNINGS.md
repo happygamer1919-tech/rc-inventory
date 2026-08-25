@@ -464,3 +464,36 @@ repository is the wrong place to look. Second, the Framework Preset dropdown is
 a misclick trap: `Next.js`, `NestJS` and `Nuxt.js` sit next to each other and
 read alike at a glance, so the value is confirmed by reading it back, never by
 remembering which entry was clicked.
+
+### CRIT-10: a form with no action turns every named input into a query parameter
+**Tag:** auth
+**ERROR:** The login form was `<form onSubmit={...} noValidate>` with no
+`action`, and its two inputs carried `name="email"` and `name="password"`. That
+markup is correct once React has hydrated and completely wrong before it. Until
+hydration attaches the React handler, the button is still a native
+`type="submit"` control, so a click performs the browser's default submission:
+because there is no `action`, the target is the current URL, and because the
+method defaults to GET, every named input is serialised into the query string.
+On production the browser navigated to
+`/autentificare?email=<email>&password=<password>` with the password matching the
+account password exactly. It reached the URL bar, browser history on a shared
+warehouse machine, the edge access log, and the Referer of the next request. The
+same race has a second face that is easier to notice and easier to misread: when
+the click lands before hydration and nothing is serialised, the form appears to
+do nothing at all. No error, no spinner, no network call. It was first seen as
+"the account_manager cannot log in", which reproduced 2 times out of 3 and then
+worked, which reads like a flaky password rather than a hydration race.
+**SOLUTION:** Two changes, and shipping either one alone leaves half the defect.
+First, remove the `name` attributes: React state already carries the values, so
+the names did nothing except give a native submit something to serialise, and
+without them there is nothing to leak no matter when the submit fires. `id` and
+`autoComplete` stay, since those are what a password manager reads. Second, hold
+a `hydrated` flag set in a `useEffect` and keep the submit button disabled until
+it runs, so a premature click is visibly not-ready rather than silently dead; a
+disabled submit button also blocks Enter-key implicit submission, which would
+otherwise bypass the button entirely. RULE: any form whose submission is handled
+in JavaScript must be safe to submit natively, because there is always a window
+before hydration in which it will be. Either give it no named inputs, or give it
+an `action` that handles the post honestly. And when a login "sometimes does
+nothing" with no console error and no network call, suspect hydration before
+suspecting the credential.
