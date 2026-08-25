@@ -84,7 +84,9 @@ test.describe("Autentificare", () => {
     await page.goto("/setari");
 
     const forbidden = page.getByTestId("forbidden");
-    await expect(forbidden).toBeVisible();
+    // Vezi nota din products.spec: ruta este servita prin rewrite si poate fi
+    // compilata la prima cerere in dezvoltare.
+    await expect(forbidden).toBeVisible({ timeout: 25_000 });
     await expect(forbidden).toContainText("Acces interzis");
 
     // Rewrite, nu redirect: adresa ramane cea ceruta, deci nu exista bucla.

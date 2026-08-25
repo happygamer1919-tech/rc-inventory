@@ -193,7 +193,12 @@ test.describe("Catalog de produse", () => {
   }) => {
     await signIn(page, managerAccount());
     await page.goto("/setari");
-    await expect(page.getByTestId("forbidden")).toBeVisible();
+    // Timp explicit, nu cel implicit de 10 secunde. Ruta /acces-interzis este
+    // servita prin rewrite din proxy, iar in dezvoltare poate fi compilata la
+    // prima cerere: sub incarcarea suitei intregi, compilarea plus interogarea
+    // rolului au depasit o data pragul implicit. Nu este o reincercare, este
+    // pragul potrivit pentru o ruta compilata la cerere.
+    await expect(page.getByTestId("forbidden")).toBeVisible({ timeout: 25_000 });
     await expect(page.getByTestId("category-add")).toHaveCount(0);
   });
 });
