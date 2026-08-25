@@ -188,19 +188,99 @@ failure this project has no recovery path for.
 
 ## 8. Migrations
 
+**This section was replaced on 2026-08-25 by an owner ruling recorded in
+`decisions/inbox.md` as R-001. The previous doctrine was Ivan-only applies with
+no database connection from any terminal. The grant below is temporary, narrow,
+and expires at P2-13.**
+
+### 8.1 Authoring, unchanged
+
 - Migrations are **authored as files**: `supabase/migrations/NNNN_name.sql`,
   four-digit zero-padded, monotonically increasing, snake_case name.
 - Every migration file added by a PR is **listed in the PR description**, by
   path.
-- **Migrations are applied by Ivan only**, by hand, in the Supabase SQL editor.
-  No terminal in this repo ever connects to a database. There is no
-  `supabase db push`, no `psql`, no connection string, ever.
-- A card whose acceptance requires an **applied** migration is set
-  `blocked_on: ivan`, `status: blocked`, with the apply request written into
-  `question` in the section 4 format, naming the exact file paths to run and
-  the order to run them in.
-- A migration file is never edited after Ivan has applied it. A correction is a
+- A migration file is never edited after it has been applied. A correction is a
   new numbered file.
+
+### 8.2 The delegation, and its limit
+
+EXECUTOR is authorized to apply migrations to the RC Supabase project **while it
+contains zero real client data**. That condition is the whole basis of the
+grant. The moment real data exists the grant is gone, and P2-13 is where that
+happens.
+
+### 8.3 The single permitted secret read
+
+- EXECUTOR sources `/Users/ivan/rc-secrets/phase2.env` with
+  `set -o allexport`. **This is the only permitted read anywhere under
+  `/Users/ivan/rc-secrets`.** Nothing else in that directory is opened, for any
+  reason.
+- **Values are never echoed, printed, logged, written to a committed file,
+  pasted into a board field, or included in tool output.** Variable names may be
+  written freely. Values may exist only in process environment.
+- A command whose output could contain a value is filtered before it is
+  displayed. Prefer `PGPASSWORD` and the other `PG*` environment variables over
+  embedding a password in a connection string, because a connection string
+  appears in error messages and a `PG*` variable does not.
+- Section 7 otherwise stands unchanged.
+
+### 8.4 Deriving the connection, and proving it
+
+The connection is **derived at runtime**, never stored:
+
+- project ref: extracted from `NEXT_PUBLIC_SUPABASE_URL`
+- host: the session pooler for eu-west-1
+- port: `5432`, the session pooler. `6543` is the transaction pooler and is not
+  used for migrations, because a transaction pooler cannot hold a
+  multi-statement transaction
+- user: `postgres.<ref>`
+- password: `SUPABASE_DB_PASSWORD`
+
+**Connectivity is proven with `SELECT 1` before any migration work.** Not
+assumed, not inferred from a later success.
+
+**On derivation failure or connection failure: stop.** Write the exact error
+into the card `question` and block. Never guess a hostname, never try
+credentials that were not derived as above, never proceed on the assumption that
+the connection probably works.
+
+### 8.5 The three phases of an apply
+
+Every apply is three phases, and all three are journalled:
+
+1. **Pre-check.** List the pending migration files with **literal counts**: how
+   many files are pending, and for the file being applied, what it claims to
+   create.
+2. **Apply**, inside **one transaction**. A partial apply is never acceptable.
+3. **Post-check.** Query and record the table list, `rls_enabled` per table, the
+   policy count per table, and the enum list.
+
+**The full journal of all three phases goes into the card `evidence.ref`**, so a
+stranger can read what was actually applied without database access.
+
+### 8.6 The destructive-statement stop
+
+**A migration containing `DROP TABLE`, `TRUNCATE` or `DELETE` is never
+auto-applied.** No exceptions, no judgement call, no "it is obviously safe
+here".
+
+That card goes `blocked_on: ivan` with **the offending statement quoted in
+`question`**. Ivan applies it himself or rules otherwise.
+
+### 8.7 Expiry at P2-13
+
+**This grant expires at P2-13.** The rotation checklist authored by that card
+must include, as checkable items:
+
+- **revoking this read permission in `CLAUDE.md`**, reverting section 8 to
+  Ivan-only applies with no database connection from any terminal
+- **rotating `SUPABASE_DB_PASSWORD`**
+- **rotating `SUPABASE_SERVICE_ROLE_KEY`**
+- **confirming no terminal-held copies remain** of either
+
+P2-13 is not complete until section 8 has been reverted. A grant that outlives
+the condition it was granted under is how a temporary permission becomes a
+permanent one.
 
 ---
 
