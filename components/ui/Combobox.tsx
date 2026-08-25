@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { normalizeText } from "@/lib/mock";
+import { normalizeText } from "@/lib/data/format";
 
 export type ComboOption = {
   value: string;

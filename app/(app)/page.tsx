@@ -1,4 +1,12 @@
-"use client";
+// P2-06 Tablou de bord, pe date reale.
+//
+// Ecranul pe care il vede clientul primul, deci cele cinci blocuri trebuie sa
+// fie citibile dintr-o privire. Toate cifrele sunt calculate din baza de date la
+// fiecare cerere, dintr-un singur set de interogari, ca doua blocuri de pe
+// acelasi ecran sa nu poata spune numere diferite despre acelasi lucru.
+//
+// Nimic nu este scris de mana. Faza 1 a livrat o data numarul de produse ca
+// literalul 26, corect in acea clipa si gresit pentru totdeauna dupa aceea.
 
 import Link from "next/link";
 import {
@@ -11,34 +19,24 @@ import {
   Th,
 } from "@/components/ui/primitives";
 import { StatCard } from "@/components/ui/StatCard";
+import { loadDashboard } from "@/lib/data/dashboard";
 import {
   DISPLAY_CURRENCY,
   formatDate,
   formatMoney,
   formatNumber,
   formatQty,
-  supplierName,
-  unitLabel,
-} from "@/lib/mock";
-import { useDerived, useStore } from "@/lib/store";
-import { buildActivity } from "@/lib/activity";
+} from "@/lib/data/format";
+import { unitLabel } from "@/lib/data/units";
 
-// RC-03 Tabloul de bord.
-// Toate cifrele sunt calculate din datele RC-02 la randare, niciuna nu este
-// scrisa fix in pagina, ca sa ramana in acord cu ce arata celelalte ecrane.
-export default function Dashboard() {
-  const store = useStore();
-  const d = useDerived();
+export const dynamic = "force-dynamic";
 
-  const stockValue = d.stockValue;
-  const low = d.lowStock;
-  const inbound = d.pendingInbound;
-  const outbound = d.pendingOutbound;
-  const activity = buildActivity(store.inbound, store.outbound, 8);
+export default async function Dashboard() {
+  const d = await loadDashboard();
 
-  const outOfStockCount = d.outOfStock.length;
-  const inboundLines = inbound.reduce((s, o) => s + o.lines.length, 0);
-  const outboundLines = outbound.reduce((s, o) => s + o.lines.length, 0);
+  const inboundLines = d.pendingInbound.reduce((s, o) => s + o.lines.length, 0);
+  const outboundLines = d.pendingOutbound.reduce((s, o) => s + o.lines.length, 0);
+  const empty = d.productCount === 0 && d.inbound.length === 0 && d.outbound.length === 0;
 
   return (
     <>
@@ -47,30 +45,47 @@ export default function Dashboard() {
         lead={`Situația depozitului central la zi. Valorile sunt exprimate în ${DISPLAY_CURRENCY}.`}
       />
 
-      <div className="grid grid-cols-4 gap-4">
+      {empty ? (
+        <Card className="mb-4">
+          <div className="px-7 py-8 text-center" data-testid="dashboard-empty">
+            <p className="text-[15px] font-semibold text-rc-black">Sistemul este gol</p>
+            <p className="text-[13px] text-rc-muted mt-2 max-w-[60ch] mx-auto">
+              Nu există încă niciun produs, nicio comandă și nicio ieșire. Începe prin a adăuga
+              produse în Inventar, apoi introdu prima comandă de intrare. Cifrele de mai jos se vor
+              completa singure.
+            </p>
+          </div>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-4 gap-4" data-testid="dashboard-stats">
         <StatCard
           label="Valoare totală stoc"
-          value={formatNumber(stockValue)}
+          value={formatNumber(d.stockValue)}
           suffix={DISPLAY_CURRENCY}
-          sub={`${formatNumber(store.products.length)} produse în catalog`}
+          sub={`${formatNumber(d.productCount)} produse în catalog`}
           icon="boxes"
         />
         <StatCard
           label="Produse sub prag"
-          value={String(low.length)}
-          sub={outOfStockCount > 0 ? `${outOfStockCount} dintre ele epuizate complet` : "Niciun produs epuizat"}
+          value={String(d.lowStock.length)}
+          sub={
+            d.outOfStock.length > 0
+              ? `${d.outOfStock.length} dintre ele epuizate complet`
+              : "Niciun produs epuizat"
+          }
           icon="bell"
           tone="alert"
         />
         <StatCard
           label="Intrări în așteptare"
-          value={String(inbound.length)}
+          value={String(d.pendingInbound.length)}
           sub={`${inboundLines} poziții de recepționat`}
           icon="upload"
         />
         <StatCard
           label="Ieșiri de expediat"
-          value={String(outbound.length)}
+          value={String(d.pendingOutbound.length)}
           sub={`${outboundLines} poziții pregătite`}
           icon="truck"
         />
@@ -90,13 +105,13 @@ export default function Dashboard() {
               </Link>
             }
           />
-          <ul>
-            {activity.map((a, i) => (
+          <ul data-testid="dashboard-activity">
+            {d.activity.map((a, i) => (
               <li
                 key={a.id}
                 className={[
                   "flex items-start gap-3 px-5 py-3",
-                  i < activity.length - 1 ? "border-b border-rc-line" : "",
+                  i < d.activity.length - 1 ? "border-b border-rc-line" : "",
                 ].join(" ")}
               >
                 <span
@@ -116,6 +131,11 @@ export default function Dashboard() {
               </li>
             ))}
           </ul>
+          {d.activity.length === 0 ? (
+            <p className="px-5 py-10 text-center text-[13px] text-rc-muted">
+              Nicio mișcare încă. Prima recepție sau prima ieșire apare aici.
+            </p>
+          ) : null}
         </Card>
 
         <Card>
@@ -139,8 +159,8 @@ export default function Dashboard() {
                 <Th align="right">Prag</Th>
               </tr>
             </thead>
-            <tbody>
-              {low.map((p) => (
+            <tbody data-testid="dashboard-low-stock">
+              {d.lowStock.map((p) => (
                 <tr key={p.id} className="hover:bg-rc-paper">
                   <Td>
                     <Link href="/inventar" className="block group">
@@ -168,6 +188,13 @@ export default function Dashboard() {
               ))}
             </tbody>
           </Table>
+          {d.lowStock.length === 0 ? (
+            <p className="px-5 py-10 text-center text-[13px] text-rc-muted">
+              {d.productCount === 0
+                ? "Catalogul este gol."
+                : "Niciun produs sub pragul de recomandă."}
+            </p>
+          ) : null}
         </Card>
       </div>
 
@@ -183,25 +210,36 @@ export default function Dashboard() {
                 <Th align="right">Valoare</Th>
               </tr>
             </thead>
-            <tbody>
-              {inbound.map((o) => (
+            <tbody data-testid="dashboard-pending-inbound">
+              {d.pendingInbound.map((o) => (
                 <tr key={o.id} className="hover:bg-rc-paper">
                   <Td>
-                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">{o.reference}</span>
+                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">
+                      {o.reference}
+                    </span>
                   </Td>
                   <Td>
-                    <span className="text-[13px] text-rc-muted">{supplierName(o.supplierId)}</span>
+                    <span className="text-[13px] text-rc-muted">{o.supplierName ?? "-"}</span>
                   </Td>
                   <Td align="right">
-                    <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">{formatDate(o.expectedAt)}</span>
+                    <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
+                      {formatDate(o.expectedAt)}
+                    </span>
                   </Td>
                   <Td align="right">
-                    <span className="rc-num text-[13px] font-semibold whitespace-nowrap">{formatMoney(o.totalMdl)}</span>
+                    <span className="rc-num text-[13px] font-semibold whitespace-nowrap">
+                      {formatMoney(o.totalMdl)}
+                    </span>
                   </Td>
                 </tr>
               ))}
             </tbody>
           </Table>
+          {d.pendingInbound.length === 0 ? (
+            <p className="px-5 py-10 text-center text-[13px] text-rc-muted">
+              Nicio comandă în așteptare.
+            </p>
+          ) : null}
         </Card>
 
         <Card>
@@ -215,11 +253,13 @@ export default function Dashboard() {
                 <Th align="right">Poziții</Th>
               </tr>
             </thead>
-            <tbody>
-              {outbound.map((o) => (
+            <tbody data-testid="dashboard-pending-outbound">
+              {d.pendingOutbound.map((o) => (
                 <tr key={o.id} className="hover:bg-rc-paper">
                   <Td>
-                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">{o.reference}</span>
+                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">
+                      {o.reference}
+                    </span>
                   </Td>
                   <Td>
                     <span className="text-[13px] text-rc-black">{o.projectName}</span>
@@ -234,6 +274,11 @@ export default function Dashboard() {
               ))}
             </tbody>
           </Table>
+          {d.pendingOutbound.length === 0 ? (
+            <p className="px-5 py-10 text-center text-[13px] text-rc-muted">
+              Niciun bon de expediat.
+            </p>
+          ) : null}
         </Card>
       </div>
     </>
