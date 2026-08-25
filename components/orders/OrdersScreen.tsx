@@ -9,10 +9,8 @@
 // Trecerea unei intrari in Recepționată este ce creeaza loturile, iar legatura
 // aceasta este scrisa pe ecran, nu doar in date.
 //
-// STARE INTERMEDIARA, DELIBERATA: intrarile sunt reale, iesirile inca citesc
-// stratul demonstrativ. P2-05 face iesirile reale si P2-06 sterge stratul din
-// tot depozitul de cod. Coloana din dreapta poarta o eticheta care spune asta,
-// ca nimeni sa nu creada ca numerele ei sunt de incredere.
+// Ambele coloane citesc acum din baza de date: intrarile de la P2-04, iesirile
+// de la P2-05. Stratul demonstrativ nu mai este folosit de acest ecran.
 //
 // Deliberat neconstruit: receptii partiale si expedieri partiale. Statusurile
 // sunt la nivel de comanda intreaga.
@@ -23,27 +21,30 @@ import type { ChipTone } from "@/components/ui/primitives";
 import { formatDate, formatMoney } from "@/lib/data/format";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
 import type { InboundOrder } from "@/lib/data/inbound-types";
-import { useStore } from "@/lib/store";
+import { OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
+import type { OutboundIssue } from "@/lib/data/outbound-types";
 import { InboundPanel } from "./InboundPanel";
-import { OutboundPanelMock } from "./OutboundPanelMock";
+import { OutboundPanel } from "./OutboundPanel";
 
 type Selection = { kind: "in"; id: string } | { kind: "out"; id: string } | null;
 
 const inboundTone = (s: string): ChipTone => (s === "arrived" ? "ok" : "warn");
-const outboundTone = (s: string): ChipTone => (s === "Expediată" ? "ok" : "warn");
+const outboundTone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 
-export function OrdersScreen({ inbound }: { inbound: InboundOrder[] }) {
-  const store = useStore();
+export function OrdersScreen({
+  inbound,
+  outbound,
+}: {
+  inbound: InboundOrder[];
+  outbound: OutboundIssue[];
+}) {
   const [sel, setSel] = React.useState<Selection>(null);
 
-  const outbound = [...store.outbound].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
-
   const pendingIn = inbound.filter((o) => o.status === "pending_arrival").length;
-  const pendingOut = outbound.filter((o) => o.status === "În așteptare expediere").length;
+  const pendingOut = outbound.filter((o) => o.status === "awaiting_shipment").length;
 
   const selectedIn = sel?.kind === "in" ? inbound.find((o) => o.id === sel.id) ?? null : null;
-  const selectedOut =
-    sel?.kind === "out" ? store.outbound.find((o) => o.id === sel.id) ?? null : null;
+  const selectedOut = sel?.kind === "out" ? outbound.find((o) => o.id === sel.id) ?? null : null;
 
   return (
     <>
@@ -120,14 +121,13 @@ export function OrdersScreen({ inbound }: { inbound: InboundOrder[] }) {
               </span>
             }
           />
-          <p className="px-5 pt-3 text-[11.5px] text-rc-warn">
-            Datele demonstrative din faza 1. Ieșirile devin reale la P2-05.
-          </p>
-          <ul>
+          <ul data-testid="outbound-list">
             {outbound.map((o, i) => (
               <li key={o.id} className={i < outbound.length - 1 ? "border-b border-rc-line" : ""}>
                 <button
                   onClick={() => setSel({ kind: "out", id: o.id })}
+                  data-testid="outbound-item"
+                  data-reference={o.reference}
                   className={[
                     "w-full text-left px-5 py-3.5 transition-colors",
                     sel?.kind === "out" && sel.id === o.id
@@ -137,7 +137,7 @@ export function OrdersScreen({ inbound }: { inbound: InboundOrder[] }) {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[13.5px] font-semibold text-rc-black">{o.reference}</span>
-                    <Chip tone={outboundTone(o.status)}>{o.status}</Chip>
+                    <Chip tone={outboundTone(o.status)}>{OUTBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
                     <span className="text-[12.5px] text-rc-black truncate">{o.projectName}</span>
@@ -153,6 +153,14 @@ export function OrdersScreen({ inbound }: { inbound: InboundOrder[] }) {
               </li>
             ))}
           </ul>
+          {outbound.length === 0 ? (
+            <p
+              className="px-5 py-12 text-center text-[13px] text-rc-muted"
+              data-testid="outbound-empty"
+            >
+              Nicio ieșire încă. Creează un bon de eliberare din ecranul Ieșiri.
+            </p>
+          ) : null}
         </Card>
       </div>
 
@@ -162,9 +170,7 @@ export function OrdersScreen({ inbound }: { inbound: InboundOrder[] }) {
       </p>
 
       {selectedIn ? <InboundPanel order={selectedIn} onClose={() => setSel(null)} /> : null}
-      {selectedOut ? (
-        <OutboundPanelMock issue={selectedOut} onClose={() => setSel(null)} />
-      ) : null}
+      {selectedOut ? <OutboundPanel issue={selectedOut} onClose={() => setSel(null)} /> : null}
     </>
   );
 }

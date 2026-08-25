@@ -89,9 +89,25 @@ export function Combobox({
   });
 
   function commitAndClose() {
-    // Text liber acceptat doar acolo unde lista nu este inchisa.
-    if (creatable && query.trim() && !options.some((o) => o.label === query.trim())) {
-      onChange(query.trim());
+    const typed = query.trim();
+    if (typed) {
+      // O potrivire EXACTA pe eticheta alege acea optiune.
+      //
+      // DEFECT REPARAT LA P2-05: varianta din faza 1 verifica exact aceasta
+      // conditie si, cand era adevarata, NU facea nimic. Cu date demonstrative
+      // fixe nu se vedea, pentru ca nimeni nu tasta un nume deja existent. Cu
+      // date reale se vede imediat: operatorul scrie numele unui client pe care
+      // l-a mai folosit, da clic in alta parte, iar campul se goleste singur si
+      // formularul cere "Completează clientul". Un camp care se sterge singur
+      // dupa ce a fost completat corect este cel mai rau fel de defect, pentru
+      // ca operatorul crede ca a gresit el.
+      const exact = options.find((o) => o.label === typed);
+      if (exact) {
+        onChange(exact.value);
+      } else if (creatable) {
+        // Text liber acceptat doar acolo unde lista nu este inchisa.
+        onChange(typed);
+      }
     }
     setOpen(false);
     setQuery("");

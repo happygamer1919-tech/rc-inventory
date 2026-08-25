@@ -140,6 +140,55 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### P2-05: a combobox that silently empties a field the operator filled correctly
+**Tag:** frontend
+**ERROR:** Phase 1's `Combobox` commits free text on blur only when the typed
+text does **not** match an existing option:
+`if (creatable && query && !options.some(o => o.label === query)) onChange(query)`.
+When it *does* match, the branch is skipped and **nothing is committed** — so
+the value stays empty. With fixed mock data nobody ever typed a name that
+already existed, so it never showed. With real data it shows on the second
+issue: the operator types a client they used yesterday, clicks away, the field
+silently empties and the form says "Completează clientul". A field that erases
+itself after being filled correctly is the worst kind of defect, because the
+operator concludes they made the mistake.
+**SOLUTION:** An exact label match now selects that option; only genuinely new
+text takes the creatable path. RULE: the "already exists" branch of an
+autocomplete must select, never no-op. And when reusing a component across a
+data change, re-check every branch whose condition the old data could never
+satisfy.
+
+### P2-05: unique SKUs are not unique test data
+**Tag:** ci
+**ERROR:** The outbound spec gave every product a per-run unique SKU but a
+**shared name** (`Produs ieșire lower`). The combobox searches by *name*, and
+test data is never deleted, so each run's search matched the previous runs'
+products and `.first()` picked the oldest one — already drained of stock by an
+earlier run. The failure surfaced three runs later as "stock is 6, expected 60",
+and looked exactly like a triple-submit concurrency bug. It was not: three
+separate runs had each issued 18 against the same stale row, which a database
+query showed in one line.
+**SOLUTION:** The run id goes in the **name** as well as the SKU, and the picker
+now asserts `toHaveCount(1)` before selecting, so an ambiguous match fails
+immediately instead of silently choosing. RULE: in a suite that never deletes,
+every field a test *searches by* must carry the run id, not just the primary
+key. And when a test reports impossible data, query the database before
+theorising about races.
+
+### P2-05: a cleanup hook whose cost grows with history will fail eventually
+**Tag:** ci
+**ERROR:** products.spec had an `afterAll` that walked every `TEST-` product and
+deactivated them one at a time. It was fine when that spec was the only one
+creating products. Once inbound.spec and outbound.spec added theirs, the loop
+outgrew the 45 second hook timeout — and Playwright attributes a hook failure to
+the **last test in the file**, so a passing test was reported as the failure for
+two full-suite runs while the code it checked was never at fault.
+**SOLUTION:** The hook is gone. Test rows are marked **at creation** by the
+`TEST-` prefix, which is what the convention actually asks for, and the
+inventory screen's visibility filter keeps them out of the way. RULE: never
+write a cleanup step whose runtime scales with the database's history. Mark on
+the way in; do not sweep on the way out.
+
 ### P2-04: a `"use server"` file may export only async functions
 **Tag:** backend
 **ERROR:** The inbound actions module exported its constants alongside its

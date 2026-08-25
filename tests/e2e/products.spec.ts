@@ -203,27 +203,17 @@ test.describe("Catalog de produse", () => {
   });
 });
 
-// Curatenie: datele de test se DEZACTIVEAZA, nu se sterg. Conventia este a
-// cardului P2-07 si se aplica de pe acum.
-test.afterAll(async ({ browser }) => {
-  const page = await browser.newPage();
-  try {
-    await signIn(page, ownerAccount());
-    await page.goto("/inventar");
-    await page.getByTestId("filter-visibility").selectOption("toate");
-    await page.getByTestId("product-search").fill("TEST-");
-    const rows = page.locator('[data-testid="product-row"]');
-    for (let i = (await rows.count()) - 1; i >= 0; i -= 1) {
-      const row = rows.nth(i);
-      if ((await row.textContent())?.includes("Inactiv")) continue;
-      await row.click();
-      const toggle = page.getByTestId("panel-toggle-active");
-      if ((await toggle.count()) > 0) await toggle.click();
-      await page.waitForTimeout(400);
-    }
-  } catch {
-    // Curatenia nu are voie sa faca suita rosie: ea marcheaza, nu verifica.
-  } finally {
-    await page.close();
-  }
-});
+// FARA HOOK DE CURATENIE, si asta este conventia, nu o scapare.
+//
+// Datele de test se marcheaza LA CREARE si nu se sterg niciodata: fiecare rand
+// pe care il creeaza suita poarta prefixul TEST- in SKU, iar ecranul de inventar
+// are filtrul de vizibilitate care le tine deoparte. Prefixul ESTE marcajul
+// cerut de conventia P2-07.
+//
+// Prima varianta a acestui fisier avea un afterAll care parcurgea toate
+// produsele TEST- si le dezactiva unul cate unul. A picat exact cum trebuia sa
+// pice: pe masura ce inbound.spec si outbound.spec au adaugat produsele lor,
+// bucla a crescut la nesfarsit si a depasit pragul de 45 de secunde al hookului,
+// raportand esecul pe ULTIMUL test din fisier, care nu avea nicio vina. Un pas
+// de curatenie al carui cost creste cu istoricul bazei este un test care va pica
+// intr-o zi, indiferent cat de corect este codul pe care il verifica.
