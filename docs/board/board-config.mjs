@@ -170,6 +170,61 @@ export const BOARD_CONFIGS = {
     ownerTerminalPlaceholder: "orange / ivan",
     newIdPrefix: "NEW-",
   },
+
+  // Added for the Rapid Construct phase 2 build board. Phase 1's block above is
+  // untouched: this is a fourth pinned entry, not an edit to any other. The two
+  // RC boards render through the same runtime into two different files and two
+  // different artifact URLs, so closing phase 1 never disturbs phase 2 and vice
+  // versa.
+  //
+  // People are ivan, andre and client again, read from this board's own
+  // blocked_on_people columns by deriveConfig; the labels below only supply
+  // their display casing. The rodica_batch lane keeps its fixed id and carries
+  // the phase 1 title, "Review batch (Ivan)": the validator and the board app
+  // both pin the lane-id set, so the id can never be renamed, only the label.
+  //
+  // ownerTerminalDefault is "executor" rather than a colour, because phase 2
+  // names its terminals by role (AUTHOR, EXECUTOR, CRITIC, POC) per CLAUDE.md
+  // section 1, and every phase 2 card is authored with owner_terminal
+  // "executor".
+  "RC-INVENTORY - Phase 2 Build": {
+    owner: "ivan",
+    whoLabels: { ivan: "Ivan", andre: "Andre", client: "Client", infra: "Infra" },
+    laneLabels: {
+      blocked_on_people: "Blocked on people",
+      in_flight: "In flight",
+      rodica_batch: "Review batch (Ivan)",
+      incidents: "Incidents",
+      loose_ends: "Loose ends",
+      shipped: "Shipped",
+    },
+    laneHints: {
+      blocked_on_people: "someone owes an answer",
+      in_flight: "being executed now",
+      rodica_batch: "owner change-wave inbox",
+      incidents: "live problems",
+      loose_ends: "tracked, not batched",
+      shipped: "done, with proof",
+    },
+    kindLabels: {
+      in_flight: "Work item",
+      rodica_batch: "Review note",
+      incidents: "Incident",
+      loose_ends: "Loose end",
+    },
+    brandmark: "Rapid Construct / Inventar",
+    footerLabel: "rapid construct / inventar faza 2",
+    briefTitle: "Made in the RC Inventory Board",
+    pageTitle: "Rapid Construct / Inventar / Board faza 2",
+    sourcePath: "docs/board/rc-board-phase2.json",
+    outputPath: "rc-board-phase2.rendered.html",
+    exportFilename: "rc-board-phase2.json",
+    // Needs the path argument or it validates the wrong file.
+    validateCommand: "node docs/board/validate-board.mjs docs/board/rc-board-phase2.json",
+    ownerTerminalDefault: "executor",
+    ownerTerminalPlaceholder: "executor / ivan",
+    newIdPrefix: "NEW-",
+  },
 };
 
 /**
