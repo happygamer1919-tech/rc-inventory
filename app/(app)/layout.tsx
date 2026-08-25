@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import { StoreProvider } from "@/lib/store";
 import { getSessionUser } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/routes";
 
@@ -21,14 +20,12 @@ export default async function AppLayout({
   if (!user) redirect(LOGIN_PATH);
 
   return (
-    <StoreProvider>
-      <div className="rc-shell flex h-screen overflow-hidden">
+    <div className="rc-shell flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Topbar user={user} />
           <main className="flex-1 overflow-y-auto px-8 py-7">{children}</main>
-        </div>
       </div>
-    </StoreProvider>
+    </div>
   );
 }
