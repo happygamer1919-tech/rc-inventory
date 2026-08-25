@@ -64,29 +64,31 @@ Read off the board, not maintained by hand. As of 2026-08-25:
 
 | Card | Owed by | Ask |
 |---|---|---|
-| P2-01 | ivan | **Apply migration 0001** in the Supabase SQL editor. Shipped card, apply outstanding. |
-| P2-02 | ivan | **Blocks the whole board.** Apply 0001, create the two accounts and their profiles rows, write `.env.local`. |
+| ~~P2-01~~ | ~~ivan~~ | **Closed 2026-08-25.** Migration 0001 applied by Ivan, verified by EXECUTOR with a three-phase journal under R-001. |
+| ~~P2-02~~ | ~~ivan~~ | **Unblocked 2026-08-25** by R-001. Accounts created and `.env.local` written by EXECUTOR. |
 | P2-08 | andre | Confirm the Make.com webhook contract sent 2026-08-25. Recommendation on the card: proceed per the contract as sent. |
 | P2-12 | ivan | Connect the client domain in Vercel and confirm HTTPS. Click steps written out on request. |
 | P2-13 | ivan | Execute the credential rotation checklist and tick every box in the committed document. |
 | P2-14 | client | Mihai runs one full cycle himself on production, unassisted. |
 
-**Nothing on the board is eligible while P2-02 is blocked.** P2-03 through P2-07
-all depend transitively on it. The three steps, in this order:
+The three steps that blocked the board on 2026-08-25 are all done. Ruling R-001
+delegated them, and they were executed the same day:
 
-1. Apply `supabase/migrations/0001_phase2_schema.sql` in the Supabase SQL editor
-   on the eu-west-1 project. Paste it whole, run once, and read the verification
-   grid it prints after commit: eleven rows, `rls_enabled` true on every one,
-   `policy_count` non-zero on every one.
-2. Create two accounts in the Supabase dashboard, then insert a
-   `public.profiles` row for each, keyed on the `auth.users` id, with `role` set
-   explicitly. One `owner`, one `account_manager`. The column defaults to
-   `account_manager`, so the owner row is the one that goes wrong if the role is
-   left unset.
-3. Write `.env.local` in the repo root with `NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the two test account credentials. It is
-   already gitignored. Values come from your own store; no terminal may read
-   `/Users/ivan/rc-secrets`.
+1. **Migration 0001 applied.** By Ivan, before the ruling landed. EXECUTOR
+   verified it rather than re-applying: pre-check found the schema already
+   present, the apply attempt failed on `type "app_role" already exists` and
+   rolled back whole, and the post-check confirmed 11 tables all with RLS and
+   non-zero policy counts, 6 enums with exact labels, and an IDENTICAL
+   table-name diff against the committed file.
+2. **The two dev accounts exist**, created through the auth admin API with their
+   `profiles` rows and roles set explicitly.
+3. **`.env.local` written**, mode 600, gitignore confirmed before writing.
+
+**One thing to fix on your side before P2-12:** `NEXT_PUBLIC_SUPABASE_URL` in
+`phase2.env` is not the bare project origin. It carries a `/rest/v1/` suffix,
+which breaks supabase-js and the auth admin API when anything appends an
+endpoint to it. `.env.local` was written with the normalised origin. **Check the
+Vercel environment for the same defect.**
 
 ---
 
@@ -138,3 +140,69 @@ this entry. P2-13's card notes gain the four revocation items the checklist must
 carry.
 
 **Supersedes:** none. This is the first ruling.
+
+### R-002 - owner_merge retired, and P2-12 extended to cover Resend domain verification
+**Date:** 2026-08-25
+**Asked on:** the whole board (gate doctrine), P2-12 (scope)
+**Answer, verbatim:**
+> ADDENDUM RULING FROM IVAN, dated 2026-08-25. Queue this to your next card
+> boundary, then continue the wave. Two changes:
+>
+> 1. GATE DOCTRINE: owner_merge is retired on this board. In your next
+> board-touching PR: amend CLAUDE.md and the board doctrine field to state:
+> owner_merge is retired as of 2026-08-25 by owner ruling; cards ship on
+> green_self_merge discipline: green quality check plus the card's named
+> acceptance spec passing; visual and behavioral defect review belongs to the
+> CRITIC at wave boundaries and to an optional owner batch review before client
+> demo, neither is a merge gate. Flip every card currently carrying gate
+> owner_merge to green_self_merge (P2-03, P2-04, P2-05, P2-06, P2-09, P2-10,
+> P2-11, P2-12, P2-13). P2-12 and P2-13 keep their blocked_on ivan entries,
+> those are owner actions, not reviews. P2-14 stays stakeholder. Launch gate
+> conditions still flip to pass only on their named proof: for screen conditions
+> that proof is now the named spec green in CI plus EXECUTOR's own
+> deployed-screen verification, recorded as evidence. Record the ruling in
+> decisions/inbox.md.
+>
+> 2. P2-12 SCOPE EXTENSION: the card now also covers Resend domain verification.
+> Append to its notes and acceptance: alongside the Vercel domain DNS records,
+> the Resend domain DNS records (SPF, DKIM) are added in the same DNS panel
+> session by Ivan right before launch, Resend dashboard must show the domain
+> verified, and the reminder sender switches from the onboarding domain to the
+> client domain. Until then P2-10 sends via the Resend onboarding domain,
+> RESEND_API_KEY is being filled in Vercel and phase2.env by Ivan today.
+>
+> Everything else stands. Continue the wave.
+
+**Ruled by:** Ivan, in chat, 2026-08-25.
+
+**Ruling:** Two changes.
+
+*Gates.* `owner_merge` is retired on this board. Nine cards flip to
+`green_self_merge`: P2-03, P2-04, P2-05, P2-06, P2-09, P2-10, P2-11, P2-12,
+P2-13. Shipping now requires the green `quality` check **and** the card's named
+acceptance spec passing, which is a stricter bar than a green check alone.
+Defect review moves to the CRITIC at wave boundaries and to an optional owner
+batch review before the client demo; neither is a merge gate. P2-14 stays
+`stakeholder`. P2-12 and P2-13 keep `blocked_on: ivan`, because those are owner
+actions and not reviews. Launch gate conditions still need their named proof:
+for screen conditions that is the named spec green in CI plus EXECUTOR's own
+deployed-screen verification, both recorded as evidence.
+
+*P2-12.* The card now also covers Resend domain verification: SPF and DKIM
+records added in the same DNS panel session as the Vercel records, the Resend
+dashboard showing the domain verified, and the reminder sender switching off the
+onboarding domain. `RESEND_API_KEY` is being filled into Vercel and `phase2.env`
+by Ivan today, so P2-10 is not blocked on it and stays buildable with Resend
+mocked.
+
+**Unblocks:** nothing directly. It removes the owner from the merge path of nine
+cards, which is what lets a wave run to its end without waiting on a review.
+
+**Also changes:** `CLAUDE.md` gains section 5b. The board `doctrine` field's
+gate vocabulary is rewritten. `docs/board/validate-board.mjs` now rejects
+`owner_merge` on a planning-contract board, so a future card cannot be authored
+with a retired gate.
+
+**Supersedes:** the gate vocabulary carried into the phase 2 board at authoring
+time, which quoted phase 1's three gates unchanged. Phase 1's own board is
+untouched and keeps `owner_merge` on its nine shipped cards.

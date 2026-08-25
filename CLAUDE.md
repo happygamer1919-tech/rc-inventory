@@ -148,6 +148,49 @@ stated scope, goes to section 4.
 
 ---
 
+## 5b. Gates
+
+**`owner_merge` is retired on this board as of 2026-08-25 by owner ruling
+(R-001's sibling, recorded in `decisions/inbox.md` as R-002).**
+
+Cards ship on **green_self_merge discipline**, which is two things and not one:
+
+1. the **green `quality` check**, and
+2. the card's **named acceptance spec passing**
+
+A green check with no acceptance run is not a ship. An acceptance run on a red
+check is not a ship either.
+
+**Visual and behavioural defect review is not a merge gate.** It belongs to:
+
+- the **CRITIC**, at wave boundaries, and
+- an **optional owner batch review** before the client demo
+
+Neither blocks a merge. This is the change: review still happens, it just stops
+sitting in front of every card.
+
+**Gates in use on the phase 2 board:**
+
+| Gate | Meaning |
+|---|---|
+| `green_self_merge` | Every card except P2-14. Executor self-decides and merges on green quality plus passing acceptance. |
+| `stakeholder` | P2-14 only. Mihai accepts on production. |
+
+`owner_merge`, `cyan_clear` and `owner_authorizo` are unused here. `owner_merge`
+remains a legal value in the validator only because the closed phase 1 board
+carries it on nine shipped cards, and a closed board is not rewritten.
+
+**A `blocked_on` naming Ivan is an owner ACTION, not a review.** Applying a DNS
+record, rotating a credential, ticking a checklist: those are things only he can
+do. Retiring `owner_merge` does not touch them, and P2-12 and P2-13 keep theirs.
+
+**Launch gate conditions still flip to `pass` only on their named proof.** For a
+screen condition that proof is now the named spec green in CI **plus EXECUTOR's
+own deployed-screen verification**, both recorded as evidence. The proof got
+reassigned, it did not get weaker.
+
+---
+
 ## 6. Evidence rule
 
 **`status: shipped` requires `evidence` and a passing acceptance line.**

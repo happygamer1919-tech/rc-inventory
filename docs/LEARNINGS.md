@@ -140,6 +140,67 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### R-001: the stored Supabase URL is not the project origin
+**Tag:** infra
+**ERROR:** `NEXT_PUBLIC_SUPABASE_URL` in `/Users/ivan/rc-secrets/phase2.env` is
+`https://<ref>.supabase.co/rest/v1/`, not `https://<ref>.supabase.co`. Every
+piece of code that appends an endpoint to it builds a broken URL. The auth admin
+API answered `Invalid path specified in request URL`, which names neither the
+variable nor the extra path and reads like a wrong endpoint rather than a wrong
+base. Copied verbatim into `.env.local` it would have broken supabase-js in
+every card after P2-02, and the failure would have surfaced as a login that
+does not work rather than as a configuration error.
+**SOLUTION:** Derive the origin instead of trusting the stored value:
+`https://${REF}.supabase.co`, where `REF` is already being extracted from the
+same variable for the database user. Diagnose a suspect secret without printing
+it: string length, scheme prefix, suffix test, trailing-CR test, and
+`od -c` on the last few bytes said exactly what was wrong while showing nothing
+sensitive. RULE: a secret you cannot print is still a secret you can measure.
+**Open item: the Vercel environment probably carries the same value, and P2-12
+depends on it being right.**
+
+### R-001: both pooler hostnames resolve, so DNS proves nothing
+**Tag:** infra
+**ERROR:** `aws-0-eu-west-1.pooler.supabase.com` and
+`aws-1-eu-west-1.pooler.supabase.com` both resolve in DNS. A resolution check
+was used to pick the host, which picked the wrong one. `aws-0` then accepted the
+TCP connection and the TLS handshake before failing at authentication with
+`FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`, which reads like bad
+credentials and is really a project that lives on the other pooler.
+**SOLUTION:** `SELECT 1`, which is the whole reason CLAUDE.md 8.4 requires
+proving connectivity before any migration work. RULE: a hostname that resolves
+is not a host that serves you. Prove the connection with a query, not with
+`host` or `ping`, and read an authentication error as a possible wrong-endpoint
+error before assuming the credential is wrong.
+
+### R-001: `set -e` in a sourced helper swallows the error you came for
+**Tag:** infra
+**ERROR:** The connection helper set `-euo pipefail` for its own safety. Because
+it is `source`d, those options applied to the calling script too, so the first
+failing `OUT="$(psql ...)"` killed the script at the assignment. The result was
+a script that printed the header, printed nothing else, and exited 2, having
+discarded the psql error message it existed to capture.
+**SOLUTION:** `set +e` immediately after sourcing, then capture the status
+explicitly. RULE: a script whose job is to report a failure must not run under
+`set -e` at the point of failure, and `source` propagates shell options into the
+caller. Diagnostic scripts turn `-e` off on purpose.
+
+### R-001: the pre-check is what catches an already-applied migration
+**Tag:** data
+**ERROR:** Migration 0001 had already been applied by Ivan between the wave 1
+report and this session. Running the apply blind would have failed on
+`type "app_role" already exists` with no explanation of why, and the obvious
+next move under time pressure is to start editing the migration file to make the
+error go away, which corrupts a file that is already live.
+**SOLUTION:** The mandated phase 1 pre-check counted the database's existing
+tables, enums and policies before touching anything, and reported 11/6/41
+against a file claiming to create 11/6/41. The apply was then attempted anyway
+rather than skipped, so the outcome is recorded rather than assumed, and it
+rolled back whole because the file wraps itself in one transaction. RULE: never
+edit a migration to make an apply error disappear. Count first, and if the count
+says the objects exist, switch from applying to verifying and diff the live
+schema against the file.
+
 ### P2-01: a migration nothing in this repo is allowed to execute
 **Tag:** infra
 **ERROR:** CLAUDE.md section 8 forbids any terminal here from connecting to a

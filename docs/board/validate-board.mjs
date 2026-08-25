@@ -281,6 +281,14 @@ function validateBoard(board) {
     // --- phase 2 planning contract -------------------------------------------
     if (!planning) return;
 
+    // owner_merge is RETIRED on a planning-contract board (ruling R-002,
+    // 2026-08-25). It stays in CARD_GATES because the closed phase 1 board
+    // carries it on nine shipped cards and a closed board is not rewritten, so
+    // the rejection has to live here rather than in the shared gate list.
+    if (card.gate === 'owner_merge') {
+      fail(`${at}.gate: "owner_merge" is retired on this board (ruling R-002). Cards ship on "green_self_merge" (green quality plus the named acceptance passing); "stakeholder" is for client acceptance only. Defect review is not a merge gate.`);
+    }
+
     // defaults: the pre-authorized answers to this card's expected ambiguities.
     // Empty defaults is not a neutral omission, it is a card that will halt on
     // the first question, which is the failure mode this field was added to fix.
