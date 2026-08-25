@@ -140,6 +140,49 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### P2-02: `process.env[name]` is never inlined into a client bundle
+**Tag:** frontend
+**ERROR:** The Supabase env reader used a helper, `readVar(name)`, doing
+`process.env[name]`. Next replaces only **literally written**
+`process.env.NEXT_PUBLIC_X` references at build time; a computed lookup survives
+into the browser as a property read on an object that has nothing in it. The
+code typechecked, built clean, and worked on the server. In the browser
+`createClient()` threw before issuing a single request, the throw was caught by
+the form's own error handler, and the screen showed the generic Romanian
+fallback "Autentificarea a eșuat." No network request, no console error, no clue.
+**SOLUTION:** Read the two variables into module constants with fully literal
+member access, and validate the constants. RULE: any `NEXT_PUBLIC_*` value that
+client code will read must be written out literally, once, at module scope. A
+"nice" generic env helper is exactly the wrong abstraction here, because the
+thing being abstracted is a compile-time text substitution.
+
+### P2-02: Next 16 blocks cross-origin dev assets, and it looks like a dead page
+**Tag:** ci
+**ERROR:** Playwright's `baseURL` was `http://127.0.0.1:3100` while the Next dev
+server considers itself `localhost`. Next 16 blocks cross-origin requests to
+`/_next/*` dev resources by default, so **every JavaScript chunk returned 403**.
+The page still server-rendered perfectly and every element was present and
+visible, so assertions on content passed. React never hydrated, so no button had
+a handler: the login form simply did nothing, with no error anywhere on the
+page. Eight tests failed on navigation timeouts that pointed at auth.
+**SOLUTION:** Request from the same host the server answers on:
+`http://localhost:${PORT}`. The alternative, `allowedDevOrigins` in
+`next.config.ts`, adds application configuration to fix a test-harness choice.
+RULE: when a page renders but nothing is clickable, check the network for failed
+`/_next/static/chunks/*` before debugging application logic, and read the dev
+server's own stdout, which said exactly what was wrong in plain words while the
+browser console only showed anonymous 403s.
+
+### P2-02: the `middleware` file convention is deprecated in Next 16
+**Tag:** frontend
+**ERROR:** `middleware.ts` still works but prints a deprecation warning on every
+dev start and every build: `The "middleware" file convention is deprecated.
+Please use "proxy" instead.` A warning nobody fixes on day one is a warning
+everybody stops reading by day thirty, and it was on a brand new file.
+**SOLUTION:** Renamed to `proxy.ts` and the exported function from `middleware`
+to `proxy`. Same matcher, same behaviour, no warning. RULE: fix a deprecation the
+day the file is created, not the day it breaks.
+
 ### R-001: the stored Supabase URL is not the project origin
 **Tag:** infra
 **ERROR:** `NEXT_PUBLIC_SUPABASE_URL` in `/Users/ivan/rc-secrets/phase2.env` is
