@@ -140,6 +140,35 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### P2-03: navigating away cancels a server action mid-flight
+**Tag:** ci
+**ERROR:** A test helper clicked the form's submit button and returned
+immediately; the test then called `page.goto("/inventar")` and asserted the new
+row existed. It did not. The server action was still running when the navigation
+tore the page down, so the insert never completed. The identical flow passed in
+the next test, which happened to assert on the current page instead of
+navigating, so the suite reported one failure that looked like a data bug and
+was a timing bug in the harness.
+**SOLUTION:** The helper now waits for the submit to *settle*, meaning either the
+form panel closed (success) or the error box appeared (failure), before
+returning. RULE: a helper that submits must not return until the submission has
+resolved one way or the other. Waiting for a fixed timeout would paper over it;
+waiting for either outcome is what makes the duplicate-SKU test and the
+happy-path test share one helper.
+
+### P2-03: PostgREST returns `numeric` as a string
+**Tag:** data
+**ERROR:** `threshold` and `unit_value_mdl` are `numeric(14,3)` and
+`numeric(14,2)`. PostgREST serialises `numeric` as a **string**, not a number, so
+it does not lose precision. Read straight into arithmetic, `stock * unitValueMdl`
+would produce string concatenation or `NaN` rather than a total, and the stock
+value column would quietly show nonsense.
+**SOLUTION:** One `toNumber()` at the mapping boundary, applied to every numeric
+column as rows are converted into the app's own type. RULE: convert at the edge,
+once, where the database row becomes an application object. Never let a raw
+PostgREST row reach a component, because the shape it returns is not the shape
+TypeScript claims it is.
+
 ### P2-02: `process.env[name]` is never inlined into a client bundle
 **Tag:** frontend
 **ERROR:** The Supabase env reader used a helper, `readVar(name)`, doing
