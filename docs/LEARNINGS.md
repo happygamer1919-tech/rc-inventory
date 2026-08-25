@@ -140,12 +140,46 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### P2-07: a schema that works because of a setting made outside it
+**Tag:** data
+**ERROR:** Migration 0001 ends with a grants block naming exactly two roles:
+`revoke ... from anon` and `grant ... to authenticated`. It never grants
+anything to `service_role`. On the eu-west-1 project this was invisible, because
+Supabase configures `ALTER DEFAULT PRIVILEGES` so every table created there is
+granted to `service_role` at `CREATE TABLE`. Everything worked, and appeared to
+work because of itself. It did not: it worked because of a project-level setting
+made before any of this code existed. The first time those same migrations were
+replayed from empty against a second database, the seed failed on its first
+write with `permission denied for table profiles (42501)`.
+**SOLUTION:** A new numbered migration (0001 is applied and is never edited)
+granting `service_role` explicitly, re-asserting `authenticated` rather than
+assuming it, and setting `ALTER DEFAULT PRIVILEGES` so the same omission cannot
+recur at 0006. Note that `service_role` bypassing RLS did not help: PostgreSQL
+checks the **GRANT first and RLS second**, so bypassing row security is not the
+same as having table privileges. RULE: a migration must grant every privilege it
+depends on, to every role that needs it. If you cannot recreate the schema on a
+blank database and have it work, you do not have a schema, you have a schema
+plus a machine.
+
+### P2-07: the value of replaying migrations somewhere they have never run
+**Tag:** ci
+**ERROR:** Nothing was broken on production, and nothing would have been until
+the day someone stood up a second environment: a staging project, a restored
+backup, a new region. At that point the failure would arrive during whatever
+urgent thing motivated the second environment.
+**SOLUTION:** CI now runs `supabase db reset` against a local stack on every PR,
+replaying every migration from empty in file order, which is the same order Ivan
+applies them by hand. The very first run found the grants defect above. RULE:
+migrations that have only ever run against one database are untested
+migrations, however many times they have succeeded there. The check is cheap and
+it pays for itself on the first finding.
+
 ### P2-05: a combobox that silently empties a field the operator filled correctly
 **Tag:** frontend
 **ERROR:** Phase 1's `Combobox` commits free text on blur only when the typed
 text does **not** match an existing option:
 `if (creatable && query && !options.some(o => o.label === query)) onChange(query)`.
-When it *does* match, the branch is skipped and **nothing is committed** — so
+When it *does* match, the branch is skipped and **nothing is committed**, so
 the value stays empty. With fixed mock data nobody ever typed a name that
 already existed, so it never showed. With real data it shows on the second
 issue: the operator types a client they used yesterday, clicks away, the field
@@ -163,7 +197,7 @@ satisfy.
 **ERROR:** The outbound spec gave every product a per-run unique SKU but a
 **shared name** (`Produs ieșire lower`). The combobox searches by *name*, and
 test data is never deleted, so each run's search matched the previous runs'
-products and `.first()` picked the oldest one — already drained of stock by an
+products and `.first()` picked the oldest one, already drained of stock by an
 earlier run. The failure surfaced three runs later as "stock is 6, expected 60",
 and looked exactly like a triple-submit concurrency bug. It was not: three
 separate runs had each issued 18 against the same stale row, which a database
@@ -180,7 +214,7 @@ theorising about races.
 **ERROR:** products.spec had an `afterAll` that walked every `TEST-` product and
 deactivated them one at a time. It was fine when that spec was the only one
 creating products. Once inbound.spec and outbound.spec added theirs, the loop
-outgrew the 45 second hook timeout — and Playwright attributes a hook failure to
+outgrew the 45 second hook timeout, and Playwright attributes a hook failure to
 the **last test in the file**, so a passing test was reported as the failure for
 two full-suite runs while the code it checked was never at fault.
 **SOLUTION:** The hook is gone. Test rows are marked **at creation** by the
