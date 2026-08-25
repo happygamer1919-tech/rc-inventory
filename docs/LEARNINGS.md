@@ -140,6 +140,70 @@ in a migration is a statement that can fail during Ivan's apply. A line that
 does not change the outcome is not neutral, it is added risk, and the migration
 rule means each failure costs a round trip through a person.
 
+### P2-04: a `"use server"` file may export only async functions
+**Tag:** backend
+**ERROR:** The inbound actions module exported its constants alongside its
+actions: `DOCS_BUCKET`, `ACCEPTED_MIME`, `MAX_DOC_BYTES`. The build failed with
+`Only async functions are allowed to be exported in a "use server" file`, and
+the knock-on error was worse than the cause: because the module failed to
+compile, every importer reported `Export createInboundOrder doesn't exist in
+target module`, which points at a function that is right there.
+**SOLUTION:** Constants and types moved to a plain module both sides import.
+RULE: every export of a `"use server"` file becomes a callable network endpoint,
+so the restriction is not arbitrary. Types are fine (they are erased); values
+are not. When an import error claims a function does not exist, check whether
+its module compiled at all before looking at the function.
+
+### P2-04: `server-only` breaks on a value import, not a type import
+**Tag:** frontend
+**ERROR:** A client component imported `INBOUND_STATUS_LABEL` from the reads
+module, which starts with `import "server-only"`. The build failed with
+`'server-only' cannot be imported from a Client Component module`. The confusing
+part is that the same file's *types* had been imported from server modules all
+along without complaint.
+**SOLUTION:** `import type` is erased at compile time, so it never pulls the
+module into the client bundle; a value import does. The labels and shared types
+moved to `lib/data/inbound-types.ts`, which imports nothing from the server.
+RULE: put anything a client component might need (labels, enums-as-constants,
+shared types) in a server-free module from the start. The split is not
+organisation, it is the difference between building and not.
+
+### P2-04: an empty `<tbody>` is "hidden" to Playwright
+**Tag:** ci
+**ERROR:** `await expect(page.getByTestId("inbound-batches")).toBeVisible()`
+failed against `<tbody data-testid="inbound-batches"></tbody>`. The element was
+in the DOM and correctly rendered; an empty tbody just has zero height, and
+Playwright's visibility check is geometric.
+**SOLUTION:** Assert on the containing panel for presence and on
+`toHaveCount(0)` for emptiness. RULE: never assert visibility on a container
+whose whole purpose is to be empty in the case under test. Assert the count.
+
+### P2-04: `window.open` after an `await` opens a dead tab
+**Tag:** frontend
+**ERROR:** The document button called a server action to mint a short-lived
+signed URL, then `window.open(url)`. The popup opened and stayed on
+`about:blank` forever: the call no longer counts as user-initiated once it
+happens after an await, so the navigation is dropped. On screen the button
+appears to work and produces a blank tab, with no error anywhere.
+**SOLUTION:** Render a real `<a href>` once the signed URL arrives, in two
+explicit steps. It also fixes things the popup was quietly breaking: keyboard
+access, copying the link, and middle-click. RULE: a URL that does not exist
+until after a round trip belongs in an anchor, not in `window.open`.
+
+### P2-04: a test that passes alone and fails in the suite is a threshold, not luck
+**Tag:** ci
+**ERROR:** The account_manager settings-refusal test passed on its own and
+failed once inside the full suite, then passed again. The suite forbids retries,
+so re-running was not an answer.
+**SOLUTION:** The refusal is served by a proxy **rewrite** to `/acces-interzis`,
+a route the dev server may compile on first request. Under full-suite load that
+compile plus the role query crossed the 10 second default expect timeout. The
+assertion now carries an explicit 25 second timeout with the reason written next
+to it, and the suite was run twice end to end to confirm. RULE: when a test
+fails only under load, find which threshold it crossed and set that threshold
+deliberately. Raising a timeout you can explain is engineering; adding a retry
+you cannot explain is hiding a race.
+
 ### P2-03: navigating away cancels a server action mid-flight
 **Tag:** ci
 **ERROR:** A test helper clicked the form's submit button and returned
