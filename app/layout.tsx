@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar } from "@/components/layout/Topbar";
-import { StoreProvider } from "@/lib/store";
 
 export const metadata: Metadata = {
   title: "Rapid Construct - Inventar",
-  description: "Sistem de gestiune a inventarului. Previzualizare faza 1.",
+  description: "Sistem de gestiune a inventarului.",
 };
 
+// Layout-ul radacina este deliberat gol: html, body si stilurile globale, atat.
+//
+// Invelisul aplicatiei (bara laterala, bara de sus, StoreProvider) s-a mutat in
+// app/(app)/layout.tsx, pentru ca ecranul de autentificare NU trebuie sa il
+// randeze. Un vizitator neautentificat care vede meniul si antetul cu zero date
+// in ele citeste sistemul ca fiind stricat, iar cardul P2-02 cere explicit sa nu
+// se randeze niciodata un invelis cu date goale.
 export default function RootLayout({
   children,
 }: {
@@ -16,17 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ro">
-      <body>
-        <StoreProvider>
-          <div className="rc-shell flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Topbar />
-              <main className="flex-1 overflow-y-auto px-8 py-7">{children}</main>
-            </div>
-          </div>
-        </StoreProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
