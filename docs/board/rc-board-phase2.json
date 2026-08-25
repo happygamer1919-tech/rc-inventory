@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 2 Build",
   "schema_version": 1,
   "phase": "phase-2-build",
-  "as_of": "2026-08-26T04:10:00Z",
+  "as_of": "2026-08-26T06:40:00Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board-phase2.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/92e2da75-961c-4ce3-a765-9e00686c6bb2, and the same URL is re-rendered and updated after every board change so the owner link stays live. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back. The phase 1 board and its artifact are untouched and stay live at their own URL.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof, and the acceptance field carries the check that produced it. The executor terminal updates this JSON at every checkpoint, in the same PR as the code, and bumps as_of. docs/board/validate-board.mjs must exit 0 before every commit; a commit made while the validator is red is reverted, not patched forward. GATE VOCABULARY, amended 2026-08-25 by owner ruling R-002. OWNER_MERGE IS RETIRED ON THIS BOARD. Cards ship on green_self_merge discipline: the green quality check PLUS the card's named acceptance spec passing. Visual and behavioural defect review belongs to the CRITIC at wave boundaries and to an optional owner batch review before the client demo; NEITHER IS A MERGE GATE. green_self_merge means the executor self-decides and merges its own PR once quality is green and the named acceptance has passed, no approval needed. stakeholder means Mihai (the client) accepts on production, and P2-14 is the only card that carries it. cyan_clear, owner_authorizo and owner_merge are unused on this board; owner_merge remains a legal value only because the closed phase 1 board carries it on nine shipped cards. A blocked_on entry naming Ivan is an OWNER ACTION (apply a DNS record, rotate a credential, tick a checklist), never a review, and retiring owner_merge does not touch it. LAUNCH GATE CONDITIONS still flip to pass only on their named proof: for screen conditions that proof is now the named spec green in CI plus EXECUTOR's own deployed-screen verification, both recorded as evidence. EVIDENCE VOCABULARY: kind pr is a merged pull request number, kind journal is a commit sha or command output pasted so a stranger can re-verify, kind e2e is a named Playwright test plus the run that passed it, kind screenshot is Ivan or Mihai on-screen confirmation. SKIP-NOT-HALT: the run never stops for a question. A card that cannot proceed gets its question field filled with the structured decision-needed text (DECISION NEEDED, CONTEXT, OPTIONS, RECOMMENDATION, IMPACT IF UNANSWERED), blocked_on set to the person who owes the answer, status set to blocked, and the executor moves to the next eligible card in the same session. A recommendation is mandatory: a question without one is unfinished. DEFAULTS: every card carries a defaults field holding the pre-authorized answers to that card's expected ambiguities. When defaults covers an ambiguity the executor applies it and logs the application in notes, and does not ask. Defaults fill silence, they never override an explicit instruction in the card. ACCEPTANCE: every card names a machine-checkable acceptance line, a command with an expected exit code, a URL with expected content, or a named test. No acceptance, no ship. A card whose acceptance cannot be run yet is blocked, never shipped. MIGRATIONS: authored as supabase/migrations/NNNN_name.sql files, listed in the PR description by path, and applied by Ivan alone in the Supabase SQL editor. No terminal in this repo ever connects to a database. A card whose acceptance needs an APPLIED migration is set blocked_on ivan with the apply request written into question. A migration file is never edited after it has been applied; a correction is a new numbered file. SECRETS: environment variable names only. Values never appear in chat, in this board, in a commit, in a log or in tool output. /Users/ivan/rc-secrets is out of bounds for reads. ELIGIBILITY: a card is eligible when status is todo, every id in depends_on belongs to a shipped card, and blocked_on is null. The executor takes the lowest-id eligible card. The full standing rules are in CLAUDE.md at the repo root.",
   "lanes": [
@@ -441,6 +441,106 @@
       "last_checkpoint": "2026-08-25",
       "evidence": null,
       "notes": "The last card of phase 2. Gate is stakeholder: client acceptance at phase end, per the gate vocabulary carried from phase 1. Closes gate G9, which is the gate the whole phase exists to flip. BLOCKED ON CLIENT AT AUTHORING TIME, and it stays that way until the other thirteen cards are shipped, the domain is live and the credentials are rotated. Nothing about this card is buildable; it is a scheduled event with a written pass condition."
+    },
+    {
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "blocked_on": null,
+      "question": null,
+      "last_checkpoint": "2026-08-26",
+      "evidence": null,
+      "id": "CRIT-10",
+      "priority": "high",
+      "depends_on": [
+        "P2-02"
+      ],
+      "title": "Login form submits natively before hydration and writes the password into the URL query string.",
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/auth.spec.ts` exits 0 with two new cases added to that file. Case one: the login inputs carry no `name` attribute, asserted by `expect(page.locator('#password')).not.toHaveAttribute('name')` and the same for `#email`, so a native submit can serialise nothing. Case two: navigating to /autentificare with `waitUntil: 'commit'` and clicking the submit control before hydration completes never produces a navigation whose URL contains a `password` search parameter, asserted by listening to `framenavigated` across the whole attempt and requiring `new URL(u).searchParams.has('password') === false` every time. PLUS: `grep -n 'name=\"password\"' components/auth/LoginForm.tsx` exits 1.",
+      "defaults": "REMOVE THE `name` ATTRIBUTES FROM THE EMAIL AND PASSWORD INPUTS. React state drives the request, so the names serve no purpose and their only effect is to serialise credentials into a native GET. `id` and `autoComplete` stay, because those are what a password manager reads. THE FORM ALSO STOPS BEING SUBMITTABLE BEFORE HYDRATION: track readiness in a `useEffect` and keep the submit control disabled until it runs, so a click that would be swallowed is visibly not-yet-ready instead of silently dead. That is the second half of this defect and shipping only the first half leaves the operator staring at a button that does nothing. DO NOT ADD A SERVER ACTION or move authentication to the server to solve this. The Supabase browser client has to set the session cookie in the browser, that is P2-02's decided shape, and rewriting it here is scope. DO NOT ADD `method='post'` as the fix: it stops the query-string leak but posts the credentials to a route that does not handle them, which trades a visible defect for a confusing one. NO COPY CHANGES beyond a disabled-state label if one is needed, and if one is needed it is Romanian.",
+      "notes": "FOUND ON PRODUCTION, NOT REASONED ABOUT. `components/auth/LoginForm.tsx` renders `<form onSubmit={...} noValidate>` with no `action`, and both inputs carry `name=\"email\"` and `name=\"password\"`. Before React hydrates, the submit button is still a native `type=\"submit\"` control, so a click performs the browser default: a GET to the current URL with every named input serialised into the query string. Reproduced against https://www.rapidconstructmd.com in 1 of 4 runs of the same script: the browser navigated to /autentificare?email=<email>&password=<password> and the password parameter matched the account password exactly, 32 characters, verified by comparison rather than by eye and never printed. Evidence: scratchpad critic-wave1/hydration.mjs, attempt 3. The same race was hit first by accident: a two-role sweep found the account_manager sitting on the login screen after a click that produced zero calls to /auth/v1/token and displayed no error, then succeeded on the third try (critic-wave1/mgr-login.mjs). WHY THIS IS THE TOP CARD OF THE WAVE. The password reaches the request line, so it lands in the browser URL bar, in browser history on a shared warehouse machine, in the Vercel edge access log, and in the Referer of anything the page fetches next. It is also a silent failure for the operator: no error, no spinner, nothing happened. TWO SECOND-ORDER NOTES. The other two forms in the repository, CategorySettings and ProductForm, share the pre-hydration dead-click behaviour but carry no `name` attributes, so they leak nothing into the URL; they are out of scope here and are named so the next reader does not have to re-derive it. And once this card ships, the leaked dev password should be treated as exposed and rotated, which is already a checkable item on P2-13."
+    },
+    {
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "blocked_on": null,
+      "question": null,
+      "last_checkpoint": "2026-08-26",
+      "evidence": null,
+      "id": "CRIT-11",
+      "priority": "high",
+      "depends_on": [
+        "P2-07"
+      ],
+      "title": "The end to end suite writes into the production Supabase project, and production now shows the client 128 TEST products.",
+      "acceptance": "COMMAND: `npx playwright test tests/e2e/auth.spec.ts` exits non-zero with a Romanian refusal naming the guard when `NEXT_PUBLIC_SUPABASE_URL` points at the production project ref, and exits 0 when it points anywhere else. Proven by two runs recorded in the PR: one with the production ref in the environment, expected non-zero, and one against the local stack, expected 0. PLUS: `node scripts/assert-not-prod.mjs` exits 2 when the production ref is present in the environment, exits 0 otherwise, and exits non-zero with a distinct message when the ref list is empty, so an empty blocklist can never read as permission.",
+      "defaults": "THE GUARD IS A REFUSAL, NOT A WARNING. It runs from the Playwright global setup so no spec can opt out, and it fails the whole run rather than skipping tests, because a skipped suite reads as a pass. THE BLOCKLIST IS THE PRODUCTION PROJECT REF, held in a committed file as a ref string, not as a secret: the ref is already public in the browser bundle through NEXT_PUBLIC_SUPABASE_URL, so committing it leaks nothing, and reading it from the environment would let an empty environment disable the guard. AN EMPTY BLOCKLIST THROWS. A guard that silently allows everything when its list is empty is worse than no guard, because it reads as protection. THE EXISTING TEST ROWS ARE NOT TOUCHED BY THIS CARD. Deleting them is a destructive operation on the project the client is about to accept on, so it is Ivan's call and his alone; this card only stops the bleeding. If a cleanup is wanted, the rows are marked inactive, never deleted, and that is a separate card he authorises. DO NOT CHANGE WHAT THE TESTS ASSERT. The suite is correct; where it points is the defect.",
+      "notes": "The e2e suite runs green in CI against a local Supabase stack, which is exactly what P2-07 built and it works. The defect is that the same suite run LOCALLY reads .env.local, which points at the production project, so every local run writes real rows into the database production serves. The result is visible on the client domain right now: /inventar reports 128 active products and every row on the first screen is e2e residue, TEST-DASH-*, TEST-DASHIN-*, TEST-diacritic-*, with names like 'Produs tablou mt8ztoqf' and 'Denumire modificată'. Row counts read read-only from the live schema: products 296, inbound_orders 177, batches 129, status_history 354, outbound_issues 36, and a single category named TEST-Categorie holding 298 of them. G9 asks Mihai to complete a full cycle on production himself. He will do it on this screen. THIS ALSO EXPLAINS AWAY A FALSE POSITIVE: the Romanian copy scan flagged the English words 'stock', 'edit' and 'create' on four screens, and every occurrence turned out to be inside a test SKU rather than in application copy. The interface copy is clean. It only looked dirty because the data is. Prior art for the guard shape exists and is worth copying rather than reinventing: a byte-compared ref blocklist that throws on an empty list."
+    },
+    {
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "blocked_on": null,
+      "question": null,
+      "last_checkpoint": "2026-08-26",
+      "evidence": null,
+      "id": "CRIT-12",
+      "priority": "high",
+      "depends_on": [
+        "P2-06"
+      ],
+      "title": "Production chrome still tells the operator the data is a phase 1 preview, and the category counter says 1 categorii.",
+      "acceptance": "COMMANDS, both: `grep -rn 'Previzualizare faza 1\\|Date demonstrative' components app` exits 1, no match anywhere in the rendered application. AND `npx playwright test tests/e2e/dashboard.spec.ts` exits 0 with a case added to that file which signs in, walks all eight authenticated screens, and asserts the body text of each contains neither 'Previzualizare faza 1' nor 'Date demonstrative', plus a case asserting the settings category counter reads '1 categorie' rather than '1 categorii' when exactly one category exists.",
+      "defaults": "THE SIDEBAR FOOTER STATES WHAT IS TRUE OR IT STATES NOTHING. The data is real Supabase data as of P2-03 through P2-06, so a label calling it demonstrative is not stale styling, it is a false statement to the person being asked to trust the stock number. If a replacement line is wanted it names the warehouse, which is the only part of the old line that was ever true: 'Depozit central' or the equivalent already shown in the topbar. If nothing is wanted, the block is removed and the border with it. Executor picks one and logs which in notes. ROMANIAN PLURALS FOLLOW ROMANIAN RULES: 1 takes the singular, 2 to 19 take the bare plural, 20 and above take 'de' plus the plural. Fix the counter with a small helper rather than inline ternaries, and use it for the category counter; the product counter already reads correctly and is not in scope. NO OTHER COPY CHANGES. This card corrects two strings that are false or ungrammatical, it is not a copy review.",
+      "notes": "`components/layout/Sidebar.tsx` lines 74 and 76 render 'Previzualizare faza 1' and 'Date demonstrative, un singur depozit' in the sidebar footer. That footer is in the app layout, so it appears on all eight authenticated screens, on production, today. Screenshot evidence: critic-wave1/shots/sweep-owner-_inventar.png and sweep-owner-_setari.png. P2-06 deleted lib/mock repo-wide and its acceptance grep proves the module is gone, but the label announcing that the data is mock was not part of that grep and survived it. The gap is exactly the difference between deleting the mock layer and removing the claim that the mock layer is what you are looking at. SECOND STRING, same screen family: `components/settings/CategorySettings.tsx` line 75 renders `{categories.length} categorii`, which prints '1 categorii' with one category, and one category is what production has. Both are in the chrome the client sees at acceptance, which is why they are one card and not two."
+    },
+    {
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "blocked_on": null,
+      "question": null,
+      "last_checkpoint": "2026-08-26",
+      "evidence": null,
+      "id": "CRIT-13",
+      "priority": "medium",
+      "depends_on": [
+        "P2-02"
+      ],
+      "title": "The Supabase session cookie is written without the Secure attribute.",
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/auth.spec.ts` exits 0 with a case added to that file which signs in, reads the browser context cookies, finds the cookie whose name matches /^sb-.*-auth-token/, and asserts `secure === true` and `sameSite === 'Lax'`. The assertion runs against whichever host the suite is pointed at, so it holds in CI and on production alike.",
+      "defaults": "SET THE COOKIE OPTIONS ON ALL THREE SUPABASE CLIENTS OR ON NONE. The browser client in lib/supabase/client.ts, the server client in lib/supabase/server.ts and the client inside proxy.ts all write the same cookie, so setting `cookieOptions: { secure: true, sameSite: 'lax' }` on one and not the others produces a cookie whose flags depend on which request last wrote it. HTTPONLY STAYS FALSE AND THAT IS NOT AN OVERSIGHT. The @supabase/ssr browser client has to read the session out of the cookie, so httpOnly true would break sign-in; the accepted risk is recorded in docs/reports/critic-wave1.md rather than silently left unexplained. DO NOT SET A CUSTOM COOKIE NAME, DOMAIN OR MAX-AGE. Session lifetime is Supabase's default by P2-02's own defaults and this card does not reopen it. LOCAL DEVELOPMENT MUST KEEP WORKING: `secure` cookies are accepted on http://localhost by every current browser, so no environment switch is needed, and adding one would be the kind of conditional that makes production behave differently from what the tests exercised.",
+      "notes": "Read from a real production session with Playwright: the cookie `sb-<ref>-auth-token`, 2577 bytes of token material, is stored with `secure: false`, `httpOnly: false`, `sameSite: 'Lax'` and a persistent expiry. Evidence: critic-wave1/cookies.mjs output. Nothing in the repository sets cookie options; `createBrowserClient` and `createServerClient` are both called with two arguments, so the flags are library defaults. EXPLOITABILITY IS NARROW AND THE FIX IS ONE LINE, which is why this is medium and not high: the site is HTTPS only and answers with `strict-transport-security: max-age=63072000`, so after a browser's first successful visit it will not issue a plain-HTTP request to this host at all. The window is the first-ever visit from a given browser, and any future host or subdomain that is not covered by that HSTS entry. A cookie carrying an access token and a refresh token should carry the flag regardless of how narrow today's window is. NOT RAISED, DELIBERATELY: the absence of CSP, X-Frame-Options, X-Content-Type-Options and Referrer-Policy on production responses. P2-11 already names security headers in its scope and duplicating it here would split one job across two cards."
+    },
+    {
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "blocked_on": null,
+      "question": null,
+      "last_checkpoint": "2026-08-26",
+      "evidence": null,
+      "id": "CRIT-14",
+      "priority": "medium",
+      "depends_on": [
+        "P2-06"
+      ],
+      "title": "P2-06 acceptance claims dashboard.spec covers an empty database and the manager role, and it covers neither.",
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/dashboard.spec.ts` exits 0 with the console-and-NaN walk extended so it runs once as owner and once as account_manager over every screen that role can open, and with the empty-state claim either proven or withdrawn. Proven means a case that renders each list screen with a filter that matches nothing and asserts the Romanian empty state is visible and that no NaN, Infinity or stray undefined appears. Withdrawn means the P2-06 acceptance string on the board is edited to describe what the spec actually checks, in the same PR, with the board validator green.",
+      "defaults": "PREFER PROVING OVER WITHDRAWING, BUT DO NOT FAKE AN EMPTY DATABASE. Truncating tables to reach an empty state is a destructive operation and is forbidden here; the reachable equivalent is a filter that matches nothing, which is what a real operator hits and is what the empty-state markup was written for. IF THE EMPTY-DATABASE CLAIM CANNOT BE PROVEN WITHOUT DESTRUCTIVE SETUP, WITHDRAW IT rather than leaving an acceptance line that describes coverage nobody has. An acceptance that overstates what it checks is worse than a narrower one that is true, because the next reader trusts it. THE MANAGER WALK COVERS ONLY ROUTES THE MANAGER MAY OPEN. /setari answers with the forbidden screen for that role, and asserting no console error on a 403 screen is a real check, so include it and assert the forbidden screen rather than skipping the route. NO PRODUCTION SEEDING. This card runs where the suite already runs.",
+      "notes": "P2-06's acceptance line reads: 'dashboard.spec covers the five dashboard blocks against seeded rows, and the same screens against an empty database with no console error and no NaN on screen.' The spec does not do the second half. The console-and-NaN case at tests/e2e/dashboard.spec.ts:125 signs in as owner only, walks the eight screens against whatever the database happens to hold, and asserts no NaN and no console errors. There is no empty-database case and no manager case anywhere in the file. THE EVIDENCE FIELD IS HONEST AND THE ACCEPTANCE FIELD IS NOT, which is the specific shape of this defect and why it is worth a card rather than a shrug: the card's evidence says 'all four stat blocks parse as finite numbers against an arbitrary database state', which is exactly what was run. So nobody lied. The acceptance line was written for a check that was then narrowed, and the two were never reconciled. Per CLAUDE.md section 6 the acceptance is the contract a stranger re-runs, so it has to describe the check that exists. The manager gap matters on its own: the CRITIC sweep is currently the only thing that has ever walked every screen as account_manager looking for console errors, and a wave boundary is not a substitute for a test."
     }
   ]
 }

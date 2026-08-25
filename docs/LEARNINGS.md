@@ -439,3 +439,28 @@ behind. RULE: state the verification limit in the PR rather than letting a green
 acceptance line imply the SQL was run. The acceptance here proves the file
 exists and the repository typechecks. It does not prove the SQL parses, and
 saying so is the difference between a checked file and a trusted one.
+
+### CRITIC: a day-long production 404 was the Vercel Framework Preset, twice wrong
+**Tag:** infra
+**ERROR:** Production answered 404 on every route for most of a day while the
+repository was green: `quality` passed, the build succeeded, deployments
+reported `state: success`, and the same commit ran correctly on localhost.
+Nothing in the repository was wrong, so every hour spent reading the repository
+was an hour spent in the wrong place. The cause was the Vercel project setting
+**Framework Preset**, which was set to `Other` at project creation. With `Other`
+selected Vercel does not apply the Next.js build output convention, so the
+`.next` output is published as if it were a static directory and every
+application route resolves to nothing. The first correction attempt made it
+worse: the adjacent entry in the dropdown was clicked and the preset became
+`NestJS`, which is a different framework whose output convention is also not
+Next.js, so the 404 survived a change that looked like a fix.
+**SOLUTION:** Ivan set **Framework Preset** to **Next.js** in the Vercel project
+panel and redeployed; production began serving. RULE: a new Vercel project has
+its Framework Preset verified explicitly, by reading the value back after
+saving, before any deployment is treated as broken code. Two corollaries, both
+paid for here. First, when CI is green and localhost is correct and production
+is 404, the defect is in platform configuration, not in the repository, and the
+repository is the wrong place to look. Second, the Framework Preset dropdown is
+a misclick trap: `Next.js`, `NestJS` and `Nuxt.js` sit next to each other and
+read alike at a glance, so the value is confirmed by reading it back, never by
+remembering which entry was clicked.
