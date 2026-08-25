@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/supabase/auth-errors";
@@ -14,6 +14,15 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // CRIT-10. Pana cand acest efect ruleaza, React nu s-a hidratat, deci butonul
+  // este inca un control nativ si un clic pe el ar declansa trimiterea implicita
+  // a browserului in loc sa cheme onSubmit. Butonul ramane dezactivat pana
+  // atunci: un clic prematur nu mai este inghitit in tacere, iar un buton de
+  // trimitere dezactivat opreste si trimiterea implicita cu tasta Enter, care
+  // altfel ar ocoli exact acelasi control.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,7 +71,6 @@ export function LoginForm() {
       </label>
       <input
         id="email"
-        name="email"
         type="email"
         autoComplete="username"
         autoFocus
@@ -80,7 +88,6 @@ export function LoginForm() {
       </label>
       <input
         id="password"
-        name="password"
         type="password"
         autoComplete="current-password"
         value={password}
@@ -101,7 +108,7 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !hydrated}
         data-testid="login-submit"
         className="mt-6 w-full rounded-lg bg-rc-orange px-4 py-2.5 font-semibold text-rc-black transition-colors hover:bg-rc-orange-dark disabled:opacity-60"
       >
