@@ -64,10 +64,29 @@ Read off the board, not maintained by hand. As of 2026-08-25:
 
 | Card | Owed by | Ask |
 |---|---|---|
+| P2-01 | ivan | **Apply migration 0001** in the Supabase SQL editor. Shipped card, apply outstanding. |
+| P2-02 | ivan | **Blocks the whole board.** Apply 0001, create the two accounts and their profiles rows, write `.env.local`. |
 | P2-08 | andre | Confirm the Make.com webhook contract sent 2026-08-25. Recommendation on the card: proceed per the contract as sent. |
 | P2-12 | ivan | Connect the client domain in Vercel and confirm HTTPS. Click steps written out on request. |
 | P2-13 | ivan | Execute the credential rotation checklist and tick every box in the committed document. |
 | P2-14 | client | Mihai runs one full cycle himself on production, unassisted. |
+
+**Nothing on the board is eligible while P2-02 is blocked.** P2-03 through P2-07
+all depend transitively on it. The three steps, in this order:
+
+1. Apply `supabase/migrations/0001_phase2_schema.sql` in the Supabase SQL editor
+   on the eu-west-1 project. Paste it whole, run once, and read the verification
+   grid it prints after commit: eleven rows, `rls_enabled` true on every one,
+   `policy_count` non-zero on every one.
+2. Create two accounts in the Supabase dashboard, then insert a
+   `public.profiles` row for each, keyed on the `auth.users` id, with `role` set
+   explicitly. One `owner`, one `account_manager`. The column defaults to
+   `account_manager`, so the owner row is the one that goes wrong if the role is
+   left unset.
+3. Write `.env.local` in the repo root with `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the two test account credentials. It is
+   already gitignored. Values come from your own store; no terminal may read
+   `/Users/ivan/rc-secrets`.
 
 ---
 
