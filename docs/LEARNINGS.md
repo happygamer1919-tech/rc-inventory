@@ -109,4 +109,53 @@ before calling a layout done.
 
 ## Phase 2 (build, opened 2026-08-25)
 
-No entries yet.
+### P2-01: an RLS policy that reads the role table recurses forever
+**Tag:** auth
+**ERROR:** Not hit, avoided by design, and recorded because the next person to
+add a table will hit it. The obvious way to write a role-gated policy is
+`using (exists (select 1 from profiles where id = auth.uid() and role = 'owner'))`.
+On every table but `profiles` that works. On `profiles` itself the policy has to
+read `profiles` to decide whether the caller may read `profiles`, which
+re-enters the same policy, and PostgreSQL aborts the query with an infinite
+recursion error. On Supabase it surfaces as a login that hangs or a role that
+reads back null, not as an obvious database error.
+**SOLUTION:** One `security definer` function, `public.current_app_role()`, that
+reads `profiles` as its owner and therefore bypasses RLS, plus a thin
+`public.is_owner()` on top of it. Every policy calls the function instead of
+querying the table, so no policy ever re-enters itself. `search_path` is pinned
+on both functions so a caller cannot redirect them. RULE: a role-gated policy
+never queries the role table inline. It calls the definer function. On
+`profiles` the self-read is `id = auth.uid()`, which needs no lookup at all.
+
+### P2-01: a CREATE EXTENSION line that buys nothing and can fail
+**Tag:** data
+**ERROR:** The migration opened with
+`create extension if not exists pgcrypto with schema extensions;`, written out
+of habit to guarantee `gen_random_uuid()`. It guarantees nothing that was not
+already true and introduces two ways to fail an apply: a project without an
+`extensions` schema, and a role without privilege to create extensions.
+**SOLUTION:** Deleted. `gen_random_uuid()` has been a core function since
+PostgreSQL 13 and every Supabase project runs 15 or later. RULE: every statement
+in a migration is a statement that can fail during Ivan's apply. A line that
+does not change the outcome is not neutral, it is added risk, and the migration
+rule means each failure costs a round trip through a person.
+
+### P2-01: a migration nothing in this repo is allowed to execute
+**Tag:** infra
+**ERROR:** CLAUDE.md section 8 forbids any terminal here from connecting to a
+database, and this machine has no local PostgreSQL. So a 30KB hand-written SQL
+file was about to be handed to a person to paste into a production SQL editor
+having never been parsed by anything.
+**SOLUTION:** Two mitigations, and neither is a substitute for the other. First,
+a structural linter that parses the text and executes nothing
+(`scratchpad/lint-migration.mjs`): it counts tables against
+`ENABLE ROW LEVEL SECURITY` lines, and checks that every policy, index, trigger
+and foreign key names a table created in the same file, that every enum column
+names an enum created in the same file, and that every `public.fn()` call
+resolves. It caught nothing this time and would have caught a renamed table
+instantly. Second, the file is wrapped in one explicit `begin` / `commit`, so a
+syntax error rolls the whole apply back rather than leaving half a schema
+behind. RULE: state the verification limit in the PR rather than letting a green
+acceptance line imply the SQL was run. The acceptance here proves the file
+exists and the repository typechecks. It does not prove the SQL parses, and
+saying so is the difference between a checked file and a trusted one.
