@@ -1,0 +1,418 @@
+{
+  "board": "RC-INVENTORY - Phase 2 Build",
+  "schema_version": 1,
+  "phase": "phase-2-build",
+  "as_of": "2026-08-25T14:10:00Z",
+  "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board-phase2.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/92e2da75-961c-4ce3-a765-9e00686c6bb2, and the same URL is re-rendered and updated after every board change so the owner link stays live. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back. The phase 1 board and its artifact are untouched and stay live at their own URL.",
+  "doctrine": "A board claim is never truth on its own. The evidence field carries the proof, and the acceptance field carries the check that produced it. The executor terminal updates this JSON at every checkpoint, in the same PR as the code, and bumps as_of. docs/board/validate-board.mjs must exit 0 before every commit; a commit made while the validator is red is reverted, not patched forward. GATE VOCABULARY, carried forward from phase 1 unchanged: green_self_merge means the executor self-decides and merges its own PR once the quality check is green, no approval needed. owner_merge means the card closes only when Ivan confirms the deployed screen; a green check alone never closes it. stakeholder means Mihai (the client) accepts on production. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind pr is a merged pull request number, kind journal is a commit sha or command output pasted so a stranger can re-verify, kind e2e is a named Playwright test plus the run that passed it, kind screenshot is Ivan or Mihai on-screen confirmation. SKIP-NOT-HALT: the run never stops for a question. A card that cannot proceed gets its question field filled with the structured decision-needed text (DECISION NEEDED, CONTEXT, OPTIONS, RECOMMENDATION, IMPACT IF UNANSWERED), blocked_on set to the person who owes the answer, status set to blocked, and the executor moves to the next eligible card in the same session. A recommendation is mandatory: a question without one is unfinished. DEFAULTS: every card carries a defaults field holding the pre-authorized answers to that card's expected ambiguities. When defaults covers an ambiguity the executor applies it and logs the application in notes, and does not ask. Defaults fill silence, they never override an explicit instruction in the card. ACCEPTANCE: every card names a machine-checkable acceptance line, a command with an expected exit code, a URL with expected content, or a named test. No acceptance, no ship. A card whose acceptance cannot be run yet is blocked, never shipped. MIGRATIONS: authored as supabase/migrations/NNNN_name.sql files, listed in the PR description by path, and applied by Ivan alone in the Supabase SQL editor. No terminal in this repo ever connects to a database. A card whose acceptance needs an APPLIED migration is set blocked_on ivan with the apply request written into question. A migration file is never edited after it has been applied; a correction is a new numbered file. SECRETS: environment variable names only. Values never appear in chat, in this board, in a commit, in a log or in tool output. /Users/ivan/rc-secrets is out of bounds for reads. ELIGIBILITY: a card is eligible when status is todo, every id in depends_on belongs to a shipped card, and blocked_on is null. The executor takes the lowest-id eligible card. The full standing rules are in CLAUDE.md at the repo root.",
+  "lanes": [
+    {
+      "id": "launch_gate",
+      "order": 1,
+      "title": "LAUNCH GATE",
+      "note": "The launch-readiness conditions for phase 2, each pass or fail, nothing else. Readiness = passed / denominator, counted never estimated. Phase 2 starts at 0 of 9: nothing real exists yet."
+    },
+    {
+      "id": "blocked_on_people",
+      "order": 2,
+      "title": "BLOCKED ON PEOPLE",
+      "columns": [
+        "ivan",
+        "andre",
+        "client"
+      ],
+      "note": "One column per person who can owe an answer. THESE IDS ARE THE ALLOWED VALUES OF card.blocked_on - the validator reads them from here. Answer latency = now - last_checkpoint, made visible. ivan is the owner and the only person who applies migrations, rotates credentials and connects the domain. andre owns the Make.com extraction contract. client is Rapid Construct, and Mihai is the person who signs off."
+    },
+    {
+      "id": "in_flight",
+      "order": 3,
+      "title": "IN FLIGHT"
+    },
+    {
+      "id": "rodica_batch",
+      "order": 4,
+      "title": "REVIEW BATCH (IVAN)",
+      "note": "The owner change-wave inbox: everything Ivan asks to change during a batch review lands here as cards, and the executor works the wave as one pass instead of taking corrections one by one. THE LANE ID IS FIXED AS rodica_batch and cannot be renamed - the validator and the board app both pin the exact lane-id set. Only the title changed."
+    },
+    {
+      "id": "incidents",
+      "order": 5,
+      "title": "INCIDENTS"
+    },
+    {
+      "id": "loose_ends",
+      "order": 6,
+      "title": "LOOSE ENDS"
+    },
+    {
+      "id": "shipped",
+      "order": 7,
+      "title": "SHIPPED",
+      "collapsed": true,
+      "note": "Collapsed by default, count only, expandable."
+    }
+  ],
+  "launch_gate": {
+    "denominator": 9,
+    "readiness_passed": 0,
+    "source_note": "drafted by strategy chat, approved by Ivan 2026-08-25",
+    "conditions": [
+      {
+        "id": "G1",
+        "title": "G1: Auth live on production: two accounts, owner and account manager, role-gated",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-02 has landed and two real accounts exist in Supabase Auth on the production project: one owner, one account_manager. Role-gating is proven, not claimed: the account_manager account is signed in on production and the settings route refuses it. Accounts are created by Ivan in the Supabase dashboard, there is no signup page."
+      },
+      {
+        "id": "G2",
+        "title": "G2: Product catalog real in Supabase with categories, units, RLS enforced",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-03 has landed and the catalog screen reads and writes the Supabase products, categories and units tables on production with no mock fallback for products. RLS enforced means an unauthenticated request returns zero rows and a write from a role without permission is refused at the database, not only hidden in the UI."
+      },
+      {
+        "id": "G3",
+        "title": "G3: Inbound orders real: manual entry and document upload, arrival flips stock via batches",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-04 has landed. Both paths in are real: an order typed by hand and an order carrying an uploaded document in the private rc-docs bucket. Marking an order Arrived creates its batches, and stock moves as the sum of those batches. status_history carries a row for every status change."
+      },
+      {
+        "id": "G4",
+        "title": "G4: AI extraction live end to end per the Andre contract: upload, Make, callback, review, confirm",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-08 and P2-09 have both landed and one real document has travelled the whole path on production: uploaded, signed URL fired to Make, callback verified and stored as a draft, draft reviewed and edited on screen, confirm creating a real inbound order. Depends on the webhook contract Andre confirms."
+      },
+      {
+        "id": "G5",
+        "title": "G5: Outbound real: searchable dropdowns, stock decrements, statuses tracked",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-05 has landed. The outbound form reads live products through the searchable combobox, issuing decrements stock, the issue carries Awaiting shipment then Shipped, and each transition writes a status_history row. Issuing above available stock is refused with a Romanian message."
+      },
+      {
+        "id": "G6",
+        "title": "G6: Dashboard and lifecycle board compute from the real database",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-06 has landed and every number on the dashboard and the lifecycle board is computed from Supabase at request time. The mock data module is deleted from the repository, not merely unused: the grep in the P2-06 acceptance is what proves it."
+      },
+      {
+        "id": "G7",
+        "title": "G7: Reminders fire a Resend email when stock crosses a product threshold",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-10 has landed and one real email has been delivered from a real threshold crossing on production. The mocked test proves the logic; this gate needs the live send, which needs RESEND_API_KEY in the production environment."
+      },
+      {
+        "id": "G8",
+        "title": "G8: Client domain connected on Vercel production with HTTPS",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "Closes when P2-12 has landed and Ivan has connected the client domain in Vercel. Proof is the production URL answering 200 over HTTPS with a valid certificate, and auth redirects landing on that domain rather than the vercel.app host."
+      },
+      {
+        "id": "G9",
+        "title": "G9: Mihai completes one full cycle himself on production: upload, confirm, arrival, outbound",
+        "state": "fail",
+        "blocked_on": null,
+        "evidence": null,
+        "notes": "The phase 2 acceptance gate, and the only one no terminal can close. Closes when P2-14 records Ivan reporting that Mihai personally uploaded a document, confirmed the extraction, marked the order arrived and issued material outbound, on production, without a terminal driving the screen."
+      }
+    ]
+  },
+  "cards": [
+    {
+      "id": "P2-01",
+      "title": "Schema migration 0001 authored: every phase 2 table, the owner|account_manager role enum, and RLS on every table.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMAND: `test -f supabase/migrations/0001_phase2_schema.sql && npx tsc --noEmit` exits 0. The file must exist at that exact path and the repository must still typecheck clean.",
+      "defaults": "UNITS: the unit enum is the phase 1 mock set, m2, lm, pcs, bag, kg, roll, m3, and nothing else. The stored enum values are those English tokens; the Romanian display labels the phase 1 UI already uses (m2, lm, buc, sac, kg, rola, m3) stay in the presentation layer as a lookup, because UI copy is Romanian and stored enum values are not UI copy. CURRENCY: the currency enum is EUR, RON, MDL. No FX rates and no runtime conversion; a stored total in a stored currency, exactly as phase 1 did it. NAMING: snake_case for every table, column, enum, index and constraint. Tables plural, columns singular, foreign keys named <referenced_table_singular>_id, timestamps created_at and updated_at, primary keys uuid with gen_random_uuid(). SHAPES: when a column is ambiguous, mirror the phase 1 mock data shapes in lib/mock/types.ts field for field rather than inventing a better model. The phase 1 screens are the specification and they already read those shapes. MONEY: numeric(14,2), never float. QUANTITIES: numeric(14,3), because m2 and m3 are fractional. SOFT DELETE: every catalog-like table carries active boolean not null default true. RLS: deny by default, then grant. Read policies are to authenticated only; write policies are role-checked against profiles.role. If a table's write rule is not obvious, owner writes and account_manager reads, and log that choice in notes.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The foundation card. Authors ONE SQL file and nothing else: no client, no queries, no screens. Tables: products, categories, units, inbound_orders, order_lines, batches, outbound_issues, outbound_lines, status_history, reminders, profiles. profiles carries the role enum with exactly two values, owner and account_manager, and is keyed on the Supabase auth.users id. RLS is ENABLED on every one of those tables, with authenticated-only read policies and role-checked write policies. A table without RLS enabled is the defect this card exists to prevent, so the file ends with an explicit ALTER TABLE ... ENABLE ROW LEVEL SECURITY line per table, grouped and commented, so a reader can count them against the table list. Stock is NOT a column. Stock is the sum of a product's batches, per the P2-04 default, so no products.stock column is created here. NO TERMINAL CONNECTS TO A DATABASE. This card produces a file. EXIT STATE, MANDATORY: this card ships on its own acceptance (file present, tsc clean) under green_self_merge, and in the SAME PR the executor sets this card's blocked_on to ivan and pastes the following into question, verbatim, with the file path corrected if it differs: 'DECISION NEEDED: apply migration 0001 in the Supabase SQL editor. CONTEXT: supabase/migrations/0001_phase2_schema.sql is authored and merged. No terminal in this repo may connect to a database, so the migration is unapplied until Ivan runs it. P2-02 cannot start against a schema that does not exist. OPTIONS: (a) Ivan opens the Supabase SQL editor on the eu-west-1 project, pastes the file whole and runs it once; (b) Ivan runs it in pieces, which risks a partial schema if a statement fails mid-file. RECOMMENDATION: (a), the file is written to run as one transaction and is idempotent-safe to re-read but not to re-run, so run it once and confirm the table count. IMPACT IF UNANSWERED: P2-02 through P2-14 are all downstream. The entire phase is stopped.' The executor then moves to the next eligible card, which at that point is none, so the session ends with the apply request outstanding. That is the correct outcome, not a failure."
+    },
+    {
+      "id": "P2-02",
+      "title": "Supabase Auth wired: Romanian email and password login, middleware protecting every route, profiles.role read into the session, account_manager refused at settings.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P2-01"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMANDS: `npm run build` exits 0, and `npx playwright test tests/e2e/auth.spec.ts` exits 0 locally. auth.spec covers: login with the owner account succeeds; login with a wrong password shows the Romanian error; an unauthenticated request to a protected route redirects to login; the account_manager account is refused at the settings route.",
+      "defaults": "NO SIGNUP PAGE. Accounts are created by Ivan in the Supabase dashboard and the corresponding profiles row is inserted by hand. A public signup route on an internal warehouse tool is a way in for strangers, not a feature. There is no password reset screen either in this card; Ivan resets from the dashboard. SESSION: use the supabase-js ssr package defaults for cookie handling and refresh. Do not hand-roll refresh timing, do not store tokens in localStorage, do not lengthen the default session lifetime. ROUTE PROTECTION: middleware denies by default and allows an explicit list (the login route, static assets, the auth callback). A new route is protected because it is new, not because someone remembered to add it. ROLE READ: profiles.role is read once per request in middleware and passed down; do not re-query it in every component. UNAUTHENTICATED: redirect to the login route, never render a shell with empty data. AUTHENTICATED BUT WRONG ROLE: a Romanian 403 screen, not a redirect loop and not a silent blank. COPY: all login copy Romanian with diacritics, including the Supabase error strings, which are English by default and must be mapped.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "Everything after this card assumes a signed-in user with a known role, so it comes before any real screen. Two accounts exist for the whole phase: one owner, one account_manager, both created by Ivan. This card needs migration 0001 APPLIED, because profiles and the role enum must exist before auth can read a role. If the migration is not applied when this card is picked up, the executor sets status blocked, blocked_on ivan, fills question with the apply request per the doctrine, and moves on. That is the migration rule working, not a stall. Closes gate G1 once two accounts exist on production and the account_manager is visibly refused at settings. Deliberately not done: password reset UI, magic links, OAuth, MFA, invite flows."
+    },
+    {
+      "id": "P2-03",
+      "title": "Products CRUD real: catalog, categories and units read and written against Supabase, the mock layer removed for products.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-02"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/products.spec.ts` exits 0. products.spec covers: the catalog lists rows from the database; creating a product persists it and it survives a reload; editing a product persists; deactivating removes it from the picker and leaves it in history; a duplicate SKU is refused with a Romanian message.",
+      "defaults": "SOFT DELETE ONLY. Deactivating sets active=false. Nothing is ever hard deleted, because a product referenced by a historical batch or order line cannot disappear without making that history unreadable. Inactive products stay visible in historical records and disappear from pickers. VISUAL DESIGN IS FROZEN. The phase 1 screens were approved by the owner and demonstrated to the client. This card swaps the data source and touches nothing else: same layout, same tokens, same Romanian copy, same column order. A redesign here is out of scope even if something looks improvable, and becomes a REVIEW BATCH (IVAN) card instead. UNIT IS FIXED PER PRODUCT and is not editable after the product has any batch or line referencing it, because changing it would silently reinterpret every stored quantity. SKU is unique and required. Category is required. Threshold defaults to 0. WRITES: owner writes; account_manager reads. If the owner asks for account_manager writes later, that is a new card. VALIDATION errors surface in Romanian, inline on the field, never as a raw Postgres message.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The first screen that stops lying. Products, categories and units come from Supabase and the mock module is removed FOR PRODUCTS only; other screens keep reading the mock until their own card lands, which is why the repo-wide deletion is P2-06 and not this card. Closes gate G2 once Ivan confirms the catalog on production and RLS is proven: an unauthenticated read returns zero rows and a write from a role without permission is refused at the database rather than merely hidden in the UI. Gate is owner_merge: green CI does not close this card, Ivan looking at the deployed screen does."
+    },
+    {
+      "id": "P2-04",
+      "title": "Inbound real: manual order entry, document upload to the private rc-docs bucket, Pending arrival and Arrived, arrival creating batches and moving stock, status_history on every change.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-03"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/inbound.spec.ts` exits 0. inbound.spec covers: a manually entered order persists with its lines; a document uploads and is retrievable only through a signed URL; marking an order Arrived creates one batch per line and raises the computed stock by exactly the arrived quantities; a second Arrived click creates no extra batch; every transition wrote a status_history row.",
+      "defaults": "STOCK IS A COMPUTED BATCH SUM. There is no denormalised stock counter anywhere, in any table, at any point. Current stock is the sum of that product's batch quantities minus what outbound has issued, computed in a view or a query, never cached in a column. A counter and a sum disagree eventually, and when they do the warehouse trusts the wrong one. If performance ever demands a cache, that is a new card with its own reconciliation check, not a quiet column added here. PARTIAL ARRIVALS ARE OUT OF SCOPE. Whole-order statuses only, as in phase 1. If the client asks for partial arrivals during this card, log the request as a new card in REVIEW BATCH (IVAN) and keep building whole-order. BUCKET: rc-docs, PRIVATE. Never public, never a public URL. Documents are reached through a short-lived signed URL generated server side. Path convention inbound/<order_id>/<original_filename>. ACCEPTED FILES: pdf, png, jpg. Max 10 MB. Anything else is refused in Romanian before upload starts. ARRIVAL IS IDEMPOTENT: marking an already-Arrived order Arrived again creates no second batch. STATUS HISTORY: every transition writes a row carrying the order, the from-status, the to-status, the acting user id and the timestamp. A status that changes without a history row is a defect. STATUS LABELS stay the phase 1 Romanian strings, In asteptare and Receptionata, spelled with their proper diacritics in the code.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The inbound half of the real system, and the card the AI pipeline later feeds into, which is why P2-08 depends on it: the extraction has to have something real to create. Two ways in, both real: an order typed by hand, and an order carrying an uploaded document. The upload here stores the file and nothing more; no extraction, no webhook, no Make. That is P2-08. Closes gate G3 once Ivan confirms on production that an order can be entered, a document attached, and arrival visibly moves stock. Deliberately not done: partial arrivals, supplier management screens, purchase pricing history, multi-warehouse."
+    },
+    {
+      "id": "P2-05",
+      "title": "Outbound real: searchable dropdowns over live products, issuing decrements stock, Awaiting shipment and Shipped tracked with history rows.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-04"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/outbound.spec.ts` exits 0. outbound.spec covers: the product combobox filters live database products and matches without diacritics; a valid issue persists and lowers computed stock by exactly the issued quantity; a quantity above available stock is refused with the Romanian message; marking Shipped writes a status_history row.",
+      "defaults": "OVERDRAW IS BLOCKED, NOT WARNED. An issue line whose quantity exceeds available stock is refused at submit with a Romanian message naming the available quantity and its unit, for example 'Stoc insuficient: disponibil 68 m3'. Phase 1 warned per line; phase 2 refuses, because phase 2 writes. The check runs server side as well as in the form, because a client-side-only check is not a check. AVAILABLE STOCK is read at submit time inside the same transaction as the write, so two simultaneous issues cannot both pass a stale check. COMBOBOX: reuse components/ui/Combobox.tsx from phase 1 unchanged, including its portal rendering and its diacritics-insensitive filtering. Do not build a second dropdown. UNIT is taken from the product and is not editable on the line, as in phase 1. SALE PRICE stays optional; blank renders as the phase 1 'fara pret' string with its diacritics. ISSUE-TO-PROJECT, not a retail sale: client name and project name, as phase 1 established. PARTIAL SHIPMENTS ARE OUT OF SCOPE, whole-issue statuses only. STATUS LABELS stay the phase 1 Romanian strings, In asteptare expediere and Expediata.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The outbound half, and the card that proves the stock model works in both directions: P2-04 raises stock through batches, this lowers it through issues, and both read the same computed sum. Closes gate G5 once Ivan confirms on production that issuing material visibly lowers stock and the statuses track. Deliberately not done: partial shipments, delivery notes, printed documents, returns."
+    },
+    {
+      "id": "P2-06",
+      "title": "Dashboard and lifecycle board computed from the real database, and the mock data module deleted repo-wide.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-04",
+        "P2-05"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMANDS, all three: `grep -rn \"@/lib/mock\" app components lib` exits 1 (no match, meaning no file imports the mock module any more); `npm run build` exits 0; `npx playwright test tests/e2e/dashboard.spec.ts` exits 0. dashboard.spec covers the five dashboard blocks against seeded rows, and the same screens against an empty database with no console error and no NaN on screen.",
+      "defaults": "EMPTY STATES ARE ROMANIAN AND DELIBERATE. Phase 2 starts with an empty database and no migration from any old system, so a fresh install shows zero rows on every screen. Every block gets an explicit Romanian empty state that reads as a working system with nothing in it yet, for example 'Niciun produs in catalog. Adauga primul produs.' and not a blank panel. ZERO ROWS MUST NOT ERROR. No division by a count that can be zero, no [0] on an empty array, no chart that throws on an empty series, no 'NaN' or 'Infinity' reaching the screen. Total stock value on an empty database is 0, displayed as 0 with its currency label, not blank. COMPUTED AT REQUEST TIME on the server, from the database, one query set shared by the dashboard blocks so no two blocks can disagree. Nothing is hardcoded: the phase 1 run shipped a hardcoded product count by accident and that is exactly what this card forbids. LOW STOCK is defined as current stock at or below the product threshold, the phase 1 definition, unchanged. DISPLAY CURRENCY for total stock value stays MDL with its label, as phase 1 established.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The card where the preview stops existing. lib/mock is DELETED from the repository, not left unused: an unused mock module is a fallback someone re-imports at 2am. The grep in the acceptance is what proves the deletion, which is why it is a command and not a promise. Both screens land together because they read the same numbers; splitting them would let the dashboard and the lifecycle board disagree for a whole card. Closes gate G6. Gate is owner_merge: Ivan confirms the deployed dashboard, including what it looks like with nothing in it, because that is the state the client first sees. The two fabricated phase 1 PDF fixtures move under the test fixtures directory rather than being deleted with the mock module: P2-08 and P2-09 need documents to upload."
+    },
+    {
+      "id": "P2-07",
+      "title": "Playwright end to end wired into the quality workflow: auth plus the core cycle against local dev with seeded test data.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P2-02"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "CI CHECK: the `quality` workflow run on this card's own PR contains an e2e step that executes the Playwright suite and the whole run concludes success. Proven by the run URL for the PR head sha, recorded as the card evidence.",
+      "defaults": "CHROMIUM ONLY, HEADLESS. One browser, one project in the Playwright config. Firefox and WebKit triple the CI minutes to re-prove the same application logic on a desktop-only internal tool. TEST DATA IS NEVER DELETED. Seeded rows carry a cancelled flag convention: a boolean or status value marking the row as test data, set on creation and never removed. Teardown marks, it does not delete, because a DELETE written for a test database is a DELETE that eventually runs against a real one. This convention is documented in the seed script header and in docs/LEARNINGS.md. SEED IDS ARE DETERMINISTIC AND PREFIXED so a human reading the database can tell test rows from real ones at a glance. THE CHECK NAME STAYS `quality`. The e2e run is a STEP inside the existing quality job, never a second job and never a second workflow, because branch protection names exactly one check and adding a second one silently makes it non-required. SECRETS: CI runs against local dev with a local or test Supabase configuration read from environment variable names. No production credential ever reaches a workflow file. FLAKE POLICY: no retries. A retried test hides a race, and a race in a stock system is a wrong number in a warehouse. A flaky test is fixed or deleted, never retried.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The card that makes every later acceptance line mean something. Before this lands, a named test is a file someone ran once locally; after it lands, a named test is a gate on every PR. Scope is the harness plus auth and the core cycle: sign in, create an inbound order, mark it arrived, issue it outbound. Later cards add their own spec files to the same suite. AFTER MERGE IVAN ADDS NOTHING. No new required check, no branch protection edit, no repository setting. The check name stays `quality` precisely so the protection rule set up for phase 1 keeps working untouched. Say this in the PR description so nobody goes looking for a setting to change. Depends only on P2-02 rather than on the later cards, so the harness exists before the cards that need it, not after."
+    },
+    {
+      "id": "P2-08",
+      "title": "Upload pipeline server side: signed document URL, webhook fired to MAKE_WEBHOOK_URL with X-RC-Secret, callback endpoint verifying MAKE_CALLBACK_SECRET, extraction stored as a draft order.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P2-04"
+      ],
+      "blocked_on": "andre",
+      "question": "DECISION NEEDED: Andre confirms the Make.com webhook contract sent 2026-08-25. CONTEXT: the outbound request shape, the callback payload shape, the two shared secrets and their header names were sent to Andre on 2026-08-25 and are unconfirmed. This card writes both ends of that contract, so building against an unconfirmed shape risks writing a parser for a payload Make will never send. OPTIONS: (a) build exactly to the contract as sent, behind a single payload adapter module, and adjust that one module if Andre comes back with changes; (b) wait for confirmation before starting, which idles the card and everything downstream of it; (c) build a schema-loose parser that accepts several shapes, which hides a mismatch until production. RECOMMENDATION: (a). The contract as sent is the specification until Andre says otherwise, the adapter keeps the blast radius to one file, and the mocked pipeline.spec proves the logic regardless of which shape wins. IMPACT IF UNANSWERED: P2-08 and P2-09 are buildable and testable mocked, so nothing stops. Only gate G4, which needs a real document through the real Make scenario, stays fail.",
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/pipeline.spec.ts` exits 0 with a mocked Make endpoint. pipeline.spec covers: uploading a document fires a webhook carrying a signed URL and the X-RC-Secret header; a callback with the correct MAKE_CALLBACK_SECRET stores a draft; a callback with a wrong secret is answered 401 and stores nothing; no callback within the timeout marks the extraction failed with a reason; the retry control re-fires the webhook.",
+      "defaults": "TIMEOUT IS 60 SECONDS. If no callback has arrived 60 seconds after the webhook fired, the extraction is marked failed with a reason string stored on the record and shown in Romanian on screen. A request that hangs forever looks identical to a request that is still working, and the operator cannot tell. RETRY IS A BUTTON, NEVER AUTOMATIC. A failed extraction shows a retry control on the order. No auto-retry, no exponential backoff, no background requeue: an automatic retry against a third-party scenario that charges per operation spends the client's money without anyone deciding to. SECRETS BY NAME ONLY: MAKE_WEBHOOK_URL, MAKE_CALLBACK_SECRET, X-RC-Secret is the outbound header name. Values are never read, logged or echoed. The callback endpoint compares the incoming secret in constant time and answers 401 without a body on a mismatch. THE CALLBACK IS UNAUTHENTICATED BY USER and therefore trusts nothing but the secret: validate the payload shape before touching the database, and never let it write anything but a draft. SIGNED URLS are short-lived, 15 minutes, single document, generated server side. A DRAFT IS NOT AN ORDER. The extraction lands in a draft record that no stock logic reads. Only P2-09's confirm turns a draft into a real inbound order. PAYLOAD ADAPTER: all shape knowledge lives in one module, so a contract change is one file.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "Server side only. No review screen, no confirm, no visual work: that is P2-09. This card is the plumbing and its proof. BLOCKED ON ANDRE AT AUTHORING TIME because the contract is unconfirmed. Per the skip-not-halt rule the card carries its question and its recommendation, and the executor works other cards until Andre answers or Ivan rules. If Ivan rules 'proceed as sent', clear blocked_on, log the ruling in notes, and build. Feeds gate G4 together with P2-09. G4 needs a real document through the real Make scenario, so it cannot flip on the mocked test alone."
+    },
+    {
+      "id": "P2-09",
+      "title": "Review and confirm flow: the draft extraction fills the review form, the operator edits, confirm creates the real inbound order.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-08"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/review.spec.ts` exits 0. review.spec covers: a stored draft prefills the review form; every field is editable and edits survive to the created order; confirm creates exactly one inbound order with its lines; a second confirm creates no second order; an unmatched product name produces a new product flagged needs_review rather than attaching to a similar existing SKU.",
+      "defaults": "UNMATCHED PRODUCT NAMES CREATE NEW PRODUCTS, FLAGGED FOR REVIEW. NEVER A SILENT MERGE. An extracted line naming something not in the catalog creates a product marked needs_review, with the extracted text preserved, and the operator resolves it. Fuzzy-matching a supplier's wording onto an existing SKU is how a warehouse silently books 400 m2 of the wrong tile, and nobody finds out until a roof is short. Never auto-merge on similarity, at any threshold. THE REVIEW FORM IS THE PHASE 1 MONEY SCREEN. Same component, same layout, same Romanian copy, same visual weight. It is the screen that sold the project and it is not redesigned here. EVERYTHING IS EDITABLE before confirm: supplier, currency, dates, every line, quantity and price. The extraction is a suggestion, not an authority. CONFIRM IS THE ONLY WRITE. Until confirm, nothing exists but the draft. Confirm is idempotent: a double click creates one order. A REJECTED DRAFT IS MARKED, NOT DELETED, so a bad extraction stays diagnosable. UNITS AND CURRENCY come from the catalog product and the order, never from free text in the extraction.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The visible half of the AI feature and the screen the client judges the whole system by. Phase 1 simulated this with a scripted delay and hand-written fixtures; phase 2 fills the same form from a real extraction. Closes gate G4 together with P2-08, once one real document has travelled the whole path on production: uploaded, fired to Make, callback verified, draft reviewed, confirm creating a real order. Gate is owner_merge, and this is the card where that matters most: Ivan looks at the screen, because the acceptance test can prove the data is right and cannot prove the screen still sells."
+    },
+    {
+      "id": "P2-10",
+      "title": "Reminders real, with a Resend email sent when a product crosses its threshold, checked at every stock mutation.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-05"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/reminders.spec.ts` exits 0 with Resend mocked. reminders.spec covers: an outbound issue that takes stock below a threshold triggers exactly one send; a further issue below the threshold triggers none; an arrival above the threshold re-arms and the next crossing sends again; a send failure is recorded and does not roll back the stock mutation.",
+      "defaults": "ONE EMAIL PER PRODUCT PER CROSSING, RE-ARMED WHEN STOCK RISES BACK ABOVE THE THRESHOLD. The reminder records that it fired; it does not fire again while stock stays below. When an arrival lifts stock above the threshold the reminder re-arms and may fire again on the next crossing. Without this a warehouse that sits under threshold for a week sends one email per outbound line and the operator filters the sender. CHECKED AT EVERY STOCK MUTATION, in the same path that writes the mutation: arrivals, issues, and any future adjustment. No cron, no scheduled job, no Inngest, no Twilio. SENDER is the Resend onboarding domain until the client domain lands, then it moves. That move is a one-line environment change and is noted on P2-12, not a new card. RECIPIENTS: the owner account email. Per-user notification preferences are out of scope. A FAILED SEND NEVER BLOCKS THE STOCK MUTATION. The mutation commits, the send failure is recorded on the reminder with its reason and shown on the reminders screen. Stock truth outranks email delivery. EMAIL BODY IS ROMANIAN, naming the product, its SKU, the current stock with its unit, and the threshold. RESEND_API_KEY is referenced by name only.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The phase 1 screen showed thresholds and a fired-alerts list with toggles that sent nothing and said so. This card makes the sending real. RESEND_API_KEY IS PENDING and this card does not wait for it: the whole card is buildable, testable and shippable with Resend mocked, which is what the acceptance line checks. The card goes blocked_on ivan ONLY at live-send verification, meaning the moment gate G7 needs one real delivered email from a real crossing on production. Everything up to that point proceeds. Feeds gate G7, which needs the live send and therefore stays fail until the key exists. Deliberately not done: SMS, per-user preferences, digest emails, escalation."
+    },
+    {
+      "id": "P2-11",
+      "title": "Production hardening: security headers, an environment presence check at boot, Romanian 404 and 500 pages, and no console errors on any screen.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-06",
+        "P2-07",
+        "P2-09",
+        "P2-10"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMANDS: `npm run build` exits 0, and `npx playwright test tests/e2e/headers.spec.ts` exits 0. headers.spec covers: each required security header is present on a production-mode response; the 404 route renders the Romanian page; a forced 500 renders the Romanian page; and a walk of every authenticated screen records zero console errors.",
+      "defaults": "NEXT.JS HARDENING DEFAULTS, NO EXPERIMENTAL FLAGS. Use the framework's documented header and security configuration. Do not enable experimental options, do not hand-roll a CSP nonce pipeline, do not add a security middleware library. An experimental flag on the release build of a client's first production system is a bet with someone else's business. HEADERS: at minimum Strict-Transport-Security, X-Content-Type-Options nosniff, X-Frame-Options DENY or an equivalent frame-ancestors directive, and Referrer-Policy. A Content-Security-Policy is included only if it can be proven not to break the app; a CSP that silently blocks a script is worse than none, so if it cannot be verified in this card, log it as a follow-up card rather than shipping it untested. ENV PRESENCE CHECK: the application fails loudly at boot when a required environment variable is missing, naming the MISSING VARIABLE NAME and nothing else. It never prints a value, never prints a partial value, and never prints the length of a value. 404 AND 500 ARE ROMANIAN and carry a link back into the app. NO CONSOLE ERRORS means zero, on every screen, in a production build. A warning is triaged; an error is fixed or the screen does not ship.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The last card before the system carries real data, and the reason it depends on all four feature-complete cards: hardening a moving target means re-doing it. Deliberately not done: a WAF, rate limiting, audit logging, penetration testing. Those are worth doing and none of them are this card; if the owner wants them, they are new cards."
+    },
+    {
+      "id": "P2-12",
+      "title": "App-side domain readiness: canonical URL environment variable and auth redirects that land on the production domain.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-11"
+      ],
+      "blocked_on": "ivan",
+      "question": "DECISION NEEDED: connect the client domain in Vercel and confirm HTTPS. CONTEXT: the application side of this card is buildable now, but the acceptance line is the production URL answering 200 over HTTPS, which requires the domain to be added to the Vercel project and its DNS to resolve. No terminal in this repo touches Vercel settings or DNS. OPTIONS: (a) Ivan adds the domain in the Vercel project settings and points the DNS records Vercel shows, then confirms the certificate has issued; (b) the client's own IT points the DNS, which adds a hop and a wait but keeps registrar access where it already is. RECOMMENDATION: (a) if Ivan holds registrar access, otherwise (b). Either way Ivan confirms the certificate and reports the final domain, because the canonical URL environment variable and the Supabase Auth redirect allowlist both have to be set to that exact host. CLICK STEPS ON REQUEST: say the word and the exact Vercel and DNS click path is written out, screen by screen. IMPACT IF UNANSWERED: gate G8 stays fail and P2-13 and P2-14 stay blocked behind it, which means the client acceptance cycle cannot start.",
+      "acceptance": "URL CHECK: after Ivan connects the domain, `curl -sS -o /dev/null -w \"%{http_code}\" https://<client-domain>/` prints 200 over a valid certificate, and signing in from that host lands back on that host rather than on the vercel.app one.",
+      "defaults": "CANONICAL URL LIVES IN ONE ENVIRONMENT VARIABLE and every absolute URL in the application is built from it: auth redirects, callback URLs, email links, metadata. Nothing hardcodes a vercel.app host and nothing infers the host from a request header, because a forwarded host header is attacker-controlled. AUTH REDIRECT ALLOWLIST in Supabase must name the production domain. That is a dashboard setting Ivan makes, and it is listed in the handover text of this card so it is not discovered as a login failure later. THE OLD vercel.app HOST KEEPS WORKING and is not redirected away in this card; breaking it while the new domain settles would remove the only working way in. RESEND SENDER: once the domain is verified in Resend, the P2-10 sender moves off the onboarding domain. That is an environment change, not a code change, and is done here rather than as a new card. www AND APEX both resolve, with one canonical and the other redirecting to it. Ivan chooses which is canonical; if he does not say, apex is canonical.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "Split deliberately: the application side is code and ships under this card, the domain connection is Ivan in the Vercel dashboard and is what the card is blocked on. Closes gate G8. BLOCKED ON IVAN AT AUTHORING TIME because the acceptance cannot run before the domain exists. The executor may still write and merge the application-side code while blocked, leaving the card blocked rather than shipped until the URL check passes."
+    },
+    {
+      "id": "P2-13",
+      "title": "Credential firewall flip before real data: the rotation checklist authored as a committed document and executed by Ivan.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "owner_merge",
+      "depends_on": [
+        "P2-12"
+      ],
+      "blocked_on": "ivan",
+      "question": "DECISION NEEDED: execute the credential rotation checklist and tick every box in the committed document. CONTEXT: during the build, terminals held credentials in order to build. Before Rapid Construct puts real supplier data and real stock into the system, every credential a terminal ever held is rotated and the terminals stop holding any. This is the point where I lose access on purpose. Only Ivan can perform it: it requires the Supabase and Vercel dashboards. OPTIONS: (a) rotate everything on the checklist in one sitting, immediately before the client starts entering real data; (b) rotate progressively as each service finishes, which leaves a window where some old keys are still live and nobody can say which. RECOMMENDATION: (a). One sitting, one checklist, every box ticked in the committed document so the state is recorded rather than remembered. Do it after P2-12 and before P2-14, so Mihai's acceptance cycle is the first real data the system sees. IMPACT IF UNANSWERED: real client data would sit behind credentials that a build terminal once held. That is the one risk in this phase with no technical mitigation, only this checklist.",
+      "acceptance": "COMMAND: the checklist document is committed and every box is ticked, proven by `grep -c \"^- \\[ \\]\" docs/RUNBOOK-CREDENTIAL-ROTATION.md` printing 0 while `grep -c \"^- \\[x\\]\" docs/RUNBOOK-CREDENTIAL-ROTATION.md` prints the full item count. An unticked box is an unfinished card.",
+      "defaults": "THE CHECKLIST IS A COMMITTED DOCUMENT WITH REAL CHECKBOXES, not a chat message. Ivan ticks boxes in the file and commits, so the completion state is in the repository rather than in someone's memory. ROTATE AT MINIMUM: SUPABASE_SERVICE_ROLE_KEY and VERCEL_TOKEN. Also listed for Ivan's decision: the Supabase anon key, the database password, MAKE_CALLBACK_SECRET, X-RC-Secret and RESEND_API_KEY, because each was handled during the build. REMOVE TERMINAL-HELD COPIES: local .env files, shell history entries, scratchpad files and any value pasted into a chat. The checklist names each location explicitly so none is forgotten. IVAN-ONLY FROM THEN ON: after the flip, no terminal holds a production credential, ever, for any reason. A card that needs one is blocked on Ivan instead. TEST DATA ROWS ARE MARKED CANCELLED, NOT DELETED, per the P2-07 convention. The checklist includes verifying that every seeded test row carries the cancelled flag before real data arrives. THE DOCUMENT NEVER CONTAINS A CREDENTIAL VALUE, only variable names, locations and steps.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The card that hands the system over. Two halves: the executor authors the checklist document, Ivan executes it and ticks the boxes. The executor cannot execute it and must not try. Ordered after P2-12 and before P2-14 on purpose: the domain is live, the system is hardened, and the first real data to enter is Mihai's acceptance cycle, behind rotated credentials. BLOCKED ON IVAN AT AUTHORING TIME. The document half can be written and merged while blocked; the card ships only when the boxes are ticked."
+    },
+    {
+      "id": "P2-14",
+      "title": "Mihai acceptance: one full cycle completed by Mihai himself on production, upload, confirm, arrival, outbound.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "stakeholder",
+      "depends_on": [
+        "P2-13"
+      ],
+      "blocked_on": "client",
+      "question": "DECISION NEEDED: Mihai runs one full cycle himself on production, unassisted, and Ivan reports the outcome. CONTEXT: this is the phase 2 acceptance gate and the only card no terminal can close. The cycle is four steps in order: upload a real supplier document, confirm the extraction on the review screen, mark the resulting order arrived, then issue material outbound to a project. Unassisted means nobody drives the screen for him and nobody narrates the next click. OPTIONS: (a) Mihai runs the cycle alone with Ivan available but silent, which is what acceptance means; (b) Ivan walks him through it, which proves the system works for Ivan and proves nothing about Mihai. RECOMMENDATION: (a). Every place Mihai hesitates is a real defect in the product and becomes a REVIEW BATCH (IVAN) card, which is worth more than a smooth guided demo. IMPACT IF UNANSWERED: gate G9 stays fail and phase 2 does not close. Every other card can be green and the phase is still open, because the phase is finished when the client can run it, not when the tests pass.",
+      "acceptance": "NAMED REPORT: Ivan reports that Mihai completed all four steps himself on production, on a stated date. That report is recorded as this card's evidence, kind screenshot, with the date and the four steps named in the ref. Gate G9 flips on that report and on nothing else.",
+      "defaults": "UNASSISTED MEANS UNASSISTED. No screen sharing with narration, no terminal driving the browser, no click-by-click instructions. Ivan may be present to observe and to unblock a hard stop. REAL DATA, NOT SEEDED. Mihai uses one of his own supplier documents and his own products, because the failure modes of a real document are the point. EVERY HESITATION BECOMES A CARD in REVIEW BATCH (IVAN), even where Mihai completed the step. A step completed after ten seconds of searching is a defect that succeeded. PARTIAL COMPLETION DOES NOT FLIP THE GATE. Three of four steps is a fail with three cards attached, not a pass with a caveat. IF THE CYCLE FAILS the card stays blocked, the defects become cards, they are worked, and Mihai runs the cycle again. There is no version of this card that closes on anything less.",
+      "last_checkpoint": "2026-08-25",
+      "evidence": null,
+      "notes": "The last card of phase 2. Gate is stakeholder: client acceptance at phase end, per the gate vocabulary carried from phase 1. Closes gate G9, which is the gate the whole phase exists to flip. BLOCKED ON CLIENT AT AUTHORING TIME, and it stays that way until the other thirteen cards are shipped, the domain is live and the credentials are rotated. Nothing about this card is buildable; it is a scheduled event with a written pass condition."
+    }
+  ]
+}

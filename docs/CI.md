@@ -10,9 +10,13 @@ Steps:
 3. `npm ci`
 4. `npx tsc --noEmit`
 5. `npm run build`
-6. `node docs/board/validate-board.mjs docs/board/rc-board.json`
+6. `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json`
 
 The branch protection status check name is exactly `quality`.
+
+Both boards are validated in one step, inside that one job. Phase 2 adds
+cards, it does not add a check: a second job would not be required by
+branch protection and would therefore not block anything.
 
 ## No lint step
 

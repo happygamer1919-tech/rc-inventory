@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 const BOARD_NAMES = [
   'PROJECT - Board Name',
   'RC-INVENTORY - Phase 1 Preview',
+  'RC-INVENTORY - Phase 2 Build',
 ];
 
 const LANE_IDS = [
@@ -33,6 +34,24 @@ const CARD_PRIORITIES = ['high', 'medium', 'low'];
 const CARD_HOME_LANES = ['in_flight', 'rodica_batch', 'incidents', 'loose_ends'];
 const CARD_GATES = ['green_self_merge', 'cyan_clear', 'owner_merge', 'owner_authorizo', 'stakeholder'];
 const EVIDENCE_KINDS = ['pr', 'journal', 'sha256', 'e2e', 'screenshot'];
+
+// Boards that carry the phase 2 PLANNING CONTRACT on top of the base card
+// contract above: `defaults`, `acceptance`, `depends_on` and `question` on
+// every card, plus the rule that a blocked card must name both the question and
+// the person who owes the answer.
+//
+// Keyed on the board NAME on purpose, rather than applied to every board.
+//
+// The phase 1 board shipped 13 cards without those fields and is closed at 9/9.
+// Retro-fitting a contract onto a finished board would turn a true historical
+// record red for a rule it was never authored under, and the first thing anyone
+// would do is edit the history to make the validator quiet. Name-keying is also
+// STRICTER than the obvious alternative, "enforce each field only when it is
+// present": that version lets a phase 2 card silently drop `acceptance` and
+// still pass, which is exactly the failure the contract exists to stop.
+const PLANNING_CONTRACT_BOARDS = [
+  'RC-INVENTORY - Phase 2 Build',
+];
 
 const INFRA = 'infra';
 
@@ -81,6 +100,10 @@ function validateBoard(board) {
   if (!BOARD_NAMES.includes(board.board)) {
     fail(`board: ${JSON.stringify(board.board)} is not a known board name. Allowed: ${list(BOARD_NAMES)}.`);
   }
+
+  // Does this board carry the phase 2 planning contract? Read once, here, so
+  // every rule below reads the same answer.
+  const planning = PLANNING_CONTRACT_BOARDS.includes(board.board);
 
   // --- lanes ----------------------------------------------------------------
   let peopleColumns = [];
@@ -170,6 +193,10 @@ function validateBoard(board) {
   }
 
   const seenCardIds = new Set();
+  // id -> the depends_on array as authored, collected during the pass and
+  // resolved afterwards, because a card may legally depend on a card declared
+  // later in the array.
+  const dependsOn = new Map();
 
   board.cards.forEach((card, i) => {
     const where = `cards[${i}]`;
@@ -250,7 +277,111 @@ function validateBoard(board) {
     if (card.lane !== derived) {
       fail(`${at}.lane: is derived and must be ${JSON.stringify(derived)} (from status=${JSON.stringify(card.status)}, home_lane=${JSON.stringify(card.home_lane)}, blocked_on=${JSON.stringify(blockedOn)}), found ${JSON.stringify(card.lane)}.`);
     }
+
+    // --- phase 2 planning contract -------------------------------------------
+    if (!planning) return;
+
+    // defaults: the pre-authorized answers to this card's expected ambiguities.
+    // Empty defaults is not a neutral omission, it is a card that will halt on
+    // the first question, which is the failure mode this field was added to fix.
+    if (!isNonEmptyString(card.defaults)) {
+      fail(`${at}.defaults: must be a non-empty string. A card with no defaults halts on its first ambiguity, which is what defaults exist to prevent.`);
+    }
+
+    // acceptance: the machine-checkable proof line. No acceptance, no ship.
+    if (!isNonEmptyString(card.acceptance)) {
+      fail(`${at}.acceptance: must be a non-empty string naming a command with an expected exit code, a URL with expected content, or a named test.`);
+    }
+
+    // question: null when nothing is being asked, otherwise the structured
+    // decision-needed text. An empty string is neither, and reads on the board
+    // as "asked but blank".
+    if (!(card.question === null || isNonEmptyString(card.question))) {
+      fail(`${at}.question: must be null or a non-empty string, found ${JSON.stringify(card.question)}.`);
+    }
+
+    // depends_on: the eligibility edges. Existence and acyclicity are checked
+    // after the pass, once every id is known.
+    if (!Array.isArray(card.depends_on)) {
+      fail(`${at}.depends_on: must be an array of card ids (use [] for no dependencies), found ${JSON.stringify(card.depends_on)}.`);
+    } else {
+      if (!card.depends_on.every(isNonEmptyString)) {
+        fail(`${at}.depends_on: every entry must be a non-empty card id string.`);
+      }
+      if (new Set(card.depends_on).size !== card.depends_on.length) {
+        fail(`${at}.depends_on: duplicate ids.`);
+      }
+      if (isNonEmptyString(card.id) && card.depends_on.includes(card.id)) {
+        fail(`${at}.depends_on: a card cannot depend on itself.`);
+      }
+      if (isNonEmptyString(card.id)) {
+        dependsOn.set(card.id, card.depends_on.filter(isNonEmptyString));
+      }
+    }
+
+    // A blocked card owes the board both halves: what is being asked, and who
+    // owes the answer. Either half missing is a card that stalls the run with
+    // nobody able to act on it.
+    if (card.status === 'blocked') {
+      if (!isNonEmptyString(card.question)) {
+        fail(`${at}: status=blocked requires a non-null question carrying the structured decision-needed text and a recommendation.`);
+      }
+      if (blockedOn === null) {
+        fail(`${at}: status=blocked requires blocked_on to name who owes the answer, found null.`);
+      }
+    }
   });
+
+  // --- depends_on graph: existence, then acyclicity --------------------------
+  // Both are deferred to here because forward references are legal: P2-01 may be
+  // authored after P2-02 depends on it.
+  if (planning) {
+    for (const [id, deps] of dependsOn) {
+      for (const dep of deps) {
+        if (!seenCardIds.has(dep)) {
+          fail(`cards (${id}).depends_on: ${JSON.stringify(dep)} is not a card id on this board.`);
+        }
+      }
+    }
+
+    // Three-colour DFS. A cycle is a set of cards that can never become
+    // eligible: each one waits on another one in the set, forever. The board
+    // would show work remaining and no next card, with nothing marked blocked.
+    const WHITE = 0;
+    const GREY = 1;
+    const BLACK = 2;
+    const colour = new Map([...dependsOn.keys()].map((id) => [id, WHITE]));
+    const reported = new Set();
+
+    const report = (cycle) => {
+      // Canonicalise by rotating the smallest id to the front, so the same
+      // cycle found from two different entry points is reported once.
+      const min = cycle.indexOf([...cycle].sort()[0]);
+      const rotated = [...cycle.slice(min), ...cycle.slice(0, min)];
+      const key = rotated.join('>');
+      if (reported.has(key)) return;
+      reported.add(key);
+      fail(`cards.depends_on: dependency cycle ${[...rotated, rotated[0]].join(' -> ')}. Every card in a cycle waits on another card in the same cycle, so none can ever become eligible.`);
+    };
+
+    const walk = (id, path) => {
+      colour.set(id, GREY);
+      for (const dep of dependsOn.get(id) ?? []) {
+        // Unknown ids are already reported above; following them would throw.
+        if (!dependsOn.has(dep)) continue;
+        if (colour.get(dep) === GREY) {
+          report(path.slice(path.indexOf(dep)));
+        } else if (colour.get(dep) === WHITE) {
+          walk(dep, [...path, dep]);
+        }
+      }
+      colour.set(id, BLACK);
+    };
+
+    for (const id of dependsOn.keys()) {
+      if (colour.get(id) === WHITE) walk(id, [id]);
+    }
+  }
 
   return violations;
 }
