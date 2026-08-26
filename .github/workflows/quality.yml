@@ -62,6 +62,50 @@ jobs:
       - name: Check the category vocabulary
         run: npm run check:categories
 
+      # CRIT-15, static half. Proves nothing in CI points at production in the
+      # first place, and that the guard is still wired into the suite. Deleting
+      # the globalSetup line would disable the guard everywhere and break
+      # nothing visibly, so that line is asserted here.
+      - name: Check CI targets no production project
+        run: npm run check:no-prod-target
+
+      # CRIT-15, runtime half. THE GUARD'S REFUSAL, EXERCISED ON THE CI PATH.
+      #
+      # CRIT-11 built the guard and proved six exit paths locally. In CI only
+      # its PASS path had ever run, because CI always resolves to a local
+      # stack. A green run proved the guard does not block a legitimate suite
+      # and proved nothing about whether it would stop an illegitimate one.
+      #
+      # This step hands the guard a production ref and asserts it refuses with
+      # exit 2. The ref is already public and already committed in
+      # scripts/production-refs.mjs, so this needs no secret and adds no
+      # exposure.
+      #
+      # IT RUNS THE GUARD DIRECTLY AND NOT THE PLAYWRIGHT SUITE. Running the
+      # suite against a production URL to watch it refuse would write rows if
+      # the guard had already broken, which is the one outcome this card
+      # exists to prevent. The guard is a separate process; asserting its exit
+      # code is the whole proof.
+      - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
+        run: |
+          set -uo pipefail
+          REF="$(node -e "import('./scripts/production-refs.mjs').then(m => console.log(m.PRODUCTION_REFS[0]))")"
+          if [ -z "$REF" ]; then
+            echo "no production ref available to test the refusal against"
+            exit 1
+          fi
+          echo "handing the guard https://$REF.supabase.co and expecting exit 2"
+          set +e
+          NEXT_PUBLIC_SUPABASE_URL="https://$REF.supabase.co"           SUPABASE_URL="https://$REF.supabase.co"             node scripts/assert-not-prod.mjs
+          CODE=$?
+          set -e
+          if [ "$CODE" -ne 2 ]; then
+            echo "GUARD DID NOT REFUSE: expected exit 2, got $CODE"
+            echo "The suite could reach the client's production project."
+            exit 1
+          fi
+          echo "guard refused with exit 2, as required"
+
       # ----------------------------------------------------------------------
       # End to end, P2-07.
       #
