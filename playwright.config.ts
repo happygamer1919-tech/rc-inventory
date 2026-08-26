@@ -39,7 +39,18 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 // aceeasi origine de la care serverul raspunde.
 const BASE_URL = `http://localhost:${PORT}`;
 
+// CRIT-11. PAZA IMPOTRIVA PRODUCTIEI, inainte de orice test.
+//
+// Suita scrie date. In CI scrie intr-un stack local si asta este corect, dar
+// local citeste .env.local, care a aratat catre proiectul de productie: fiecare
+// rulare locala a scris randuri reale in baza pe care o vede clientul. Se vedea
+// pe ecran, /inventar raporta 128 de produse active aproape toate de la teste.
+//
+// globalSetup, nu un fixture: un spec nou este pazit fiindca este nou, nu
+// fiindca cineva si-a amintit sa adauge o linie in el.
+
 export default defineConfig({
+  globalSetup: "./tests/e2e/global-setup.ts",
   testDir: "./tests/e2e",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

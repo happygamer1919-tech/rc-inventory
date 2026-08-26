@@ -569,3 +569,37 @@ writing, with the old text preserved. And a role-gated application needs its
 screen sweep run once per role: the account_manager screens here had never been
 checked for console errors at all, and a wave-boundary review is not a
 substitute for a test.
+
+### CRIT-11: the test suite was writing into the client's production database
+**Tag:** ci
+**ERROR:** The Playwright suite runs green in CI against a local Supabase stack,
+which is exactly what P2-07 built and it works. Run LOCALLY the same suite reads
+`.env.local`, which pointed at the production project, so every local run wrote
+real rows into the database production serves. It was visible on the client
+domain: `/inventar` reported 128 active products and the first screen was
+entirely e2e residue, `TEST-DASH-*`, `TEST-diacritic-*`, names like "Produs
+tablou mt8ztoqf", under a single category called `TEST-Categorie`. Row counts at
+the time of the review: products 296, inbound_orders 177, batches 129,
+status_history 354. G9 asks Mihai to complete a full cycle on production himself,
+on that screen.
+**SOLUTION:** `scripts/assert-not-prod.mjs`, run from Playwright's `globalSetup`
+so no spec can opt out, refusing the whole run when the environment points at a
+production project ref. Three design rules, each for a specific failure mode, and
+two of them were only proved right by testing the paths rather than the happy
+case. The blocklist lives in a committed file rather than in the environment,
+because a ref is already public in the browser bundle and an environment-sourced
+list would be disabled by an empty environment; an empty blocklist exits 3
+rather than passing, because a guard that allows everything when its list is
+empty is worse than no guard; and both `NEXT_PUBLIC_SUPABASE_URL` and
+`SUPABASE_URL` are checked, because a guard that reads one is bypassed by setting
+the other. TWO BUGS THIS CARD SHIPPED WITH AND CAUGHT BEFORE MERGE, both found by
+running every exit path instead of only the refusal. First, the presence check
+originally required a parseable `<ref>.supabase.co` host, so the local stack at
+`http://127.0.0.1:54321` fell into the empty-environment branch and would have
+blocked CI on every run; presence now means "a URL is set at all". Second,
+`global-setup.ts` used `import.meta.url` to locate the script, and Playwright
+loads that file as CommonJS, so it threw "Cannot use 'import.meta' outside a
+module" before ever calling the guard. The run still exited non-zero, so a
+careless check would have recorded it as the refusal working. RULE: a guard is
+tested on every branch it can take, not on the one you built it for. An exit code
+that is right for the wrong reason is the most expensive kind of green.
