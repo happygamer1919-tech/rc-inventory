@@ -843,3 +843,31 @@ merge commit answers "did our protection fail" in one query, and the answer
 governs whether anything else matters. RULE: never date an event you have not
 timed. "It happened after X" is a claim, and in a report about client data it is
 the claim the whole finding rests on.
+
+### CRIT-15: proving a refusal in CI without letting the suite reach production
+**Tag:** ci
+**ERROR:** No defect. Recorded because the obvious way to prove the guard works
+in CI is the dangerous one, and the reasoning is worth keeping. The instinct is
+to point the Playwright suite at a production URL in a CI step and assert the
+run fails. That test is exactly as safe as the guard it is testing: if the guard
+has already broken, which is the single scenario the card exists to detect, the
+suite starts and writes rows into the client's project. The test would then
+report the defect by causing it.
+**SOLUTION:** run the guard as its own process and assert its exit code.
+`node scripts/assert-not-prod.mjs` with a production ref in the environment must
+exit 2, and the step fails the job on anything else. Nothing else starts, no
+browser launches, no client connects, and the proof is identical because the
+guard is the thing under test. The ref needed no secret: it is already committed
+in `scripts/production-refs.mjs` and already public in every browser bundle, and
+the comment there explains why.
+The static half is separate and both are required: one check proves the guard
+refuses, the other proves nothing in the workflow points at production in the
+first place. A future edit has to defeat both, one to make CI target production
+and another to stop the guard noticing.
+The static half also asserts the single line that makes the guard exist at all,
+`globalSetup` in `playwright.config.ts`. Deleting it disables the guard for
+every spec and breaks nothing visibly, so it was proved to fail on a copy with
+that line removed.
+RULE: to test a safety mechanism, exercise the mechanism, not the disaster it
+prevents. If your proof requires the unsafe thing to actually be attempted, you
+have written a test that is only safe while it is unnecessary.
