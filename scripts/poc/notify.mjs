@@ -278,16 +278,37 @@ function buildDigest() {
 async function send(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
+  const ownerId = process.env.TELEGRAM_OWNER_ID;
 
-  if (!token || !chatId) {
-    console.error(
-      "FATAL: " +
-        (!token ? "TELEGRAM_BOT_TOKEN" : "TELEGRAM_CHAT_ID") +
-        " is not set. Nothing sent."
-    );
+  if (!token) {
+    console.error("FATAL: TELEGRAM_BOT_TOKEN is not set. Nothing sent.");
+    return 1;
+  }
+  if (!chatId && !ownerId) {
+    console.error("FATAL: neither TELEGRAM_CHAT_ID nor TELEGRAM_OWNER_ID is set. Nothing sent.");
     return 1;
   }
 
+  const primary = chatId || ownerId;
+  const result = await sendTo(token, primary, text);
+
+  // A digest is worth more than a tidy configuration. If the configured chat is
+  // unreachable but the owner is, deliver it anyway and say loudly that the
+  // configuration is wrong, rather than losing the night's report to a stale id.
+  if (result.notFound && ownerId && String(ownerId) !== String(primary)) {
+    console.error(
+      "WARNING: TELEGRAM_CHAT_ID is unreachable (chat not found). Falling back\n" +
+        "to TELEGRAM_OWNER_ID so this digest is not lost. TELEGRAM_CHAT_ID is\n" +
+        "stale and should be corrected; this fallback is a safety net, not a fix."
+    );
+    const retry = await sendTo(token, ownerId, text);
+    return retry.code;
+  }
+
+  return result.code;
+}
+
+async function sendTo(token, chatId, text) {
   let response;
   try {
     response = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
@@ -303,7 +324,7 @@ async function send(text) {
     // The caught error is deliberately not printed: a fetch failure can carry
     // the request URL, and the request URL carries the token.
     console.error("FATAL: the Telegram request did not complete. Nothing sent.");
-    return 1;
+    return { code: 1, notFound: false };
   }
 
   let payload;
@@ -311,7 +332,7 @@ async function send(text) {
     payload = await response.json();
   } catch {
     console.error("FATAL: Telegram replied with HTTP " + response.status + " and no JSON.");
-    return 1;
+    return { code: 1, notFound: false };
   }
 
   if (!payload.ok) {
@@ -337,7 +358,7 @@ async function send(text) {
               "Fix: add the bot to the chat and send one message there."
       );
     }
-    return 1;
+    return { code: 1, notFound: String(payload.description || "").includes("chat not found") };
   }
 
   // message_id and date are the delivery proof. chat.id is deliberately not
@@ -351,7 +372,7 @@ async function send(text) {
       ", date " +
       new Date((message.date || 0) * 1000).toISOString()
   );
-  return 0;
+  return { code: 0, notFound: false };
 }
 
 // ---------------------------------------------------------------------------
