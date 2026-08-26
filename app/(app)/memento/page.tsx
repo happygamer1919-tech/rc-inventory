@@ -34,7 +34,7 @@ export default async function RemindersPage() {
     <>
       <PageHeader
         title="Memento stoc"
-        lead="Pragul de recomandă al fiecărui produs și stocul curent alături. Alertele se trimit din P2-10."
+        lead="Pragul de recomandă al fiecărui produs și stocul curent alături. Emailul pleacă la prima mișcare de stoc care coboară produsul sub pragul lui."
         actions={<Chip tone="warn">{low.length} sub prag</Chip>}
       />
 

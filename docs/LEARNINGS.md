@@ -619,10 +619,16 @@ pinning the words: the page must not mention a card id at all, and the alerts
 card must render exactly one of its two states, the row list or the empty
 state, never both and never neither. It no longer assumes WHICH state, so it
 does not quietly depend on what the tests before it left in the database.
+The rewrite then failed on its first run, and it was right to. The page header
+still read "Alertele se trimit din P2-10" one card above the list, so the screen
+went on advertising unbuilt work after the work was built. The original
+assertion could never have caught that: it only ever looked at the empty state
+inside the alerts card, and the stale sentence was outside it.
 RULE: an assertion on placeholder copy is an assertion with an expiry date, and
 it expires on the card named in the copy. Assert the property the screen must
 have (it shows one state, it does not advertise unbuilt work), not the sentence
-it currently uses to have it.
+it currently uses to have it. The property-shaped version covers the whole page
+instead of the one element somebody remembered to pin.
 
 ### P2-10: what a local Supabase port collision costs, and what it does not
 **Tag:** infra
