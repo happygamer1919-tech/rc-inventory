@@ -299,6 +299,54 @@ here so the ruling is on file and the next session does not re-ask.
 **Also changes:** nothing in this repository.
 **Supersedes:** none.
 
+### R-006 - the Telegram owner id may be written to the secrets file, and is not a credential
+**Date:** 2026-08-26
+**Asked on:** the POC build dispatch, step 5 (`scripts/poc/inbox.mjs`)
+**Answer, verbatim:**
+> R-006: POC-BUILDER may append exactly one line TELEGRAM_OWNER_ID=<numeric id>
+> to /Users/ivan/rc-secrets/phase2.env, read from the from.id of Ivan's messages
+> in getUpdates. A Telegram user id is not a credential. No other edit to that
+> file. Values of TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID never printed.
+
+**Ruled by:** strategy, 2026-08-26, relayed to POC-BUILDER in the session dispatch.
+
+**Ruling:** The inbox reader needs to know which Telegram account is Ivan, because
+it accepts rulings from exactly one sender and ignores every other message. That
+sender is identified by `from.id`, a numeric Telegram user id. A user id is a
+public identifier: it is visible to any chat participant, it authenticates
+nothing on its own, and it grants no access if disclosed. It is therefore
+written in the clear, named `TELEGRAM_OWNER_ID`, and it lives in
+`/Users/ivan/rc-secrets/phase2.env` for one reason only: that is the file the
+POC run already sources, so the reader gets it without a second secret path.
+
+This is a **narrow, one-line write grant, not a read grant**. Specifically:
+
+- POC-BUILDER may append **exactly one line**, `TELEGRAM_OWNER_ID=<numeric id>`,
+  and nothing else. No other line in that file is added, edited, reordered or
+  removed.
+- The value is obtained from the `from.id` field of a message Ivan sent to the
+  bot, read through `getUpdates`.
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` remain values that are never
+  printed, never logged, never committed and never placed in tool output.
+  CLAUDE.md section 7 is otherwise untouched: the file is still sourced with
+  `set -o allexport` and never catted, grepped or displayed.
+- The grant covers writing the id. It does not license reading anything else in
+  that file, and it does not extend to any other file under
+  `/Users/ivan/rc-secrets`.
+
+**Fail-closed consequence.** Until that line exists, `scripts/poc/inbox.mjs`
+accepts **no** message from anyone. An unset `TELEGRAM_OWNER_ID` is not treated
+as "accept everything"; it is treated as "accept nothing, and log why". That is
+the behaviour that makes an unauthenticated Telegram group safe to read from: a
+stranger who messages the bot cannot become the owner by being first.
+
+**Unblocks:** nothing on the board. It authorises step 5 of the POC build, which
+is outside the card backlog.
+**Also changes:** `CLAUDE.md` gains a POC section that restates the fail-closed
+rule, so a session that never reads this file still refuses unknown senders.
+**Supersedes:** none. It sits alongside R-001 and R-007 as a narrow, named
+exception to section 7 rather than a change to it.
+
 ### R-007 - R-001 stands, with a one-shot read granted for migration 0006
 **Date:** 2026-08-26
 **Asked on:** P2-10, gate G7
