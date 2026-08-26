@@ -330,15 +330,19 @@ async function main() {
 
   log("accepted " + accepted.length + ", ignored " + ignored);
 
-  if (accepted.length === 0) {
-    if (updates.length > 0) await clearOffset(updates);
-    return 0;
-  }
-
+  // A dry run inspects and reports. It must not acknowledge the offset either:
+  // acknowledging consumes the update on Telegram's side, so a dry run that
+  // cleared it would destroy the very message the real run was meant to act on.
   if (dryRun) {
     for (const a of accepted) {
       log("would rule on " + a.verdict.cardId + " (" + a.verdict.form + "): " + a.text);
     }
+    log("dry run, offset not acknowledged, nothing written");
+    return 0;
+  }
+
+  if (accepted.length === 0) {
+    if (updates.length > 0) await clearOffset(updates);
     return 0;
   }
 
