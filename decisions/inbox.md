@@ -71,7 +71,8 @@ Read off the board, not maintained by hand. As of 2026-08-26:
 | P2-13 | ivan | Execute the credential rotation checklist and tick every box in the committed document. |
 | P2-14 | client | Mihai runs one full cycle himself on production, unassisted. |
 | P2-15 | ivan | Run `scripts/reset-test-data.sql` on production, or rule that the e2e residue stays. Nine DELETE statements quoted verbatim on the card. Recommendation on the card: run it, once, after P2-12 and before the first real data. |
-| G7 | ivan | Apply `supabase/migrations/0006_reminder_recipients.sql` to the RC project. Not a card: a launch gate condition. The EXECUTOR holds the R-001 apply grant but the harness classifier denied the permitted secrets read, so no connection was attempted. Either grant the terminal that read, or apply the file in the Supabase SQL editor. It contains no DROP, no TRUNCATE and no DELETE, and CI replays it on every run. |
+| ~~G7 (0006)~~ | ~~ivan~~ | **Closed 2026-08-26.** Migration 0006 was already applied when EXECUTOR reached the pre-check under R-007. Not re-applied, verified read-only instead: the function exists, SECURITY DEFINER, search_path pinned, no PUBLIC and no anon in its ACL, one recipient returned, and the public function count is 9 against the CRITIC baseline of 8. Who applied it is not recorded: the journal table has no timestamp and no actor column. |
+| G7 (live send) | ivan | Still open, and now three things rather than two. `RESEND_API_KEY` present in the PRODUCTION Vercel environment; one real delivered email from a real crossing; and a REAL recipient address. `owner_reminder_recipients()` returns exactly one address today and it is on `rc-inventory.local`, the seeded dev account on a domain that does not exist, so a crossing on production would address nobody. The real accounts are created at P2-13. |
 
 The three steps that blocked the board on 2026-08-25 are all done. Ruling R-001
 delegated them, and they were executed the same day:
