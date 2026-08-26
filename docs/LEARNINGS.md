@@ -710,3 +710,67 @@ the first absolute URL, which is the reminder sender switch or the metadata
 work in P2-11. RULE: an unread environment variable is not neutral. It goes
 stale silently and the next reader believes it. Build the variable at the first
 consumer, and until then write down why there is none.
+
+### A dispatch that names a tool or path this repo does not have is a halt, not an improvise
+**Tag:** ci
+**ERROR:** A session dispatch instructed the migration apply as "run
+check-pending-migrations.mjs, apply with drizzle-kit migrate inside a
+transaction, print the journal entry, confirm the journal timestamp is forward
+of 0005". None of that exists here. There is no
+`scripts/check-pending-migrations.mjs`. There is no drizzle: not in
+`package.json`, not in `node_modules`, not as a directory. There is no drizzle
+journal, and `supabase_migrations.schema_migrations` carries `version`,
+`statements` and `name` with no timestamp column at all, so the timestamp
+comparison it asked for could not be performed on any file. The dispatch was
+describing a different project's mechanics.
+The failure mode this invites is the dangerous one: improvise something
+drizzle-shaped, report it in the vocabulary the dispatch used, and hand back a
+report that reads as though the requested procedure ran. Nobody would catch it,
+because the report would match the instruction word for word.
+**SOLUTION:** verify the named mechanics against the repo BEFORE executing, and
+when they are absent, say so in the report and run the procedure this repo
+actually documents. Here that was CLAUDE.md section 8.5: pre-check with literal
+counts, apply in one transaction, post-check the table list with RLS state,
+policy counts and enums, journal all three into the card evidence. The
+pre-check is also what caught that 0006 had already been applied by someone
+else, which a `drizzle-kit migrate` invented on the spot would have missed.
+RULE: an instruction naming a tool, path or table is a claim about the repo,
+and a claim about the repo is checkable. Check it, then execute. Substituting a
+lookalike and reporting in the requested vocabulary is worse than halting,
+because it destroys the reader's ability to tell the two apart.
+
+### Never delete a remote branch without asserting the merge actually landed
+**Tag:** ci
+**ERROR:** An ad-hoc merge loop closed pull requests #29 and #30 and deleted
+their branches while reporting them merged. They were not merged: both show
+`state CLOSED, mergedAt never`. The work survived only because it was pushed
+again and re-landed as #32 and #33. Had nobody noticed, two steps of the POC
+would have been deleted from the remote with the board recording them as
+shipped, and the loss would have surfaced days later as code that the history
+says exists and the tree does not contain.
+The harness `merge_when_green` path never had this bug. The ad-hoc loop was
+written to move faster than it, and the thing it skipped was the assertion.
+**SOLUTION:** use the harness merge path. When a merge must be driven by hand,
+the delete is conditional on proof, never on the exit code of the merge command:
+read back `mergedAt` (or the merge commit sha) and only then remove the branch.
+`gh pr merge --delete-branch` reports success for the close-and-delete even when
+the merge itself did not happen. RULE: deletion is the one step with no undo, so
+it is the one step that gets a separate assertion. Prove the thing landed by
+reading the state back, not by trusting the command that was supposed to land it.
+
+### A dry run must never acknowledge a Telegram update offset
+**Tag:** infra
+**ERROR:** The Telegram inbox reader consumes updates with `getUpdates`, and
+`getUpdates` is destructive by design: passing an `offset` acknowledges every
+update below it and the server will never send them again. A dry-run inspection
+that calls it with an offset therefore does not inspect the inbox, it empties
+it. The messages are gone, no error is raised, and the next real run finds a
+clean queue and reports that there was nothing to answer.
+**SOLUTION:** a dry run reads without acknowledging: call `getUpdates` with no
+offset, or with the offset the previous real run already committed, and never
+advance the stored offset. Only the real path advances it, and only after the
+messages have been processed and persisted. RULE: read-only means read-only at
+the level of the REMOTE system, not at the level of your own filesystem. An API
+call that mutates server-side cursor state is a write however little it changes
+locally, and "dry run" is a promise to the operator about their data, not a
+description of your intent.

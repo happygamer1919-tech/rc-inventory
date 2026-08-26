@@ -508,3 +508,202 @@ POC build.
 **Also changes:** nothing in `CLAUDE.md`. Section 7 stands; this is a named,
 one-line, one-time exception to it in the same shape as R-006.
 **Supersedes:** none. It sits alongside R-006.
+
+### R-012 - R-007 superseded, the secrets read is granted for the whole board until P2-13
+**Date:** 2026-08-26
+**Asked on:** the whole board
+**Answer, verbatim:**
+> R-011: R-007 superseded. EXECUTOR is granted a read of
+> /Users/ivan/rc-secrets/phase2.env for any card on this board while the
+> environment holds zero real client data. Values never printed. Grant expires
+> at P2-13, not per task. Per-task scoping was an authoring error.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**NUMBERED R-012, NOT R-011.** The dispatch asked for this to be R-011, and
+R-011 was already taken: POC-BUILDER committed "R-011 - TELEGRAM_CHAT_ID was
+stale, and POC-BUILDER was authorised to correct it" earlier the same day, in
+PR #34. This file's own rule is that an old ruling is never edited, so the four
+rulings in this dispatch are shifted by one and the mapping is written into each
+of them. Dispatch R-011 to R-015 are committed here as R-012 to R-016.
+
+**Ruling:** R-007 is superseded. Its grant was scoped to a single task, the
+apply of migration 0006, and expired the moment that migration was journalled.
+That scoping is now recorded as an authoring error: it made every later card
+that needs the environment a fresh authorisation request, and the cost of
+asking repeatedly is that the asking stops being read.
+
+The grant is now **board-wide and time-bounded**: EXECUTOR reads
+`/Users/ivan/rc-secrets/phase2.env` for any card on this board, for as long as
+the environment holds **zero real client data**. Values are never printed, never
+logged, never written to a committed file, never pasted into a board field and
+never included in tool output. Variable names may be written freely.
+
+**The expiry is P2-13 and nothing else.** Not per task, not per session, not per
+card. P2-13 is where the credential firewall flips because that is where real
+client data starts existing, which is the condition the grant rests on. CLAUDE.md
+section 8.7 already requires P2-13's checklist to revoke it, and that requirement
+is unchanged.
+
+**Unblocks:** nothing directly. It removes a per-task authorisation step from
+every card that needs the environment.
+**Also changes:** nothing in `CLAUDE.md`. Section 8.3 already describes the read
+and its rules; this ruling widens which cards may perform it and fixes the
+expiry.
+**Supersedes:** R-007.
+
+### R-013 - EXECUTOR deviations 1 to 8 ratified, and the journal gap folds into P2-11
+**Date:** 2026-08-26
+**Asked on:** the EXECUTOR report of 2026-08-26
+**Answer, verbatim:**
+> R-012: EXECUTOR deviations 1-8 from the 2026-08-26 report ratified. The
+> reset-SQL check asserts every mutating statement is a DELETE, exactly nine,
+> all WHERE-guarded, single BEGIN/COMMIT. Migration journal carrying no actor or
+> timestamp is folded into P2-11, not a separate card.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+**Numbered R-013, not R-012.** See the note in R-012.
+
+**Ruling:** All eight deviations flagged in the 2026-08-26 EXECUTOR report are
+ratified as a set. Two carry consequences worth stating on their own.
+
+**The reset-SQL check keeps the assertions it actually implements.** The check
+was requested as "statement count is 9, every statement is a DELETE"; the file
+parses to eighteen statements because it opens a transaction, builds four
+temporary tables, prints a pre-check, runs the nine deletes, prints two
+post-checks and commits. The ratified assertion set is the implemented one:
+**every statement that can mutate data is a DELETE, exactly nine of them, every
+one WHERE-guarded, inside a single BEGIN and COMMIT.** The requested wording is
+superseded, not the requested intent.
+
+**The migration journal has no actor and no timestamp**, so the project cannot
+say who applied any migration or when. Migration 0006 was found already applied
+by an unidentified actor and that gap is why. It is **folded into P2-11 as an
+apply-log requirement, not raised as a separate card**: P2-11 is production
+hardening and an unauditable apply path is a hardening defect, not a feature.
+
+**Unblocks:** nothing. It closes eight open flags.
+**Also changes:** P2-11 gains the apply-log requirement in its acceptance and
+defaults. P2-15's notes already carry the implemented assertion set.
+**Supersedes:** the requested wording of the reset-SQL assertions.
+
+### R-014 - extraction contract v2 accepted, with three amendments
+**Date:** 2026-08-26
+**Asked on:** P2-08, P2-09
+**Answer, verbatim:**
+> R-013: extraction contract v2 accepted. Andre's changes a through l ratified
+> with three amendments: category follows the unit and currency pattern
+> (category_raw verbatim plus nullable mapped category against our controlled
+> list); order_id is the idempotency key, upsert never append; failed and
+> partial both require a visible document state with reason and a re-fire
+> control. Absent is null, never empty string, never zero. Callback response
+> codes: 202 accepted, 200 duplicate, 400 rejected, 401 bad secret, 5xx
+> retryable.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+**Numbered R-014, not R-013.** See the note in R-012.
+
+**Ruling:** Andre's extraction contract v2, changes (a) through (l), is
+accepted, with three amendments and two global rules. It is frozen as
+`docs/contracts/extraction-v2.md` in this PR, and P2-08 and P2-09 are rewritten
+against it.
+
+**Amendment 1, category follows the unit and currency pattern.** The callback
+carries `category_raw` verbatim as the document said it, and a nullable
+`category` mapped against our controlled list. Never one field doing both jobs:
+a mapped value that silently replaces what the document said destroys the only
+evidence of what was extracted.
+
+**Amendment 2, `order_id` is the idempotency key. Upsert, never append.** A
+callback that arrives twice for the same `order_id` replaces the stored
+extraction; it never creates a second one. Retries are expected, and a contract
+without an idempotency key turns each retry into a duplicate draft order.
+
+**Amendment 3, `failed` and `partial` both require a visible document state**
+carrying the reason and a re-fire control that re-posts with the same
+`order_id`. A failure the operator cannot see is a document that sits in the
+system looking pending forever.
+
+**Absent is `null`. Never an empty string, never zero.** An empty string is a
+value that was extracted and was blank; a zero is a quantity or a price. Both
+are lies about what the document contained, and both are indistinguishable from
+real data downstream.
+
+**Callback response codes are fixed:** `202` accepted, `200` duplicate, `400`
+rejected, `401` bad secret, `5xx` retryable. Make retries on `5xx` and does not
+retry on `4xx`, so the split is what decides whether a bad payload is retried
+forever or dropped once.
+
+**ONE AMENDMENT IS NOT IMPLEMENTABLE AS WRITTEN TODAY, and this is recorded
+rather than worked around.** Amendment 1 says the mapped `category` is validated
+"against our controlled list". **There is no controlled category list.** `unit`
+and `currency` are PostgreSQL enums (`unit_code`, `currency_code`) and are
+genuinely controlled; `categories` is a rows table with a unique name and no
+seed, and migration 0001 says it is deliberately unseeded because the phase 1
+seven were mock data. So the contract specifies `category` as nullable and
+mapped against **the `categories` rows present at extraction time**, which is
+the only list that exists, and `category_raw` always carries the document's own
+words. If the owner wants a fixed enumerated list, that is a schema decision and
+a migration, and it is a card.
+
+**Unblocks:** nothing yet. P2-08 stays `blocked_on: andre`: this ruling settles
+what OUR side of the contract is, not that Andre has confirmed his.
+**Also changes:** P2-08 and P2-09 rewritten. `docs/contracts/extraction-v2.md`
+authored as the frozen contract.
+**Supersedes:** the v1 webhook contract sent to Andre on 2026-08-25.
+
+### R-015 - no third-party document conversion sub-processor without a ruling
+**Date:** 2026-08-26
+**Asked on:** P2-08
+**Answer, verbatim:**
+> R-014: no third-party document conversion sub-processor without an owner
+> ruling. If Make's OpenAI file input does not work, conversion is built inside
+> our own app.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+**Numbered R-015, not R-014.** See the note in R-012.
+
+**Ruling:** No third-party document conversion service is added to the pipeline
+without an owner ruling naming it. Not a PDF-to-image API, not an OCR service,
+not a file conversion endpoint, however small and however free.
+
+The reason is that a converter is a **sub-processor**: the client's supplier
+invoices pass through it, in full, and every one carries supplier names, prices
+and commercial terms. Adding one is a data-sharing decision about Rapid
+Construct's commercial information, and that decision is not an implementation
+detail an executor picks while unblocking a card.
+
+**If Make's OpenAI file input does not work, conversion is built inside our own
+app.** That is the pre-authorised path, and it needs no further ruling.
+
+**Unblocks:** nothing. It closes a path before anyone walks down it.
+**Also changes:** P2-08's defaults gain the prohibition, so the constraint is on
+the card rather than only in this file.
+**Supersedes:** none.
+
+### R-016 - POC-BUILDER deviations 1 to 6 ratified, install.sh is permanent
+**Date:** 2026-08-26
+**Asked on:** the POC-BUILDER report of 2026-08-26
+**Answer, verbatim:**
+> R-015: POC-BUILDER deviations 1-6 ratified. install.sh is permanent, not
+> provisional.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+**Numbered R-016, not R-015.** See the note in R-012.
+
+**Ruling:** All six deviations POC-BUILDER flagged are ratified as a set.
+
+**`install.sh` is permanent, not provisional.** It is the supported way the
+launchd schedule is installed and reinstalled, and it is maintained as product
+rather than kept as scaffolding to be replaced later. A provisional installer is
+one nobody updates, and the schedule it installs is the thing that runs the
+board unattended four times a day.
+
+Recorded by EXECUTOR on POC-BUILDER's behalf because the two sessions share this
+file and one dispatch carried both sets of rulings. The deviations themselves
+are POC-BUILDER's to describe; this entry ratifies them and does not restate
+them.
+
+**Unblocks:** nothing on this board.
+**Also changes:** nothing EXECUTOR owns.
+**Supersedes:** none.
