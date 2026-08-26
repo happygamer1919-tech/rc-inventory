@@ -46,6 +46,15 @@ jobs:
       - name: Validate boards
         run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json
 
+      # P2-15. The nine DELETE statements aimed at the client's production
+      # project are parsed with the real PostgreSQL grammar, here, on every
+      # push, with no database and no credentials. The card shipped saying the
+      # file was authored but unparsed; this is what closes that sentence.
+      # Eight checks, and each one was proved to fail on a mutated copy before
+      # this step was added.
+      - name: Parse the production reset SQL
+        run: npm run check:reset-sql
+
       # ----------------------------------------------------------------------
       # End to end, P2-07.
       #
