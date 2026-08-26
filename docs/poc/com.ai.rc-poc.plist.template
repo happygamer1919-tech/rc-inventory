@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  POC unattended run schedule. Four runs a day, local time.
+
+  This is the template of record. It is installed to
+  /Users/ivan/Library/LaunchAgents/com.ai.rc-poc.plist by
+  scripts/poc/install.sh, which copies it verbatim: there is no substitution
+  step and no rendered variant, so what is committed here is exactly what runs.
+
+  It carries NO secret value, by design. Every credential the run needs is read
+  by run.sh from /Users/ivan/rc-secrets/phase2.env at run time, so this file is
+  safe to commit and safe to read. The only thing it knows is a path.
+
+  Program is /Users/ivan/rc-poc-bin/run.sh and NOT the copy inside the run
+  worktree. run.sh hard resets /Users/ivan/rc-inventory-poc-run to origin/main
+  while it is running; if launchd were executing the copy in that worktree, the
+  script would be rewritten underneath its own interpreter on the first run
+  after run.sh changes on main. bash reads a script by byte offset as it goes,
+  so that corrupts execution exactly when the change is newest and least
+  expected. The stable copy is installed by scripts/poc/install.sh, which is
+  also what you re-run after changing run.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ai.rc-poc</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/ivan/rc-poc-bin/run.sh</string>
+    </array>
+
+    <!-- 22:00, 01:00, 04:00 and 07:00 local. The work happens while Ivan is
+         asleep and the digest is waiting for him when he is not. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>22</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>1</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>4</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>7</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <!-- Loading the agent must not start a run. A run starts on the schedule,
+         or when a human asks for one with launchctl kickstart. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ivan</string>
+
+    <!-- run.sh tees its own per-run log to /Users/ivan/rc-poc-logs/<run-id>.log.
+         These two catch what happens before run.sh can log anything, such as a
+         missing interpreter or a script that is not there. -->
+    <key>StandardOutPath</key>
+    <string>/Users/ivan/rc-poc-logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ivan/rc-poc-logs/launchd.err.log</string>
+
+    <!-- launchd hands over a minimal environment. run.sh sets its own PATH
+         explicitly, naming node, gh, git and claude by absolute directory, so
+         the scheduled run behaves exactly like a manual one. This entry is a
+         floor, not the source of truth. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- One run at a time. run.sh also refuses on its own lock file; this is
+         the belt to that pair of braces. -->
+    <key>AbandonProcessGroup</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
