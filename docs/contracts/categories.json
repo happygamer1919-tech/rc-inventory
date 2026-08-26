@@ -1,0 +1,81 @@
+{
+  "_comment": "Exported from the live public.categories table, read-only, after migration 0007 applied. NOT hand-written: this file records what the database actually holds. Regenerate it rather than editing it. TEST-Categorie is deliberately excluded: it is CRIT-11 e2e residue and belongs to P2-15, not to the vocabulary.",
+  "_source": "public.categories, project bwhzatwwjqmyfesfnisa, exported 2026-08-26 by EXECUTOR under ruling R-012",
+  "_authority": "Ruling R-018. A WORKING DEFAULT, not a specification: these are rows and not an enum, so Mihai may rename an entry at P2-14 with no code change and no migration.",
+  "_used_by": "docs/contracts/extraction-v2.md section 4.4, the nullable mapped category field.",
+  "count": 18,
+  "categories": [
+    {
+      "name": "Cimenturi și mortare",
+      "sort_order": 1
+    },
+    {
+      "name": "Zidărie și cărămidă",
+      "sort_order": 2
+    },
+    {
+      "name": "Betoane și agregate",
+      "sort_order": 3
+    },
+    {
+      "name": "Armături și oțel",
+      "sort_order": 4
+    },
+    {
+      "name": "Lemn și plăci",
+      "sort_order": 5
+    },
+    {
+      "name": "Izolații termice",
+      "sort_order": 6
+    },
+    {
+      "name": "Hidroizolații",
+      "sort_order": 7
+    },
+    {
+      "name": "Gips-carton și profile",
+      "sort_order": 8
+    },
+    {
+      "name": "Finisaje pereți",
+      "sort_order": 9
+    },
+    {
+      "name": "Placări ceramice și adezivi",
+      "sort_order": 10
+    },
+    {
+      "name": "Instalații sanitare",
+      "sort_order": 11
+    },
+    {
+      "name": "Instalații electrice",
+      "sort_order": 12
+    },
+    {
+      "name": "Acoperișuri și tablă",
+      "sort_order": 13
+    },
+    {
+      "name": "Feronerie și fixări",
+      "sort_order": 14
+    },
+    {
+      "name": "Scule și consumabile",
+      "sort_order": 15
+    },
+    {
+      "name": "Uși și ferestre",
+      "sort_order": 16
+    },
+    {
+      "name": "Amenajări exterioare",
+      "sort_order": 17
+    },
+    {
+      "name": "Altele",
+      "sort_order": 18
+    }
+  ]
+}

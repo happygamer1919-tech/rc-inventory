@@ -9,6 +9,7 @@
     "start": "next start",
     "test:e2e": "playwright test",
     "check:reset-sql": "node scripts/poc-free/parse-reset-sql.mjs",
+    "check:categories": "node scripts/poc-free/check-categories.mjs",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
