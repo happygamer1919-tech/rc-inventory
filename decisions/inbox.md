@@ -60,7 +60,7 @@ pasted here does not exist, because the next session cannot see it.
 
 ## Open
 
-Read off the board, not maintained by hand. As of 2026-08-25:
+Read off the board, not maintained by hand. As of 2026-08-26:
 
 | Card | Owed by | Ask |
 |---|---|---|
@@ -70,6 +70,7 @@ Read off the board, not maintained by hand. As of 2026-08-25:
 | P2-12 | ivan | Connect the client domain in Vercel and confirm HTTPS. Click steps written out on request. |
 | P2-13 | ivan | Execute the credential rotation checklist and tick every box in the committed document. |
 | P2-14 | client | Mihai runs one full cycle himself on production, unassisted. |
+| P2-15 | ivan | Run `scripts/reset-test-data.sql` on production, or rule that the e2e residue stays. Nine DELETE statements quoted verbatim on the card. Recommendation on the card: run it, once, after P2-12 and before the first real data. |
 
 The three steps that blocked the board on 2026-08-25 are all done. Ruling R-001
 delegated them, and they were executed the same day:
@@ -206,3 +207,92 @@ with a retired gate.
 **Supersedes:** the gate vocabulary carried into the phase 2 board at authoring
 time, which quoted phase 1's three gates unchanged. Phase 1's own board is
 untouched and keeps `owner_merge` on its nine shipped cards.
+
+### R-003 - CRITIC wave 1 deviations 1 to 9 ratified, wave 1 declared clean
+**Date:** 2026-08-26
+**Asked on:** the CRITIC wave 1 boundary review (`docs/reports/critic-wave1.md`), P2-13
+**Answer, verbatim:**
+> R-003: CRITIC wave 1 deviations 1-9 ratified by strategy 2026-08-26.
+> Deviation 5 (dev password in Vercel edge logs) added as a line item to P2-13
+> rotation checklist. Wave 1 declared clean, residual test data is an owner
+> decision not a defect.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** The nine deviations the CRITIC recorded at the wave 1 boundary are
+ratified as a set. None becomes a card. Wave 1 (P2-01 through P2-07, plus
+CRIT-10 through CRIT-14) is closed clean.
+
+One deviation carries an action. **Deviation 5, the dev account password
+recorded in the Vercel edge request logs** by the pre-CRIT-10 login form that
+submitted natively and put the password in the URL query string, becomes a
+tickable line item on the P2-13 rotation checklist. It is a rotation item and
+not an incident card for two reasons: the accounts it affects are the dev
+accounts that P2-13 retires anyway, and a log line cannot be unwritten, so the
+only available action is to make the recorded value worthless. CRIT-10 stopped
+new leaks; it could not remove the ones already logged. The Vercel log retention
+window is treated as the exposure period rather than assuming the fix ended it.
+
+**The residual test data on production is an owner decision, not a defect.** The
+roughly 300 e2e rows CRIT-11 left in place are not a bug to be fixed by a
+terminal. Removing them is destructive work on the project the client is about
+to accept on, and CLAUDE.md section 8.6 forbids any terminal applying it. It is
+therefore authored, quoted and handed over: card **P2-15** carries the full
+statement set in its `question` field and is blocked on Ivan.
+
+**Unblocks:** nothing directly. It closes the wave 1 review, adds one checklist
+item to P2-13, and authorises P2-15 to exist.
+**Also changes:** P2-13 `defaults` gains the deviation 5 rotation item and
+`depends_on` gains P2-15. P2-15 is authored.
+**Supersedes:** none.
+
+### R-004 - the vercel.app host is not a supported entrypoint
+**Date:** 2026-08-26
+**Asked on:** P2-12
+**Answer, verbatim:**
+> R-004: vercel.app host is not a supported entrypoint. Deployment Protection
+> stays enabled. P2-12 default rewritten: client domain www.rapidconstructmd.com
+> is the only public URL, no expectation that any vercel.app host serves
+> anonymously.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** Vercel Deployment Protection stays **enabled** on the project. The
+project alias answers 302 to `vercel.com/sso-api` for any client that is not
+signed in to the Vercel team, and that is the intended posture, not a
+misconfiguration to be turned off. **`www.rapidconstructmd.com` is the only
+public URL of this application.** No card, no test, no runbook and no acceptance
+line may assume that any `vercel.app` host serves an anonymous request, and
+there is no fallback way in through one.
+
+P2-12's `defaults` carried the opposite assumption and is rewritten. The
+superseded sentence is quoted verbatim inside the new default text rather than
+deleted, so the edit adds a record instead of erasing one. The CRITIC raised it:
+section 1 of the wave 1 report could not exercise the `vercel.app` host at all,
+and noted that the fallback the default protected did not exist for anyone
+outside the Vercel team. The bare `rc-inventory.vercel.app` is a different
+owner's project entirely, so anyone testing that host is testing someone else's
+site.
+
+**Unblocks:** nothing. P2-12 stays `blocked_on: ivan` on the domain connection.
+**Also changes:** P2-12 `defaults` rewritten, `notes` records the rewrite.
+**Supersedes:** the "THE OLD vercel.app HOST KEEPS WORKING" clause of P2-12's
+defaults as authored 2026-08-25.
+
+### R-005 - POC sequencing rule satisfied, POC build authorized
+**Date:** 2026-08-26
+**Asked on:** the role sequencing question raised at the wave 1 boundary
+**Answer, verbatim:**
+> R-005: sequencing rule for POC satisfied. POC build authorized, dispatched
+> separately.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** The sequencing precondition for standing up the POC role is met. The
+POC build is authorized and is dispatched to its own session, separately from
+this one. EXECUTOR takes no action on it and does not write POC scope: recorded
+here so the ruling is on file and the next session does not re-ask.
+
+**Unblocks:** nothing on this board. It authorises work outside it.
+**Also changes:** nothing in this repository.
+**Supersedes:** none.
