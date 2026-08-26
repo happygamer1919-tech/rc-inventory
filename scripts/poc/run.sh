@@ -239,6 +239,11 @@ cards touched and what happened to each, PRs opened or merged with numbers, and
 anything you escalated.
 PROMPT_EOF
 
+# Snapshot the board before the run touches it, so what moved can be worked out
+# by comparison rather than inferred from a timestamp.
+BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
+cp "$POC_BOARD" "$BOARD_BEFORE"
+
 log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
 EXECUTOR_LOG=$POC_LOG_DIR/$RUN_ID.executor.log
@@ -282,16 +287,23 @@ git fetch origin --prune --quiet
 git checkout --detach --force origin/main --quiet
 git reset --hard origin/main --quiet
 
-SINCE_STAMP=$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo 1970-01-01T00:00:00Z)
+# What moved is decided by comparing the board this run started from against the
+# board it ended with. Not by a timestamp: last_checkpoint is date-only on some
+# cards and a full ISO stamp on others, so any lexical compare against "now"
+# silently misses the date-only ones, which are exactly the cards worked today.
 CARDS_TOUCHED=$(node -e '
   const fs = require("fs");
-  const board = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-  const since = process.argv[2];
-  const moved = (board.cards || [])
-    .filter((c) => (c.last_checkpoint || "") >= since)
-    .map((c) => c.id + ":" + c.status);
+  const before = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const after = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+  const was = new Map((before.cards || []).map((c) => [c.id, c.status]));
+  const moved = [];
+  for (const card of after.cards || []) {
+    const previous = was.get(card.id);
+    if (previous === undefined) moved.push(card.id + ":new:" + card.status);
+    else if (previous !== card.status) moved.push(card.id + ":" + card.status);
+  }
   console.log(moved.join(","));
-' "$POC_BOARD" "$SINCE_STAMP" 2>/dev/null)
+' "$BOARD_BEFORE" "$POC_BOARD" 2>/dev/null)
 log "cards touched this run: ${CARDS_TOUCHED:-none}"
 
 # ---------------------------------------------------------------------------
