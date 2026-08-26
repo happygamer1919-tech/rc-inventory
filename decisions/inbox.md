@@ -296,3 +296,125 @@ here so the ruling is on file and the next session does not re-ask.
 **Unblocks:** nothing on this board. It authorises work outside it.
 **Also changes:** nothing in this repository.
 **Supersedes:** none.
+
+### R-007 - R-001 stands, with a one-shot read granted for migration 0006
+**Date:** 2026-08-26
+**Asked on:** P2-10, gate G7
+**Answer, verbatim:**
+> R-007: R-001 remains in force. The environment holds zero real client data,
+> the firewall flips at P2-13. This terminal is explicitly granted a read of
+> /Users/ivan/rc-secrets/phase2.env for the sole purpose of applying migration
+> 0006, values never printed, no connection string echoed, session pooler string
+> derived at runtime. Grant expires when 0006 is journalled.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** R-001 is unchanged and still expires at P2-13. On top of it, one
+narrow grant: EXECUTOR reads `/Users/ivan/rc-secrets/phase2.env` for the single
+purpose of applying `supabase/migrations/0006_reminder_recipients.sql`. Values
+are never printed, no connection string is echoed, and the session pooler
+connection is derived at runtime per CLAUDE.md 8.4 rather than stored. **The
+grant expires the moment 0006 is journalled**, which is a narrower window than
+R-001's own expiry at P2-13.
+
+The basis is the same as R-001's: the project holds zero real client data, and
+the credential firewall flips at P2-13.
+
+**Unblocks:** gate G7's second precondition, the one recorded on the gate in
+PR #22. It does not unblock G7 itself, which still needs `RESEND_API_KEY` in the
+production environment and one real delivered email.
+**Also changes:** nothing in `CLAUDE.md`. R-001's section 8 already describes the
+procedure; this ruling authorises one use of it and sets its expiry.
+**Supersedes:** none. It sits on top of R-001.
+
+### R-008 - the two P2-10 decisions are permanent
+**Date:** 2026-08-26
+**Asked on:** P2-10
+**Answer, verbatim:**
+> R-008: P2-10 decisions ratified as permanent. A threshold of 0 is not a
+> threshold. A reminder disarms on send attempt, not on delivery. Do not
+> revisit.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** Both decisions taken inside P2-10 are ratified and are now standing
+behaviour, not executor judgement awaiting review.
+
+**A threshold of 0 is not a threshold.** `products.threshold` defaults to 0, so
+a product created without one never fires a reminder. Products that need an
+out-of-stock alert get a threshold set on the product screen.
+
+**A reminder disarms on send ATTEMPT, not on delivery.** A failed send still
+disarms the row; the reason is written to `last_send_error` and shown on
+`/memento` as `Netrimis`. There is no automatic retry, because a retry at every
+subsequent stock mutation is the same email storm the one-per-crossing rule
+exists to prevent, only triggered by a down service instead of by a low
+warehouse.
+
+Neither is revisited. A future card that wants different behaviour supersedes
+this ruling by id; it does not reopen the question by preference.
+
+**Unblocks:** nothing. It closes two open decisions so they stop being reviewed.
+**Also changes:** P2-10's notes gain the ratification, so the reason travels with
+the card.
+**Supersedes:** none.
+
+### R-009 - P2-15 is a ratified exception, and option (c) is declined
+**Date:** 2026-08-26
+**Asked on:** P2-15
+**Answer, verbatim:**
+> R-009: P2-15 is ratified as an exception to cancelled-never-deleted. That
+> convention protects evidence of real business events; e2e pollution in client
+> production is contamination. The cancel-instead-of-delete variant (option c)
+> is declined and must not be built.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** The cancelled-never-deleted convention from P2-07 and P2-13 stands
+for everything it was written for, and the reason is now stated: **it protects
+evidence of real business events.** An order that was placed, a batch that
+arrived, an issue that shipped: those are facts about the warehouse and are
+never deleted, only cancelled.
+
+E2E residue is not that. It is contamination in a client production project,
+produced by a suite pointed at the wrong environment, and it records no business
+event at all. P2-15 is therefore a ratified exception rather than a violation
+awaiting argument.
+
+**Option (c) is declined and must not be built.** The cancel-instead-of-delete
+variant written into P2-15's question as an alternative is closed. It is not a
+fallback, not a safer first step, and not something to offer again.
+
+P2-15 stays `blocked_on: ivan`: the ruling settles what the card is, not that it
+has been run. The nine statements still need the owner in the SQL editor.
+
+**Unblocks:** nothing yet. It removes the doctrinal objection to the card, which
+is what stood between the card and being run.
+**Also changes:** P2-15's notes record the ratification and the closure of
+option (c), so a later reader does not resurrect it from the question text.
+**Supersedes:** none. It scopes the P2-07 convention rather than overturning it.
+
+### R-010 - PR #22 waits for Actions, and waiting is not the violation
+**Date:** 2026-08-26
+**Asked on:** PR #22
+**Answer, verbatim:**
+> R-010: PR #22 stays open until GitHub Actions restores and a green quality run
+> exists for its head sha. Merging on an absent check is the violation, waiting
+> is not.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** PR #22 (board-only, gate G7) stays open. It is merged when GitHub
+Actions has recovered and a green `quality` run exists **for its head sha**, not
+for an earlier commit on the branch and not for `main`.
+
+This restates CLAUDE.md section 3 rather than bending it: a merge on a check
+that is pending, failed, skipped or absent is a violation regardless of how
+obviously correct the change is. An outage makes the check absent, which is the
+one condition under which the rule is most tempting to skip and most necessary.
+An open PR waiting on infrastructure costs nothing; a board-only change merged
+without proof costs the rule.
+
+**Unblocks:** nothing. It authorises an open PR to stay open.
+**Also changes:** nothing on the board.
+**Supersedes:** none.
