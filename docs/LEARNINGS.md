@@ -603,3 +603,65 @@ module" before ever calling the guard. The run still exited non-zero, so a
 careless check would have recorded it as the refusal working. RULE: a guard is
 tested on every branch it can take, not on the one you built it for. An exit code
 that is right for the wrong reason is the most expensive kind of green.
+
+### P2-10: a test that pinned a placeholder to the card that would remove it
+**Tag:** ci
+**ERROR:** `dashboard.spec` ended its memento case with
+`await expect(page.getByTestId("alerts-empty")).toContainText("P2-10")`. It was
+a good assertion when P2-06 wrote it: the alerts list was empty and the screen
+said so by naming the card that would fill it, and the test proved the screen
+was not inventing alerts it had never sent. Then P2-10 made sending real, the
+copy stopped naming a future card, and the whole suite went red on a card that
+had broken nothing. The four new reminder cases all passed in the same run; the
+only failure was the old assertion describing a screen that no longer existed.
+**SOLUTION:** the assertion was rewritten to hold the same meaning without
+pinning the words: the page must not mention a card id at all, and the alerts
+card must render exactly one of its two states, the row list or the empty
+state, never both and never neither. It no longer assumes WHICH state, so it
+does not quietly depend on what the tests before it left in the database.
+RULE: an assertion on placeholder copy is an assertion with an expiry date, and
+it expires on the card named in the copy. Assert the property the screen must
+have (it shows one state, it does not advertise unbuilt work), not the sentence
+it currently uses to have it.
+
+### P2-10: what a local Supabase port collision costs, and what it does not
+**Tag:** infra
+**ERROR:** `supabase start` in this repo failed with `Bind for 0.0.0.0:54322
+failed: port is already allocated`, and the CLI suggested
+`supabase stop --project-id OsteoJP`. Another project's local stack was running
+on this machine and holding 54321 and 54322. With no local stack, and with the
+CRIT-11 guard correctly refusing to let the suite run against `.env.local`
+(exit 2, `NEXT_PUBLIC_SUPABASE_URL arata catre proiectul Supabase de
+PRODUCTIE`), there was no way to run the acceptance spec locally at all.
+**SOLUTION:** the acceptance ran in CI, which provisions its own local stack,
+replays every migration with `supabase db reset` and then runs the suite. That
+is not a workaround, it is the environment the workflow exists to provide. What
+was NOT done: stopping the other project's stack, and editing the committed
+ports in `supabase/config.toml` to dodge the collision. The first breaks
+somebody else's session, and the second is a permanent change to a shared file
+to solve a temporary local condition. RULE: when the local environment is
+occupied by work that is not yours, move the proof to CI rather than evicting
+the occupant or rewriting shared configuration. And check the guard with the
+environment the runner actually loads: a bare shell exits 4 on the
+empty-environment branch, which proves nothing about whether the guard would
+have caught a real production URL.
+
+### P2-10: mocking a service at the transport, not at the branch
+**Tag:** backend
+**ERROR:** No defect, recorded because the obvious implementation was the wrong
+one and the reason is worth keeping. The card asked for an acceptance run "with
+Resend mocked", and the cheapest way to get it is a branch inside the sender:
+if some test variable is set, pretend the send worked. That branch would have
+made the test green while leaving untested exactly the code that can fail in
+production: the request, the headers, the parsing of the response, and the
+handling of a non-2xx status. The one thing the test proves would then be the
+one thing production never runs.
+**SOLUTION:** a `RESEND_BASE_URL` environment variable, defaulting to the real
+host, pointed at a small HTTP server on 127.0.0.1 that Playwright starts
+alongside the dev server. The application makes its real `fetch` and has no
+idea a test is running. The failure case is requested through message content:
+the product's SKU carries a marker, the SKU is in the email body because the
+card requires it there, and the mock answers 500. RULE: mock a service at its
+transport boundary, not with a branch in your own code. A base URL is
+configuration; an `if (TEST)` is a second implementation that nobody runs in
+production and everybody trusts in CI.
