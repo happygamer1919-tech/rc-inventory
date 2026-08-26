@@ -774,3 +774,72 @@ the level of the REMOTE system, not at the level of your own filesystem. An API
 call that mutates server-side cursor state is a write however little it changes
 locally, and "dry run" is a promise to the operator about their data, not a
 description of your intent.
+
+### Ruling ids are namespaced by author, and a collision is an authoring defect
+**Tag:** ci
+**ERROR:** A dispatch asked for rulings R-011 through R-015. R-011 already
+existed: POC-BUILDER had committed "R-011 - TELEGRAM_CHAT_ID was stale" earlier
+the same day. Two sessions were writing into one `decisions/inbox.md` from one
+shared id space, and neither could see the other's uncommitted work. The
+tempting resolutions are both wrong: overwriting the existing R-011 destroys a
+committed decision, and editing it to say something else violates this file's
+own rule that an old ruling is never edited.
+**SOLUTION:** ids are namespaced by author. Strategy issues `R-nnn`,
+POC-BUILDER issues `P-nnn`, CRITIC issues `C-nnn`. A collision inside one
+namespace is an authoring defect and is fixed by renumbering the NEW entry,
+never by touching the old one, and the shift is written into every renumbered
+entry so a reader is not left reconstructing it. The five in that dispatch
+landed as R-012 through R-016 with the mapping stated in each.
+RULE: a shared append-only file needs a per-author key or it needs a lock, and
+a lock across sessions that cannot see each other is not available. Namespacing
+is the cheap fix, and "renumber the new one, never edit the old one" is the rule
+that keeps the history readable when it happens anyway.
+
+### A guard that covers only one execution path is not a guard
+**Tag:** ci
+**ERROR:** CRIT-11 built `scripts/assert-not-prod.mjs` to stop the Playwright
+suite writing into the client's production project, and closed the card on six
+exit paths exercised LOCALLY. The card read as though the defect was closed.
+What was never exercised anywhere was the guard's REFUSAL in CI. The guard does
+run there, because `globalSetup` runs before every Playwright invocation, but CI
+always resolves to a local stack, so only the pass path has ever executed there.
+A green run proves the guard does not block a legitimate suite. It proves
+nothing about whether it would stop an illegitimate one.
+The failure this leaves open is not today's configuration, which forensics
+confirmed is safe: CI starts its own stack, references no repository secret, and
+the repository has none. It is the next edit. Someone adds a secret and wires
+`NEXT_PUBLIC_SUPABASE_URL` to it for a preview environment, and the first thing
+that tells anyone the guard did not stop it is rows appearing on the client's
+screen.
+**SOLUTION:** name a guard after what it ENFORCES, not after where it was
+tested, and prove it on every path that can reach the target. For this one that
+means a deliberate failing run in CI: a job step that points the environment at
+a production ref and asserts the suite refuses, so the refusal branch is
+exercised by the same workflow that would otherwise silently stop enforcing it.
+RULE: "tested locally" and "enforced everywhere" are different claims and a card
+that makes the first must not be written as though it made the second. The path
+you did not test is the path the regression arrives on.
+
+### An unexplained row count change in client production is a defect, not an observation
+**Tag:** data
+**ERROR:** A session report flagged that the production product count had moved
+from 304 to 305 and wrote: "One more product arrived from somewhere after the
+CRIT-11 guard landed. Not investigated, not in scope, flagged." Two things were
+wrong with that. The claim about WHEN it happened was asserted on no evidence,
+and it turned out to be false: the row predates the guard by two hours and forty
+one minutes and was created by the CRITIC's own documented live concurrency
+test. And "not investigated, not in scope" is not available for this class of
+finding. An unexplained write to the database a client is about to accept on is
+either a guard that failed or a fact nobody has established, and both are
+defects.
+The whole investigation was three queries: the newest `created_at` in the table,
+the merge timestamp of the guard, and a comparison. It took less time than
+writing the sentence that deferred it.
+**SOLUTION:** when a count in client production moves and the reason is not
+already known, that is a card or an immediate investigation, never a line in a
+report that hands the question to whoever reads it next. Establish WHEN before
+asserting anything about it: a timestamp comparison against the guard's own
+merge commit answers "did our protection fail" in one query, and the answer
+governs whether anything else matters. RULE: never date an event you have not
+timed. "It happened after X" is a claim, and in a report about client data it is
+the claim the whole finding rests on.

@@ -707,3 +707,135 @@ them.
 **Unblocks:** nothing on this board.
 **Also changes:** nothing EXECUTOR owns.
 **Supersedes:** none.
+
+### R-017 - EXECUTOR deviations 1 to 8 ratified, and the renumbering stands
+**Date:** 2026-08-26
+**Asked on:** the EXECUTOR contract report of 2026-08-26
+**Answer, verbatim:**
+> R-017: EXECUTOR deviations 1-8 from the 2026-08-26 contract report ratified.
+> The R-012..R-016 renumbering stands.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** All eight deviations flagged in the contract report are ratified,
+and the renumbering of that dispatch's rulings from R-011..R-015 to
+R-012..R-016 is confirmed correct. POC-BUILDER's R-011 stands untouched.
+
+**One of the eight is withdrawn by the author rather than ratified, and this is
+the entry that records it.** Deviation 5 read: "public.categories holds 305
+products, up from 304 at the last count. One more product arrived from somewhere
+after the CRIT-11 guard landed." The second sentence is false. Forensics under
+R-012 established that the newest product row in the project is
+`CRITIC-RACE-1787702980667` at `2026-08-26 00:09:40+00`, and the CRIT-11 merge
+commit `aef3c54` is `2026-08-26 02:50:44+00`. **The row predates the guard by
+two hours and forty one minutes**, and it was created by the CRITIC's own
+documented live concurrency test at the wave 1 boundary. Zero rows have been
+written to the production project since the guard merged, in any table. The
+count movement was real; the account of when it happened was invented. Recorded
+in full at `docs/reports/forensics-20260826-product-count.md`.
+
+**Unblocks:** nothing. It closes eight flags and corrects one of them.
+**Also changes:** the id namespacing rule is written into `docs/LEARNINGS.md`:
+strategy issues `R-nnn`, POC-BUILDER issues `P-nnn`, CRITIC issues `C-nnn`, and
+a collision is fixed by renumbering the new entry rather than editing the old.
+**Supersedes:** none.
+
+### R-018 - the categories halt was correct, and P2-17 authors the list
+**Date:** 2026-08-26
+**Asked on:** P2-08, P2-17
+**Answer, verbatim:**
+> R-018: the categories halt is ratified as correct. Exporting the live single
+> test row as controlled vocabulary would have been harmful. The controlled list
+> is authored as a schema decision under P2-17.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** Halting the categories export was correct. `public.categories` held
+exactly one row, `TEST-Categorie`, carrying every product in the project, and it
+is CRIT-11 residue that P2-15 exists to delete. Exporting it would have committed
+one test string as the client's controlled vocabulary, to be read by whoever
+builds the extraction mapping long after the row it names was removed.
+
+**The controlled list is a schema decision, so it is authored as one.** P2-17
+seeds `public.categories` with a Romanian working vocabulary through a migration:
+INSERT only, no DELETE, idempotent on re-run, and it does not touch the
+`TEST-Categorie` row, which belongs to P2-15.
+
+**The vocabulary is a working default, not a specification.** Mihai may rename
+entries at P2-14 without a code change, because they are rows and not an enum.
+That is the reason the list is rows: an enum would have made every rename a
+migration.
+
+**Unblocks:** the `category` mapping in extraction contract v2 section 4.4,
+which until now mapped against a list that did not exist.
+**Also changes:** `docs/contracts/extraction-v2.md` section 4.4 gains a reference
+to `docs/contracts/categories.json`, exported from the live schema after the
+migration applies.
+**Supersedes:** none. It resolves the caveat R-014 recorded.
+
+### R-019 - P2-12 no longer depends on P2-11
+**Date:** 2026-08-26
+**Asked on:** P2-12
+**Answer, verbatim:**
+> R-019: P2-12 depends_on P2-11 is severed. DNS verification does not depend on
+> hardening. The edge was authored when domain work sat at the end of the build
+> and is now stale.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** The `depends_on` edge from P2-12 to P2-11 is removed. Connecting a
+domain and verifying that it serves over HTTPS has no dependency on security
+headers, an environment presence check, Romanian error pages or a console sweep.
+
+The edge was not wrong when it was authored. It encoded an ORDER, that domain
+work came last, at a time when that was the plan. The plan changed: Ivan did the
+DNS early, the verification passed, and the edge then held a finished piece of
+work behind a card parked three deep behind a third party. **An ordering
+constraint that has outlived its ordering is a stale edge, and a stale edge is
+indistinguishable from a real one to everything that reads the board.**
+
+**Unblocks:** P2-12, which becomes eligible and is worked in this dispatch.
+**Also changes:** P2-12's `depends_on` becomes empty.
+**Supersedes:** the `depends_on` of P2-12 as authored on the phase 2 board.
+
+### R-020 - CRIT-11 is reopened as CRIT-15
+**Date:** 2026-08-26
+**Asked on:** CRIT-11
+**Answer, verbatim:**
+> R-020: CRIT-11 is reopened as CRIT-15. A guard proven on the local path only
+> does not close the defect it was carded for.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** CRIT-11 is reopened as **CRIT-15**. A guard proven on one execution
+path does not close a defect defined across all of them, and CRIT-11's evidence
+records six exit paths exercised **locally** and none in CI.
+
+**The premise this ruling was issued on is narrower than it appeared, and the
+card is written against what is actually true.** Forensics under R-012
+established that **CI does not point at production and cannot**: the workflow
+starts its own Supabase stack, exports that stack's URL and keys, references no
+repository secret, and the repository has no secrets configured at all. The
+runner has no production credential to misuse. That was confirmed empirically
+from a real run log, not only by reading the workflow.
+
+**What is genuinely unproven is the refusal branch in CI.** The guard executes
+on both paths, because `globalSetup` runs before every Playwright invocation.
+But CI always resolves to a local stack, so only the guard's PASS path has ever
+run there. A green `quality` run proves the guard does not block a legitimate
+suite; it proves nothing about whether it would stop an illegitimate one.
+
+The failure this leaves open is a future edit, not today's configuration:
+someone adds a repository secret and wires `NEXT_PUBLIC_SUPABASE_URL` to it for
+a preview environment or a smoke test, and the first thing that tells anyone the
+guard stopped enforcing is rows appearing on the client's screen.
+
+CRIT-15 closes that, and its acceptance is a **deliberate failing run inside
+CI**, so the refusal is exercised by the same workflow that would otherwise
+silently stop enforcing it.
+
+**Unblocks:** nothing. It reopens a defect that was reported closed.
+**Also changes:** CRIT-11's notes record the reopening and point at CRIT-15 and
+at the forensics report, so the card does not go on reading as closed.
+**Supersedes:** CRIT-11's claim to have closed the defect. CRIT-11's code is
+correct and stays; what is superseded is the completeness of its proof.
