@@ -12,6 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextInboundReference } from "./inbound";
 // Un fisier "use server" are voie sa exporte NUMAI functii async, deci
 // constantele si tipurile stau in ./inbound-types si se importa de acolo.
@@ -125,8 +126,22 @@ export async function receiveInboundOrder(
   if (error) return translateWriteError(error.code, error.message);
 
   const row = Array.isArray(data) ? data[0] : data;
+
+  // Receptia ESTE miscarea de stoc pe intrare: creeaza loturile, deci stocul
+  // urca. Verificarea de aici este cea care REARMEAZA mementourile produselor
+  // urcate inapoi peste prag (P2-10). Produsele se citesc de pe liniile comenzii
+  // fiindca functia SQL intoarce doar cate loturi a creat.
+  const { data: orderLines } = await supabase
+    .from("order_lines")
+    .select("product_id")
+    .eq("inbound_order_id", orderId);
+  await checkThresholdsFor(
+    (orderLines ?? []).map((l) => String((l as { product_id: string }).product_id)),
+  );
+
   revalidatePath("/comenzi");
   revalidatePath("/inventar");
+  revalidatePath("/memento");
   return {
     ok: true,
     value: {

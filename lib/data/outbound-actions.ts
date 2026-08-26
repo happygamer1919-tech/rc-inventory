@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextOutboundReference } from "./outbound";
 import { unitLabel, isUnitCode } from "./units";
 import type { ActionResult } from "./inbound-types";
@@ -106,12 +107,27 @@ export async function createOutboundIssue(
 
   if (error) return translateWriteError(error.code, error.message);
 
+  // Crearea iesirii ESTE miscarea de stoc: randurile din outbound_lines sunt
+  // scrise de create_outbound_issue si stocul scade cu ele. Verificarea pragului
+  // se face aici, dupa ce tranzactia s-a inchis, deci o trimitere esuata nu are
+  // ce sa anuleze (P2-10).
+  await checkThresholdsFor(lines.map((l) => l.product_id));
+
   revalidatePath("/iesiri");
   revalidatePath("/comenzi");
   revalidatePath("/inventar");
+  revalidatePath("/memento");
   return { ok: true, value: { id: data as string, reference } };
 }
 
+/**
+ * Marcarea ca Expediata. NU ESTE O MISCARE DE STOC, deci nu verifica praguri.
+ *
+ * Stocul a scazut deja la crearea iesirii, cand s-au scris randurile din
+ * outbound_lines. Expedierea muta doar statusul si scrie un rand de istoric.
+ * O verificare aici ar reciti aceleasi numere si nu ar putea gasi nicio
+ * traversare noua.
+ */
 export async function shipOutboundIssue(
   issueId: string,
 ): Promise<ActionResult<{ alreadyShipped: boolean }>> {

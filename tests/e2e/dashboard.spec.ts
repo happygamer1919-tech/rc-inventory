@@ -272,7 +272,15 @@ test.describe("Tablou de bord", () => {
     await expect(row).toContainText("25");
     await expect(row).toContainText("Epuizat");
 
-    // Alertele nu sunt inventate: ecranul spune ca trimiterea vine la P2-10.
-    await expect(page.getByTestId("alerts-empty")).toContainText("P2-10");
+    // Alertele nu sunt inventate. Pana la P2-10 asta se dovedea prin textul care
+    // spunea ca trimiterea vine la P2-10; P2-10 a facut-o reala, deci ecranul nu
+    // mai are voie sa promita un card viitor. Ce ramane de dovedit este acelasi
+    // lucru: ori listeaza alerte reale, ori spune ca nu s-a trimis niciuna, si
+    // niciodata amandoua. Verificarea nu presupune care dintre cele doua este,
+    // ca sa nu depinda de ce au lasat in urma testele dinaintea ei.
+    await expect(page.getByText("P2-10")).toHaveCount(0);
+    const alertRows = await page.getByTestId("alert-rows").count();
+    const alertsEmpty = await page.getByTestId("alerts-empty").count();
+    expect(alertRows + alertsEmpty).toBe(1);
   });
 });
