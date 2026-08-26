@@ -55,6 +55,13 @@ jobs:
       - name: Parse the production reset SQL
         run: npm run check:reset-sql
 
+      # P2-17. The committed category vocabulary and the migration that seeded
+      # it are two files holding one fact. This compares them in both
+      # directions, so an entry renamed in one and not re-exported from the
+      # other cannot reach the extraction mapping in P2-09.
+      - name: Check the category vocabulary
+        run: npm run check:categories
+
       # ----------------------------------------------------------------------
       # End to end, P2-07.
       #

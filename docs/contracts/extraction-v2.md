@@ -184,18 +184,33 @@ Ruling R-014 says `category` follows the `unit` and `currency` pattern: a
 verbatim `category_raw` plus a nullable `category` mapped **against our
 controlled list**.
 
-**There is no controlled category list.** `unit_code` and `currency_code` are
-PostgreSQL enums and are genuinely controlled. `categories` is a rows table with
-a unique name constraint and no seed, and migration 0001 states the omission is
-deliberate: the phase 1 seven were mock data invented to make a demo look real.
+**RESOLVED 2026-08-26 by ruling R-018 and card P2-17. The list now exists.**
 
-So `category` is mapped against **the `categories` rows present at extraction
-time**, which is the only list that exists. `category_raw` always carries the
-document's own words, so nothing is lost when the mapping finds nothing and
-`category` comes back null.
+When this contract was frozen there was no controlled category list: `categories`
+was a rows table with a unique name and no seed, holding one row of e2e residue.
+Exporting that as the client's vocabulary would have committed a test string.
+The halt was ratified as correct, and the list was authored as a schema decision
+instead.
 
-If the owner wants a fixed enumerated list, that is a schema decision, a
-migration, and a card. It is not something this contract may invent.
+**The controlled list is `docs/contracts/categories.json`**, 18 Romanian
+entries, exported read-only from the live schema after migration
+`0007_seed_categories.sql` applied. That file is a record of what the database
+holds, not a second hand-maintained copy: `npm run check:categories` compares it
+against the migration in both directions on every push, and fails if either side
+gains an entry the other does not have.
+
+**It is a WORKING DEFAULT, not a specification.** These are rows and not an
+enum, deliberately, so Mihai may rename an entry at P2-14 with no code change
+and no migration. A `category` value must therefore be validated against the
+`categories` rows **present at extraction time** rather than against a constant
+compiled into anything, and `categories.json` is the snapshot of that list, not
+its authority.
+
+`category_raw` always carries the document's own words, so nothing is lost when
+the mapping finds nothing and `category` comes back null.
+
+`TEST-Categorie` is excluded from the vocabulary and stays in the table: it is
+CRIT-11 residue and belongs to P2-15.
 
 ---
 
