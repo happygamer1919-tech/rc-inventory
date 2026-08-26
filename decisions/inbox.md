@@ -468,3 +468,43 @@ without proof costs the rule.
 **Unblocks:** nothing. It authorises an open PR to stay open.
 **Also changes:** nothing on the board.
 **Supersedes:** none.
+
+### R-011 - TELEGRAM_CHAT_ID was stale, and POC-BUILDER was authorised to correct it
+**Date:** 2026-08-26
+**Asked on:** the POC build dispatch, step 4 (`scripts/poc/notify.mjs`)
+**Answer, verbatim:**
+> I author you to do it
+
+**Ruled by:** Ivan, 2026-08-26, answering the question in the POC build session.
+
+**Ruling:** `TELEGRAM_CHAT_ID` held a nine digit positive id that was not Ivan's
+Telegram account and was not any chat the bot could reach. Every `sendMessage`
+against it returned `Bad Request: chat not found`, so the digest, which is the
+entire point of the unattended loop, could not be delivered at all.
+
+It was proved stale rather than assumed stale. Once `TELEGRAM_OWNER_ID` was
+resolved under R-006, the two values were compared programmatically and differ,
+`sendMessage` to the configured id failed while `sendMessage` to the owner id
+succeeded, and the old value's length and a short hash were recorded instead of
+the value itself.
+
+R-006 permits exactly one appended line and no other edit to
+`/Users/ivan/rc-secrets/phase2.env`, so correcting an existing line was outside
+POC-BUILDER's authority. This ruling grants that one correction, and nothing
+wider: `TELEGRAM_CHAT_ID` is set to the same numeric id as `TELEGRAM_OWNER_ID`,
+because the owner confirmed the digest is meant to arrive as a direct message
+rather than in a group. No other line in that file was read out, altered,
+reordered or removed, and the file's variable names and line count were checked
+before and after to prove it.
+
+**The fallback stays.** `notify.mjs` still falls back to `TELEGRAM_OWNER_ID`
+when the configured chat returns `chat not found`, and still prints the
+stale-configuration warning when it does. The correct value makes the fallback
+silent, it does not make it unnecessary: the next time that id drifts, a digest
+should still arrive, loudly, rather than vanish.
+
+**Unblocks:** nothing on the board. It closes the step 4 delivery failure in the
+POC build.
+**Also changes:** nothing in `CLAUDE.md`. Section 7 stands; this is a named,
+one-line, one-time exception to it in the same shape as R-006.
+**Supersedes:** none. It sits alongside R-006.
