@@ -521,3 +521,25 @@ differently from what the tests exercised. And `httpOnly` stays false on purpose
 because the `@supabase/ssr` browser client has to read the session out of the
 cookie to refresh the token; that is an accepted risk, written down in
 `docs/reports/critic-wave1.md` so it stays a decision rather than an oversight.
+
+### CRIT-12: deleting the mock layer is not the same as deleting the claim
+**Tag:** frontend
+**ERROR:** The sidebar footer read "Previzualizare faza 1 / Date demonstrative,
+un singur depozit" on production, on all eight authenticated screens, weeks
+after the data became real. P2-06 had deleted `lib/mock` repo-wide and its
+acceptance grep proved the module was gone, so the card was correct and green.
+The label announcing that the data was demonstrative was not part of that grep
+and survived it. The person being asked to trust a stock number was reading a
+screen that told them the number was made up.
+**SOLUTION:** Removed the block, since the topbar already names the warehouse
+and a replacement line would only repeat it. RULE: when a card removes a
+capability, grep for the WORDS that describe it, not only for the module that
+implemented it. An acceptance that proves an import is gone proves nothing about
+the sentence next to it. Found in the same pass and fixed with it: the settings
+screen rendered `{categories.length} categorii`, which prints "1 categorii", and
+one category is exactly what production has. Romanian has three numeral forms,
+not two: 1 takes the singular, a number whose last two digits fall between 1 and
+19 takes the bare plural, and everything else takes "de" plus the plural, so
+"1 categorie", "3 categorii", "20 de categorii", and "119 categorii" but
+"120 de categorii". That now lives in one `plural()` helper in
+`lib/data/format.ts` rather than in an inline template string.

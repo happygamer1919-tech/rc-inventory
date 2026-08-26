@@ -69,13 +69,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-5 py-4 border-t border-white/10">
-        <p className="text-[11px] text-rc-muted leading-relaxed">
-          Previzualizare faza 1
-          <br />
-          Date demonstrative, un singur depozit
-        </p>
-      </div>
     </aside>
   );
 }
