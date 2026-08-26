@@ -212,3 +212,76 @@ forgotten.
 | CRIT-12 | Production chrome still claims the data is a phase 1 preview | high |
 | CRIT-13 | Session cookie is written without the Secure attribute | medium |
 | CRIT-14 | P2-06 acceptance claims an empty-database case the spec never runs | medium |
+
+---
+
+## 7. Outcome: what shipped, and what production looks like now
+
+Every card in section 6 was executed by the CRITIC on its own branch, one card
+one PR, each merged on a green `quality` run verified against the PR head sha.
+
+| id | PR | acceptance result |
+|---|---|---|
+| CRIT-10 | #14 | `auth.spec` exit 0, 12 passed; `grep name="password"` exit 1 |
+| CRIT-13 | #15 | `auth.spec` exit 0, 13 passed |
+| CRIT-12 | #16 | `grep` exit 1; `dashboard.spec` exit 0, 6 passed |
+| CRIT-14 | #17 | `dashboard.spec` exit 0, 8 passed |
+| CRIT-11 | #18 | all six guard exit paths run; Playwright aborts in globalSetup, exit 1; CI proves the pass path |
+
+**Every new test case was proven red before its fix.** For each card the source
+files were reverted, the new cases were run, and exactly those cases failed. A
+test that passes against the broken code proves nothing, and the cheapest time
+to find that out is before shipping, not after.
+
+### CRIT-10 re-verified on production after deploy
+
+The original exploit script was re-run against `https://www.rapidconstructmd.com`
+once the merge deployed. Four attempts, two of them with the CPU throttled 20x:
+
+- `PASSWORD_IN_URL: false` on all four
+- `paramCount: 0` on every navigation
+- the deployed HTML carries `id="email"` and `id="password"` and no `name` on
+  either, and the submit button ships `disabled=""` in the server render
+
+Attempt 3 is the one that leaked before the fix. It does not leak now.
+
+### The other two user-visible fixes, re-verified on production
+
+- **CRIT-13**: the session cookie now comes back `secure: true` where it was
+  `false`. `httpOnly` stays false by design and is recorded as an accepted
+  risk in section 5.
+- **CRIT-12**: the sidebar footer is gone from every screen, and the settings
+  counter reads **"1 categorie"** where it read "1 categorii".
+- The full both-roles sweep was re-run against production after all five
+  merges: zero console errors, zero page errors, zero HTTP 4xx or 5xx, for
+  owner and account_manager alike. The account_manager half of that sweep is
+  new: before CRIT-10 the tooling could not sign that account in reliably,
+  which is how the login race was found in the first place.
+
+### One residual, named rather than left to be discovered
+
+When both fields are filled faster than hydration, which is what an automated
+script does and what a human cannot do, the values never reach React state and
+the form answers `Introdu adresa de email.` No credential is leaked and nothing
+is silent, but the message asks for an email the field visibly contains.
+
+This is controlled-input behaviour and predates CRIT-10; what changed is which
+symptom the window produces. It is unreachable for a person, because the submit
+button is disabled for the whole window and typing two fields takes far longer
+than hydration. Recorded here rather than carded.
+
+### Follow-up left on the floor, deliberately
+
+`components/inventory/InventoryScreen.tsx:175` renders the row count followed by
+the bare word `produse`, so it prints "1 produse" with one product. It is the
+same defect CRIT-12 fixed one file away, and the `plural()` helper it needs now
+exists. CRIT-12 scoped it out explicitly, so it was left alone rather than fixed
+in a quiet extra commit. It is a one-line card whenever someone wants it.
+
+### What production still shows the client
+
+CRIT-11 stops new test data reaching production. It does not remove the ~290
+rows already there, and it must not: deleting them is a destructive operation on
+the project Mihai is about to accept on, and that is Ivan's call alone. Until he
+makes it, `/inventar` opens on 128 active products with names like
+`TEST-DASH-mt8ztoqf`. G9 happens on that screen.
