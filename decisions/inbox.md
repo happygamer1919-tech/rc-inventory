@@ -67,7 +67,7 @@ Read off the board, not maintained by hand. As of 2026-08-26:
 | ~~P2-01~~ | ~~ivan~~ | **Closed 2026-08-25.** Migration 0001 applied by Ivan, verified by EXECUTOR with a three-phase journal under R-001. |
 | ~~P2-02~~ | ~~ivan~~ | **Unblocked 2026-08-25** by R-001. Accounts created and `.env.local` written by EXECUTOR. |
 | P2-08 | andre | Confirm the Make.com webhook contract sent 2026-08-25. Recommendation on the card: proceed per the contract as sent. |
-| P2-12 | ivan | Connect the client domain in Vercel and confirm HTTPS. Click steps written out on request. |
+| P2-12 | ivan | **DNS is done and verified 2026-08-26.** Three asks remain, all on the card. (1) Resend verification status: `GET /domains` answers "This API key is restricted to only send emails", so report the dashboard status or supply a key with domains read scope. All three records are present in public DNS. (2) `RESEND_FROM` is not set in the production environment, so the sender is still the Resend onboarding address. (3) `owner_reminder_recipients()` returns one address on `rc-inventory.local`, which does not exist, so a reminder is addressed to nobody; that closes at P2-13. Recommendation on the card: answer 1 and 2 now, let 3 ride to P2-13. |
 | P2-13 | ivan | Execute the credential rotation checklist and tick every box in the committed document. |
 | P2-14 | client | Mihai runs one full cycle himself on production, unassisted. |
 | P2-15 | ivan | Run `scripts/reset-test-data.sql` on production, or rule that the e2e residue stays. Nine DELETE statements quoted verbatim on the card. Recommendation on the card: run it, once, after P2-12 and before the first real data. |
