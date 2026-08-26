@@ -543,3 +543,29 @@ not two: 1 takes the singular, a number whose last two digits fall between 1 and
 "1 categorie", "3 categorii", "20 de categorii", and "119 categorii" but
 "120 de categorii". That now lives in one `plural()` helper in
 `lib/data/format.ts` rather than in an inline template string.
+
+### CRIT-14: an acceptance line that outgrew its test
+**Tag:** ci
+**ERROR:** P2-06's acceptance said `dashboard.spec` covered "the same screens
+against an empty database with no console error and no NaN on screen". It did
+not. The spec's console-and-NaN case signed in as owner only, walked eight
+screens against whatever the database happened to hold, and had no
+empty-database case and no account_manager case anywhere in the file. The card's
+EVIDENCE field was accurate the whole time; it says "against an arbitrary
+database state", which is exactly what ran. Nobody lied. The acceptance was
+written for a check that was then narrowed, and the two were never reconciled,
+so the board carried a contract a stranger would have re-run and not found.
+**SOLUTION:** Build what can be built honestly and withdraw what cannot. The
+both-roles walk was buildable and now runs twice, with `/setari` kept in the
+operator's list so the Romanian forbidden screen is checked rather than skipped.
+The empty state was buildable in the form a real operator actually reaches, a
+filter that matches nothing, and that case now asserts it. The empty-DATABASE
+claim was withdrawn from the acceptance, because the only way to produce one is
+to empty tables on the project the client is about to accept on, and a test suite
+does not do destructive setup. The withdrawn sentence is quoted verbatim in
+P2-06's notes so the edit adds a record instead of erasing one. RULE: when the
+acceptance and the test disagree, the acceptance is what gets corrected, in
+writing, with the old text preserved. And a role-gated application needs its
+screen sweep run once per role: the account_manager screens here had never been
+checked for console errors at all, and a wave-boundary review is not a
+substitute for a test.

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ownerAccount } from "./support/accounts";
+import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 
 // dashboard.spec - linia de acceptanta a cardului P2-06.
@@ -122,7 +122,59 @@ test.describe("Tablou de bord", () => {
     await expect(page.getByTestId("dashboard-activity")).toContainText(reference);
   });
 
-  test("niciun ecran nu produce erori în consolă și niciunul nu arată NaN", async ({ page }) => {
+  // CRIT-14. Plimbarea prin ecrane rula numai pe contul owner, deci jumatate
+  // din interfata nu fusese niciodata verificata pentru erori de consola: rolul
+  // operator vede alte butoane, alte coloane si un ecran de refuz. Linia de
+  // acceptanta a lui P2-06 spunea ca acopera si o baza goala, si nu o acoperea.
+  // Ce se poate demonstra fara pregatire distructiva se demonstreaza mai jos, ca
+  // stare goala accesibila prin filtru; restul afirmatiei a fost retras din
+  // linia de acceptanta a lui P2-06 in loc sa fie lasat sa para acoperit.
+  for (const role of ["administrator", "operator"] as const) {
+    test(`niciun ecran nu produce erori în consolă și niciunul nu arată NaN (${role})`, async ({
+      page,
+    }) => {
+      const errors: string[] = [];
+      page.on("console", (m) => {
+        if (m.type() === "error") errors.push(m.text());
+      });
+      page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+
+      await signIn(page, role === "administrator" ? ownerAccount() : managerAccount());
+
+      for (const path of [
+        "/",
+        "/inventar",
+        "/comenzi",
+        "/iesiri",
+        "/adauga-manual",
+        "/incarca-comanda",
+        "/memento",
+        // /setari ramane in lista si pentru operator: ii raspunde cu ecranul de
+        // refuz, iar un ecran de refuz care arunca in consola este tot un defect.
+        "/setari",
+      ]) {
+        await page.goto(path);
+
+        if (role === "operator" && path === "/setari") {
+          await expect(page.getByTestId("forbidden")).toBeVisible({ timeout: 25_000 });
+        }
+
+        const body = await page.locator("body").innerText();
+        expect(body, `NaN pe ${path} (${role})`).not.toContain("NaN");
+        expect(body, `Infinity pe ${path} (${role})`).not.toContain("Infinity");
+        expect(body, `undefined pe ${path} (${role})`).not.toContain("undefined");
+      }
+
+      // Erorile de reincarcare la cald ale serverului de dezvoltare nu sunt ale
+      // aplicatiei si nu au ce cauta in acest verdict.
+      const real = errors.filter(
+        (e) => !/hmr|websocket|favicon|Download the React DevTools/i.test(e),
+      );
+      expect(real, `erori in consola (${role}): ${real.join(" | ")}`).toHaveLength(0);
+    });
+  }
+
+  test("starea goală a catalogului se afișează în română, fără NaN", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (m) => {
       if (m.type() === "error") errors.push(m.text());
@@ -130,30 +182,28 @@ test.describe("Tablou de bord", () => {
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
 
     await signIn(page, ownerAccount());
+    await page.goto("/inventar");
 
-    for (const path of [
-      "/",
-      "/inventar",
-      "/comenzi",
-      "/iesiri",
-      "/adauga-manual",
-      "/incarca-comanda",
-      "/memento",
-      "/setari",
-    ]) {
-      await page.goto(path);
-      const body = await page.locator("body").innerText();
-      expect(body, `NaN pe ${path}`).not.toContain("NaN");
-      expect(body, `Infinity pe ${path}`).not.toContain("Infinity");
-      expect(body, `undefined pe ${path}`).not.toContain("undefined");
-    }
+    // Starea goala ACCESIBILA: un filtru care nu se potriveste cu nimic. Este
+    // exact ce nimereste un operator, si nu cere golirea niciunei tabele. O
+    // baza golita ar fi o operatiune distructiva pe proiectul pe care clientul
+    // urmeaza sa accepte, deci nu se face din teste.
+    await page.getByTestId("product-search").fill("zzzz-niciun-produs-nu-are-acest-nume-zzzz");
 
-    // Erorile de reincarcare la cald ale serverului de dezvoltare nu sunt ale
-    // aplicatiei si nu au ce cauta in acest verdict.
+    const empty = page.getByTestId("product-empty");
+    await expect(empty).toBeVisible({ timeout: 15_000 });
+    await expect(empty).toContainText("Niciun produs nu se potrivește");
+    await expect(page.getByTestId("product-row")).toHaveCount(0);
+
+    const body = await page.locator("body").innerText();
+    expect(body, "NaN pe catalogul gol").not.toContain("NaN");
+    expect(body, "Infinity pe catalogul gol").not.toContain("Infinity");
+    expect(body, "undefined pe catalogul gol").not.toContain("undefined");
+
     const real = errors.filter(
       (e) => !/hmr|websocket|favicon|Download the React DevTools/i.test(e),
     );
-    expect(real, `erori in consola: ${real.join(" | ")}`).toHaveLength(0);
+    expect(real, `erori in consola pe catalogul gol: ${real.join(" | ")}`).toHaveLength(0);
   });
 
 
