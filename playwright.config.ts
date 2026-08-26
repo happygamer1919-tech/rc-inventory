@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
+import {
+  RESEND_FAIL_MARKER,
+  RESEND_MOCK_FROM,
+  RESEND_MOCK_KEY,
+  RESEND_MOCK_PORT,
+  RESEND_MOCK_URL,
+} from "./tests/e2e/support/resend";
 
 // Next incarca .env.local pentru aplicatie, dar procesul in care ruleaza
 // Playwright nu il vede: variabilele NEXT_PUBLIC_ ajung in bundle la compilare,
@@ -39,6 +46,20 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 // aceeasi origine de la care serverul raspunde.
 const BASE_URL = `http://localhost:${PORT}`;
 
+// P2-10. RESEND ESTE MOCAT PRINTR-UN SERVER, NU PRINTR-O RAMURA IN APLICATIE.
+//
+// Serverul fals din tests/e2e/support/resend-mock.mjs raspunde pe 127.0.0.1 si
+// aplicatia il vede prin RESEND_BASE_URL. Asa se exercita calea reala de
+// trimitere (fetch, antete, raspuns non-2xx) fara ca vreun email sa plece catre
+// o adresa reala, ceea ce cere linia de acceptanta a cardului.
+//
+// Cheia de mai jos este falsa si deschide exact nimic: serverul fals accepta
+// orice antet de autorizare si nu il pastreaza. Este scrisa literal pentru ca
+// sendEmail refuza sa trimita cand RESEND_API_KEY lipseste, si atunci testul ar
+// verifica refuzul in loc de trimitere.
+// Valorile stau in tests/e2e/support/resend.ts, importate si de spec, ca sa nu
+// existe doua adevaruri despre acelasi port.
+
 // CRIT-11. PAZA IMPOTRIVA PRODUCTIEI, inainte de orice test.
 //
 // Suita scrie date. In CI scrie intr-un stack local si asta este corect, dar
@@ -76,12 +97,34 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: `npm run dev -- --port ${PORT}`,
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    stdout: "ignore",
-    stderr: "pipe",
-  },
+  // Doua servere: aplicatia si serverul fals de Resend. Playwright le porneste
+  // pe amandoua inainte de primul test si le opreste la final.
+  webServer: [
+    {
+      command: `node tests/e2e/support/resend-mock.mjs`,
+      url: `${RESEND_MOCK_URL}/__health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: {
+        RESEND_MOCK_PORT: String(RESEND_MOCK_PORT),
+        RESEND_MOCK_FAIL_MARKER: RESEND_FAIL_MARKER,
+      },
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      command: `npm run dev -- --port ${PORT}`,
+      url: BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        RESEND_API_KEY: RESEND_MOCK_KEY,
+        RESEND_BASE_URL: RESEND_MOCK_URL,
+        RESEND_FROM: RESEND_MOCK_FROM,
+      },
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+  ],
 });
+

@@ -1,25 +1,34 @@
-// P2-06 Memento, pe date reale.
+// Memento, pe date reale.
 //
 // Doua jumatati, ca in faza 1: pragurile per produs cu stocul curent alaturi, si
 // lista alertelor declansate.
 //
-// CE FACE ACEST CARD SI CE NU. P2-06 scoate stratul demonstrativ din tot
-// depozitul de cod, deci ecranul citeste acum praguri si stocuri reale. TRIMITEREA
-// mesajelor si armarea alertelor apartin cardului P2-10, care detine regula "un
-// email pe produs pe traversare". Pana atunci lista alertelor este goala si
-// ecranul spune de ce, in loc sa arate alerte demonstrative care nu au fost
-// niciodata trimise.
+// P2-06 a facut prima jumatate reala. P2-10 face a doua: alertele de mai jos
+// sunt randuri din reminders care au incercat macar o data sa trimita un email,
+// cu momentul, stocul si pragul din clipa aceea. Un esec de trimitere se vede
+// AICI, cu motivul lui, fiindca miscarea de stoc s-a scris oricum si operatorul
+// trebuie sa afle ca emailul nu a plecat.
 
 import { Card, CardHeader, Chip, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
 import { loadThresholds } from "@/lib/data/dashboard";
-import { formatNumber, formatQty } from "@/lib/data/format";
+import { listFiredAlerts } from "@/lib/data/reminders";
+import { formatNumber, formatQty, plural } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 
 export const dynamic = "force-dynamic";
 
+/** Data si ora, pentru randurile de alerta. */
+function formatMoment(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default async function RemindersPage() {
-  const products = await loadThresholds();
+  const [products, alerts] = await Promise.all([loadThresholds(), listFiredAlerts()]);
   const low = products.filter((p) => p.stock <= p.threshold);
+  const failed = alerts.filter((a) => a.sendError !== null);
 
   return (
     <>
@@ -105,16 +114,76 @@ export default async function RemindersPage() {
       <Card>
         <CardHeader
           title="Alerte declanșate"
-          hint="Emailurile trimise când un produs a coborât sub prag"
-          right={<Chip tone="neutral">Se activează la P2-10</Chip>}
+          hint="Emailurile trimise când un produs a coborât sub prag. Unul singur pe traversare, rearmat când stocul urcă înapoi peste prag."
+          right={
+            failed.length > 0 ? (
+              <Chip tone="danger">{plural(failed.length, "trimitere eșuată", "trimiteri eșuate")}</Chip>
+            ) : (
+              <Chip tone="neutral">{plural(alerts.length, "alertă", "alerte")}</Chip>
+            )
+          }
         />
-        <p
-          className="px-5 py-10 text-center text-[13px] text-rc-muted"
-          data-testid="alerts-empty"
-        >
-          Nicio alertă trimisă. Trimiterea prin email se construiește la cardul P2-10; până atunci
-          ecranul arată pragurile, nu pretinde că a trimis ceva.
-        </p>
+        {alerts.length === 0 ? (
+          <p
+            className="px-5 py-10 text-center text-[13px] text-rc-muted"
+            data-testid="alerts-empty"
+          >
+            Nicio alertă trimisă. Se trimite un email când o mișcare de stoc coboară un produs sub
+            pragul lui.
+          </p>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Produs</Th>
+                <Th>Trimis</Th>
+                <Th align="right">Stoc la trimitere</Th>
+                <Th align="right">Prag</Th>
+                <Th align="right">Stare</Th>
+              </tr>
+            </thead>
+            <tbody data-testid="alert-rows">
+              {alerts.map((a) => (
+                <tr key={a.id} data-testid="alert-row" data-sku={a.sku}>
+                  <Td>
+                    <span className="text-[13.5px] font-medium text-rc-black">{a.name}</span>
+                    <span className="block rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{a.sku}</span>
+                  </Td>
+                  <Td>
+                    <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
+                      {formatMoment(a.firedAt)}
+                    </span>
+                    {a.sendError ? (
+                      <span
+                        className="block text-[11.5px] text-rc-danger mt-0.5"
+                        data-testid="alert-error"
+                      >
+                        {a.sendError}
+                      </span>
+                    ) : null}
+                  </Td>
+                  <Td align="right">
+                    <span className="rc-num text-[13px] font-semibold text-rc-warn whitespace-nowrap">
+                      {formatQty(a.stockAtFire, a.unit)}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
+                      {formatNumber(a.thresholdAtFire)} {unitLabel(a.unit)}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    {a.sendError ? (
+                      <Chip tone="danger">Netrimis</Chip>
+                    ) : (
+                      <Chip tone="ok">Trimis</Chip>
+                    )}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </Card>
     </>
   );
