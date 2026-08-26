@@ -671,3 +671,42 @@ card requires it there, and the mock answers 500. RULE: mock a service at its
 transport boundary, not with a branch in your own code. A base URL is
 configuration; an `if (TEST)` is a second implementation that nobody runs in
 production and everybody trusts in CI.
+
+### P2-12: a send-only API key cannot answer a verification question
+**Tag:** infra
+**ERROR:** P2-12's acceptance needs the Resend dashboard to show the client
+domain verified. `GET https://api.resend.com/domains` with the key from the
+environment answered `This API key is restricted to only send emails`. The key
+is a sending-only restricted key, which is the right key for the application to
+hold and the wrong key for asking a question about configuration. Nothing was
+broken and nothing was misconfigured; the credential simply had a smaller scope
+than the check assumed.
+**SOLUTION:** get what public DNS can prove independently, and block precisely
+on what is left. All three records Resend asks for are present and correctly
+placed: SPF TXT at `send.rapidconstructmd.com`, MX at the same name pointing at
+`feedback-smtp.eu-west-1.amazonses.com`, and the DKIM key at
+`resend._domainkey.rapidconstructmd.com`. That is necessary and it is not
+sufficient: only Resend can say whether IT has checked them. The card was
+blocked on Ivan with the three record names, types and values written out, so
+the answer is a one-line dashboard read rather than an investigation.
+RULE: when an acceptance line needs a credential, check the SCOPE of the one
+you hold before assuming the check can run at all, and note that the sending
+identity is usually a `send.` subdomain rather than the root, so a lookup at the
+root finds nothing and reads like a missing record.
+
+### P2-12: redirects that are same-origin by construction need no canonical URL variable
+**Tag:** frontend
+**ERROR:** No defect. The card requires a canonical URL environment variable
+that every absolute URL is built from, and the honest finding was that the
+application builds no absolute URLs at all. Every redirect in `proxy.ts` is
+`request.nextUrl.clone()` with only the pathname changed, so a redirect from
+the client domain lands on the client domain because of how it is built, not
+because of how it is configured. The P2-10 reminder email carries no link.
+Adding the variable would have created a value nothing reads.
+**SOLUTION:** verify the property the card actually wants (a redirect never
+leaves the host it was requested from) rather than shipping the mechanism the
+card guessed would be needed, and record when the mechanism becomes necessary:
+the first absolute URL, which is the reminder sender switch or the metadata
+work in P2-11. RULE: an unread environment variable is not neutral. It goes
+stale silently and the next reader believes it. Build the variable at the first
+consumer, and until then write down why there is none.
