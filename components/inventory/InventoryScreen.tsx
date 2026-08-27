@@ -201,6 +201,8 @@ export function InventoryScreen({
                   onClick={() => setOpenId(p.id)}
                   data-testid="product-row"
                   data-sku={p.sku}
+                  data-name={p.name}
+                  data-needs-review={String(p.needsReview)}
                   className={[
                     "cursor-pointer transition-colors",
                     !p.active

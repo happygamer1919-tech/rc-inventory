@@ -1,21 +1,38 @@
-// P2-06 Incarca comanda.
+// Incarca comanda.
 //
-// CE ESTE ACEST ECRAN ACUM. Documentul furnizorului se incarca real, in bucketul
-// privat rc-docs, si ramane atasat comenzii. Ce NU face inca este sa citeasca
-// singur din document: extragerea automata prin Make apartine cardului P2-08, iar
-// ecranul de verificare a extragerii apartine lui P2-09.
+// DOUA CAI IN, SI ELE SUNT DIFERITE PE FATA.
 //
-// De ce nu a ramas simularea din faza 1: acest card sterge stratul demonstrativ
-// din tot depozitul de cod, iar o animatie de procesare care umple formularul cu
-// date inventate ar fi, intr-un sistem care acum scrie in baza, o minciuna.
-// Ecranul spune pe fata ce face si ce urmeaza.
+// Prima, P2-09: documentul se incarca si se citeste automat prin Make, apoi
+// operatorul verifica pe ecran ce s-a extras si confirma. Comanda se naste la
+// confirmare, iar pana atunci exista doar o ciorna de extragere. Documentele
+// esuate si cele partiale stau in aceeasi lista, cu motivul lor, fiindca un
+// esec pe care operatorul nu il vede este un document care pare ca se
+// proceseaza la nesfarsit.
+//
+// A doua, P2-08a, ramasa neatinsa dedesubt: operatorul tasteaza comanda intai
+// si ataseaza documentul la ea. Acolo comanda exista deja, deci nu e nimic de
+// confirmat, si lista de mai sus nu ofera acele ciorne spre confirmare. Motivul
+// intreg este in antetul migratiei 0010.
 
-import { listActiveProducts, listSupplierNames } from "@/lib/data/products";
+import { listActiveProducts, listCategories, listSupplierNames } from "@/lib/data/products";
+import { listReviewDrafts } from "@/lib/data/extraction";
+import { ExtractionReviewPanel } from "@/components/orders/ExtractionReviewPanel";
 import { UploadOrderScreen } from "@/components/orders/UploadOrderScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function UploadOrderPage() {
-  const [products, suppliers] = await Promise.all([listActiveProducts(), listSupplierNames()]);
-  return <UploadOrderScreen products={products} suppliers={suppliers} />;
+  const [products, suppliers, categories, drafts] = await Promise.all([
+    listActiveProducts(),
+    listSupplierNames(),
+    listCategories(),
+    listReviewDrafts(),
+  ]);
+
+  return (
+    <>
+      <ExtractionReviewPanel drafts={drafts} products={products} categories={categories} />
+      <UploadOrderScreen products={products} suppliers={suppliers} />
+    </>
+  );
 }

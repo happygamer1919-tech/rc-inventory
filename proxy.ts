@@ -11,12 +11,23 @@
 // prin antetul x-rc-role. Componentele nu interogheaza din nou tabela profiles.
 //
 // Sesiunea se reimprospateaza prin @supabase/ssr, cu implicitele lui.
+//
+// P2-11. ANTETELE DE SECURITATE SE PUN SI AICI, pe fiecare raspuns pe care il
+// produce acest fisier. next.config.ts le pune pe raspunsurile care ajung in
+// randare; o redirectare sau o rescriere intoarsa de aici scurtcircuiteaza
+// randarea si nu le-ar primi niciodata.
+//
+// Iar aceea este tocmai prima pagina pe care o vede un vizitator: raspunsul
+// dintai pentru cineva neautentificat NU este o pagina, este redirectarea catre
+// autentificare. Fara antete pe ea, primul contact al browserului cu domeniul se
+// face fara politica, exact contactul pe care HSTS exista sa il acopere.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import { FORBIDDEN_PATH, LOGIN_PATH, OWNER_ONLY_PREFIXES } from "@/lib/routes";
 import { COOKIE_OPTIONS } from "@/lib/supabase/cookies";
+import { applySecurityHeaders } from "@/lib/security-headers";
 
 /** Lista permisa. Orice altceva cere sesiune. */
 const PUBLIC_PATHS = new Set<string>([LOGIN_PATH]);
@@ -82,14 +93,14 @@ export async function proxy(request: NextRequest) {
 
   // --- neautentificat ------------------------------------------------------
   if (!user) {
-    if (isPublic(pathname)) return response;
+    if (isPublic(pathname)) return applySecurityHeaders(response);
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
     url.search = "";
     // Nu se randeaza niciodata un ecran gol pentru un vizitator neautentificat.
     const redirect = NextResponse.redirect(url);
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
-    return redirect;
+    return applySecurityHeaders(redirect);
   }
 
   // --- autentificat, dar pe pagina de autentificare -------------------------
@@ -99,7 +110,7 @@ export async function proxy(request: NextRequest) {
     url.search = "";
     const redirect = NextResponse.redirect(url);
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
-    return redirect;
+    return applySecurityHeaders(redirect);
   }
 
   // --- rolul, citit o singura data -----------------------------------------
@@ -117,7 +128,7 @@ export async function proxy(request: NextRequest) {
     url.search = "";
     const redirect = NextResponse.redirect(url);
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
-    return redirect;
+    return applySecurityHeaders(redirect);
   }
 
   const role = profile.role as string;
@@ -129,7 +140,7 @@ export async function proxy(request: NextRequest) {
     // Rewrite, nu redirect: adresa ramane cea ceruta si nu poate aparea bucla.
     const rewritten = NextResponse.rewrite(url);
     for (const cookie of response.cookies.getAll()) rewritten.cookies.set(cookie);
-    return rewritten;
+    return applySecurityHeaders(rewritten);
   }
 
   // --- transmite rolul mai departe -----------------------------------------
@@ -139,7 +150,7 @@ export async function proxy(request: NextRequest) {
 
   const passthrough = NextResponse.next({ request: { headers } });
   for (const cookie of response.cookies.getAll()) passthrough.cookies.set(cookie);
-  return passthrough;
+  return applySecurityHeaders(passthrough);
 }
 
 export const config = {

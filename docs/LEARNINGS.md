@@ -967,3 +967,218 @@ into a login page. When an endpoint answers 200 to a request that should be
 rejected, suspect the layer in front of it before the code inside it. And a test
 client that follows redirects will hide exactly this, so the assertion that
 caught it was the one expecting a FAILURE.
+
+### A suite that only asserts the happy path cannot see a silent success
+**Tag:** ci
+**ERROR:** The concrete instance is recorded above as "P2-08a: a machine
+endpoint behind an auth redirect answers 200 to everything", and this entry is
+the general rule it produced, written separately because the rule is worth more
+than the instance. A machine endpoint sitting behind a redirect returns a
+perfectly good `200` to its caller while doing nothing at all. Make would post a
+callback, read success, record a delivery and never retry. Every document would
+be lost, silently, one at a time, and the only symptom on our side would be
+drafts that never appear. **A suite that checks only what a correct call returns
+cannot see this class of defect**, because the wrong answer and the right answer
+are the same three digits. The assertion that caught it was case 4 of
+`extraction.spec`, which posts a **deliberately wrong secret** and expects `401`:
+a wrong secret answering `200` can only mean the request never reached the code
+that checks secrets.
+**SOLUTION:** assert the failure cases, not only the success cases, and give
+them equal weight in the acceptance line rather than treating them as extras.
+For every machine endpoint the suite asserts at least: the wrong credential, the
+missing credential, the malformed payload, and the payload that violates the
+contract. RULE: a success code proves nothing on its own, because the layers in
+front of your code can produce it too. What proves the code ran is a failure the
+code alone knows how to produce. Design the suite so at least one case can only
+pass if the handler itself executed.
+
+### A migration post-check that counts objects will not see a grant
+**Tag:** data
+**ERROR:** Migration 0008 created two tables and left `anon` holding `SELECT` on
+both, because Supabase grants table privileges to `anon` and `authenticated` at
+**CREATE TABLE time** from project-level default privileges, and 0001's
+`revoke all ... from anon` ran once against the tables that existed then. The
+phase 3 post-check required by CLAUDE.md 8.5 asks for the table list, the
+`rls_enabled` flag, the policy count and the enum list. **Every one of those was
+correct.** The schema counted right and was reachable by a role that should not
+have been able to reach it. RLS was holding, so nothing leaked, but the grant is
+the FIRST of the two layers and a table with one where every sibling has two is
+protected less.
+**SOLUTION:** the post-check now asks a reachability question as well as a
+counting question, on every apply, for every object the migration created:
+
+```sql
+select c.relname,
+       has_table_privilege('anon', c.oid, 'SELECT')          as anon_can_read,
+       has_table_privilege('authenticated', c.oid, 'SELECT') as authenticated_can_read
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind = 'r';
+```
+
+The expected answer is `anon_can_read = false` on **every** row, not on the new
+ones. RULE: count what a migration created, then ask who can reach it. The two
+questions have different answers and only the second one is about safety. The
+same applies to a migration that creates a FUNCTION rather than a table, where
+the reachability question is `has_function_privilege('anon', ..., 'EXECUTE')`
+and the trap is different: a new function is executable by `PUBLIC` by default,
+`anon` is a member of `PUBLIC`, and a default privilege that revokes from `anon`
+by name does not touch the grant `anon` holds through `PUBLIC`.
+
+### The card that says "confirm creates the order" against a schema that said the opposite
+**Tag:** data
+**ERROR:** P2-09's acceptance says confirm CREATES the real inbound order, while
+the lane P2-08a shipped uploads a document onto an inbound order that already
+exists, so `extraction_drafts.order_id` was in practice an `inbound_orders.id`.
+Building confirm on top of that would have created a second order for every
+document, and a foreign key added in either direction would have frozen the
+wrong reading into a migration.
+**SOLUTION:** migration 0008 deliberately left `order_id` without a foreign key
+and wrote the ambiguity into its own header instead of guessing. Migration 0010
+settles it in one place: `order_id` is the extraction idempotency key and never
+an order id, the draft records the order it became, and a draft whose id already
+names an existing order is excluded from the review list rather than offered for
+a duplicate. THE RULE: when two shipped cards imply opposite schema meanings,
+the migration that notices it records the conflict and adds no constraint; the
+card that owns the decision settles it, and it settles it in SQL where both
+readings can no longer coexist.
+
+### "Consumed" is not a synonym for "deleted"
+**Tag:** data
+**ERROR:** P2-09 says the confirmed draft is "consumed rather than left behind".
+Reading that as DELETE would have thrown away `_meta`, which exists so a wrong
+extraction can be explained rather than argued about, and it would have put a
+DELETE statement in a migration, which CLAUDE.md 8.6 forbids auto-applying at
+all.
+**SOLUTION:** consumed is marked: `confirmed_inbound_order_id` plus
+`confirmed_at`, a check constraint keeping the pair honest, and the review list
+filtering on the column. The draft leaves the queue, points at the order it
+became, and cannot be confirmed twice. THE RULE: before writing a DELETE to
+satisfy a word in an acceptance line, check whether marking satisfies the same
+sentence. It usually does, it keeps the evidence, and it keeps the migration
+appliable without an owner in the chair.
+
+### A re-fire that cleared callback_at made the receiver call a replacement a first answer
+**Tag:** backend
+**ERROR:** `review.spec` case 6 failed in CI with `Expected: 200, Received: 202`.
+The re-fire control re-posted the same `order_id`, as the contract requires, and
+the callback answering it came back 202 accepted instead of 200 duplicate. The
+draft was replaced correctly, so nothing looked wrong on screen: only the status
+code lied, and it lied to Make, which is the one reader that acts on it.
+**SOLUTION:** `refireExtraction` was clearing `callback_at` together with
+`status`, `error_code` and `reason` so the screen would show "in lucru" instead
+of a stale failure. But the receiver derives 202-against-200 from `callback_at`
+alone, and the contract defines a duplicate on `order_id`, not on how many times
+we fired. Clearing it made re-fire the single path that could silently reset the
+idempotency counter. Only `status`, `error_code` and `reason` are cleared now;
+the screen reads "in lucru" from `status` being null and never needed the
+timestamp. Rule: before clearing a field to change what a SCREEN shows, find out
+which MACHINE reads it. A field that two readers interpret differently is not a
+display flag.
+
+### The eu-west-1 session pooler answers on aws-1, and the repository already said so
+**Tag:** infra
+**ERROR:** applying 0010, `aws-0-eu-west-1.pooler.supabase.com` resolved and
+accepted TCP, then rejected the login with
+`FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`. Read as a credential
+failure it would have sent the card to `blocked_on: ivan` for a password
+rotation that was never wrong.
+**SOLUTION:** the host was the wrong one, and the right one was already written
+down twice: the 0001 apply journal on the board and an existing `docs/LEARNINGS.md`
+entry both name `aws-1-eu-west-1.pooler.supabase.com` as the host that answers.
+CLAUDE.md 8.4 forbids guessing a hostname, and reading one back out of a
+committed journal is not guessing. Rule: when a derived connection is refused,
+search this repository for the same error before touching the credential. This
+project has hit it once already and paid for the answer.
+
+### A referential action can break a CHECK constraint the application never violates
+**Tag:** data
+**ERROR:** Migration 0010 added `confirmed_inbound_order_id` with
+`on delete set null`, and next to it a CHECK saying the two confirmation columns
+are either both null or both set. Read as a statement about what the application
+writes, it is exactly right: a draft must not claim to have produced an order
+without saying when. Read as a statement about the row, it is false, because the
+column is not only written by the application. Deleting an inbound order fires
+the referential action, which NULLs the pointer while `confirmed_at` stays, and
+the row the constraint calls impossible now exists. PostgreSQL refuses the
+delete with `23514` and rolls back the whole transaction that attempted it.
+Nothing in CI would have caught it: no test deletes an inbound order, and the
+one file that does, `scripts/reset-test-data.sql`, is **parsed** in CI rather
+than executed. The first run would have been the owner, in the SQL editor,
+against production, on the day before first real data.
+**SOLUTION:** the constraint was replaced (0011) with the implication rather
+than the equivalence: `confirmed_inbound_order_id is null or confirmed_at is not
+null`. A row that names an order carries a time; a row whose order was deleted
+keeps the time, which is the honest record - the draft WAS confirmed and the
+order it became is gone. Everything that asks "has this been confirmed" now
+reads `confirmed_at`, which nothing but a confirm writes, instead of a pointer a
+delete elsewhere can erase.
+RULE: before writing a CHECK across two columns, ask what else can write either
+of them. A foreign key with `on delete set null` or `on delete set default` is a
+second author, and a constraint that assumes the application is the only one is
+a delete that fails somewhere far away, long after the migration is applied.
+
+### A socket reset is not a test failure, and the fix is not a retry policy
+**Tag:** ci
+**ERROR:** `review.spec` case 4 failed in CI with `apiRequestContext.post: read
+ECONNRESET` before a single assertion had run. The other sixty cases passed, the
+same case had passed in the previous run, and the dev server logged nothing. The
+tempting reading is "flaky test, re-run it", and the tempting fix is `retries: 1`
+in the Playwright config. Both are wrong here, and the config says why in as many
+words: a retry hides a race between requests, and a race in a stock system is a
+wrong number in a warehouse.
+**SOLUTION:** the failure is at the transport, not in the assertion: a Node HTTP
+server closes an idle keep-alive socket after five seconds, and a client that
+writes to it at that instant reads a reset. `maxRetries` on the individual
+request retries **only `ECONNRESET`** and never on a response code, so a `200`
+where a `401` was expected still fails exactly as loudly. `retries` stays `0`.
+RULE: read what actually failed before deciding what to repair. A failure with
+no assertion in it is a failure of the harness or the transport, and the repair
+belongs there, at the narrowest scope that covers it. A suite-wide retry would
+have bought the same green while hiding every real race the suite exists to
+catch.
+
+### A cleanup script only knows the schema it was written against
+**Tag:** data
+**ERROR:** Found while working P2-09, recorded rather than fixed because the
+file belongs to another card. `scripts/reset-test-data.sql` selects the rows to
+delete with `where sku like 'TEST-%'`, which was every test product when it was
+written. P2-09's review lane creates flagged products from unmatched extracted
+names, and their SKUs are `EXT-<slug>-<hex>`. The reset does not match them, so
+every acceptance run leaves catalogue rows behind; worse, the inbound orders
+those lines belong to then contain a product that is not in the delete set, so
+the order is classified "mixed" and is not deleted either. The file is correct
+against the schema of the day it was authored and quietly incomplete against the
+one that exists now, and its own post-check would still report zero, because it
+counts what it selected.
+**SOLUTION:** written onto the P2-15 card, which owns the script and has not run
+yet, so it can be corrected before the owner executes it. RULE: a cleanup
+selector is a claim about what test data looks like, and it goes stale the moment
+a card adds a new way to create a row. Every card that introduces a new row
+shape checks the reset script for it, and a post-check that counts only what the
+script selected cannot notice the gap.
+
+### CRIT-16: a success message that lives inside the thing success deletes
+**Tag:** frontend
+**ERROR:** `review.spec` case 2 failed in CI with `review-created` never
+appearing, while cases 1 and 3, which confirm in exactly the same way, passed.
+The failure snapshot settled it: the catalogue already carried the flagged
+product that confirm creates and the list showed no drafts pending, so **the
+confirm had succeeded and only the message was missing.** Confirm consumes the
+draft; a consumed draft leaves the review list on the next refresh; and the
+review form, with its success message inside it, is rendered inside that draft's
+row. `router.refresh()` therefore unmounted the message it was meant to show.
+Whether the assertion saw it depended on which arrived first, so the case passed
+on a quiet machine and failed on a busy one. What the operator would have seen:
+press confirm, something flickers, and the screen is an empty document list. The
+order exists and there is no way to know it from the screen.
+**SOLUTION:** the confirmation moved up into the panel, above the list, and the
+form reports the result upward instead of rendering it. The panel outlives the
+draft, so the message survives exactly the refresh that removes the row. The
+assertion now demands both facts **at once** — the draft card is gone AND the
+success panel is visible — because either one alone is what let this through.
+RULE: a component that reports the outcome of an action must outlive the thing
+the action destroys. When a success handler refreshes a list, ask what unmounts
+as a result, and never let the answer include the element carrying the good
+news. And when a test asserts a message appears after an action that also
+removes something, assert the removal in the same breath: a lone
+"message appeared" assertion is a race with a coin-flip you will win most days.

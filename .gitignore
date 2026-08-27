@@ -23,3 +23,6 @@ playwright-report/
 # losing tsconfig.tsbuildinfo costs one slow typecheck and nothing else.
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# P2-11: dosarul de build folosit de serverul de productie din suita.
+.next-prod
