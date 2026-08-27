@@ -1234,3 +1234,57 @@ distinctly (`<id>:branch:<status>`), and give it its own heading in the report.
 Then add the inverse rule as a hard invariant: a run that had an eligible card
 and shipped nothing writes an escalation naming the card and the reason, every
 time. Silence about an eligible card is a defect, never a normal outcome.
+
+### An unbound variable in a heredoc empties the file and the run keeps going
+**Tag:** infra
+**ERROR:** `run.sh` builds EXECUTOR's prompt with `cat > "$PROMPT_FILE" <<PROMPT_EOF`
+and a claim-lease line was added to it that interpolated `$CLAIM_SKIPPED`. That
+variable is assigned about fifty lines further down. Under `set -u` the
+expansion failed, the heredoc aborted at that line, and `$PROMPT_FILE` was left
+**zero bytes**. The script has no `set -e`, so it continued and ran
+`claude -p "$(cat "$PROMPT_FILE")"` with an empty prompt. Claude answered
+`Error: Input must be provided either through stdin or as a prompt argument when
+using --print` and exited 1. The harness logged `EXECUTOR finished, exit 1` and
+carried on to send a digest, so the run looked like a model failure when in fact
+EXECUTOR had never been given anything to do.
+**SOLUTION:** Compute every variable a heredoc interpolates **before** the
+heredoc, not merely before it is used. `set -u` turns an ordering mistake into a
+silently truncated file rather than an error you can see. Then assert the
+artefact: `[ ! -s "$PROMPT_FILE" ]` and refuse to invoke, with a message saying
+this is a defect in the script rather than a failure of the run. A generated
+input that is empty must never be passed to the thing it was generated for.
+
+### P2-15: a delete set that classified its own residue as somebody else's data
+**Tag:** data
+**ERROR:** `scripts/reset-test-data.sql` identified test rows by
+`products.sku like 'TEST-%'`, which was every test product on the day it was
+written. P2-09's review lane then began creating flagged products with SKUs
+shaped `EXT-<slug>-<hex>`, and they did not match. The second-order effect is
+the one worth keeping: the inbound order created by confirming an extracted
+document has lines pointing **only** at those products, so under the old
+definition it had a line pointing at a product outside the delete set, which
+made it **mixed**, and mixed orders are left alone **by design**. One acceptance
+run therefore left behind a product, an order, its lines and its history row,
+and every one of them was protected by the rule that exists to protect real
+data. **The post-check still printed zero**, because a post-check that counts
+what the selector selected can only ever confirm the selector agrees with
+itself.
+Separately, `extraction_drafts` and `extraction_draft_lines` arrived in
+migration 0008, after this file was authored, and nothing in it had ever touched
+them. Those rows are visible on screen: the review panel lists them, so
+production would have opened with a list of `TEST-` documents waiting for the
+client to verify.
+**SOLUTION:** the selector resolves in stages and the second marker is
+**evidence rather than a name pattern**: `EXT-` is also what real use creates
+after launch, so a product is in scope only when it sits on an order that a
+*seed draft* became, and a seed draft is one carrying the suite's own filename
+marker, or attached to an order already in the delete set, or confirmed into
+one. The order test is then applied against the full product set, so an order
+made only of test-originated `EXT-` products is wholly test-originated and goes,
+while a genuinely mixed one is still never deleted.
+RULE: a cleanup selector is a claim about what test data looks like, and it goes
+stale the moment a card adds a new way to create a row. Every card that
+introduces a new row shape checks the reset script for it. And when a delete set
+and its verification share one definition, the verification cannot fail: prove
+the set from the other end, by counting what the new shape produces and looking
+for it afterwards by name.
