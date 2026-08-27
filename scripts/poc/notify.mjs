@@ -124,6 +124,35 @@ function recommendationOf(card) {
 // ---------------------------------------------------------------------------
 // The digest
 // ---------------------------------------------------------------------------
+/**
+ * The newest committed report, by the AUT-1 naming convention.
+ *
+ * CLAUDE.md section 9b: a terminal's final act is to commit its full report to
+ * docs/reports/<YYYY-MM-DD>-<role>-<slug>.md. The digest carries the PATH so the
+ * report is reachable by whoever reads the message, and so the next role in the
+ * chain has a name to open rather than a scrollback to hope for.
+ *
+ * READ FROM DISK RATHER THAN FROM state.json, deliberately. The digest is sent
+ * before the state PR is written, so a path routed through state would always be
+ * one run stale. The directory is the source of truth and it is right here.
+ *
+ * The two files that predate the convention carry no date prefix and are
+ * correctly ignored by the filter.
+ */
+function newestReport() {
+  const dir = path.join(REPO_ROOT, "docs", "reports");
+  let names;
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return null;
+  }
+  const dated = names
+    .filter((n) => /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$/.test(n))
+    .sort();
+  return dated.length > 0 ? "docs/reports/" + dated[dated.length - 1] : null;
+}
+
 function buildDigest() {
   const board = readJson(BOARD_PATH, { cards: [] });
   const state = readJson(STATE_PATH, {});
@@ -222,6 +251,11 @@ function buildDigest() {
   }
   const openPrs = gh(["pr", "list", "--state", "open", "--json", "number", "-q", "length"]);
   if (openPrs) lines.push("Open PRs: " + openPrs);
+  lines.push("");
+
+  // 3b. The report this run committed, by path. AUT-1.
+  const report = newestReport();
+  lines.push("REPORT: " + (report || "none committed"));
   lines.push("");
 
   // 4. Escalations raised, newest first.

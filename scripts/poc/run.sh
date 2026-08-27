@@ -234,9 +234,16 @@ you. Restated so there is no ambiguity:
 You are in the worktree $POC_RUN_WORKTREE, detached at origin/main. Work here
 and nowhere else. Do not touch $POC_REPO_MAIN.
 
-When you are done, write a plain summary of what you did as your final message:
-cards touched and what happened to each, PRs opened or merged with numbers, and
-anything you escalated.
+YOUR FINAL ACT IS TO COMMIT YOUR REPORT. CLAUDE.md section 9b: the file is the
+original and what you print is a copy. Write the full report to
+docs/reports/<YYYY-MM-DD>-executor-<slug>.md, commit it in a PR like everything
+else, never straight to main, and only then print it. A report that exists only
+in this terminal is a report the next role cannot read, and the digest carries
+the path so somebody can open it.
+
+The report says: cards touched and what happened to each, PRs opened or merged
+with numbers, anything you escalated, and what the next run should pick up
+first.
 PROMPT_EOF
 
 # Snapshot the board before the run touches it, so what moved can be worked out
@@ -331,13 +338,26 @@ fi
 # Step 5: state, through a PR. Never a direct push to main.
 # ---------------------------------------------------------------------------
 STATE_BRANCH=poc/state-$RUN_ID
+
+# AUT-1. The report this run committed, found on origin/main by its dated name.
+# Resolved from the repository rather than from anything the run said about
+# itself: a run that claims a report it did not commit records nothing here.
+git fetch origin main --quiet 2>/dev/null || true
+REPORT_PATH=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
+  | grep -E "^docs/reports/$(date -u +%Y-%m-%d)-[a-z0-9-]+\.md$" | sort | tail -1)
+if [ -n "$REPORT_PATH" ]; then
+  log "report committed this run: $REPORT_PATH"
+else
+  log "no report committed for today on origin/main"
+fi
+
 log "writing $POC_STATE on $STATE_BRANCH"
 
 git checkout -b "$STATE_BRANCH" origin/main --quiet
 
 node -e '
   const fs = require("fs");
-  const [path, runId, finishedAt, touchedRaw, digestAt, capped] = process.argv.slice(1);
+  const [path, runId, finishedAt, touchedRaw, digestAt, capped, reportPath] = process.argv.slice(1);
   const state = JSON.parse(fs.readFileSync(path, "utf8"));
   state.last_run = finishedAt;
   state.run_id = runId;
@@ -357,8 +377,13 @@ node -e '
     }]);
   }
   if (digestAt) state.digest_last_sent = digestAt;
+  // AUT-1. The report this run committed, by path. The digest reads the
+  // directory directly, because it is sent before this file is written; this
+  // field is the record, so a later reader can tell which report belonged to
+  // which run without matching dates by eye.
+  if (reportPath) state.report_path = reportPath;
   fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
-' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED"
+' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$REPORT_PATH"
 
 git add "$POC_STATE"
 
