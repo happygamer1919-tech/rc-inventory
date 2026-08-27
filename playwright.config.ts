@@ -1,6 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 import {
+  MAKE_CALLBACK_SECRET,
+  MAKE_MOCK_PORT,
+  MAKE_MOCK_URL,
+  MAKE_WEBHOOK_SECRET,
+  MAKE_WEBHOOK_URL,
+} from "./tests/e2e/support/make";
+import {
   RESEND_FAIL_MARKER,
   RESEND_MOCK_FROM,
   RESEND_MOCK_KEY,
@@ -113,6 +120,15 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
+      command: `node tests/e2e/support/make-mock.mjs`,
+      url: `${MAKE_MOCK_URL}/__health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: { MAKE_MOCK_PORT: String(MAKE_MOCK_PORT) },
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
       command: `npm run dev -- --port ${PORT}`,
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
@@ -121,6 +137,12 @@ export default defineConfig({
         RESEND_API_KEY: RESEND_MOCK_KEY,
         RESEND_BASE_URL: RESEND_MOCK_URL,
         RESEND_FROM: RESEND_MOCK_FROM,
+        // P2-08a. Same pattern, same reason: the app makes its real fetch and
+        // does not know a test is running.
+        MAKE_WEBHOOK_URL,
+        MAKE_WEBHOOK_SECRET,
+        MAKE_CALLBACK_SECRET,
+        RC_CALLBACK_URL: `${BASE_URL}/api/extraction/callback`,
       },
       stdout: "ignore",
       stderr: "pipe",

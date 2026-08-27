@@ -156,3 +156,120 @@ e2e residue carrying all 305 products, and it belongs to **P2-15** and to the
 owner decision recorded there. A seed migration that quietly tidied it would be
 taking that decision on Ivan's behalf, which is exactly what P2-15 exists to
 prevent.
+
+---
+
+## 0008_extraction_drafts.sql
+
+- **Version:** 0008
+- **Name:** extraction_drafts
+- **Actor:** EXECUTOR
+- **Applied at:** 2026-08-27T08:40:00Z
+- **Authority:** ruling R-012, card P2-08a
+- **Destructive statements:** none. The only `delete` tokens are `on delete set
+  null` and `on delete cascade` in foreign keys, and `for delete` in policies.
+- **Parsed before applying:** yes, `pgsql-parser`. 21 statements:
+  2 `CreateEnumStmt`, 2 `CreateStmt`, 2 `CommentStmt`, 2 `IndexStmt`,
+  1 `CreateTrigStmt`, 2 `AlterTableStmt`, 8 `CreatePolicyStmt`, wrapped in
+  `TransactionStmt`. Zero destructive statement kinds.
+
+### Phase 1, pre-check
+
+```
+files on disk: 8
+journal before: 0001..0007
+pending: 0008
+0008 claims to create: 2 enums, 2 tables, 2 comments, 2 indexes, 1 trigger,
+                       8 policies, RLS on both tables
+tables in public before: 11
+enums before: 6
+```
+
+### Phase 2, apply
+
+One transaction, `psql -v ON_ERROR_STOP=1 -f`. Clean. Journal row written.
+
+### Phase 3, post-check
+
+```
+tables | with RLS | policies:   13 | 13 | 49
+extraction_drafts        rls=t  policies=4
+extraction_draft_lines   rls=t  policies=4
+enums: 8
+  extraction_status      extracted,partial,failed
+  extraction_error_code  download_failed,url_expired,unsupported_format,
+                         unreadable_document,extraction_failed,invalid_output,timeout
+
+NULLABILITY, every contract field nullable:
+extraction_drafts       order_id=NO document_path=NO document_filename=NO
+                        mime_type=NO size_bytes=NO created_at=NO updated_at=NO
+                        ALL 17 OTHERS = YES
+extraction_draft_lines  id=NO order_id=NO line_no=NO product_name=NO
+                        created_at=NO
+                        ALL 10 OTHERS = YES
+
+COLUMN DEFAULTS that are 0 or empty string: none
+journal after: 0001..0008
+```
+
+### The post-check found a defect, which is what it is for
+
+`anon` held `SELECT` on both new tables. Every other table in this schema grants
+`anon` nothing, verified by the CRITIC at the wave 1 boundary and re-verified
+read-only the same morning during the G2 gate audit: zero of eleven.
+
+Nothing leaked. RLS is on and every policy is `to authenticated`, so an
+anonymous request matched no policy and returned zero rows. PostgreSQL checks
+the GRANT first and RLS second, and the second check was holding. But the point
+of revoking `anon` is that it is the FIRST of the two, and a table with one
+layer where every sibling has two is protected less.
+
+Corrected by **0009**, below. 0008 is not edited: it is applied, and CLAUDE.md
+8.1 says a correction is a new numbered file.
+
+---
+
+## 0009_revoke_anon_on_extraction_drafts.sql
+
+- **Version:** 0009
+- **Name:** revoke_anon_on_extraction_drafts
+- **Actor:** EXECUTOR
+- **Applied at:** 2026-08-27T08:50:00Z
+- **Authority:** ruling R-012, card P2-08a
+- **Destructive statements:** none. `REVOKE` only.
+- **Parsed before applying:** yes. 11 statements: 5 `GrantStmt` (revokes),
+  3 `AlterDefaultPrivilegesStmt`, 1 verification `SelectStmt`, wrapped in
+  `TransactionStmt`.
+
+### Why 0008 needed correcting
+
+Supabase grants table privileges to `anon` and `authenticated` **at CREATE TABLE
+time**, from project-level default privileges that predate every migration here.
+Migration 0001 knew that and revoked `anon` explicitly. That statement ran once,
+against the tables that existed then. It is not a policy and it does not reach
+tables created later. 0008 created two and did not repeat it.
+
+The durable fix is the default privilege, not the revoke: the revoke fixes the
+two tables that exist, and `alter default privileges ... revoke all on tables
+from anon` stops the next `CREATE TABLE` reintroducing it. Same reasoning 0005
+used for `service_role` and `authenticated`.
+
+### Phase 1, pre-check
+
+```
+tables where anon can SELECT: 2   (extraction_drafts, extraction_draft_lines)
+```
+
+### Phase 2, apply
+
+One transaction, clean. The file's own verification query printed all 13 tables
+with `anon_can_read = f` and `authenticated_can_read = t`.
+
+### Phase 3, post-check
+
+```
+tables where anon can SELECT:           0   of 13
+tables where authenticated can SELECT:  13  of 13
+tables where service_role can SELECT:   13  of 13
+journal after: 0001..0009
+```
