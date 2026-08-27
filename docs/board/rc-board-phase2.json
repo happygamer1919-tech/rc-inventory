@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 2 Build",
   "schema_version": 1,
   "phase": "phase-2-build",
-  "as_of": "2026-08-27T17:45:00Z",
+  "as_of": "2026-08-27T18:40:00Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board-phase2.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/92e2da75-961c-4ce3-a765-9e00686c6bb2, and the same URL is re-rendered and updated after every board change so the owner link stays live. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back. The phase 1 board and its artifact are untouched and stay live at their own URL.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof, and the acceptance field carries the check that produced it. The executor terminal updates this JSON at every checkpoint, in the same PR as the code, and bumps as_of. docs/board/validate-board.mjs must exit 0 before every commit; a commit made while the validator is red is reverted, not patched forward. GATE VOCABULARY, amended 2026-08-25 by owner ruling R-002. OWNER_MERGE IS RETIRED ON THIS BOARD. Cards ship on green_self_merge discipline: the green quality check PLUS the card's named acceptance spec passing. Visual and behavioural defect review belongs to the CRITIC at wave boundaries and to an optional owner batch review before the client demo; NEITHER IS A MERGE GATE. green_self_merge means the executor self-decides and merges its own PR once quality is green and the named acceptance has passed, no approval needed. stakeholder means Mihai (the client) accepts on production, and P2-14 is the only card that carries it. cyan_clear, owner_authorizo and owner_merge are unused on this board; owner_merge remains a legal value only because the closed phase 1 board carries it on nine shipped cards. A blocked_on entry naming Ivan is an OWNER ACTION (apply a DNS record, rotate a credential, tick a checklist), never a review, and retiring owner_merge does not touch it. LAUNCH GATE CONDITIONS still flip to pass only on their named proof: for screen conditions that proof is now the named spec green in CI plus EXECUTOR's own deployed-screen verification, both recorded as evidence. EVIDENCE VOCABULARY: kind pr is a merged pull request number, kind journal is a commit sha or command output pasted so a stranger can re-verify, kind e2e is a named Playwright test plus the run that passed it, kind screenshot is Ivan or Mihai on-screen confirmation. SKIP-NOT-HALT: the run never stops for a question. A card that cannot proceed gets its question field filled with the structured decision-needed text (DECISION NEEDED, CONTEXT, OPTIONS, RECOMMENDATION, IMPACT IF UNANSWERED), blocked_on set to the person who owes the answer, status set to blocked, and the executor moves to the next eligible card in the same session. A recommendation is mandatory: a question without one is unfinished. DEFAULTS: every card carries a defaults field holding the pre-authorized answers to that card's expected ambiguities. When defaults covers an ambiguity the executor applies it and logs the application in notes, and does not ask. Defaults fill silence, they never override an explicit instruction in the card. ACCEPTANCE: every card names a machine-checkable acceptance line, a command with an expected exit code, a URL with expected content, or a named test. No acceptance, no ship. A card whose acceptance cannot be run yet is blocked, never shipped. MIGRATIONS: authored as supabase/migrations/NNNN_name.sql files, listed in the PR description by path, and applied by Ivan alone in the Supabase SQL editor. No terminal in this repo ever connects to a database. A card whose acceptance needs an APPLIED migration is set blocked_on ivan with the apply request written into question. A migration file is never edited after it has been applied; a correction is a new numbered file. SECRETS: environment variable names only. Values never appear in chat, in this board, in a commit, in a log or in tool output. /Users/ivan/rc-secrets is out of bounds for reads. ELIGIBILITY: a card is eligible when status is todo, every id in depends_on belongs to a shipped card, and blocked_on is null. The executor takes the lowest-id eligible card. The full standing rules are in CLAUDE.md at the repo root.",
   "lanes": [
@@ -60,6 +60,7 @@
       {
         "id": "G1",
         "title": "G1: Auth live on production: two accounts, owner and account manager, role-gated",
+        "plain": "Staff can sign in on the live site, and the daily operator is genuinely kept out of the owner settings.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -72,6 +73,7 @@
       {
         "id": "G2",
         "title": "G2: Product catalog real in Supabase with categories, units, RLS enforced",
+        "plain": "The product catalogue on the live site is real and permanent, with proper categories and units.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -84,6 +86,7 @@
       {
         "id": "G3",
         "title": "G3: Inbound orders real: manual entry and document upload, arrival flips stock via batches",
+        "plain": "Deliveries can be entered or uploaded on the live site, and marking one arrived really does raise the stock.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -96,6 +99,7 @@
       {
         "id": "G4",
         "title": "G4: AI extraction live end to end per the Andre contract: upload, Make, callback, review, confirm",
+        "plain": "A supplier document uploaded on the live site is read automatically, leaving the office to check it rather than type it.",
         "state": "fail",
         "blocked_on": null,
         "evidence": null,
@@ -104,6 +108,7 @@
       {
         "id": "G5",
         "title": "G5: Outbound real: searchable dropdowns, stock decrements, statuses tracked",
+        "plain": "Materials can be issued out on the live site and the stock drops by the right amount.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -116,6 +121,7 @@
       {
         "id": "G6",
         "title": "G6: Dashboard and lifecycle board compute from the real database",
+        "plain": "The home screen and order board on the live site show real figures from real data.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -128,6 +134,7 @@
       {
         "id": "G7",
         "title": "G7: Reminders fire a Resend email when stock crosses a product threshold",
+        "plain": "A warning email actually arrives when a product falls below the level set for it.",
         "state": "fail",
         "blocked_on": "ivan",
         "evidence": null,
@@ -136,6 +143,7 @@
       {
         "id": "G8",
         "title": "G8: Client domain connected on Vercel production with HTTPS",
+        "plain": "The system is reachable at Rapid Construct's own web address, over a secure connection.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -148,6 +156,7 @@
       {
         "id": "G9",
         "title": "G9: Mihai completes one full cycle himself on production: upload, confirm, arrival, outbound",
+        "plain": "Mihai has completed one full cycle himself on the live site, from delivery through to issuing material out.",
         "state": "fail",
         "blocked_on": null,
         "evidence": null,
@@ -159,6 +168,7 @@
     {
       "id": "P2-01",
       "title": "Schema migration 0001 authored: every phase 2 table, the owner|account_manager role enum, and RLS on every table.",
+      "plain": "The stock, orders and suppliers now have a real permanent home instead of a demo one, with separate permissions for the owner and for the person doing daily entry. Nobody can reach data they are not meant to see.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -181,6 +191,7 @@
     {
       "id": "P2-02",
       "title": "Supabase Auth wired: Romanian email and password login, middleware protecting every route, profiles.role read into the session, account_manager refused at settings.",
+      "plain": "Staff sign in with an email and a password, in Romanian, and the system knows who each person is. The daily operator can do their work but cannot open the owner settings.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -205,6 +216,7 @@
     {
       "id": "P2-03",
       "title": "Products CRUD real: catalog, categories and units read and written against Supabase, the mock layer removed for products.",
+      "plain": "The product catalogue is real: adding, editing and categorising a product is saved for good instead of disappearing on refresh. This is the list every other number in the system counts against.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -229,6 +241,7 @@
     {
       "id": "P2-04",
       "title": "Inbound real: manual order entry, document upload to the private rc-docs bucket, Pending arrival and Arrived, arrival creating batches and moving stock, status_history on every change.",
+      "plain": "Incoming deliveries are real: the office types an order in or uploads the supplier document, and marking it arrived genuinely raises the stock. Every change is recorded, so it is always clear who did what and when.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -253,6 +266,7 @@
     {
       "id": "P2-05",
       "title": "Outbound real: searchable dropdowns over live products, issuing decrements stock, Awaiting shipment and Shipped tracked with history rows.",
+      "plain": "Issuing materials out to a site is real: pick the product from a search box, enter the quantity, and the stock drops by that amount. Each issue is tracked from awaiting shipment through to shipped.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -277,6 +291,7 @@
     {
       "id": "P2-06",
       "title": "Dashboard and lifecycle board computed from the real database, and the mock data module deleted repo-wide.",
+      "plain": "The home screen and the order board now show the real figures from the real data instead of demo numbers. What Mihai sees when he opens the system is what is actually in the warehouse.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -302,6 +317,7 @@
     {
       "id": "P2-07",
       "title": "Playwright end to end wired into the quality workflow: auth plus the core cycle against local dev with seeded test data.",
+      "plain": "An automatic check drives the whole cycle, ordering through to issuing out, every time anything changes. A change that breaks the system is caught before Mihai ever sees it.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -326,6 +342,7 @@
     {
       "id": "P2-08a",
       "title": "Upload pipeline app side against contract v2: signed URL fired to MAKE_WEBHOOK_URL, callback verified and upserted by order_id as a draft, Make mocked at the transport.",
+      "plain": "The system can send an uploaded supplier document away to be read automatically and take the results back. This is the plumbing behind the feature that saves the office typing every delivery in by hand.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -350,6 +367,7 @@
     {
       "id": "P2-08b",
       "title": "Live extraction round trip: one real document through Andre scenario, end to end, against the frozen contract.",
+      "plain": "One genuine supplier document goes through the automatic reading from beginning to end, to prove it works on real paperwork rather than on a made-up test file. Until that has happened, nobody can promise Mihai the feature works.",
       "lane": "blocked_on_people",
       "home_lane": "in_flight",
       "status": "blocked",
@@ -370,6 +388,7 @@
     {
       "id": "P2-09",
       "title": "Review and confirm flow, including the visible failure surface: the draft fills the review form, the operator edits, confirm creates the real inbound order, and failed or partial documents show their reason with a re-fire control.",
+      "plain": "Once a document has been read, the office sees the details already filled in, corrects anything wrong, and confirms, which creates the real order. When a document cannot be read, the screen says why and offers to try again instead of failing quietly.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -394,6 +413,7 @@
     {
       "id": "CRIT-16",
       "title": "The confirmation message lives inside the draft row that confirming makes disappear, so a successful confirm can leave the screen blank.",
+      "plain": "Fixed: confirming a document could leave the operator looking at a blank screen with nothing to say it had worked. The natural next step is to confirm again, which would have created the same delivery twice.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -418,6 +438,7 @@
     {
       "id": "P2-10",
       "title": "Reminders real, with a Resend email sent when a product crosses its threshold, checked at every stock mutation.",
+      "plain": "When a product drops below the level Mihai sets for it, the system sends a warning email on its own. This is what stops him finding out something has run out at the moment somebody needs it.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -442,6 +463,7 @@
     {
       "id": "P2-11",
       "title": "Production hardening: security headers, an environment presence check at boot, Romanian 404 and 500 pages, and no console errors on any screen.",
+      "plain": "The live site now behaves like a finished product: proper Romanian error pages, standard web security in place, and nothing broken running quietly in the background.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -469,6 +491,7 @@
     {
       "id": "P2-12",
       "title": "App-side domain readiness: canonical URL environment variable and auth redirects that land on the production domain.",
+      "plain": "The system knows its own web address, so signing in and following a link always lands on the real site rather than a temporary one.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -491,6 +514,7 @@
     {
       "id": "P2-13",
       "title": "Credential firewall flip before real data: the rotation checklist authored as a committed document and executed by Ivan.",
+      "plain": "Before any real Rapid Construct data goes in, the passwords used during the build are changed and the builder's direct access to the database is switched off. After this the system belongs to the business rather than to the workshop.",
       "lane": "in_flight",
       "home_lane": "in_flight",
       "status": "todo",
@@ -512,6 +536,7 @@
     {
       "id": "P2-14",
       "title": "Mihai acceptance: one full cycle completed by Mihai himself on production, upload, confirm, arrival, outbound.",
+      "plain": "Mihai does one complete cycle himself on the live site: upload a delivery, confirm it, mark it arrived, and issue material out. This is the moment the system is either accepted or not.",
       "lane": "in_flight",
       "home_lane": "in_flight",
       "status": "todo",
@@ -532,6 +557,7 @@
     {
       "id": "P2-15",
       "title": "Production test-data reset before first real data: the DELETE set authored as a committed script and run by Ivan.",
+      "plain": "Delete the fake products left over from testing, before Mihai sees the system.",
       "lane": "blocked_on_people",
       "home_lane": "in_flight",
       "status": "blocked",
@@ -553,6 +579,7 @@
     {
       "id": "P2-16",
       "title": "Untrack the generated build artefacts that dirty every working tree.",
+      "plain": "Tidying up so that leftover build files stop cluttering the project. Nothing Mihai sees changes.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -575,6 +602,7 @@
     {
       "id": "P2-17",
       "title": "Controlled category vocabulary: seed public.categories with the Romanian working list, INSERT only and idempotent.",
+      "plain": "The category list is fixed to the agreed Romanian wording, so two people filing the same material do not end up putting it in two different categories.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -611,6 +639,7 @@
       },
       "id": "P2-18",
       "title": "The account_manager may create products through the extraction confirm path only, always flagged needs_review. Direct catalogue creation stays owner-only.",
+      "plain": "The daily operator can add a product the first time a supplier mentions it, and it is flagged for the owner to check afterwards. Before this, their work stopped dead the first time a supplier sent something new.",
       "depends_on": [
         "P2-09"
       ],
@@ -635,6 +664,7 @@
       },
       "id": "AUT-1",
       "title": "Every terminal's final act commits its full report to docs/reports/<date>-<role>-<slug>.md. Stdout is a copy, not the original.",
+      "plain": "Every working session now writes its report into the project itself instead of leaving it in a window that closes. Without it, the next session starts blind and repeats work.",
       "depends_on": [],
       "acceptance": "COMMANDS: `test -d docs/reports` exits 0, and the report file for this session exists at docs/reports/<YYYY-MM-DD>-<role>-<slug>.md and is committed. PLUS the rule is in CLAUDE.md as a standing rule binding EVERY role, not only EXECUTOR, proven by `grep -c 'docs/reports/' CLAUDE.md` printing at least 1. PLUS the harness run log shows the file committed and the path appears in the digest, which is what makes the artefact reachable by the next terminal rather than only by whoever read the terminal that produced it.",
       "defaults": "A REPORT THAT EXISTS ONLY IN A TERMINAL IS A REPORT THE NEXT SESSION CANNOT READ. That is the whole card. Every downstream role in the chain, TRIAGE most of all, reads the previous role's report; if the only copy was printed to a scrollback nobody kept, the chain has a hole exactly where its input should be.\n\nTHE FILE IS THE ORIGINAL AND STDOUT IS THE COPY, in that order, and the order matters: the commit happens first, then the report is printed. A terminal that prints and then fails to commit has produced nothing.\n\nNAMING: docs/reports/<YYYY-MM-DD>-<role>-<slug>.md, lowercase, hyphens. The date is the run date in UTC. The role is executor, critic, poc-builder or triage. The slug names the work, not the outcome.\n\nCONTENT IS THE FULL REPORT, VERBATIM, the same text the terminal prints. Not a summary of it and not a link to it. NEVER A CREDENTIAL VALUE, same as everywhere else.\n\nTHE EXISTING docs/reports/ FILES STAY. critic-wave1.md and forensics-20260826-product-count.md predate the convention and are not renamed: a link that worked yesterday still works, and the README in that directory says which convention a file follows.",
@@ -657,6 +687,7 @@
       },
       "id": "AUT-2",
       "title": "docs/DOCTRINE-TRIAGE.md: the rubric a TRIAGE role applies to a committed report, including the escalation test.",
+      "plain": "A written standard for how a session's report gets reviewed, so the review is the same every time instead of depending on who happens to be doing it.",
       "depends_on": [
         "AUT-1"
       ],
@@ -677,6 +708,7 @@
       "evidence": null,
       "id": "AUT-3",
       "title": "Add the TRIAGE role to the POC chain: it boots stateless after EXECUTOR, applies DOCTRINE-TRIAGE.md to the newest committed report, and commits rulings and card edits.",
+      "plain": "A reviewing step now runs by itself after each unattended work session and writes down what it decided. It is what lets the build keep moving overnight without Ivan sitting at the machine.",
       "depends_on": [
         "AUT-1",
         "AUT-2"
@@ -702,12 +734,36 @@
       },
       "id": "AUT-4",
       "title": "The digest carries the triage outcome: rulings written, cards resequenced, gates flipped, and escalations needing Ivan, each with a recommended default.",
+      "plain": "The status message Ivan receives now includes what that automatic review decided, and anything it needs him to answer.",
       "depends_on": [
         "AUT-3"
       ],
       "acceptance": "COMMAND: `node scripts/poc/notify.mjs --dry-run true` renders the four named sections from docs/poc/triage-latest.json, and renders them in BOTH states: with a triage file present, showing rulings written, cards resequenced with the edge that changed, gates flipped with the evidence ref, and escalations EACH WITH A RECOMMENDED DEFAULT; and with no triage file, showing `TRIAGE: did not run` rather than nothing at all. Evidence is kind journal, the two dry-run outputs. AMENDED 2026-08-27: the card as authored asked for one chained run. That run is AUT-3's acceptance and AUT-3 is blocked on it, so asking for it twice would block two cards on one owner action while proving the same thing once. What this card owns is that the digest CARRIES the outcome, and the dry run proves that through the real code path with real data. That TRIAGE writes the file it reads is AUT-3's clause, not this one's.",
       "defaults": "EVERY ESCALATION CARRIES A RECOMMENDED DEFAULT, and it is the whole point of the section. Ivan reads the digest in batch, on a phone, between other work. A question he can answer with 'yes' is answered that day; a question that requires him to reconstruct the context is answered next week or never.\n\nTHE FOUR SECTIONS ARE ALWAYS PRESENT, even when empty, and an empty one says 'none' rather than being omitted. A missing section reads as an oversight and makes the reader check.\n\nNO CREDENTIAL VALUES, no exceptions, same as everywhere.\n\nTHE DIGEST IS A SUMMARY AND THE REPORT IS THE RECORD. The digest names ids and paths; whoever wants detail opens the committed report.",
       "notes": "AUTHORED 2026-08-27. Last of the four autonomy cards. Without it TRIAGE rules correctly into files nobody opens, which is the same failure the reports card fixes one layer down.\n\n--- IN FLIGHT 2026-08-27 ---\nFOUR SECTIONS, ALWAYS PRESENT, even when empty, and an empty one says none rather than being omitted. A missing section reads as an oversight and makes the reader go and check, which is the opposite of what a digest is for.\n\nREAD FROM docs/poc/triage-latest.json AND NOT FROM state.json. state.json is written after the digest is sent, so anything routed through it would always be one run stale. The same reasoning AUT-1 used for the report path.\n\nREAD DEFENSIVELY, every key treated as possibly absent and possibly the wrong type, because the file is written by a model following a prompt. A digest that throws is a digest nobody gets, and the run it was reporting on then looks silent, which is exactly the failure the silence rule exists to catch.\n\nAN ESCALATION WITH NO RECOMMENDATION RENDERS AS 'NONE GIVEN, which does not satisfy the rubric' rather than being hidden or dropped. Ivan reads this in batch, between other work: a question he can answer with yes is answered that day, and one that makes him reconstruct the context is answered next week or never. Making the omission visible in the message is what gets it fixed.\n\nACCEPTANCE AMENDED, FLAGGED FOR RATIFICATION. See the acceptance field: the chained-run half is AUT-3's clause and blocking two cards on one owner action would prove the same thing twice.\n\n--- SHIPPED 2026-08-27 ---\nBoth states proven through the real code path. What is not proven here, and belongs to AUT-3, is that TRIAGE writes the file this reads."
+    },
+    {
+      "id": "AUT-7",
+      "title": "Every card and every launch gate carries a plain field: what it means for the product and for Mihai, in ordinary business English.",
+      "plain": "Every item of work now carries a one-line description in ordinary language saying what it means for the business. Ivan and Mihai can read the whole plan without anyone translating it for them.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "THREE PARTS, all run. (1) The validator FAILS on a card whose plain field is removed: node docs/board/validate-board.mjs on a copy of either board with one card's plain deleted exits 1 naming that card. (2) It PASSES with the field present: node docs/board/validate-board.mjs docs/board/BOARD-TEMPLATE.json docs/board/rc-board.json docs/board/rc-board-phase2.json exits 0. (3) EVERY card and EVERY launch gate condition on BOTH boards carries a non-empty plain: 61 fields, 0 missing, counted rather than assumed.",
+      "defaults": "ORDINARY BUSINESS ENGLISH means what a builder who has never seen this repository would understand: no card ids, no file paths, no pull request or ruling numbers, no test, migration or table names, and no vocabulary from CLAUDE.md. One or two sentences, never three. It says what the card MEANS rather than what was done to it, so a fixed defect reads as the problem it removed and not as the commit that removed it. PHASE 1 IS WRITTEN IN THE PAST TENSE because it is a closed preview, and phase 2 in the present because it is the system Mihai will use. WHERE A CARD IS PURELY INTERNAL, say so plainly and say it changes nothing the client sees, rather than inventing a client benefit. THE FIELD IS AUTHORED, NEVER GENERATED: a sentence derived mechanically from the title is the title again in a thinner font. Gate text answers one question, what the owner would see or be able to do when it passes.",
+      "last_checkpoint": "2026-08-27T18:40:00Z",
+      "evidence": {
+        "kind": "journal",
+        "ref": "Validator proved four ways before the field was trusted. FAILS with plain removed from a phase 2 card: \"cards[16] (P2-15).plain: must be a non-empty string...\", exit 1. FAILS with plain removed from a phase 1 card, RC-03, exit 1, which is what proves the rule reaches the closed board. FAILS on a gate with plain removed, G4, exit 1. FAILS on a plain field present but whitespace only, exit 1. PASSES on all three real boards with the field present: BOARD-TEMPLATE.json, rc-board.json and rc-board-phase2.json, 0 violations, exit 0. COVERAGE COUNTED, NOT ASSUMED: 61 plain fields across both boards, 13 phase 1 cards, 31 phase 2 cards, 9 gates each, 0 missing, and a vocabulary sweep over all 61 finds no card id, file path, ruling id or build term. Every one is one or two sentences.",
+        "at": "2026-08-27"
+      },
+      "notes": "AUTHORED AND WORKED 2026-08-27 from the owner dispatch, and it is the board half of ruling R-038. That ruling fixed the audience of the Telegram digest; this card fixes the audience of the board itself. One vocabulary for the internals, one for the owner, and the boundary written down rather than left to whoever composes the next message.\n\nWHY THE RULE SITS IN THE BASE CARD CONTRACT AND NOT THE PHASE 2 PLANNING CONTRACT. Everything else added since phase 1 was name-keyed to the phase 2 board, deliberately, so a closed and true historical record is never turned red for a rule it was never authored under. plain is the one exception and it earns it: it does not describe how a card was worked, it describes what the card MEANS, which is as true of finished work as of work in flight. The owner reads both boards, and a phase 1 board he cannot read is not made acceptable by being finished.\n\nWHAT ALREADY CONSUMES THIS FIELD. The plain digest reads card.plain directly, treats it as authoritative, and reports any card missing one as a gap rather than guessing from the title. So this card's output reaches the owner immediately through the message he already receives, with no further work.\n\nKNOWN GAP, NAMED RATHER THAN LEFT TO BE DISCOVERED. The board portal does not display plain yet. Its card face, list view, timeline, detail modal, editor and export diff all read title, and wiring a new field through all six is a change to the portal application, not to this card. It is worth its own card. Until then the field reaches the owner through the digest and through the JSON, and not through the artifact page.\n\nTHE TEMPLATE WAS UPDATED IN THE SAME COMMIT. BOARD-TEMPLATE.json now carries a plain placeholder on its card and on all nine gates, because a template that cannot pass the validator is a trap set for the next person who copies it.\n\nONE JUDGEMENT APPLIED THROUGHOUT, LOGGED HERE. A defect card is written as the problem it removed rather than as the fix that removed it, because \"we corrected the sign-in cookie\" means nothing to a reader who never knew it was wrong, while \"the sign-in was missing a standard protection\" is a fact about their system."
     },
     {
       "lane": "shipped",
@@ -729,6 +785,7 @@
         "P2-02"
       ],
       "title": "Login form submits natively before hydration and writes the password into the URL query string.",
+      "plain": "Fixed: the sign-in page could put a typed password into the web address, where browsers keep a history. Anyone with access to the machine could have read it later.",
       "acceptance": "NAMED TEST: `npx playwright test tests/e2e/auth.spec.ts` exits 0 with two new cases added to that file. Case one: the login inputs carry no `name` attribute, asserted by `expect(page.locator('#password')).not.toHaveAttribute('name')` and the same for `#email`, so a native submit can serialise nothing. Case two: navigating to /autentificare with `waitUntil: 'commit'` and clicking the submit control before hydration completes never produces a navigation whose URL contains a `password` search parameter, asserted by listening to `framenavigated` across the whole attempt and requiring `new URL(u).searchParams.has('password') === false` every time. PLUS: `grep -n 'name=\"password\"' components/auth/LoginForm.tsx` exits 1.",
       "defaults": "REMOVE THE `name` ATTRIBUTES FROM THE EMAIL AND PASSWORD INPUTS. React state drives the request, so the names serve no purpose and their only effect is to serialise credentials into a native GET. `id` and `autoComplete` stay, because those are what a password manager reads. THE FORM ALSO STOPS BEING SUBMITTABLE BEFORE HYDRATION: track readiness in a `useEffect` and keep the submit control disabled until it runs, so a click that would be swallowed is visibly not-yet-ready instead of silently dead. That is the second half of this defect and shipping only the first half leaves the operator staring at a button that does nothing. DO NOT ADD A SERVER ACTION or move authentication to the server to solve this. The Supabase browser client has to set the session cookie in the browser, that is P2-02's decided shape, and rewriting it here is scope. DO NOT ADD `method='post'` as the fix: it stops the query-string leak but posts the credentials to a route that does not handle them, which trades a visible defect for a confusing one. NO COPY CHANGES beyond a disabled-state label if one is needed, and if one is needed it is Romanian.",
       "notes": "FOUND ON PRODUCTION, NOT REASONED ABOUT. `components/auth/LoginForm.tsx` renders `<form onSubmit={...} noValidate>` with no `action`, and both inputs carry `name=\"email\"` and `name=\"password\"`. Before React hydrates, the submit button is still a native `type=\"submit\"` control, so a click performs the browser default: a GET to the current URL with every named input serialised into the query string. Reproduced against https://www.rapidconstructmd.com in 1 of 4 runs of the same script: the browser navigated to /autentificare?email=<email>&password=<password> and the password parameter matched the account password exactly, 32 characters, verified by comparison rather than by eye and never printed. Evidence: scratchpad critic-wave1/hydration.mjs, attempt 3. The same race was hit first by accident: a two-role sweep found the account_manager sitting on the login screen after a click that produced zero calls to /auth/v1/token and displayed no error, then succeeded on the third try (critic-wave1/mgr-login.mjs). WHY THIS IS THE TOP CARD OF THE WAVE. The password reaches the request line, so it lands in the browser URL bar, in browser history on a shared warehouse machine, in the Vercel edge access log, and in the Referer of anything the page fetches next. It is also a silent failure for the operator: no error, no spinner, nothing happened. TWO SECOND-ORDER NOTES. The other two forms in the repository, CategorySettings and ProductForm, share the pre-hydration dead-click behaviour but carry no `name` attributes, so they leak nothing into the URL; they are out of scope here and are named so the next reader does not have to re-derive it. And once this card ships, the leaked dev password should be treated as exposed and rotated, which is already a checkable item on P2-13.\n\n--- SHIPPED 2026-08-26 ---\nBoth halves of the defaults applied: the name attributes are gone from both inputs, and a hydrated flag set in a useEffect keeps the submit button disabled until React has attached, which also blocks Enter-key implicit submission. No server action was added and authentication was not moved to the server, per the defaults. No copy changed: the disabled state is carried by the existing disabled:opacity-60 class, so no new string was needed and none was invented. DEFAULTS APPLICATION LOGGED: the defaults did not say what to do about the two other forms in the repository, CategorySettings and ProductForm, which share the pre-hydration dead-click behaviour but carry no name attributes and therefore leak nothing. Treated as out of scope for this card rather than fixed quietly, per CLAUDE.md section 3, and recorded in docs/reports/critic-wave1.md instead. ONE THING THIS CARD DOES NOT DO: the dev password that was exposed into a production URL during the review is not rotated here. Rotation is already a checkable item on P2-13 and doing it here would strand the .env.local that every local test run reads."
@@ -753,6 +810,7 @@
         "P2-07"
       ],
       "title": "The end to end suite writes into the production Supabase project, and production now shows the client 128 TEST products.",
+      "plain": "Fixed: the automatic checks were writing into the real live system, which is why the client's screen filled up with 128 fake products.",
       "acceptance": "COMMAND: `npx playwright test tests/e2e/auth.spec.ts` exits non-zero with a Romanian refusal naming the guard when `NEXT_PUBLIC_SUPABASE_URL` points at the production project ref, and exits 0 when it points anywhere else. Proven by two runs recorded in the PR: one with the production ref in the environment, expected non-zero, and one against the local stack, expected 0. PLUS: `node scripts/assert-not-prod.mjs` exits 2 when the production ref is present in the environment, exits 0 otherwise, and exits non-zero with a distinct message when the ref list is empty, so an empty blocklist can never read as permission.",
       "defaults": "THE GUARD IS A REFUSAL, NOT A WARNING. It runs from the Playwright global setup so no spec can opt out, and it fails the whole run rather than skipping tests, because a skipped suite reads as a pass. THE BLOCKLIST IS THE PRODUCTION PROJECT REF, held in a committed file as a ref string, not as a secret: the ref is already public in the browser bundle through NEXT_PUBLIC_SUPABASE_URL, so committing it leaks nothing, and reading it from the environment would let an empty environment disable the guard. AN EMPTY BLOCKLIST THROWS. A guard that silently allows everything when its list is empty is worse than no guard, because it reads as protection. THE EXISTING TEST ROWS ARE NOT TOUCHED BY THIS CARD. Deleting them is a destructive operation on the project the client is about to accept on, so it is Ivan's call and his alone; this card only stops the bleeding. If a cleanup is wanted, the rows are marked inactive, never deleted, and that is a separate card he authorises. DO NOT CHANGE WHAT THE TESTS ASSERT. The suite is correct; where it points is the defect.",
       "notes": "The e2e suite runs green in CI against a local Supabase stack, which is exactly what P2-07 built and it works. The defect is that the same suite run LOCALLY reads .env.local, which points at the production project, so every local run writes real rows into the database production serves. The result is visible on the client domain right now: /inventar reports 128 active products and every row on the first screen is e2e residue, TEST-DASH-*, TEST-DASHIN-*, TEST-diacritic-*, with names like 'Produs tablou mt8ztoqf' and 'Denumire modificată'. Row counts read read-only from the live schema: products 296, inbound_orders 177, batches 129, status_history 354, outbound_issues 36, and a single category named TEST-Categorie holding 298 of them. G9 asks Mihai to complete a full cycle on production himself. He will do it on this screen. THIS ALSO EXPLAINS AWAY A FALSE POSITIVE: the Romanian copy scan flagged the English words 'stock', 'edit' and 'create' on four screens, and every occurrence turned out to be inside a test SKU rather than in application copy. The interface copy is clean. It only looked dirty because the data is. Prior art for the guard shape exists and is worth copying rather than reinventing: a byte-compared ref blocklist that throws on an empty list.\n\n--- SHIPPED 2026-08-26 ---\nDEFAULTS APPLIED AS WRITTEN: a refusal rather than a warning, run from globalSetup so no spec can opt out; the blocklist committed as a ref string rather than read from the environment; an empty blocklist throws; and the existing rows are not touched. TWO BUGS CAUGHT BEFORE MERGE, both by running every exit path instead of only the refusal, and both would have been invisible in a normal review. The presence check originally required a parseable <ref>.supabase.co host, which put the local stack at http://127.0.0.1:54321 into the empty-environment branch: the guard would have blocked CI on every single run. And global-setup.ts used import.meta.url, which Playwright throws on because it loads that file as CommonJS, so the guard never executed; the run still exited non-zero, so a careless check would have recorded the refusal as working. An exit code that is right for the wrong reason is the most expensive kind of green, and that is now written into docs/LEARNINGS.md. WHAT THIS CARD DELIBERATELY DOES NOT DO: remove the roughly 300 test rows already on production. Deleting them is a destructive operation on the project the client is about to accept on, so it is Ivan's call and his alone. This card stops the bleeding; it does not clean the wound. If he wants a cleanup, the rows are marked inactive, never deleted, and that is a separate card he authorises. ORDERING NOTE FOR THE NEXT SESSION: this card was taken LAST of the five on purpose, not in id order. Once the guard is in, no acceptance spec can be run locally against .env.local as it stands, so every earlier card would have needed a local Supabase stack to prove itself. Taking this one last let the other four be proven against the environment the repository is actually wired to. The cost of that choice is honest and small: the four earlier acceptance runs added roughly eight more rows to production, taking the product count from 296 to 304.\n\n--- REOPENED AS CRIT-15 ON 2026-08-26 (ruling R-020) ---\nTHE CODE THIS CARD SHIPPED IS CORRECT AND STAYS. What is superseded is the completeness of its proof. The evidence on this card records six exit paths exercised LOCALLY and none in CI, and the card was then read as closing the defect everywhere.\nThe guard does EXECUTE on both paths: globalSetup runs before every Playwright invocation, which is exactly what this card built and why it chose globalSetup over a fixture. But CI always resolves to a local stack, so only the guard PASS path has ever run there. A green quality run proves the guard does not block a legitimate suite. It proves nothing about whether it would stop an illegitimate one.\nTHE SUSPICION THAT PROMPTED THE REOPENING WAS WRONG, AND THE REOPENING IS STILL RIGHT. Forensics under R-012 established that CI does not point at production and cannot: the workflow starts its own Supabase stack, exports that stack URL and keys, references no repository secret, and the repository has no secrets configured at all. Confirmed empirically from a real run log, not only by reading the workflow. What remains open is a future edit, not the present configuration.\nALSO ESTABLISHED, AND IT VINDICATES THIS CARD: zero rows have been written to the production project since this guard merged, in ANY table. Every row in every table predates 2026-08-26 02:50:44+00. The full report is docs/reports/forensics-20260826-product-count.md. CRIT-15 carries the remaining work."
@@ -777,6 +835,7 @@
         "P2-06"
       ],
       "title": "Production chrome still tells the operator the data is a phase 1 preview, and the category counter says 1 categorii.",
+      "plain": "Fixed: the live site still described itself as a preview and miscounted the categories, which made finished work look unfinished.",
       "acceptance": "COMMANDS, both: `grep -rn 'Previzualizare faza 1\\|Date demonstrative' components app` exits 1, no match anywhere in the rendered application. AND `npx playwright test tests/e2e/dashboard.spec.ts` exits 0 with a case added to that file which signs in, walks all eight authenticated screens, and asserts the body text of each contains neither 'Previzualizare faza 1' nor 'Date demonstrative', plus a case asserting the settings category counter reads '1 categorie' rather than '1 categorii' when exactly one category exists.",
       "defaults": "THE SIDEBAR FOOTER STATES WHAT IS TRUE OR IT STATES NOTHING. The data is real Supabase data as of P2-03 through P2-06, so a label calling it demonstrative is not stale styling, it is a false statement to the person being asked to trust the stock number. If a replacement line is wanted it names the warehouse, which is the only part of the old line that was ever true: 'Depozit central' or the equivalent already shown in the topbar. If nothing is wanted, the block is removed and the border with it. Executor picks one and logs which in notes. ROMANIAN PLURALS FOLLOW ROMANIAN RULES: 1 takes the singular, 2 to 19 take the bare plural, 20 and above take 'de' plus the plural. Fix the counter with a small helper rather than inline ternaries, and use it for the category counter; the product counter already reads correctly and is not in scope. NO OTHER COPY CHANGES. This card corrects two strings that are false or ungrammatical, it is not a copy review.",
       "notes": "`components/layout/Sidebar.tsx` lines 74 and 76 render 'Previzualizare faza 1' and 'Date demonstrative, un singur depozit' in the sidebar footer. That footer is in the app layout, so it appears on all eight authenticated screens, on production, today. Screenshot evidence: critic-wave1/shots/sweep-owner-_inventar.png and sweep-owner-_setari.png. P2-06 deleted lib/mock repo-wide and its acceptance grep proves the module is gone, but the label announcing that the data is mock was not part of that grep and survived it. The gap is exactly the difference between deleting the mock layer and removing the claim that the mock layer is what you are looking at. SECOND STRING, same screen family: `components/settings/CategorySettings.tsx` line 75 renders `{categories.length} categorii`, which prints '1 categorii' with one category, and one category is what production has. Both are in the chrome the client sees at acceptance, which is why they are one card and not two.\n\n--- SHIPPED 2026-08-26 ---\nDEFAULTS CHOICE LOGGED, as the card required. The defaults offered two paths for the sidebar footer, a truthful replacement line or removal. REMOVAL was taken, block and border together: the topbar already renders the warehouse name (\"Depozit central\"), so a replacement line would have repeated on every screen a fact that is already on every screen. Romanian plurals now live in one plural() helper in lib/data/format.ts rather than inline, per the defaults. SCOPE HELD, AND IT COST SOMETHING: the inventory counter at components/inventory/InventoryScreen.tsx:175 renders the row count followed by the bare word \"produse\" and has the SAME defect, printing \"1 produse\" with one product. This card explicitly scoped it out and CLAUDE.md section 3 forbids the quiet extra commit, so it was left alone even though the helper it needs now exists one import away. It is written up in docs/reports/critic-wave1.md as a named follow-up rather than fixed here. That is the rule working as intended, and it is also the honest cost of the rule."
@@ -801,6 +860,7 @@
         "P2-02"
       ],
       "title": "The Supabase session cookie is written without the Secure attribute.",
+      "plain": "Fixed: the sign-in was missing a standard protection that stops it being read while travelling over the network.",
       "acceptance": "NAMED TEST: `npx playwright test tests/e2e/auth.spec.ts` exits 0 with a case added to that file which signs in, reads the browser context cookies, finds the cookie whose name matches /^sb-.*-auth-token/, and asserts `secure === true` and `sameSite === 'Lax'`. The assertion runs against whichever host the suite is pointed at, so it holds in CI and on production alike.",
       "defaults": "SET THE COOKIE OPTIONS ON ALL THREE SUPABASE CLIENTS OR ON NONE. The browser client in lib/supabase/client.ts, the server client in lib/supabase/server.ts and the client inside proxy.ts all write the same cookie, so setting `cookieOptions: { secure: true, sameSite: 'lax' }` on one and not the others produces a cookie whose flags depend on which request last wrote it. HTTPONLY STAYS FALSE AND THAT IS NOT AN OVERSIGHT. The @supabase/ssr browser client has to read the session out of the cookie, so httpOnly true would break sign-in; the accepted risk is recorded in docs/reports/critic-wave1.md rather than silently left unexplained. DO NOT SET A CUSTOM COOKIE NAME, DOMAIN OR MAX-AGE. Session lifetime is Supabase's default by P2-02's own defaults and this card does not reopen it. LOCAL DEVELOPMENT MUST KEEP WORKING: `secure` cookies are accepted on http://localhost by every current browser, so no environment switch is needed, and adding one would be the kind of conditional that makes production behave differently from what the tests exercised.",
       "notes": "Read from a real production session with Playwright: the cookie `sb-<ref>-auth-token`, 2577 bytes of token material, is stored with `secure: false`, `httpOnly: false`, `sameSite: 'Lax'` and a persistent expiry. Evidence: critic-wave1/cookies.mjs output. Nothing in the repository sets cookie options; `createBrowserClient` and `createServerClient` are both called with two arguments, so the flags are library defaults. EXPLOITABILITY IS NARROW AND THE FIX IS ONE LINE, which is why this is medium and not high: the site is HTTPS only and answers with `strict-transport-security: max-age=63072000`, so after a browser's first successful visit it will not issue a plain-HTTP request to this host at all. The window is the first-ever visit from a given browser, and any future host or subdomain that is not covered by that HSTS entry. A cookie carrying an access token and a refresh token should carry the flag regardless of how narrow today's window is. NOT RAISED, DELIBERATELY: the absence of CSP, X-Frame-Options, X-Content-Type-Options and Referrer-Policy on production responses. P2-11 already names security headers in its scope and duplicating it here would split one job across two cards.\n\n--- SHIPPED 2026-08-26 ---\nDEFAULTS APPLIED AS WRITTEN. All three clients that write the cookie carry the options, from one shared COOKIE_OPTIONS in lib/supabase/cookies.ts: the browser client in lib/supabase/client.ts, the server client in lib/supabase/server.ts and the client inside proxy.ts. httpOnly stays false, and the file says why on its face rather than leaving the next reader to wonder. No custom cookie name, domain or max-age was set, so session lifetime is still Supabase default per P2-02. No environment branch was added: the localhost test run is the evidence that none is needed, and a branch would have made production behave differently from what the tests exercised. NOT DONE HERE, DELIBERATELY: the missing CSP, X-Frame-Options, X-Content-Type-Options and Referrer-Policy headers on production responses. P2-11 already names security headers in its scope and splitting that job across two cards would leave neither card owning it."
@@ -825,6 +885,7 @@
         "P2-06"
       ],
       "title": "P2-06 acceptance claims dashboard.spec covers an empty database and the manager role, and it covers neither.",
+      "plain": "Fixed: an automatic check claimed to cover two situations it had never actually tested, so an area was unguarded while appearing guarded.",
       "acceptance": "NAMED TEST: `npx playwright test tests/e2e/dashboard.spec.ts` exits 0 with the console-and-NaN walk extended so it runs once as owner and once as account_manager over every screen that role can open, and with the empty-state claim either proven or withdrawn. Proven means a case that renders each list screen with a filter that matches nothing and asserts the Romanian empty state is visible and that no NaN, Infinity or stray undefined appears. Withdrawn means the P2-06 acceptance string on the board is edited to describe what the spec actually checks, in the same PR, with the board validator green.",
       "defaults": "PREFER PROVING OVER WITHDRAWING, BUT DO NOT FAKE AN EMPTY DATABASE. Truncating tables to reach an empty state is a destructive operation and is forbidden here; the reachable equivalent is a filter that matches nothing, which is what a real operator hits and is what the empty-state markup was written for. IF THE EMPTY-DATABASE CLAIM CANNOT BE PROVEN WITHOUT DESTRUCTIVE SETUP, WITHDRAW IT rather than leaving an acceptance line that describes coverage nobody has. An acceptance that overstates what it checks is worse than a narrower one that is true, because the next reader trusts it. THE MANAGER WALK COVERS ONLY ROUTES THE MANAGER MAY OPEN. /setari answers with the forbidden screen for that role, and asserting no console error on a 403 screen is a real check, so include it and assert the forbidden screen rather than skipping the route. NO PRODUCTION SEEDING. This card runs where the suite already runs.",
       "notes": "P2-06's acceptance line reads: 'dashboard.spec covers the five dashboard blocks against seeded rows, and the same screens against an empty database with no console error and no NaN on screen.' The spec does not do the second half. The console-and-NaN case at tests/e2e/dashboard.spec.ts:125 signs in as owner only, walks the eight screens against whatever the database happens to hold, and asserts no NaN and no console errors. There is no empty-database case and no manager case anywhere in the file. THE EVIDENCE FIELD IS HONEST AND THE ACCEPTANCE FIELD IS NOT, which is the specific shape of this defect and why it is worth a card rather than a shrug: the card's evidence says 'all four stat blocks parse as finite numbers against an arbitrary database state', which is exactly what was run. So nobody lied. The acceptance line was written for a check that was then narrowed, and the two were never reconciled. Per CLAUDE.md section 6 the acceptance is the contract a stranger re-runs, so it has to describe the check that exists. The manager gap matters on its own: the CRITIC sweep is currently the only thing that has ever walked every screen as account_manager looking for console errors, and a wave boundary is not a substitute for a test.\n\n--- SHIPPED 2026-08-26 ---\nDEFAULTS APPLIED: prove rather than withdraw where proving is possible, and never fake an empty database. Two of the three claims were provable and are now proved by tests. The empty-DATABASE claim was withdrawn from P2-06's acceptance rather than left standing, because the only way to produce an empty database is to empty tables on the project the client is about to accept on, and destructive setup is forbidden here. The reachable equivalent, a filter that matches nothing, is what a real operator hits and is what the empty-state markup was written for, so that is what the new case asserts. /setari is kept in the operator walk rather than skipped, per the defaults, and the case asserts the forbidden screen instead of the normal one. EDITING A SHIPPED CARD'S ACCEPTANCE IS UNUSUAL and is flagged deliberately: P2-06 is shipped, and rewriting its acceptance rewrites the contract a stranger would re-run. It was done because leaving a line that overstates its coverage is worse than correcting it, the card's own defaults authorised exactly this, and the original sentence is quoted verbatim in P2-06's notes so nothing is erased. The evidence field was accurate all along and was not touched."
@@ -832,6 +893,7 @@
     {
       "id": "CRIT-15",
       "title": "The production guard has never been proven to refuse inside CI, so nothing would notice if it stopped enforcing.",
+      "plain": "Fixed: the safeguard that keeps testing away from the live system had never been proven to refuse anything, so it could have stopped working without anyone noticing.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",

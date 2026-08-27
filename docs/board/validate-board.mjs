@@ -169,6 +169,13 @@ function validateBoard(board) {
           seen.add(c.id);
         }
 
+        // Same rule as a card, same reason. A launch gate is the shortest
+        // answer to "are we ready", and its title is written in the build's
+        // vocabulary. Card AUT-7.
+        if (!isNonEmptyString(c.plain)) {
+          fail(`${at}.plain: must be a non-empty string. One sentence of ordinary business English naming the condition this gate actually represents, with no build vocabulary. A gate the owner cannot read is a readiness score he has to take on trust.`);
+        }
+
         if (!CONDITION_STATES.includes(c.state)) {
           fail(`${at}.state: must be one of ${list(CONDITION_STATES)}, found ${JSON.stringify(c.state)}.`);
         }
@@ -217,6 +224,26 @@ function validateBoard(board) {
 
     if (!isNonEmptyString(card.title)) {
       fail(`${at}.title: must be a non-empty string.`);
+    }
+
+    // plain: the card in ordinary business English, one or two sentences,
+    // saying what it means for the product and for the client. Card AUT-7.
+    //
+    // THIS SITS IN THE BASE CONTRACT, not the phase 2 planning contract, so it
+    // binds the closed phase 1 board too. That board is otherwise never
+    // retro-fitted, for the reason written above: turning a true historical
+    // record red for a rule it was never authored under invites somebody to
+    // edit the history rather than the rule. `plain` is the one exception and
+    // it earns it, because it does not describe how a card was worked. It
+    // describes what the card MEANS, which is as true of finished work as of
+    // work in flight, and the owner reads both boards.
+    //
+    // The title is written for whoever builds the card. `plain` is written for
+    // whoever paid for it. A board that speaks only the first language forces
+    // every status question through a translator, which is the dependency this
+    // project exists to remove.
+    if (!isNonEmptyString(card.plain)) {
+      fail(`${at}.plain: must be a non-empty string. One or two sentences of ordinary business English saying what this card means for the product and for the client, with no card ids, file paths, pull request numbers or build vocabulary. A card without one is a card the owner cannot read.`);
     }
     if (!CARD_STATUSES.includes(card.status)) {
       fail(`${at}.status: must be one of ${list(CARD_STATUSES)}, found ${JSON.stringify(card.status)}.`);

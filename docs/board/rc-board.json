@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 1 Preview",
   "schema_version": 1,
   "phase": "phase-1-preview",
-  "as_of": "2026-08-19T11:43:54Z",
+  "as_of": "2026-08-27T18:40:00Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/code/artifact/e346cb5b-cb39-42ce-aa14-821ceb53e4ce, and the same URL is re-rendered and updated after every board change so the owner link stays live. The renderer, its client runtime and its stylesheet are ported from the OsteoJP repo rather than written from scratch. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back.",
   "doctrine": "A board claim is never truth on its own. The evidence field carries the proof. The executor terminal (ORANGE) updates this JSON at every checkpoint. A card may not enter status=shipped with evidence=null; a launch gate condition may not be state=pass with evidence=null. Enforced by docs/board/validate-board.mjs, which must exit 0 before any checkpoint is considered recorded. GATE VOCABULARY: green_self_merge means ORANGE self-decides, commits locally, proceeds without approval. owner_merge means the card closes only on Ivan confirming the deployed screen on localhost, a local commit alone never closes it. stakeholder means client acceptance at phase end. cyan_clear and owner_authorizo are unused in this project. EVIDENCE VOCABULARY: kind journal is a local commit sha or command output pasted so a stranger can re-verify, kind screenshot is Ivan on-screen confirmation. PHASE 1 REALITY: no remote, no CI, no credentials exist in phase 1; the executor updates this JSON at every checkpoint. Every card is built and verified on localhost only, and every commit is local. ORANGE self-decides all creative and code-level questions and halts only on an absolute blocker, in which case the card moves to status=halted or status=blocked with blocked_on set and the reason written into notes.",
   "lanes": [
@@ -60,6 +60,7 @@
       {
         "id": "G1",
         "title": "G1: Branding applied sitewide: orange/black/white tokens, Rapid Construct logo, Romanian UI labels on every screen",
+        "plain": "The preview looked like Rapid Construct's own system, in Romanian, on every screen.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -72,6 +73,7 @@
       {
         "id": "G2",
         "title": "G2: Dashboard renders stock value, low-stock count, pending inbound, pending outbound, recent activity from mock data",
+        "plain": "The home screen showed what the stock was worth, what was low, and what was coming in and going out.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -84,6 +86,7 @@
       {
         "id": "G3",
         "title": "G3: Upload Order flow works end to end: upload zone, fake AI processing animation, prefilled editable review form, confirm",
+        "plain": "The delivery upload journey could be shown from beginning to end.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -96,6 +99,7 @@
       {
         "id": "G4",
         "title": "G4: Manual add inventory form present and navigable as the empty-path twin of the review form",
+        "plain": "A by-hand delivery form existed alongside the upload one, for suppliers who send nothing to upload.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -108,6 +112,7 @@
       {
         "id": "G5",
         "title": "G5: Inventory management table filters by product, category, supplier, stock level, with per-product drill-down showing batches and movements",
+        "plain": "The stock list could be filtered, and each product opened to show its own history.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -120,6 +125,7 @@
       {
         "id": "G6",
         "title": "G6: Outbound form issues materials to a client project via searchable dropdowns with quantity and optional price",
+        "plain": "Materials could be issued out to a site through search boxes rather than long lists.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -132,6 +138,7 @@
       {
         "id": "G7",
         "title": "G7: Order lifecycle board shows inbound and outbound columns with status chips and per-order status history",
+        "plain": "Every order in and out appeared on a board at its current stage.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -144,6 +151,7 @@
       {
         "id": "G8",
         "title": "G8: Reminders screen shows per-product threshold setup and a fired-alerts list with email/SMS toggles as UI only",
+        "plain": "The low-stock warning screen existed, with a level set per product.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -156,6 +164,7 @@
       {
         "id": "G9",
         "title": "G9: Settings placeholder exists and every screen is reachable end to end with no dead links",
+        "plain": "Every screen could be reached and nothing in the preview led to a dead end.",
         "state": "pass",
         "blocked_on": null,
         "evidence": {
@@ -171,6 +180,7 @@
     {
       "id": "RC-00",
       "title": "Next.js app scaffolded on localhost with Tailwind, folder structure, git initialized, zero external services.",
+      "plain": "The empty shell of the application, before any screen existed. Nothing to look at yet, but everything after it sits on top.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -189,6 +199,7 @@
     {
       "id": "RC-BOARD-RENDER",
       "title": "Board render pipeline live: rendered HTML published as a claude.ai artifact that updates after every board change.",
+      "plain": "A web page that shows the state of the work and updates itself, so Ivan can see where things stand without asking anyone.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -207,6 +218,7 @@
     {
       "id": "RC-01",
       "title": "Design system in place: orange/black/white tokens, layout shell with Romanian navigation, Rapid Construct logo pulled from the rapidconstruct.md site header.",
+      "plain": "The look of the system: Rapid Construct orange, black and white, the logo, and Romanian wording on every screen.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -225,6 +237,7 @@
     {
       "id": "RC-02",
       "title": "Mock data layer complete: products, batches, suppliers, inbound orders, outbound issues, statuses, reminders, plus two fabricated realistic order confirmation PDFs.",
+      "plain": "Realistic sample stock and orders, so every screen could be shown and judged before there was a real database behind it.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -243,6 +256,7 @@
     {
       "id": "RC-03",
       "title": "Dashboard renders total stock value, low-stock count, pending inbound, pending outbound and recent activity, all computed from the mock data.",
+      "plain": "The home screen: what the stock is worth, what is running low, and what is coming in and going out.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -261,6 +275,7 @@
     {
       "id": "RC-04",
       "title": "Upload Order flow works end to end: upload zone, simulated AI processing animation, prefilled editable review form, confirm.",
+      "plain": "The delivery upload journey, shown end to end, so Mihai could see how his office would work before it was built for real.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -279,6 +294,7 @@
     {
       "id": "RC-05",
       "title": "Manual add inventory form is present and navigable as the empty-path twin of the review form.",
+      "plain": "A form for typing a delivery in by hand, for the days a supplier sends nothing worth uploading.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -297,6 +313,7 @@
     {
       "id": "RC-06",
       "title": "Inventory management table filters by product, category, supplier and stock level, with per-product drill-down showing batches and movements.",
+      "plain": "The stock list with filters, and a view per product showing where the stock came from and where it went.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -315,6 +332,7 @@
     {
       "id": "RC-07",
       "title": "Outbound form issues materials to a client project via searchable dropdowns with quantity and optional price.",
+      "plain": "The screen for issuing materials out to a site, with search boxes instead of long lists to scroll.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -333,6 +351,7 @@
     {
       "id": "RC-08",
       "title": "Order lifecycle board shows inbound and outbound columns with status chips and per-order status history.",
+      "plain": "A board showing every order in and out at its current stage, with the history behind each one.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -351,6 +370,7 @@
     {
       "id": "RC-09",
       "title": "Reminders screen shows per-product threshold setup and a fired-alerts list with email/SMS toggles as UI only.",
+      "plain": "The low-stock warning screen, showing the level set for each product and the alerts that had fired.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -369,6 +389,7 @@
     {
       "id": "RC-10",
       "title": "Settings placeholder exists and every screen is reachable end to end with no dead links.",
+      "plain": "The settings area, plus a check that every screen can actually be reached and nothing leads nowhere.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
@@ -387,6 +408,7 @@
     {
       "id": "RC-11",
       "title": "Full click-through QA passed and demo route prepared for the owner review wave.",
+      "plain": "A full click-through of the whole preview, done before it was put in front of Mihai.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
