@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { ownerAccount } from "./support/accounts";
-import { signIn } from "./support/auth";
+import { managerAccount, ownerAccount } from "./support/accounts";
+import { signIn, signOut } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 import { EXTRACTION_ERROR_CODES, EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
 
@@ -603,5 +603,87 @@ test.describe("Verificare si confirmare extragere", () => {
       // englezesc in interfata, ceea ce sectiunea 11 din CLAUDE.md interzice.
       await expect(card).not.toContainText(code);
     }
+  });
+
+  // ------------------------------------------------------------- P2-18 --
+  //
+  // Ruling R-032: operatorul poate crea un produs NUMAI prin confirmarea unei
+  // extrageri, si mereu marcat. Crearea directa in catalog ramane a
+  // administratorului.
+  //
+  // DOVADA LA NIVEL DE BAZA DE DATE este definitia politicii, scrisa verbatim in
+  // docs/migrations/APPLY-LOG.md la aplicarea migratiei 0012. Cazurile de mai jos
+  // dovedesc ce se vede pe ecrane: ca scrierea REUSESTE pentru operator pe drumul
+  // confirmarii, si ca ecranul catalogului nu ii ofera nicio cale directa.
+
+  test("8. operatorul confirma un document si produsul nou se creeaza marcat", async ({
+    page,
+    request,
+  }) => {
+    // OPERATOR, nu administrator. Inainte de 0012 aceasta confirmare era
+    // refuzata de products_insert, care cerea is_owner(), si lane-ul se oprea
+    // exact la primul produs pe care furnizorul nu il trimisese niciodata.
+    await signIn(page, managerAccount());
+    const orderId = await uploadForExtraction(page, request, "manager");
+
+    const unknown = `Produs operator necunoscut ${RUN}`;
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, { lines: [extractedLine(unknown, { category: MAPPED_CATEGORY })] }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+    await expect(page.getByTestId("review-line-product-0")).toHaveValue("");
+    await page.getByTestId("review-expected-at").fill("2026-12-05");
+    await page.getByTestId("review-confirm").click();
+
+    const created = page.getByTestId("review-created");
+    await expect(created).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("review-flagged")).toContainText("marcat");
+
+    // Produsul exista, cu numele de pe document, si MARCAT. Marcat este ce face
+    // scrierea permisa: politica lasa un neadministrator sa insereze numai un
+    // rand cu needs_review, deci fiecare rand pe care operatorul il aduce in
+    // catalog este vizibil neterminat si asteapta administratorul.
+    await page.goto("/inventar");
+    const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
+    await expect(product).toHaveCount(1, { timeout: 20_000 });
+    await expect(product).toHaveAttribute("data-needs-review", "true");
+  });
+
+  test("9. catalogul nu ii ofera operatorului nicio cale directa, iar administratorul creeaza in continuare nemarcat", async ({
+    page,
+  }) => {
+    // Jumatatea de granita: dreptul s-a LARGIT, nu s-a mutat.
+    await signIn(page, managerAccount());
+    await page.goto("/inventar");
+    await expect(page.getByTestId("product-count")).toBeVisible();
+    await expect(page.getByTestId("product-new")).toHaveCount(0);
+
+    // Si administratorul creeaza mai departe un produs direct, NEMARCAT, ceea ce
+    // este chiar ramura pe care 0012 a pastrat-o neatinsa. Daca politica ar fi
+    // fost inlocuita in loc de largita, acest rand ar fi refuzat.
+    //
+    // signOut si nu un goto catre /autentificare: proxy-ul redirecteaza o sesiune
+    // valida de pe ecranul de autentificare inapoi la tabloul de bord, deci
+    // formularul nu ar mai fi acolo de completat.
+    await signOut(page);
+    await signIn(page, ownerAccount());
+    const sku = `TEST-OWNERDIRECT-${RUN}`;
+    await createCatalogProduct(page, {
+      sku,
+      name: `Produs administrator direct ${RUN}`,
+      category: MAPPED_CATEGORY,
+      unit: "pcs",
+      unitValue: "5",
+    });
+    const row = page.locator(`[data-testid="product-row"][data-sku="${sku}"]`);
+    await expect(row).toHaveCount(1);
+    await expect(row).toHaveAttribute("data-needs-review", "false");
   });
 });
