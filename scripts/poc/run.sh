@@ -261,46 +261,6 @@ fi
 # ---------------------------------------------------------------------------
 # Step 2 of the run: the board, as EXECUTOR, under a hard wall clock cap.
 # ---------------------------------------------------------------------------
-PROMPT_FILE=$POC_LOG_DIR/$RUN_ID.prompt.txt
-cat > "$PROMPT_FILE" <<PROMPT_EOF
-You are EXECUTOR. Boot per CLAUDE.md.
-Work the board.
-
-This is an unattended scheduled run, run id $RUN_ID. CLAUDE.md section 13 binds
-you. Restated so there is no ambiguity:
-
-- Boot exactly as EXECUTOR. Print the status report before any write.
-- Work at most $POC_MAX_CARDS cards this run. The third eligible card waits.
-- You have 45 minutes of wall clock. The harness enforces it and will stop you
-  where you stand. Do not start work you cannot finish and merge.
-- If every unblocked card is shipped, do not idle and do not invent work.
-  Invoke CRITIC against the acceptance lines instead, and report what it found.
-- A card question the card's defaults do not answer: write the structured
-  decision-needed text with its mandatory recommendation, set blocked_on to the
-  person, set status blocked, commit the board, append the escalation to
-  $POC_STATE, and move to the next eligible card. Never wait for an answer.
-- Never apply a migration containing DROP TABLE, TRUNCATE or DELETE. Block the
-  card on ivan with the offending statement quoted in question.
-- Cards claimed by another actor are OFF LIMITS this run: $CLAIM_SKIPPED
-  A claim is in docs/poc/state.json and expires after 6 hours. Never take a card
-  another actor holds, even if it is the only eligible one. Report it instead.
-- Never push to main. Never force push. Merge only on a green quality check
-  that exists for the head sha.
-- No secret value is ever echoed, logged, committed or put in a board field.
-
-You are in the worktree $POC_RUN_WORKTREE, detached at origin/main. Work here
-and nowhere else. Do not touch $POC_REPO_MAIN.
-
-When you are done, write a plain summary of what you did as your final message:
-cards touched and what happened to each, PRs opened or merged with numbers, and
-anything you escalated.
-PROMPT_EOF
-
-# Snapshot the board before the run touches it, so what moved can be worked out
-# by comparison rather than inferred from a timestamp.
-BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
-cp "$POC_BOARD" "$BOARD_BEFORE"
-
 # ---------------------------------------------------------------------------
 # Claim lease. The harness and a human terminal cannot see each other, so they
 # agree through docs/poc/state.json instead. On 2026-08-27 EXECUTOR was working
@@ -348,6 +308,71 @@ if [ -n "$ELIGIBLE_AT_START" ]; then
   HARNESS_CARD=$(echo "$ELIGIBLE_AT_START" | cut -d, -f1)
   log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
 fi
+
+# The claim lease is computed BEFORE the prompt is written, because the prompt
+# interpolates $CLAIM_SKIPPED to tell EXECUTOR which cards are off limits. With
+# set -u an unset variable aborts the heredoc, which on 2026-08-27 produced a
+# zero byte prompt file and an EXECUTOR invocation with no prompt at all:
+# "Error: Input must be provided either through stdin or as a prompt argument".
+# The run reported exit 1 having never actually started work.
+PROMPT_FILE=$POC_LOG_DIR/$RUN_ID.prompt.txt
+cat > "$PROMPT_FILE" <<PROMPT_EOF
+You are EXECUTOR. Boot per CLAUDE.md.
+Work the board.
+
+This is an unattended scheduled run, run id $RUN_ID. CLAUDE.md section 13 binds
+you. Restated so there is no ambiguity:
+
+- Boot exactly as EXECUTOR. Print the status report before any write.
+- Work at most $POC_MAX_CARDS cards this run. The third eligible card waits.
+- You have 45 minutes of wall clock. The harness enforces it and will stop you
+  where you stand. Do not start work you cannot finish and merge.
+- If every unblocked card is shipped, do not idle and do not invent work.
+  Invoke CRITIC against the acceptance lines instead, and report what it found.
+- A card question the card's defaults do not answer: write the structured
+  decision-needed text with its mandatory recommendation, set blocked_on to the
+  person, set status blocked, commit the board, append the escalation to
+  $POC_STATE, and move to the next eligible card. Never wait for an answer.
+- Never apply a migration containing DROP TABLE, TRUNCATE or DELETE. Block the
+  card on ivan with the offending statement quoted in question.
+- Cards claimed by another actor are OFF LIMITS this run: $CLAIM_SKIPPED
+  A claim is in docs/poc/state.json and expires after 6 hours. Never take a card
+  another actor holds, even if it is the only eligible one. Report it instead.
+- Never push to main. Never force push. Merge only on a green quality check
+  that exists for the head sha.
+- No secret value is ever echoed, logged, committed or put in a board field.
+
+You are in the worktree $POC_RUN_WORKTREE, detached at origin/main. Work here
+and nowhere else. Do not touch $POC_REPO_MAIN.
+
+YOUR FINAL ACT IS TO COMMIT YOUR REPORT. CLAUDE.md section 9b: the file is the
+original and what you print is a copy. Write the full report to
+docs/reports/<YYYY-MM-DD>-executor-<slug>.md, commit it in a PR like everything
+else, never straight to main, and only then print it. A report that exists only
+in this terminal is a report the next role cannot read, and the digest carries
+the path so somebody can open it.
+
+The report says: cards touched and what happened to each, PRs opened or merged
+with numbers, anything you escalated, and what the next run should pick up
+first.
+PROMPT_EOF
+
+# Snapshot the board before the run touches it, so what moved can be worked out
+# by comparison rather than inferred from a timestamp.
+BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
+cp "$POC_BOARD" "$BOARD_BEFORE"
+
+# A prompt that failed to render must never reach claude -p. An unbound variable
+# inside the heredoc above truncates the file silently under set -u, and the run
+# then reports a non-zero executor exit that looks like a model failure rather
+# than a scripting one.
+if [ ! -s "$PROMPT_FILE" ]; then
+  log "FATAL: the prompt file is empty, refusing to invoke EXECUTOR with no prompt"
+  log "this is a defect in run.sh, not a failure of the run"
+  EXIT_CODE=1
+  exit 1
+fi
+log "prompt rendered, $(wc -c < "$PROMPT_FILE" | tr -d ' ') bytes"
 
 log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
@@ -621,13 +646,27 @@ fi
 # Step 5: state, through a PR. Never a direct push to main.
 # ---------------------------------------------------------------------------
 STATE_BRANCH=poc/state-$RUN_ID
+
+# AUT-1. The report this run committed, found on origin/main by its dated name.
+# Resolved from the repository rather than from anything the run said about
+# itself: a run that claims a report it did not commit records nothing here.
+git fetch origin main --quiet 2>/dev/null || true
+REPORT_PATH=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
+  | grep -E "^docs/reports/$(date -u +%Y-%m-%d)-[a-z0-9-]+\.md$" | sort | tail -1)
+if [ -n "$REPORT_PATH" ]; then
+  log "report committed this run: $REPORT_PATH"
+else
+  log "no report committed for today on origin/main"
+fi
+
 log "writing $POC_STATE on $STATE_BRANCH"
 
 git checkout -b "$STATE_BRANCH" origin/main --quiet
 
 node -e '
   const fs = require("fs");
-  const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, claimedCard] = process.argv.slice(1);
+  const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, claimedCard,
+         reportPath] = process.argv.slice(1);
   const state = JSON.parse(fs.readFileSync(path, "utf8"));
   state.last_run = finishedAt;
   state.run_id = runId;
@@ -673,8 +712,13 @@ node -e '
     state.claims[claimedCard] = { claimed_by: "harness", claimed_at: finishedAt };
   }
 
+  // AUT-1. The report this run committed, by path. The digest reads the
+  // directory directly, because it is sent before this file is written; this
+  // field is the record, so a later reader can tell which report belonged to
+  // which run without matching dates by eye.
+  if (reportPath) state.report_path = reportPath;
   fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
-' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD"
+' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD" "$REPORT_PATH"
 
 git add "$POC_STATE"
 
