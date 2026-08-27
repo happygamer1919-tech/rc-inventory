@@ -223,6 +223,10 @@ test.describe("Verificare si confirmare extragere", () => {
     await page.getByTestId("review-supplier").fill(`Furnizor editat ${RUN}`);
     await page.getByTestId("review-line-quantity-0").fill("11");
     await page.getByTestId("review-expected-at").fill("2026-12-01");
+    // Linia nu s-a potrivit cu niciun produs din catalog, deci devine un produs
+    // marcat, iar categoria unui produs nou se alege: nu se ghiceste. Clauza 3
+    // dovedeste refuzul; aici este doar drumul normal al operatorului.
+    await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
     await page.getByTestId("review-confirm").click();
 
     const created = page.getByTestId("review-created");
@@ -248,6 +252,7 @@ test.describe("Verificare si confirmare extragere", () => {
     await openReview(page, orderId);
     await page.getByTestId("review-expected-at").fill("2026-12-02");
     await page.getByTestId("review-line-quantity-0").fill("7");
+    await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
     await page.getByTestId("review-confirm").click();
 
     const created = page.getByTestId("review-created");
@@ -285,7 +290,11 @@ test.describe("Verificare si confirmare extragere", () => {
     // mai jos poarta acelasi nume ca linia extrasa plus un sufix, ceea ce este
     // exact forma pe care o potrivire aproximativa ar inghiti-o: acelasi
     // furnizor, acelasi produs, alta varianta.
-    const extracted = `Tigla metalica Bilka Classic 0.45mm visiniu ${RUN}`;
+    // Numele este propriu acestui caz, nu cel implicit din callbackBody: cazurile
+    // 1 si 2 confirma pe numele implicit si lasa in urma produse marcate purtand
+    // exact acel nume, iar "exista un singur produs cu numele acesta" ar deveni
+    // fals din motive care nu au nimic de-a face cu clauza 3.
+    const extracted = `Produs necunoscut extras ${RUN}`;
     const similarSku = `TEST-SIM-${RUN}`;
     await createCatalogProduct(page, {
       sku: similarSku,
