@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   // --- exista deja o ciorna pentru acest order_id? -------------------------
   const { data: existing, error: readError } = await supabase
     .from("extraction_drafts")
-    .select("order_id, status")
+    .select("order_id, callback_at")
     .eq("order_id", orderId)
     .maybeSingle();
 
@@ -141,8 +141,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "order_id necunoscut" }, { status: CALLBACK_CODES.rejected });
   }
 
-  // Un callback dupa care s-a mai primit unul: acelasi order_id INLOCUIESTE.
-  const isRepeat = existing.status !== null;
+  // "Duplicat" inseamna un AL DOILEA CALLBACK, deci se citeste din callback_at,
+  // care este scris numai de un callback. Statusul nu raspunde la aceeasi
+  // intrebare: un rand poate avea status si nu poate avea callback_at decat
+  // dupa ce a raspuns cineva. Comparatia este cu == null, care prinde si
+  // undefined: un camp absent din raspuns nu inseamna "a raspuns deja".
+  const isRepeat = existing.callback_at != null;
 
   const { error: updateError } = await supabase
     .from("extraction_drafts")
