@@ -711,3 +711,72 @@ same reason 0010's and 0011's were not: the command that writes it is refused by
 this session's sandbox. `docs/runbooks/apply-0011.md` covers 0010 and 0011 and
 the same statement shape applies to 0012, with `version` `'0012'` and `name`
 `'manager_flagged_products'`.
+
+---
+
+## LEDGER ROWS 0010, 0011 and 0012 - AUTHORED, PARSED, NOT APPLIED
+
+**Card:** P2-19. **Date:** 2026-08-27. **Applied by:** nobody.
+
+This entry is not a migration apply. It records the state of Supabase's own
+bookkeeping table, `supabase_migrations.schema_migrations`, and what was built to
+repair it. The schema is correct and complete; the ledger's newest row is `0009`
+while the database is at `0012`.
+
+### Phase 1, pre-check
+
+**Not run.** The pre-check is the first two statements of
+`scripts/ledger-rows-0010-0012.sql` and runs inside the same transaction as the
+inserts, so whoever executes the file sees the before-state and the after-state
+without a second connection. Expected: nine rows, `0001` through `0009`,
+`ledger_rows_before = 9`.
+
+The evidence that the ledger is at `0009` is not new to this entry. It was read
+on 2026-08-27 during the 0011 apply, recorded in this file under
+`0011_extraction_confirm_corrections - APPLIED`, and nothing has written to that
+table since.
+
+### Phase 2, apply
+
+**Not run.** Authored as three `insert ... on conflict (version) do nothing`
+statements inside one transaction that the file deliberately leaves open.
+
+### Phase 3, post-check
+
+**Not run.** Expected: twelve rows, `0001` through `0012`,
+`ledger_rows_after = 12`.
+
+### Destructive statements
+
+**None, and this was parsed rather than eyeballed.** The file embeds the three
+migrations as string literals, so their own text contains the words `DROP`,
+`DELETE` and `ALTER`. A grep finds those hits and a grep is the wrong tool.
+`pgsql-parser`, the real PostgreSQL grammar, reports the file as **8 statements:
+one TransactionStmt, four SelectStmt, three InsertStmt.** All three inserts
+target `supabase_migrations.schema_migrations` and nothing else. No statement in
+the file removes a row from any table, so CLAUDE.md 8.6 does not stop it.
+
+The parse runs in CI on every push as `npm run check:ledger-rows`, alongside the
+check that the generated file still matches the three migration files it is
+generated from. Both were proved to fail on a mutated copy before being added.
+
+### Why it was not applied
+
+The command that opens the connection is refused by the sandbox, before it
+executes. The refusal is quoted verbatim in
+`docs/runbooks/ledger-rows-0010-0012.md`. A second, narrower probe that ran no
+SQL and only asked which postgres clients exist on the machine was refused with
+the same text, which is what makes it a blanket refusal rather than a rule about
+the statement. It was not attempted a third time.
+
+This is a sandbox limit, not a doctrine limit: CLAUDE.md 8.2 still authorises
+EXECUTOR to apply while the project holds zero real client data, and that grant
+runs until P2-13.
+
+### What closes this
+
+Ivan runs `scripts/ledger-rows-0010-0012.sql` and pastes the two grids back, or
+a Bash permission rule is added that lets a session open the derived pooler
+connection, at which point the next scheduled run does it unattended. Until one
+of those happens the row for this apply stays **NOT APPLIED**, which is the
+whole point of writing it down rather than leaving the gap implicit.

@@ -1235,7 +1235,6 @@ Then add the inverse rule as a hard invariant: a run that had an eligible card
 and shipped nothing writes an escalation naming the card and the reason, every
 time. Silence about an eligible card is a defect, never a normal outcome.
 
-<<<<<<< HEAD
 ### AUT-1: a bare catch turned a missing import into a missing file
 **Tag:** ci
 **ERROR:** The digest reported `REPORT: none committed` about a report that was
@@ -1255,7 +1254,7 @@ RULE: a bare `catch` that returns a normal-looking value converts every
 programming error inside the `try` into that value. Catch the condition you
 meant, by code, and rethrow the rest. And when a lookup returns "not found" for
 something you can see with `ls`, suspect the catch before the query.
-=======
+
 ### An unbound variable in a heredoc empties the file and the run keeps going
 **Tag:** infra
 **ERROR:** `run.sh` builds EXECUTOR's prompt with `cat > "$PROMPT_FILE" <<PROMPT_EOF`
@@ -1274,9 +1273,6 @@ silently truncated file rather than an error you can see. Then assert the
 artefact: `[ ! -s "$PROMPT_FILE" ]` and refuse to invoke, with a message saying
 this is a defect in the script rather than a failure of the run. A generated
 input that is empty must never be passed to the thing it was generated for.
-<<<<<<< HEAD
->>>>>>> origin/main
-=======
 
 ### P2-15: a delete set that classified its own residue as somebody else's data
 **Tag:** data
@@ -1312,4 +1308,52 @@ introduces a new row shape checks the reset script for it. And when a delete set
 and its verification share one definition, the verification cannot fail: prove
 the set from the other end, by counting what the new shape produces and looking
 for it afterwards by name.
->>>>>>> origin/main
+
+### P2-19: three merge-conflict markers were committed to main inside LEARNINGS.md
+**Tag:** infra
+**ERROR:** `docs/LEARNINGS.md` on `main` carried six live conflict marker lines,
+`<<<<<<< HEAD`, `=======` and `>>>>>>> origin/main`, one pair nested inside
+another. All three learnings entries were present and complete; only the markers
+were left behind, so nothing read as obviously broken and nothing failed. **No
+check would ever have caught it:** the `quality` job typechecks, builds,
+validates both boards and parses two SQL files, and none of those opens a
+markdown document. The file is append-only by convention, so the next role to
+follow section 9 would have appended underneath a dangling `>>>>>>>` and made it
+worse.
+**SOLUTION:** the six lines were stripped and the three entries verified intact
+by name. RULE: a conflict resolved by hand is verified by grepping the resolved
+file for marker lines before the commit, not by reading the part you were
+looking at. And a repository whose doctrine lives in prose needs one check that
+reads prose: any tracked text file containing a line that starts with `<<<<<<< `
+or `>>>>>>> ` is a failed merge, wherever it is.
+
+### P2-19: a grep cannot tell a SQL statement from a quoted string
+**Tag:** data
+**ERROR:** `scripts/ledger-rows-0010-0012.sql` writes three bookkeeping rows and
+embeds each migration's own text in the `statements` column, so its text
+contains `DROP`, `DELETE`, `ALTER TABLE` and `on delete set null`. Read by grep,
+or by eye, the file looks like something CLAUDE.md 8.6 forbids a terminal from
+applying. It is not: every one of those words sits inside a `$mig$`-quoted
+string literal and none of them is a statement.
+**SOLUTION:** parse it. `pgsql-parser` is the real PostgreSQL grammar, needs no
+connection, and reports the file as 8 statements: one `TransactionStmt`, four
+`SelectStmt`, three `InsertStmt`, all three inserts targeting
+`supabase_migrations.schema_migrations`. RULE: the destructive-statement stop in
+8.6 is a question about statements, so it is answered by a parser and never by a
+text search. A grep can only produce a false alarm here, and a false alarm on
+that rule is as expensive as a miss, because it parks a safe file on the owner.
+
+### P2-19: a check that has never failed is a check nobody has tested
+**Tag:** ci
+**ERROR:** The first version of `npm run check:ledger-rows` compared the
+generated file against the committed one and then parsed it. Mutating the
+committed file to prove the parse checks worked only ever tripped the diff
+check, which runs first, so checks 3 through 6 exited before executing. They
+were green on every run and had never been exercised once.
+**SOLUTION:** mutate the **generator**, regenerate, and check. Generator and file
+then agree, the diff check passes, and the parse checks are the ones under test:
+appending a real `delete` and a `commit;` makes check 3 report `DeleteStmt`
+outside the allowed set and check 6 report
+`["TRANS_STMT_BEGIN","TRANS_STMT_COMMIT"]`, exit 1. RULE: to test an assertion
+that sits behind an earlier gate, satisfy the gate first. Mutating the input at
+the wrong layer proves the gate works and says nothing about the assertion.
