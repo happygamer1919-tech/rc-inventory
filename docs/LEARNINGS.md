@@ -1357,3 +1357,23 @@ outside the allowed set and check 6 report
 `["TRANS_STMT_BEGIN","TRANS_STMT_COMMIT"]`, exit 1. RULE: to test an assertion
 that sits behind an earlier gate, satisfy the gate first. Mutating the input at
 the wrong layer proves the gate works and says nothing about the assertion.
+
+### A timeout guessed from intuition kills the thing it was meant to protect
+**Tag:** infra
+**ERROR:** The conversational responder capped each answer at 120 seconds, a
+number chosen because it sounded generous. Measured against the real repository,
+a plain question ("how many jobs are left") took **158 seconds** end to end, and
+the longer opening question took longer still. Every honest answer would have
+been killed at 120 seconds and replaced by the fallback line "I could not answer
+that one", so the feature would have appeared broken while working correctly.
+The same file also hardcoded a stale-lock threshold of 600 seconds while the
+worst case healthy poll was 3 answers times 120 seconds, or 900 seconds: a slow
+but working poll would have had its lock stolen by the next poll, and two
+pollers would have answered at once.
+**SOLUTION:** Measure before choosing a timeout, and measure against the real
+input rather than a toy one. Then derive every dependent limit from it instead
+of hardcoding a second guess: the stale-lock threshold is now
+`timeout * max_per_poll + buffer`, so it cannot drift below the worst case when
+either input changes. A guessed timeout is a silent failure generator, because
+the artefact it produces is an error message rather than an obviously missing
+result.

@@ -37,12 +37,23 @@ POC_CHAT_LOCK=/Users/ivan/rc-poc-logs/chat.lock
 POC_SECRETS_FILE=/Users/ivan/rc-secrets/phase2.env
 POC_OFFSET_FILE=/Users/ivan/rc-poc-logs/chat/offset
 
-# Per message, so one long question cannot stall the poller.
-POC_CHAT_TIMEOUT_SECONDS=120
+# Per message. Measured, not guessed: a real question against this repository
+# took 158 seconds end to end on 2026-08-27, and the first draft of this file
+# capped it at 120, which would have killed every honest answer and sent the
+# fallback apology instead. 300 leaves room for a question that needs several
+# files without letting one hang the poller forever.
+POC_CHAT_TIMEOUT_SECONDS=300
 # Rate limit: most messages answered per single poll.
-POC_CHAT_MAX_PER_POLL=3
+POC_CHAT_MAX_PER_POLL=2
 # Floor between two answers, so a burst cannot spend the account.
 POC_CHAT_MIN_GAP_SECONDS=5
+
+# The longest a healthy poll can legitimately run, plus a buffer. Anything
+# holding the lock longer than this is dead rather than busy. Derived rather
+# than hardcoded, because the first draft hardcoded 600 while the worst case was
+# already 900, so a slow but healthy poll would have had its lock stolen out
+# from under it by the next one.
+POC_CHAT_STALE_LOCK_SECONDS=$(( POC_CHAT_TIMEOUT_SECONDS * POC_CHAT_MAX_PER_POLL + 300 ))
 
 PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
@@ -69,9 +80,10 @@ trap 'release_lock' EXIT INT TERM
 # build run are allowed to happen at the same time, and must be.
 if [ -e "$POC_CHAT_LOCK" ]; then
   # Stale lock recovery: a poller that died holding it must not mute the bot
-  # forever. The poll interval is 60s, so anything older than 10 minutes is dead.
+  # forever. The threshold must exceed the worst case healthy poll, or a slow
+  # but working answer gets its lock stolen by the next poll and both run.
   LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$POC_CHAT_LOCK" 2>/dev/null || date +%s) ))
-  if [ "$LOCK_AGE" -lt 600 ]; then
+  if [ "$LOCK_AGE" -lt "$POC_CHAT_STALE_LOCK_SECONDS" ]; then
     exit 0
   fi
   log "stale chat lock, ${LOCK_AGE}s old, taking it"
