@@ -137,9 +137,23 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
 
   // Starea se sterge inaintea retrimiterii, ca ecranul sa arate "in lucru" si
   // nu motivul vechi al unui esec pe care tocmai l-am reincercat.
+  //
+  // callback_at NU SE STERGE, si asta nu este o scapare.
+  //
+  // Ecranul citeste "in lucru" din status null, deci stergerea statusului este
+  // tot ce ii trebuie. callback_at raspunde la cu totul alta intrebare: a mai
+  // raspuns cineva vreodata pentru acest order_id? Receptorul din
+  // app/api/extraction/callback/route.ts citeste exact acel camp ca sa aleaga
+  // intre 202 acceptat si 200 duplicat, iar contractul defineste duplicatul pe
+  // order_id, nu pe numarul de trimiteri.
+  //
+  // Sters aici, campul ar face receptorul sa raspunda 202 la a doua extragere a
+  // aceluiasi document, adica sa spuna "prima data" despre o ciorna pe care o
+  // INLOCUIESTE. Retrimiterea ar deveni singura cale prin care contorul de
+  // idempotenta al contractului se poate reseta, si ar reseta-o tacut.
   await supabase
     .from("extraction_drafts")
-    .update({ status: null, error_code: null, reason: null, callback_at: null })
+    .update({ status: null, error_code: null, reason: null })
     .eq("order_id", orderId);
 
   const fired = await fireExtraction({

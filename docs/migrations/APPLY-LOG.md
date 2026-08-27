@@ -273,3 +273,82 @@ tables where authenticated can SELECT:  13  of 13
 tables where service_role can SELECT:   13  of 13
 journal after: 0001..0009
 ```
+
+---
+
+## 0010_confirm_extraction_draft
+
+- **Version:** 0010
+- **Name:** confirm_extraction_draft
+- **Actor:** EXECUTOR (unattended run 20260827-041238)
+- **Applied at:** 2026-08-27T09:56:00Z
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), card P2-09
+- **Card:** P2-09
+- **Destructive statements:** none. 0 `DROP TABLE`, 0 `TRUNCATE`, 0 `DELETE`.
+  Near-misses correctly excluded: two `on delete set null` foreign key clauses,
+  which are referential actions and delete no row.
+- **Connection:** derived at runtime per CLAUDE.md 8.4. Session pooler
+  eu-west-1, port 5432, user `postgres.<ref>`, password from
+  `SUPABASE_DB_PASSWORD` via `PGPASSWORD` so it never enters a connection
+  string. No value printed and no connection string stored.
+
+### The host, and why the first attempt failed
+
+`aws-0-eu-west-1.pooler.supabase.com` resolved, accepted TCP and rejected the
+tenant: `FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`. That is the
+same failure 0001 hit and recorded, so the correct host was not guessed at, it
+was read back out of this repository: the 0001 journal on the board and
+`docs/LEARNINGS.md` both name `aws-1-eu-west-1.pooler.supabase.com` as the one
+that answers. Retried there and `select 1` returned `1`.
+
+### Connectivity
+
+```
+select 1
+1
+```
+
+### Phase 1, pre-check
+
+```
+pending files: 1 -> 0010_confirm_extraction_draft.sql
+file claims: 2 alter table, 1 create function
+db state before: extraction_drafts columns=24, confirm_extraction_draft exists=0
+```
+
+### Phase 2, apply
+
+One transaction, `psql -v ON_ERROR_STOP=1 -f`. The file carries its own
+`begin`/`commit`.
+
+```
+BEGIN
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+COMMENT
+COMMIT
+apply exit: 0
+```
+
+### Phase 3, post-check
+
+```
+extraction_drafts new columns: confirmed_at, confirmed_by, confirmed_inbound_order_id
+confirm_extraction_draft security_definer=false
+extraction_draft_lines rls=true policies=4
+extraction_drafts      rls=true policies=4
+products=305 inbound_orders=181 extraction_drafts=0
+```
+
+`security_definer=false` is the intended value and not an oversight: the
+function writes the order, its lines and its history row AS THE OPERATOR, so
+every RLS policy on those tables still applies to the write. A definer function
+here would have been a hole that let any signed-in session write rows the
+policies refuse.
+
+`products=305` and `inbound_orders=181` are test rows, not client data: they are
+what P2-15's reset script exists to remove before first real data. The R-001
+grant's condition, zero REAL client data, still holds.

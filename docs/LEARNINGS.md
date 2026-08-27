@@ -1000,3 +1000,36 @@ became, and cannot be confirmed twice. THE RULE: before writing a DELETE to
 satisfy a word in an acceptance line, check whether marking satisfies the same
 sentence. It usually does, it keeps the evidence, and it keeps the migration
 appliable without an owner in the chair.
+
+### A re-fire that cleared callback_at made the receiver call a replacement a first answer
+**Tag:** backend
+**ERROR:** `review.spec` case 6 failed in CI with `Expected: 200, Received: 202`.
+The re-fire control re-posted the same `order_id`, as the contract requires, and
+the callback answering it came back 202 accepted instead of 200 duplicate. The
+draft was replaced correctly, so nothing looked wrong on screen: only the status
+code lied, and it lied to Make, which is the one reader that acts on it.
+**SOLUTION:** `refireExtraction` was clearing `callback_at` together with
+`status`, `error_code` and `reason` so the screen would show "in lucru" instead
+of a stale failure. But the receiver derives 202-against-200 from `callback_at`
+alone, and the contract defines a duplicate on `order_id`, not on how many times
+we fired. Clearing it made re-fire the single path that could silently reset the
+idempotency counter. Only `status`, `error_code` and `reason` are cleared now;
+the screen reads "in lucru" from `status` being null and never needed the
+timestamp. Rule: before clearing a field to change what a SCREEN shows, find out
+which MACHINE reads it. A field that two readers interpret differently is not a
+display flag.
+
+### The eu-west-1 session pooler answers on aws-1, and the repository already said so
+**Tag:** infra
+**ERROR:** applying 0010, `aws-0-eu-west-1.pooler.supabase.com` resolved and
+accepted TCP, then rejected the login with
+`FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`. Read as a credential
+failure it would have sent the card to `blocked_on: ivan` for a password
+rotation that was never wrong.
+**SOLUTION:** the host was the wrong one, and the right one was already written
+down twice: the 0001 apply journal on the board and an existing `docs/LEARNINGS.md`
+entry both name `aws-1-eu-west-1.pooler.supabase.com` as the host that answers.
+CLAUDE.md 8.4 forbids guessing a hostname, and reading one back out of a
+committed journal is not guessing. Rule: when a derived connection is refused,
+search this repository for the same error before touching the credential. This
+project has hit it once already and paid for the answer.
