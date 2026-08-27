@@ -31,18 +31,63 @@ folded this into P2-11 rather than raising a separate card.
 
 ## Entries before this file existed
 
-`0001` through `0006` were applied before this log was required, and their
-journals live on their cards rather than here. They are listed for completeness
-and their actor is recorded as far as it is knowable.
+`0001` through `0006` were applied before this log was required. Their journals
+live on their cards, and this section carries what is knowable about each.
 
-| version | applied by | when | journal |
-|---|---|---|---|
-| 0001 | IVAN, in the Supabase SQL editor | before 2026-08-25, exact time not recorded | P2-01 evidence, verified rather than re-applied by EXECUTOR under R-001 |
-| 0002 | EXECUTOR under R-001 | 2026-08-25, exact time not recorded | P2-04 evidence |
-| 0003 | EXECUTOR under R-001 | 2026-08-25, exact time not recorded | P2-04 evidence |
-| 0004 | EXECUTOR under R-001 | 2026-08-25, exact time not recorded | P2-05 evidence |
-| 0005 | EXECUTOR under R-001 | 2026-08-25, exact time not recorded | P2-06 evidence |
-| 0006 | **UNKNOWN** | **UNKNOWN** | Not this terminal. Found already applied at the pre-check on 2026-08-26 and verified read-only rather than re-applied. This unanswerable row is the reason this file exists. |
+**EXPANDED FROM A TABLE INTO ENTRIES BY P2-11, 2026-08-27. Not one fact was
+changed, added or removed:** every row of the original table became the entry of
+the same version below, word for word in its "journal" line. The table was the
+only part of this file that did not carry one heading per migration, so an
+audit could not ask "does every migration have an entry" without a human reading
+prose. `tests/e2e/headers.spec.ts` now asks exactly that, per file, and it needs
+the headings to be able to.
+
+## 0001_phase2_schema.sql
+
+- **Version:** 0001
+- **Actor:** IVAN, in the Supabase SQL editor
+- **Applied at:** before 2026-08-25, exact time not recorded
+- **Journal:** P2-01 evidence, verified rather than re-applied by EXECUTOR under
+  R-001
+
+## 0002_rc_docs_bucket.sql
+
+- **Version:** 0002
+- **Actor:** EXECUTOR under R-001
+- **Applied at:** 2026-08-25, exact time not recorded
+- **Journal:** P2-04 evidence
+
+## 0003_inbound_functions.sql
+
+- **Version:** 0003
+- **Actor:** EXECUTOR under R-001
+- **Applied at:** 2026-08-25, exact time not recorded
+- **Journal:** P2-04 evidence
+
+## 0004_outbound_functions.sql
+
+- **Version:** 0004
+- **Actor:** EXECUTOR under R-001
+- **Applied at:** 2026-08-25, exact time not recorded
+- **Journal:** P2-05 evidence
+
+## 0005_service_role_grants.sql
+
+- **Version:** 0005
+- **Actor:** EXECUTOR under R-001
+- **Applied at:** 2026-08-25, exact time not recorded
+- **Journal:** P2-06 evidence
+
+## 0006_reminder_recipients.sql
+
+- **Version:** 0006
+- **Actor:** **UNKNOWN.** Not this terminal.
+- **Applied at:** **UNKNOWN.** Found already applied at the pre-check on
+  2026-08-26 and verified read-only rather than re-applied.
+- **Journal:** none. This unanswerable row is the reason this file exists:
+  `supabase_migrations.schema_migrations` carries version, statements and name,
+  and has no actor column and no timestamp column, so the question is not
+  answerable from the database at all.
 
 ---
 

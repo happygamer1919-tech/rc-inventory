@@ -39,6 +39,20 @@ loadEnvConfig(process.cwd());
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 
+// P2-11. AL DOILEA SERVER, IN MOD PRODUCTIE.
+//
+// Doua clauze ale cardului P2-11 nu pot fi dovedite pe serverul de dezvoltare:
+// antetele se cer verificate pe un RASPUNS DE PRODUCTIE, iar "zero erori de
+// consola" se cere INTR-UN BUILD DE PRODUCTIE, unde nu exista nici overlay-ul de
+// dezvoltare, nici avertismentele lui React Strict Mode, nici recompilarea la
+// cerere. Un verde obtinut pe serverul de dezvoltare ar fi despre alt program
+// decat cel pe care il vede clientul.
+//
+// Cele doua servere ruleaza in acelasi timp si scriu amandoua in dosarul de
+// build, deci acesta primeste al lui prin NEXT_DIST_DIR (vezi next.config.ts).
+const PROD_PORT = Number(process.env.PLAYWRIGHT_PROD_PORT ?? 3101);
+const PROD_DIST = ".next-prod";
+
 // "localhost", NU "127.0.0.1", si diferenta nu este cosmetica.
 //
 // Next 16 blocheaza implicit cererile cross-origin catre resursele de
@@ -52,6 +66,7 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 // configuratie in aplicatie ca sa repare o alegere a testelor. Testele cer de la
 // aceeasi origine de la care serverul raspunde.
 const BASE_URL = `http://localhost:${PORT}`;
+const PROD_URL = `http://localhost:${PROD_PORT}`;
 
 // P2-10. RESEND ESTE MOCAT PRINTR-UN SERVER, NU PRINTR-O RAMURA IN APLICATIE.
 //
@@ -101,6 +116,15 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // headers.spec apartine celuilalt proiect: el are nevoie de raspunsuri de
+      // productie, nu de serverul de dezvoltare.
+      testIgnore: /headers\.spec\.ts/,
+    },
+    {
+      // P2-11. Acelasi browser, alta origine: serverul in mod productie.
+      name: "productie",
+      testMatch: /headers\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL: PROD_URL },
     },
   ],
 
@@ -143,6 +167,30 @@ export default defineConfig({
         MAKE_WEBHOOK_SECRET,
         MAKE_CALLBACK_SECRET,
         RC_CALLBACK_URL: `${BASE_URL}/api/extraction/callback`,
+      },
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      // P2-11. Build de productie, apoi next start, in dosarul lui separat.
+      //
+      // Build-ul ruleaza AICI si nu se bazeaza pe pasul de build al workflow-ului:
+      // acela scrie in .next, pe care serverul de dezvoltare il rescrie oricum
+      // cand porneste. Un server de productie care serveste un build atins de
+      // altcineva nu dovedeste nimic despre build-ul de productie.
+      command: `NEXT_DIST_DIR=${PROD_DIST} npm run build && NEXT_DIST_DIR=${PROD_DIST} npx next start --port ${PROD_PORT}`,
+      url: PROD_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 300_000,
+      env: {
+        NEXT_DIST_DIR: PROD_DIST,
+        RESEND_API_KEY: RESEND_MOCK_KEY,
+        RESEND_BASE_URL: RESEND_MOCK_URL,
+        RESEND_FROM: RESEND_MOCK_FROM,
+        MAKE_WEBHOOK_URL,
+        MAKE_WEBHOOK_SECRET,
+        MAKE_CALLBACK_SECRET,
+        RC_CALLBACK_URL: `${PROD_URL}/api/extraction/callback`,
       },
       stdout: "ignore",
       stderr: "pipe",
