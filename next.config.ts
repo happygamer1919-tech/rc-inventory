@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { SECURITY_HEADERS } from "./lib/security-headers";
 
 // P2-11. Antetele de securitate, aplicate de framework si nu de un middleware
 // scris de mana.
@@ -9,62 +10,11 @@ import type { NextConfig } from "next";
 // TOATE raspunsurile, inclusiv cele ale rutelor API si ale fisierelor statice,
 // deci o ruta noua este acoperita fiindca este noua.
 //
-// CSP-UL DE AICI ARE O SINGURA DIRECTIVA, SI ASTA ESTE DELIBERAT.
-//
-// Cardul spune raspicat ca un Content-Security-Policy se include NUMAI daca se
-// poate dovedi ca nu strica aplicatia, fiindca un CSP care blocheaza tacut un
-// script este mai rau decat lipsa lui. frame-ancestors nu poate bloca niciun
-// script: singurul lucru pe care il restrange este cine are voie sa incadreze
-// pagina, deci este exact echivalentul modern al lui X-Frame-Options pe care
-// cardul il numeste ca alternativa acceptata, si dovada ca nu strica nimic este
-// citirea directivei.
-//
-// Ce NU este aici: script-src, style-src si restul. Next injecteaza scripturi
-// inline pentru hidratare si pentru fluxul RSC, deci un CSP care le acopera
-// inseamna o conducta de nonce prin toata randarea, exact lucrul pe care
-// defaults il interzice pe acest card. Ramane un card viitor, scris aici ca sa
-// nu para o scapare.
-//
-// Strict-Transport-Security se trimite si pe http://localhost. Browserele il
-// ignora in afara HTTPS, prin specificatie, deci nu are efect in dezvoltare si
-// nu poate bloca serverul local; il trimitem neconditionat ca antetul sa fie
-// acelasi lucru peste tot si sa poata fi verificat de suita.
-const SECURITY_HEADERS = [
-  {
-    // Doi ani, cu subdomenii, pregatit pentru lista de preincarcare. Domeniul
-    // este servit exclusiv prin HTTPS de Vercel.
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
-  {
-    // Oprește ghicitul tipului de continut. Un document incarcat de operator si
-    // servit vreodata gresit nu are voie sa fie executat ca script.
-    key: "X-Content-Type-Options",
-    value: "nosniff",
-  },
-  {
-    // Aplicatia nu este incadrata nicaieri, niciodata.
-    key: "X-Frame-Options",
-    value: "DENY",
-  },
-  {
-    // Echivalentul modern al liniei de mai sus, pentru browserele care il
-    // prefera. Amandoua, fiindca acoperirea lor nu este identica.
-    key: "Content-Security-Policy",
-    value: "frame-ancestors 'none'",
-  },
-  {
-    // Adresa completa nu pleaca niciodata catre alta origine. Caile acestei
-    // aplicatii contin identificatori de comenzi si de produse.
-    key: "Referrer-Policy",
-    value: "strict-origin-when-cross-origin",
-  },
-  {
-    // Nimic din ce aplicatia nu foloseste nu ramane disponibil.
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-  },
-];
+// LISTA INSASI STA IN lib/security-headers.ts, fiindca proxy.ts pune aceleasi
+// antete pe raspunsurile pe care le produce EL, si care nu mai ajung niciodata
+// aici: redirectarea catre autentificare si rescrierea catre acces interzis.
+// Motivele fiecarui antet, si de ce CSP-ul are o singura directiva, sunt scrise
+// acolo, langa valori.
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -83,7 +33,9 @@ const nextConfig: NextConfig = {
   agentRules: false,
 
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    // Copie, fiindca Next cere un tablou mutabil si lista este readonly:
+    // o singura definitie nu are voie sa fie modificabila de consumatorii ei.
+    return [{ source: "/:path*", headers: [...SECURITY_HEADERS] }];
   },
 };
 

@@ -41,19 +41,40 @@ test.describe("Intarire pentru productie", () => {
   test.describe.configure({ timeout: 180_000 });
 
   test("1. fiecare antet de securitate este prezent pe un raspuns de productie", async ({
+    page,
     request,
   }) => {
-    // Doua rute, ca sa se vada ca antetele vin din configuratie si nu de pe un
-    // singur drum: ecranul de autentificare, si radacina, care pentru o cerere
-    // fara sesiune raspunde prin redirectare.
+    // TREI FELURI DE RASPUNS, fiindca ele sunt produse de doua straturi diferite
+    // si a verifica doar unul lasa celalalt nedovedit.
+    //
+    //   /autentificare  o pagina publica, randata: antetele vin din next.config.
+    //   /               fara sesiune, proxy-ul REDIRECTEAZA: raspunsul nu ajunge
+    //                   niciodata la randare, deci antetele vin din proxy.ts. Si
+    //                   tocmai acesta este PRIMUL raspuns pe care il primeste un
+    //                   vizitator, adica primul contact al browserului cu
+    //                   domeniul, exact ce HSTS exista sa acopere.
+    //   /inventar       cu sesiune, un ecran adevarat al aplicatiei.
+    const check = (headers: Record<string, string>, where: string) => {
+      for (const h of REQUIRED_HEADERS) {
+        expect(headers[h.name], `${h.name} pe ${where}`).toBeDefined();
+        expect(headers[h.name], `${h.name} pe ${where}`).toContain(h.contains);
+      }
+    };
+
     for (const path of ["/autentificare", "/"]) {
       const response = await request.get(path, { maxRedirects: 0 });
-      const headers = response.headers();
-      for (const h of REQUIRED_HEADERS) {
-        expect(headers[h.name], `${h.name} pe ${path}`).toBeDefined();
-        expect(headers[h.name], `${h.name} pe ${path}`).toContain(h.contains);
-      }
+      check(response.headers(), path);
     }
+    // Redirectarea chiar este o redirectare, altfel randul de mai sus ar fi
+    // verificat din greseala o pagina.
+    const redirect = await request.get("/", { maxRedirects: 0 });
+    expect(redirect.status(), "radacina fara sesiune redirecteaza").toBeGreaterThanOrEqual(300);
+    expect(redirect.status()).toBeLessThan(400);
+
+    await signIn(page, ownerAccount());
+    const authed = await page.goto("/inventar");
+    expect(authed).not.toBeNull();
+    check(authed!.headers(), "/inventar");
   });
 
   test("2. o adresa inexistenta randeaza pagina romaneasca de 404", async ({ page }) => {
