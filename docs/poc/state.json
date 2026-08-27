@@ -9,6 +9,14 @@
     "AUT-1": {
       "claimed_by": "executor",
       "claimed_at": "2026-08-27T15:12:25Z"
+    },
+    "P2-15": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-27T15:12:41Z"
+    },
+    "P2-18": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-27T15:12:41Z"
     }
   }
 }
