@@ -1,3 +1,11 @@
+> **SUPERSEDED 2026-08-27 by `docs/runbooks/ledger-rows-0010-0012.md`, card
+> P2-19.** This file covered 0010 and 0011 only and predates migration 0012,
+> which is missing its ledger row for the same reason. The replacement covers
+> all three, hands over a generated and parsed SQL file instead of statements to
+> assemble by hand, and states the one assumption neither file can check, the
+> `version` format. Kept unedited below because a link that worked yesterday
+> still works.
+
 # Runbook: the two migration ledger rows for 0010 and 0011
 
 **Status: NOT VALIDATED BY THIS TERMINAL.** The statements below were authored
