@@ -968,6 +968,62 @@ rejected, suspect the layer in front of it before the code inside it. And a test
 client that follows redirects will hide exactly this, so the assertion that
 caught it was the one expecting a FAILURE.
 
+### A suite that only asserts the happy path cannot see a silent success
+**Tag:** ci
+**ERROR:** The concrete instance is recorded above as "P2-08a: a machine
+endpoint behind an auth redirect answers 200 to everything", and this entry is
+the general rule it produced, written separately because the rule is worth more
+than the instance. A machine endpoint sitting behind a redirect returns a
+perfectly good `200` to its caller while doing nothing at all. Make would post a
+callback, read success, record a delivery and never retry. Every document would
+be lost, silently, one at a time, and the only symptom on our side would be
+drafts that never appear. **A suite that checks only what a correct call returns
+cannot see this class of defect**, because the wrong answer and the right answer
+are the same three digits. The assertion that caught it was case 4 of
+`extraction.spec`, which posts a **deliberately wrong secret** and expects `401`:
+a wrong secret answering `200` can only mean the request never reached the code
+that checks secrets.
+**SOLUTION:** assert the failure cases, not only the success cases, and give
+them equal weight in the acceptance line rather than treating them as extras.
+For every machine endpoint the suite asserts at least: the wrong credential, the
+missing credential, the malformed payload, and the payload that violates the
+contract. RULE: a success code proves nothing on its own, because the layers in
+front of your code can produce it too. What proves the code ran is a failure the
+code alone knows how to produce. Design the suite so at least one case can only
+pass if the handler itself executed.
+
+### A migration post-check that counts objects will not see a grant
+**Tag:** data
+**ERROR:** Migration 0008 created two tables and left `anon` holding `SELECT` on
+both, because Supabase grants table privileges to `anon` and `authenticated` at
+**CREATE TABLE time** from project-level default privileges, and 0001's
+`revoke all ... from anon` ran once against the tables that existed then. The
+phase 3 post-check required by CLAUDE.md 8.5 asks for the table list, the
+`rls_enabled` flag, the policy count and the enum list. **Every one of those was
+correct.** The schema counted right and was reachable by a role that should not
+have been able to reach it. RLS was holding, so nothing leaked, but the grant is
+the FIRST of the two layers and a table with one where every sibling has two is
+protected less.
+**SOLUTION:** the post-check now asks a reachability question as well as a
+counting question, on every apply, for every object the migration created:
+
+```sql
+select c.relname,
+       has_table_privilege('anon', c.oid, 'SELECT')          as anon_can_read,
+       has_table_privilege('authenticated', c.oid, 'SELECT') as authenticated_can_read
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind = 'r';
+```
+
+The expected answer is `anon_can_read = false` on **every** row, not on the new
+ones. RULE: count what a migration created, then ask who can reach it. The two
+questions have different answers and only the second one is about safety. The
+same applies to a migration that creates a FUNCTION rather than a table, where
+the reachability question is `has_function_privilege('anon', ..., 'EXECUTE')`
+and the trap is different: a new function is executable by `PUBLIC` by default,
+`anon` is a member of `PUBLIC`, and a default privilege that revokes from `anon`
+by name does not touch the grant `anon` holds through `PUBLIC`.
+
 ### The card that says "confirm creates the order" against a schema that said the opposite
 **Tag:** data
 **ERROR:** P2-09's acceptance says confirm CREATES the real inbound order, while

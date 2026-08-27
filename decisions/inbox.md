@@ -1019,3 +1019,101 @@ assumed.
 **Also changes:** P2-08 becomes P2-08a and P2-08b; P2-09 and P2-11 `depends_on`
 recalculated; P2-15's new dependencies from R-024 read against the split.
 **Supersedes:** P2-08 as a single card.
+
+### R-027 - EXECUTOR deviations 1 to 7 ratified, and 0008's anon grant was the procedure working
+**Date:** 2026-08-27
+**Asked on:** P2-08a
+**Answer, verbatim:**
+> R-026: EXECUTOR deviations 1-7 from the P2-08a report ratified. Migration
+> 0008's anon grant, caught by its own post-check and corrected by 0009, is the
+> procedure working, not a process failure.
+
+**Ruling:** All seven deviations flagged in the P2-08a report are ratified as a
+set. Nothing on that card is reopened and nothing is rebuilt.
+
+**RENUMBERED FROM R-026, AND THE SHIFT IS RECORDED RATHER THAN LEFT TO BE
+RECONSTRUCTED.** The dispatch that carried this answer numbered it R-026. That
+id was already taken: PR #44, authored earlier the same day by the POC inbox
+reader, commits "R-026 - ruling relayed from Telegram for P2-12". Per the
+standing rule in `docs/LEARNINGS.md` ("Ruling ids are namespaced by author, and
+a collision is an authoring defect") the NEW entry is renumbered and the old one
+is never touched, so the three rulings in this dispatch land as **R-027, R-028
+and R-029** instead of R-026, R-027 and R-028. R-026 belongs to PR #44 whether
+or not that PR merges; a gap in the sequence is cheap and a duplicated id is
+not.
+
+**On the anon grant specifically.** Migration 0008 created
+`extraction_drafts` and `extraction_draft_lines` and left `anon` holding SELECT
+on both, because Supabase grants at CREATE TABLE time from project-level default
+privileges and 0001's one-time revoke does not reach tables created later.
+Nothing leaked: RLS was enabled and every policy is `to authenticated`, so the
+second of the two layers was holding throughout. **The defect was found by the
+card's own phase 3 post-check, named in the card notes, and corrected by a new
+numbered migration rather than by editing an applied one.** That sequence is
+what the three-phase apply exists to produce. Ratified as the procedure working.
+
+**Unblocks:** nothing. P2-08a is already shipped; this closes its report.
+**Also changes:** nothing on the board.
+**Supersedes:** none.
+
+### R-028 - the gate audit stands at 6 of 9, and the three open gates are people-gated
+**Date:** 2026-08-27
+**Asked on:** launch_gate
+**Answer, verbatim:**
+> R-027: gate audit ratified at 6/9. G4, G7 and G9 are all people-gated and
+> cannot be closed by any terminal.
+
+**Ruling:** The gate audit of 2026-08-27 is ratified as it stands. Six of nine
+conditions are `pass` on committed evidence under R-024's evidence rule, and the
+three that are not are **not work any terminal can do**:
+
+- **G4**, AI extraction live end to end, needs one real document through Andre's
+  real Make scenario. The app side is built and proven against the frozen
+  contract (P2-08a, mocked at the transport) and the review and confirm surface
+  is P2-09. What is missing is the other party, which is card P2-08b and its
+  `blocked_on: andre`.
+- **G7**, reminders firing a real Resend email on production, needs a send from
+  the production environment. The logic is proven by four green acceptance cases
+  against a mocked transport; the production half is environment and account
+  work at the handover.
+- **G9**, Mihai completing one full cycle himself on production, is card P2-14
+  and is by definition the client's own hands.
+
+**No terminal may flip any of the three, and none of them is a build task
+waiting to be picked up.** Recording that here stops a future session reading
+`6/9` as a backlog.
+
+**Unblocks:** nothing.
+**Also changes:** nothing on the board. `readiness_passed` stays 6 of 9.
+**Supersedes:** none.
+
+### R-029 - SUPABASE_SERVICE_ROLE_KEY is a precondition of P2-08b, verified by name only
+**Date:** 2026-08-27
+**Asked on:** P2-08b
+**Answer, verbatim:**
+> R-028: SUPABASE_SERVICE_ROLE_KEY is required in the Vercel production
+> environment before P2-08b. Verify by name only, never read or print the value.
+
+**Ruling:** `SUPABASE_SERVICE_ROLE_KEY` must be present in the Vercel
+**production** environment before P2-08b runs, and its absence is a precondition
+failure rather than a defect to debug on the day.
+
+**Why the callback needs it at all**, recorded so nobody later removes it as
+surplus: Make posts to `/api/extraction/callback` with no session and no cookie,
+and every RLS policy on `extraction_drafts` and `extraction_draft_lines` is
+`to authenticated`. An anonymous request matches no policy, so the receiver
+writes with the service key **after** verifying the shared secret the contract
+specifies. Without the variable the route answers `500`, which under contract
+section 6 means "nothing was stored, retry" - so a live round trip would look
+like Make retrying forever against a healthy-looking endpoint.
+
+**Verification is by name only.** The variable is confirmed present or absent by
+its name in the Vercel environment listing. Its value is never read, printed,
+logged, pasted into a board field or written into any file, here included.
+Section 7 of `CLAUDE.md` is unchanged by this ruling.
+
+**Unblocks:** nothing yet. P2-08b stays `blocked_on: andre`; this adds a second
+precondition that is Ivan's to satisfy and that can be satisfied at any time
+before Andre answers.
+**Also changes:** P2-08b `defaults` gains the precondition.
+**Supersedes:** none.
