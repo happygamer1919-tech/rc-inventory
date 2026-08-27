@@ -1377,3 +1377,22 @@ of hardcoding a second guess: the stale-lock threshold is now
 either input changes. A guessed timeout is a silent failure generator, because
 the artefact it produces is an error message rather than an obviously missing
 result.
+
+### launchctl bootout kills the job it is replacing, and a failed bootstrap can leave half an install
+**Tag:** infra
+**ERROR:** `scripts/poc/install.sh` does `launchctl bootout` then `bootstrap` so
+a reinstall replaces a definition rather than layering on it. Run while a work
+run was in flight, the bootout **terminated the running job**: an EXECUTOR 36
+minutes into its work died and the log recorded `EXECUTOR finished, exit 143`,
+which reads as a model failure rather than as somebody reinstalling underneath
+it. The bootstrap that followed then failed with `Bootstrap failed: 5:
+Input/output error`, and because that path called `exit 1`, the script returned
+before installing the **second** agent at all. A reinstall that looked like it
+had run had silently deployed half of itself, and the responder kept running its
+old timeout.
+**SOLUTION:** An installer that replaces a running service must refuse while
+that service is working: check the run lock and exit non-zero, with `--force`
+for the case where the operator means it. And a multi-agent installer must not
+abandon agent two because agent one failed to bootstrap: record the failures,
+install everything, and report at the end with a non-zero exit. Partial installs
+are worse than failed ones, because nothing looks wrong.
