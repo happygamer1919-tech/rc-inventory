@@ -839,3 +839,183 @@ silently stop enforcing it.
 at the forensics report, so the card does not go on reading as closed.
 **Supersedes:** CRIT-11's claim to have closed the defect. CRIT-11's code is
 correct and stays; what is superseded is the completeness of its proof.
+
+### R-021 - EXECUTOR forensics deviations ratified, the +1 product finding withdrawn
+**Date:** 2026-08-26
+**Asked on:** the EXECUTOR forensics report of 2026-08-26
+**Answer, verbatim:**
+> R-021: EXECUTOR deviations 1-7 from the 2026-08-26 forensics report ratified.
+> The +1 product finding is withdrawn as false; the row is CRITIC's documented
+> concurrency test and predates the guard. CI does not and cannot write to
+> production.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** All seven deviations from the forensics report are ratified.
+
+**The +1 product finding is withdrawn as false.** The newest product row in the
+project is `CRITIC-RACE-1787702980667` at `2026-08-26 00:09:40+00`; the CRIT-11
+merge commit `aef3c54` is `2026-08-26 02:50:44+00`. The row predates the guard by
+two hours and forty one minutes and was created by the CRITIC's own documented
+live concurrency test at the wave 1 boundary. **Zero rows have been written to
+the production project since the guard merged, in any table.**
+
+**CI does not and cannot write to production.** The workflow starts its own
+Supabase stack and reads that stack's credentials back out of it, references no
+repository secret, and the repository has no secrets configured at all.
+Confirmed empirically from a real run log rather than only by reading the
+workflow.
+
+**The escalation itself is the lesson, and it is recorded rather than
+smoothed over.** An unverified sentence in a terminal report became the headline
+premise of the next dispatch without anyone demanding the query that would settle
+it. The standing rule that an apply is believed only with its pre-check and
+post-check output pasted is not about applies: it is about counts and states of
+the client's database, from any source. Written into `docs/LEARNINGS.md`.
+
+**Unblocks:** nothing. It closes seven flags and withdraws one finding.
+**Also changes:** nothing on the board. CRIT-15 already shipped against the
+correct, narrower defect.
+**Supersedes:** deviation 5 of the 2026-08-26 contract report.
+
+### R-022 - the P2-12 acceptance amendment is ratified
+**Date:** 2026-08-26
+**Asked on:** P2-12
+**Answer, verbatim:**
+> R-022: P2-12 acceptance amendment ratified, precedent CRIT-14. Delivered-email
+> proof correctly moved to P2-13.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** Amending P2-12's acceptance rather than shipping around it was
+correct, and the precedent is CRIT-14: when the acceptance and what can actually
+be checked disagree, **the acceptance is what gets corrected, in writing, with
+the old text preserved**.
+
+The withdrawn clause required the reminder sender to be switched to the client
+domain, proven by a delivered email. That work moved to P2-13 as checklist items
+(e) and (f), and the reason it cannot be proven is one line: there is nobody to
+send to. `owner_reminder_recipients()` returns one address on a domain that does
+not exist.
+
+The alternative was to ship on instruction alone and leave the card carrying a
+clause nobody could ever run, which is the board lying about a commit that does
+not exist.
+
+**Unblocks:** nothing. P2-12 already shipped.
+**Also changes:** nothing further. The full previous acceptance is quoted
+verbatim in P2-12's notes.
+**Supersedes:** the delivered-email clause of P2-12's acceptance as authored
+under R-002.
+
+### R-023 - launch gates flip on committed evidence only
+**Date:** 2026-08-26
+**Asked on:** the launch gate
+**Answer, verbatim:**
+> R-023: launch gates flip on committed evidence only, never on a shipped card
+> by implication. Gate flips are a strategy judgement, executed by audit under
+> this ruling.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** A launch gate condition flips to `pass` only when **every clause of
+its own stated criteria** has committed evidence behind it. A card shipping does
+not flip a gate by implication, however completely that card appears to cover
+the gate's subject.
+
+The reason is that the two are written for different readers. A card's
+acceptance is what proves the work was done; a gate's criteria are what the
+owner reads to decide whether the system may go in front of a client. They
+overlap and they are not the same sentence, and the difference is exactly where
+"the card is done so the gate must be closed" goes wrong.
+
+**Gate flips are a strategy judgement, executed by audit.** The executor audits
+each gate clause by clause, names the committed evidence for each, and flips only
+those where nothing is unmet. Where a clause is unmet it says which clause and
+stops. **It never stretches an adjacent fact to cover a clause**, and if no gate
+qualifies it reports that plainly rather than finding one.
+
+The validator already enforces the shape: a condition at `state: pass` with
+`evidence: null` is a hard failure, and `readiness_passed` must equal the counted
+number of passing conditions.
+
+**Unblocks:** the gate audit performed in this dispatch.
+**Also changes:** nothing structural. It states the standard the audit is held to.
+**Supersedes:** none.
+
+### R-024 - P2-15 and P2-13 are resequenced behind the build tail
+**Date:** 2026-08-26
+**Asked on:** P2-13, P2-15
+**Answer, verbatim:**
+> R-024: P2-15 and P2-13 are resequenced. P2-15 depends_on P2-09 and P2-11 both
+> shipped. P2-13 depends_on P2-15. Neither is an owner action until the build
+> tail is complete. The previous ordering would have revoked credentials still
+> needed for migrations.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** P2-15 depends on P2-09 and P2-11. P2-13 depends on P2-15. Both come
+off `blocked_on: ivan`, because **neither is an owner action yet**: an owner
+action is one waiting on a person, and these are waiting on cards.
+
+**The previous ordering would have locked a door with people still inside.**
+P2-13 revokes the migration-apply grant, rotates every credential and retires the
+dev accounts. P2-15 deletes the production residue. Both sat ahead of P2-08,
+P2-09 and P2-11, and P2-08 needs a migration to store extraction drafts.
+Following the board as authored, the credentials would have been rotated and the
+grant revoked while cards requiring both were still unbuilt.
+
+The ordering was correct when it was written: handover sat at the end of a short
+build tail. Then P2-08 parked on a third party for days while everything around
+it shipped, and the tail outlived the assumption.
+
+**The fix is an edge, not a position.** A `depends_on` edge is checked by the
+validator on every commit. A position in a list is checked by whoever happens to
+notice.
+
+**Unblocks:** nothing immediately. It stops two cards from being workable before
+the cards that need their credentials.
+**Also changes:** P2-15 `depends_on` becomes P2-09 and P2-11 with `blocked_on`
+cleared and status back to `todo`; P2-13 `depends_on` becomes P2-15 with
+`blocked_on` cleared.
+**Supersedes:** the `depends_on` and `blocked_on` of P2-13 and P2-15 as
+previously authored.
+
+### R-025 - P2-08 splits, and the app side is buildable without Andre
+**Date:** 2026-08-26
+**Asked on:** P2-08, P2-09
+**Answer, verbatim:**
+> R-025: contract v2 being frozen makes the app side of the extraction lane
+> buildable without Andre. P2-08 splits into P2-08a (app side, mocked
+> transport) and P2-08b (live integration, blocked_on andre). P2-09 depends on
+> P2-08a only.
+
+**Ruled by:** strategy, 2026-08-26, relayed to EXECUTOR in the session dispatch.
+
+**Ruling:** Freezing extraction contract v2 changed what P2-08 was waiting for.
+It was blocked on Andre because nobody knew the shape of the payload. The shape
+is now decided, written down and frozen at
+`docs/contracts/extraction-v2.md`, and **our side of a frozen contract is
+buildable against it whether or not the other side has confirmed.**
+
+What still genuinely needs Andre is the live round trip. So P2-08 splits:
+
+- **P2-08a**, the app side, with Make mocked at the transport exactly as P2-10
+  mocks Resend. Eligible now.
+- **P2-08b**, one live round trip against Andre's real scenario with a real
+  document. Stays `blocked_on: andre`.
+
+**P2-09 depends on P2-08a only.** The review and confirm flow needs drafts in the
+database to review; it does not need those drafts to have arrived from Andre's
+scenario rather than from a mock.
+
+**The risk this accepts, stated rather than hidden:** if Andre's scenario
+eventually sends something other than v2, P2-08a's receiver is wrong and gets
+corrected. That is a smaller cost than three cards idle behind a third party,
+and it is bounded by the contract being frozen and written down rather than
+assumed.
+
+**Unblocks:** P2-08a immediately, and P2-09 and P2-11 once it ships.
+**Also changes:** P2-08 becomes P2-08a and P2-08b; P2-09 and P2-11 `depends_on`
+recalculated; P2-15's new dependencies from R-024 read against the split.
+**Supersedes:** P2-08 as a single card.
