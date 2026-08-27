@@ -425,12 +425,21 @@ all 63 finds no card id, file path, ruling id, PR number or build term.
    section 11 forbids. They predate this session and are outside every card
    worked in it. Noticed, deliberately not swept up, flagged here for a later
    card.
-4. **Three claim PRs conflicted with each other by construction.** `claim.sh`
-   cuts every branch from `origin/main`, so two claims taken minutes apart both
-   rewrite the same object and the second cannot merge. It cost one closed PR
-   and one re-taken claim this session. Worth a harness card: the claim branch
-   should be cut from `origin/main` **at merge time**, or the merge should
-   retry on conflict.
+4. **Neither card worked this session ended up holding a lease, and none was
+   minted after the fact.** Claims were taken for both, as PRs #73 and #74. They
+   conflicted with each other by construction, because `claim.sh` cuts every
+   branch from `origin/main`, so two claims taken seconds apart both rewrite the
+   same object and the second cannot merge. By the time either could have landed
+   the position had changed: **P2-19 and AUT-7 did not exist on `main` until
+   their own PRs merged**, so no run could have taken them, and P2-19 shipped
+   `blocked_on: ivan`, which makes it permanently ineligible. Both claim PRs were
+   closed rather than merged. Minting a lease after the work it would have
+   covered is the exact thing R-034 deviation 6 settled: a claim taken after the
+   work begins protects nothing, and taking one to look compliant is the worse
+   act.
+   **Worth a harness card either way:** the claim branch should be cut from
+   `origin/main` at merge time, or the merge should retry on conflict, because
+   two claims in one session currently cost a closed PR every time.
 5. **AUT-7's plain fields were written in one sweep rather than at authoring
    time**, which is the rule the same card introduces. Unavoidable for the 61
    fields that already existed, and it is exactly why the rule is written as
