@@ -18,7 +18,7 @@
 // WHAT IT ASSERTS, and one honest deviation from how the check was requested.
 //
 // The request was "statement count is 9, every statement is a DELETE". The
-// file parses to EIGHTEEN statements, and that is correct rather than a
+// file parses to more than that, and that is correct rather than a
 // defect: it opens a transaction, builds four temporary tables that freeze the
 // target set, prints a pre-check, runs the nine deletes, prints two
 // post-checks, and commits. Asserting "every statement is a DELETE" would fail
@@ -27,8 +27,9 @@
 // safe to run.
 //
 // So the assertion is the one that carries the intent: EVERY STATEMENT THAT
-// CAN MUTATE DATA IS A DELETE, there are exactly nine of them, and every other
-// statement is from a short allowed list of things that cannot change a row.
+// CAN MUTATE DATA IS A DELETE, there are exactly ELEVEN of them since the
+// extraction drafts were added under R-033, and every other statement is from a
+// short allowed list of things that cannot change a row.
 // An INSERT or an UPDATE appearing in this file would fail check 3 as loudly
 // as a TRUNCATE fails check 4.
 
@@ -43,6 +44,12 @@ const TARGET = resolve(HERE, "../reset-test-data.sql");
 /** The nine tables P2-15 is allowed to delete from, and no others. */
 const ALLOWED_DELETE_TARGETS = new Set([
   "public.status_history",
+  // Added 2026-08-27 under ruling R-033. The extraction lane creates rows in
+  // both of these on every acceptance run and nothing cleaned them, so the
+  // review panel on production would have opened with a list of TEST-
+  // documents waiting for Mihai to verify.
+  "public.extraction_draft_lines",
+  "public.extraction_drafts",
   "public.batches",
   "public.outbound_lines",
   "public.order_lines",
@@ -82,7 +89,11 @@ const FORBIDDEN_KINDS = new Set([
   "CreateRoleStmt",
 ]);
 
-const EXPECTED_DELETE_COUNT = 9;
+// Eleven since 2026-08-27, was nine. The two new ones are the extraction
+// drafts and their lines. This constant is deliberately a literal rather than
+// a lower bound: a delete appearing in this file that nobody expected is the
+// thing this check exists to notice, and "at least nine" would not notice it.
+const EXPECTED_DELETE_COUNT = 11;
 
 const failures = [];
 const fail = (msg) => failures.push(msg);
@@ -109,7 +120,7 @@ const statements = Array.isArray(parsed?.stmts) ? parsed.stmts : [];
 const kinds = statements.map((s) => Object.keys(s.stmt ?? {})[0] ?? "<empty>");
 console.log(`CHECK 1 parse: OK, ${statements.length} statements, PostgreSQL grammar ${parsed.version}`);
 
-// --- 2. exactly nine deletes ------------------------------------------------
+// --- 2. exactly eleven deletes ----------------------------------------------
 const deletes = statements
   .map((s) => s.stmt?.DeleteStmt)
   .filter((d) => d !== undefined);
@@ -199,9 +210,9 @@ if (opensAndCloses) {
   fail(`CHECK 8 atomicity: expected exactly BEGIN first and COMMIT last, found first=${firstKind} last=${lastKind} transaction kinds=[${txKinds.join(", ")}]`);
 }
 
-// --- the nine, printed ------------------------------------------------------
+// --- the deletes, printed ---------------------------------------------------
 console.log("");
-console.log("The nine statements, in the order the file runs them:");
+console.log(`The ${deletes.length} deletes, in the order the file runs them:`);
 deletes.forEach((d, i) => {
   console.log(`  ${String(i + 1).padStart(2, " ")}. DELETE  ${qualified(d.relation)}`);
 });

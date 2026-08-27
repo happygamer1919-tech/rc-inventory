@@ -506,6 +506,34 @@ stands; only its status is superseded.
   `aws-1-eu-west-1`, port 5432, user `postgres.<ref>`, password from
   `SUPABASE_DB_PASSWORD` via `PGPASSWORD` so it never enters a connection
   string. No value printed, no connection string stored.
+## 0012_manager_flagged_products
+
+- **Version:** 0012
+- **Name:** manager_flagged_products
+- **Actor:** EXECUTOR
+- **Applied at:** 2026-08-27T15:15:00Z
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), ruling R-032
+  (the grant itself), card P2-18
+- **Card:** P2-18
+- **Destructive statements:** none that destroy a row. 0 `DROP TABLE`,
+  0 `TRUNCATE`, 0 `DELETE`. **One `DROP POLICY`, quoted verbatim as ruling R-031
+  requires:**
+
+  ```sql
+  drop policy products_insert on public.products;
+  ```
+
+  It removes a rule about rows and no row. A policy is REPLACED, never edited,
+  so there is no other way to change one. R-031's three conditions are met:
+  quoted here, parsed below, journalled in this entry.
+- **Parsed before applying:** yes, with `pgsql-parser`. **6 statements:**
+  2 `TransactionStmt`, 1 `DropStmt` (`removeType: OBJECT_POLICY`, which is the
+  near-miss above and not a table), 1 `CreatePolicyStmt`, 1 `CommentStmt`,
+  1 verification `SelectStmt`.
+- **Connection:** derived at runtime per CLAUDE.md 8.4. Session pooler
+  `aws-1-eu-west-1`, port 5432, user `postgres.<ref>`, password from
+  `SUPABASE_DB_PASSWORD` via `PGPASSWORD`. No value printed, no connection
+  string stored.
 
 ### Connectivity
 
@@ -574,6 +602,32 @@ GRANT
 GRANT
 REVOKE
 ALTER DEFAULT PRIVILEGES
+   policyname    |  cmd   |      roles      | using_expression | with_check_expression
+-----------------+--------+-----------------+------------------+-----------------------
+ products_insert | INSERT | {authenticated} |                  | is_owner()
+ products_select | SELECT | {authenticated} | true             |
+ products_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+
+ products_total | products_flagged
+----------------+------------------
+            305 |                0
+```
+
+`products_flagged = 0` is the number worth reading twice. Not one product in the
+client's catalogue carries `needs_review` today, so this policy change grants
+nothing retroactively and touches no existing row: it only decides what may be
+inserted next.
+
+### Phase 2, apply
+
+One transaction, `psql -v ON_ERROR_STOP=1`. The file carries its own `begin` and
+`commit`.
+
+```
+BEGIN
+DROP POLICY
+CREATE POLICY
+COMMENT
 COMMIT
 apply exit: 0
 ```
@@ -617,3 +671,43 @@ It was not retried a third time. The schema is correct and complete; what is
 missing is two rows in a bookkeeping table. `docs/runbooks/apply-0011.md`
 carries the exact statements for whoever runs them, and this is the only thing
 about 0011 that is still open.
+The policy definitions ARE the database-level proof of the rule, so they are
+recorded verbatim rather than summarised:
+
+```
+   policyname    |  cmd   |      roles      | using_expression |         with_check_expression
+-----------------+--------+-----------------+------------------+---------------------------------------
+ products_insert | INSERT | {authenticated} |                  | (is_owner() OR (needs_review = true))
+ products_select | SELECT | {authenticated} | true             |
+ products_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+
+      relname      | rls | policies
+-------------------+-----+----------
+ extraction_drafts | t   |        4
+ products          | t   |        3
+
+ anon_can_insert_products | auth_can_insert_products
+--------------------------+--------------------------
+ f                        | t
+```
+
+Three things to read off that grid, because each is a separate promise:
+
+1. **`products_insert` now has two branches.** The owner keeps the unrestricted
+   one. Everyone else gets the flagged one, and `needs_review = true` is the
+   whole of the grant.
+2. **`products_update` is untouched and still `is_owner()`.** That is what stops
+   the grant becoming unlimited creation: an account_manager can bring a flagged
+   row in and cannot clear the flag, so every row that role creates stays
+   visibly unfinished until an owner accepts it.
+3. **`anon` still cannot insert at all.** The table grant revoked in 0009 is
+   doing its job underneath the policy, and widening a policy did not widen the
+   privilege beneath it.
+
+### Ledger
+
+The `supabase_migrations.schema_migrations` row for 0012 was not written, for the
+same reason 0010's and 0011's were not: the command that writes it is refused by
+this session's sandbox. `docs/runbooks/apply-0011.md` covers 0010 and 0011 and
+the same statement shape applies to 0012, with `version` `'0012'` and `name`
+`'manager_flagged_products'`.
