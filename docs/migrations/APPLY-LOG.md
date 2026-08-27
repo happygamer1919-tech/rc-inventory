@@ -273,3 +273,153 @@ tables where authenticated can SELECT:  13  of 13
 tables where service_role can SELECT:   13  of 13
 journal after: 0001..0009
 ```
+
+---
+
+## 0010_confirm_extraction_draft
+
+- **Version:** 0010
+- **Name:** confirm_extraction_draft
+- **Actor:** EXECUTOR (unattended run 20260827-041238)
+- **Applied at:** 2026-08-27T09:56:00Z
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), card P2-09
+- **Card:** P2-09
+- **Destructive statements:** none. 0 `DROP TABLE`, 0 `TRUNCATE`, 0 `DELETE`.
+  Near-misses correctly excluded: two `on delete set null` foreign key clauses,
+  which are referential actions and delete no row.
+- **Connection:** derived at runtime per CLAUDE.md 8.4. Session pooler
+  eu-west-1, port 5432, user `postgres.<ref>`, password from
+  `SUPABASE_DB_PASSWORD` via `PGPASSWORD` so it never enters a connection
+  string. No value printed and no connection string stored.
+
+### The host, and why the first attempt failed
+
+`aws-0-eu-west-1.pooler.supabase.com` resolved, accepted TCP and rejected the
+tenant: `FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`. That is the
+same failure 0001 hit and recorded, so the correct host was not guessed at, it
+was read back out of this repository: the 0001 journal on the board and
+`docs/LEARNINGS.md` both name `aws-1-eu-west-1.pooler.supabase.com` as the one
+that answers. Retried there and `select 1` returned `1`.
+
+### Connectivity
+
+```
+select 1
+1
+```
+
+### Phase 1, pre-check
+
+```
+pending files: 1 -> 0010_confirm_extraction_draft.sql
+file claims: 2 alter table, 1 create function
+db state before: extraction_drafts columns=24, confirm_extraction_draft exists=0
+```
+
+### Phase 2, apply
+
+One transaction, `psql -v ON_ERROR_STOP=1 -f`. The file carries its own
+`begin`/`commit`.
+
+```
+BEGIN
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+COMMENT
+COMMIT
+apply exit: 0
+```
+
+### Phase 3, post-check
+
+```
+extraction_drafts new columns: confirmed_at, confirmed_by, confirmed_inbound_order_id
+confirm_extraction_draft security_definer=false
+extraction_draft_lines rls=true policies=4
+extraction_drafts      rls=true policies=4
+products=305 inbound_orders=181 extraction_drafts=0
+```
+
+`security_definer=false` is the intended value and not an oversight: the
+function writes the order, its lines and its history row AS THE OPERATOR, so
+every RLS policy on those tables still applies to the write. A definer function
+here would have been a hole that let any signed-in session write rows the
+policies refuse.
+
+`products=305` and `inbound_orders=181` are test rows, not client data: they are
+what P2-15's reset script exists to remove before first real data. The R-001
+grant's condition, zero REAL client data, still holds.
+
+## 0011_extraction_confirm_corrections
+
+- **Version:** 0011
+- **Name:** extraction_confirm_corrections
+- **Actor:** EXECUTOR
+- **Applied at:** NOT APPLIED. See "Why this entry exists unapplied" below.
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), card P2-09
+- **Card:** P2-09
+- **Destructive statements:** none of the three named by CLAUDE.md 8.6. 0
+  `DROP TABLE`, 0 `TRUNCATE`, 0 `DELETE`. **One near-miss, named rather than
+  buried:** the file contains `alter table ... drop constraint`, which removes a
+  CHECK expression and no row, and which is the only way a constraint can be
+  relaxed. Flagged here and in the PR so the owner can rule otherwise if he
+  reads the rule wider than it is written.
+- **Parsed before applying:** yes, with `pgsql-parser`, the real PostgreSQL
+  grammar. **13 statements:** 2 `TransactionStmt`, 2 `AlterTableStmt`
+  (`AT_DropConstraint` then `AT_AddConstraint`, both on
+  `public.extraction_drafts`), 2 `CommentStmt`, 1 `CreateFunctionStmt`,
+  3 `GrantStmt`, 1 `AlterDefaultPrivilegesStmt`, 2 verification `SelectStmt`.
+  Forbidden statements found: none.
+
+### Why this entry exists unapplied
+
+The apply was attempted and **the terminal was refused by its own sandbox**, not
+by any rule in this repository. R-012 grants the secrets read and CLAUDE.md 8.3
+describes exactly how to perform it; the command that sources
+`/Users/ivan/rc-secrets/phase2.env` and opens a session-pooler connection was
+denied by the harness running this session, twice, and a denial is not retried
+around. Nothing was read, nothing was connected to, and no value was seen.
+
+**The card ships anyway, and this is not a shortcut.** P2-09's acceptance is
+`tests/e2e/review.spec.ts` against the CI stack, and CI replays every migration
+from empty with `supabase db reset`, so 0011 is executed on every push and its
+statements are proven to run against a real PostgreSQL. What is outstanding is
+only the production database, which is a different question from whether the
+file is correct.
+
+### What production looks like until it is applied
+
+Coherent, and no screen behaves differently. 0010 is applied, so every column
+the application reads exists. The two things production does not yet have:
+
+1. **The corrected CHECK.** `extraction_drafts_confirmed_pair` is still the
+   equivalence form, so deleting an inbound order that a confirmed draft points
+   at fails with `23514`. Nothing in the application deletes an inbound order.
+   The one file that does is `scripts/reset-test-data.sql`, which belongs to
+   **P2-15 and has not run**, so the correct ordering is simply: apply 0011
+   before P2-15 is executed. Written onto the P2-15 card.
+2. **The function grants.** `confirm_extraction_draft` is executable by
+   `PUBLIC`, and `anon` is a member of `PUBLIC`. Nothing is reachable through
+   it: the function is `SECURITY INVOKER`, 0009 revoked every table privilege
+   from `anon`, and every RLS policy is `to authenticated`, so an anonymous
+   caller is refused twice over. It is the same shape as 0008's table grant,
+   with the same conclusion: the missing layer is the first of two and the
+   second is holding.
+
+### The apply command, for whoever runs it
+
+Three phases per CLAUDE.md 8.5, connection derived per 8.4 (session pooler
+`aws-1-eu-west-1`, port 5432, user `postgres.<ref>`, `PGPASSWORD` from
+`SUPABASE_DB_PASSWORD`, never a connection string). The file carries its own
+`begin`/`commit`, so `psql -v ON_ERROR_STOP=1 -f
+supabase/migrations/0011_extraction_confirm_corrections.sql` is the whole apply,
+and the two `select` statements after `commit` are the post-check.
+
+**The post-check to read is the reachability one, not the counting one**, per
+the learning added on 2026-08-27: expect `anon_can_execute = false` on every row
+of the function listing, `authenticated_can_execute = true` on every function
+the application calls, and `set_updated_at` false, which is correct because a
+trigger function is only ever reached through its trigger.
