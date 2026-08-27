@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AUT-6. The conversational responder, polling every 60 seconds.
+
+  A SEPARATE AGENT FROM THE WORK HARNESS, deliberately. com.ai.rc-poc runs four
+  times a day and can hold its lock for 45 minutes. A question asked at 22:05
+  must not wait until 01:00 for an answer, and a question must never be able to
+  delay the build. Two labels, two schedules, two locks, no shared state.
+
+  Installed verbatim by scripts/poc/install.sh. It carries NO secret value: the
+  responder reads what it needs from the secrets file at run time, so this file
+  is safe to commit and safe to read. It knows a path and an interval.
+
+  Program is /Users/ivan/rc-poc-bin/responder.sh, the stable installed copy, and
+  not the copy inside a worktree. The chat worktree is hard reset to origin/main
+  on every poll, so a script executing from inside it would be rewritten under
+  its own interpreter; bash reads a script by byte offset as it goes.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ai.rc-poc-chat</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/ivan/rc-poc-bin/responder.sh</string>
+    </array>
+
+    <!-- Every 60 seconds. The responder exits immediately when its own lock is
+         held or when there is nothing to answer, so an idle poll is cheap. -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <!-- Answering is what this agent is for, so unlike the work harness it may
+         start on load. It has nothing to do until somebody asks something. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ivan</string>
+
+    <!-- responder.sh writes a per-poll log under /Users/ivan/rc-poc-logs/chat.
+         These two catch what happens before it can log anything. -->
+    <key>StandardOutPath</key>
+    <string>/Users/ivan/rc-poc-logs/chat-launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ivan/rc-poc-logs/chat-launchd.err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>AbandonProcessGroup</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- A poll that somehow runs long must not stack. The lock in responder.sh
+         is the real guard; this stops launchd piling work behind it. -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>
