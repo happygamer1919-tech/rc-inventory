@@ -6,7 +6,8 @@
 
 ## 0. Boot
 
-**Cards by status at boot, 30 total:** shipped 25, blocked 3, todo 2.
+**Cards by status at boot, 30 total:** shipped 25, blocked 3 (P2-08b on Andre,
+P2-15 on Ivan, AUT-3 on Ivan), todo 2 (P2-13, P2-14).
 **Launch gates:** 6/9. Failing: G4, G7, G9.
 **Next eligible card:** `no eligible card`. P2-13 waited on P2-15, which was
 blocked on Ivan; P2-14 was blocked on the client.
@@ -380,9 +381,9 @@ plain present but whitespace only                 FAIL, 1 violation, exit 1
 all three boards with the field present           PASS, 0 violations, exit 0
 ```
 
-**Coverage counted, not assumed:** every plain field across both boards, none
-missing, every one of them one or two sentences, and a vocabulary sweep over all
-of them finds no card id, file path, ruling id, PR number or build term.
+**Coverage counted, not assumed:** 45 cards and 18 gates, **63 plain fields, 0
+missing**, every one of them one or two sentences, and a vocabulary sweep over
+all 63 finds no card id, file path, ruling id, PR number or build term.
 
 ### Deviations flagged on this card
 
