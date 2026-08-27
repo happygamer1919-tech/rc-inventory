@@ -19,10 +19,12 @@
 set -u -o pipefail
 
 POC_LABEL=com.ai.rc-poc
+POC_CHAT_LABEL=com.ai.rc-poc-chat
 POC_BIN_DIR=/Users/ivan/rc-poc-bin
 POC_LOG_DIR=/Users/ivan/rc-poc-logs
 POC_AGENT_DIR=/Users/ivan/Library/LaunchAgents
 POC_PLIST=/Users/ivan/Library/LaunchAgents/com.ai.rc-poc.plist
+POC_CHAT_PLIST=/Users/ivan/Library/LaunchAgents/com.ai.rc-poc-chat.plist
 
 # Resolve the repository this script was invoked from, so the install works
 # from any worktree without being told which one.
@@ -30,17 +32,19 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 SOURCE_RUN_SH=$REPO_ROOT/scripts/poc/run.sh
 SOURCE_PLIST=$REPO_ROOT/docs/poc/com.ai.rc-poc.plist.template
+SOURCE_RESPONDER=$REPO_ROOT/scripts/poc/responder.sh
+SOURCE_CHAT_PLIST=$REPO_ROOT/docs/poc/com.ai.rc-poc-chat.plist.template
 
 echo "installing from $REPO_ROOT"
 
-for REQUIRED in "$SOURCE_RUN_SH" "$SOURCE_PLIST"; do
+for REQUIRED in "$SOURCE_RUN_SH" "$SOURCE_PLIST" "$SOURCE_RESPONDER" "$SOURCE_CHAT_PLIST"; do
   if [ ! -f "$REQUIRED" ]; then
     echo "FATAL: missing $REQUIRED"
     exit 1
   fi
 done
 
-mkdir -p "$POC_BIN_DIR" "$POC_LOG_DIR" "$POC_AGENT_DIR"
+mkdir -p "$POC_BIN_DIR" "$POC_LOG_DIR" "$POC_LOG_DIR/chat" "$POC_AGENT_DIR"
 
 install -m 755 "$SOURCE_RUN_SH" "$POC_BIN_DIR/run.sh"
 echo "installed $POC_BIN_DIR/run.sh"
@@ -65,9 +69,34 @@ if ! launchctl bootstrap "gui/$(id -u)" "$POC_PLIST"; then
 fi
 echo "bootstrapped $POC_LABEL"
 
+# ---------------------------------------------------------------------------
+# The responder, AUT-6. A second agent on its own 60 second schedule, so a
+# question never waits on the three hour build cycle and never delays it.
+# ---------------------------------------------------------------------------
+install -m 755 "$SOURCE_RESPONDER" "$POC_BIN_DIR/responder.sh"
+echo "installed $POC_BIN_DIR/responder.sh"
+
+install -m 644 "$SOURCE_CHAT_PLIST" "$POC_CHAT_PLIST"
+echo "installed $POC_CHAT_PLIST"
+
+if ! plutil -lint "$POC_CHAT_PLIST"; then
+  echo "FATAL: the installed chat plist does not parse"
+  exit 1
+fi
+
+launchctl bootout "gui/$(id -u)/$POC_CHAT_LABEL" 2>/dev/null
+
+if ! launchctl bootstrap "gui/$(id -u)" "$POC_CHAT_PLIST"; then
+  echo "FATAL: launchctl bootstrap failed for $POC_CHAT_LABEL"
+  exit 1
+fi
+echo "bootstrapped $POC_CHAT_LABEL"
+
 echo "---"
 echo "launchctl list:"
-launchctl list | grep "$POC_LABEL" || echo "WARNING: label not listed"
+launchctl list | grep "$POC_LABEL" || echo "WARNING: $POC_LABEL not listed"
+launchctl list | grep "$POC_CHAT_LABEL" || echo "WARNING: $POC_CHAT_LABEL not listed"
 echo "---"
-echo "next scheduled runs: 22:00, 01:00, 04:00, 07:00 local"
-echo "run one now with: launchctl kickstart -k gui/$(id -u)/$POC_LABEL"
+echo "work harness runs at: 22:00, 01:00, 04:00, 07:00 local"
+echo "responder polls every 60 seconds"
+echo "run the work harness now with: launchctl kickstart -k gui/$(id -u)/$POC_LABEL"
