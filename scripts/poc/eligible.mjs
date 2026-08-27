@@ -23,6 +23,7 @@
 //   node scripts/poc/eligible.mjs --board <path> --ids --actor harness
 //
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const CLAIM_TTL_SECONDS = 21600; // 6 hours, matches POC_CLAIM_TTL_SECONDS in run.sh
 
@@ -141,8 +142,14 @@ export function analyse(board, state, actor, nowSeconds) {
 }
 
 // ---------------------------------------------------------------------------
+// Only when run directly. Without this guard the block below fires on import,
+// so any importer that happens to take a --board flag has this file answer for
+// it instead. That is exactly what happened to plain-digest.mjs.
+const RUN_DIRECTLY =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
 const args = parseArgs(process.argv.slice(2));
-if (args.board) {
+if (RUN_DIRECTLY && args.board) {
   const board = readJson(args.board, { cards: [] });
   const state = args.state ? readJson(args.state, {}) : {};
   const actor = args.actor || "harness";
