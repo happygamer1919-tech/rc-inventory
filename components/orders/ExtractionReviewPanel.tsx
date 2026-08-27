@@ -11,11 +11,21 @@
 // PARTIAL PASTREAZA LINIILE CARE S-AU EXTRAS. Noua linii bune si una ilizibila
 // inseamna noua linii pe care operatorul nu le mai tasteaza.
 //
+// CRIT-16. MESAJUL DE REUSITA NU STA IN FISA CARE TOCMAI A DISPARUT.
+//
+// Confirmarea consuma ciorna, iar ciorna consumata iese din lista. Fisa de
+// verificare este randata INAUNTRUL randului acelei ciorne, deci reimprospatarea
+// care urmeaza confirmarii demonteaza fisa impreuna cu mesajul ei de reusita. Se
+// vedea ca o confirmare care lasa ecranul gol: operatorul apasa, ceva clipeste,
+// si nu mai are cum sa stie daca s-a creat comanda. Reusita traieste in panou,
+// deasupra listei, si supravietuieste tocmai reimprospatarii care sterge ciorna.
+//
 // RETRIMITEREA FOLOSESTE ACELASI order_id. Prin regula de idempotenta a
 // contractului rezultatul inlocuieste extragerea precedenta in loc sa adauge a
 // doua ciorna, deci butonul este sigur apasat de doua ori.
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
 import { EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
@@ -44,11 +54,14 @@ function ReviewForm({
   products,
   categories,
   onDone,
+  onCreated,
 }: {
   draft: ExtractionDraft;
   products: CatalogProduct[];
   categories: Category[];
   onDone: () => void;
+  /** CRIT-16. Reusita se raporteaza in sus si se afiseaza acolo, NU aici. */
+  onCreated: (result: { reference: string; flagged: number }) => void;
 }) {
   const router = useRouter();
   const [supplierName, setSupplierName] = React.useState(draft.supplierName ?? "");
@@ -73,7 +86,6 @@ function ReviewForm({
   );
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const [created, setCreated] = React.useState<{ reference: string; flagged: number } | null>(null);
 
   function setLine(index: number, patch: Partial<ReviewedLine>) {
     setLines((current) => current.map((l, i) => (i === index ? { ...l, ...patch } : l)));
@@ -94,26 +106,10 @@ function ReviewForm({
       setError(result.message);
       return;
     }
-    setCreated({ reference: result.value.reference, flagged: result.value.flagged });
+    // CRIT-16. Se raporteaza in sus INAINTE de reimprospatare, si mesajul de
+    // reusita se randeaza in afara acestui component. Vezi antetul.
+    onCreated({ reference: result.value.reference, flagged: result.value.flagged });
     router.refresh();
-  }
-
-  if (created) {
-    return (
-      <div className="px-5 py-5" data-testid="review-created" data-reference={created.reference}>
-        <p className="text-[14px] font-bold text-rc-black">Comandă creată: {created.reference}</p>
-        <p className="text-[12.5px] text-rc-muted mt-1" data-testid="review-flagged">
-          {created.flagged === 0
-            ? "Toate pozițiile s-au potrivit cu produse din catalog."
-            : `${created.flagged} ${created.flagged === 1 ? "produs nou marcat" : "produse noi marcate"} pentru verificare în catalog.`}
-        </p>
-        <div className="mt-4">
-          <Button variant="secondary" onClick={onDone}>
-            Înapoi la documente
-          </Button>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -324,6 +320,8 @@ export function ExtractionReviewPanel({
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [refiring, setRefiring] = React.useState<string | null>(null);
+  // CRIT-16. Reusita traieste AICI, deasupra listei, nu inauntrul fisei.
+  const [created, setCreated] = React.useState<{ reference: string; flagged: number } | null>(null);
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -383,6 +381,31 @@ export function ExtractionReviewPanel({
           </p>
         ) : null}
       </div>
+
+      {created ? (
+        <div
+          className="border-b border-rc-line bg-rc-ok-soft px-5 py-4"
+          data-testid="review-created"
+          data-reference={created.reference}
+        >
+          <p className="text-[13.5px] font-bold text-rc-black">
+            Comandă creată: {created.reference}
+          </p>
+          <p className="text-[12.5px] text-rc-muted mt-1" data-testid="review-flagged">
+            {created.flagged === 0
+              ? "Toate pozițiile s-au potrivit cu produse din catalog."
+              : `${created.flagged} ${created.flagged === 1 ? "produs nou marcat" : "produse noi marcate"} pentru verificare în catalog.`}
+          </p>
+          <div className="mt-3 flex items-center gap-2.5">
+            <Link href="/comenzi">
+              <Button size="sm">Vezi comanda în listă</Button>
+            </Link>
+            <Button size="sm" variant="secondary" onClick={() => setCreated(null)} data-testid="review-created-dismiss">
+              Închide
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {drafts.length === 0 ? (
         <p className="px-5 py-6 text-[13px] text-rc-muted" data-testid="drafts-empty">
@@ -465,6 +488,12 @@ export function ExtractionReviewPanel({
                       products={products}
                       categories={categories}
                       onDone={() => setOpenId(null)}
+                      onCreated={(result) => {
+                        // Fisa se inchide, ciorna dispare din lista fiindca a
+                        // fost consumata, iar confirmarea ramane pe ecran.
+                        setCreated(result);
+                        setOpenId(null);
+                      }}
                     />
                   </div>
                 ) : null}
