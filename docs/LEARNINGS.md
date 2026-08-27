@@ -941,3 +941,29 @@ RULE: a card that removes a capability is ordered by the capability, not by the
 calendar. Ask what the card takes away, find every card that needs it, and make
 those the dependencies. And when a card sits parked on someone else long enough
 to change the shape of the tail, re-examine the edges that assumed the old shape.
+
+### P2-08a: a machine endpoint behind an auth redirect answers 200 to everything
+**Tag:** backend
+**ERROR:** Every case of `extraction.spec` except the first failed, all of them
+receiving `200` where they expected `202`, `400` or `401`. The most useful
+failure was case 4: it posts a **deliberately wrong secret** and still got 200.
+The route's very first statement is the secret check, so a wrong secret
+returning 200 meant the request was never reaching the route at all.
+It was `proxy.ts`. The callback is a machine endpoint: Make posts to it with no
+session and no cookie, so the middleware treated it as an unauthenticated
+request to a protected route and redirected it to `/autentificare`. Playwright's
+`APIRequestContext` follows redirects by default, so the test received the login
+page, which is a perfectly good `200`.
+The dangerous shape is what this would have looked like in production. Make
+posts, gets a `200`, records a successful delivery, and never retries. Nothing
+is stored, nothing errors, and the only symptom is drafts that never appear.
+**SOLUTION:** the route is added to the middleware's public set, with a comment
+saying that "public" here means only "the proxy does not redirect it". Its
+authentication is the shared secret the contract specifies, checked by the route
+on its first line, before the body is even parsed.
+RULE: a machine endpoint and a human route need different gates, and a
+middleware written for humans will silently convert the machine's error codes
+into a login page. When an endpoint answers 200 to a request that should be
+rejected, suspect the layer in front of it before the code inside it. And a test
+client that follows redirects will hide exactly this, so the assertion that
+caught it was the one expecting a FAILURE.

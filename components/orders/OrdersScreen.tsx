@@ -71,6 +71,9 @@ export function OrdersScreen({
                   onClick={() => setSel({ kind: "in", id: o.id })}
                   data-testid="inbound-item"
                   data-reference={o.reference}
+                  // P2-08a: order_id ESTE cheia de idempotenta a contractului
+                  // de extragere, deci trebuie citibila de pe ecran.
+                  data-id={o.id}
                   className={[
                     "w-full text-left px-5 py-3.5 transition-colors",
                     sel?.kind === "in" && sel.id === o.id

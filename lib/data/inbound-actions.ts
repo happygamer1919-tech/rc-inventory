@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
+import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 // Un fisier "use server" are voie sa exporte NUMAI functii async, deci
 // constantele si tipurile stau in ./inbound-types si se importa de acolo.
@@ -200,6 +201,18 @@ export async function uploadOrderDocument(
     .eq("id", orderId);
 
   if (error) return translateWriteError(error.code, error.message);
+
+  // P2-08a. Documentul este incarcat: acum pleaca spre extragere. Trimiterea
+  // NU poate rasturna incarcarea, care s-a scris deja, si nici nu poate face
+  // actiunea sa para esuata: motivul unui esec ajunge pe randul de ciorna si se
+  // vede pe ecran la P2-09. Aceeasi regula ca la mementouri.
+  await fireExtraction({
+    orderId,
+    documentPath: path,
+    documentFilename: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+  });
 
   revalidatePath("/comenzi");
   return { ok: true, value: { path } };
