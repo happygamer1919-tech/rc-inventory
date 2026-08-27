@@ -967,3 +967,36 @@ into a login page. When an endpoint answers 200 to a request that should be
 rejected, suspect the layer in front of it before the code inside it. And a test
 client that follows redirects will hide exactly this, so the assertion that
 caught it was the one expecting a FAILURE.
+
+### The card that says "confirm creates the order" against a schema that said the opposite
+**Tag:** data
+**ERROR:** P2-09's acceptance says confirm CREATES the real inbound order, while
+the lane P2-08a shipped uploads a document onto an inbound order that already
+exists, so `extraction_drafts.order_id` was in practice an `inbound_orders.id`.
+Building confirm on top of that would have created a second order for every
+document, and a foreign key added in either direction would have frozen the
+wrong reading into a migration.
+**SOLUTION:** migration 0008 deliberately left `order_id` without a foreign key
+and wrote the ambiguity into its own header instead of guessing. Migration 0010
+settles it in one place: `order_id` is the extraction idempotency key and never
+an order id, the draft records the order it became, and a draft whose id already
+names an existing order is excluded from the review list rather than offered for
+a duplicate. THE RULE: when two shipped cards imply opposite schema meanings,
+the migration that notices it records the conflict and adds no constraint; the
+card that owns the decision settles it, and it settles it in SQL where both
+readings can no longer coexist.
+
+### "Consumed" is not a synonym for "deleted"
+**Tag:** data
+**ERROR:** P2-09 says the confirmed draft is "consumed rather than left behind".
+Reading that as DELETE would have thrown away `_meta`, which exists so a wrong
+extraction can be explained rather than argued about, and it would have put a
+DELETE statement in a migration, which CLAUDE.md 8.6 forbids auto-applying at
+all.
+**SOLUTION:** consumed is marked: `confirmed_inbound_order_id` plus
+`confirmed_at`, a check constraint keeping the pair honest, and the review list
+filtering on the column. The draft leaves the queue, points at the order it
+became, and cannot be confirmed twice. THE RULE: before writing a DELETE to
+satisfy a word in an acceptance line, check whether marking satisfies the same
+sentence. It usually does, it keeps the evidence, and it keeps the migration
+appliable without an owner in the chair.

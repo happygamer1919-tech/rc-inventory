@@ -80,15 +80,15 @@ export function UploadOrderScreen({
       <PageHeader
         title="Încarcă comandă"
         lead="Completează comanda, apoi atașează documentul primit de la furnizor."
-        actions={<Chip tone="neutral">Citirea automată vine la P2-08</Chip>}
+        actions={<Chip tone="neutral">Sau completează manual, mai jos</Chip>}
       />
 
       <Card className="mb-4">
         <div className="px-5 py-4" data-testid="upload-explainer">
           <p className="text-[13px] text-rc-muted leading-relaxed max-w-[80ch]">
             Documentul se salvează real, în depozitul privat, și rămâne atașat comenzii. Citirea
-            automată a conținutului, prin Make, se construiește la cardul P2-08, iar ecranul de
-            verificare a datelor extrase la P2-09. Până atunci pozițiile se completează aici, ca la{" "}
+            automată a conținutului este panoul de mai sus: acolo comanda se creează din document,
+            după ce verifici ce s-a extras. Aici comanda se tastează întâi, exact ca la{" "}
             <Link href="/adauga-manual" className="font-semibold text-rc-orange-deep hover:underline">
               adăugarea manuală
             </Link>
