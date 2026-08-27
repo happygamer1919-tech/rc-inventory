@@ -1235,6 +1235,7 @@ Then add the inverse rule as a hard invariant: a run that had an eligible card
 and shipped nothing writes an escalation naming the card and the reason, every
 time. Silence about an eligible card is a defect, never a normal outcome.
 
+<<<<<<< HEAD
 ### AUT-1: a bare catch turned a missing import into a missing file
 **Tag:** ci
 **ERROR:** The digest reported `REPORT: none committed` about a report that was
@@ -1254,3 +1255,23 @@ RULE: a bare `catch` that returns a normal-looking value converts every
 programming error inside the `try` into that value. Catch the condition you
 meant, by code, and rethrow the rest. And when a lookup returns "not found" for
 something you can see with `ls`, suspect the catch before the query.
+=======
+### An unbound variable in a heredoc empties the file and the run keeps going
+**Tag:** infra
+**ERROR:** `run.sh` builds EXECUTOR's prompt with `cat > "$PROMPT_FILE" <<PROMPT_EOF`
+and a claim-lease line was added to it that interpolated `$CLAIM_SKIPPED`. That
+variable is assigned about fifty lines further down. Under `set -u` the
+expansion failed, the heredoc aborted at that line, and `$PROMPT_FILE` was left
+**zero bytes**. The script has no `set -e`, so it continued and ran
+`claude -p "$(cat "$PROMPT_FILE")"` with an empty prompt. Claude answered
+`Error: Input must be provided either through stdin or as a prompt argument when
+using --print` and exited 1. The harness logged `EXECUTOR finished, exit 1` and
+carried on to send a digest, so the run looked like a model failure when in fact
+EXECUTOR had never been given anything to do.
+**SOLUTION:** Compute every variable a heredoc interpolates **before** the
+heredoc, not merely before it is used. `set -u` turns an ordering mistake into a
+silently truncated file rather than an error you can see. Then assert the
+artefact: `[ ! -s "$PROMPT_FILE" ]` and refuse to invoke, with a message saying
+this is a defect in the script rather than a failure of the run. A generated
+input that is empty must never be passed to the thing it was generated for.
+>>>>>>> origin/main
