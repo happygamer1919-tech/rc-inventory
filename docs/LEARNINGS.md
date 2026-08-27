@@ -1156,3 +1156,29 @@ selector is a claim about what test data looks like, and it goes stale the momen
 a card adds a new way to create a row. Every card that introduces a new row
 shape checks the reset script for it, and a post-check that counts only what the
 script selected cannot notice the gap.
+
+### CRIT-16: a success message that lives inside the thing success deletes
+**Tag:** frontend
+**ERROR:** `review.spec` case 2 failed in CI with `review-created` never
+appearing, while cases 1 and 3, which confirm in exactly the same way, passed.
+The failure snapshot settled it: the catalogue already carried the flagged
+product that confirm creates and the list showed no drafts pending, so **the
+confirm had succeeded and only the message was missing.** Confirm consumes the
+draft; a consumed draft leaves the review list on the next refresh; and the
+review form, with its success message inside it, is rendered inside that draft's
+row. `router.refresh()` therefore unmounted the message it was meant to show.
+Whether the assertion saw it depended on which arrived first, so the case passed
+on a quiet machine and failed on a busy one. What the operator would have seen:
+press confirm, something flickers, and the screen is an empty document list. The
+order exists and there is no way to know it from the screen.
+**SOLUTION:** the confirmation moved up into the panel, above the list, and the
+form reports the result upward instead of rendering it. The panel outlives the
+draft, so the message survives exactly the refresh that removes the row. The
+assertion now demands both facts **at once** — the draft card is gone AND the
+success panel is visible — because either one alone is what let this through.
+RULE: a component that reports the outcome of an action must outlive the thing
+the action destroys. When a success handler refreshes a list, ask what unmounts
+as a result, and never let the answer include the element carrying the good
+news. And when a test asserts a message appears after an action that also
+removes something, assert the removal in the same breath: a lone
+"message appeared" assertion is a race with a coin-flip you will win most days.
