@@ -25,7 +25,9 @@ POC_STATE=docs/poc/state.json
 
 POC_MAX_CARDS=2
 POC_MAX_SECONDS=2700          # 45 minutes, hard, wall clock
-POC_MERGE_WAIT_SECONDS=900    # how long the run will wait on a quality check
+POC_MERGE_WAIT_SECONDS=900    # wall clock a run will wait on a quality check
+POC_GH_TIMEOUT_SECONDS=45     # per gh call, so one hung API call cannot eat a run
+POC_CLAIM_TTL_SECONDS=21600   # 6 hours, how long another actor's claim is honoured
 
 # launchd hands over a minimal PATH. node lives under mise, gh and git under
 # homebrew, claude under a user-local bin. All four are named explicitly so the
@@ -34,6 +36,7 @@ PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/
 export PATH
 
 RUN_ID=$(date +%Y%m%d-%H%M%S)
+RUN_STARTED_AT=$(date +%s)
 LOG_FILE=$POC_LOG_DIR/$RUN_ID.log
 EXIT_CODE=0
 LOCK_HELD=no
@@ -128,28 +131,81 @@ log "run worktree at $(git rev-parse --short HEAD) detached from origin/main"
 # whichever working copy runs it, which would fight every other worktree on this
 # machine. The remote branch is deleted explicitly instead.
 # ---------------------------------------------------------------------------
+
+# Every gh call in the wait loop is wrapped, because a hanging API call is what
+# turned a 15 minute budget into 68 minutes of wall clock on 2026-08-27. bash
+# has no per-command timeout and macOS ships no timeout(1), so the call runs in
+# the background and is killed if it overruns.
+gh_bounded() {
+  GHB_OUT=$(mktemp)
+  gh "$@" > "$GHB_OUT" 2>/dev/null &
+  GHB_PID=$!
+  ( sleep "$POC_GH_TIMEOUT_SECONDS"; kill -KILL "$GHB_PID" 2>/dev/null ) &
+  GHB_KILLER=$!
+  wait "$GHB_PID" 2>/dev/null
+  kill "$GHB_KILLER" 2>/dev/null
+  wait "$GHB_KILLER" 2>/dev/null
+  cat "$GHB_OUT"
+  rm -f "$GHB_OUT"
+}
+
 merge_when_green() {
   MWG_PR=$1
   MWG_BRANCH=$2
-  MWG_WAITED=0
+  # Wall clock, not a count of sleeps. The old version incremented a counter by
+  # 30 per iteration and assumed each iteration cost 30 seconds. When the gh
+  # calls inside the loop hung, 30 iterations took 68 minutes against a 900
+  # second budget and ate most of a 45 minute run before EXECUTOR had started.
+  MWG_DEADLINE=$(( $(date +%s) + POC_MERGE_WAIT_SECONDS ))
+  MWG_UPDATED=no
 
-  while [ "$MWG_WAITED" -lt "$POC_MERGE_WAIT_SECONDS" ]; do
-    MWG_STATE=$(gh pr view "$MWG_PR" --json mergeStateStatus -q .mergeStateStatus 2>/dev/null)
-    MWG_QUALITY=$(gh pr checks "$MWG_PR" --json name,state \
-      -q '.[] | select(.name == "quality") | .state' 2>/dev/null | head -1)
+  while [ "$(date +%s)" -lt "$MWG_DEADLINE" ]; do
+    MWG_STATE=$(gh_bounded pr view "$MWG_PR" --json mergeStateStatus -q .mergeStateStatus)
+    MWG_QUALITY=$(gh_bounded pr checks "$MWG_PR" --json name,state \
+      -q '.[] | select(.name == "quality") | .state' | head -1)
 
-    if [ "$MWG_STATE" = "DIRTY" ]; then
-      log "PR #$MWG_PR conflicts with main, leaving it open for a human"
-      return 1
-    fi
+    case "$MWG_STATE" in
+      DIRTY)
+        log "PR #$MWG_PR conflicts with main, leaving it open for a human"
+        return 1
+        ;;
+      BEHIND)
+        # Branch protection on main sets required_status_checks.strict, so a
+        # branch that is behind cannot merge no matter how green it is. The old
+        # version called gh pr merge anyway, got refused, and left the PR open
+        # to fail identically on every future run. PR #44 sat stuck for three
+        # runs that way and went from BEHIND to conflicting while it waited.
+        if [ "$MWG_UPDATED" = yes ]; then
+          log "PR #$MWG_PR is BEHIND again after an update, leaving it open"
+          return 1
+        fi
+        log "PR #$MWG_PR is BEHIND main, updating the branch and re-waiting"
+        if gh_bounded pr update-branch "$MWG_PR" >/dev/null; then
+          MWG_UPDATED=yes
+          # The update pushes a new head sha, so the quality run restarts.
+          sleep 15
+          continue
+        fi
+        log "PR #$MWG_PR could not be updated, leaving it open for a human"
+        return 1
+        ;;
+    esac
 
     case "$MWG_QUALITY" in
       SUCCESS)
         log "PR #$MWG_PR quality is green, merging"
-        if gh pr merge "$MWG_PR" --squash >/dev/null 2>&1; then
-          git push origin --delete "$MWG_BRANCH" >/dev/null 2>&1
-          log "PR #$MWG_PR merged, remote branch $MWG_BRANCH deleted"
-          return 0
+        if gh_bounded pr merge "$MWG_PR" --squash >/dev/null; then
+          # mergedAt is asserted before the branch is deleted. A merge call that
+          # returns without merging must never cost a branch: that mistake
+          # closed two PRs on 2026-08-26.
+          MWG_MERGED_AT=$(gh_bounded pr view "$MWG_PR" --json mergedAt -q .mergedAt)
+          if [ -n "$MWG_MERGED_AT" ] && [ "$MWG_MERGED_AT" != "null" ]; then
+            git push origin --delete "$MWG_BRANCH" >/dev/null 2>&1
+            log "PR #$MWG_PR merged at $MWG_MERGED_AT, remote branch $MWG_BRANCH deleted"
+            return 0
+          fi
+          log "PR #$MWG_PR reported no mergedAt, branch KEPT"
+          return 1
         fi
         log "PR #$MWG_PR merge call failed, leaving it open"
         return 1
@@ -161,12 +217,11 @@ merge_when_green() {
       *)
         # Pending, or absent because Actions has not created the run yet.
         sleep 30
-        MWG_WAITED=$((MWG_WAITED + 30))
         ;;
     esac
   done
 
-  log "PR #$MWG_PR still not green after ${POC_MERGE_WAIT_SECONDS}s, leaving it open"
+  log "PR #$MWG_PR still not green after ${POC_MERGE_WAIT_SECONDS}s of wall clock, leaving it open"
   return 1
 }
 
@@ -226,7 +281,9 @@ you. Restated so there is no ambiguity:
   $POC_STATE, and move to the next eligible card. Never wait for an answer.
 - Never apply a migration containing DROP TABLE, TRUNCATE or DELETE. Block the
   card on ivan with the offending statement quoted in question.
-- Do not touch P2-08 or P2-09 while P2-08 is parked on andre.
+- Cards claimed by another actor are OFF LIMITS this run: $CLAIM_SKIPPED
+  A claim is in docs/poc/state.json and expires after 6 hours. Never take a card
+  another actor holds, even if it is the only eligible one. Report it instead.
 - Never push to main. Never force push. Merge only on a green quality check
   that exists for the head sha.
 - No secret value is ever echoed, logged, committed or put in a board field.
@@ -243,6 +300,54 @@ PROMPT_EOF
 # by comparison rather than inferred from a timestamp.
 BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
 cp "$POC_BOARD" "$BOARD_BEFORE"
+
+# ---------------------------------------------------------------------------
+# Claim lease. The harness and a human terminal cannot see each other, so they
+# agree through docs/poc/state.json instead. On 2026-08-27 EXECUTOR was working
+# P2-09 by hand in the interactive clone while this harness picked up the same
+# card in its own worktree, four times a day.
+#
+# --ids returns only cards nobody else has claimed inside the lease window.
+# --ids-all returns every eligible card. The difference between them is exactly
+# the set that was skipped because somebody else holds it.
+# ---------------------------------------------------------------------------
+ELIGIBLE_AT_START=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
+ELIGIBLE_ALL=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
+log "eligible at start: ${ELIGIBLE_AT_START:-none}"
+
+CLAIM_SKIPPED=""
+if [ "$ELIGIBLE_ALL" != "$ELIGIBLE_AT_START" ]; then
+  CLAIM_SKIPPED=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+    --board "$POC_BOARD" --state "$POC_STATE" --actor harness --json 2>/dev/null \
+    | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try {
+          const v = JSON.parse(s);
+          console.log(v.eligible.filter((e) => e.skip_reason)
+            .map((e) => e.id + " (" + e.skip_reason + ")").join(", "));
+        } catch { console.log(""); }
+      });')
+  log "SKIPPED, CLAIMED BY ANOTHER ACTOR: $CLAIM_SKIPPED"
+fi
+
+# The card this run intends to take. The claim itself is written into the state
+# PR at the end of the run rather than here, because everything in this worktree
+# is discarded by the hard reset that follows EXECUTOR.
+#
+# KNOWN LIMIT, stated rather than hidden: the harness's own claim becomes visible
+# to other actors only when that state PR merges, so it does not protect against
+# a human terminal that starts mid-run. It does record who worked the card, and
+# the protection that matters in the other direction works fully: a human claims
+# through scripts/poc/claim.sh before starting, that claim is on main, and the
+# next run reads it and skips the card.
+HARNESS_CARD=""
+if [ -n "$ELIGIBLE_AT_START" ]; then
+  HARNESS_CARD=$(echo "$ELIGIBLE_AT_START" | cut -d, -f1)
+  log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
+fi
 
 log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
@@ -291,6 +396,13 @@ git reset --hard origin/main --quiet
 # board it ended with. Not by a timestamp: last_checkpoint is date-only on some
 # cards and a full ISO stamp on others, so any lexical compare against "now"
 # silently misses the date-only ones, which are exactly the cards worked today.
+#
+# And not against origin/main alone. On 2026-08-26 and 2026-08-27, three runs in
+# a row built a migration, a seven case spec and a draft PR for P2-09 and every
+# one of them reported "cards touched: none", because the work sat on an
+# unmerged branch and main never moved. A run that wrote code must never look
+# identical to a run that idled. Card branches are read too, and work that is on
+# a branch is reported as such rather than dropped.
 CARDS_TOUCHED=$(node -e '
   const fs = require("fs");
   const before = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -304,7 +416,77 @@ CARDS_TOUCHED=$(node -e '
   }
   console.log(moved.join(","));
 ' "$BOARD_BEFORE" "$POC_BOARD" 2>/dev/null)
+
+# Branch-side work: any card/* branch that is ahead of main and moved during
+# this run. Reported as <id>:branch:<status> so the digest can say "worked, not
+# merged" instead of silence.
+CARDS_ON_BRANCH=""
+for CARD_REF in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/card/*'); do
+  CARD_BRANCH=${CARD_REF#origin/}
+  CARD_ID=$(echo "${CARD_BRANCH#card/}" | tr '[:lower:]' '[:upper:]')
+  # Only branches this run actually pushed to.
+  CARD_AHEAD=$(git rev-list --count "origin/main..$CARD_REF" 2>/dev/null)
+  [ "${CARD_AHEAD:-0}" -eq 0 ] && continue
+  CARD_LAST=$(git log -1 --format=%ct "$CARD_REF" 2>/dev/null)
+  [ -z "$CARD_LAST" ] && continue
+  [ "$CARD_LAST" -lt "$RUN_STARTED_AT" ] && continue
+  CARD_STATUS=$(git show "$CARD_REF:$POC_BOARD" 2>/dev/null | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        const b = JSON.parse(s);
+        const c = (b.cards || []).find((x) => x.id === process.argv[1]);
+        console.log(c ? c.status : "unknown");
+      } catch { console.log("unknown"); }
+    });
+  ' "$CARD_ID")
+  CARDS_ON_BRANCH="$CARDS_ON_BRANCH,$CARD_ID:branch:${CARD_STATUS:-unknown}"
+  log "branch work: $CARD_BRANCH is $CARD_AHEAD commits ahead of main, card $CARD_ID is ${CARD_STATUS:-unknown}"
+done
+CARDS_ON_BRANCH=${CARDS_ON_BRANCH#,}
+
+if [ -n "$CARDS_TOUCHED" ] && [ -n "$CARDS_ON_BRANCH" ]; then
+  CARDS_TOUCHED="$CARDS_TOUCHED,$CARDS_ON_BRANCH"
+elif [ -n "$CARDS_ON_BRANCH" ]; then
+  CARDS_TOUCHED="$CARDS_ON_BRANCH"
+fi
 log "cards touched this run: ${CARDS_TOUCHED:-none}"
+
+# ---------------------------------------------------------------------------
+# The silence rule. A run that had an eligible card and shipped nothing must say
+# why, in writing, every time.
+#
+# Three runs on 2026-08-26 and 2026-08-27 each named P2-09 as next eligible and
+# each reported nothing, and nobody could tell from the digest whether the
+# harness was working hard or broken. Silence on an eligible card is a defect,
+# never a normal outcome, so the run escalates it rather than leaving it to be
+# noticed.
+# ---------------------------------------------------------------------------
+SILENCE_ESCALATION=""
+# A card the harness could not take because somebody else holds it is escalated
+# in its own right. Skipping is correct; skipping quietly is not.
+if [ -n "$CLAIM_SKIPPED" ]; then
+  SILENCE_ESCALATION="$CLAIM_SKIPPED|skipped because another actor holds the claim. This is the lease working, not a fault. The card is worked when the claim is released or expires after 6 hours."
+  log "ESCALATING CLAIM SKIP: $CLAIM_SKIPPED"
+fi
+if [ -n "$ELIGIBLE_AT_START" ]; then
+  SHIPPED_THIS_RUN=$(echo "$CARDS_TOUCHED" | tr ',' '\n' | grep -c ':shipped$' || true)
+  if [ "${SHIPPED_THIS_RUN:-0}" -eq 0 ]; then
+    # Distinguish worked-but-unmerged from nothing-happened. They are very
+    # different failures and must never share a message.
+    if [ -n "$CARDS_ON_BRANCH" ]; then
+      SILENCE_REASON="work is on a branch and was not merged: $CARDS_ON_BRANCH. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so."
+    elif [ "$CAPPED" = yes ]; then
+      SILENCE_REASON="the run was stopped by the 45 minute wall clock cap before it could ship."
+    elif [ "$EXECUTOR_EXIT" != "0" ]; then
+      SILENCE_REASON="the executor exited $EXECUTOR_EXIT."
+    else
+      SILENCE_REASON="the executor finished cleanly and shipped nothing, with no branch work to show for it. This is the case that needs a human eye."
+    fi
+    SILENCE_ESCALATION="$ELIGIBLE_AT_START|$SILENCE_REASON"
+    log "SILENCE ON AN ELIGIBLE CARD: $ELIGIBLE_AT_START, reason: $SILENCE_REASON"
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Step 4: the digest, on every run, including a run that did nothing. A silent
@@ -317,7 +499,8 @@ if [ -f "$POC_RUN_WORKTREE/scripts/poc/notify.mjs" ]; then
     --run-id "$RUN_ID" \
     --capped "$CAPPED" \
     --executor-exit "$EXECUTOR_EXIT" \
-    --cards "${CARDS_TOUCHED:-}"
+    --cards "${CARDS_TOUCHED:-}" \
+    --silence "${SILENCE_ESCALATION:-}"
   NOTIFY_EXIT=$?
   log "digest exit $NOTIFY_EXIT"
   if [ "$NOTIFY_EXIT" -eq 0 ]; then
@@ -337,7 +520,7 @@ git checkout -b "$STATE_BRANCH" origin/main --quiet
 
 node -e '
   const fs = require("fs");
-  const [path, runId, finishedAt, touchedRaw, digestAt, capped] = process.argv.slice(1);
+  const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, claimedCard] = process.argv.slice(1);
   const state = JSON.parse(fs.readFileSync(path, "utf8"));
   state.last_run = finishedAt;
   state.run_id = runId;
@@ -356,9 +539,35 @@ node -e '
       run_id: runId,
     }]);
   }
+  // The silence rule. An eligible card that shipped nothing is escalated every
+  // time, so a run that looks idle can never be mistaken for one that was.
+  if (silence) {
+    const [cardIds, reason] = silence.split("|");
+    state.escalations = (state.escalations || []).concat([{
+      card_id: cardIds,
+      question: "Eligible card(s) " + cardIds + " were not shipped by this run. " + reason,
+      recommendation: "Read " + logFile + ". Silence on an eligible card is a defect, not a normal outcome.",
+      raised_at: finishedAt,
+      run_id: runId,
+    }]);
+  }
   if (digestAt) state.digest_last_sent = digestAt;
+
+  // Claim lease. Record what this run took, and drop every claim that has aged
+  // out, so a lease left behind by a run that died cannot park a card forever.
+  state.claims = state.claims || {};
+  const TTL_SECONDS = 21600;
+  const nowMs = Date.parse(finishedAt);
+  for (const [id, claim] of Object.entries(state.claims)) {
+    const at = Date.parse(claim && claim.claimed_at ? claim.claimed_at : "");
+    if (Number.isNaN(at) || (nowMs - at) / 1000 > TTL_SECONDS) delete state.claims[id];
+  }
+  if (claimedCard) {
+    state.claims[claimedCard] = { claimed_by: "harness", claimed_at: finishedAt };
+  }
+
   fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
-' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED"
+' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD"
 
 git add "$POC_STATE"
 
