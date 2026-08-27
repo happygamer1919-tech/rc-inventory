@@ -478,6 +478,46 @@ carries the product's work. The harness's own bookkeeping is not the product's
 work, and a run that quietly edits a board file it has no card for is the exact
 write the board rules exist to prevent.
 
+**A card is claimed before it is worked, and a claim is honoured for 6 hours.**
+The harness and a human terminal cannot see each other. On 2026-08-27 EXECUTOR
+worked P2-09 by hand in `/Users/ivan/rc-inventory` while the scheduled harness
+picked up the same card in its own worktree, four times a day, with neither able
+to tell. The lease is how they agree without talking.
+
+- Claims live in `docs/poc/state.json` under `claims`, as
+  `{"<card-id>": {"claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}}`.
+- **A run never takes a card claimed by another actor inside the window**, even
+  if it is the only eligible card. It logs the skip, escalates it, and moves on.
+  Skipping is correct; skipping quietly is not.
+- **A claim expires after 6 hours** and expired claims are dropped whenever the
+  file is written. A lease that outlived the terminal that took it would park a
+  card forever, which is worse than the collision it prevents.
+- A human terminal claims and releases with `scripts/poc/claim.sh`:
+
+  ```
+  scripts/poc/claim.sh claim   P2-09 executor
+  scripts/poc/claim.sh release P2-09 executor
+  scripts/poc/claim.sh check   P2-09
+  scripts/poc/claim.sh list
+  ```
+
+  `claim` and `release` land through a PR like every other change to that file.
+  `check` and `list` write nothing. `check` exits 3 when the card is claimed.
+- **Claim before you start, not after.** A claim only protects a card once it is
+  on `main`, so a claim taken after the work begins protects nothing.
+
+**A run that finds an eligible card and ships nothing writes an escalation**
+naming the card and the reason. Three runs on 2026-08-26 and 2026-08-27 each
+named P2-09 as next eligible and each reported nothing, while in fact building a
+migration, a seven case spec and a draft PR. Silence about an eligible card is a
+defect, never a normal outcome, and the four reasons are distinguished: work left
+on a branch, the wall clock cap, a non-zero executor exit, and an executor that
+finished clean with nothing to show.
+
+**A run reports what it did, not only what landed.** Work on a card branch is
+reported as such. A run that wrote code must never look identical to a run that
+idled.
+
 **Telegram is a report and a narrow answer channel, not a command line.** The
 inbox reader accepts messages only from `TELEGRAM_OWNER_ID`, and only in the two
 exact forms `R <card-id> default` and `R <card-id>: <text>`. Every other message
