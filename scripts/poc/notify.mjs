@@ -18,6 +18,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { analyse, daysSince } from "./eligible.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
@@ -74,27 +75,6 @@ function gh(cliArgs) {
   }
 }
 
-// A card is eligible when status is todo, blocked_on is null, and every
-// dependency has shipped. CLAUDE.md section 2.
-function eligibleCards(board) {
-  const cards = board.cards || [];
-  const shipped = new Set(cards.filter((c) => c.status === "shipped").map((c) => c.id));
-  return cards
-    .filter((c) => c.status === "todo")
-    .filter((c) => c.blocked_on === null || c.blocked_on === undefined)
-    .filter((c) => (c.depends_on || []).every((dep) => shipped.has(dep)))
-    .sort((a, b) => a.id.localeCompare(b.id));
-}
-
-// CLAUDE.md section 13: P2-08 and P2-09 are untouched while P2-08 is parked on
-// andre. The digest must not advertise a card the run is forbidden to take, or
-// the next eligible line becomes a lie every single night.
-function parkedIds(board) {
-  const p208 = (board.cards || []).find((c) => c.id === "P2-08");
-  if (p208 && p208.blocked_on === "andre") return new Set(["P2-08", "P2-09"]);
-  return new Set();
-}
-
 function prNumbersFrom(card) {
   const haystack = [
     card.evidence && card.evidence.ref ? String(card.evidence.ref) : "",
@@ -130,7 +110,8 @@ function buildDigest() {
   const cards = board.cards || [];
   const byId = new Map(cards.map((c) => [c.id, c]));
   const runId = args["run-id"] || state.run_id || "manual";
-  const parked = parkedIds(board);
+  const now = Math.floor(Date.now() / 1000);
+  const view = analyse(board, state, "harness", now);
 
   const lines = [];
   lines.push("RC inventory, run " + runId);
@@ -157,8 +138,15 @@ function buildDigest() {
     .split(",")
     .filter(Boolean)
     .map((entry) => {
+      // Two shapes: "<id>:<status>" from main, "<id>:branch:<status>" from a
+      // card branch. The middle marker is what tells merged work from work that
+      // is only pushed, so it is kept rather than flattened away.
       const parts = entry.split(":");
-      return { id: parts[0], status: parts[parts.length - 1] };
+      return {
+        id: parts[0],
+        status: parts[parts.length - 1],
+        kind: parts.length >= 3 ? parts[1] : "main",
+      };
     });
   const shippedNow = moved.filter((m) => m.status === "shipped");
 
@@ -179,15 +167,33 @@ function buildDigest() {
     lines.push("");
   }
 
-  // 2. Blocked cards, each with its question and its recommended default.
-  const blocked = cards
-    .filter((c) => c.status === "blocked" || (c.status === "todo" && c.blocked_on))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  // Work that exists but has not landed. This is the section whose absence made
+  // three consecutive runs that built a migration, a seven case spec and a draft
+  // PR all report "none", indistinguishable from an idle night.
+  const onBranch = moved.filter((m) => m.kind === "branch");
+  if (onBranch.length > 0) {
+    lines.push("WORKED, NOT MERGED");
+    for (const m of onBranch) {
+      const card = byId.get(m.id);
+      lines.push("- " + m.id + " is " + m.status + " on a branch: " + firstLine(card ? card.title : "", 80));
+      const prs = card ? prNumbersFrom(card) : [];
+      for (const pr of prs) lines.push("  https://github.com/" + REPO_SLUG + "/pull/" + pr);
+    }
+    lines.push("");
+  }
 
-  if (blocked.length > 0) {
-    lines.push("BLOCKED, WAITING ON A PERSON");
-    for (const card of blocked) {
-      lines.push("- " + card.id + " on " + (card.blocked_on || "unnamed"));
+  // 2. Blocked cards Ivan can actually unstick, each with its question and its
+  // recommended default.
+  //
+  // Two filters, and both matter. A card whose depends_on has not shipped cannot
+  // be unstuck by any answer, so asking for one is noise. And a card blocked on
+  // andre or client is not Ivan's turn: listing it with a reply line tells him
+  // he can fix it by typing, which is false.
+  if (view.blockedAnswerable.length > 0) {
+    lines.push("WAITING ON YOU");
+    for (const entry of view.blockedAnswerable) {
+      const card = entry.card;
+      lines.push("- " + card.id + " (" + (daysSince(card.last_checkpoint, now) ?? "?") + "d)");
       const ask = firstLine(String(card.question || "").replace(/^DECISION NEEDED:\s*/, ""), 200);
       if (ask) lines.push("  ask: " + ask);
       lines.push("  recommended: " + recommendationOf(card));
@@ -195,7 +201,29 @@ function buildDigest() {
     }
     lines.push("");
   } else {
-    lines.push("BLOCKED: nothing waiting on a person");
+    lines.push("WAITING ON YOU: nothing");
+    lines.push("");
+  }
+
+  // Shown so what is stuck is visible, with no reply line, because Ivan cannot
+  // unstick these by typing and the digest must not imply he can.
+  if (view.waitingOnOthers.length > 0) {
+    lines.push("WAITING ON OTHERS (no reply needed)");
+    for (const entry of view.waitingOnOthers) {
+      const days = entry.days_outstanding === null ? "?" : entry.days_outstanding;
+      lines.push("- " + entry.id + ": " + entry.owed_by + " owes this, " + days + "d outstanding");
+      lines.push("  " + firstLine(entry.title, 90));
+    }
+    lines.push("");
+  }
+
+  // Named, not detailed. These cannot move until their dependencies ship, so
+  // they are noise as questions and useful only as a count.
+  if (view.unreachable.length > 0) {
+    lines.push(
+      "NOT YET REACHABLE: " +
+        view.unreachable.map((u) => u.id + " (needs " + u.missing.join("+") + ")").join(", ")
+    );
     lines.push("");
   }
 
@@ -220,8 +248,46 @@ function buildDigest() {
   } else {
     lines.push("CI on main: could not be read");
   }
-  const openPrs = gh(["pr", "list", "--state", "open", "--json", "number", "-q", "length"]);
-  if (openPrs) lines.push("Open PRs: " + openPrs);
+  // A bare count is what let a permanently stuck harness PR sit for three runs
+  // looking like ordinary work in progress. Each PR is named with its author,
+  // whether it is a harness PR, and why it is not merging.
+  const prsRaw = gh([
+    "pr", "list", "--state", "open", "--limit", "20",
+    "--json", "number,title,author,isDraft,mergeStateStatus,headRefName",
+  ]);
+  if (prsRaw) {
+    try {
+      const prs = JSON.parse(prsRaw);
+      if (prs.length === 0) {
+        lines.push("Open PRs: none");
+      } else {
+        lines.push("Open PRs: " + prs.length);
+        for (const pr of prs) {
+          const harness = /^poc\/(state|ruling)-/.test(pr.headRefName || "");
+          const why = pr.isDraft
+            ? "draft, cannot merge by design"
+            : pr.mergeStateStatus === "BEHIND"
+              ? "BEHIND main, needs a branch update"
+              : pr.mergeStateStatus === "DIRTY"
+                ? "CONFLICTS with main, needs a human"
+                : pr.mergeStateStatus === "BLOCKED"
+                  ? "blocked, checks not green yet"
+                  : pr.mergeStateStatus === "CLEAN"
+                    ? "clean, mergeable"
+                    : String(pr.mergeStateStatus || "unknown").toLowerCase();
+          lines.push(
+            "  #" + pr.number + " [" + (pr.author ? pr.author.login : "?") + "]" +
+              (harness ? " HARNESS" : "") + " " + why
+          );
+          if (harness && !pr.isDraft && pr.mergeStateStatus !== "CLEAN") {
+            lines.push("    ^ a stuck harness PR, this is not normal");
+          }
+        }
+      }
+    } catch {
+      lines.push("Open PRs: could not be read");
+    }
+  }
   lines.push("");
 
   // 4. Escalations raised, newest first.
@@ -239,15 +305,25 @@ function buildDigest() {
   }
 
   // 5. What the next run will pick up.
-  const eligible = eligibleCards(board).filter((c) => !parked.has(c.id));
-  if (eligible.length > 0) {
-    const next = eligible[0];
-    lines.push("NEXT ELIGIBLE: " + next.id + " " + firstLine(next.title, 90));
+  const takeable = view.eligible.filter((e) => !e.skip_reason);
+  if (takeable.length > 0) {
+    lines.push("NEXT ELIGIBLE: " + takeable[0].id + " " + firstLine(takeable[0].title, 90));
+  } else if (view.eligible.length > 0) {
+    // Eligible but every one is claimed. Very different from nothing to do.
+    lines.push("NEXT ELIGIBLE: all claimed");
+    for (const e of view.eligible) lines.push("  " + e.id + ": " + e.skip_reason);
   } else {
     lines.push("NEXT ELIGIBLE: no eligible card");
-    if (parked.size > 0) {
-      lines.push("P2-08 and P2-09 are parked while P2-08 waits on andre.");
-    }
+  }
+
+  // The silence rule, surfaced. A run that had an eligible card and shipped
+  // nothing says so here, every time, with the reason.
+  const silence = args.silence && args.silence !== "true" ? args.silence : "";
+  if (silence) {
+    const [cardIds, reason] = silence.split("|");
+    lines.push("");
+    lines.push("SHIPPED NOTHING, AND THERE WAS WORK: " + cardIds);
+    lines.push("  " + firstLine(reason, 300));
   }
 
   if (args.capped === "yes") {
