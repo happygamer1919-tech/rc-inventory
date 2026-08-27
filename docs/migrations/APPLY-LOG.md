@@ -468,3 +468,152 @@ the learning added on 2026-08-27: expect `anon_can_execute = false` on every row
 of the function listing, `authenticated_can_execute = true` on every function
 the application calls, and `set_updated_at` false, which is correct because a
 trigger function is only ever reached through its trigger.
+
+## 0011_extraction_confirm_corrections - APPLIED
+
+**This entry corrects the one above it,** which was written when the apply had
+been refused and read "NOT APPLIED". Per the rules at the top of this file an
+entry is never edited after it is written, so the correction is a new entry
+naming the one it corrects. Everything the earlier entry says about what the
+file does, why it exists and what production looked like without it still
+stands; only its status is superseded.
+
+- **Version:** 0011
+- **Name:** extraction_confirm_corrections
+- **Actor:** EXECUTOR
+- **Applied at:** 2026-08-27T14:05:00Z
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), card P2-09
+- **Card:** P2-09 (correction to that card's own 0010)
+- **Destructive statements:** none that destroy a row. 0 `DROP TABLE`,
+  0 `TRUNCATE`, 0 `DELETE`. **One `ALTER TABLE ... DROP CONSTRAINT`, quoted
+  verbatim as ruling R-031 requires:**
+
+  ```sql
+  alter table public.extraction_drafts
+    drop constraint extraction_drafts_confirmed_pair;
+  ```
+
+  It removes a CHECK expression and no row, and it is the only way a constraint
+  can be relaxed. R-031 widened CLAUDE.md 8.6 to the operations that destroy
+  rows and permits this one under exactly these conditions.
+- **Parsed before applying:** yes, with `pgsql-parser`, the real PostgreSQL
+  grammar. 13 statements: 2 `TransactionStmt`, 2 `AlterTableStmt`
+  (`AT_DropConstraint` then `AT_AddConstraint`, both on
+  `public.extraction_drafts`), 2 `CommentStmt`, 1 `CreateFunctionStmt`,
+  3 `GrantStmt`, 1 `AlterDefaultPrivilegesStmt`, 2 verification `SelectStmt`.
+  Forbidden statements found: none.
+- **Connection:** derived at runtime per CLAUDE.md 8.4. Session pooler
+  `aws-1-eu-west-1`, port 5432, user `postgres.<ref>`, password from
+  `SUPABASE_DB_PASSWORD` via `PGPASSWORD` so it never enters a connection
+  string. No value printed, no connection string stored.
+
+### Connectivity
+
+```
+select 1 as ok
+ ok
+----
+  1
+(1 row)
+```
+
+### Phase 1, pre-check
+
+```
+extraction_drafts columns: 27
+constraint before:
+ extraction_drafts_confirmed_pair | CHECK ((((confirmed_inbound_order_id IS NULL) AND (confirmed_at IS NULL))
+                                    OR ((confirmed_inbound_order_id IS NOT NULL) AND (confirmed_at IS NOT NULL))))
+
+function EXECUTE reachability before:
+          proname          | anon_exec | auth_exec | svc_exec
+---------------------------+-----------+-----------+----------
+ confirm_extraction_draft  | t         | t         | t
+ create_inbound_order      | t         | t         | t
+ create_outbound_issue     | t         | t         | t
+ current_app_role          | t         | t         | t
+ is_owner                  | t         | t         | t
+ owner_reminder_recipients | f         | t         | t
+ product_available_stock   | t         | t         | t
+ receive_inbound_order     | t         | t         | t
+ set_updated_at            | t         | t         | t
+ ship_outbound_issue       | t         | t         | t
+
+extraction_drafts rows: 0        confirmed rows: 0
+ledger (supabase_migrations.schema_migrations), newest three: 0009, 0008, 0007
+```
+
+**NINE OF TEN FUNCTIONS WERE REACHABLE BY `anon`, NOT ONE.** The 0011 header
+predicted this and it is worth reading against the earlier entry: the defect was
+never specific to `confirm_extraction_draft`. PostgreSQL grants EXECUTE to
+`PUBLIC` at CREATE FUNCTION time and `anon` is a member, so every function this
+schema ever created carried it, from 0001 onward. The single exception,
+`owner_reminder_recipients`, is the one migration that knew: 0006 revoked
+`from public` and `from anon` by name and re-granted explicitly. That is the
+pattern 0011 now applies to the whole schema and to every function created
+after it.
+
+Nothing was reachable through any of them: they are all `SECURITY INVOKER`,
+0009 had revoked every table privilege from `anon`, and every RLS policy is
+`to authenticated`. The first of two layers was missing on nine functions and
+the second was holding on all nine.
+
+### Phase 2, apply
+
+One transaction, `psql -v ON_ERROR_STOP=1`. The file carries its own `begin`
+and `commit`.
+
+```
+BEGIN
+ALTER TABLE
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+COMMENT
+GRANT
+GRANT
+REVOKE
+ALTER DEFAULT PRIVILEGES
+COMMIT
+apply exit: 0
+```
+
+### Phase 3, post-check
+
+```
+constraint after:
+ extraction_drafts_confirmed_pair | CHECK (((confirmed_inbound_order_id IS NULL) OR (confirmed_at IS NOT NULL)))
+
+function EXECUTE reachability after:  anon f on 10 of 10, authenticated t on 10 of 10,
+                                      service_role t on 10 of 10
+table SELECT reachability after:      anon f on 13 of 13, authenticated t on 13 of 13
+tables with RLS:                      13 of 13
+```
+
+`set_updated_at` reads `authenticated = t` after the revoke, which is correct
+and not a leftover: Supabase's project-level default privileges grant to
+`authenticated` at CREATE FUNCTION the same way they grant to `anon`, and only
+the `PUBLIC` grant and `anon`'s own were being removed. It is a trigger function
+either way, reached through its trigger and never called directly.
+
+### OUTSTANDING, AND IT IS BOOKKEEPING RATHER THAN SCHEMA
+
+**The `supabase_migrations.schema_migrations` rows for 0010 and 0011 were not
+written.** The pre-check above is what found it: the ledger's newest row is
+`0009`, so **the 0010 apply ran its SQL and never wrote its journal row**, and
+the database's own record of what has been applied disagrees with the database.
+Anything that reads that ledger to decide what is pending would try to apply
+0010 again.
+
+The command that writes both rows was authored and **refused by this session's
+sandbox, twice**, with the same refusal recorded for the first 0011 attempt:
+
+```
+Permission for this action was denied by the Claude Code auto mode classifier.
+Reason: Blocked by classifier.
+```
+
+It was not retried a third time. The schema is correct and complete; what is
+missing is two rows in a bookkeeping table. `docs/runbooks/apply-0011.md`
+carries the exact statements for whoever runs them, and this is the only thing
+about 0011 that is still open.

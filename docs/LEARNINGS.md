@@ -1182,3 +1182,55 @@ as a result, and never let the answer include the element carrying the good
 news. And when a test asserts a message appears after an action that also
 removes something, assert the removal in the same breath: a lone
 "message appeared" assertion is a race with a coin-flip you will win most days.
+
+### A PR that is BEHIND main cannot merge, and retrying it forever is not waiting
+**Tag:** ci
+**ERROR:** The POC harness opened ruling PR #44, saw `quality` green, called
+`gh pr merge`, and got refused. It logged "merge call failed, leaving it open"
+and moved on. Every subsequent run repeated the identical failure. Three runs
+later the PR was still open, `main` had advanced past it, and it had degraded
+from `BEHIND` to conflicting, at which point no automated recovery was possible
+and a ruling had to be recovered by hand onto a fresh branch. The same failure
+had already been hit and fixed manually on PR #33 a day earlier, and the lesson
+was never written down, so the harness repeated it.
+**SOLUTION:** Branch protection on `main` sets `required_status_checks.strict`,
+which means a branch must be up to date with `main` before it can merge, no
+matter how green it is. `gh pr merge` will not do that for you. Treat
+`mergeStateStatus` as a first-class branch in any merge helper: `DIRTY` needs a
+human, and `BEHIND` needs `gh pr update-branch` followed by re-waiting for the
+new head sha, once, before giving up. A merge helper that special-cases only
+`DIRTY` will retry an impossible merge forever and call it patience.
+
+### A wait budget that counts sleeps does not bound wall clock
+**Tag:** infra
+**ERROR:** `merge_when_green` had a 900 second budget implemented as
+`MWG_WAITED=$((MWG_WAITED + 30))` once per iteration, assuming each iteration
+cost the 30 seconds it slept. The two `gh` calls at the top of the loop have no
+timeout. On 2026-08-27 those calls became slow, each iteration cost about 135
+seconds instead of 30, and the loop ran for 67 minutes 45 seconds against its
+15 minute budget, inside a run capped at 45 minutes, before EXECUTOR had started
+at all.
+**SOLUTION:** Bound a wait by a deadline computed from the clock
+(`deadline=$(( $(date +%s) + budget ))`, loop `while [ "$(date +%s)" -lt "$deadline" ]`),
+never by accumulating the durations you intended to sleep. Separately, wrap every
+network call inside such a loop in its own timeout; bash has none and macOS
+ships no `timeout(1)`, so run the call in the background and kill it if it
+overruns. A budget that assumes the body is fast is not a budget.
+
+### Measuring only the default branch makes a working run look idle
+**Tag:** ci
+**ERROR:** The harness computed `cards_touched` by diffing the board before and
+after against `origin/main`. Three consecutive scheduled runs each worked P2-09
+hard, writing migration `0010`, `lib/data/extraction*.ts`, a seven case
+Playwright spec and a draft PR, and every one of them reported
+`cards touched: none` and a digest saying `SHIPPED THIS RUN: none`. The work was
+real and was on an unmerged branch, so `main` never moved. From the outside a
+run that built for 45 minutes was indistinguishable from a run that did nothing,
+and the defect was reported as "the harness identified work and did not do it"
+when it had in fact done the work.
+**SOLUTION:** An unattended run must report what it did, not only what landed.
+Read the card branches as well as the default branch, mark branch work
+distinctly (`<id>:branch:<status>`), and give it its own heading in the report.
+Then add the inverse rule as a hard invariant: a run that had an eligible card
+and shipped nothing writes an escalation naming the card and the reason, every
+time. Silence about an eligible card is a defect, never a normal outcome.
