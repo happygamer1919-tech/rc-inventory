@@ -259,6 +259,15 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(created).toBeVisible({ timeout: 30_000 });
     const reference = (await created.getAttribute("data-reference")) ?? "";
 
+    // CRIT-16. CONFIRMAREA RAMANE PE ECRAN DUPA CE CIORNA A DISPARUT DIN LISTA,
+    // si aceste doua randuri trebuie citite impreuna: ciorna consumata iese din
+    // lista la reimprospatarea care urmeaza confirmarii, iar mesajul de reusita
+    // nu are voie sa plece cu ea. Cand statea inauntrul fisei ciornei, pleca, si
+    // testul trecea sau pica dupa care ajungea prima. Aici se cere explicit ca
+    // amandoua sa fie adevarate in acelasi timp, deci norocul nu mai poate trece.
+    await expect(draftCard(page, orderId)).toHaveCount(0, { timeout: 30_000 });
+    await expect(created).toBeVisible();
+
     // Comanda exista, cu pozitia revizuita.
     await page.goto("/comenzi");
     const row = page.locator(`[data-testid="inbound-item"][data-reference="${reference}"]`);
