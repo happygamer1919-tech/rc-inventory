@@ -341,6 +341,113 @@ log "EXECUTOR finished, exit $EXECUTOR_EXIT, capped $CAPPED"
 cat "$EXECUTOR_LOG"
 
 # ---------------------------------------------------------------------------
+# Step 2b: TRIAGE, on the report the executor just committed. Card AUT-3.
+# ---------------------------------------------------------------------------
+#
+# TRIAGE IS STATELESS AND FINDS ITS OWN INPUT. It gets no dispatch text, no
+# summary and nothing about what the executor did. It reads the newest file in
+# docs/reports/ and docs/DOCTRINE-TRIAGE.md, and that is the whole of its
+# context. Anything it needs that is not in those two places is a defect in the
+# rubric, and saying so is a legitimate output.
+#
+# IT RUNS AFTER THE EXECUTOR AND BEFORE THE DIGEST, so its outcome can reach the
+# message. CRITIC is NOT moved here: it fires at wave boundaries, and making it
+# per-run would spend a full review on every increment and train everybody to
+# skim it.
+#
+# NO REPORT MEANS NO TRIAGE. A run where the executor shipped nothing, or was
+# stopped by the cap before it could write its report, has nothing to triage,
+# and inventing an input is worse than skipping.
+
+TRIAGE_MAX_SECONDS=${POC_TRIAGE_MAX_SECONDS:-900}
+TRIAGE_EXIT=skipped
+TRIAGE_REPORT=""
+
+git fetch origin main --quiet 2>/dev/null || true
+TRIAGE_REPORT=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
+  | grep -E "^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$" | sort | tail -1)
+
+if [ -z "$TRIAGE_REPORT" ]; then
+  log "no executor report on origin/main, skipping TRIAGE"
+else
+  log "invoking TRIAGE on $TRIAGE_REPORT, cap ${TRIAGE_MAX_SECONDS}s"
+
+  TRIAGE_PROMPT_FILE=$POC_LOG_DIR/$RUN_ID.triage.prompt.txt
+  cat > "$TRIAGE_PROMPT_FILE" <<TRIAGE_EOF
+You are TRIAGE. Boot per CLAUDE.md, then read docs/DOCTRINE-TRIAGE.md and apply
+it. That file is the whole of your rubric and it binds you the way CLAUDE.md
+binds every role.
+
+Your input is the newest report in docs/reports/, which is
+$TRIAGE_REPORT. Read it. You get nothing else and you need nothing else; if you
+do, that is a defect in docs/DOCTRINE-TRIAGE.md and saying so in your report is a
+legitimate output.
+
+WHAT YOU MAY DO: write rulings into decisions/inbox.md, edit cards, flip a launch
+gate that is fully met on committed evidence, author cards, and write
+escalations.
+
+WHAT YOU MAY NOT DO, ever, under any reading: ship a card, merge a card PR, apply
+a migration, write application code or a test, or edit an existing ruling. A
+changed mind is a new dated ruling that supersedes the old one by id.
+
+Open ONE pull request carrying your rulings and card edits. Never push to main.
+The board validator must exit 0 before every commit.
+
+ALSO WRITE docs/poc/triage-latest.json, in the same PR, so the digest can carry
+your outcome. Exactly this shape, every key present, empty arrays where there is
+nothing:
+
+{
+  "run_id": "$RUN_ID",
+  "report": "$TRIAGE_REPORT",
+  "rulings_written": ["R-030"],
+  "cards_resequenced": [{"card_id": "P2-15", "change": "depends_on now names P2-09 and P2-11"}],
+  "gates_flipped": [{"gate": "G4", "evidence": "PR 61"}],
+  "escalations": [{"title": "one line", "recommendation": "the one path"}]
+}
+
+EVERY ESCALATION CARRIES A RECOMMENDED DEFAULT. An escalation without one is not
+finished and does not satisfy the rubric.
+
+Your final act is your own report, per CLAUDE.md section 9b:
+docs/reports/$(date -u +%Y-%m-%d)-triage-<slug>.md, committed in that same PR
+before you print it.
+
+No secret value is ever echoed, logged, committed or put in a board field.
+You are in the worktree $POC_RUN_WORKTREE. Work here and nowhere else.
+TRIAGE_EOF
+
+  TRIAGE_LOG=$POC_LOG_DIR/$RUN_ID.triage.log
+  claude -p "$(cat "$TRIAGE_PROMPT_FILE")" \
+    --permission-mode bypassPermissions \
+    --add-dir "$POC_RUN_WORKTREE" \
+    > "$TRIAGE_LOG" 2>&1 &
+  TRIAGE_PID=$!
+
+  # Same watchdog shape as the executor's, and for the same reason: macOS ships
+  # no timeout(1).
+  (
+    sleep "$TRIAGE_MAX_SECONDS"
+    if kill -0 "$TRIAGE_PID" 2>/dev/null; then
+      echo "[watchdog] triage cap reached, stopping" >> "$TRIAGE_LOG"
+      kill -TERM "$TRIAGE_PID" 2>/dev/null
+      sleep 20
+      kill -KILL "$TRIAGE_PID" 2>/dev/null
+    fi
+  ) &
+  TRIAGE_WATCHDOG_PID=$!
+
+  wait "$TRIAGE_PID"
+  TRIAGE_EXIT=$?
+  kill "$TRIAGE_WATCHDOG_PID" 2>/dev/null
+  wait "$TRIAGE_WATCHDOG_PID" 2>/dev/null
+
+  log "TRIAGE finished, exit $TRIAGE_EXIT"
+  cat "$TRIAGE_LOG"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 3: refresh, then work out what the run actually changed.
 # ---------------------------------------------------------------------------
 git fetch origin --prune --quiet
@@ -523,6 +630,7 @@ else
 Cards touched: ${CARDS_TOUCHED:-none}
 Capped at 45 minutes: $CAPPED
 Executor exit: $EXECUTOR_EXIT
+Triage exit: $TRIAGE_EXIT
 Log: $LOG_FILE
 
 Harness bookkeeping only. No board file and no application code is touched."
@@ -534,6 +642,7 @@ Harness bookkeeping only. No board file and no application code is touched."
 Cards touched: ${CARDS_TOUCHED:-none}
 Capped at 45 minutes: $CAPPED
 Executor exit: $EXECUTOR_EXIT
+Triage exit: $TRIAGE_EXIT
 Log: $LOG_FILE
 
 Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,
