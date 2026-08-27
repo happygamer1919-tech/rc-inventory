@@ -1234,3 +1234,23 @@ distinctly (`<id>:branch:<status>`), and give it its own heading in the report.
 Then add the inverse rule as a hard invariant: a run that had an eligible card
 and shipped nothing writes an escalation naming the card and the reason, every
 time. Silence about an eligible card is a defect, never a normal outcome.
+
+### AUT-1: a bare catch turned a missing import into a missing file
+**Tag:** ci
+**ERROR:** The digest reported `REPORT: none committed` about a report that was
+sitting on disk in the directory it had just been told to read. The lookup was
+correct, the regex matched the filename when tested on its own, and the path
+resolved to the right worktree. The function called `fs.readdirSync(dir)` inside
+`try { } catch { return null; }`, and `notify.mjs` imports `readFileSync` by
+name and never binds `fs`. So the call threw a `ReferenceError`, the bare catch
+swallowed it, and the function returned the value that means "the directory is
+not there". **Nothing in CI would have caught it:** `notify.mjs` is the digest
+sender and the Playwright suite never runs it, so the only symptom would have
+been a digest quietly saying no report existed, on every run, forever.
+**SOLUTION:** import `readdirSync` by name like every other binding in the file,
+and narrow the catch to the one error that is an expected outcome:
+`if (error && error.code === "ENOENT") return null; throw error;`
+RULE: a bare `catch` that returns a normal-looking value converts every
+programming error inside the `try` into that value. Catch the condition you
+meant, by code, and rethrow the rest. And when a lookup returns "not found" for
+something you can see with `ls`, suspect the catch before the query.

@@ -15,7 +15,7 @@
 //   node scripts/poc/notify.mjs --test
 //
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyse, daysSince } from "./eligible.mjs";
@@ -123,9 +123,14 @@ function newestReport() {
   const dir = path.join(REPO_ROOT, "docs", "reports");
   let names;
   try {
-    names = fs.readdirSync(dir);
-  } catch {
-    return null;
+    names = readdirSync(dir);
+  } catch (error) {
+    // ONLY a missing directory is an expected outcome. Anything else is a
+    // defect in this file, and a bare catch here already hid one once: an
+    // unimported binding threw a ReferenceError and the digest reported "none
+    // committed" about a report that was sitting on disk.
+    if (error && error.code === "ENOENT") return null;
+    throw error;
   }
   const dated = names
     .filter((n) => /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$/.test(n))

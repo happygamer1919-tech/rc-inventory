@@ -281,7 +281,9 @@ you. Restated so there is no ambiguity:
   $POC_STATE, and move to the next eligible card. Never wait for an answer.
 - Never apply a migration containing DROP TABLE, TRUNCATE or DELETE. Block the
   card on ivan with the offending statement quoted in question.
-- Do not touch P2-08 or P2-09 while P2-08 is parked on andre.
+- Cards claimed by another actor are OFF LIMITS this run: $CLAIM_SKIPPED
+  A claim is in docs/poc/state.json and expires after 6 hours. Never take a card
+  another actor holds, even if it is the only eligible one. Report it instead.
 - Never push to main. Never force push. Merge only on a green quality check
   that exists for the head sha.
 - No secret value is ever echoed, logged, committed or put in a board field.
@@ -306,10 +308,53 @@ PROMPT_EOF
 BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
 cp "$POC_BOARD" "$BOARD_BEFORE"
 
-# What was eligible when the run started, so silence on an eligible card can be
-# detected afterwards rather than taken on trust.
-ELIGIBLE_AT_START=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" --board "$POC_BOARD" --ids 2>/dev/null)
+# ---------------------------------------------------------------------------
+# Claim lease. The harness and a human terminal cannot see each other, so they
+# agree through docs/poc/state.json instead. On 2026-08-27 EXECUTOR was working
+# P2-09 by hand in the interactive clone while this harness picked up the same
+# card in its own worktree, four times a day.
+#
+# --ids returns only cards nobody else has claimed inside the lease window.
+# --ids-all returns every eligible card. The difference between them is exactly
+# the set that was skipped because somebody else holds it.
+# ---------------------------------------------------------------------------
+ELIGIBLE_AT_START=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
+ELIGIBLE_ALL=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
 log "eligible at start: ${ELIGIBLE_AT_START:-none}"
+
+CLAIM_SKIPPED=""
+if [ "$ELIGIBLE_ALL" != "$ELIGIBLE_AT_START" ]; then
+  CLAIM_SKIPPED=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
+    --board "$POC_BOARD" --state "$POC_STATE" --actor harness --json 2>/dev/null \
+    | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try {
+          const v = JSON.parse(s);
+          console.log(v.eligible.filter((e) => e.skip_reason)
+            .map((e) => e.id + " (" + e.skip_reason + ")").join(", "));
+        } catch { console.log(""); }
+      });')
+  log "SKIPPED, CLAIMED BY ANOTHER ACTOR: $CLAIM_SKIPPED"
+fi
+
+# The card this run intends to take. The claim itself is written into the state
+# PR at the end of the run rather than here, because everything in this worktree
+# is discarded by the hard reset that follows EXECUTOR.
+#
+# KNOWN LIMIT, stated rather than hidden: the harness's own claim becomes visible
+# to other actors only when that state PR merges, so it does not protect against
+# a human terminal that starts mid-run. It does record who worked the card, and
+# the protection that matters in the other direction works fully: a human claims
+# through scripts/poc/claim.sh before starting, that claim is on main, and the
+# next run reads it and skips the card.
+HARNESS_CARD=""
+if [ -n "$ELIGIBLE_AT_START" ]; then
+  HARNESS_CARD=$(echo "$ELIGIBLE_AT_START" | cut -d, -f1)
+  log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
+fi
 
 log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
@@ -425,6 +470,12 @@ log "cards touched this run: ${CARDS_TOUCHED:-none}"
 # noticed.
 # ---------------------------------------------------------------------------
 SILENCE_ESCALATION=""
+# A card the harness could not take because somebody else holds it is escalated
+# in its own right. Skipping is correct; skipping quietly is not.
+if [ -n "$CLAIM_SKIPPED" ]; then
+  SILENCE_ESCALATION="$CLAIM_SKIPPED|skipped because another actor holds the claim. This is the lease working, not a fault. The card is worked when the claim is released or expires after 6 hours."
+  log "ESCALATING CLAIM SKIP: $CLAIM_SKIPPED"
+fi
 if [ -n "$ELIGIBLE_AT_START" ]; then
   SHIPPED_THIS_RUN=$(echo "$CARDS_TOUCHED" | tr ',' '\n' | grep -c ':shipped$' || true)
   if [ "${SHIPPED_THIS_RUN:-0}" -eq 0 ]; then
@@ -489,8 +540,8 @@ git checkout -b "$STATE_BRANCH" origin/main --quiet
 
 node -e '
   const fs = require("fs");
-  const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, reportPath] =
-    process.argv.slice(1);
+  const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, claimedCard,
+         reportPath] = process.argv.slice(1);
   const state = JSON.parse(fs.readFileSync(path, "utf8"));
   state.last_run = finishedAt;
   state.run_id = runId;
@@ -522,13 +573,27 @@ node -e '
     }]);
   }
   if (digestAt) state.digest_last_sent = digestAt;
+
+  // Claim lease. Record what this run took, and drop every claim that has aged
+  // out, so a lease left behind by a run that died cannot park a card forever.
+  state.claims = state.claims || {};
+  const TTL_SECONDS = 21600;
+  const nowMs = Date.parse(finishedAt);
+  for (const [id, claim] of Object.entries(state.claims)) {
+    const at = Date.parse(claim && claim.claimed_at ? claim.claimed_at : "");
+    if (Number.isNaN(at) || (nowMs - at) / 1000 > TTL_SECONDS) delete state.claims[id];
+  }
+  if (claimedCard) {
+    state.claims[claimedCard] = { claimed_by: "harness", claimed_at: finishedAt };
+  }
+
   // AUT-1. The report this run committed, by path. The digest reads the
   // directory directly, because it is sent before this file is written; this
   // field is the record, so a later reader can tell which report belonged to
   // which run without matching dates by eye.
   if (reportPath) state.report_path = reportPath;
   fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
-' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$REPORT_PATH"
+' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD" "$REPORT_PATH"
 
 git add "$POC_STATE"
 
