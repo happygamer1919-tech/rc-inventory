@@ -104,6 +104,32 @@ function recommendationOf(card) {
 // ---------------------------------------------------------------------------
 // The digest
 // ---------------------------------------------------------------------------
+/**
+ * The triage outcome of the newest run. Card AUT-4.
+ *
+ * TRIAGE writes docs/poc/triage-latest.json in its own rulings PR (card AUT-3),
+ * and the digest reads it here. NOT routed through state.json, deliberately:
+ * that file is written AFTER this message is sent, so anything through it would
+ * always be one run stale.
+ *
+ * READ DEFENSIVELY. The file is written by a model following a prompt, so every
+ * key is treated as possibly absent and possibly the wrong type. A digest that
+ * throws is a digest nobody gets, and the run it was reporting on looks silent.
+ */
+function readTriage() {
+  const raw = readJson(path.join(REPO_ROOT, "docs", "poc", "triage-latest.json"), null);
+  if (!raw || typeof raw !== "object") return null;
+  const list = (v) => (Array.isArray(v) ? v : []);
+  return {
+    runId: typeof raw.run_id === "string" ? raw.run_id : null,
+    report: typeof raw.report === "string" ? raw.report : null,
+    rulings: list(raw.rulings_written).filter((r) => typeof r === "string"),
+    resequenced: list(raw.cards_resequenced).filter((c) => c && typeof c === "object"),
+    gates: list(raw.gates_flipped).filter((g) => g && typeof g === "object"),
+    escalations: list(raw.escalations).filter((e) => e && typeof e === "object"),
+  };
+}
+
 function buildDigest() {
   const board = readJson(BOARD_PATH, { cards: [] });
   const state = readJson(STATE_PATH, {});
@@ -290,7 +316,56 @@ function buildDigest() {
   }
   lines.push("");
 
-  // 4. Escalations raised, newest first.
+  // 3c. What TRIAGE decided this run. Card AUT-4.
+  //
+  // FOUR SECTIONS, ALWAYS PRESENT, even when empty, and an empty one says
+  // "none" rather than being omitted. A missing section reads as an oversight
+  // and makes the reader go and check.
+  const triage = readTriage();
+  if (triage) {
+    lines.push("TRIAGE" + (triage.runId ? " (run " + triage.runId + ")" : ""));
+    lines.push(
+      "- rulings written: " + (triage.rulings.length > 0 ? triage.rulings.join(", ") : "none"),
+    );
+    if (triage.resequenced.length > 0) {
+      lines.push("- cards resequenced:");
+      for (const c of triage.resequenced) {
+        lines.push("  " + (c.card_id || "?") + ": " + firstLine(c.change || "", 140));
+      }
+    } else {
+      lines.push("- cards resequenced: none");
+    }
+    if (triage.gates.length > 0) {
+      lines.push("- gates flipped:");
+      for (const g of triage.gates) {
+        lines.push("  " + (g.gate || "?") + " on " + firstLine(g.evidence || "no evidence named", 120));
+      }
+    } else {
+      lines.push("- gates flipped: none");
+    }
+    // THE ESCALATIONS TRIAGE RAISED, each with its recommended default. Ivan
+    // reads this in batch, between other work: a question he can answer with
+    // "yes" is answered that day, and one that makes him reconstruct the
+    // context is answered next week or never.
+    if (triage.escalations.length > 0) {
+      lines.push("- needs Ivan:");
+      for (const e of triage.escalations) {
+        lines.push("  " + firstLine(e.title || "untitled", 160));
+        lines.push(
+          "    recommended: " +
+            firstLine(e.recommendation || "NONE GIVEN, which does not satisfy the rubric", 160),
+        );
+      }
+    } else {
+      lines.push("- needs Ivan: none");
+    }
+    lines.push("");
+  } else {
+    lines.push("TRIAGE: did not run");
+    lines.push("");
+  }
+
+  // 4. Escalations raised by the EXECUTOR, newest first.
   const escalations = (state.escalations || []).slice(-5).reverse();
   if (escalations.length > 0) {
     lines.push("ESCALATIONS");
