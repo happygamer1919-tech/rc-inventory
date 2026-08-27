@@ -70,6 +70,34 @@ its code is a board that lies about a commit that does not exist yet.
 must exit 0 **before every commit**, not before the PR, not before the merge.
 A commit made while the validator is red is reverted, not patched forward.
 
+**Every card carries `plain`, at authoring time, not afterwards.** Added
+2026-08-27 by card AUT-7.
+
+`plain` is the card in **ordinary business English**, one or two sentences,
+saying what it means for the product and for Mihai. It contains **no card ids,
+no file paths, no PR or ruling numbers, no test or migration names, and no
+vocabulary from this file**. The `title` is written for whoever builds the card.
+`plain` is written for whoever paid for it.
+
+```
+"plain": "Delete the fake products left over from testing, before Mihai sees
+          the system."
+```
+
+The same rule binds **every launch gate condition**: one sentence naming the
+condition the gate actually represents, in the terms of what the owner would see
+or be able to do when it passes.
+
+**The validator enforces it on both boards**, including the closed phase 1
+board, and a card or gate without it is a hard failure. It is written **when the
+card is authored**, in the same commit, because a field added in a later sweep
+is a field written by someone reconstructing intent rather than stating it.
+
+Why it is a rule: the owner does not read code, and he reads the board. A board
+that speaks only the build's vocabulary forces every status question through a
+translator, which is the dependency this project exists to remove. The digest
+reads this field directly and reports any card missing one.
+
 **Card lifecycle.** `todo` -> `in_flight` when work starts (commit that flip
 first, so the board never shows a card being worked as untouched) -> `shipped`
 or `blocked`. `halted` is reserved for the failure ceiling in section 10.
