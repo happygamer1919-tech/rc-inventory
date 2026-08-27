@@ -364,8 +364,16 @@ test.describe("Verificare si confirmare extragere", () => {
 
     // De data aceasta categoria ESTE precompletata, fiindca a fost mapata.
     await expect(page.getByTestId("review-line-category-0")).not.toHaveValue("");
+    // textContent si nu innerText: o optiune dintr-un select inchis nu este
+    // randata, iar innerText pe un element neradat este definit prin cadere
+    // inapoi la textContent. Cerem direct ce vrem.
     expect(
-      (await page.getByTestId("review-line-category-0").locator("option:checked").innerText()).trim(),
+      (
+        (await page
+          .getByTestId("review-line-category-0")
+          .locator("option:checked")
+          .textContent()) ?? ""
+      ).trim(),
     ).toBe(MAPPED_CATEGORY);
 
     await page.getByTestId("review-expected-at").fill("2026-12-03");
