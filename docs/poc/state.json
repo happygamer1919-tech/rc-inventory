@@ -5,5 +5,10 @@
   "cards_touched": [],
   "escalations": [],
   "digest_last_sent": "2026-08-27T09:58:58Z",
-  "claims": {}
+  "claims": {
+    "AUT-1": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-27T15:12:25Z"
+    }
+  }
 }
