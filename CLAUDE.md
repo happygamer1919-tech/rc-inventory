@@ -303,12 +303,46 @@ stranger can read what was actually applied without database access.
 
 ### 8.6 The destructive-statement stop
 
+**Widened by ruling R-031 on 2026-08-27.** The line is now drawn where it was
+always meant to be: at operations that DESTROY ROWS.
+
 **A migration containing `DROP TABLE`, `TRUNCATE` or `DELETE` is never
 auto-applied.** No exceptions, no judgement call, no "it is obviously safe
 here".
 
 That card goes `blocked_on: ivan` with **the offending statement quoted in
 `question`**. Ivan applies it himself or rules otherwise.
+
+#### What is NOT in the forbidden set
+
+`ALTER TABLE ... DROP CONSTRAINT` is **permitted** and may be auto-applied. It
+removes a CHECK or a key and no row, and it is the only way a constraint can be
+relaxed: a constraint is replaced, never edited. A rule that forbade it would
+make a wrong constraint permanent, which is how a schema defect outlives the
+migration that introduced it.
+
+Three conditions, all of them, every time:
+
+1. **The statement is quoted verbatim in the report**, exactly as it appears in
+   the file, so a reader sees what ran rather than a description of it.
+2. **The file is parsed with `pgsql-parser` before it goes near the database**,
+   and the parse is reported: statement count, the kind of each statement, and
+   the explicit finding that no forbidden statement is present. The parser is
+   the real PostgreSQL grammar, so a parse here is the parse the server does.
+3. **The apply is journalled in `docs/migrations/APPLY-LOG.md`** like any other,
+   with the near-miss named in the destructive-statements line rather than
+   omitted from it.
+
+The same applies to any other operation that changes a schema object without
+removing a row: `DROP INDEX`, `DROP POLICY`, `DROP TRIGGER`, `DROP DEFAULT`. If
+a statement removes rows, it stops. If it removes a rule about rows, it is
+declared, parsed, quoted and applied.
+
+**The test to apply when a new case appears:** does executing this statement
+reduce the number of rows in any table? If yes, it stops and goes to Ivan. If
+no, it is in scope, under the three conditions above. When the answer is
+genuinely unclear, it stops - the cost of stopping is a delay and the cost of
+being wrong is data.
 
 ### 8.7 Expiry at P2-13
 

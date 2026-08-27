@@ -1154,3 +1154,142 @@ PR #44 is closed as superseded by this entry.
 This entry also repairs a dangling citation. Five card notes on `main` already
 said "Unblocked by R-026" while `decisions/inbox.md` had no R-026 at all, so the
 board was citing a ruling that did not exist. It exists now.
+### R-030 - EXECUTOR deviations 1 to 7 from the P2-09 and P2-11 report ratified
+**Date:** 2026-08-27
+**Asked on:** P2-09, P2-11, CRIT-16
+**Answer, verbatim:**
+> EXECUTOR deviations 1-7 from the P2-09 and P2-11 report ratified.
+
+**Ruling:** All seven deviations flagged at the end of the P2-09 and P2-11
+session are ratified as a set. Nothing on those cards is reopened.
+
+Three of the seven carry an action and it is recorded here so the ratification
+does not quietly close them:
+
+- **Deviation 1, migration 0011 authored and not applied.** Closed on
+  2026-08-27: the apply was retried under R-012, succeeded, and is journalled in
+  full at `docs/migrations/APPLY-LOG.md` with all three phases. What remains is
+  two rows in `supabase_migrations.schema_migrations`, which the apply's own
+  pre-check discovered were also missing for 0010. See R-033.
+- **Deviation 2, the `drop constraint` near-miss.** Answered by R-031, which
+  widens CLAUDE.md 8.6 rather than granting an exception.
+- **Deviation 5, the account_manager refused at confirm.** Answered by R-032,
+  which makes it a card rather than leaving it as an observation.
+
+The other four - two defects in 0010 corrected by 0011, two findings written
+onto P2-15, and having touched two shipped cards' files - are ratified as
+correct handling and need nothing further.
+
+**Unblocks:** nothing. Closes the report.
+**Also changes:** nothing on the board beyond what R-031, R-032 and R-033 change.
+**Supersedes:** none.
+
+### R-031 - CLAUDE.md 8.6 is widened to operations that destroy rows
+**Date:** 2026-08-27
+**Asked on:** P2-09, migration 0011
+**Answer, verbatim:**
+> CLAUDE.md 8.6 widened: the forbidden set is operations that destroy rows
+> (DROP TABLE, TRUNCATE, DELETE). ALTER TABLE ... DROP CONSTRAINT is permitted,
+> must be quoted verbatim in the report, and must be parsed with pgsql-parser
+> before it goes near the database. Update CLAUDE.md itself, not only the inbox.
+
+**Ruling:** The forbidden set is **operations that destroy rows**, and it stays
+exactly three: `DROP TABLE`, `TRUNCATE`, `DELETE`. `ALTER TABLE ... DROP
+CONSTRAINT` is permitted and may be auto-applied under three conditions, all of
+them, every time: the statement is **quoted verbatim in the report**, the file
+is **parsed with `pgsql-parser`** before it goes near the database with the
+parse reported, and the apply is **journalled** with the near-miss named rather
+than omitted.
+
+**Why the narrow reading was wrong.** A constraint is replaced, never edited: the
+only way to relax one is to drop it and add the corrected one. A rule that
+forbade that would make a wrong constraint permanent, which is how a schema
+defect outlives the migration that introduced it. Migration 0011 is exactly that
+case: 0010 shipped a CHECK that a referential action could violate, and the
+correction was un-appliable under the narrow reading.
+
+**The test for a case nobody has met yet, written into CLAUDE.md so it does not
+have to come back as a ruling:** does executing this statement reduce the number
+of rows in any table? If yes it stops and goes to Ivan. If no it is in scope,
+under the three conditions. When the answer is genuinely unclear it stops,
+because the cost of stopping is a delay and the cost of being wrong is data.
+
+**CLAUDE.md SECTION 8.6 IS UPDATED BY THIS RULING**, not only this file. A rule
+that lives only in the inbox is a rule the next session does not read.
+
+**Unblocks:** migration 0011, applied the same day.
+**Also changes:** `CLAUDE.md` section 8.6, rewritten.
+**Supersedes:** the previous text of CLAUDE.md 8.6.
+
+### R-032 - account_manager may create products through the extraction confirm path only
+**Date:** 2026-08-27
+**Asked on:** P2-09
+**Answer, verbatim:**
+> account_manager may create products through the extraction confirm path only,
+> always with needs_review set. Direct product creation stays owner-only. The
+> account_manager is the operator who uploads documents daily; refusing them at
+> confirm breaks the workflow the lane exists for. Author this as a card and
+> work it.
+
+**Ruling:** The `account_manager` role may create products **through the
+extraction confirm path and nowhere else**, and every product created that way
+carries `needs_review`. Direct creation in the catalogue screen stays
+owner-only, unchanged.
+
+**Why the current behaviour is a defect and not a safeguard.** `products_insert`
+in migration 0001 checks `is_owner()`, so an account_manager confirming a
+document that names a product the catalogue does not have is refused, in
+Romanian, at the moment of confirm. The account_manager is the operator who
+uploads supplier documents every day. The extraction lane exists to save that
+person typing, and it currently stops working the first time a supplier sends
+something new - which is the most ordinary thing a supplier does.
+
+**Why the grant is narrow rather than "let the manager create products".** A
+product created at confirm is anchored to a document that was uploaded, fired,
+extracted and reviewed, and it arrives flagged for the owner to complete. A
+product created from the catalogue screen is anchored to nothing. Those are
+different acts and only the first one is granted.
+
+**This is a card, and the card writes the rule into the database rather than
+into the application.** An application-level check is a check the next screen
+can forget; a policy is enforced wherever the write comes from.
+
+**Unblocks:** authors P2-18 and works it.
+**Also changes:** a new card, P2-18.
+**Supersedes:** none.
+
+### R-033 - P2-15 is not offered to Ivan until 0011 is applied and its selector is corrected
+**Date:** 2026-08-27
+**Asked on:** P2-15
+**Answer, verbatim:**
+> P2-15 must not be executed until migration 0011 is applied and its selector
+> corrected. It is not offered to Ivan before both.
+
+**Ruling:** Two preconditions, both of them, before `scripts/reset-test-data.sql`
+is handed to Ivan to run:
+
+1. **Migration 0011 applied.** 0010 shipped a CHECK constraint that a
+   referential action can violate: `confirmed_inbound_order_id` carries
+   `on delete set null`, and the reset deletes from `inbound_orders`. Once any
+   draft had been confirmed against an order in the delete set, the reset would
+   have failed with `23514` and rolled back whole, in the SQL editor, with the
+   owner watching. **SATISFIED 2026-08-27**: applied under R-012, journalled in
+   `docs/migrations/APPLY-LOG.md`, constraint verified in phase 3 as the
+   corrected implication form.
+2. **The selector corrected.** The script selects test rows with
+   `sku like 'TEST-%'`. The extraction review lane creates flagged products with
+   SKUs shaped `EXT-<slug>-<hex>`, so acceptance residue survives the reset, and
+   the inbound orders those lines belong to then contain a product outside the
+   delete set, are classified "mixed", and survive too. The script's own
+   post-check would still report zero, because it counts what the selector
+   selected.
+
+**A card is not offered to Ivan while a known defect in it is unfixed.** The
+whole value of P2-15 is that the owner runs it once, against production, and it
+does what it says. A script that silently leaves rows behind spends the one
+thing that card has, which is the owner's trust that the count at the end means
+something.
+
+**Unblocks:** nothing yet. P2-15 becomes offerable when precondition 2 lands.
+**Also changes:** P2-15 `defaults` and `notes` carry both preconditions.
+**Supersedes:** none.
