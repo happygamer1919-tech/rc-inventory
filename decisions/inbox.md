@@ -1293,3 +1293,193 @@ something.
 **Unblocks:** nothing yet. P2-15 becomes offerable when precondition 2 lands.
 **Also changes:** P2-15 `defaults` and `notes` carry both preconditions.
 **Supersedes:** none.
+
+### R-034 - EXECUTOR deviations 1 to 7 from the 2026-08-27 rulings, 0011, P2-15 and autonomy report are ratified
+**Date:** 2026-08-27
+**Asked on:** AUT-1, P2-15, P2-18, AUT-2, AUT-4, and migration 0011
+**Answer, verbatim:**
+> Deviations 1-7 from the rulings/0011/P2-15/autonomy report ratified.
+
+**Ruling:** All seven deviations flagged in section 6 of
+`docs/reports/2026-08-27-executor-rulings-0011-p2-15-and-the-autonomy-cards.md`
+are ratified as recorded. They stand as the decision, not as an exception to be
+argued again on the next card. Named individually, because a ratification that
+does not name what it ratified is not readable in six weeks:
+
+1. **A local commit landed on local `main` in the main clone**, from a command
+   block that ran without its `cd`. Nothing was pushed, `main` was reset to
+   `origin/main`, the edit was redone on the card branch. Ratified as reported:
+   the rule that matters is that the remote `main` was never touched.
+2. **Em dashes reached four PR descriptions** (#54, #57, #59 and the first draft
+   of #58) and were swept out of all four. Ratified. Section 11 stands unchanged
+   and the sweep is now a step, not an intention.
+3. **P2-15's acceptance literal moved from 9 to 11** and gained
+   `npm run check:reset-sql`. Ratified. An acceptance line that a corrected file
+   fails is a broken acceptance line, and a bare count cannot say whether the
+   eleven are the right eleven.
+4. **P2-18's acceptance case 9 was amended.** The original asked for a refusal
+   that is not drivable, because the catalogue screen offers the manager no
+   creation control and therefore presents no write to refuse. Ratified: the
+   database-level proof is the policy dump in the apply journal, which is the
+   rule itself rather than a consequence of it.
+5. **AUT-4's acceptance dropped its chained-run half.** Ratified. That run is
+   AUT-3's acceptance, and asking for it twice would park two cards on one
+   event while proving the same thing once.
+6. **`scripts/poc/claim.sh` did not exist at boot and landed mid-session** in
+   PR #56, after every card in that session was already in flight, so no
+   retroactive claims were minted. Ratified. A claim taken after the work begins
+   protects nothing, and minting one to look compliant would have been the worse
+   act.
+7. **Three migration ledger rows are unwritten.** Ratified as a flagged, open
+   loose end rather than as a completed item. It is bookkeeping and not schema,
+   and it is tracked from here as its own card rather than as a footnote on a
+   shipped one.
+
+**Unblocks:** nothing directly. It closes the ratification loop on seven items
+so that no later session re-opens a settled decision.
+**Also changes:** deviation 7 becomes a board card rather than a report footnote.
+**Supersedes:** none.
+
+### R-035 - POC-BUILDER deviations 1 to 7 from the harness report are ratified, including the abandonment of PR #55
+**Date:** 2026-08-27
+**Asked on:** the POC harness work, PRs #53, #55 and #56
+**Answer, verbatim:**
+> Deviations 1-7 from the POC-BUILDER harness report ratified, including the
+> abandonment of PR #55: green is not the same as correct when the diff reverts
+> other terminals' work.
+
+**Ruling:** All seven deviations flagged in POC-BUILDER's harness report are
+ratified as reported by that terminal.
+
+**The one this file records in full, because it is a standing rule and not a
+one-off.** PR #55 was abandoned rather than merged, and PR #56 rebuilt the same
+change on current `main`. **A green check is not a correctness proof.** `quality`
+answers one question, whether the tree it was handed builds and validates. It
+does not and cannot answer whether the diff quietly reverts work that other
+terminals landed while the branch was open. PR #55 was cut from an older `main`
+and carried #53 inside it; merging it would have been green and would still have
+undone commits that were not its own.
+
+**The rule this makes standing, for every role:** before merging a branch that
+has been open across other terminals' merges, read what the diff removes, not
+only what it adds. A branch that has fallen behind is rebuilt on current `main`
+under a new number. It is never force-pushed, per section 3, and it is never
+merged on the strength of a green check alone.
+
+**Why the abandonment was correct rather than wasteful.** The cost was one PR
+number and a rebuild. The cost of the alternative is a silent revert that nobody
+reads, in a repo where four unattended runs a day merge on green.
+
+**A limit on this ratification, stated rather than implied.** The other six
+deviations are ratified on POC-BUILDER's own report of them. That report is not
+committed under `docs/reports/`, so this file cannot quote them, and the
+executor terminal writing this ruling did not read them: POC-BUILDER's worktree
+is out of bounds. Ratified on the owner's word, which is what a ruling is. The
+gap is itself a finding, recorded in R-036's neighbour below and in the
+executor report for this session: section 9b binds every role, and a report that
+was never committed is a report the next session cannot read.
+
+**Unblocks:** nothing directly. It settles the abandonment so it is not
+re-litigated, and it makes the read-what-the-diff-removes rule standing.
+**Also changes:** nothing in `CLAUDE.md` yet. If this class of near-miss recurs
+a third time it is promoted to section 3 as a numbered rule.
+**Supersedes:** none.
+
+### R-036 - AUT-3 is not an owner action, and its acceptance is the next scheduled harness run
+**Date:** 2026-08-27
+**Asked on:** AUT-3
+**Answer, verbatim:**
+> AUT-3 is not an owner action. Its acceptance is satisfied by the next
+> scheduled harness run producing a TRIAGE rulings PR with no human input;
+> evidence is that run log. Move it off blocked_on ivan to depends_on the next
+> scheduled run.
+
+**Ruling:** AUT-3 stops naming Ivan. There is nothing for him to do on it: the
+TRIAGE step is already wired into the chain and merged in PR #62, and what the
+card is waiting for is a scheduled event, not a decision, a credential or a
+click.
+
+**Its acceptance is a chained run that nobody starts by hand.** The next
+scheduled harness run boots TRIAGE after EXECUTOR, applies
+`docs/DOCTRINE-TRIAGE.md` to the newest committed report, and opens a rulings PR
+with no human input. The evidence is that run's log.
+
+**Why `blocked_on: ivan` was wrong and not merely untidy.** Section 5b draws a
+line: `blocked_on` naming a person is an owner ACTION, something only that
+person can perform. A card parked on a person who has nothing to perform reads,
+to every later session and to the digest, as work the owner is holding up. It
+also inflates the blocked-on-people lane, which is the one lane the owner is
+expected to act on, with an item he cannot act on.
+
+**Unblocks:** AUT-3 itself: `blocked_on` is cleared.
+**Also changes:** AUT-3 `status`, `blocked_on`, `acceptance` and `notes`.
+**Supersedes:** the `blocked_on: ivan` set when AUT-3 was authored.
+
+### R-037 - P2-13 gains a dependency on P2-08b, so the credential firewall cannot flip before the live round trip
+**Date:** 2026-08-27
+**Asked on:** P2-13, P2-08b
+**Answer, verbatim:**
+> P2-13 depends_on gains P2-08b. The credential firewall must not flip before
+> the live extraction round trip completes, or a finding from that round trip
+> cannot be fixed.
+
+**Ruling:** `P2-13.depends_on` gains `P2-08b`, alongside the existing `P2-15`.
+
+**What P2-13 actually does, and why the order is load-bearing.** P2-13 is the
+end of the temporary grant in `CLAUDE.md` section 8: it reverts section 8 to
+Ivan-only applies with no database connection from any terminal, and it rotates
+`SUPABASE_DB_PASSWORD` and `SUPABASE_SERVICE_ROLE_KEY`. After it lands, no
+terminal can apply a migration.
+
+**P2-08b is the first time a real supplier document travels the whole path** -
+upload, Make scenario, extraction, confirm - against the frozen contract. That
+is exactly the run that discovers a mapping or a constraint that the seven
+synthetic cases did not. A finding from it is usually a migration.
+
+If the firewall flips first, that migration has no one who can apply it until
+the owner does it by hand, and the round trip that found it has to be re-run to
+prove the fix. Ordering the two costs nothing, because P2-13 is already waiting
+on P2-15 and cannot start today either way.
+
+**This is not a softening of the expiry in section 8.7.** The grant still dies
+at P2-13. This ruling fixes when P2-13 runs, not whether it does.
+
+**Unblocks:** nothing. It adds an edge, it does not remove one.
+**Also changes:** `P2-13.depends_on`, and P2-13 `notes` carrying the reason.
+**Supersedes:** none.
+
+### R-038 - the digest is written for the owner, and internal mechanics are cut from it
+**Date:** 2026-08-27
+**Asked on:** the Telegram digest. POC-BUILDER tracks this work as AUT-5, which
+is harness work and deliberately not a card on the product board
+**Answer, verbatim:**
+> The digest is written for the owner, not for the strategy role. Card ids,
+> ruling ids, PR numbers, CI states and claim mechanics are internal and do not
+> belong in it.
+
+**Ruling:** The Telegram digest has one reader, Ivan, and it is written in
+ordinary business English about the product.
+
+**Cut from the digest, by name:** card ids, ruling ids, PR numbers, CI check
+states, claim and lease mechanics, branch names, file paths, migration numbers
+and role names. None of them are secret. They are simply the build's internal
+vocabulary, and the digest is not addressed to anyone who speaks it.
+
+**Kept:** what changed for the product, what is now possible that was not
+yesterday, what is waiting on the owner in terms of the thing he must do, and
+what is waiting on someone else with the person named.
+
+**Why this is a rule and not a preference.** A digest that reads as a list of
+card ids and green checks trains its only reader to skip it. The moment he skips
+it, the escalation path built through it stops working, and the unattended runs
+lose the one channel that carries a question out to a human.
+
+**The digest is the second surface this applies to, not the only one.** The
+board's own cards are the first: every card carries a `plain` field saying what
+it means for the product and for Mihai, authored under AUT-7. One vocabulary for
+the internals, one for the owner, and the boundary is written down rather than
+left to whoever composes the next message.
+
+**Unblocks:** the plain-language digest, which POC-BUILDER holds.
+**Also changes:** the digest composer. Card `plain` fields land under AUT-7.
+**Supersedes:** none.
