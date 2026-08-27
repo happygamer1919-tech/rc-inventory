@@ -15,7 +15,7 @@
 //   node scripts/poc/notify.mjs --test
 //
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyse, daysSince } from "./eligible.mjs";
@@ -104,6 +104,40 @@ function recommendationOf(card) {
 // ---------------------------------------------------------------------------
 // The digest
 // ---------------------------------------------------------------------------
+/**
+ * The newest committed report, by the AUT-1 naming convention.
+ *
+ * CLAUDE.md section 9b: a terminal's final act is to commit its full report to
+ * docs/reports/<YYYY-MM-DD>-<role>-<slug>.md. The digest carries the PATH so the
+ * report is reachable by whoever reads the message, and so the next role in the
+ * chain has a name to open rather than a scrollback to hope for.
+ *
+ * READ FROM DISK RATHER THAN FROM state.json, deliberately. The digest is sent
+ * before the state PR is written, so a path routed through state would always be
+ * one run stale. The directory is the source of truth and it is right here.
+ *
+ * The two files that predate the convention carry no date prefix and are
+ * correctly ignored by the filter.
+ */
+function newestReport() {
+  const dir = path.join(REPO_ROOT, "docs", "reports");
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch (error) {
+    // ONLY a missing directory is an expected outcome. Anything else is a
+    // defect in this file, and a bare catch here already hid one once: an
+    // unimported binding threw a ReferenceError and the digest reported "none
+    // committed" about a report that was sitting on disk.
+    if (error && error.code === "ENOENT") return null;
+    throw error;
+  }
+  const dated = names
+    .filter((n) => /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$/.test(n))
+    .sort();
+  return dated.length > 0 ? "docs/reports/" + dated[dated.length - 1] : null;
+}
+
 function buildDigest() {
   const board = readJson(BOARD_PATH, { cards: [] });
   const state = readJson(STATE_PATH, {});
@@ -288,6 +322,11 @@ function buildDigest() {
       lines.push("Open PRs: could not be read");
     }
   }
+  lines.push("");
+
+  // 3b. The report this run committed, by path. AUT-1.
+  const report = newestReport();
+  lines.push("REPORT: " + (report || "none committed"));
   lines.push("");
 
   // 4. Escalations raised, newest first.
