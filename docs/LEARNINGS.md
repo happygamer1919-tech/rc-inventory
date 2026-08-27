@@ -871,3 +871,73 @@ that line removed.
 RULE: to test a safety mechanism, exercise the mechanism, not the disaster it
 prevents. If your proof requires the unsafe thing to actually be attempted, you
 have written a test that is only safe while it is unnecessary.
+
+### Verify before escalating: "pasted output only" applies to counts, not only to applies
+**Tag:** ci
+**ERROR:** A terminal report carried an unverified line: the production product
+count had moved from 304 to 305, "one more product arrived from somewhere after
+the CRIT-11 guard landed", flagged and not investigated. That sentence was
+escalated into the headline of the next dispatch, as a suspected guard failure
+with client data at stake, without anyone first demanding the one query that
+would settle it.
+It was false. The row predates the guard by two hours and forty one minutes and
+was created by the CRITIC's own documented live concurrency test. The whole
+investigation was three queries: newest `created_at`, the guard's merge
+timestamp, and a comparison.
+Two failures stacked, and the second is the expensive one. The terminal asserted
+a date it had not checked. Then the claim was promoted rather than checked, and
+a dispatch was built on top of it: highest-priority forensics, a reopened card,
+and a ruling drafted against a premise nobody had tested.
+**SOLUTION:** the standing rule for migrations, that an apply is only believed
+with its pre-check and post-check output pasted, is not about migrations. It is
+about **counts and states of the client's database**, whoever reports them and
+whatever they are reporting. A row count, a "this changed", a "this appeared" is
+a claim about production and carries the same evidentiary bar as an apply: the
+query and its output, or it is not yet a fact.
+RULE: escalation multiplies whatever it carries, including the errors. Before a
+report becomes a dispatch premise, demand the output. It is cheaper to ask for
+one query than to build a day of work on a sentence nobody ran.
+
+### A test for a safety guard must not be able to cause the defect it tests
+**Tag:** ci
+**ERROR:** No defect shipped, recorded because the obvious design was the
+dangerous one and it was nearly built. CRIT-15 needed to prove that the
+production guard refuses on the CI path. The instinct is to point the Playwright
+suite at a production URL in a CI step and assert the run fails.
+That test is exactly as safe as the guard it tests. If the guard has already
+broken, which is the single scenario the card exists to detect, the suite starts
+and writes rows into the client's project. The test reports the defect **by
+causing it**, and it is only safe while it is unnecessary.
+**SOLUTION:** run the guard as its own process and assert its exit code.
+`node scripts/assert-not-prod.mjs` with a production ref in the environment must
+exit 2, and the step fails the job on anything else. Nothing else starts, no
+browser launches, no client connects, and the proof is identical because the
+guard IS the thing under test. The ref needed no secret: it is already committed
+in `scripts/production-refs.mjs` and already public in every browser bundle.
+RULE: to test a safety mechanism, exercise the mechanism, never the disaster it
+prevents. If the proof requires the unsafe thing to actually be attempted, the
+test has the same failure mode as the system.
+
+### A credential-firewall card belongs after every card that needs the credentials it revokes
+**Tag:** infra
+**ERROR:** P2-13 revokes the migration-apply grant, rotates every credential and
+retires the dev accounts. P2-15 deletes the e2e residue from production. Both
+were sequenced ahead of P2-08, P2-09 and P2-11, which are the remaining build
+cards, and P2-08 in particular still needs a migration to store extraction
+drafts. Following the board as authored would have rotated the credentials and
+revoked the grant while cards that require both were still unbuilt, and the next
+session would have hit a card it could not work through a door it had just
+locked behind itself.
+The ordering was correct when it was written. Domain work and handover sat at
+the end of the build, and the build tail was short. Then P2-08 was parked on a
+third party for days while everything around it shipped, and the tail outlived
+the assumption.
+**SOLUTION:** the firewall card depends on the last card that needs what it
+revokes, expressed as a `depends_on` edge rather than as a position in the list.
+P2-15 now depends on P2-09 and P2-11; P2-13 depends on P2-15. An edge is checked
+by the validator on every commit; a position in a list is checked by whoever
+happens to notice.
+RULE: a card that removes a capability is ordered by the capability, not by the
+calendar. Ask what the card takes away, find every card that needs it, and make
+those the dependencies. And when a card sits parked on someone else long enough
+to change the shape of the tail, re-examine the edges that assumed the old shape.
