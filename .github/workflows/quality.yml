@@ -62,6 +62,18 @@ jobs:
       - name: Check the category vocabulary
         run: npm run check:categories
 
+      # P2-19. scripts/ledger-rows-0010-0012.sql is GENERATED from the three
+      # migration files whose ledger rows were never written, and it embeds
+      # their text, so the words DROP and DELETE appear inside its string
+      # literals. This step regenerates it in memory and diffs it against the
+      # committed file, then parses the committed file with the real PostgreSQL
+      # grammar and asserts what the statements actually are: one transaction
+      # opener, four selects, three inserts, all three into
+      # supabase_migrations.schema_migrations, and no COMMIT, so the owner
+      # decides. A grep cannot tell a statement from a quoted string; this can.
+      - name: Check the migration ledger rows
+        run: npm run check:ledger-rows
+
       # CRIT-15, static half. Proves nothing in CI points at production in the
       # first place, and that the guard is still wired into the suite. Deleting
       # the globalSetup line would disable the guard everywhere and break
