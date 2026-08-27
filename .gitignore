@@ -11,6 +11,8 @@ scratchpad/*.log
 docs/board/rc-board-phase2.rendered.html
 scratchpad/*.mjs
 scratchpad/*.py
+scratchpad/*.sh
+scratchpad/*.txt
 test-results/
 playwright-report/
 
