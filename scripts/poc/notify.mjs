@@ -19,6 +19,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyse, daysSince } from "./eligible.mjs";
+import { buildPlainDigest, assertPlain, jargonWarnings } from "./plain-digest.mjs";
+import { writeFileSync } from "node:fs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
@@ -566,24 +568,66 @@ async function sendTo(token, chatId, text) {
 }
 
 // ---------------------------------------------------------------------------
-const text = isTest
-  ? [
-      "RC inventory, POC digest test",
-      new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC",
-      "",
-      "This is the test digest for POC step 4. The unattended loop is being",
-      "installed. Nothing on the board changed and no card was worked.",
-      "",
-      "From now on you will get one of these after every scheduled run, at",
-      "22:00, 01:00, 04:00 and 07:00 local, including runs that did nothing.",
-      "",
-      "To answer a blocked card, reply in one of exactly two forms:",
-      "  R P2-12 default",
-      "  R P2-12: your instruction here",
-      "",
-      "Anything else in this group is logged and never acted on.",
-    ].join("\n")
-  : buildDigest();
+const FULL_DIGEST_DIR = "/Users/ivan/rc-poc-logs";
+
+// AUT-5. Two digests, and only one of them is sent.
+//
+// The plain digest goes to Telegram. The full technical digest is written to a
+// log file that nothing links to and nothing announces: it exists for
+// POC-BUILDER reading the logs, not for Ivan, and giving him a path to it would
+// put a file path back into the message the path was removed from.
+function renderBoth() {
+  const board = readJson(BOARD_PATH, { cards: [] });
+  const state = readJson(STATE_PATH, {});
+  const runId = args["run-id"] || state.run_id || "manual";
+
+  const plain = buildPlainDigest(board, state, { cards: args.cards });
+  const full = buildDigest();
+
+  try {
+    writeFileSync(
+      FULL_DIGEST_DIR + "/" + runId + ".full-digest.txt",
+      "FULL DIGEST, run " + runId + "\n" +
+        "Written for POC-BUILDER. Not sent, not linked, not announced.\n" +
+        "The message Ivan received is the plain digest at the end of this file.\n\n" +
+        full +
+        "\n\n=== what was actually sent ===\n\n" + plain.text + "\n"
+    );
+  } catch {
+    // A log that cannot be written must not cost the digest that can be sent.
+  }
+
+  return plain;
+}
+
+const testText = [
+  "Test message from the build. Nothing on the job list changed.",
+  "",
+  "From now on these updates say what got done, what needs you, and what",
+  "someone else owes. Nothing you cannot act on.",
+].join("\n");
+
+const plainResult = isTest ? { text: testText, gaps: [], words: 0 } : renderBoth();
+const text = plainResult.text;
+
+// The rules are enforced at send time, not only in the test. A digest that
+// leaked an id would be the one nobody checked.
+if (!isTest) {
+  const violations = assertPlain(text);
+  if (violations.length > 0) {
+    console.error("WARNING: the plain digest carries internal references: " + violations.join("; "));
+  }
+  const warnings = jargonWarnings(text);
+  if (warnings.length > 0) {
+    console.error("note: jargon via fallback titles: " + warnings.join(", "));
+  }
+  if (plainResult.gaps.length > 0) {
+    console.error(
+      "note: " + plainResult.gaps.length + " card(s) have no plain field, titles used and gap flagged"
+    );
+  }
+  console.error("plain digest: " + plainResult.words + " words");
+}
 
 if (args["dry-run"] === "true") {
   console.log(text);
