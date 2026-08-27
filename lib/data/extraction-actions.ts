@@ -21,6 +21,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
+import { ALL_UNITS } from "./units";
 import {
   ACCEPTED_MIME,
   DOCS_BUCKET,
@@ -128,12 +129,15 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
   const supabase = await createClient();
   const { data: draft } = await supabase
     .from("extraction_drafts")
-    .select("order_id, document_path, document_filename, mime_type, size_bytes, confirmed_inbound_order_id")
+    .select("order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at")
     .eq("order_id", orderId)
     .maybeSingle();
 
   if (!draft) return { ok: false, message: "Documentul nu mai există." };
-  if (draft.confirmed_inbound_order_id) return { ok: false, message: "Ciorna a fost deja confirmată." };
+  // confirmed_at, NU cheia straina catre comanda: aceea poarta on delete set
+  // null si poate redeveni null, iar o ciorna consumata ar redeveni retrimisa.
+  // Antetul migratiei 0011 poarta motivul intreg.
+  if (draft.confirmed_at) return { ok: false, message: "Ciorna a fost deja confirmată." };
 
   // Starea se sterge inaintea retrimiterii, ca ecranul sa arate "in lucru" si
   // nu motivul vechi al unui esec pe care tocmai l-am reincercat.
@@ -208,16 +212,6 @@ export async function confirmExtractionDraft(
 
   const supabase = await createClient();
 
-  // O categorie de rezerva pentru produsele marcate: coloana este NOT NULL, si
-  // needs_review este semnalul ca randul asteapta mana operatorului oricum.
-  const { data: firstCategory } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("active", true)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
   const resolved: { product_id: string; quantity: number; unit_price: number | null }[] = [];
   let flagged = 0;
 
@@ -240,9 +234,35 @@ export async function confirmExtractionDraft(
       const name = raw.productName.trim();
       if (name.length === 0) continue;
 
-      const categoryId = raw.categoryId.trim() || (firstCategory?.id as string | undefined);
+      // CATEGORIA SI UNITATEA SE ALEG, NU SE GHICESC.
+      //
+      // Amandoua sunt NOT NULL pe products, deci ceva trebuie sa ajunga acolo,
+      // si "ceva" era prima categorie activa si "pcs". Un produs asezat tacut
+      // intr-o categorie reala arata exact ca unul asezat corect, iar o unitate
+      // gresita reinterpreteaza fiecare cantitate stocata pe el pentru
+      // totdeauna: coloana este fixata la prima referinta, prin P2-03.
+      //
+      // Contractul, sectiunea 4.4, spune acelasi lucru despre maparea
+      // categoriei: se valideaza fata de randurile din categories prezente la
+      // momentul extragerii, iar ce nu se mapeaza ramane null. category_raw si
+      // unit_raw poarta oricum cuvintele documentului, deci nimic nu se pierde
+      // cand maparea nu gaseste nimic; ce lipseste il alege operatorul, pe
+      // ecran, o data.
+      const categoryId = raw.categoryId.trim();
       if (!categoryId)
-        return { ok: false, message: "Nu există nicio categorie în care să fie pus produsul nou." };
+        return {
+          ok: false,
+          message: `Alege categoria pentru produsul nou "${name}".`,
+          field: "lines",
+        };
+
+      const unit = raw.unit.trim();
+      if (!ALL_UNITS.includes(unit as (typeof ALL_UNITS)[number]))
+        return {
+          ok: false,
+          message: `Alege unitatea de măsură pentru produsul nou "${name}".`,
+          field: "lines",
+        };
 
       const { data: created, error: createError } = await supabase
         .from("products")
@@ -250,7 +270,7 @@ export async function confirmExtractionDraft(
           sku: flaggedSku(name),
           name,
           category_id: categoryId,
-          unit: raw.unit.trim() || "pcs",
+          unit,
           threshold: 0,
           unit_value_mdl: 0,
           supplier_name: supplierName,

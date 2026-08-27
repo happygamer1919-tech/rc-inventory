@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
 
 const DRAFT_COLUMNS =
-  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, confidence, fired_at, callback_at, confirmed_inbound_order_id";
+  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, confidence, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
 
 const LINE_COLUMNS =
   "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw, confidence";
@@ -87,7 +87,11 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   const { data: drafts } = await supabase
     .from("extraction_drafts")
     .select(DRAFT_COLUMNS)
-    .is("confirmed_inbound_order_id", null)
+    // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
+    // catre comanda poarta on delete set null, deci poate redeveni null, iar o
+    // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
+    // confirmed_at nu il scrie nimic altceva decat o confirmare.
+    .is("confirmed_at", null)
     .order("fired_at", { ascending: false, nullsFirst: false });
 
   const rows = (drafts ?? []) as Record<string, unknown>[];

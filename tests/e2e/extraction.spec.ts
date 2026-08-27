@@ -118,7 +118,11 @@ function post(
 ) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (secret !== null) headers["x-rc-callback-secret"] = secret;
-  return request.post(CALLBACK, { headers, data: body });
+  // maxRetries reincearca EXCLUSIV ECONNRESET, la nivel de socket, si niciodata
+  // in functie de codul de raspuns. Vezi nota din review.spec: retries ramane 0
+  // pentru teste, iar aceasta acopera un socket keep-alive inchis de serverul de
+  // dezvoltare exact cand clientul scrie pe el.
+  return request.post(CALLBACK, { headers, data: body, maxRetries: 2 });
 }
 
 /** Ciorna, citita prin ecranul de comenzi. P2-09 construieste ecranul de
@@ -130,6 +134,7 @@ async function draftState(request: APIRequestContext, orderId: string) {
   // uuid.
   const r = await request.get(`${CALLBACK}?order_id=${orderId}`, {
     headers: { "x-rc-callback-secret": MAKE_CALLBACK_SECRET },
+    maxRetries: 2,
   });
   return r.ok() ? await r.json() : null;
 }

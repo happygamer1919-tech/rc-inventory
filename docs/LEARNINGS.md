@@ -1089,3 +1089,70 @@ CLAUDE.md 8.4 forbids guessing a hostname, and reading one back out of a
 committed journal is not guessing. Rule: when a derived connection is refused,
 search this repository for the same error before touching the credential. This
 project has hit it once already and paid for the answer.
+
+### A referential action can break a CHECK constraint the application never violates
+**Tag:** data
+**ERROR:** Migration 0010 added `confirmed_inbound_order_id` with
+`on delete set null`, and next to it a CHECK saying the two confirmation columns
+are either both null or both set. Read as a statement about what the application
+writes, it is exactly right: a draft must not claim to have produced an order
+without saying when. Read as a statement about the row, it is false, because the
+column is not only written by the application. Deleting an inbound order fires
+the referential action, which NULLs the pointer while `confirmed_at` stays, and
+the row the constraint calls impossible now exists. PostgreSQL refuses the
+delete with `23514` and rolls back the whole transaction that attempted it.
+Nothing in CI would have caught it: no test deletes an inbound order, and the
+one file that does, `scripts/reset-test-data.sql`, is **parsed** in CI rather
+than executed. The first run would have been the owner, in the SQL editor,
+against production, on the day before first real data.
+**SOLUTION:** the constraint was replaced (0011) with the implication rather
+than the equivalence: `confirmed_inbound_order_id is null or confirmed_at is not
+null`. A row that names an order carries a time; a row whose order was deleted
+keeps the time, which is the honest record - the draft WAS confirmed and the
+order it became is gone. Everything that asks "has this been confirmed" now
+reads `confirmed_at`, which nothing but a confirm writes, instead of a pointer a
+delete elsewhere can erase.
+RULE: before writing a CHECK across two columns, ask what else can write either
+of them. A foreign key with `on delete set null` or `on delete set default` is a
+second author, and a constraint that assumes the application is the only one is
+a delete that fails somewhere far away, long after the migration is applied.
+
+### A socket reset is not a test failure, and the fix is not a retry policy
+**Tag:** ci
+**ERROR:** `review.spec` case 4 failed in CI with `apiRequestContext.post: read
+ECONNRESET` before a single assertion had run. The other sixty cases passed, the
+same case had passed in the previous run, and the dev server logged nothing. The
+tempting reading is "flaky test, re-run it", and the tempting fix is `retries: 1`
+in the Playwright config. Both are wrong here, and the config says why in as many
+words: a retry hides a race between requests, and a race in a stock system is a
+wrong number in a warehouse.
+**SOLUTION:** the failure is at the transport, not in the assertion: a Node HTTP
+server closes an idle keep-alive socket after five seconds, and a client that
+writes to it at that instant reads a reset. `maxRetries` on the individual
+request retries **only `ECONNRESET`** and never on a response code, so a `200`
+where a `401` was expected still fails exactly as loudly. `retries` stays `0`.
+RULE: read what actually failed before deciding what to repair. A failure with
+no assertion in it is a failure of the harness or the transport, and the repair
+belongs there, at the narrowest scope that covers it. A suite-wide retry would
+have bought the same green while hiding every real race the suite exists to
+catch.
+
+### A cleanup script only knows the schema it was written against
+**Tag:** data
+**ERROR:** Found while working P2-09, recorded rather than fixed because the
+file belongs to another card. `scripts/reset-test-data.sql` selects the rows to
+delete with `where sku like 'TEST-%'`, which was every test product when it was
+written. P2-09's review lane creates flagged products from unmatched extracted
+names, and their SKUs are `EXT-<slug>-<hex>`. The reset does not match them, so
+every acceptance run leaves catalogue rows behind; worse, the inbound orders
+those lines belong to then contain a product that is not in the delete set, so
+the order is classified "mixed" and is not deleted either. The file is correct
+against the schema of the day it was authored and quietly incomplete against the
+one that exists now, and its own post-check would still report zero, because it
+counts what it selected.
+**SOLUTION:** written onto the P2-15 card, which owns the script and has not run
+yet, so it can be corrected before the owner executes it. RULE: a cleanup
+selector is a claim about what test data looks like, and it goes stale the moment
+a card adds a new way to create a row. Every card that introduces a new row
+shape checks the reset script for it, and a post-check that counts only what the
+script selected cannot notice the gap.

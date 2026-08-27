@@ -66,6 +66,46 @@ async function uploadForExtraction(
   return orderId;
 }
 
+/** O categorie din cele 18 semanate de migratia 0007, folosita ca sa se vada
+ *  diferenta dintre o categorie MAPATA si una care nu exista in vocabular. */
+const MAPPED_CATEGORY = "Acoperișuri și tablă";
+
+/** Un produs asezat in catalog prin ecranul real, nu prin baza de date. */
+async function createCatalogProduct(
+  page: Page,
+  p: { sku: string; name: string; category: string; unit: string; unitValue: string },
+) {
+  await page.goto("/inventar");
+  await page.getByTestId("product-new").click();
+  await page.getByTestId("field-sku").fill(p.sku);
+  await page.getByTestId("field-name").fill(p.name);
+  await page.getByTestId("field-category").selectOption({ label: p.category });
+  await page.getByTestId("field-unit").selectOption(p.unit);
+  await page.getByTestId("field-unit-value").fill(p.unitValue);
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator(`[data-testid="product-row"][data-sku="${p.sku}"]`)).toHaveCount(1, {
+    timeout: 20_000,
+  });
+}
+
+/** O linie de callback, cu numele dat si restul de pe documentul Bilka. */
+function extractedLine(productName: string, over: Record<string, unknown> = {}) {
+  return {
+    product_name: productName,
+    quantity: 240.5,
+    unit: "m2",
+    unit_raw: "mp",
+    unit_price: 76.72,
+    line_total: 18452.36,
+    currency: "MDL",
+    currency_raw: "lei",
+    category: null,
+    category_raw: "Invelitori",
+    confidence: 0.91,
+    ...over,
+  };
+}
+
 function callbackBody(orderId: string, over: Record<string, unknown> = {}) {
   return {
     order_id: orderId,
@@ -108,6 +148,23 @@ function callbackBody(orderId: string, over: Record<string, unknown> = {}) {
   };
 }
 
+/** Cate reincercari are voie o cerere de MASINA pe o eroare de retea.
+ *
+ *  NU ESTE O REINCERCARE DE TEST, si distinctia este toata poanta.
+ *  playwright.config.ts pastreaza retries: 0 fiindca o reincercare de test
+ *  ascunde o competitie intre cereri, iar o competitie intr-un sistem de
+ *  stocuri este un numar gresit intr-un depozit.
+ *
+ *  maxRetries reincearca EXCLUSIV ECONNRESET, la nivel de socket, si niciodata
+ *  in functie de codul de raspuns: un 200 acolo unde se astepta 401 pica exact
+ *  ca inainte. Ce acopera este singurul lucru pe care l-a produs: serverul de
+ *  dezvoltare inchide un socket keep-alive inactiv exact cand clientul scrie pe
+ *  el, ceea ce a picat cazul 4 in rularea 33060949565 cu "read ECONNRESET"
+ *  inainte ca vreo aserttiune sa fi rulat. Un client de masina adevarat, ca
+ *  Make, deschide o conexiune noua pentru fiecare livrare; specul se poarta la
+ *  fel in loc sa fie pedepsit pentru ca isi refoloseste socketul. */
+const MACHINE_RETRIES = 2;
+
 function post(request: APIRequestContext, body: unknown) {
   return request.post(CALLBACK, {
     headers: {
@@ -115,6 +172,7 @@ function post(request: APIRequestContext, body: unknown) {
       "x-rc-callback-secret": MAKE_CALLBACK_SECRET,
     },
     data: body,
+    maxRetries: MACHINE_RETRIES,
   });
 }
 
@@ -122,6 +180,7 @@ function post(request: APIRequestContext, body: unknown) {
 async function draftState(request: APIRequestContext, orderId: string) {
   const r = await request.get(`${CALLBACK}?order_id=${orderId}`, {
     headers: { "x-rc-callback-secret": MAKE_CALLBACK_SECRET },
+    maxRetries: MACHINE_RETRIES,
   });
   return r.ok() ? await r.json() : null;
 }
@@ -218,54 +277,116 @@ test.describe("Verificare si confirmare extragere", () => {
     request,
   }) => {
     await signIn(page, ownerAccount());
+
+    // UN SKU DELIBERAT ASEMANATOR, ASEZAT IN CATALOG INAINTE DE EXTRAGERE.
+    //
+    // Fara el, "nu s-a lipit pe un SKU asemanator" ar fi o afirmatie despre un
+    // catalog care nu continea nimic asemanator, adica despre nimic. Randul de
+    // mai jos poarta acelasi nume ca linia extrasa plus un sufix, ceea ce este
+    // exact forma pe care o potrivire aproximativa ar inghiti-o: acelasi
+    // furnizor, acelasi produs, alta varianta.
+    const extracted = `Tigla metalica Bilka Classic 0.45mm visiniu ${RUN}`;
+    const similarSku = `TEST-SIM-${RUN}`;
+    await createCatalogProduct(page, {
+      sku: similarSku,
+      name: `${extracted} PLUS`,
+      category: MAPPED_CATEGORY,
+      unit: "m2",
+      unitValue: "10",
+    });
+
     const orderId = await uploadForExtraction(page, request, "flag");
 
-    // Numele nu exista in catalog si nu seamana cu nimic din el.
-    const unknown = `Produs necunoscut extras ${RUN}`;
+    // --- CALLBACK A: o categorie care NU este in vocabularul controlat -------
+    //
+    // Contract 4.4: category se valideaza fata de randurile din categories, si
+    // ce nu se mapeaza ramane null. category_raw pastreaza cuvintele
+    // documentului, deci nu se pierde nimic in afara de o pretentie.
     expect(
       (
         await post(
           request,
           callbackBody(orderId, {
-            lines: [
-              {
-                product_name: unknown,
-                quantity: 3,
-                unit: "pcs",
-                unit_raw: "buc",
-                unit_price: 25.5,
-                line_total: 76.5,
-                currency: "MDL",
-                currency_raw: "lei",
-                category: null,
-                category_raw: null,
-                confidence: 0.8,
-              },
-            ],
+            lines: [extractedLine(extracted, { category: "Categorie inventata de model" })],
           }),
         )
       ).status(),
     ).toBe(202);
 
+    const unmapped = await draftState(request, orderId);
+    expect(unmapped.lines).toHaveLength(1);
+    // NU S-A GHICIT NIMIC: null, si cuvintele documentului intacte.
+    expect(unmapped.lines[0].category).toBeNull();
+    expect(unmapped.lines[0].category_raw).toBe("Invelitori");
+
     await page.goto(UPLOAD);
     await openReview(page, orderId);
 
-    // NIMIC NU S-A LIPIT SINGUR PE UN SKU ASEMANATOR: selectorul de produs este
+    // NIMIC NU S-A LIPIT SINGUR PE SKU-UL ASEMANATOR: selectorul de produs este
     // gol, si asta este ce face din linie un produs marcat la confirmare.
     await expect(page.getByTestId("review-line-product-0")).toHaveValue("");
+    // Nici categoria nu s-a ghicit, si documentul isi arata cuvintele.
+    await expect(page.getByTestId("review-line-category-0")).toHaveValue("");
+    await expect(page.getByTestId("review-line-category-raw-0")).toContainText("Invelitori");
+    // Unitatea S-A mapat, deci ea este precompletata: mapat si ghicit nu sunt
+    // acelasi lucru, si diferenta se vede pe ecran.
+    await expect(page.getByTestId("review-line-unit-0")).toHaveValue("m2");
+    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("mp");
+
+    // Si confirmarea REFUZA pana cand categoria este aleasa de om.
+    await page.getByTestId("review-expected-at").fill("2026-12-03");
+    await page.getByTestId("review-confirm").click();
+    await expect(page.getByTestId("review-error")).toContainText("Alege categoria");
+
+    // --- CALLBACK B: aceeasi extragere, cu o categorie din cele 18 ----------
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            lines: [extractedLine(extracted, { category: MAPPED_CATEGORY })],
+          }),
+        )
+      ).status(),
+    ).toBe(200);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    // De data aceasta categoria ESTE precompletata, fiindca a fost mapata.
+    await expect(page.getByTestId("review-line-category-0")).not.toHaveValue("");
+    expect(
+      (await page.getByTestId("review-line-category-0").locator("option:checked").innerText()).trim(),
+    ).toBe(MAPPED_CATEGORY);
 
     await page.getByTestId("review-expected-at").fill("2026-12-03");
     await page.getByTestId("review-confirm").click();
-    await expect(page.getByTestId("review-created")).toBeVisible({ timeout: 30_000 });
+    const created = page.getByTestId("review-created");
+    await expect(created).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("review-flagged")).toContainText("marcat");
+    const reference = (await created.getAttribute("data-reference")) ?? "";
 
     // Produsul exista in catalog, cu numele de pe document, VERBATIM, si cu
     // needs_review pus.
     await page.goto("/inventar");
-    const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
+    const product = page.locator(`[data-testid="product-row"][data-name="${extracted}"]`);
     await expect(product).toHaveCount(1, { timeout: 20_000 });
     await expect(product).toHaveAttribute("data-needs-review", "true");
     await expect(product).toContainText("De verificat");
+
+    // SI PRODUSUL ASEMANATOR A RAMAS EXACT CUM ERA. Nu a primit linia, nu a
+    // fost marcat, nu a fost atins. Aceasta este jumatatea pe care un catalog
+    // gol nu o poate dovedi.
+    const similar = page.locator(`[data-testid="product-row"][data-sku="${similarSku}"]`);
+    await expect(similar).toHaveCount(1);
+    await expect(similar).toHaveAttribute("data-needs-review", "false");
+
+    // Iar comanda creata poarta produsul NOU, nu pe cel asemanator.
+    await page.goto("/comenzi");
+    await page.locator(`[data-testid="inbound-item"][data-reference="${reference}"]`).click();
+    const lines = page.getByTestId("inbound-lines");
+    await expect(lines).toContainText(extracted, { timeout: 20_000 });
+    await expect(lines).not.toContainText(similarSku);
   });
 
   test("4. un document failed este vizibil, cu motivul si codul in romana", async ({

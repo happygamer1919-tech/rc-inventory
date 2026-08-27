@@ -352,3 +352,74 @@ policies refuse.
 `products=305` and `inbound_orders=181` are test rows, not client data: they are
 what P2-15's reset script exists to remove before first real data. The R-001
 grant's condition, zero REAL client data, still holds.
+
+## 0011_extraction_confirm_corrections
+
+- **Version:** 0011
+- **Name:** extraction_confirm_corrections
+- **Actor:** EXECUTOR
+- **Applied at:** NOT APPLIED. See "Why this entry exists unapplied" below.
+- **Authority:** ruling R-012 (board-wide secrets read until P2-13), card P2-09
+- **Card:** P2-09
+- **Destructive statements:** none of the three named by CLAUDE.md 8.6. 0
+  `DROP TABLE`, 0 `TRUNCATE`, 0 `DELETE`. **One near-miss, named rather than
+  buried:** the file contains `alter table ... drop constraint`, which removes a
+  CHECK expression and no row, and which is the only way a constraint can be
+  relaxed. Flagged here and in the PR so the owner can rule otherwise if he
+  reads the rule wider than it is written.
+- **Parsed before applying:** yes, with `pgsql-parser`, the real PostgreSQL
+  grammar. **13 statements:** 2 `TransactionStmt`, 2 `AlterTableStmt`
+  (`AT_DropConstraint` then `AT_AddConstraint`, both on
+  `public.extraction_drafts`), 2 `CommentStmt`, 1 `CreateFunctionStmt`,
+  3 `GrantStmt`, 1 `AlterDefaultPrivilegesStmt`, 2 verification `SelectStmt`.
+  Forbidden statements found: none.
+
+### Why this entry exists unapplied
+
+The apply was attempted and **the terminal was refused by its own sandbox**, not
+by any rule in this repository. R-012 grants the secrets read and CLAUDE.md 8.3
+describes exactly how to perform it; the command that sources
+`/Users/ivan/rc-secrets/phase2.env` and opens a session-pooler connection was
+denied by the harness running this session, twice, and a denial is not retried
+around. Nothing was read, nothing was connected to, and no value was seen.
+
+**The card ships anyway, and this is not a shortcut.** P2-09's acceptance is
+`tests/e2e/review.spec.ts` against the CI stack, and CI replays every migration
+from empty with `supabase db reset`, so 0011 is executed on every push and its
+statements are proven to run against a real PostgreSQL. What is outstanding is
+only the production database, which is a different question from whether the
+file is correct.
+
+### What production looks like until it is applied
+
+Coherent, and no screen behaves differently. 0010 is applied, so every column
+the application reads exists. The two things production does not yet have:
+
+1. **The corrected CHECK.** `extraction_drafts_confirmed_pair` is still the
+   equivalence form, so deleting an inbound order that a confirmed draft points
+   at fails with `23514`. Nothing in the application deletes an inbound order.
+   The one file that does is `scripts/reset-test-data.sql`, which belongs to
+   **P2-15 and has not run**, so the correct ordering is simply: apply 0011
+   before P2-15 is executed. Written onto the P2-15 card.
+2. **The function grants.** `confirm_extraction_draft` is executable by
+   `PUBLIC`, and `anon` is a member of `PUBLIC`. Nothing is reachable through
+   it: the function is `SECURITY INVOKER`, 0009 revoked every table privilege
+   from `anon`, and every RLS policy is `to authenticated`, so an anonymous
+   caller is refused twice over. It is the same shape as 0008's table grant,
+   with the same conclusion: the missing layer is the first of two and the
+   second is holding.
+
+### The apply command, for whoever runs it
+
+Three phases per CLAUDE.md 8.5, connection derived per 8.4 (session pooler
+`aws-1-eu-west-1`, port 5432, user `postgres.<ref>`, `PGPASSWORD` from
+`SUPABASE_DB_PASSWORD`, never a connection string). The file carries its own
+`begin`/`commit`, so `psql -v ON_ERROR_STOP=1 -f
+supabase/migrations/0011_extraction_confirm_corrections.sql` is the whole apply,
+and the two `select` statements after `commit` are the post-check.
+
+**The post-check to read is the reachability one, not the counting one**, per
+the learning added on 2026-08-27: expect `anon_can_execute = false` on every row
+of the function listing, `authenticated_can_execute = true` on every function
+the application calls, and `set_updated_at` false, which is correct because a
+trigger function is only ever reached through its trigger.

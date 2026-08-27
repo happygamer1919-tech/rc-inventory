@@ -19,6 +19,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
 import { EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
+import { ALL_UNITS, unitLabel } from "@/lib/data/units";
 import type { ExtractionDraft } from "@/lib/data/extraction-types";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
@@ -62,7 +63,11 @@ function ReviewForm({
       productName: l.productName,
       quantity: l.quantity === null ? "" : String(l.quantity),
       unitPrice: l.unitPrice === null ? "" : String(l.unitPrice),
-      unit: l.unit ?? "pcs",
+      // NICIUN GHICIT AICI. Unitatea si categoria se precompleteaza numai daca
+      // extragerea CHIAR le-a mapat; altfel raman goale si operatorul alege.
+      // Contractul, sectiunea 4.4: ce nu se mapeaza este null, iar unit_raw si
+      // category_raw poarta oricum cuvintele documentului, dedesubt pe ecran.
+      unit: l.unit ?? "",
       categoryId: categories.find((c) => c.name === l.category)?.id ?? "",
     })),
   );
@@ -214,6 +219,70 @@ function ReviewForm({
                 className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
               />
             </label>
+
+            {/* PRODUS NOU: categoria si unitatea se aleg, nu se ghicesc.
+                Amandoua sunt obligatorii pe produs, iar o unitate gresita
+                reinterpreteaza pentru totdeauna fiecare cantitate stocata pe
+                el. Cuvintele documentului stau dedesubt, ca alegerea sa se faca
+                uitandu-te la ce scria acolo. */}
+            {line.productId === "" ? (
+              <div
+                className="col-span-4 grid grid-cols-[1fr_1fr] gap-2.5"
+                data-testid={`review-line-new-${index}`}
+              >
+                <label className="text-[12px] text-rc-muted">
+                  Categorie pentru produsul nou
+                  <select
+                    data-testid={`review-line-category-${index}`}
+                    value={line.categoryId}
+                    onChange={(e) => setLine(index, { categoryId: e.target.value })}
+                    className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                  >
+                    <option value="">Alege categoria</option>
+                    {categories
+                      .filter((c) => c.active)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                  {draft.lines[index]?.categoryRaw ? (
+                    <span
+                      className="mt-1 block text-[11.5px] text-rc-muted-2"
+                      data-testid={`review-line-category-raw-${index}`}
+                    >
+                      Pe document: {draft.lines[index]!.categoryRaw}
+                    </span>
+                  ) : null}
+                </label>
+
+                <label className="text-[12px] text-rc-muted">
+                  Unitate pentru produsul nou
+                  <select
+                    data-testid={`review-line-unit-${index}`}
+                    value={line.unit}
+                    onChange={(e) => setLine(index, { unit: e.target.value })}
+                    className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                  >
+                    <option value="">Alege unitatea</option>
+                    {ALL_UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        {unitLabel(u)}
+                      </option>
+                    ))}
+                  </select>
+                  {draft.lines[index]?.unitRaw ? (
+                    <span
+                      className="mt-1 block text-[11.5px] text-rc-muted-2"
+                      data-testid={`review-line-unit-raw-${index}`}
+                    >
+                      Pe document: {draft.lines[index]!.unitRaw}
+                    </span>
+                  ) : null}
+                </label>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

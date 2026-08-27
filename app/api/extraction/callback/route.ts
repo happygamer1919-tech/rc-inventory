@@ -141,6 +141,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "order_id necunoscut" }, { status: CALLBACK_CODES.rejected });
   }
 
+  // --- vocabularul de categorii, citit INAINTE de orice scriere ------------
+  //
+  // Contract sectiunea 4.4: category se valideaza fata de RANDURILE din
+  // categories prezente la momentul extragerii, nu fata de o constanta compilata
+  // undeva, fiindca lista este randuri pe care clientul le poate redenumi la
+  // P2-14 fara migratie si fara cod. docs/contracts/categories.json este
+  // fotografia acelei liste, nu autoritatea ei.
+  //
+  // CE NU SE MAPEAZA RAMANE null, SI NU SE GHICESTE. category_raw poarta oricum
+  // cuvintele documentului, verbatim, deci nimic nu se pierde: se pierde doar
+  // pretentia ca am recunoscut ceva ce nu am recunoscut. O valoare mapata gresit
+  // ar arata pe ecran exact ca una corecta.
+  //
+  // Citirea sta aici, inaintea primei scrieri, ca esecul ei sa fie 5xx cu nimic
+  // scris, adica exact ce spune sectiunea 6 din contract.
+  const { data: categoryRows, error: categoryError } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("active", true);
+
+  if (categoryError) {
+    return NextResponse.json({ error: categoryError.message }, { status: 500 });
+  }
+  const knownCategories = new Set(
+    (categoryRows ?? []).map((c) => String((c as { name: string }).name)),
+  );
+
   // "Duplicat" inseamna un AL DOILEA CALLBACK, deci se citeste din callback_at,
   // care este scris numai de un callback. Statusul nu raspunde la aceeasi
   // intrebare: un rand poate avea status si nu poate avea callback_at decat
@@ -198,7 +225,10 @@ export async function POST(request: Request) {
         line_total: num(l.line_total),
         currency: str(l.currency),
         currency_raw: str(l.currency_raw),
-        category: str(l.category),
+        category: (() => {
+          const mapped = str(l.category);
+          return mapped !== null && knownCategories.has(mapped) ? mapped : null;
+        })(),
         category_raw: str(l.category_raw),
         confidence: num(l.confidence),
       };
