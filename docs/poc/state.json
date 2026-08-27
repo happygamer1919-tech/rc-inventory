@@ -20,5 +20,10 @@
     }
   ],
   "digest_last_sent": "2026-08-27T15:45:25Z",
-  "claims": {}
+  "claims": {
+    "AUT-7": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-27T17:38:13Z"
+    }
+  }
 }
