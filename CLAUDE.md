@@ -381,6 +381,41 @@ appends three. This file is the reason the same bug is not paid for twice.
 
 ---
 
+## 9b. Reports are committed artefacts
+
+**Added 2026-08-27 by card AUT-1. This binds EVERY role, not only EXECUTOR.**
+
+**A terminal's final act is to commit its full report to
+`docs/reports/<YYYY-MM-DD>-<role>-<slug>.md`.** The file is the original. What
+is printed to the terminal is a copy of it.
+
+The order is not decoration. **Commit first, then print.** A session that prints
+a report and then fails to commit it has produced nothing that survives the
+window closing, and every downstream role in the chain reads the previous role's
+report as its input.
+
+- **Naming:** `YYYY-MM-DD-<role>-<slug>.md`, lowercase, hyphens. The date is the
+  run date in UTC. `<role>` is `executor`, `critic`, `poc-builder` or `triage`.
+  The slug names the work, not the outcome.
+- **Content is the full report, verbatim**, the same text the terminal prints.
+  Not a summary of it, not a link to it, not "see the PR".
+- **No credential values, ever.** Section 7 applies here exactly as everywhere
+  else: variable names only.
+- **It rides in a PR like everything else.** Never pushed to `main`. Usually the
+  last commit of the session's last PR.
+- `docs/reports/README.md` holds the shape a report takes and is the place to
+  change it.
+
+**Why this is a rule and not a habit.** A report that exists only in a terminal
+is a report the next session cannot read. The chain is built on each role acting
+on the previous role's output; if the only copy of that output was printed to a
+scrollback nobody kept, the chain has a hole exactly where its input should be.
+That is also why the two pre-existing files in `docs/reports/` are not renamed:
+a link that worked yesterday still works, and the README says which convention
+each file follows.
+
+---
+
 ## 10. Failure ceiling
 
 After **three distinct failed fix attempts** on the same card, stop working it.
