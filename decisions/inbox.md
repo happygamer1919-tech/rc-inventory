@@ -1019,3 +1019,18 @@ assumed.
 **Also changes:** P2-08 becomes P2-08a and P2-08b; P2-09 and P2-11 `depends_on`
 recalculated; P2-15's new dependencies from R-024 read against the split.
 **Supersedes:** P2-08 as a single card.
+
+### R-026 - P2-12: the recommendation is accepted
+**Date:** 2026-08-27
+**Asked on:** P2-12
+**Answer, verbatim:**
+> R P2-12 default
+
+**Ruled by:** Ivan, on Telegram, relayed by the POC inbox reader in run 20260826-220005.
+
+**Ruling:** Ivan accepted the recommendation already written on P2-12. That recommendation is now the decision, unchanged:
+
+CANONICAL URL LIVES IN ONE ENVIRONMENT VARIABLE and every absolute URL in the application is built from it: auth redirects, callback URLs, email links, metadata. Nothing hardcodes a vercel.app host and nothing infers the host from a request header, because a forwarded host header is attacker-controlled. AUTH REDIRECT ALLOWLIST in Supabase must name the production domain. That is a dashboard setting Ivan makes, and it is listed in the handover text of this card so it is not discovered as a login failure later. THE vercel.app HOST IS NOT A SUPPORTED ENTRYPOINT, rewritten 2026-08-26 by ruling R-004. Vercel Deployment Protection stays ENABLED on the project, so the project alias answers 302 to vercel.com/sso-api for any client not signed in to the Vercel team. www.rapidconstructmd.com is the only public URL of this application. No card, no test, no runbook and no acceptance line may assume that any vercel.app host serves anonymously, and there is no fallback way in through one. The previous text of this default claimed the opposite and is superseded: it read 'THE OLD vercel.app HOST KEEPS WORKING and is not redirected away in this card; breaking it while the new domain settles would remove the only working way in.' The CRITIC proved that host already did not work for anyone outside the Vercel team, so the fallback it protected did not exist. RESEND SENDER: once the domain is verified in Resend, the P2-10 sender moves off the onboarding domain. That is an environment change, not a code change, and is done here rather than as a new card. www AND APEX both resolve, with one canonical and the other redirecting to it. Ivan chooses which is canonical; if he does not say, apex is canonical.
+
+**Unblocks:** P2-12. `blocked_on` cleared, `status` returned to `todo`.
+**Supersedes:** none.
