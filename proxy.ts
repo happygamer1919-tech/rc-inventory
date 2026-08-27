@@ -25,6 +25,20 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   // Callback-ul de autentificare, daca ajunge sa fie folosit vreodata.
   if (pathname.startsWith("/auth/")) return true;
+  // P2-08a. CALLBACK-UL DE EXTRAGERE ESTE UN ENDPOINT DE MASINA, NU DE OM.
+  //
+  // Make posteaza aici fara sesiune si fara cookie, iar autentificarea lui este
+  // antetul secret partajat pe care contractul o prevede, verificat de ruta
+  // insasi inaintea oricarei alte munci. Fara aceasta exceptie proxy-ul il
+  // redirecta catre ecranul de autentificare, si un client care urmareste
+  // redirectarile primea 200 de la pagina de login pentru ORICE payload,
+  // inclusiv unul cu secretul gresit. Un 401 care ajunge 200 pentru ca l-a
+  // interceptat middleware-ul este cea mai linistita cale catre un endpoint
+  // care pare sa mearga si nu verifica nimic.
+  //
+  // "Public" aici inseamna doar "proxy-ul nu il redirecteaza". Ruta refuza
+  // singura orice cerere fara antetul corect, si o face pe primul rand.
+  if (pathname === "/api/extraction/callback") return true;
   return false;
 }
 
