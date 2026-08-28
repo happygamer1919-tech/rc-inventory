@@ -1533,6 +1533,7 @@ with an unknown role is worse than not entering. RULE: destructuring only `data`
 from a client that also returns `error` converts every failure into the empty
 case. If the empty case triggers a user-visible decision, bind the error.
 
+ poc/19-harness-caps
 ### The lock did not skip those three windows, launchd never started them
 **Tag:** infra
 **ERROR:** Run `20260827-220052` held `run.lock` from 02:00:52Z to 11:06:54Z and
@@ -1574,3 +1575,62 @@ extra commit. RULE: a prefix list that has to agree with a branch name invented
 somewhere else is a coupling nobody can see. The branch is now mandated in the
 TRIAGE prompt and held in one variable, so the sweep can be taught it in one
 line once there is a card for that line.
+
+### A SQL assertion that reads a frozen temporary table on both sides cannot fail
+**Tag:** data
+**ERROR:** `scripts/reset-test-data.sql` printed `PRE MIXED left alone` and
+`POST MIXED left alone` and both read `count(*) from rc_reset_mixed`, a
+temporary table resolved before the first DELETE. The two numbers were equal
+whatever the run did, including a run that deleted every mixed order. The check
+that existed to protect the one class of data the file does not own could not
+detect the thing it was for.
+**SOLUTION:** An after-check must be counted against the LIVE tables, never
+against the snapshot the before-check came from. The rule that catches the next
+one: for every assertion, ask what edit to the DELETE block would make it fail,
+and if the honest answer is "none", it is decoration. RST-01 proves each
+assertion by running a mutated copy of the file that breaks exactly that
+assertion and confirming the non-zero exit.
+
+### CASE does not protect a literal cast from constant folding
+**Tag:** data
+**ERROR:** The obvious pure-SQL way to raise from a plain SELECT,
+`select case when ok then 'PASS' else 'message'::int::text end`, raises on the
+PASSING path too. PostgreSQL constant-folds `'message'::int` at planning time,
+so an unreachable branch still errors. Verified on PostgreSQL 16.15:
+`select case when true then 'ok'::text else ('boom')::int::text end` fails with
+`invalid input syntax for type integer: "boom"`.
+**SOLUTION:** Make the cast target non-constant, so the planner cannot fold it:
+build the message from a subquery over a table, for example
+`(select string_agg(name, '; ') from rc_reset_assertions where not passed)::int::text`.
+The rule: any deliberate-failure expression in an unreachable branch must depend
+on a relation, never on a literal.
+
+### AND binds tighter than OR, so appending "and false" half-neuters a DELETE
+**Tag:** data
+**ERROR:** While building a negative test, a DELETE with an `A or B` WHERE
+clause was neutered by appending ` and false` to the end. That parses as
+`A or (B and false)`, so the `A` branch still ran and deleted 2 of 3 rows. The
+test still went red, for the wrong reason, and the first reading of the result
+was that a trigger had eaten the rows.
+**SOLUTION:** Neuter a multi-branch predicate by prefixing `where false and (`
+and closing the parenthesis, never by appending to the tail. The general rule:
+when a result is surprising, suspect the instrument before the subject. There
+was no trigger; `pg_trigger` was checked and confirmed it.
+
+### Supabase migrations run on plain postgres with a five-object shim
+**Tag:** infra
+**ERROR:** This repository's schema had never been applied by any tool: P2-15
+shipped SQL with the card admitting "there is no PostgreSQL binary and no
+running Docker on this machine, so no parser has seen this SQL". The migrations
+reference `auth.users`, `auth.uid()`, `storage.buckets` and the `anon`,
+`authenticated` and `service_role` roles, none of which exist on a stock
+`postgres:16` image, so applying them there fails immediately.
+**SOLUTION:** All twelve migrations 0001 to 0012 apply UNMODIFIED onto stock
+`postgres:16` after a shim that creates: roles `anon`, `authenticated`,
+`service_role`; schemas `auth` and `storage`; table `auth.users`; functions
+`auth.uid()` and `auth.role()`; tables `storage.buckets` and `storage.objects`.
+That makes the whole schema reproducible locally with no credentials and no
+Supabase project, which is what lets a destructive script be proven before it is
+handed to the owner. Note `docker cp` kills Docker Desktop on this machine: bind
+mount the repo read only and feed psql on stdin instead.
+ main

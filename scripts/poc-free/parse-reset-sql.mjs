@@ -32,6 +32,27 @@
 // short allowed list of things that cannot change a row.
 // An INSERT or an UPDATE appearing in this file would fail check 3 as loudly
 // as a TRUNCATE fails check 4.
+//
+// RST-01, 2026-08-28: CHECK 9 ADDED, AND NOTHING WAS WEAKENED TO FIT IT.
+//
+// The reset became self-asserting: it now evaluates its own pass and fail
+// conditions in SQL and commits only on all-pass. That was deliberately built
+// out of statement kinds this file ALREADY allowed. The assertions are a
+// CreateTableAsStmt, the grids are SelectStmts, and the gate that raises is a
+// SelectStmt whose CASE casts a message to integer on the failing path.
+//
+// So ALLOWED_KINDS is unchanged and FORBIDDEN_KINDS is unchanged. In
+// particular the obvious way to write a gate, DO $$ ... RAISE EXCEPTION ... $$,
+// was NOT used and DoStmt was NOT added to the allowed set. A DO block's body
+// is an opaque string literal that pgsql-parser cannot see into, so checks 3
+// through 7 would all have become bypassable by writing the mutation inside the
+// string. A file aimed at the client's production data does not get a hole in
+// the only thing inspecting it, in exchange for a prettier error message.
+//
+// CHECK 9 is what stops the self-asserting property being quietly removed. An
+// edit that deletes the gate, or reorders it after the COMMIT, leaves a file
+// that runs every DELETE and commits unconditionally, and every other check
+// here would still pass.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -210,6 +231,41 @@ if (opensAndCloses) {
   fail(`CHECK 8 atomicity: expected exactly BEGIN first and COMMIT last, found first=${firstKind} last=${lastKind} transaction kinds=[${txKinds.join(", ")}]`);
 }
 
+// --- 9. the file still decides its own outcome ------------------------------
+// RST-01. The reset commits only if every assertion it evaluates passes. Three
+// things have to hold for that to be true, and all three are structural:
+//
+//   a. the assertions table is built (rc_reset_assertions),
+//   b. the LAST statement before the COMMIT is the gate, a SelectStmt, so
+//      nothing runs between the verdict and the commit, and
+//   c. the gate can actually raise: it casts to integer, which is the
+//      mechanism that aborts the transaction on a failed assertion.
+//
+// Without this check, deleting the gate leaves a file that runs all eleven
+// deletes and commits whatever it found, and checks 1 through 8 all still pass.
+const createdNames = statements
+  .map((s) => s.stmt?.CreateTableAsStmt?.into?.rel?.relname)
+  .filter((n) => n !== undefined);
+const hasAssertionsTable = createdNames.includes("rc_reset_assertions");
+const gateStmt = statements[statements.length - 2];
+const gateKind = gateStmt ? Object.keys(gateStmt.stmt ?? {})[0] : "<missing>";
+const gateRaises =
+  gateKind === "SelectStmt" && /"TypeCast"/.test(JSON.stringify(gateStmt)) &&
+  /"sval":"int4"/.test(JSON.stringify(gateStmt));
+
+if (hasAssertionsTable && gateKind === "SelectStmt" && gateRaises) {
+  console.log("CHECK 9 self-asserting: OK, rc_reset_assertions is built and the gate is the last statement before COMMIT");
+} else {
+  if (!hasAssertionsTable) {
+    fail("CHECK 9 self-asserting: no rc_reset_assertions table is created, so the file evaluates nothing");
+  }
+  if (gateKind !== "SelectStmt") {
+    fail(`CHECK 9 self-asserting: the statement before COMMIT is ${gateKind}, expected the SelectStmt gate`);
+  } else if (!gateRaises) {
+    fail("CHECK 9 self-asserting: the gate before COMMIT cannot raise, no integer cast found, so a failed assertion would commit anyway");
+  }
+}
+
 // --- the deletes, printed ---------------------------------------------------
 console.log("");
 console.log(`The ${deletes.length} deletes, in the order the file runs them:`);
@@ -224,5 +280,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("parse-reset-sql: 8 checks passed, scripts/reset-test-data.sql is safe to hand to the owner.");
+console.log("parse-reset-sql: 9 checks passed, scripts/reset-test-data.sql is safe to hand to the owner.");
 process.exit(0);
