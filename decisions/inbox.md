@@ -1885,3 +1885,160 @@ recording an audit that flips nothing.
 **Also changes:** the `notes` of G4, G7 and G9 carry the audit.
 **Supersedes:** none. R-023 remains the standing rule that gates flip on
 committed evidence only, and R-028 remains the audit it produced.
+
+---
+
+### R-047 - ledger execution under assertion: a terminal may execute a DELETE-class script that proves its own outcome, and nothing else
+**Date:** 2026-08-28
+**Asked on:** RST-01, P2-15, and CLAUDE.md section 8.6
+**Answer, verbatim:**
+> from the owner, in the strategy chat, 2026-08-28, on the RST-01 terminal's
+> refusal to run the reset:
+>
+> "On 2026-08-28 Ivan personally executed scripts/reset-test-data.sql via psql
+> inside an explicit transaction, read both grids, and committed. The strategy
+> chat ratified the outcome in chat and never committed it. RST-01's terminal
+> correctly refused to act on it."
+
+**Ruling:** `CLAUDE.md` section 8.6 is **amended**. A terminal may execute a
+DELETE-class script against the phase 2 database when, and only when, **all four**
+of the following hold:
+
+1. the script runs inside an **explicit transaction**,
+2. it **evaluates its own pass and fail conditions in SQL**, inside that
+   transaction, after the mutations and before the commit,
+3. it **commits only on all-pass**, and otherwise **rolls back and exits
+   non-zero**, and
+4. **the terminal never chooses.** No reading of a grid, no judgement about
+   whether a number looks right, no "the deviation is explainable so continue".
+   The script decides and the terminal reports what it decided.
+
+**NO SCRIPT WITHOUT EMBEDDED ASSERTIONS QUALIFIES.** This is not a general
+loosening of 8.6 and it is not a permission attached to a person, a card or a
+session. It is attached to a **property of the file**, and a file either has that
+property or it does not. A script that prints grids for a human to read has
+exactly the shape 8.6 was written to stop, whoever is running it and however
+obviously safe it looks. The "no exceptions, no judgement call, no it is
+obviously safe here" wording survives verbatim for that class, which is still
+every script this repository has except one.
+
+**WHY THE PROPERTY IS THE RIGHT THING TO ATTACH IT TO.** 8.6 exists because the
+failure mode of a destructive script is a human being told in advance what the
+numbers should be, at the end of a long transaction, deciding that what they are
+seeing is close enough. That failure mode is not reduced by trusting the operator
+more. It is removed by taking the decision away from whoever is at the keyboard,
+which is what conditions 2, 3 and 4 do. A script that cannot commit a wrong
+outcome is safer in a terminal's hands than a script that can, in anyone's.
+
+**THE GRANT IS BOUNDED THREE WAYS, ALL OF THEM BINDING:**
+
+- **Revoked by P2-13**, together with every other terminal credential grant.
+  P2-13's checklist already carries the reversion of section 8 to Ivan-only
+  applies with no connection from any terminal, and this ruling is revoked in the
+  same act. It does not need its own line to die; it dies with the section.
+- **Does not survive first real client data entry.** The moment real Rapid
+  Construct data exists, the grant is gone, whether or not P2-13 has run. This is
+  the same condition R-001's grant was written under and it is not weaker here.
+  A script that asserts its own outcome still deletes rows, and an assertion
+  proves the script did what it meant to, never that what it meant to do was
+  right about somebody's real data.
+- **Phase 2 database only.** No other project, no other environment.
+
+**THE CONFLICT WITH R-044, STATED PLAINLY BECAUSE IT IS REAL.** R-044, ruled on
+this same day, records that P2-13 "takes away, permanently, the ability of ANY
+terminal to open a database connection", and adds `P2-19` to P2-13's
+`depends_on` on exactly that reasoning. R-047 opens a connection R-044 describes
+as closed.
+
+**R-047 SUPERSEDES R-044 FOR ASSERTION-BEARING SCRIPTS ONLY.** Everything else in
+R-044 stands untouched, including the capability edge it authored: P2-13 still
+removes the connection permanently, P2-19 still depends on that removal, and the
+ordering argument R-044 made is unaffected. What changes is only the window
+before P2-13: in that window an assertion-bearing script may be executed by a
+terminal. After P2-13 nothing may, and R-044's account of the end state is
+exactly correct. The two rulings do not disagree about where this ends. They
+disagree about one bounded window in the middle, and R-047 wins inside it.
+
+**WHAT THIS DOES NOT AUTHORISE.** Authoring a destructive script and running it
+in the same session without the assertions being reviewable in the diff first.
+Applying a migration containing `DROP TABLE`, `TRUNCATE` or `DELETE`: migrations
+are a separate path with their own three-phase apply, and 8.6's ban on them is
+untouched. Reading anything under `/Users/ivan/rc-secrets` beyond the single
+permitted read in 8.3. Executing anything at all against a project that holds
+real client data.
+
+**Unblocks:** nothing directly. RST-01 stays `blocked_on: ivan` on its own terms
+until the corrected reset is run; this ruling changes who may run it, not whether
+it has been run.
+**Also changes:** `CLAUDE.md` section 8.6 is amended to match, in the same PR.
+**Supersedes:** R-044, for assertion-bearing scripts only and only before P2-13.
+R-031's widening of 8.6 to row-destroying operations stands. R-001 and R-012
+stand.
+
+---
+
+### R-048 - P2-15 is accepted, with one ratified deviation: POST categories TEST- returned 1 against an acceptance line of 0
+**Date:** 2026-08-28
+**Asked on:** P2-15
+**Answer, verbatim:**
+> from the owner, 2026-08-28, on the run he executed himself:
+>
+> "POST categories TEST- returned 1 against an acceptance line of 0. Cause is
+> RESTRICT + NOT NULL on products.category_id protecting three CRITIC-RACE
+> products, active=f, created by hand from two live CRITIC sessions at the wave 1
+> boundary. Not a script defect. RST-01 carries the fix."
+
+**Ruling:** **P2-15 is accepted and ships.** One acceptance line returned a
+non-zero count and the deviation is **ratified, not waived**: the cause is known,
+it is not a defect in the file, and the correction is already authored.
+
+**WHAT HAPPENED, FROM THE GRIDS THEMSELVES.** The eleven DELETE counts in file
+order were 358, 0, 0, 131, 36, 179, 36, 179, 0, 302, 0, summing to **1,221 rows**.
+Ten of the eleven consumed their PRE count exactly. The eleventh did not:
+`PRE categories TEST 1` against `DELETE 0`, leaving `POST categories TEST- 1`.
+Every other POST row is 0 as required, the mixed-orders list is empty, and
+`POST products remaining` is 3.
+
+**THE CAUSE IS THE SCHEMA DOING ITS JOB, NOT THE FILE FAILING.**
+`products.category_id` is `NOT NULL` and `ON DELETE RESTRICT`, and it is the only
+reference to `categories` in the schema. The category delete carries
+`and not exists (select 1 from public.products p where p.category_id = c.id)`,
+deliberately, so that a category still in use is **skipped rather than raising an
+error that rolls the whole file back**. Three products were still pointing at it,
+so it was skipped, exactly as written.
+
+**THE THREE PRODUCTS ARE THE ONES THE SELECTOR COULD NOT SEE.** SKU prefixes
+`CRITIC-RACE-` and `CRITIC-RACE2-`, `active=f`, created by hand from two live
+CRITIC sessions at the wave 1 boundary on 2026-08-25 and 2026-08-26. They are in
+no committed test source at any commit in this repository's history, because a
+session that types into a screen leaves nothing in `tests/`. `POST products
+remaining 3` is those three and nothing else.
+
+**WHY THE ACCEPTANCE LINE READ 0 AND THE RUN READ 1, WHICH IS THE REAL FINDING.**
+The old file's pre-check counted `categories where name like 'TEST-%'`, while its
+delete counted that **minus the ones still referenced**. The two clauses measured
+different sets, so a skip could never show up as a discrepancy the pre-check had
+predicted. That is a reporting defect rather than a data defect: nothing wrong
+was deleted and nothing wrong survived, but the file could not tell the operator
+in advance that a skip was coming.
+
+**RST-01 CARRIES THE FIX AND IS ALREADY MERGED**, as `f8e9078`. It resolves the
+category set once, before the deletes, into `rc_reset_categories`, so the
+pre-check counts the rows the delete will actually remove; it adds the two
+CRITIC-RACE prefixes to a provenance-bearing registry so those three products
+come into scope; and it asserts both halves of the category rule, failing on a
+prefixed category with zero referencing products and on one still held by a
+product that should itself have gone. Run against the corrected file, this
+deviation cannot recur silently: it either does not happen or it stops the run.
+
+**WHAT IS STILL OUTSTANDING, AND IT IS NOT THIS CARD.** The three products and
+the one category are still in the client's catalogue. Removing them is RST-01's
+run, which is `blocked_on: ivan`, and under R-047 a terminal may now perform it
+because the corrected file asserts its own outcome.
+
+**Unblocks:** P2-15 ships. P2-13's `depends_on` on P2-15 is satisfied; P2-13
+remains blocked behind P2-08b and P2-19.
+**Also changes:** the board, P2-15 to `shipped` with `evidence.kind: journal`
+carrying both grids verbatim, committed as
+`docs/reports/2026-08-28-owner-p2-15-reset-run.md`.
+**Supersedes:** none. R-033's two preconditions were both met before the run.

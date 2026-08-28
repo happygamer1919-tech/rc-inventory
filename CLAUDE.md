@@ -341,6 +341,58 @@ here".
 That card goes `blocked_on: ivan` with **the offending statement quoted in
 `question`**. Ivan applies it himself or rules otherwise.
 
+#### The one exception, added 2026-08-28 by ruling R-047: a script that proves its own outcome
+
+**The sentence above is unchanged and still binds every migration, and every
+script that does not have the property below.** Read that first. What follows is
+narrow, it is attached to a property of the file rather than to a person, a card
+or a session, and it does not touch migrations at all.
+
+**A terminal may EXECUTE a DELETE-class SCRIPT against the phase 2 database when,
+and only when, all four of these hold:**
+
+1. the script runs inside an **explicit transaction**,
+2. it **evaluates its own pass and fail conditions in SQL**, inside that
+   transaction, after the mutations and before the commit,
+3. it **commits only on all-pass**, and otherwise **rolls back and exits
+   non-zero**, and
+4. **the terminal never chooses.** It does not read a grid and decide, it does
+   not judge whether a count looks close enough, and it does not continue past a
+   deviation because the deviation is explainable. The script decides. The
+   terminal reports what the script decided and nothing else.
+
+**NO SCRIPT WITHOUT EMBEDDED ASSERTIONS QUALIFIES.** A script that prints grids
+for a human to read has exactly the shape this section was written to stop,
+whoever is running it and however obviously safe it looks. For that class, which
+is every script in this repository except `scripts/reset-test-data.sql`, the "no
+exceptions, no judgement call" wording above applies verbatim and there is
+nothing here to argue with.
+
+**MIGRATIONS ARE NOT IN SCOPE.** A migration containing `DROP TABLE`, `TRUNCATE`
+or `DELETE` is still never auto-applied, full stop. Migrations have their own
+path, the three-phase apply in 8.5, and this exception does not reach it.
+
+**WHY THE PROPERTY AND NOT THE PERSON.** This section exists because the failure
+mode of a destructive run is a human being told in advance what the numbers
+should be, at the end of a long transaction, deciding that what they are seeing
+is close enough. Trusting the operator more does not reduce that. Taking the
+decision away from whoever is at the keyboard removes it, which is what
+conditions 2, 3 and 4 do. A script that cannot commit a wrong outcome is safer
+in a terminal's hands than a script that can is in anyone's.
+
+**THE GRANT DIES THREE WAYS, and the first that happens ends it:**
+
+- **P2-13 revokes it**, with every other terminal credential grant, when section
+  8 reverts to Ivan-only applies with no connection from any terminal. It needs
+  no separate line in the checklist; it dies with the section.
+- **First real client data ends it**, whether or not P2-13 has run. An assertion
+  proves a script did what it meant to. It never proves that what it meant to do
+  was right about somebody's real data.
+- **Phase 2 database only.** No other project and no other environment.
+
+**The full ruling, including its bounded conflict with R-044, is R-047 in
+`decisions/inbox.md`.**
+
 #### What is NOT in the forbidden set
 
 `ALTER TABLE ... DROP CONSTRAINT` is **permitted** and may be auto-applied. It
