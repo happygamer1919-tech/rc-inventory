@@ -122,6 +122,39 @@ or `blocked`. `halted` is reserved for the failure ceiling in section 10.
 - The PR description names the card id, the acceptance line, the command run to
   prove it, and every migration file added.
 
+### Conflicts, added 2026-08-28 by ruling R-052
+
+**A merge conflict is resolved LOCALLY, by EXECUTOR, against the full tree, with
+the validator run before the commit. Never in the GitHub web editor, and never by
+the owner.** A conflicting PR is assigned to EXECUTOR.
+
+Three resolutions have reached this repository carrying residue and **nothing
+caught any of them**. In all three the resolver deleted the marker CHARACTERS and
+left the tails behind as file content:
+
+- `555b725` committed a `docs/board/rc-board-phase2.json` that did not parse.
+  The board validator would have caught it and was not run.
+- `d66a28e` put ` poc/19-harness-caps` and ` main` into `docs/LEARNINGS.md`.
+  Markdown has no parser to offend, so it sat on `main` through four merges.
+- PR #94 produced the same residue four times across two files, in the web
+  editor.
+
+**The web editor is the common factor and the rule names it.** It shows one file
+at a time, out of the tree, and no check in this repository can be run from it.
+Every safeguard here is a command, and that is the one place none of them exist.
+A resolution made there is made blind.
+
+**It names the owner too, and that is not a criticism.** He does not read code,
+which is the standing condition this project is built around. Resolving a
+conflict is the one task that requires reading both sides of a diff and choosing
+which lines survive, and it is the task with the least visible failure: a bad
+resolution produces a file that looks finished.
+
+**A grep for the markers is not the check.** `grep '<<<<<<<'` finds nothing in
+any of the three incidents, because the characters it looks for are exactly the
+ones the bad resolution deleted. `npm run check:conflict-residue` is the check,
+and it runs in `quality` on every push.
+
 ---
 
 ## 4. Skip-not-halt
@@ -439,6 +472,34 @@ P2-13 is not complete until section 8 has been reverted. A grant that outlives
 the condition it was granted under is how a temporary permission becomes a
 permanent one.
 
+### 8.8 Every production write is journalled, and there are two journals
+
+**Added 2026-08-28 by ruling R-055.**
+
+There are now two ways to write to the production database, so there are two
+logs, and **a write with no row in one of them is a violation**:
+
+| the write | the journal |
+|---|---|
+| a migration, applied per 8.5 | `docs/migrations/APPLY-LOG.md` |
+| anything else, including an assertion-bearing script run under 8.6 | `docs/PRODUCTION-WRITES.md` |
+
+**The row goes in BEFORE the PR that performs the write is merged.** Not after,
+not in a follow-up card.
+
+Each row in `docs/PRODUCTION-WRITES.md` carries **date, actor, script path,
+script sha256, assertion pass count, rows affected, and the report path.** The
+sha256 is not optional and it is not decoration: a file name identifies a path,
+not a version, and `scripts/reset-test-data.sql` meant two materially different
+files eleven hours apart on 2026-08-28.
+
+**Why this rule exists at all.** Until 8.6's exception there was one write path
+and one log. The exception created a second path, and its first run was recorded
+in a report and a board field and nowhere a reader looking for "what has been
+done to production" would think to look. This repository has already paid once
+for a production run whose record was not committed: it was ratified in chat, and
+two later dispatches were written against a record that did not exist.
+
 ---
 
 ## 9. Learnings
@@ -475,7 +536,14 @@ window closing, and every downstream role in the chain reads the previous role's
 report as its input.
 
 - **Naming:** `YYYY-MM-DD-<role>-<slug>.md`, lowercase, hyphens. The date is the
-  run date in UTC. `<role>` is `executor`, `critic`, `poc-builder` or `triage`.
+  run date in UTC. `<role>` is `author`, `executor`, `critic`, `poc-builder`,
+  `triage` or `owner`. **`author` was missing from this list until 2026-08-28**
+  and section 1 has named the role since the file was written, so the omission
+  was a defect in this list and not a statement that AUTHOR files no reports.
+  `owner` is here because a report can describe work no terminal performed:
+  `docs/reports/2026-08-28-owner-p2-15-reset-run.md` records a production run
+  Ivan executed by hand, and filing it under a terminal's role would have made
+  the record say something false about who ran it.
   The slug names the work, not the outcome.
 - **Content is the full report, verbatim**, the same text the terminal prints.
   Not a summary of it, not a link to it, not "see the PR".
