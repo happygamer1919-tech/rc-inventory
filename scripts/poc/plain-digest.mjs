@@ -66,6 +66,17 @@ export function plainOf(card) {
   return { text: sanitize(card.title || "this task"), gap: true };
 }
 
+// The plain fields are authored as "what" in the first sentence and "why it
+// matters" in the sentences after it. Splitting on that is how the digest gets
+// its Why line without going back to the card's jargon-heavy question text.
+export function splitPlain(text) {
+  const clean = sanitize(text);
+  if (!clean) return { what: "", why: "" };
+  const m = clean.match(/^([\s\S]*?[.!?])(\s+)([\s\S]+)$/);
+  if (!m) return { what: clean, why: "" };
+  return { what: m[1].trim(), why: m[3].trim() };
+}
+
 function firstSentence(text, limit = 160) {
   const clean = sanitize(text);
   if (!clean) return "";
@@ -106,6 +117,7 @@ export function buildPlainDigest(board, state, opts = {}) {
   const cards = board.cards || [];
   const byId = new Map(cards.map((c) => [c.id, c]));
   const gaps = [];
+  const noWhy = [];
 
   const describe = (card) => {
     const p = plainOf(card);
@@ -127,14 +139,14 @@ export function buildPlainDigest(board, state, opts = {}) {
   const partBuilt = moved.filter((m) => m.kind === "branch");
 
   if (shipped.length > 0) {
-    const names = shipped.map((m) => describe(byId.get(m.id) || { title: "" }).text)
+    const names = shipped.map((m) => splitPlain(describe(byId.get(m.id) || { title: "" }).text).what)
       .map((t) => t.replace(/[\s.]+$/, "")).filter(Boolean);
     lines.push(
       "Finished " + plural(shipped.length, "task", "tasks") + " since the last update" +
         (names.length ? ": " + names.join("; ") : "") + "."
     );
   } else if (partBuilt.length > 0) {
-    const names = partBuilt.map((m) => describe(byId.get(m.id) || { title: "" }).text)
+    const names = partBuilt.map((m) => splitPlain(describe(byId.get(m.id) || { title: "" }).text).what)
       .map((t) => t.replace(/[\s.]+$/, "")).filter(Boolean);
     lines.push(
       "Nothing finished. " + plural(partBuilt.length, "task is", "tasks are") +
@@ -156,11 +168,17 @@ export function buildPlainDigest(board, state, opts = {}) {
       // Rendered from the plain field only. Mining the card's question text
       // produced mangled half sentences full of the jargon this digest exists
       // to remove, so a card without a plain field says so instead of guessing.
-      const ask = sanitize(fields.ask) || p.text;
-      const why = sanitize(fields.why);
+      // Rendered from the plain field only. Its first sentence is the ask and
+      // the rest is why it matters; a plain field with no second sentence gets
+      // no invented Why, and is counted so the gap is visible rather than
+      // papered over with the card's jargon.
+      const split = splitPlain(p.text);
+      const ask = sanitize(fields.ask) || split.what || p.text;
+      const why = sanitize(fields.why) || split.why;
       lines.push("- " + sentence(ask));
       if (why) lines.push("  Why: " + sentence(why));
       else if (p.gap) lines.push("  Why: not yet written in plain terms.");
+      else noWhy.push(card.id);
       // The one place an id appears, because it is what he must literally send.
       lines.push("  Reply: R " + card.id + " default");
     }
@@ -176,7 +194,7 @@ export function buildPlainDigest(board, state, opts = {}) {
       const days = entry.days_outstanding;
       const age = days === null ? "" : ", " + plural(days, "day", "days") + " so far";
       const who = sanitize(entry.owed_by) || "someone else";
-      const what = (p.text || "an outstanding item").replace(/[\s.]+$/, "");
+      const what = (splitPlain(p.text).what || "an outstanding item").replace(/[\s.]+$/, "");
       lines.push("- " + who + ": " + sentence(what + age));
     }
   }
@@ -191,11 +209,11 @@ export function buildPlainDigest(board, state, opts = {}) {
       const blockers = (entry.missing || [])
         .map((id) => {
           const dep = byId.get(id);
-          return dep ? describe(dep).text : "";
+          return dep ? splitPlain(describe(dep).text).what : "";
         })
         .filter(Boolean);
       const needs = blockers.length ? " Needs first: " + sentence(blockers.join("; ")) : "";
-      lines.push("- " + sentence(p.text || "a later task") + needs);
+      lines.push("- " + sentence(splitPlain(p.text).what || "a later task") + needs);
     }
   }
 
@@ -209,7 +227,7 @@ export function buildPlainDigest(board, state, opts = {}) {
   lines.push(done + " of " + total + " tasks done. " + gatePassed + " of " + gateTotal + " launch conditions met.");
 
   const text = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  return { text, gaps, needsYou: needsYou.length > 0, words: wordCount(text) };
+  return { text, gaps, noWhy, needsYou: needsYou.length > 0, words: wordCount(text) };
 }
 
 // ---------------------------------------------------------------------------
@@ -277,6 +295,7 @@ if (RUN_DIRECTLY && args.board) {
     console.log("\n--- assertion ---");
     console.log("words: " + result.words + (result.needsYou ? " (needs him, 150 cap lifted)" : " / 150"));
     console.log("cards with no plain field: " + result.gaps.length);
+    if (result.noWhy.length) console.log("needs-you cards whose plain has no why sentence: " + result.noWhy.length);
     if (warnings.length) console.log("WARN jargon via fallback titles: " + warnings.join(", "));
     if (violations.length === 0) {
       console.log("PASS: zero card ids, ruling ids, PR numbers, links or file paths in prose");
