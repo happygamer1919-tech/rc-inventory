@@ -1,0 +1,59 @@
+{
+  "run_id": "20260827-220052",
+  "report": "docs/reports/2026-08-28-executor-critic-acceptance-pass.md",
+  "rulings_written": [
+    "R-039",
+    "R-040",
+    "R-041",
+    "R-042",
+    "R-043",
+    "R-044",
+    "R-045",
+    "R-046"
+  ],
+  "cards_resequenced": [
+    {
+      "card_id": "P2-13",
+      "change": "depends_on now names P2-15, P2-08b and P2-19. Capability edge under R-044: this card permanently removes any terminal's ability to open a database connection, and P2-19 is the card that needs it."
+    },
+    {
+      "card_id": "AUT-3",
+      "change": "status in_flight to todo under R-045. Its acceptance event occurred in this run, but TRIAGE may not ship a card, so the evidence is recorded and the next EXECUTOR run verifies and ships it."
+    },
+    {
+      "card_id": "AUT-8",
+      "change": "authored by TRIAGE under R-040 from finding 1. Take the system passwords away from the overnight session except at the one step that needs them."
+    },
+    {
+      "card_id": "AUT-9",
+      "change": "authored by TRIAGE under R-042 from finding 3. Make the 45 minute stop actually stop, so one stuck session cannot eat the rest of the night."
+    },
+    {
+      "card_id": "AUT-10",
+      "change": "authored by TRIAGE under R-041 from finding 2. Write the two pieces of already delivered work onto the work list so it stops undercounting what exists."
+    },
+    {
+      "card_id": "AUT-11",
+      "change": "authored by TRIAGE under R-041 from finding 2, depends_on AUT-10. A check that refuses delivered work carrying a label that is not on the list."
+    }
+  ],
+  "gates_flipped": [],
+  "escalations": [
+    {
+      "title": "The leftover test data is still sitting in the client's live system, and the cleanup is ready to run.",
+      "recommendation": "Run it once, now. Both conditions that were holding it back are met, the file has been machine checked eight ways, and it is the single action that unblocks the most work. Waiting only raises the chance that real data arrives first and the cleanup can never be run at all."
+    },
+    {
+      "title": "The system's own record of which database updates are installed is three versions out of date, and only Ivan can correct it.",
+      "recommendation": "Run the prepared file in the database console, roughly two minutes, and paste back the two grids. Decline the alternative of letting the overnight sessions connect to the database directly: that widens access at exactly the moment those sessions are carrying passwords they should not have, and the permission would be revoked a few cards later anyway."
+    },
+    {
+      "title": "The overnight sessions cannot run the automated screen tests at all, so they can only deliver documentation and planning, never a feature. Fixing it needs Docker installed on the machine.",
+      "recommendation": "Install Docker Desktop on the build machine, and check whether the free licence covers this use before installing. It is the only way an unattended session can ever finish a feature. If the answer is no, say so and the overnight sessions stay limited to planning and review work, which should then be stated openly rather than discovered card by card."
+    },
+    {
+      "title": "Andre has still not run one real supplier document through the extraction, and three of the nine launch conditions cannot move until he does.",
+      "recommendation": "Chase him with a date attached. Everything on our side of the extraction is built and tested against the agreed contract; what is missing is one real document making the round trip. Without a date, the launch conditions for the automatic reading of documents, for the client's own sign off, and the final credential handover all stay frozen indefinitely."
+    }
+  ]
+}
