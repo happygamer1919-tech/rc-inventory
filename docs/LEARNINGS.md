@@ -1431,3 +1431,48 @@ consumed the 01:00 and 04:00 slots as well.
 therefore immune to suspension. Pair it with lock staleness: a lock older than
 the cap plus a margin is abandoned, not honoured. Rule: any timeout that must
 hold across a suspend/resume boundary is a deadline comparison, never a sleep.
+
+### A debug flag defeats a script's own secret discipline, and a secret in a URL is public to the machine
+**Tag:** infra
+**ERROR:** Two separate exposures of `TELEGRAM_BOT_TOKEN`, found on 2026-08-27
+while verifying that the chat poller was reaching Telegram.
+
+**First, the debug flag.** `scripts/poc/responder.sh` is written so that no
+Telegram URL is ever echoed, because the Telegram API carries the bot token in
+the URL path. Running it as `bash -x` to check it was polling printed the whole
+`curl` command line, token included, into the session. Worse, the same trace
+printed `TELEGRAM_BOT_TOKEN=<value>` from the `. "$POC_SECRETS_FILE"` line:
+**sourcing a secrets file under `set -x` traces every assignment in it**, so one
+debug flag dumps the entire file, not just the variable being investigated. The
+script's careful "never echo a value" discipline was irrelevant, because the
+trace is produced by the shell rather than by the script.
+
+**Second, the process table.** Even with tracing off,
+`curl "https://.../bot<token>/getUpdates"` places the token in the process
+arguments, where **any process on the machine can read it from `ps aux`** for as
+long as the call runs. No amount of care inside the script prevents that,
+because argv is published by the kernel, not by the script.
+
+**SOLUTION:** For the URL, `curl --config -` and feed the URL through a here-doc
+on stdin. It reaches curl as configuration rather than as an argument, so it is
+in no argv, no process table entry and no trace. For the trace, suppress `set -x`
+explicitly across the whole secrets block and every command that expands a
+secret, capturing the prior state and restoring it:
+
+```
+case "$-" in *x*) WAS_X=yes; set +x ;; *) WAS_X=no ;; esac
+...
+[ "$WAS_X" = yes ] && set -x
+```
+
+Record presence as a `NAME=set` string built inside the suppression, so the
+later `[ -n "$SECRET" ]` check never expands a value into a traced command word.
+
+Verified after the fix by running `bash -x` on the real script and grepping the
+trace for every secret in the file: zero occurrences of the bot token, the
+service role key, the database password, the Resend key and the rest. The only
+match is `TELEGRAM_OWNER_ID`, which ruling R-006 records as not a credential.
+
+The general rule: **a secret's exposure is a property of where it is placed, not
+of how carefully the surrounding code is written.** Put it on stdin, never in an
+argument, and assume any script may one day be run with tracing on.
