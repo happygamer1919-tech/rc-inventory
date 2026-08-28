@@ -1814,7 +1814,7 @@ ship it.
 the harness logged "invoking TRIAGE on
 docs/reports/2026-08-28-executor-critic-acceptance-pass.md, cap 900s" at
 `2026-08-28T10:42:33Z`; TRIAGE read the newest report on `origin/main`, applied
-`docs/DOCTRINE-TRIAGE.md`, and opened this pull request carrying
+`docs/DOCTRINE-TRIAGE.md`, and opened PR #83 carrying
 `decisions/inbox.md` entries and board edits. No human started the run and no
 human was asked for anything.
 
