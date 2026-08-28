@@ -1476,3 +1476,25 @@ match is `TELEGRAM_OWNER_ID`, which ruling R-006 records as not a credential.
 The general rule: **a secret's exposure is a property of where it is placed, not
 of how carefully the surrounding code is written.** Put it on stdin, never in an
 argument, and assume any script may one day be run with tracing on.
+
+### launchd ProcessType Background throttles a poller into uselessness
+**Tag:** infra
+**ERROR:** The chat responder was installed with `StartInterval` 60 and
+`ProcessType` `Background`, on the reasoning that a background poller is a
+background job. Measured over a day, the real gaps between polls were **18, 32
+and 38 minutes**, not 60 seconds. `ProcessType Background` places the job in a
+low quality-of-service class that macOS throttles aggressively, and
+`StartInterval` is a floor rather than a guarantee: launchd is free to run the
+job later, and under that QoS it does. A user asking the bot a question would
+have waited half an hour for an answer and concluded it was broken, while every
+log line said the poller was healthy.
+**SOLUTION:** Set `ProcessType` to `Interactive` for anything a human waits on,
+and `LowPriorityIO` to false alongside it. Measured again immediately after:
+polls at 61, 61, 61 and 61 seconds. Pick `ProcessType` from **who is waiting**,
+not from whether the work feels like background work: a job nobody waits on can
+be `Background`, and a job somebody is sitting in front of cannot.
+
+Two related things worth separating when reading such a gap. Long gaps while the
+machine is asleep are not this defect and are not fixable here: launchd cannot
+run a job on a sleeping Mac, and a poller should not be keeping it awake. Only
+the gaps recorded while the machine was demonstrably awake are evidence.
