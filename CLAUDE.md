@@ -122,6 +122,60 @@ or `blocked`. `halted` is reserved for the failure ceiling in section 10.
 - The PR description names the card id, the acceptance line, the command run to
   prove it, and every migration file added.
 
+### 3.1 Self-merge on green `quality`, by role and by path
+
+**Added 2026-08-28 by ruling R-049.** Everything in section 3 above still binds,
+this one included. Nothing here permits a merge on a check that is pending,
+absent or inherited from an earlier sha.
+
+**A terminal may merge its OWN pull request, without waiting for Ivan, when both
+of these hold:**
+
+1. the `quality` check is **green on the head sha**, meaning a run exists for
+   that exact sha and concluded success, and
+2. **every changed path** in the PR is inside that role's set below.
+
+| Role | Its path set |
+|---|---|
+| POC-BUILDER | anything under `scripts/poc/`, plus `CLAUDE.md`, plus `docs/poc/DESIGN.md` |
+| EXECUTOR | anything under `docs/`, plus anything under `decisions/` |
+
+The dispatch that granted this named `run.sh` and `docs/board/` separately. Both
+are already inside the sets above: `run.sh` is the single tracked file
+`scripts/poc/run.sh`, and `docs/board/` is inside `docs/`. They are not listed
+twice, so that a later reader does not go looking for the distinction.
+
+**EVERY CHANGED PATH, AND THERE IS NO PARTIAL VERSION OF THIS.** One file outside
+the set removes the grant for the whole PR, whatever that file is and however
+small the change to it. There is no judgement about whether the stray file
+mattered, because that judgement is the thing being removed.
+
+**APPLICATION CODE AND MIGRATIONS ARE EXCLUDED.** A PR touching `app/`, `lib/`,
+`components/`, `tests/`, `proxy.ts`, `supabase/migrations/` or any other
+application path keeps the full section 5b gate: green `quality` **plus** the
+card's named acceptance spec passing. Migrations keep section 8 on top of that.
+This clause removes the acceptance half of 5b, and it removes it only for the
+documentation-shaped paths in the table.
+
+**WHY THAT IS SAFE HERE AND WOULD NOT BE ELSEWHERE.**
+`.github/workflows/quality.yml` triggers on `pull_request` with **no path
+filter**, so a documentation-only PR runs every step of the job: typecheck,
+build, both board validators, the reset SQL parser, the category vocabulary
+check, the ledger row check, the production-target check, the harness cap proof,
+the production guard refusal, and the end to end suite against a local Supabase
+stack. A docs-only green is work that actually ran. **If a `paths:` filter is
+ever added to that workflow, this clause dies with it**, because it would then
+authorise merging on a check that never executed. Whoever adds the filter
+removes this section in the same PR.
+
+**AUTHOR AND TRIAGE ARE NOT GRANTED ANYTHING HERE.** TRIAGE's authority is
+unchanged and is in `docs/DOCTRINE-TRIAGE.md`: its own rulings PR is the only PR
+it merges. An AUTHOR PR goes to Ivan. Widening this grant to another role is an
+owner decision, not an inference from the table.
+
+**REVOKED BY P2-13**, with every other terminal grant, as a checklist item in
+section 8.7.
+
 ---
 
 ## 4. Skip-not-halt
@@ -431,6 +485,9 @@ must include, as checkable items:
 
 - **revoking this read permission in `CLAUDE.md`**, reverting section 8 to
   Ivan-only applies with no database connection from any terminal
+- **revoking the self-merge grant in section 3.1**, added by R-049. It is a
+  terminal grant like any other and it dies here with the rest. Deleting section
+  3.1 returns every PR to Ivan.
 - **rotating `SUPABASE_DB_PASSWORD`**
 - **rotating `SUPABASE_SERVICE_ROLE_KEY`**
 - **confirming no terminal-held copies remain** of either
