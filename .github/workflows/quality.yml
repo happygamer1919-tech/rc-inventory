@@ -161,12 +161,17 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
           } >> "$GITHUB_ENV"
 
-      - name: Seed the two test accounts
+      # CRIT-17 adds a third account: an auth user with NO profiles row. It is
+      # the only way to exercise the redirect loop this card removed, because
+      # the loop needed a valid session whose profile lookup came back empty.
+      - name: Seed the three test accounts
         env:
           TEST_OWNER_EMAIL: owner@rc-inventory.local
           TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
           TEST_MANAGER_EMAIL: manager@rc-inventory.local
           TEST_MANAGER_PASSWORD: ci-manager-pass-4Zw9BnLp
+          TEST_NO_PROFILE_EMAIL: fara-profil@rc-inventory.local
+          TEST_NO_PROFILE_PASSWORD: ci-noprofile-pass-6Hs3JmQe
         run: |
           set -euo pipefail
           node scripts/seed-test-accounts.mjs
@@ -179,6 +184,8 @@ jobs:
             echo "TEST_OWNER_PASSWORD=${TEST_OWNER_PASSWORD}"
             echo "TEST_MANAGER_EMAIL=${TEST_MANAGER_EMAIL}"
             echo "TEST_MANAGER_PASSWORD=${TEST_MANAGER_PASSWORD}"
+            echo "TEST_NO_PROFILE_EMAIL=${TEST_NO_PROFILE_EMAIL}"
+            echo "TEST_NO_PROFILE_PASSWORD=${TEST_NO_PROFILE_PASSWORD}"
           } > .env.local
 
       - name: Install Playwright chromium

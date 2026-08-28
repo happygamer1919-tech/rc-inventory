@@ -4,6 +4,10 @@
 
 export const LOGIN_PATH = "/autentificare";
 export const FORBIDDEN_PATH = "/acces-interzis";
+// CRIT-17. Contul s-a autentificat si nu are rand activ in profiles. Nu este
+// acelasi lucru cu FORBIDDEN_PATH: acela inseamna "ai rol, dar nu acesta",
+// acesta inseamna "nu ai niciun rol".
+export const NO_PROFILE_PATH = "/cont-fara-acces";
 export const HOME_PATH = "/";
 
 /** Rute pe care le poate deschide numai rolul owner. */
