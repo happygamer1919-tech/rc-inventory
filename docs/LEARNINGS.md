@@ -1532,3 +1532,45 @@ is logged as a defect. The refusal stays identical for both, because entering
 with an unknown role is worse than not entering. RULE: destructuring only `data`
 from a client that also returns `error` converts every failure into the empty
 case. If the empty case triggers a user-visible decision, bind the error.
+
+### The lock did not skip those three windows, launchd never started them
+**Tag:** infra
+**ERROR:** Run `20260827-220052` held `run.lock` from 02:00:52Z to 11:06:54Z and
+the 01:00, 04:00 and 07:00 windows produced nothing. The obvious reading, and
+the one carried into the card, is that each of those runs started, found the
+lock, logged its refusal and exited 0. **That is not what happened.** `run.sh`
+opens `/Users/ivan/rc-poc-logs/<run-id>.log` and tees into it BEFORE it tests the
+lock, so a refused run leaves a log file behind by construction. There is no
+`20260828-*` artifact of any kind: no log, no prompt, no board snapshot. Those
+three invocations of `run.sh` never happened at all.
+
+Two mechanisms, both launchd's and neither the lock's. A `StartCalendarInterval`
+that comes due while the job is already running is dropped rather than queued,
+because launchd will not run a second instance of a label. And `pmset -g log`
+accounts for 29853 of those 31300 seconds with the machine asleep, so the
+firings that landed during sleep coalesce into one on wake, which then hits the
+first rule anyway.
+**SOLUTION:** the fix for a lost window is the cap, not the lock. A run that
+ends on time frees the label and the next window fires normally; stale lock
+reclaim is the backstop for a lock whose process is already gone, and it cannot
+by itself recover a window launchd never scheduled. RULE, more general than this
+harness: before building the fix for a silent gap, prove which component was
+silent. "The refusal path ran and said nothing" and "the process never started"
+look identical from the outside and have opposite repairs. The artifact a
+component writes unconditionally is the cheapest way to tell them apart.
+
+### The leftover sweep does not know about the branch TRIAGE opens
+**Tag:** infra
+**ERROR:** Noticed while fixing the TRIAGE checkpoint, not fixed there. The
+start-of-run leftover sweep in `run.sh` merges open PRs whose head branch starts
+with `poc/state-` or `poc/ruling-`. TRIAGE opens its PR on `triage/<run-id>`,
+which matches neither. PR #83, carrying eight rulings, was opened at 10:57:07Z on
+2026-08-28 and was still open days later with no run ever looking at it. The
+checkpoint added on 2026-08-28 means the next such PR is at least *named* in the
+run log; nothing yet merges it.
+**SOLUTION:** not applied here, on `CLAUDE.md` section 3: the PR does what the
+card says and nothing else. Recorded so it becomes a card rather than a quiet
+extra commit. RULE: a prefix list that has to agree with a branch name invented
+somewhere else is a coupling nobody can see. The branch is now mandated in the
+TRIAGE prompt and held in one variable, so the sweep can be taught it in one
+line once there is a card for that line.

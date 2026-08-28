@@ -508,6 +508,19 @@ harness, not by the session's own sense of time. When it fires the run stops
 where it is, reports that it was cut off, and merges nothing that is
 half-finished.
 
+**Wall clock means the clock, and the harness proves which one it read.** A cap
+is a deadline the harness compares `date +%s` against, never a countdown it
+sleeps through: `sleep` on macOS does not advance while the machine is
+suspended, so an overnight countdown measures awake time. The run reports the
+elapsed seconds beside the cap on every run, and a run whose elapsed exceeds its
+cap says `capped yes` whether or not the watchdog managed to stop it. When those
+two disagree the run names it a harness defect in its own log, because a cap
+that silently did not fire is the failure that hides every other one.
+
+**TRIAGE has its own cap of 30 minutes**, raised from 15 on 2026-08-28 after a
+TRIAGE that had already opened its rulings PR was killed 27 seconds later and
+lost the report explaining it.
+
 **When every unblocked card is shipped, the run invokes CRITIC** against the
 acceptance lines instead of idling. A dry board means the next useful action is
 review, not a fifth pass over finished work.
@@ -532,9 +545,23 @@ webhook contract on Andre's behalf, and must not build P2-09 against a contract
 nobody has agreed. Both are skipped by id until a ruling clears the
 `blocked_on`.
 
-**A run never starts if `/Users/ivan/rc-poc-logs/run.lock` exists.** It logs the
-refusal and exits 0. Two runs sharing the run worktree would corrupt each
-other's work.
+**A run never starts if `/Users/ivan/rc-poc-logs/run.lock` exists, unless that
+lock is stale.** It logs the refusal and exits 0. Two runs sharing the run
+worktree would corrupt each other's work.
+
+The refusal is only correct while the holder is inside the budget it declared.
+The lock records the holder's own `cap_seconds`, and a lock older than that plus
+a fifteen minute margin is wreckage rather than a running peer: the next run
+reclaims it, says so loudly in its log, and takes it. Amended 2026-08-28, after
+run `20260827-220052` held the lock for nine hours and the 01:00, 04:00 and
+07:00 windows silently did not happen.
+
+Reclaiming stops the holder before taking the lock, process group included, so
+the model process the dead run started does not carry on unsupervised. **It
+checks identity before it signals anything**: a pid recorded hours ago may since
+have been recycled, and killing whatever now answers to that number would be a
+worse fault than the one being repaired. A pid that is alive but is not this
+harness is left alone and the lock is reclaimed around it.
 
 **POC state lives in `docs/poc/state.json`, never on the board.** The board
 carries the product's work. The harness's own bookkeeping is not the product's
