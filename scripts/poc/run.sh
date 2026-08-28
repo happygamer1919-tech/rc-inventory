@@ -75,27 +75,46 @@ LOCK_HELD=yes
 log "run $RUN_ID started, lock taken, pid $$"
 
 # ---------------------------------------------------------------------------
-# Secrets. The one permitted contact with that directory. Values live in the
-# process environment and nowhere else: not echoed, not logged, not committed.
+# Secrets. The one permitted contact with that directory.
+#
+# TRACING IS SUPPRESSED ACROSS THIS ENTIRE BLOCK, and that is not belt and
+# braces, it is the actual protection. Sourcing a secrets file under `set -x`
+# traces every assignment in it, so one debug flag dumps the whole file: on
+# 2026-08-27 a `bash -x` of this script printed TELEGRAM_BOT_TOKEN in full. The
+# presence check below is inside the suppression for the same reason, because
+# `[ -n "$SECRET" ]` expands the value into the traced command word.
 # ---------------------------------------------------------------------------
+case "$-" in
+  *x*) SECRETS_WAS_X=yes; set +x ;;
+  *)   SECRETS_WAS_X=no ;;
+esac
+
 if [ ! -r "$POC_SECRETS_FILE" ]; then
+  [ "$SECRETS_WAS_X" = yes ] && set -x
   log "FATAL: secrets file is not readable, cannot run"
   exit 1
 fi
+
 set -o allexport
 # shellcheck disable=SC1090
 . "$POC_SECRETS_FILE"
 set +o allexport
-log "secrets sourced, values not displayed"
 
-# A name-only presence check. Prints whether each name is set, never its value.
+# Presence recorded as a yes or no per NAME. The value never reaches a variable
+# that is later expanded in a traced command.
+SECRET_REPORT=""
 for VAR_NAME in TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TELEGRAM_OWNER_ID; do
   if [ -n "${!VAR_NAME:-}" ]; then
-    log "env $VAR_NAME: set"
+    SECRET_REPORT="$SECRET_REPORT $VAR_NAME=set"
   else
-    log "env $VAR_NAME: UNSET"
+    SECRET_REPORT="$SECRET_REPORT $VAR_NAME=UNSET"
   fi
 done
+
+[ "$SECRETS_WAS_X" = yes ] && set -x
+
+log "secrets sourced, values not displayed"
+for ENTRY in $SECRET_REPORT; do log "env $ENTRY"; done
 
 # ---------------------------------------------------------------------------
 # The run worktree. Separate from the interactive clone on purpose: a scheduled
