@@ -2287,3 +2287,236 @@ committing and wiring a script is EXECUTOR work and this is an AUTHOR pass.
 Escalation E3 is answered on its owner half and stays open on its screen-test
 half, recorded on the card rather than silently dropped.
 **Supersedes:** none.
+---
+
+### R-052 - a merge conflict is resolved locally by EXECUTOR, never in the GitHub web editor and never by the owner
+**Date:** 2026-08-28
+**Asked on:** GUARD-01, and every PR that has ever conflicted on this board
+**Answer, verbatim:**
+> from the owner, 2026-08-28, on the third conflict-residue incident in four days:
+>
+> "Three incidents: 555b725 (board JSON, marker chars stripped, tails left as
+> content, did not parse), LEARNINGS.md:1536 and :1636 (same, in markdown, caught
+> by nothing), and PR #94 (owner resolving in the GitHub web editor)."
+
+**Ruling:** **Merge conflicts are never resolved in the GitHub web editor, and
+never by the owner.** A conflicting PR is assigned to EXECUTOR, which resolves it
+**locally, against the full tree, with the validator run before the commit.**
+
+**THREE INCIDENTS, ONE FAILURE MODE, AND IT IS NOT CARELESSNESS.** In all three
+the resolver deleted the conflict marker CHARACTERS and left the tails behind as
+file content:
+
+- `555b725`: `docs/board/rc-board-phase2.json` committed with
+  ` triage/20260827-220052` and ` main` as literal lines. The file did not parse.
+  The board validator would have caught it and was not run.
+- `d66a28e`: `docs/LEARNINGS.md` lines 1536 and 1636, ` poc/19-harness-caps` and
+  ` main`. Markdown has no parser to offend, so **nothing caught it and it sat on
+  `main` for a day**, through four subsequent merges, until GUARD-01 removed it.
+- PR #94: the same residue **four times across two files**, produced in the
+  GitHub web editor.
+
+**WHY THE WEB EDITOR IS THE COMMON FACTOR AND THE RULE NAMES IT.** It shows one
+file at a time, out of the tree, with no way to run the validator, no way to run
+the parser and no way to run the test suite before committing. Every safeguard
+this repository has is a command, and the web editor is the one place where none
+of them can be run. A resolution made there is a resolution made blind, and being
+the owner does not change what the tool can see.
+
+**AND WHY IT NAMES THE OWNER SPECIFICALLY, WHICH IS NOT A CRITICISM.** The owner
+does not read code; that is the standing condition this whole project is built
+around, and it is why every check here is machine-checkable. Resolving a merge
+conflict is the one task that requires reading both sides of a diff and deciding
+which lines survive. Asking him to do it inverts the arrangement. It is also the
+task with the least visible failure: a bad resolution produces a file that looks
+finished.
+
+**WHAT EXECUTOR DOES INSTEAD, and it is already how this was done once.** Fetch,
+rebase or merge locally, resolve against the whole tree, run
+`node docs/board/validate-board.mjs` on both boards plus
+`npm run check:conflict-residue`, and only then commit. Where the branch cannot
+be force-pushed, per CLAUDE.md section 3, the resolved tree lands as one ordinary
+commit on top of the existing head. PR #83 was landed exactly this way on
+2026-08-28.
+
+**A GREP FOR THE MARKERS IS NOT THE CHECK.** It is worth saying because it is the
+obvious response and it does not work: `grep '<<<<<<<'` finds nothing in any of
+the three incidents, since the characters it looks for are precisely the
+characters the bad resolution deleted. GUARD-01 adds
+`scripts/check-conflict-residue.mjs` to the `quality` workflow, which catches
+markers intact, markers with the leading characters stripped, and the duplicate
+JSON keys that survive a naive cleanup and still parse.
+
+**Unblocks:** nothing.
+**Also changes:** `CLAUDE.md` section 3 carries the rule.
+`scripts/check-conflict-residue.mjs` and the `Check for conflict residue`
+workflow step enforce it. `docs/LEARNINGS.md` loses the two residue lines that
+were live on `main`.
+**Supersedes:** none.
+
+---
+
+### R-053 - G4 is decoupled from Andre: the gate is the ingest endpoint asserted against a fixture, not one real document through a live scenario
+**Date:** 2026-08-28
+**Asked on:** G4, P2-08b
+**Answer, verbatim:**
+> from the owner, 2026-08-28:
+>
+> "G4 is no longer satisfied by one real supplier document through Andre's live
+> Make scenario. It is satisfied by the ingest endpoint asserted against a fixture
+> document plus its failure cases: redirect, malformed payload, oversize, auth
+> rejection. Andre's live scenario becomes a non-gating card landing whenever his
+> result arrives."
+
+**Ruling:** **G4's deciding clause changes.** It is no longer "one real document
+has travelled the whole path on production". It is:
+
+**the ingest endpoint asserted against a fixture document, plus its four named
+failure cases: redirect, malformed payload, oversize, and auth rejection.**
+
+**THE RATIONALE IS A PROPERTY OF MACHINE ENDPOINTS, NOT AN ACCOMMODATION.** A
+machine endpoint sitting behind a redirect returns **200 while doing nothing**.
+The caller sees success, the payload goes to the redirect target or nowhere, and
+every happy-path test passes. So the happy path was never the thing worth gating
+on: it is the case least able to distinguish a working endpoint from a broken
+one. The four failure cases are what actually prove the endpoint exists, is
+reachable without a redirect, validates what it receives, bounds what it accepts,
+and refuses what is not authenticated.
+
+**THIS IS A STRICTLY STRONGER GATE, WHICH IS THE POINT.** One real document
+through a live scenario proves one document worked once, on a day, through a
+third party's configuration. It is not re-runnable, it is not a check, and it
+cannot fail in CI. A fixture document plus four failure assertions runs on every
+push, for ever.
+
+**WHAT IT REMOVES IS A DEPENDENCY ON A PERSON, NOT A STANDARD.** G4 has been
+`fail` since the board opened and every audit has recorded the same cause: it
+waits on Andre. R-046 stated that plainly, that no terminal can close it and no
+card exists that moves it. That is an unbounded wait on a third party for a gate
+that is supposed to measure whether **this** repository's extraction path works.
+
+**ANDRE'S LIVE SCENARIO IS NOT CANCELLED, IT IS DEGATED.** It becomes a
+**non-gating card**, landing whenever his result arrives. The round trip through
+his Make scenario is still worth having and is still the thing that proves the
+integration end to end with the real counterparty. It simply stops holding a
+launch condition hostage.
+
+**Unblocks:** G4 becomes closeable by a terminal for the first time. It does not
+flip here: gates flip on committed evidence only, under R-023, and the assertions
+do not exist yet.
+**Also changes:** G4's clause and notes on the board. P2-08b is rescoped to the
+ingest endpoint and its four failure cases; the live round trip is a new
+non-gating card.
+**Supersedes:** R-046's G4 audit is superseded on its deciding clause only. Its
+finding that the first clause still named a card that no longer existed stands
+and is already applied.
+
+---
+
+### R-054 - P2-19 is retired: `Bash(psql:*)` is permitted, so the migration ledger is no longer an owner action
+**Date:** 2026-08-28
+**Asked on:** P2-19, P2-13
+**Answer, verbatim:**
+> from the owner, 2026-08-28:
+>
+> "P2-19 retired. Bash(psql:*) is permitted in Claude Code. Update P2-13's
+> depends_on accordingly and state the new dependency set explicitly."
+
+**Ruling:** **P2-19 is retired.** The card existed because the migration ledger
+said 0009 while the schema was at 0012, and because **only Ivan could correct
+it**: no terminal could open a database connection. That premise is gone.
+`Bash(psql:*)` is permitted in Claude Code, `psql` is on this machine at
+`/opt/homebrew/opt/libpq/bin/psql`, and R-047 already governs what a terminal may
+execute. The ledger correction is now ordinary work.
+
+**P2-13's `depends_on` BECOMES EXACTLY `["P2-08b"]`.** Stated explicitly because
+the card has carried three different dependency sets in two days and a reader
+should not have to reconstruct which is current:
+
+- `P2-15` is **removed**: shipped 2026-08-28, accepted under R-048.
+- `P2-19` is **removed**: retired by this ruling.
+- `P2-08b` **remains**, and is now the only entry.
+
+**WHAT R-044 GOT RIGHT AND WHAT THIS CHANGES.** R-044 added `P2-19` to P2-13's
+`depends_on` on a capability argument: P2-13 permanently removes any terminal's
+ability to open a database connection, and P2-19 needed exactly that capability,
+so P2-19 had to land first or become an owner action for ever. **The argument was
+correct and is now satisfied a different way.** P2-19 does not need to precede
+P2-13 because the ledger correction can simply be done, now, while the connection
+exists. The edge is not deleted because it was wrong; it is deleted because the
+work it protected is no longer blocked.
+
+**THE HANDOVER STILL INHERITS THE DEFECT IF NOBODY FIXES THE LEDGER.** Retiring
+the card does not fix the ledger. `docs/migrations/APPLY-LOG.md` and the ledger
+rows in `scripts/ledger-rows-0010-0012.sql` still describe a database whose own
+record of what is installed is three versions behind. A card for that write is
+authored under GUARD-01's sibling work, and it is an ordinary card now rather
+than a permanent owner action.
+
+**Unblocks:** P2-19 leaves the blocked lane. P2-13 loses two of its three
+dependencies.
+**Also changes:** the board, P2-19 to shipped-as-retired with the reason on the
+card, and P2-13's `depends_on`.
+**Supersedes:** R-044, on the `P2-19` edge only. R-044's capability test and its
+account of what P2-13 removes stand unchanged, as does R-047's bounded exception
+to that removal.
+
+---
+
+### R-055 - every non-migration production write is journalled in docs/PRODUCTION-WRITES.md
+**Date:** 2026-08-28
+**Asked on:** R-047, RST-01
+**Answer, verbatim:**
+> from the owner, 2026-08-28, on the loose end RST-01's report flagged:
+>
+> "R-047 created a second production write path with no journal, since
+> APPLY-LOG.md is by its own framing migrations only. Create
+> docs/PRODUCTION-WRITES.md as its sibling: one row per non-migration production
+> write, carrying date, actor, script sha256, assertion pass count, rows affected,
+> and the report path."
+
+**Ruling:** **`docs/PRODUCTION-WRITES.md` is created as the sibling of
+`docs/migrations/APPLY-LOG.md`,** and **every non-migration write to the
+production database gets a row in it, before the PR that performs the write is
+merged.**
+
+**THE GAP THIS CLOSES WAS OPENED BY R-047 AND WAS REPORTED BY THE TERMINAL THAT
+USED IT.** Until R-047 there was one way to write to production, a migration,
+and one journal, `APPLY-LOG.md`. R-047 created a second: an assertion-bearing
+script executed by a terminal. `APPLY-LOG.md` is by its own framing a migrations
+log, so the RST-01 run of 2026-08-28 was journalled in a report and a board
+field and nowhere a reader would think to look. **One run is survivable. Two
+paths and one log is a record that quietly stops being complete.**
+
+**EACH ROW CARRIES SIX FIELDS, AND EACH ONE IS THERE TO ANSWER A QUESTION A
+STRANGER WILL ACTUALLY ASK:**
+
+| field | the question it answers |
+|---|---|
+| date | when |
+| actor | who or what ran it, by name: the owner, or the role of the terminal |
+| script sha256 | **exactly which bytes ran**, not which file name |
+| assertion pass count | what the script proved about its own outcome |
+| rows affected | the blast radius, as a number |
+| report path | where the grids are |
+
+**THE SHA256 IS THE FIELD THAT MATTERS MOST AND IT IS THE EASIEST TO OMIT.** A
+file name identifies a path, not a version. `scripts/reset-test-data.sql` on
+2026-08-28 meant two materially different files eleven hours apart: the one the
+owner ran, and the one RST-01 corrected and a terminal ran. A log carrying only
+the path cannot tell those apart, and the difference between them is three
+products and a category.
+
+**THE BACKFILL IS PART OF THE RULING, NOT A COURTESY.** Both 2026-08-28 writes
+are entered: the owner's P2-15 run and the terminal's RST-01 run. A journal that
+begins on the day it is created implies nothing happened before it.
+
+**CLAUDE.md CARRIES THE MANDATE**, in section 8, so a session that never opens
+this file still obeys it.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/PRODUCTION-WRITES.md` created and backfilled with both
+2026-08-28 runs. `CLAUDE.md` section 8 mandates an entry for any future
+non-migration production write.
+**Supersedes:** none. `APPLY-LOG.md` keeps its scope exactly: migrations, and
+only migrations.

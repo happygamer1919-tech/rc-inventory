@@ -9,6 +9,7 @@
     "start": "next start",
     "test:e2e": "playwright test",
     "check:reset-sql": "node scripts/poc-free/parse-reset-sql.mjs",
+    "check:conflict-residue": "node scripts/check-conflict-residue.mjs",
     "check:categories": "node scripts/poc-free/check-categories.mjs",
     "check:ledger-rows": "node scripts/poc-free/build-ledger-rows.mjs --check",
     "check:no-prod-target": "node scripts/poc-free/check-no-prod-target.mjs",

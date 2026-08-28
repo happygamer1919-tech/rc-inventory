@@ -1719,30 +1719,79 @@ values behind `SUPABASE_DB_PASSWORD` and the keys are not. Pass the password
 through `PGPASSWORD` rather than a connection string so it cannot surface in an
 error message, and filter tool output with `sed` on the value before printing.
 
-### The merge that documented the stripped-tail rule reintroduced the defect three commits later
+### The branch that wrote the stripped-tail rule broke it twenty minutes later
 **Tag:** infra
-**ERROR:** This branch added the entry above titled "A stripped conflict marker
-leaves its tail behind as file content", removed the two tails it named, and
-wrote the rule: search for the tails, not the markers. The very next commit on
-the branch, the `main` merge at `9010980`, resolved four conflict hunks by
-deleting the marker characters and leaving four tails behind as content:
-` board/aut-12-14-authorization-grants` and ` main` twice in `docs/LEARNINGS.md`,
-and the `as_of` pair in `docs/board/rc-board-phase2.json`. The board one made the
-JSON unparseable and turned `quality` red at the Validate boards step, which is
-the third time that file has been broken this way. The Markdown ones were silent,
-including one that restored the exact final-line tail this branch had just
-deleted.
-**SOLUTION:** Resolved all four by hand: one `as_of` kept and bumped, three
-Markdown tails removed. No content was lost on either side, verified by counting
-`### ` headings against both merge parents (86 and 87 in, 89 out, no heading
-missing) and by parsing the board and comparing card ids, statuses and the gate
-count against both parents. RULE, and it is the point of this entry: **a rule
-written in a document does not enforce itself, and the author of the rule is not
-exempt from it.** Between writing the tail rule and violating it lay one merge
-and about twenty minutes. The scan is one command over the tracked tree and
-belongs in the `quality` job beside the other `check:` scripts, where it runs
-whether or not anybody remembered it:
-`git ls-files | xargs grep -n "^[[:space:]]*\(main\|HEAD\|board/[a-z0-9._/-]*\|card/[a-z0-9._/-]*\|poc/[a-z0-9._/-]*\|triage/[a-z0-9._/-]*\)[[:space:]]*$"`.
-It has to allow the one legitimate hit, the quoted example inside
-`docs/reports/2026-08-28-executor-land-triage-83.md`, which is a fenced code
-block demonstrating the failure.
+**ERROR:** PR #94 added the entry above titled "A stripped conflict marker leaves
+its tail behind as file content", removed the two tails it named, and wrote the
+rule: search for the tails, not the markers. Its very next commit, the `main`
+merge at `9010980`, produced four fresh tails across two files:
+` board/aut-12-14-authorization-grants` and ` main` twice in this file, and an
+`as_of` pair in `docs/board/rc-board-phase2.json`. The board one did not parse and
+turned `quality` red at the Validate boards step. The three markdown ones were
+silent, and one of them restored the exact final-line tail the same branch had
+just deleted.
+**SOLUTION:** Resolved by hand, and no content was lost on either side, verified
+rather than asserted: `### ` headings counted against both merge parents (86 and
+87 in, 89 out, none missing), and the board parsed and its card ids, statuses and
+gate count compared against both parents. RULE: **a rule written in a document
+does not enforce itself, and the author of a rule is not exempt from it.** This
+is the entry that answers "why is the guard a script and not a paragraph". The
+paragraph existed, was freshly written, was written by the person who then broke
+it, and cost twenty minutes to become false. `npm run check:conflict-residue`,
+shipped by GUARD-01 in the entry above, is what the paragraph could not be.
+
+### A conflict resolution that strips the marker characters is invisible to every check
+**Tag:** infra
+**ERROR:** Three resolutions reached this repository carrying residue and nothing
+caught any of them, because in all three the resolver deleted the marker
+CHARACTERS and left the tails as file content. `555b725` produced a board JSON
+that did not parse. `d66a28e` put ` poc/19-harness-caps` and ` main` into this
+file at lines 1536 and 1636, where markdown has no parser to offend, and they sat
+on `main` through four subsequent merges. PR #94 produced four more from the
+GitHub web editor. `grep '<<<<<<<'` finds nothing in any of them: the characters
+it looks for are exactly the ones the bad resolution deleted.
+**SOLUTION:** `npm run check:conflict-residue`, in `quality` on every push. The
+signature is precise rather than heuristic: `<<<<<<< branch` is seven markers, a
+space and the ref, so deleting the markers leaves exactly ` branch`, a line whose
+ENTIRE content is whitespace plus a bare git ref. RULE: when a check can be
+defeated by deleting the thing it greps for, the check is the wrong shape. Look
+for what the damage leaves behind, not for what it removes.
+
+### A guard that cannot tell a quotation from the bug forbids writing about the bug
+**Tag:** infra
+**ERROR:** The conflict-residue guard's first draft would have failed on
+`docs/reports/2026-08-28-executor-land-triage-83.md`, which QUOTES the residue it
+describes, including intact `<<<<<<<` markers. A guard like that makes every
+incident report unwritable, so the next incident goes undocumented.
+**SOLUTION:** Skip fenced code blocks for the text checks, and verify the split
+is real before relying on it rather than assuming it. Measured across the tree:
+all three incidents occurred outside a fence, and every quotation of them is
+inside one. RULE: before adding a content check, grep the repository for what it
+would flag TODAY. If it flags the documentation of the problem, the rule needs a
+context, not a suppression list.
+
+### JSON.parse accepts duplicate keys silently and keeps the last one
+**Tag:** data
+**ERROR:** Delete a conflict's marker tails by hand and keep both sides, and a
+JSON file is left holding the same key twice. It parses. `JSON.parse` takes the
+LAST occurrence with no warning, so the file is valid, the board validator is
+green, and the board is quietly reporting whichever half of the conflict happened
+to be second. PR #94's board carries exactly this: two `as_of` keys. Marker
+checks pass on it; only a duplicate-key check sees it.
+**SOLUTION:** Parse `docs/**/*.json` with a small recursive-descent parser that
+records a duplicate key and its line rather than collapsing it. `JSON.parse` has
+already discarded the duplicate by the time any reviver runs, so a reviver cannot
+do this. RULE: "it parses" is not "it is what was intended", and the gap between
+those two is exactly where a half-finished merge lives.
+
+### A ruling number that is free on main can still be owned by an open PR
+**Tag:** infra
+**ERROR:** `decisions/inbox.md` on `main` ended at R-048, so R-049 to R-051
+looked free. PR #94 was open and authored exactly those three. Taking them would
+have forced that lane to renumber on merge, which is the collision R-012 already
+ruled on when it shifted four rulings rather than edit an existing one.
+**SOLUTION:** Before claiming an append-only id, check the open PRs as well as
+`main`: `gh pr diff <n> | grep -oE '^\+### R-[0-9]+'`. Number after theirs and
+leave the gap; it closes when they land, and a permanent gap is cheaper than
+forcing another lane to rewrite committed text. The same applies to migration
+numbers and to any monotonically increasing id in a shared file.

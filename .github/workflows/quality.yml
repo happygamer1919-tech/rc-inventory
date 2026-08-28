@@ -55,6 +55,16 @@ jobs:
       - name: Parse the production reset SQL
         run: npm run check:reset-sql
 
+      # GUARD-01, ruling R-052. Three merge resolutions reached this repository
+      # carrying conflict residue and nothing caught any of them: 555b725 put an
+      # unparseable board on a branch, d66a28e put two stripped marker tails
+      # into docs/LEARNINGS.md and they sat on main until GUARD-01, and PR #94
+      # produced four more from the GitHub web editor. A grep for <<<<<<< finds
+      # none of these, because the characters it looks for are the characters
+      # the bad resolution deleted. This step is the one that does.
+      - name: Check for conflict residue
+        run: npm run check:conflict-residue
+
       # P2-17. The committed category vocabulary and the migration that seeded
       # it are two files holding one fact. This compares them in both
       # directions, so an entry renamed in one and not re-exported from the
