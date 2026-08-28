@@ -37,3 +37,14 @@ export function managerAccount(): TestAccount {
     label: "operator",
   };
 }
+
+// CRIT-17. Cont de autentificare valid, FARA rand in profiles, creat asa
+// deliberat de scriptul de seed. Este singura cale de a exercita bucla pe care
+// cardul o repara: sesiunea este buna si profilul lipseste.
+export function noProfileAccount(): TestAccount {
+  return {
+    email: required("TEST_NO_PROFILE_EMAIL"),
+    password: required("TEST_NO_PROFILE_PASSWORD"),
+    label: "fara profil",
+  };
+}

@@ -25,7 +25,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-import { FORBIDDEN_PATH, LOGIN_PATH, OWNER_ONLY_PREFIXES } from "@/lib/routes";
+import { FORBIDDEN_PATH, LOGIN_PATH, NO_PROFILE_PATH, OWNER_ONLY_PREFIXES } from "@/lib/routes";
 import { COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 import { applySecurityHeaders } from "@/lib/security-headers";
 
@@ -103,28 +103,66 @@ export async function proxy(request: NextRequest) {
     return applySecurityHeaders(redirect);
   }
 
-  // --- autentificat, dar pe pagina de autentificare -------------------------
-  if (pathname === LOGIN_PATH) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    const redirect = NextResponse.redirect(url);
-    for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
-    return applySecurityHeaders(redirect);
-  }
-
   // --- rolul, citit o singura data -----------------------------------------
-  const { data: profile } = await supabase
+  //
+  // CRIT-17. CITIREA PROFILULUI SE FACE INAINTEA ORICAREI REDIRECTARI, si asta
+  // este chiar reparatia. Pana la acest card ordinea era inversa: intai
+  // "esti autentificat si stai pe pagina de autentificare, deci mergi la /",
+  // apoi "nu ai profil activ, deci mergi la pagina de autentificare". Cele doua
+  // ramuri se aratau una spre cealalta, deci un cont cu sesiune valida si fara
+  // rand activ in profiles sarea intre / si /autentificare pana cand browserul
+  // renunta cu ERR_TOO_MANY_REDIRECTS. Proprietarul a intalnit-o in productie.
+  //
+  // O sesiune este utilizabila numai impreuna cu profilul ei, deci profilul se
+  // rezolva o singura data, aici, si abia dupa aceea se decide unde merge
+  // cererea.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, active")
     .eq("id", user.id)
     .single();
 
+  // EROAREA SE DEOSEBESTE DE ABSENTA, chiar daca amandoua refuza cererea.
+  //
+  // Pana la acest card eroarea era aruncata: `const { data: profile }` lasa
+  // deoparte `error`, deci o politica RLS schimbata gresit, o retea cazuta sau
+  // orice defect al interogarii aratau identic cu "contul nu are rand". Refuzul
+  // este acelasi, fiindca a intra cu un rol necunoscut este mai rau decat a nu
+  // intra deloc, dar defectul se scrie in jurnal ca sa nu se ascunda intr-un
+  // ecran care spune utilizatorului ceva neadevarat despre contul lui.
+  //
+  // PGRST116 este codul PostgREST pentru "single() nu a gasit niciun rand",
+  // adica exact absenta, nu un defect.
+  if (profileError && profileError.code !== "PGRST116") {
+    console.error("proxy: citirea profilului a esuat", {
+      code: profileError.code,
+      message: profileError.message,
+      pathname,
+    });
+  }
+
   // Un cont autentificat fara rand activ in profiles nu are rol, deci nu are
   // acces. Randurile se creeaza manual, o data cu contul.
+  //
+  // REWRITE, NU REDIRECT. Adresa ramane cea ceruta, ecranul se randeaza pe loc
+  // si nicio bucla nu este posibila, oricare ar fi ruta ceruta, inclusiv
+  // pagina de autentificare. Aceeasi ratiune ca la ecranul 403 mai jos.
   if (!profile || !profile.active) {
     const url = request.nextUrl.clone();
-    url.pathname = LOGIN_PATH;
+    url.pathname = NO_PROFILE_PATH;
+    url.search = "";
+    const rewritten = NextResponse.rewrite(url);
+    for (const cookie of response.cookies.getAll()) rewritten.cookies.set(cookie);
+    return applySecurityHeaders(rewritten);
+  }
+
+  // --- autentificat, cu profil activ, dar pe pagina de autentificare --------
+  // Se muta DUPA verificarea profilului: un cont fara profil nu are unde sa fie
+  // trimis de aici, si tocmai incercarea de a-l trimite la / era jumatatea de
+  // sus a buclei.
+  if (pathname === LOGIN_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
     url.search = "";
     const redirect = NextResponse.redirect(url);
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);

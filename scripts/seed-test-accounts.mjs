@@ -28,6 +28,14 @@
 const SUPABASE_URL = required("SUPABASE_URL");
 const SERVICE_ROLE_KEY = required("SUPABASE_SERVICE_ROLE_KEY");
 
+// CRIT-17. Al treilea cont exista ca utilizator de autentificare si NU are rand
+// in profiles, deliberat. Este singurul mod de a exercita bucla pe care cardul o
+// repara: sesiunea este valida, profilul lipseste, si pana la CRIT-17 cererea
+// sarea intre / si /autentificare pana cand browserul renunta. Un test care nu
+// poate crea starea nu poate dovedi ca ea nu se mai intampla.
+//
+// noProfile: true inseamna "creeaza contul, nu-i scrie profilul". Nu este o
+// omisiune si nu se repara.
 const ACCOUNTS = [
   {
     email: required("TEST_OWNER_EMAIL"),
@@ -40,6 +48,12 @@ const ACCOUNTS = [
     password: required("TEST_MANAGER_PASSWORD"),
     role: "account_manager",
     fullName: "Account manager (test)",
+  },
+  {
+    email: required("TEST_NO_PROFILE_EMAIL"),
+    password: required("TEST_NO_PROFILE_PASSWORD"),
+    noProfile: true,
+    fullName: "Cont fara profil (test)",
   },
 ];
 
@@ -103,14 +117,34 @@ async function upsertProfile(id, email, role, fullName) {
   }
 }
 
+/** Sterge randul din profiles, daca a ramas de la o rulare anterioara. */
+async function deleteProfile(id, email) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { ...headers, Prefer: "return=minimal" },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error(`seed: nu s-a putut sterge profilul pentru ${email}: ${res.status} ${text}`);
+    process.exit(5);
+  }
+}
+
 async function main() {
   for (const a of ACCOUNTS) {
     const id = await createUser(a.email, a.password);
+    if (a.noProfile) {
+      // Idempotenta merge in ambele sensuri: daca o rulare anterioara a lasat un
+      // rand aici, contul nu ar mai fi fara profil si testul ar trece degeaba.
+      await deleteProfile(id, a.email);
+      console.log(`seed: ${a.email} -> ${id} (fara profil, deliberat)`);
+      continue;
+    }
     await upsertProfile(id, a.email, a.role, a.fullName);
     // Se afiseaza email, id si rol. Niciodata parola.
     console.log(`seed: ${a.email} -> ${id} (${a.role})`);
   }
-  console.log("seed: gata, 2 conturi");
+  console.log(`seed: gata, ${ACCOUNTS.length} conturi`);
 }
 
 main().catch((err) => {
