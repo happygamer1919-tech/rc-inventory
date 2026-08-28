@@ -270,3 +270,72 @@ that same failure, caught before it cost anything instead of after.
 
 `CLAUDE.md` 9b requires a terminal's final act to be its committed report. This
 is it.
+
+---
+
+## 7. Addendum: three blockers moved while this preflight was in flight
+
+Written against `origin/main` at `6a3d23c`. Before this report could merge, **PR
+#94 landed as `0ee9cfb`** and AUTHOR pushed the phase 3 board as **PR #98**. The
+sections above are left exactly as written, because they were true of the tree
+they were written against and because a report that quietly rewrites itself is
+worth less than one that dates its own claims. Here is what changed.
+
+### Resolved
+
+**Blocker 1.2, R-049.** Now on `main`. It grants a terminal self-merge on green
+`quality` when **every** changed path is in that role's set, with EXECUTOR's set
+being anything under `docs/` plus anything under `decisions/`. This PR changes
+one file, `docs/reports/2026-08-28-executor-phase-3-crm-preflight.md`, so it now
+merges under the grant the dispatch named rather than under `CLAUDE.md` 5b.
+
+**Blocker 1.3, R-050.** Now on `main`. Escalation routing exists.
+
+### Partly resolved, and the distinction matters
+
+**Blocker 1.1, the board.** It is now on **PR #98**, open, not merged. It is
+still not on `main`, so a card's PR still cannot carry its board edit. What
+changed is that it is now shared and visible, which was the substance of the
+objection: nobody is building on another terminal's unpushed branch any more. It
+unblocks when #98 merges.
+
+### NOT resolved, and this is the correction worth reading
+
+**Blocker 1.4, the AUT-14 Docker shim, still stands.** It is easy to read "#94
+landed AUT-14" and conclude the tool arrived. It did not.
+
+```
+scripts/poc-free/local-db/ on origin/main  -> still does not exist
+npm run check:migrations                   -> still absent from package.json
+```
+
+What #94 committed is **R-051, the authorisation** to commit the shim, and the
+AUT-14 card that carries the work. The shim itself is still uncommitted. So the
+named proof mechanism for every wave 1 migration is still a file in a scratch
+directory from a session that has ended, and **wave 1 still cannot prove a
+migration the way the dispatch requires.**
+
+That is the same shape as everything else this day has cost time on: the decision
+is committed, the artefact is not. It is worth stating plainly because "AUT-14
+merged" is exactly the sentence that would send the next executor looking for a
+tool that is not there.
+
+### One corroboration, unprompted
+
+R-051 independently caught the object-count error flagged in
+`docs/reports/2026-08-28-executor-guard-01-rec-02.md` section 6: the
+`docs/LEARNINGS.md` entry says "five-object shim", the RST-01 report says nine,
+and enumerating either list gives **ten**. Two lanes reached the same finding
+from opposite directions on the same day, which is the first time in this
+sequence that a defect was caught twice rather than passed on.
+
+### The unblock list, reduced
+
+1. **Merge PR #98**, the phase 3 board. This is now the only thing standing
+   between an executor and wave 1's non-migration cards.
+2. **Commit the shim** under AUT-14, now authorised by R-051, before any wave 1
+   migration card is worked.
+3. Apply the deviz addendum deltas in section 4.
+4. Define or drop the "RC section 2" reference.
+
+Items 2 and 3 in the original section 5 list are done.
