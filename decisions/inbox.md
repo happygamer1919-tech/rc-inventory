@@ -2045,6 +2045,250 @@ carrying both grids verbatim, committed as
 
 ---
 
+### R-049 - self-merge on green quality for documentation-shaped PRs, by role and by path, and not one inch further
+**Date:** 2026-08-28
+**Asked on:** AUT-12, and CLAUDE.md section 3
+**Answer, verbatim:**
+> from the owner, in the strategy chat, 2026-08-28, dispatched to the AUTHOR
+> terminal:
+>
+> "AUT-12, self-merge authorization.
+>   POC-BUILDER may merge its own PRs touching scripts/poc/, run.sh, CLAUDE.md,
+>   DESIGN.md when quality is green on the head sha. EXECUTOR may merge its own PRs
+>   touching docs/, decisions/, docs/board/ when quality is green. Application code
+>   and migrations are excluded and route to AUT-13. Revoked by P2-13 with every
+>   other terminal grant. Amend CLAUDE.md."
+
+**Ruling:** granted as written, and `CLAUDE.md` section 3 gains a self-merge
+clause naming the two role and path pairs. The grant is bounded by role, by
+path, by check and by date, and every one of those four bounds is load-bearing.
+
+**WHAT THIS ACTUALLY CHANGES, WHICH IS NARROWER THAN IT READS.** Application
+code already self-merges. Section 5b has said since R-002 that cards ship on
+`green_self_merge`, which is two things: the green `quality` check AND the
+card's named acceptance spec passing. The gap this closes is the PR that has no
+card and therefore no acceptance line: a report, a ruling commit, a board edit,
+a dispatch output. Three of those landed on 2026-08-28 and none of them had a
+rule saying who could merge them. So this grant drops the acceptance half of 5b,
+and it drops it only for changes whose content `quality` can already inspect in
+full.
+
+**TWO PATHS IN THE DISPATCH ARE REDUNDANT AND ARE RECORDED AS SUCH RATHER THAN
+COPIED.** `run.sh` resolves to exactly one tracked file, `scripts/poc/run.sh`,
+which is already inside `scripts/poc/`. `docs/board/` is already inside `docs/`.
+`DESIGN.md` resolves to exactly one tracked file, `docs/poc/DESIGN.md`. The
+clause in `CLAUDE.md` is written with the paths deduplicated and the resolutions
+named, because a path list with overlapping entries invites a later reader to
+assume the overlap meant something.
+
+**THE GRANT, EXACTLY:**
+
+- **POC-BUILDER** may merge its own PR when every changed path is under
+  `scripts/poc/`, or is `CLAUDE.md`, or is `docs/poc/DESIGN.md`.
+- **EXECUTOR** may merge its own PR when every changed path is under `docs/` or
+  under `decisions/`.
+- **Every changed path.** One file outside the set removes the grant for the
+  whole PR. There is no partial merge and no judgement about whether the stray
+  file mattered.
+- **`quality` green on the head sha**, which means the run exists for that exact
+  sha and concluded success. A pending check is not green, an absent check is
+  not green, and a check inherited from an earlier sha is not green.
+
+**APPLICATION CODE AND MIGRATIONS ARE EXCLUDED, AND THE EXCLUSION IS WHAT MAKES
+THE REST SAFE.** A PR touching `app/`, `lib/`, `components/`, `tests/`,
+`supabase/migrations/` or any other application path keeps the full 5b gate,
+green check plus the card's named acceptance run, and migrations keep section 8
+on top of that. This ruling does not touch either. Where such a PR carries a
+deviation, the deviation goes to TRIAGE under R-050 rather than to Ivan.
+
+**WHY GREEN IS A REAL PROOF HERE AND NOT A SKIP, WHICH WAS CHECKED BEFORE
+GRANTING.** `.github/workflows/quality.yml` triggers on `pull_request` with **no
+path filter**, so a documentation-only PR runs the entire job: typecheck, build,
+both board validators, the production reset SQL parser, the category vocabulary
+check, the migration ledger check, the production-target check, the harness cap
+proof, the production guard refusal, and the end to end suite against a local
+Supabase stack. A docs-only green here is thirteen steps that actually executed,
+not a skipped workflow reporting success. Had the workflow carried a `paths`
+filter, this grant would have been a grant to merge on a check that never ran,
+and it would have been refused.
+
+**WHAT THE GRANT DOES NOT COVER, STATED SO NOBODY INFERS IT.** AUTHOR and TRIAGE
+are not named in the dispatch and are not granted anything here. TRIAGE's
+existing authority is unchanged: `docs/DOCTRINE-TRIAGE.md` lets it merge its own
+rulings PR and no other. An AUTHOR PR, including the one carrying this ruling,
+still goes to Ivan. Widening a grant is an owner decision under escalation item
+5, so the gap is recorded and left open rather than filled by inference.
+
+**Unblocks:** nothing is blocked on this. It removes a class of PR that had no
+stated merge authority and was therefore accumulating.
+**Also changes:** `CLAUDE.md` section 3 gains the self-merge clause; section 8.7
+gains the revocation item; the board gains AUT-12.
+**Revoked by P2-13**, with every other terminal grant, as a checklist item in
+`docs/RUNBOOK-CREDENTIAL-ROTATION.md` and not as an inference from section 8.
+**Supersedes:** none. R-002 is unchanged and still governs cards.
+
+---
+
+### R-050 - TRIAGE ratifies without a human, the escalation list gains launch timing, and a ratification that is not committed with an id did not happen
+**Date:** 2026-08-28
+**Asked on:** AUT-13, `docs/DOCTRINE-TRIAGE.md` sections "What TRIAGE is" and 6
+**Answer, verbatim:**
+> from the owner, in the strategy chat, 2026-08-28, dispatched to the AUTHOR
+> terminal:
+>
+> "AUT-13, TRIAGE ratifies deviations.
+>   TRIAGE applies DOCTRINE-TRIAGE.md to committed reports and issues ratify or
+>   overturn rulings with ids, without human input. Escalation to Ivan narrows to
+>   RC-PROJECT-RULES section 2 owner decisions only: money, pricing, launch timing,
+>   legal, vendor agreements, credential grants, anything touching Mihai or Andre,
+>   panel actions, production DELETE-class execution, acceptance sign-off.
+>   Binding constraint: a ratification is not a ratification until it is a committed
+>   line with an id. Chat is not authority. This is the failure that produced two
+>   refused dispatches on 2026-08-28; record it in LEARNINGS."
+
+**Ruling:** granted, with **three corrections to the premises**, all three
+verified against the committed record before this entry was written. The
+substance of the grant is unchanged by all three.
+
+**CORRECTION 1: THE ESCALATION LIST IS NOT NARROWED, BECAUSE IT WAS ALREADY THIS
+LIST AND WAS ALREADY CLOSED.** `docs/DOCTRINE-TRIAGE.md` section 6 has carried a
+CLOSED list of nine items since AUT-2, and it opens with "The list is CLOSED.
+Everything on it goes to Ivan. Everything not on it, TRIAGE decides and records."
+Nine of the dispatch's ten items are already on it, item for item: money,
+pricing, legal, vendor, credential grants, anything touching Mihai or Andre,
+panel actions, production DELETE-class execution, acceptance sign-off. **The
+dispatch therefore widens the list by exactly one item and narrows nothing.**
+The new item is **launch timing**, which is genuinely absent from the nine and is
+genuinely an owner decision. It is added as **item 10** and the list stays
+closed. Recording this as a narrowing would have left a future reader believing
+TRIAGE's authority grew on this date. It did not; the owner's kept list grew.
+
+**CORRECTION 2: THE CITED AUTHORITY DOES NOT RESOLVE, AND THE LIST IS WRITTEN
+OUT INSTEAD OF POINTED AT.** "RC-PROJECT-RULES section 2" cannot be followed by
+a terminal. The file is not tracked in this repository at any commit, it lives
+at `/Users/ivan/Downloads/RC-PROJECT-RULES.md`, and its headings are not
+numbered, so "section 2" resolves by position to COMMUNICATION FORMAT rather
+than to any list of owner decisions. The matching content is under its OWNER VS
+DELEGATED heading, the seventh, and reads "money, pricing, launch timing, legal,
+vendor agreements, credential grants, anything touching the client relationship".
+That file's own first rule is that ground truth is committed repository files
+only, so **citing it as the boundary of a terminal's authority would violate the
+rule it states.** The escalation list in `docs/DOCTRINE-TRIAGE.md` remains the
+single authority, is now ten items, and is enumerated in full there. No terminal
+is required to read an uncommitted file to know what it may decide.
+
+**CORRECTION 3: THE 2026-08-28 FAILURE WAS THREE DISPATCHES WITH ABSENT
+PREMISES, OF WHICH ONE STEP WAS REFUSED, NOT TWO REFUSED DISPATCHES.** The
+committed count is in `docs/reports/2026-08-28-executor-rec-01-record-repair.md`
+section 6: landing PR #83 was dispatched as CONFLICTING and 7 behind when origin
+had already been merged into by a broken resolution nobody validated; RST-01 was
+dispatched with P2-15 having run and a "ledger execution ruling" authorising the
+destructive step, when P2-15 was `blocked` with `evidence: null` and the inbox
+ended at R-046; REC-01 was dispatched to close PR #83 unmerged when #83 was
+already MERGED and `c97e48e` was its own squash-merge commit. **Exactly one
+action was refused**, RST-01's step 4, and it was refused correctly. One further
+step, REC-01's step 5, was reported inapplicable rather than refused. The card
+and the LEARNINGS entry carry the accurate count, because a card describing this
+failure while itself miscounting it would be the failure.
+
+**THE GRANT ITSELF, WHICH ALL THREE CORRECTIONS LEAVE INTACT:**
+
+1. **TRIAGE ratifies and overturns without human input.** It reads one committed
+   report, applies the rubric, and writes rulings with ids. It does not wait for
+   Ivan to agree, and a deviation it has ratified is settled. This was already
+   the design; it is now stated in the document rather than implied by the list
+   of what TRIAGE may do.
+2. **A ratification is not a ratification until it is a committed line with an
+   id.** Chat is not authority. This is the binding constraint and it is written
+   into `docs/DOCTRINE-TRIAGE.md` as a rule of the role, not as advice.
+3. **The escalation list is ten items and closed.** Everything not on it, TRIAGE
+   decides and records.
+
+**ITEM 8 KEEPS ITS WORDING AND GAINS A POINTER, BECAUSE R-047 CHANGED WHO MAY
+PERFORM AND NOT WHO MAY DECIDE.** R-047 lets a terminal execute a DELETE-class
+script that proves its own outcome. It did not give any role the authority to
+decide such a run should happen. Item 8 forbids TRIAGE deciding it, and that is
+untouched: the two rulings govern different verbs and do not conflict.
+
+**Unblocks:** nothing. It removes the condition under which a correctly
+committed TRIAGE ratification was treated as provisional.
+**Also changes:** `docs/DOCTRINE-TRIAGE.md` gains the no-human-input statement,
+the committed-line constraint, and item 10; `docs/LEARNINGS.md` gains the entry
+the dispatch asked for; the board gains AUT-13.
+**Supersedes:** none. R-041 and R-045 stand.
+
+---
+
+### R-051 - Docker on the build machine is accepted, the local Postgres shim becomes a committed artefact, and E3 closes by half
+**Date:** 2026-08-28
+**Asked on:** AUT-14, escalation E3, and `docs/reports/2026-08-28-executor-rst-01-self-asserting-reset.md`
+**Answer, verbatim:**
+> from the owner, in the strategy chat, 2026-08-28, dispatched to the AUTHOR
+> terminal:
+>
+> "AUT-14, commit the Docker Supabase shim.
+>   The nine-object shim RST-01 used to apply twelve migrations to stock postgres:16.
+>   Wire it so unattended runs can verify migrations. Closes escalation E3."
+
+**Ruling:** granted, with the dependency decision recorded as the owner decision
+it is, and with **one correction: this closes half of E3, not E3.**
+
+**THE OWNER DECISION E3 WAS ACTUALLY ASKING FOR IS NOW MADE, AND IT IS THE PART
+ONLY IVAN COULD MAKE.** E3 escalated under two of the nine: item 1, money, since
+Docker Desktop is not free for business use above its threshold, and item 4,
+adding a third-party dependency. **Docker Desktop is accepted on the build
+machine.** It is installed and running there now, Docker Desktop server 29.4.2,
+with `postgres:16` already pulled, and the owner confirmed it during the RST-01
+session. That answer is what this entry commits, because the answer was given in
+chat and the escalation is still open in the record, which is precisely the
+failure R-050 exists to stop.
+
+**CORRECTION: E3 ASKED FOR TWO CAPABILITIES AND THIS CARD DELIVERS ONE.** E3's
+text is "install Docker on the build machine so unattended runs can start a
+local database **and run the automated screen tests**". Those are different
+capabilities with different requirements, and the card as dispatched buys only
+the first.
+
+- **The migration half closes.** A committed shim plus stock `postgres:16`
+  applies all twelve migrations with no credentials, no Supabase CLI and no
+  network.
+- **The screen-test half does not close here, and it does not need this card.**
+  The Playwright suite talks to PostgREST, GoTrue and the storage API, none of
+  which a bare `postgres:16` serves. What it needs is `supabase start`, which
+  needed Docker and now has it. That is a separate wiring job in `run.sh` and is
+  not authored as a card by this ruling.
+- **Note what CI already does, so the card is not sold as more than it is.**
+  `.github/workflows/quality.yml` already runs `supabase start` and
+  `supabase db reset` on every pull request, so migrations are already proven
+  against a real stack on every PR. **The shim's value is not that migrations
+  become verified; it is that they become verifiable locally, offline, with no
+  credentials, in one container instead of ten.** That is what let a destructive
+  file aimed at the client's database be proven before the owner ran it, and it
+  is the thing that would otherwise exist only as prose in a report.
+
+**THE OBJECT COUNT IS NOT PART OF THIS RULING AND MUST NOT BE PART OF THE
+ACCEPTANCE LINE.** The repository states it three different ways today: the
+`docs/LEARNINGS.md` entry is titled "five-object shim", the RST-01 report says
+nine, and enumerating either of their own lists gives ten. The committed file
+becomes the authority and the count is dropped, because an acceptance line
+asserting a number that three committed documents already disagree about would
+fail for a reason that has nothing to do with whether the shim works.
+
+**THE MACHINE CONSTRAINT IS PART OF THE RULING, BECAUSE IT IS NOT DISCOVERABLE
+AND IT IS DESTRUCTIVE.** `docker cp` kills Docker Desktop on this machine. The
+shim is delivered to the container by bind mount, and SQL is fed to `psql` on
+stdin. Any wiring that reaches for `docker cp` takes the build machine down and
+must not be written.
+
+**Unblocks:** nothing is blocked on this. It converts a capability that exists
+only as prose in a report into one a stranger can run.
+**Also changes:** the board gains AUT-14, authored `todo` and not shipped, since
+committing and wiring a script is EXECUTOR work and this is an AUTHOR pass.
+Escalation E3 is answered on its owner half and stays open on its screen-test
+half, recorded on the card rather than silently dropped.
+**Supersedes:** none.
+---
+
 ### R-052 - a merge conflict is resolved locally by EXECUTOR, never in the GitHub web editor and never by the owner
 **Date:** 2026-08-28
 **Asked on:** GUARD-01, and every PR that has ever conflicted on this board

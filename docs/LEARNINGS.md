@@ -1633,6 +1633,51 @@ Supabase project, which is what lets a destructive script be proven before it is
 handed to the owner. Note `docker cp` kills Docker Desktop on this machine: bind
 mount the repo read only and feed psql on stdin instead.
 
+### Chat is not authority, and three dispatches in one day were written against a record that did not exist
+**Tag:** infra
+**ERROR:** On 2026-08-28 the owner ran `scripts/reset-test-data.sql` against the
+client's database, read the grids, and the outcome was ratified in the strategy
+chat. None of it was committed. Three consecutive dispatches were then written
+against that uncommitted record and **every one of them carried a premise the
+repository did not support.** Landing PR #83 was dispatched as CONFLICTING and 7
+behind when `origin` had already been merged into by a broken resolution nobody
+validated. RST-01 was dispatched with P2-15 having run, its grids "in the board
+evidence", and "the ledger execution ruling ratified 2026-08-28" as the
+authority to run eleven DELETE statements against production: P2-15 was
+`blocked` with `evidence: null`, and `decisions/inbox.md` ended at R-046 with no
+such ruling. REC-01 was dispatched to close PR #83 unmerged when #83 was already
+MERGED and `c97e48e` was its own squash-merge commit. One action was refused,
+RST-01's step 4, and the refusal was correct. One further step, REC-01's step 5,
+was inapplicable rather than refused.
+**SOLUTION:** the rule was already in this repository twice, in the
+`decisions/inbox.md` preamble and in `CLAUDE.md` 9b, and it is the same sentence
+both times: if it is not committed, the next session cannot see it. R-050 writes
+it into `docs/DOCTRINE-TRIAGE.md` as a rule of the role: **a ratification is not
+a ratification until it is a committed line with an id.** It binds TRIAGE
+hardest because TRIAGE is stateless and arrives with no memory of any
+conversation, so anything uncommitted is invisible to it by construction. RULE:
+verify every dispatched premise against the repository before building on it,
+and treat a premise that cannot be verified as absent rather than as probably
+fine. Verifying cost nothing all three times, and once it was the difference
+between refusing an irreversible delete and performing one.
+
+### A stripped conflict marker leaves its tail behind as file content, and a marker grep cannot see it
+**Tag:** infra
+**ERROR:** `docs/LEARNINGS.md` carried two lines of pure wreckage from an old
+conflict resolution: ` poc/19-harness-caps` at line 1536, sitting between two
+unrelated entries, and ` main` as the final line of the file. Whoever resolved
+the conflict deleted the `<<<<<<< `, `======= ` and `>>>>>>> ` characters and
+left the branch names behind, so they became ordinary content. Grepping for
+`<<<<<<<` finds nothing and the file reads clean to a skim. This is the same
+failure that made the board JSON at `555b725` unparseable and stranded PR #83,
+found in a second file two days later.
+**SOLUTION:** removed both lines. RULE: a conflict marker grep proves nothing.
+Search for the **tails** instead, the branch and ref names, anchored to the
+start of a line: `main`, `HEAD`, and anything matching `card/`, `poc/`,
+`triage/`, `board/` or `report/` alone on its own line. A file with a parser
+(the board JSON) fails loudly when this happens; a file without one (a Markdown
+document) carries it silently until someone reads that exact line.
+
 ### The forecast in a dispatch is not the acceptance, and a destructive run must not be gated on it
 **Tag:** data
 **ERROR:** RST-01 step 4 was dispatched with the expectation "3 CRITIC-RACE
@@ -1673,6 +1718,27 @@ and the user shape are all nameable in a report and a board field, and only the
 values behind `SUPABASE_DB_PASSWORD` and the keys are not. Pass the password
 through `PGPASSWORD` rather than a connection string so it cannot surface in an
 error message, and filter tool output with `sed` on the value before printing.
+
+### The branch that wrote the stripped-tail rule broke it twenty minutes later
+**Tag:** infra
+**ERROR:** PR #94 added the entry above titled "A stripped conflict marker leaves
+its tail behind as file content", removed the two tails it named, and wrote the
+rule: search for the tails, not the markers. Its very next commit, the `main`
+merge at `9010980`, produced four fresh tails across two files:
+` board/aut-12-14-authorization-grants` and ` main` twice in this file, and an
+`as_of` pair in `docs/board/rc-board-phase2.json`. The board one did not parse and
+turned `quality` red at the Validate boards step. The three markdown ones were
+silent, and one of them restored the exact final-line tail the same branch had
+just deleted.
+**SOLUTION:** Resolved by hand, and no content was lost on either side, verified
+rather than asserted: `### ` headings counted against both merge parents (86 and
+87 in, 89 out, none missing), and the board parsed and its card ids, statuses and
+gate count compared against both parents. RULE: **a rule written in a document
+does not enforce itself, and the author of a rule is not exempt from it.** This
+is the entry that answers "why is the guard a script and not a paragraph". The
+paragraph existed, was freshly written, was written by the person who then broke
+it, and cost twenty minutes to become false. `npm run check:conflict-residue`,
+shipped by GUARD-01 in the entry above, is what the paragraph could not be.
 
 ### A conflict resolution that strips the marker characters is invisible to every check
 **Tag:** infra
