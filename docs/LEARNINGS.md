@@ -1357,3 +1357,42 @@ outside the allowed set and check 6 report
 `["TRANS_STMT_BEGIN","TRANS_STMT_COMMIT"]`, exit 1. RULE: to test an assertion
 that sits behind an earlier gate, satisfy the gate first. Mutating the input at
 the wrong layer proves the gate works and says nothing about the assertion.
+
+### A timeout guessed from intuition kills the thing it was meant to protect
+**Tag:** infra
+**ERROR:** The conversational responder capped each answer at 120 seconds, a
+number chosen because it sounded generous. Measured against the real repository,
+a plain question ("how many jobs are left") took **158 seconds** end to end, and
+the longer opening question took longer still. Every honest answer would have
+been killed at 120 seconds and replaced by the fallback line "I could not answer
+that one", so the feature would have appeared broken while working correctly.
+The same file also hardcoded a stale-lock threshold of 600 seconds while the
+worst case healthy poll was 3 answers times 120 seconds, or 900 seconds: a slow
+but working poll would have had its lock stolen by the next poll, and two
+pollers would have answered at once.
+**SOLUTION:** Measure before choosing a timeout, and measure against the real
+input rather than a toy one. Then derive every dependent limit from it instead
+of hardcoding a second guess: the stale-lock threshold is now
+`timeout * max_per_poll + buffer`, so it cannot drift below the worst case when
+either input changes. A guessed timeout is a silent failure generator, because
+the artefact it produces is an error message rather than an obviously missing
+result.
+
+### launchctl bootout kills the job it is replacing, and a failed bootstrap can leave half an install
+**Tag:** infra
+**ERROR:** `scripts/poc/install.sh` does `launchctl bootout` then `bootstrap` so
+a reinstall replaces a definition rather than layering on it. Run while a work
+run was in flight, the bootout **terminated the running job**: an EXECUTOR 36
+minutes into its work died and the log recorded `EXECUTOR finished, exit 143`,
+which reads as a model failure rather than as somebody reinstalling underneath
+it. The bootstrap that followed then failed with `Bootstrap failed: 5:
+Input/output error`, and because that path called `exit 1`, the script returned
+before installing the **second** agent at all. A reinstall that looked like it
+had run had silently deployed half of itself, and the responder kept running its
+old timeout.
+**SOLUTION:** An installer that replaces a running service must refuse while
+that service is working: check the run lock and exit non-zero, with `--force`
+for the case where the operator means it. And a multi-agent installer must not
+abandon agent two because agent one failed to bootstrap: record the failures,
+install everything, and report at the end with a non-zero exit. Partial installs
+are worse than failed ones, because nothing looks wrong.

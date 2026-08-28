@@ -44,6 +44,23 @@ for REQUIRED in "$SOURCE_RUN_SH" "$SOURCE_PLIST" "$SOURCE_RESPONDER" "$SOURCE_CH
   fi
 done
 
+# Refuse while a work run is in flight. launchctl bootout TERMINATES a running
+# job, so reinstalling mid-run kills it: on 2026-08-27 a reinstall stopped an
+# EXECUTOR that was 36 minutes into its work, which then reported exit 143 and
+# looked like a model failure. Worse, bootstrap then failed with "Input/output
+# error" and the script exited before installing the responder at all, so a
+# reinstall that appeared to have run had silently deployed half of itself.
+POC_RUN_LOCK=/Users/ivan/rc-poc-logs/run.lock
+if [ -e "$POC_RUN_LOCK" ]; then
+  echo "REFUSED: a work run is in flight and reinstalling would kill it."
+  echo "holder: $(tr '\n' ' ' < "$POC_RUN_LOCK" 2>/dev/null)"
+  echo "Wait for it to finish, or pass --force to install anyway."
+  if [ "${1:-}" != "--force" ]; then
+    exit 3
+  fi
+  echo "--force given, installing over a live run."
+fi
+
 mkdir -p "$POC_BIN_DIR" "$POC_LOG_DIR" "$POC_LOG_DIR/chat" "$POC_AGENT_DIR"
 
 install -m 755 "$SOURCE_RUN_SH" "$POC_BIN_DIR/run.sh"
@@ -63,11 +80,15 @@ fi
 # it. A missing agent is not an error here.
 launchctl bootout "gui/$(id -u)/$POC_LABEL" 2>/dev/null
 
+# A bootstrap failure on the first agent must not abandon the second one
+# half-installed. Recorded and carried, then reported at the end.
+BOOTSTRAP_FAILURES=""
 if ! launchctl bootstrap "gui/$(id -u)" "$POC_PLIST"; then
-  echo "FATAL: launchctl bootstrap failed"
-  exit 1
+  echo "WARNING: launchctl bootstrap failed for $POC_LABEL"
+  BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $POC_LABEL"
+else
+  echo "bootstrapped $POC_LABEL"
 fi
-echo "bootstrapped $POC_LABEL"
 
 # ---------------------------------------------------------------------------
 # The responder, AUT-6. A second agent on its own 60 second schedule, so a
@@ -87,10 +108,11 @@ fi
 launchctl bootout "gui/$(id -u)/$POC_CHAT_LABEL" 2>/dev/null
 
 if ! launchctl bootstrap "gui/$(id -u)" "$POC_CHAT_PLIST"; then
-  echo "FATAL: launchctl bootstrap failed for $POC_CHAT_LABEL"
-  exit 1
+  echo "WARNING: launchctl bootstrap failed for $POC_CHAT_LABEL"
+  BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $POC_CHAT_LABEL"
+else
+  echo "bootstrapped $POC_CHAT_LABEL"
 fi
-echo "bootstrapped $POC_CHAT_LABEL"
 
 echo "---"
 echo "launchctl list:"
@@ -100,3 +122,10 @@ echo "---"
 echo "work harness runs at: 22:00, 01:00, 04:00, 07:00 local"
 echo "responder polls every 60 seconds"
 echo "run the work harness now with: launchctl kickstart -k gui/$(id -u)/$POC_LABEL"
+
+if [ -n "$BOOTSTRAP_FAILURES" ]; then
+  echo "---"
+  echo "FAILED to bootstrap:$BOOTSTRAP_FAILURES"
+  echo "Both files are installed. Re-run this script when nothing is in flight."
+  exit 1
+fi
