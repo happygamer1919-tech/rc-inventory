@@ -1632,7 +1632,6 @@ That makes the whole schema reproducible locally with no credentials and no
 Supabase project, which is what lets a destructive script be proven before it is
 handed to the owner. Note `docker cp` kills Docker Desktop on this machine: bind
 mount the repo read only and feed psql on stdin instead.
- board/aut-12-14-authorization-grants
 
 ### Chat is not authority, and three dispatches in one day were written against a record that did not exist
 **Tag:** infra
@@ -1679,8 +1678,6 @@ start of a line: `main`, `HEAD`, and anything matching `card/`, `poc/`,
 (the board JSON) fails loudly when this happens; a file without one (a Markdown
 document) carries it silently until someone reads that exact line.
 
- main
-
 ### The forecast in a dispatch is not the acceptance, and a destructive run must not be gated on it
 **Tag:** data
 **ERROR:** RST-01 step 4 was dispatched with the expectation "3 CRITIC-RACE
@@ -1721,4 +1718,31 @@ and the user shape are all nameable in a report and a board field, and only the
 values behind `SUPABASE_DB_PASSWORD` and the keys are not. Pass the password
 through `PGPASSWORD` rather than a connection string so it cannot surface in an
 error message, and filter tool output with `sed` on the value before printing.
- main
+
+### The merge that documented the stripped-tail rule reintroduced the defect three commits later
+**Tag:** infra
+**ERROR:** This branch added the entry above titled "A stripped conflict marker
+leaves its tail behind as file content", removed the two tails it named, and
+wrote the rule: search for the tails, not the markers. The very next commit on
+the branch, the `main` merge at `9010980`, resolved four conflict hunks by
+deleting the marker characters and leaving four tails behind as content:
+` board/aut-12-14-authorization-grants` and ` main` twice in `docs/LEARNINGS.md`,
+and the `as_of` pair in `docs/board/rc-board-phase2.json`. The board one made the
+JSON unparseable and turned `quality` red at the Validate boards step, which is
+the third time that file has been broken this way. The Markdown ones were silent,
+including one that restored the exact final-line tail this branch had just
+deleted.
+**SOLUTION:** Resolved all four by hand: one `as_of` kept and bumped, three
+Markdown tails removed. No content was lost on either side, verified by counting
+`### ` headings against both merge parents (86 and 87 in, 89 out, no heading
+missing) and by parsing the board and comparing card ids, statuses and the gate
+count against both parents. RULE, and it is the point of this entry: **a rule
+written in a document does not enforce itself, and the author of the rule is not
+exempt from it.** Between writing the tail rule and violating it lay one merge
+and about twenty minutes. The scan is one command over the tracked tree and
+belongs in the `quality` job beside the other `check:` scripts, where it runs
+whether or not anybody remembered it:
+`git ls-files | xargs grep -n "^[[:space:]]*\(main\|HEAD\|board/[a-z0-9._/-]*\|card/[a-z0-9._/-]*\|poc/[a-z0-9._/-]*\|triage/[a-z0-9._/-]*\)[[:space:]]*$"`.
+It has to allow the one legitimate hit, the quoted example inside
+`docs/reports/2026-08-28-executor-land-triage-83.md`, which is a fenced code
+block demonstrating the failure.
