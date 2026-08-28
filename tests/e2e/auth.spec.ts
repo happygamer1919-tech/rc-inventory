@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { managerAccount, ownerAccount } from "./support/accounts";
+import { managerAccount, noProfileAccount, ownerAccount } from "./support/accounts";
 import { LOGIN_PATH, signIn, signOut, submitLogin } from "./support/auth";
 
 // auth.spec - linia de acceptanta a cardului P2-02.
@@ -193,4 +193,78 @@ test("cookie-ul de sesiune este scris cu Secure si SameSite Lax", async ({ page,
   expect(session, "cookie-ul de sesiune nu a fost gasit dupa autentificare").toBeDefined();
   expect(session!.secure, "cookie-ul de sesiune nu are atributul Secure").toBe(true);
   expect(session!.sameSite).toBe("Lax");
+});
+
+// ---------------------------------------------------------------------------
+// CRIT-17. Un cont autentificat fara rand activ in profiles.
+//
+// DEFECTUL, ASA CUM L-A INTALNIT PROPRIETARUL: autentificarea reusea, browserul
+// primea /  ->  /autentificare  ->  /  ->  /autentificare la nesfarsit si se
+// oprea cu ERR_TOO_MANY_REDIRECTS. Cauza era ordinea din proxy: ramura
+// "esti autentificat pe pagina de autentificare, mergi la /" se evalua INAINTEA
+// ramurii "nu ai profil activ, mergi la pagina de autentificare", deci cele doua
+// se aratau una spre cealalta.
+//
+// De ce testul se uita la NUMARUL de raspunsuri si nu doar la ecranul final:
+// un ecran corect afisat dupa cincizeci de redirectari este tot un defect, iar
+// o asertiune numai pe ecran ar fi trecut si inainte de reparatie dacă browserul
+// s-ar fi oprit intamplator pe partea buna a buclei.
+// ---------------------------------------------------------------------------
+test.describe("Cont fara profil activ", () => {
+  test("nu intra in bucla de redirectari si vede un ecran romanesc", async ({ page }) => {
+    const redirects: string[] = [];
+    page.on("response", (response) => {
+      const status = response.status();
+      if (status >= 300 && status < 400) redirects.push(`${status} ${new URL(response.url()).pathname}`);
+    });
+
+    await submitLogin(page, noProfileAccount());
+
+    // Ecranul dedicat, randat prin rewrite, deci adresa ramane cea ceruta.
+    const screen = page.getByTestId("no-profile");
+    await expect(screen).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Contul nu are acces" })).toBeVisible();
+
+    // Nicio bucla. Doua redirectari sunt normale la o autentificare reusita;
+    // bucla producea zeci inainte ca browserul sa renunte.
+    expect(redirects.length, `redirectari observate: ${redirects.join(", ")}`).toBeLessThan(5);
+
+    // Invelisul aplicatiei nu se randeaza: un cont fara rol nu vede navigatia.
+    await expect(page.getByTestId("topbar-role")).toHaveCount(0);
+    // Bara laterala nu poarta un testid, dar este singurul <nav> din aplicatie,
+    // iar ecranul acestui card nu randeaza niciunul.
+    await expect(page.locator("nav")).toHaveCount(0);
+  });
+
+  test("orice ruta protejata da acelasi ecran, nu o redirectare", async ({ page }) => {
+    await submitLogin(page, noProfileAccount());
+    await expect(page.getByTestId("no-profile")).toBeVisible({ timeout: 30_000 });
+
+    // Rewrite si nu redirect: adresa ramane exact cea ceruta, pe fiecare ruta.
+    for (const path of ["/inventar", "/comenzi", "/setari"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByTestId("no-profile")).toBeVisible();
+    }
+  });
+
+  test("poate iesi din cont, deci sesiunea nu il tine captiv", async ({ page }) => {
+    await submitLogin(page, noProfileAccount());
+    await expect(page.getByTestId("no-profile")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByTestId("sign-out").click();
+    await page.waitForURL((url) => new URL(url).pathname === LOGIN_PATH, { timeout: 30_000 });
+    await expect(page.getByTestId("login-form")).toBeVisible();
+  });
+
+  test("un cont cu profil activ nu este atins de reparatie", async ({ page }) => {
+    // Aceeasi reordonare nu are voie sa schimbe drumul normal: owner-ul
+    // aterizeaza tot pe tabloul de bord, iar pagina de autentificare tot il
+    // trimite la / cat timp are profil.
+    await signIn(page, ownerAccount());
+    await page.goto(LOGIN_PATH);
+    await page.waitForURL((url) => new URL(url).pathname === "/", { timeout: 30_000 });
+    await expect(page.getByTestId("topbar-role")).toBeVisible();
+    await signOut(page);
+  });
 });

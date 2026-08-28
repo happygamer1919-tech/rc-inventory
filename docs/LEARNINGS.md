@@ -1431,3 +1431,104 @@ consumed the 01:00 and 04:00 slots as well.
 therefore immune to suspension. Pair it with lock staleness: a lock older than
 the cap plus a margin is abandoned, not honoured. Rule: any timeout that must
 hold across a suspend/resume boundary is a deadline comparison, never a sleep.
+
+### A debug flag defeats a script's own secret discipline, and a secret in a URL is public to the machine
+**Tag:** infra
+**ERROR:** Two separate exposures of `TELEGRAM_BOT_TOKEN`, found on 2026-08-27
+while verifying that the chat poller was reaching Telegram.
+
+**First, the debug flag.** `scripts/poc/responder.sh` is written so that no
+Telegram URL is ever echoed, because the Telegram API carries the bot token in
+the URL path. Running it as `bash -x` to check it was polling printed the whole
+`curl` command line, token included, into the session. Worse, the same trace
+printed `TELEGRAM_BOT_TOKEN=<value>` from the `. "$POC_SECRETS_FILE"` line:
+**sourcing a secrets file under `set -x` traces every assignment in it**, so one
+debug flag dumps the entire file, not just the variable being investigated. The
+script's careful "never echo a value" discipline was irrelevant, because the
+trace is produced by the shell rather than by the script.
+
+**Second, the process table.** Even with tracing off,
+`curl "https://.../bot<token>/getUpdates"` places the token in the process
+arguments, where **any process on the machine can read it from `ps aux`** for as
+long as the call runs. No amount of care inside the script prevents that,
+because argv is published by the kernel, not by the script.
+
+**SOLUTION:** For the URL, `curl --config -` and feed the URL through a here-doc
+on stdin. It reaches curl as configuration rather than as an argument, so it is
+in no argv, no process table entry and no trace. For the trace, suppress `set -x`
+explicitly across the whole secrets block and every command that expands a
+secret, capturing the prior state and restoring it:
+
+```
+case "$-" in *x*) WAS_X=yes; set +x ;; *) WAS_X=no ;; esac
+...
+[ "$WAS_X" = yes ] && set -x
+```
+
+Record presence as a `NAME=set` string built inside the suppression, so the
+later `[ -n "$SECRET" ]` check never expands a value into a traced command word.
+
+Verified after the fix by running `bash -x` on the real script and grepping the
+trace for every secret in the file: zero occurrences of the bot token, the
+service role key, the database password, the Resend key and the rest. The only
+match is `TELEGRAM_OWNER_ID`, which ruling R-006 records as not a credential.
+
+The general rule: **a secret's exposure is a property of where it is placed, not
+of how carefully the surrounding code is written.** Put it on stdin, never in an
+argument, and assume any script may one day be run with tracing on.
+
+### launchd ProcessType Background throttles a poller into uselessness
+**Tag:** infra
+**ERROR:** The chat responder was installed with `StartInterval` 60 and
+`ProcessType` `Background`, on the reasoning that a background poller is a
+background job. Measured over a day, the real gaps between polls were **18, 32
+and 38 minutes**, not 60 seconds. `ProcessType Background` places the job in a
+low quality-of-service class that macOS throttles aggressively, and
+`StartInterval` is a floor rather than a guarantee: launchd is free to run the
+job later, and under that QoS it does. A user asking the bot a question would
+have waited half an hour for an answer and concluded it was broken, while every
+log line said the poller was healthy.
+**SOLUTION:** Set `ProcessType` to `Interactive` for anything a human waits on,
+and `LowPriorityIO` to false alongside it. Measured again immediately after:
+polls at 61, 61, 61 and 61 seconds. Pick `ProcessType` from **who is waiting**,
+not from whether the work feels like background work: a job nobody waits on can
+be `Background`, and a job somebody is sitting in front of cannot.
+
+Two related things worth separating when reading such a gap. Long gaps while the
+machine is asleep are not this defect and are not fixable here: launchd cannot
+run a job on a sleeping Mac, and a poller should not be keeping it awake. Only
+the gaps recorded while the machine was demonstrably awake are evidence.
+
+### CRIT-17: two redirects pointing at each other, and only for a signed-in user
+**Tag:** auth
+**ERROR:** Production answered `ERR_TOO_MANY_REDIRECTS` after a successful
+sign-in. `proxy.ts` evaluated "authenticated and on the login page, so go to
+`/`" BEFORE "no active profiles row, so go to the login page". Any session whose
+profile lookup came back empty bounced between the two forever. **The site looked
+healthy to anyone not signed in**, which is why nothing caught it: unauthenticated,
+`/` answers 307 to `/autentificare` and `/autentificare` answers 200, on both
+hosts, and every existing auth test signs in as an account that HAS a profile.
+The one state that loops was the one state no test could reach, because the seed
+script only ever created accounts complete with their profile row.
+**SOLUTION:** resolve the profile before any branch decides where the request
+goes, and **rewrite** to a dedicated screen instead of redirecting. RULE: a
+refusal that the refused user can trigger again by following it must be a
+rewrite, never a redirect. The 403 screen already worked that way and had a
+comment saying why; the profile branch did not, and that is the whole defect.
+Second rule, for tests: a seed that only produces valid accounts cannot test what
+happens to an invalid one. The state a guard exists to catch has to be seedable
+on purpose.
+
+### CRIT-17: an unbound error made a broken policy look like a deleted account
+**Tag:** auth
+**ERROR:** `const { data: profile } = await supabase.from("profiles")...` left
+`error` unbound. A PostgREST failure, a changed RLS policy and a genuinely
+missing row all produced `profile === null` and all took the same branch. An
+infrastructure fault would have been reported to the user as a fact about their
+account, and to nobody at all in the logs.
+**SOLUTION:** bind the error and separate the two. `PGRST116` is PostgREST's
+code for "single() matched no row", which is the expected absence; anything else
+is logged as a defect. The refusal stays identical for both, because entering
+with an unknown role is worse than not entering. RULE: destructuring only `data`
+from a client that also returns `error` converts every failure into the empty
+case. If the empty case triggers a user-visible decision, bind the error.
