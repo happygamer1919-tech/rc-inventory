@@ -1632,6 +1632,7 @@ That makes the whole schema reproducible locally with no credentials and no
 Supabase project, which is what lets a destructive script be proven before it is
 handed to the owner. Note `docker cp` kills Docker Desktop on this machine: bind
 mount the repo read only and feed psql on stdin instead.
+ board/aut-12-14-authorization-grants
 
 ### Chat is not authority, and three dispatches in one day were written against a record that did not exist
 **Tag:** infra
@@ -1677,3 +1678,47 @@ start of a line: `main`, `HEAD`, and anything matching `card/`, `poc/`,
 `triage/`, `board/` or `report/` alone on its own line. A file with a parser
 (the board JSON) fails loudly when this happens; a file without one (a Markdown
 document) carries it silently until someone reads that exact line.
+
+ main
+
+### The forecast in a dispatch is not the acceptance, and a destructive run must not be gated on it
+**Tag:** data
+**ERROR:** RST-01 step 4 was dispatched with the expectation "3 CRITIC-RACE
+products and 1 TEST- category removed, everything else already 0". The run
+deleted **20 rows**: also 2 inbound_orders, 2 outbound_issues, 2 order_lines, 2
+outbound_lines, 2 batches and 6 status_history rows. The CRITIC's concurrency
+test had not only created three products, it had issued their stock twice, so a
+whole descendant tree hung off them that nobody had forecast.
+**SOLUTION:** Nothing needed fixing, and that is the point. Every extra row
+entered the delete set through the `not exists` clause, which admits an order
+only when NO line points outside the set; `PRE MIXED 0`, assertion 20 and the
+five orphan checks proved nothing real was touched. Had the run been gated on
+the forecast, a terminal would have had to decide on the spot whether sixteen
+unpredicted rows were safe to delete, which is exactly the judgement R-047
+forbids. The rule: **gate a destructive run on assertions the script evaluates,
+never on a predicted row count.** A forecast that turns out wrong should change
+nothing about whether the run was safe.
+
+### Check a "did it commit despite failing?" condition mechanically, not by reading
+**Tag:** data
+**ERROR:** RST-01's halt condition was "if the script commits despite an
+assertion failing". That is a claim about output, and reading a 20-row grid to
+confirm 20 PASS is exactly the eyeball judgement the assertion harness exists to
+replace.
+**SOLUTION:** Assert it: `PASS=20, FAIL=0, one COMMIT line, zero "RESET
+ABORTED", psql exit 0`, all four checked with `grep -c` and compared to
+expected values. The rule generalises: when a halt condition is a statement
+about tool output, express it as a command whose exit status answers it.
+
+### A project ref is not a secret, and the repo says so in writing
+**Tag:** infra
+**ERROR:** Reporting a production run risks either leaking a credential or
+redacting so much that the record cannot be verified by anyone else.
+**SOLUTION:** `scripts/production-refs.mjs` settles the line explicitly: a
+project ref "is not a secret: NEXT_PUBLIC_SUPABASE_URL carries it into the
+JavaScript bundle sent to every browser". So the ref, the pooler host, the port
+and the user shape are all nameable in a report and a board field, and only the
+values behind `SUPABASE_DB_PASSWORD` and the keys are not. Pass the password
+through `PGPASSWORD` rather than a connection string so it cannot surface in an
+error message, and filter tool output with `sed` on the value before printing.
+ main
