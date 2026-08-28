@@ -20,5 +20,10 @@
     }
   ],
   "digest_last_sent": "2026-08-27T15:45:25Z",
-  "claims": {}
+  "claims": {
+    "CRIT-17": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-28T11:18:15Z"
+    }
+  }
 }
