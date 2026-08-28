@@ -68,12 +68,21 @@ owns it completely.
 
 ## 3. What a run does, in order
 
-1. **Refuse to start if `/Users/ivan/rc-poc-logs/run.lock` exists.** Exit 0, log
-   the refusal. Two runs in the same worktree would corrupt each other, and a
+1. **Refuse to start if `/Users/ivan/rc-poc-logs/run.lock` exists and is not
+   stale.** Exit 0, log the refusal, and say how old the lock is and when it
+   goes stale. Two runs in the same worktree would corrupt each other, and a
    scheduled job that overlaps its predecessor is the classic way to find that
    out at the worst moment.
-2. **Take the lock.** Write the pid and the start time into it. Release it on
-   every exit path, including failure and timeout.
+1b. **Reclaim it if it is stale.** A lock older than the holder's own declared
+   `cap_seconds` plus a fifteen minute margin is not a peer, it is wreckage, and
+   honouring it costs one window every three hours for as long as it survives.
+   The reclaim stops the holder first, process group included, and only after
+   checking that the recorded pid still belongs to this harness. Every step is
+   logged. See `CLAUDE.md` section 13.
+2. **Take the lock.** Write the run id, pid, pgid, start time, start epoch and
+   the cap this run declares, so the next run can judge this one against the
+   budget it actually advertised. Release it on every exit path, including
+   failure and timeout.
 3. **Refresh the run worktree.** `git fetch origin`, then hard reset to
    `origin/main`. The run never inherits leftover state from the run before it.
 4. **Read the inbox** (`inbox.mjs`). Ivan's answers become rulings, and the
@@ -104,6 +113,14 @@ board movement than the backlog can absorb anyway.
 not by the model's own judgement. A model asked to watch its own clock will
 lose track of it. When the cap fires, the run stops where it is, the digest
 says so, and nothing half-finished is merged.
+
+The timeout is a **deadline the harness compares the clock against**, never a
+countdown it sleeps through, because `sleep` on macOS does not advance while the
+machine is suspended and an overnight countdown therefore measures awake time.
+Every run reports elapsed seconds beside the cap, and elapsed is what decides
+whether the run was capped. TRIAGE has its own cap of 30 minutes.
+`scripts/poc/test-harness-caps.sh` proves all of this in CI by lifting the
+blocks out of `run.sh` and moving the clock underneath them.
 
 **CRITIC when the board is dry.** When every unblocked card is shipped, there
 is nothing to execute and the correct next action is review, not idling. The

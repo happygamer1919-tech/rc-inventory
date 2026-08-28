@@ -29,6 +29,34 @@ POC_MERGE_WAIT_SECONDS=900    # wall clock a run will wait on a quality check
 POC_GH_TIMEOUT_SECONDS=45     # per gh call, so one hung API call cannot eat a run
 POC_CLAIM_TTL_SECONDS=21600   # 6 hours, how long another actor's claim is honoured
 
+# TRIAGE's cap lives here with the others rather than beside its invocation,
+# because the lock's staleness threshold below is computed from it and a
+# constant that two places need cannot be defined at the second one.
+#
+# RAISED from 900 to 1800 on 2026-08-28. 900 was not enough: on run
+# 20260827-220052 TRIAGE opened PR #83 at 10:57:07Z, fourteen and a half minutes
+# in, and the watchdog killed it 27 seconds later, before it could write the
+# report that carried its eight rulings. The PR survived, the reasoning did not.
+# 1800 is twice what that run needed to reach PR creation, and the worst case
+# run still fits the three hour gap between windows: see POC_RUN_TOTAL_CAP_SECONDS.
+POC_TRIAGE_MAX_SECONDS=${POC_TRIAGE_MAX_SECONDS:-1800}
+
+# How often a watchdog re-reads the clock. Short enough that an overrun is cut
+# within half a minute of the deadline, long enough to cost nothing.
+POC_WATCHDOG_POLL_SECONDS=15
+# Grace between TERM and KILL, for the model process and for a stale lock holder.
+POC_KILL_GRACE_SECONDS=20
+
+# The whole run's declared cap, which is what the lock advertises to the next
+# run and what that run measures staleness against. Every bounded step this
+# script can spend wall clock in, added up: the executor, TRIAGE, and two merge
+# waits, one for the leftover sweep and one for this run's own state PR.
+POC_RUN_TOTAL_CAP_SECONDS=$(( POC_MAX_SECONDS + POC_TRIAGE_MAX_SECONDS + POC_MERGE_WAIT_SECONDS * 2 ))
+# Added to that cap before a lock counts as abandoned. The sum is 7200s, two
+# hours, which is inside the three hour gap between windows: a run that dies
+# holding the lock costs at most the one window it died in.
+POC_LOCK_STALE_MARGIN_SECONDS=900
+
 # launchd hands over a minimal PATH. node lives under mise, gh and git under
 # homebrew, claude under a user-local bin. All four are named explicitly so the
 # scheduled run behaves exactly like the manual one.
@@ -51,7 +79,78 @@ log() {
 }
 
 # ---------------------------------------------------------------------------
-# The lock. A run never starts while another holds it. CLAUDE.md section 13.
+# Deadlines, not countdowns. Read this before touching any timing in this file.
+#
+# `sleep N` on macOS is nanosleep, which is backed by mach_absolute_time, and
+# mach_absolute_time DOES NOT ADVANCE WHILE THE SYSTEM IS SUSPENDED. So a
+# background `sleep 2700` does not measure 45 minutes of wall clock on a laptop
+# that suspends. It measures 45 minutes of AWAKE time, and on a machine that
+# spends the night asleep those are different numbers by an order of magnitude.
+#
+# Run 20260827-220052 is the proof. The executor was invoked at 02:00:52Z with
+# `cap 2700s` and returned at 10:42:32Z, 31300 seconds of wall clock later,
+# having reported `capped no`, with its `sleep 2700` watchdog still resident and
+# most of its countdown still to go. `pmset -g log` over that window accounts
+# for 29853 seconds asleep against roughly 664 seconds awake. The watchdog was
+# not broken and it was not slow; it had been given about eleven minutes of the
+# forty five it was waiting for. The run held the lock for nine hours and the
+# 01:00, 04:00 and 07:00 windows never happened.
+#
+# `date +%s` is CLOCK_REALTIME and does advance across a suspend. So every
+# bounded wait in this file now stores a deadline and polls the clock against
+# it. A suspend simply makes one poll interval long; the poll after it reads the
+# real time, finds the deadline already passed, and acts.
+#
+# RULE, from docs/LEARNINGS.md: any timeout that must hold across a
+# suspend/resume boundary is a deadline comparison, never a sleep.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN deadline-helpers
+# Everything between this marker and EXTRACT-END is lifted verbatim by
+# scripts/poc/test-harness-caps.sh and exercised there. Keep it free of anything
+# that depends on the rest of this file.
+#
+# Poll until PID exits or the deadline passes. 0 means the process is gone,
+# 1 means the deadline came first.
+wait_for_exit() {
+  WFE_PID=$1
+  WFE_DEADLINE=$2
+  while kill -0 "$WFE_PID" 2>/dev/null; do
+    [ "$(date +%s)" -ge "$WFE_DEADLINE" ] && return 1
+    sleep "$POC_WATCHDOG_POLL_SECONDS"
+  done
+  return 0
+}
+
+# TERM, then KILL if it lingers. The grace is a deadline for the same reason
+# everything else here is.
+stop_pid() {
+  SP_PID=$1
+  kill -TERM "$SP_PID" 2>/dev/null
+  if ! wait_for_exit "$SP_PID" "$(( $(date +%s) + POC_KILL_GRACE_SECONDS ))"; then
+    kill -KILL "$SP_PID" 2>/dev/null
+  fi
+}
+
+# The watchdog body, run in the background beside a model process. Writes its
+# own line into that process's log so the fact of the cap survives in the file
+# the run prints, and not only in this script's memory.
+watchdog() {
+  WD_PID=$1
+  WD_DEADLINE=$2
+  WD_LOG=$3
+  WD_LABEL=$4
+  if wait_for_exit "$WD_PID" "$WD_DEADLINE"; then
+    return 0
+  fi
+  echo "[watchdog] $WD_LABEL cap reached, stopping" >> "$WD_LOG"
+  stop_pid "$WD_PID"
+}
+# EXTRACT-END deadline-helpers
+
+# ---------------------------------------------------------------------------
+# The lock. A run never starts while another holds it, unless the lock is stale.
+# CLAUDE.md section 13.
 # ---------------------------------------------------------------------------
 release_lock() {
   if [ "$LOCK_HELD" = yes ]; then
@@ -62,17 +161,142 @@ release_lock() {
 }
 trap 'release_lock' EXIT INT TERM
 
+# EXTRACT-BEGIN lock
+# Lifted verbatim by scripts/poc/test-harness-caps.sh. The only things it reads
+# from outside this block are POC_LOCK_FILE, RUN_ID, RUN_STARTED_AT,
+# POC_RUN_TOTAL_CAP_SECONDS, POC_LOCK_STALE_MARGIN_SECONDS, POC_KILL_GRACE_SECONDS
+# and the deadline helpers above, all of which the test supplies.
+#
+# One key=value per line, so the next run can read a field rather than a blob.
+lock_field() {
+  sed -n "s/^$1=//p" "$POC_LOCK_FILE" 2>/dev/null | head -1
+}
+
+# Empty or non-numeric falls back to the second argument. A lock written by an
+# older run.sh has no started_epoch and no cap_seconds, and must still be
+# readable rather than treated as fresh forever.
+lock_number() {
+  LN_VALUE=$(lock_field "$1")
+  case "$LN_VALUE" in
+    ''|*[!0-9]*) echo "$2" ;;
+    *) echo "$LN_VALUE" ;;
+  esac
+}
+
+LOCK_RECLAIMED=no
+
 if [ -e "$POC_LOCK_FILE" ]; then
-  log "run $RUN_ID refused: lock file present at $POC_LOCK_FILE"
-  log "holder: $(tr '\n' ' ' < "$POC_LOCK_FILE" 2>/dev/null)"
-  log "exit 0, this is a refusal and not a failure"
-  exit 0
+  LOCK_RUN=$(lock_field run_id)
+  LOCK_PID=$(lock_field pid)
+  LOCK_PGID=$(lock_field pgid)
+  # started_epoch is what this run.sh writes. The file's mtime is the fallback
+  # for a lock written before that field existed, and is the same instant
+  # anyway because the file is written once and never touched again.
+  LOCK_STARTED=$(lock_number started_epoch "")
+  # Validated again after every fallback rather than once at the end, because
+  # the wrong answer here is not an error, it is the number zero seconds of age.
+  # `stat -f %m` is the BSD spelling this machine uses; on GNU coreutils `-f`
+  # means the FILE SYSTEM and `%m` its mount point, so it succeeds and answers
+  # "/". Both spellings are tried and each result is checked for being a number,
+  # so a lock in the pre-2026-08-28 format is aged correctly rather than looking
+  # brand new forever, which is the one failure mode this whole block exists to
+  # remove. Proved on ubuntu in scripts/poc/test-harness-caps.sh, case 3d.
+  case "$LOCK_STARTED" in
+    ''|*[!0-9]*) LOCK_STARTED=$(stat -f %m "$POC_LOCK_FILE" 2>/dev/null) ;;
+  esac
+  case "$LOCK_STARTED" in
+    ''|*[!0-9]*) LOCK_STARTED=$(stat -c %Y "$POC_LOCK_FILE" 2>/dev/null) ;;
+  esac
+  case "$LOCK_STARTED" in
+    ''|*[!0-9]*) LOCK_STARTED=$RUN_STARTED_AT ;;
+  esac
+  # THE HOLDER'S OWN DECLARED CAP, not this run's. A lock is judged against the
+  # budget the run that took it advertised, so raising a cap here can never
+  # retroactively make a live run look abandoned.
+  LOCK_CAP=$(lock_number cap_seconds "$POC_RUN_TOTAL_CAP_SECONDS")
+  LOCK_AGE=$(( RUN_STARTED_AT - LOCK_STARTED ))
+  LOCK_STALE_AT=$(( LOCK_CAP + POC_LOCK_STALE_MARGIN_SECONDS ))
+
+  if [ "$LOCK_AGE" -lt "$LOCK_STALE_AT" ]; then
+    log "run $RUN_ID refused: lock held by run ${LOCK_RUN:-unknown}, pid ${LOCK_PID:-unknown}"
+    log "lock age ${LOCK_AGE}s against a declared cap of ${LOCK_CAP}s plus a ${POC_LOCK_STALE_MARGIN_SECONDS}s margin, stale in $(( LOCK_STALE_AT - LOCK_AGE ))s"
+    log "exit 0, this is a refusal and not a failure"
+    exit 0
+  fi
+
+  # -------------------------------------------------------------------------
+  # Stale lock reclaim. A refusal is only correct while the holder is inside the
+  # budget it declared. Past that it is not a running peer, it is wreckage, and
+  # honouring it costs a window every three hours for as long as it lasts.
+  #
+  # Reclaiming is LOUD. Three windows were lost on 2026-08-28 and produced no
+  # error output anywhere, which is the part that made it expensive: the lock
+  # was held for nine hours and the only trace was a gap.
+  # -------------------------------------------------------------------------
+  log "STALE LOCK: run ${LOCK_RUN:-unknown} has held $POC_LOCK_FILE for ${LOCK_AGE}s, past its declared ${LOCK_CAP}s plus a ${POC_LOCK_STALE_MARGIN_SECONDS}s margin"
+
+  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+    # IDENTITY IS CHECKED BEFORE ANYTHING IS SIGNALLED. A pid recorded hours ago
+    # may since have been recycled onto something entirely unrelated, and
+    # killing whatever now happens to hold that number would be a far worse
+    # fault than the one being repaired.
+    LOCK_ARGS=$(ps -o args= -p "$LOCK_PID" 2>/dev/null)
+    LOCK_LIVE_PGID=$(ps -o pgid= -p "$LOCK_PID" 2>/dev/null | tr -d ' ')
+    case "$LOCK_ARGS" in
+      *run.sh*)
+        # The process group, not the pid, when the recorded pgid still matches
+        # what the kernel reports. TERMing run.sh alone would leave the model
+        # process it started running unsupervised, which is most of what was
+        # actually consuming the machine.
+        # Never our own group. launchd gives each instance of a label its own,
+        # so this cannot normally match, and a signal that reached this run
+        # would kill the reclaim halfway through.
+        RECLAIM_SELF_PGID=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
+        if [ -n "$LOCK_PGID" ] && [ "$LOCK_PGID" = "$LOCK_LIVE_PGID" ] \
+           && [ "$LOCK_PGID" != "1" ] && [ "$LOCK_PGID" != "$RECLAIM_SELF_PGID" ]; then
+          log "STALE LOCK: pid $LOCK_PID is this harness and still alive, stopping process group $LOCK_PGID"
+          kill -TERM -"$LOCK_PGID" 2>/dev/null
+          if ! wait_for_exit "$LOCK_PID" "$(( $(date +%s) + POC_KILL_GRACE_SECONDS ))"; then
+            log "STALE LOCK: process group $LOCK_PGID ignored TERM, sending KILL"
+            kill -KILL -"$LOCK_PGID" 2>/dev/null
+          fi
+        else
+          log "STALE LOCK: pid $LOCK_PID is this harness and still alive, stopping it"
+          stop_pid "$LOCK_PID"
+        fi
+        # Its EXIT trap runs release_lock on the way out, so by the time the pid
+        # is gone the file is usually already gone. Waiting for the pid before
+        # touching the file is what stops that trap from deleting the lock this
+        # run is about to write.
+        wait_for_exit "$LOCK_PID" "$(( $(date +%s) + POC_KILL_GRACE_SECONDS ))" || \
+          log "STALE LOCK: pid $LOCK_PID is still alive after KILL, taking the lock anyway"
+        ;;
+      '')
+        log "STALE LOCK: pid $LOCK_PID answers to signal 0 but has no readable command line, not touching it"
+        ;;
+      *)
+        log "STALE LOCK: pid $LOCK_PID is alive but is NOT this harness, not touching it"
+        log "STALE LOCK: that pid now runs: $LOCK_ARGS"
+        ;;
+    esac
+  else
+    log "STALE LOCK: pid ${LOCK_PID:-unknown} is gone, the lock is an orphan of a run that died without releasing it"
+  fi
+
+  rm -f "$POC_LOCK_FILE"
+  LOCK_RECLAIMED=yes
+  log "STALE LOCK RECLAIMED by run $RUN_ID"
 fi
 
-printf 'run_id=%s\npid=%s\nstarted_at=%s\n' \
-  "$RUN_ID" "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$POC_LOCK_FILE"
+# cap_seconds is written so the NEXT run judges this one against the budget this
+# one actually declared. pgid is written so a reclaim can stop the model process
+# too and not just the shell that started it.
+printf 'run_id=%s\npid=%s\npgid=%s\nstarted_at=%s\nstarted_epoch=%s\ncap_seconds=%s\n' \
+  "$RUN_ID" "$$" "$(ps -o pgid= -p $$ | tr -d ' ')" \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RUN_STARTED_AT" "$POC_RUN_TOTAL_CAP_SECONDS" > "$POC_LOCK_FILE"
 LOCK_HELD=yes
-log "run $RUN_ID started, lock taken, pid $$"
+log "run $RUN_ID started, lock taken, pid $$, declared cap ${POC_RUN_TOTAL_CAP_SECONDS}s"
+# EXTRACT-END lock
 
 # ---------------------------------------------------------------------------
 # Secrets. The one permitted contact with that directory.
@@ -159,7 +383,14 @@ gh_bounded() {
   GHB_OUT=$(mktemp)
   gh "$@" > "$GHB_OUT" 2>/dev/null &
   GHB_PID=$!
-  ( sleep "$POC_GH_TIMEOUT_SECONDS"; kill -KILL "$GHB_PID" 2>/dev/null ) &
+  # A deadline, not a countdown, for the reason given above the helpers. The old
+  # `sleep 45` killer here had the same defect as the executor watchdog: a gh
+  # call that hung across a suspend would not be killed for 45 AWAKE seconds,
+  # and `wait` below would block the whole run for as long as that took. This
+  # loop is inside merge_when_green, which is inside the lock, so a hang here is
+  # exactly how a run ends up holding the lock overnight.
+  ( wait_for_exit "$GHB_PID" "$(( $(date +%s) + POC_GH_TIMEOUT_SECONDS ))" || \
+      kill -KILL "$GHB_PID" 2>/dev/null ) &
   GHB_KILLER=$!
   wait "$GHB_PID" 2>/dev/null
   kill "$GHB_KILLER" 2>/dev/null
@@ -167,6 +398,34 @@ gh_bounded() {
   cat "$GHB_OUT"
   rm -f "$GHB_OUT"
 }
+
+# The PR number on a branch, open or closed, empty when there is none or when
+# the answer is not a number. Read from GitHub, never from what a model said it
+# did: a session that intended to open a PR and a session that opened one look
+# identical from inside this script.
+# EXTRACT-BEGIN checkpoint
+pr_for_branch() {
+  PFB_NUMBER=$(gh_bounded pr list --head "$1" --state all --json number -q '.[0].number' \
+    | tr -d '[:space:]')
+  case "$PFB_NUMBER" in
+    ''|*[!0-9]*) echo "" ;;
+    *) echo "$PFB_NUMBER" ;;
+  esac
+}
+
+# One checkpoint line, written at most once, to the run log AND to a file of its
+# own. The run log is where a human looks; the separate file is what survives if
+# this script is killed before it can finish writing anything else. Both are
+# written the moment the fact is known, which is the entire point: a fact held
+# until the end of a run is a fact lost whenever the run does not reach its end.
+checkpoint_pr() {
+  CKP_LINE="checkpoint run=$1 role=$2 pr=$3 branch=$4 report=$5"
+  if ! grep -qF "$CKP_LINE" "$6" 2>/dev/null; then
+    echo "$CKP_LINE" >> "$6"
+    log "$CKP_LINE"
+  fi
+}
+# EXTRACT-END checkpoint
 
 merge_when_green() {
   MWG_PR=$1
@@ -396,37 +655,47 @@ log "prompt rendered, $(wc -c < "$PROMPT_FILE" | tr -d ' ') bytes"
 log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
 EXECUTOR_LOG=$POC_LOG_DIR/$RUN_ID.executor.log
+EXECUTOR_STARTED_AT=$(date +%s)
 claude -p "$(cat "$PROMPT_FILE")" \
   --permission-mode bypassPermissions \
   --add-dir "$POC_RUN_WORKTREE" \
   > "$EXECUTOR_LOG" 2>&1 &
 CLAUDE_PID=$!
 
-# The watchdog. macOS ships no timeout(1), so the cap is a background sleeper
-# that stops the run. TERM first, KILL if it lingers.
-(
-  sleep "$POC_MAX_SECONDS"
-  if kill -0 "$CLAUDE_PID" 2>/dev/null; then
-    echo "[watchdog] 45 minute cap reached, stopping the run" >> "$EXECUTOR_LOG"
-    kill -TERM "$CLAUDE_PID" 2>/dev/null
-    sleep 20
-    kill -KILL "$CLAUDE_PID" 2>/dev/null
-  fi
-) &
+# macOS ships no timeout(1), so the cap is enforced here. The deadline is
+# computed once, now, and the watchdog compares the clock against it.
+watchdog "$CLAUDE_PID" "$(( EXECUTOR_STARTED_AT + POC_MAX_SECONDS ))" \
+  "$EXECUTOR_LOG" "executor ${POC_MAX_SECONDS}s" &
 WATCHDOG_PID=$!
 
 wait "$CLAUDE_PID"
 EXECUTOR_EXIT=$?
 kill "$WATCHDOG_PID" 2>/dev/null
 wait "$WATCHDOG_PID" 2>/dev/null
+EXECUTOR_ELAPSED=$(( $(date +%s) - EXECUTOR_STARTED_AT ))
 
-if grep -q 'watchdog. 45 minute cap reached' "$EXECUTOR_LOG" 2>/dev/null; then
-  log "EXECUTOR was stopped by the 45 minute cap"
+# CAPPED IS DECIDED BY THE CLOCK, NOT BY THE WATCHDOG'S OWN LINE. The two are
+# reported separately because when they disagree the disagreement is the news.
+# Run 20260827-220052 logged `capped no` after 31300 seconds against a 2700
+# second cap, and it was telling the truth about the only thing it measured: no
+# watchdog line had been written. Elapsed against the cap cannot be fooled that
+# way, so it is what the digest and the state file are told.
+# EXTRACT-BEGIN capped-decision
+if grep -q '\[watchdog\] executor .* cap reached' "$EXECUTOR_LOG" 2>/dev/null; then
+  WATCHDOG_FIRED=yes
+else
+  WATCHDOG_FIRED=no
+fi
+if [ "$EXECUTOR_ELAPSED" -ge "$POC_MAX_SECONDS" ]; then
   CAPPED=yes
 else
   CAPPED=no
 fi
-log "EXECUTOR finished, exit $EXECUTOR_EXIT, capped $CAPPED"
+log "EXECUTOR finished, exit $EXECUTOR_EXIT, elapsed ${EXECUTOR_ELAPSED}s of ${POC_MAX_SECONDS}s cap, capped $CAPPED, watchdog fired $WATCHDOG_FIRED"
+if [ "$CAPPED" = yes ] && [ "$WATCHDOG_FIRED" = no ]; then
+  log "HARNESS DEFECT: the executor outran its cap by $(( EXECUTOR_ELAPSED - POC_MAX_SECONDS ))s and the watchdog did not stop it. Read run.sh before trusting this run."
+fi
+# EXTRACT-END capped-decision
 cat "$EXECUTOR_LOG"
 
 # ---------------------------------------------------------------------------
@@ -448,9 +717,18 @@ cat "$EXECUTOR_LOG"
 # stopped by the cap before it could write its report, has nothing to triage,
 # and inventing an input is worse than skipping.
 
-TRIAGE_MAX_SECONDS=${POC_TRIAGE_MAX_SECONDS:-900}
+TRIAGE_MAX_SECONDS=$POC_TRIAGE_MAX_SECONDS
 TRIAGE_EXIT=skipped
 TRIAGE_REPORT=""
+TRIAGE_PR=""
+TRIAGE_CAPPED=no
+TRIAGE_ELAPSED=0
+# The branch TRIAGE is REQUIRED to use, named here rather than left to the
+# model, because the checkpoint below finds the PR by looking for exactly this
+# branch on GitHub. A branch this run cannot predict is a PR this run cannot
+# record. Run 20260827-220052 happened to pick this same name unprompted; the
+# checkpoint does not depend on it happening again.
+TRIAGE_BRANCH=triage/$RUN_ID
 
 git fetch origin main --quiet 2>/dev/null || true
 TRIAGE_REPORT=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
@@ -483,6 +761,12 @@ changed mind is a new dated ruling that supersedes the old one by id.
 Open ONE pull request carrying your rulings and card edits. Never push to main.
 The board validator must exit 0 before every commit.
 
+YOUR BRANCH IS EXACTLY $TRIAGE_BRANCH. Not a name like it, that one. The harness
+watches GitHub for that branch while you work and writes the PR number into the
+run log the moment the PR appears, so that if you are stopped mid-sentence the
+run still records what you opened. A different branch name means your PR is
+invisible to the run that started you.
+
 ALSO WRITE docs/poc/triage-latest.json, in the same PR, so the digest can carry
 your outcome. Exactly this shape, every key present, empty arrays where there is
 nothing:
@@ -508,31 +792,76 @@ You are in the worktree $POC_RUN_WORKTREE. Work here and nowhere else.
 TRIAGE_EOF
 
   TRIAGE_LOG=$POC_LOG_DIR/$RUN_ID.triage.log
+  TRIAGE_STARTED_AT=$(date +%s)
   claude -p "$(cat "$TRIAGE_PROMPT_FILE")" \
     --permission-mode bypassPermissions \
     --add-dir "$POC_RUN_WORKTREE" \
     > "$TRIAGE_LOG" 2>&1 &
   TRIAGE_PID=$!
 
-  # Same watchdog shape as the executor's, and for the same reason: macOS ships
-  # no timeout(1).
-  (
-    sleep "$TRIAGE_MAX_SECONDS"
-    if kill -0 "$TRIAGE_PID" 2>/dev/null; then
-      echo "[watchdog] triage cap reached, stopping" >> "$TRIAGE_LOG"
-      kill -TERM "$TRIAGE_PID" 2>/dev/null
-      sleep 20
-      kill -KILL "$TRIAGE_PID" 2>/dev/null
-    fi
-  ) &
+  # Same watchdog as the executor's, and for the same reason: macOS ships no
+  # timeout(1).
+  watchdog "$TRIAGE_PID" "$(( TRIAGE_STARTED_AT + TRIAGE_MAX_SECONDS ))" \
+    "$TRIAGE_LOG" "triage ${TRIAGE_MAX_SECONDS}s" &
   TRIAGE_WATCHDOG_PID=$!
+
+  # -------------------------------------------------------------------------
+  # The checkpoint. Written the moment the PR exists, not when TRIAGE finishes.
+  #
+  # On run 20260827-220052 TRIAGE opened PR #83 on branch triage/20260827-220052
+  # at 10:57:07Z and was killed by its own cap 27 seconds later. `claude -p`
+  # prints its transcript when it completes, so a session that is stopped prints
+  # nothing at all: the run log named neither the PR nor the branch, and the
+  # eight rulings sitting in that PR were found days later by hand. Everything a
+  # reader needs to reach the work was known to GitHub the instant the PR was
+  # created and known to this script never.
+  #
+  # So this run stops relying on the model to report and asks GitHub instead. It
+  # polls for the branch it mandated, and on the first sighting writes one line
+  # carrying the run id, the report, the branch and the PR number. Because it
+  # writes through this script's stdout, that line is in the run log; because it
+  # also writes the checkpoint file, it survives even a kill of this script.
+  # -------------------------------------------------------------------------
+  TRIAGE_CHECKPOINT_FILE=$POC_LOG_DIR/$RUN_ID.checkpoint
+  (
+    while kill -0 "$TRIAGE_PID" 2>/dev/null; do
+      CP_PR=$(pr_for_branch "$TRIAGE_BRANCH")
+      if [ -n "$CP_PR" ]; then
+        checkpoint_pr "$RUN_ID" triage "$CP_PR" "$TRIAGE_BRANCH" "$TRIAGE_REPORT" \
+          "$TRIAGE_CHECKPOINT_FILE"
+        exit 0
+      fi
+      sleep "$POC_WATCHDOG_POLL_SECONDS"
+    done
+  ) &
+  TRIAGE_CHECKPOINT_PID=$!
 
   wait "$TRIAGE_PID"
   TRIAGE_EXIT=$?
   kill "$TRIAGE_WATCHDOG_PID" 2>/dev/null
   wait "$TRIAGE_WATCHDOG_PID" 2>/dev/null
+  kill "$TRIAGE_CHECKPOINT_PID" 2>/dev/null
+  wait "$TRIAGE_CHECKPOINT_PID" 2>/dev/null
+  TRIAGE_ELAPSED=$(( $(date +%s) - TRIAGE_STARTED_AT ))
 
-  log "TRIAGE finished, exit $TRIAGE_EXIT"
+  # The belt to the poller's braces. The poller covers a kill of this script;
+  # this covers the ordinary case and the race where the PR appears in the last
+  # poll interval. Both read GitHub, so neither can be told a PR exists by a
+  # model that only intended to open one.
+  TRIAGE_PR=$(pr_for_branch "$TRIAGE_BRANCH")
+  if [ -n "$TRIAGE_PR" ]; then
+    checkpoint_pr "$RUN_ID" triage "$TRIAGE_PR" "$TRIAGE_BRANCH" "$TRIAGE_REPORT" \
+      "$TRIAGE_CHECKPOINT_FILE"
+  else
+    log "TRIAGE opened no PR on $TRIAGE_BRANCH"
+  fi
+
+  if [ "$TRIAGE_ELAPSED" -ge "$TRIAGE_MAX_SECONDS" ]; then
+    TRIAGE_CAPPED=yes
+  else
+    TRIAGE_CAPPED=no
+  fi
+  log "TRIAGE finished, exit $TRIAGE_EXIT, elapsed ${TRIAGE_ELAPSED}s of ${TRIAGE_MAX_SECONDS}s cap, capped $TRIAGE_CAPPED, pr ${TRIAGE_PR:-none}"
   cat "$TRIAGE_LOG"
 fi
 
@@ -628,7 +957,7 @@ if [ -n "$ELIGIBLE_AT_START" ]; then
     if [ -n "$CARDS_ON_BRANCH" ]; then
       SILENCE_REASON="work is on a branch and was not merged: $CARDS_ON_BRANCH. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so."
     elif [ "$CAPPED" = yes ]; then
-      SILENCE_REASON="the run was stopped by the 45 minute wall clock cap before it could ship."
+      SILENCE_REASON="the executor ran ${EXECUTOR_ELAPSED}s against a ${POC_MAX_SECONDS}s cap and was stopped before it could ship."
     elif [ "$EXECUTOR_EXIT" != "0" ]; then
       SILENCE_REASON="the executor exited $EXECUTOR_EXIT."
     else
@@ -685,7 +1014,7 @@ git checkout -b "$STATE_BRANCH" origin/main --quiet
 node -e '
   const fs = require("fs");
   const [path, runId, finishedAt, touchedRaw, digestAt, capped, silence, logFile, claimedCard,
-         reportPath] = process.argv.slice(1);
+         reportPath, elapsed, capSeconds] = process.argv.slice(1);
   const state = JSON.parse(fs.readFileSync(path, "utf8"));
   state.last_run = finishedAt;
   state.run_id = runId;
@@ -698,7 +1027,8 @@ node -e '
   if (capped === "yes") {
     state.escalations = (state.escalations || []).concat([{
       card_id: null,
-      question: "The run was stopped by the 45 minute wall clock cap.",
+      question: "The executor ran " + elapsed + "s against its " + capSeconds
+        + "s wall clock cap and was stopped there.",
       recommendation: "Read the run log before assuming the work is complete.",
       raised_at: finishedAt,
       run_id: runId,
@@ -737,7 +1067,7 @@ node -e '
   // which run without matching dates by eye.
   if (reportPath) state.report_path = reportPath;
   fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
-' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD" "$REPORT_PATH"
+' "$POC_STATE" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CARDS_TOUCHED" "$DIGEST_SENT_AT" "$CAPPED" "$SILENCE_ESCALATION" "$LOG_FILE" "$HARNESS_CARD" "$REPORT_PATH" "$EXECUTOR_ELAPSED" "$POC_MAX_SECONDS"
 
 git add "$POC_STATE"
 
@@ -756,9 +1086,9 @@ else
       commit -q -m "POC: run $RUN_ID state
 
 Cards touched: ${CARDS_TOUCHED:-none}
-Capped at 45 minutes: $CAPPED
-Executor exit: $EXECUTOR_EXIT
-Triage exit: $TRIAGE_EXIT
+Executor: exit $EXECUTOR_EXIT, ${EXECUTOR_ELAPSED}s of ${POC_MAX_SECONDS}s, capped $CAPPED
+Triage: exit $TRIAGE_EXIT, ${TRIAGE_ELAPSED}s of ${TRIAGE_MAX_SECONDS}s, capped $TRIAGE_CAPPED, PR ${TRIAGE_PR:-none}
+Stale lock reclaimed at start: $LOCK_RECLAIMED
 Log: $LOG_FILE
 
 Harness bookkeeping only. No board file and no application code is touched."
@@ -768,9 +1098,9 @@ Harness bookkeeping only. No board file and no application code is touched."
       --body "Unattended run $RUN_ID.
 
 Cards touched: ${CARDS_TOUCHED:-none}
-Capped at 45 minutes: $CAPPED
-Executor exit: $EXECUTOR_EXIT
-Triage exit: $TRIAGE_EXIT
+Executor: exit $EXECUTOR_EXIT, ${EXECUTOR_ELAPSED}s of ${POC_MAX_SECONDS}s, capped $CAPPED
+Triage: exit $TRIAGE_EXIT, ${TRIAGE_ELAPSED}s of ${TRIAGE_MAX_SECONDS}s, capped $TRIAGE_CAPPED, PR ${TRIAGE_PR:-none}
+Stale lock reclaimed at start: $LOCK_RECLAIMED
 Log: $LOG_FILE
 
 Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,

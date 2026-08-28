@@ -98,6 +98,20 @@ jobs:
       # the guard had already broken, which is the one outcome this card
       # exists to prevent. The guard is a separate process; asserting its exit
       # code is the whole proof.
+      # The harness caps, exercised. run.sh cannot run in CI: it takes a lock,
+      # sources a secrets file and invokes a model. So the blocks that carry the
+      # guarantees are fenced in run.sh and lifted verbatim by this test, which
+      # then reproduces a suspend by moving the clock the code reads.
+      #
+      # It exists because the previous cap looked correct and did nothing. On
+      # 2026-08-27 the 45 minute cap did not fire for eight hours forty one, the
+      # run reported `capped no`, and three scheduled windows were lost behind
+      # the lock it went on holding. Nothing was red. A cap nobody has watched
+      # fail is a cap nobody has tested, so this suite also runs the OLD
+      # watchdog and REQUIRES it to fail.
+      - name: Prove the harness caps enforce  # HARNESS-CAP-PROOF
+        run: bash scripts/poc/test-harness-caps.sh
+
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |
           set -uo pipefail
