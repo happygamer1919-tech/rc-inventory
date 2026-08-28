@@ -2520,3 +2520,87 @@ this file still obeys it.
 non-migration production write.
 **Supersedes:** none. `APPLY-LOG.md` keeps its scope exactly: migrations, and
 only migrations.
+
+---
+
+### R-056 - the self-merge grant extends to AUTHOR on the EXECUTOR path set, and the clause saying it did not is retired by the owner who reserved that decision
+**Date:** 2026-08-28
+**Asked on:** CLAUDE.md section 3.1, R-049, and PR #94's first named loose end
+**Answer, verbatim:**
+> from Ivan, 2026-08-28, in the session that dispatched the phase 3 board:
+>
+> "Also: extend R-049 to AUTHOR, same terms as EXECUTOR. AUTHOR may merge its own
+> PRs touching docs/, decisions/ and docs/board/ when quality is green on the head
+> sha. Application code and migrations excluded. Revoked by P2-13 with every other
+> terminal grant. Amend CLAUDE.md 3.1 and append the ruling."
+
+**Ruling:** granted as written. `CLAUDE.md` section 3.1 gains a third row,
+**AUTHOR**, carrying the same path set as EXECUTOR: anything under `docs/` or
+under `decisions/`.
+
+**THE THREE PATHS IN THE DISPATCH ARE TWO.** `docs/board/` is inside `docs/`.
+R-049 made exactly this deduplication for `run.sh` and `DESIGN.md`, and recorded
+the resolutions rather than copying the overlap, on the grounds that a path list
+with overlapping entries invites a later reader to assume the overlap meant
+something. Same treatment, same reason. The AUTHOR row is character-for-character
+the EXECUTOR row, because **same terms** was the instruction and two rows meaning
+one thing should not be two different sentences.
+
+**THIS RETIRES A CLAUSE R-049 WROTE DELIBERATELY, WHICH IS THE SUBSTANCE OF THIS
+RULING.** Section 3.1 said: "AUTHOR AND TRIAGE ARE NOT GRANTED ANYTHING HERE...
+An AUTHOR PR goes to Ivan. Widening this grant to another role is an owner
+decision, not an inference from the table." R-049 was right to write it and right
+about who could undo it, and the sentence did its job: the grant was widened by
+the owner saying so rather than by a terminal reasoning that AUTHOR obviously
+qualified. **TRIAGE keeps its exclusion in full.** Only the AUTHOR half moves.
+
+**WHY THE GAP EXISTED AT ALL.** R-049 identified the case it was closing as the
+PR with no card and therefore no acceptance line: a report, a ruling commit, a
+board edit. AUTHOR is the role that produces almost all of that, and it was the
+one role excluded from the grant aimed at its own output. PR #94 said so in its
+description as its first loose end, and this closes it.
+
+**EVERY BOUND FROM R-049 SURVIVES, restated because a ruling that only says "same
+terms" makes a reader guess which terms:**
+
+- **Every changed path.** One file outside the set removes the grant for the
+  whole PR. No partial merge, and no judgement about whether the stray file
+  mattered, because that judgement is the thing being removed.
+- **`quality` green on the head sha.** A run exists for that exact sha and
+  concluded success. Pending is not green, absent is not green, and a run
+  inherited from an earlier sha is not green. A conflicting PR triggers zero
+  workflows, so an all-pass from `gh pr checks` on a conflicting PR is leftover
+  context, not a result.
+- **Application code and migrations excluded**, keeping the full 5b gate: green
+  check plus the card's named acceptance run, with section 8 on top for
+  migrations.
+- **The clause dies if a `paths:` filter is ever added to
+  `.github/workflows/quality.yml`**, because a docs-only PR would then be
+  skipped, report success in seconds, and the grant would read "merge whenever
+  the checks did not run". Re-verified for this ruling rather than inherited:
+  `grep -c '^[[:space:]]*paths:' .github/workflows/quality.yml` prints `0`.
+- **Revoked by P2-13** with every other terminal grant. Section 8.7 already
+  carries "revoking the self-merge grant in section 3.1" and needs no amendment:
+  deleting that section removes all three rows at once. **No fourth checklist
+  item is added on purpose.** A second line aimed at the same section is a second
+  thing to forget and a chance for the two to disagree.
+
+**WHAT THIS DOES NOT REACH, ON THE BOARD IT WAS DISPATCHED ALONGSIDE.** Every
+card in the phase 3 schema wave authors a file under `supabase/migrations/`.
+Those PRs are outside this grant under any reading, and were outside R-049 too.
+The grant covers authoring a board, never working it.
+
+**THE PR CARRYING THIS RULING IS ITSELF OUTSIDE THE GRANT IT CREATES.** It
+touches `CLAUDE.md`, `.github/workflows/quality.yml` and `.gitignore`, none of
+which is in the AUTHOR set, so Ivan merges it. That is not an awkwardness to work
+around. A grant that could authorise its own creation is a terminal writing its
+own permissions, and the path rule producing the right answer here with nobody
+special-casing it is the best evidence the rule is drawn correctly.
+
+**Unblocks:** nothing. It removes an approval step from future AUTHOR pull
+requests whose every path is under `docs/` or `decisions/`.
+**Also changes:** `CLAUDE.md` section 3.1, the role table and the
+AUTHOR-and-TRIAGE paragraph; and the `doctrine` field of
+`docs/board/rc-board-phase3.json`, which cites R-049 and this ruling together.
+**Supersedes:** none. R-049 stands in full and this extends it by one row. R-002
+and section 5b are untouched.
