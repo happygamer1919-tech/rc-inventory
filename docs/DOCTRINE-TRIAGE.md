@@ -42,6 +42,37 @@ TRIAGE output.
 That boundary is what keeps the role reviewable: its entire output is text in
 `decisions/inbox.md` and the board, readable in a diff.
 
+### TRIAGE ratifies without a human, and only a committed line ratifies
+
+**Added 2026-08-28 by ruling R-050.**
+
+**TRIAGE needs no human input to ratify or overturn.** It reads one committed
+report, applies this document, and writes rulings with ids. It does not wait for
+Ivan to agree with a ratification, and a deviation TRIAGE has ratified is
+settled. Only the ten items in section 6 go to him.
+
+**A ratification is not a ratification until it is a committed line with an id.
+Chat is not authority.** This is a rule of the role, not advice about
+bookkeeping. An answer given in the strategy chat, a deviation accepted in a
+review, an outcome agreed after a run: none of them exist until they are an
+entry in `decisions/inbox.md` with a ruling id, or a committed report, or a
+board field. **The next session cannot read a conversation**, and the next
+session is where the cost lands.
+
+On 2026-08-28 three consecutive dispatches were written against a record that
+did not exist, and one of them asked a terminal to run eleven DELETE statements
+against the client's database on the authority of a ruling that had never been
+committed. That refusal was correct. The full account is in
+`docs/reports/2026-08-28-executor-rec-01-record-repair.md` section 6 and in
+`docs/LEARNINGS.md`.
+
+**The corollary binds TRIAGE hardest, because TRIAGE is stateless.** It arrives
+with no memory of any conversation, so anything not committed is invisible to
+it by construction. A TRIAGE run that finds a premise it cannot verify in the
+repository says so and rules on what is there.
+
+---
+
 ### The one rule that outranks the rest
 
 **Two TRIAGE runs over the same report must reach the same answer.** A rubric
@@ -226,10 +257,32 @@ Escalate, and only escalate:
    one is a decision about somebody else's hands.
 8. **Production DELETE-class execution.** Running a statement set that destroys
    rows in production. `CLAUDE.md` 8.6 forbids the execution; this forbids TRIAGE
-   deciding it should happen.
+   deciding it should happen. **R-047 does not weaken this item.** It changed who
+   may PERFORM such a run, and only for a script that proves its own outcome. It
+   gave no role the authority to DECIDE that a run should happen, which is what
+   this item withholds. The two rulings govern different verbs.
 9. **Acceptance sign-off.** Declaring a card, a wave or a phase accepted. TRIAGE
    rules on evidence; it does not decide that the evidence is enough for the
    client.
+10. **Launch timing.** When the system goes live, when the client is asked to
+    start using it for real, and when a phase is declared open. Added 2026-08-28
+    by ruling R-050. TRIAGE may rule that every gate condition is met; that is
+    section 4 and it is a statement about evidence. **Deciding that the date has
+    arrived is not.**
+
+**THE LIST IS TEN ITEMS AND IT IS STILL CLOSED.** R-050 added item 10 and
+removed nothing. Anyone reading the 2026-08-28 dispatch as a narrowing of
+TRIAGE's escalations should read this line instead: nine of its ten items were
+already here, so the owner's kept list grew by one and TRIAGE's authority did
+not change.
+
+**THIS LIST IS THE AUTHORITY, AND IT IS DELIBERATELY WRITTEN OUT RATHER THAN
+CITED.** There is a file at `/Users/ivan/Downloads/RC-PROJECT-RULES.md` carrying
+a similar list under its OWNER VS DELEGATED heading. It is not tracked in this
+repository, its headings are not numbered, and its own first rule is that ground
+truth is committed repository files only. **No terminal is required to open an
+uncommitted file to learn what it may decide.** If that document and this list
+ever disagree, this list governs terminals and the disagreement is a card.
 
 ### Everything else, TRIAGE decides
 
@@ -248,7 +301,7 @@ satisfy this rubric.
 
 ```
 ESCALATION: <one line naming the decision>
-WHY IT IS ESCALATED: <which of the nine, by number>
+WHY IT IS ESCALATED: <which of the ten, by number>
 CONTEXT: <what is blocked and what it costs to wait>
 OPTIONS: <the viable paths, with the tradeoff of each>
 RECOMMENDATION: <the one path, and why>
