@@ -1483,3 +1483,405 @@ left to whoever composes the next message.
 **Unblocks:** the plain-language digest, which POC-BUILDER holds.
 **Also changes:** the digest composer. Card `plain` fields land under AUT-7.
 **Supersedes:** none.
+
+### R-039 - EXECUTOR deviations 1 and 2 from the 2026-08-28 acceptance pass are ratified, each with the test that cleared it
+**Date:** 2026-08-28
+**Asked on:** the scheduled run 20260827-220052, PR #78
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 3:
+> "Why this run merged #78, which is another run's PR. It was open, docs-only,
+> and its `quality` check was green, but its branch was BEHIND `main` and the
+> branch protection requires an up-to-date head, so it could never merge
+> itself."
+>
+> and section 5, finding 3:
+> "Elapsed: ~7h52m against a 2700s cap. The watchdog never fired."
+
+**Ruling:** The report carries no section headed "deviations flagged for
+ratification". It carries two acts that are deviations in substance, and
+DOCTRINE-TRIAGE section 1 binds on the act rather than on the heading, so both
+get a verdict and both name the test that produced it. They are ratified
+individually, not as a block.
+
+**DEVIATION 1: this run merged PR #78, which belongs to a different run.**
+RATIFIED.
+
+- Test 1, did it touch data that cannot be recovered? No. A merge of a
+  documentation-only PR onto `main`, revertible by a commit.
+- Test 2, is there committed evidence a stranger can re-verify? Yes, and TRIAGE
+  re-verified it rather than accepting it. PR #78, head sha `3f8b4a0`; the
+  GitHub check-runs API for that sha returns `quality` with conclusion
+  `success`. The merge landed as `10011d0` on `main`. The claim that the check
+  was green FOR THE NEW HEAD SHA, which is the claim section 3 of `CLAUDE.md`
+  actually turns on, is the claim that was checked.
+- Test 3, did it widen a rule or apply one? Applied. `gh pr update-branch`
+  merges base into head; it is not a force push and rewrites no history, so the
+  no-force-push rule is untouched. The merge-only-on-green rule was satisfied in
+  its strict form, for the head sha rather than for a stale rollup.
+- Test 4, would the alternative have been worse? Yes, concretely. A branch that
+  is behind `main` cannot merge itself under this repository's protection, and
+  nothing in the chain picks up another run's stranded PR. The file on it is a
+  section 9b report, and section 9b exists so that the next role can read the
+  previous role's output. TRIAGE reads the newest report ON `origin/main`. Left
+  alone, the 2026-08-27 CRITIC report would have been permanently invisible to
+  the only role written to consume it.
+
+**DEVIATION 2: the run continued for roughly eight hours against a declared
+2700s cap, holding `run.lock` across two scheduled slots.** RATIFIED, and the
+defect it exposed becomes a card.
+
+- Test 1, unrecoverable data? No.
+- Test 2, committed evidence? Yes, and again re-verified rather than accepted.
+  `/Users/ivan/rc-poc-logs/run.lock` still existed at `2026-08-28T10:45:33Z`
+  carrying `run_id=20260827-220052` and `started_at=2026-08-28T02:00:52Z`, which
+  is 8h44m. The launchd log records the start line at that timestamp and carries
+  no release line after it.
+- Test 3, widened a rule or applied one? Applied. `CLAUDE.md` section 13 states
+  the cap "is enforced by the harness, not by the session's own sense of time".
+  A session that keeps working while the harness does not stop it is following
+  that sentence, not stretching it. The session did not decide to overrun; it
+  was never told to stop.
+- Test 4, would the alternative have been worse? Yes. A session that guessed at
+  its own elapsed time and self-terminated would have committed no report, and
+  the defect that swallowed two of the night's four slots would have gone
+  undiscovered for a fourth consecutive night. The overrun is what surfaced it.
+
+**Unblocks:** nothing. It closes the ratification loop on two acts so that no
+later session re-opens them.
+**Also changes:** deviation 2's defect is carded as AUT-9 under R-042.
+**Supersedes:** none.
+
+### R-040 - the scheduled EXECUTOR's environment is narrowed to what it needs, and the report's finding 4 is corrected
+**Date:** 2026-08-28
+**Asked on:** finding 1 and finding 4 of the 2026-08-28 acceptance pass report
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 5,
+> finding 1:
+> "This is no longer an inference from reading the script. It is the state of
+> the process writing this sentence."
+>
+> and, from the same finding:
+> "CLAUDE.md 8.2 scopes the secret-read grant to *applying migrations*, and this
+> run applied none and needed none."
+
+**Ruling:** The scheduled EXECUTOR stops carrying credentials it has no card to
+use. The work is carded as **AUT-8**.
+
+**Why this is TRIAGE's to rule and not Ivan's.** DOCTRINE-TRIAGE section 6 item
+5 escalates granting, widening, extending or renewing access to a secret, and
+says in the same sentence that narrowing or revoking one is not an escalation
+and TRIAGE may rule it, "because the failure mode of narrowing is an outage and
+the failure mode of widening is a breach". This narrows. It is the one direction
+the rubric hands to this role.
+
+**What is narrowed, precisely.** `CLAUDE.md` 8.2 grants the secrets read for
+applying migrations. The harness sources the whole file into the environment of
+every scheduled run whether or not a migration is in scope, four times a night.
+AUT-8 keeps 8.3 exactly as written by re-sourcing inside the migration step, and
+removes the standing copy. Nothing in section 8 is weakened and no new
+permission is created.
+
+**AND A CORRECTION TO THE REPORT, which changes what AUT-8 may claim.** Finding
+4 says the end-to-end guard "resolves with" finding 1. It does not.
+`scripts/assert-not-prod.mjs` exits 2 when either checked URL names a production
+project and exits **4 when neither is set**, and its own comment gives the
+reason: an empty environment does not mean "not production", it means it cannot
+be known, so it stops. Stripping the production URL moves the guard from exit 2
+to exit 4. It never reaches exit 0. What the suite needs is a local Supabase
+stack, which needs Docker, which is not installed on this machine: `which
+docker` returns nothing, verified 2026-08-28. That is a dependency decision and
+it is escalated, not ruled. See the TRIAGE report, escalation E3.
+
+**Why the correction matters more than the finding.** A card authored on
+finding 4 as written would have shipped, been marked green, and left the ceiling
+exactly where it is, with a board entry saying it was fixed.
+
+**Unblocks:** nothing. It authors AUT-8, priority high, `todo`, no dependencies.
+**Also changes:** AUT-8 carries the correction in its own notes and defaults, so
+whoever works it cannot inherit the wrong claim.
+**Supersedes:** none.
+
+### R-041 - harness work that ships code to main is a card on the phase 2 board, in the AUT lane
+**Date:** 2026-08-28
+**Asked on:** finding 2 of the 2026-08-28 acceptance pass report, AUT-5, AUT-6
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 5,
+> finding 2:
+> "That is real executable code, including a Telegram responder that reads the
+> repo and answers the owner, landed on `main` under an id with no card, no
+> `plain` field, no `acceptance`, no `defaults`, no `evidence`."
+>
+> and:
+> "The board says 32 cards and the owner reads 32 cards; the repository contains
+> work from at least 34."
+
+**Ruling:** Work that ships executable code to `main` is a card on
+`docs/board/rc-board-phase2.json`, whatever it builds. The harness is not an
+exception. The work merged as AUT-5 and AUT-6 is written onto the board by
+**AUT-10**, and **AUT-11** makes the gap impossible to reopen.
+
+**The test, stated so it gives the same answer twice.** Run **STATE** is off the
+board: run ids, claims, leases, escalations, the bookkeeping in
+`docs/poc/state.json`. That is what `CLAUDE.md` section 13 means by "POC state
+lives in `docs/poc/state.json`, never on the board", and it stands untouched.
+Run **CODE** is a card. The distinction is data versus work, and it is
+checkable: if the change is a commit that alters behaviour, it is a card.
+
+**Why the board already agrees.** AUT-1, AUT-2, AUT-3, AUT-4 and AUT-7 are all
+harness and process work and all five are cards on this board. AUT-3 changed
+`scripts/poc/run.sh` itself. AUT-5 and AUT-6 were minted in that same id
+sequence, which is the strongest available evidence that they were meant to sit
+in it. They are the exception, not the rule.
+
+**And one of them is a surface the owner touches.** AUT-6 is the assistant that
+answers Ivan in the chat. A thing that talks to the client's owner cannot be
+invisible bookkeeping, and `plain` exists under AUT-7 exactly so that the board
+speaks to him about it.
+
+**THIS DOES NOT OVERTURN R-038 AND MUST NOT BE READ AS DOING SO.** R-038 rules
+on what the digest contains. Its "Asked on" line records POC-BUILDER's practice
+of tracking AUT-5 off-board as context for that question; it is not a clause of
+the ruling and no ruling has ever put harness work off the board. TRIAGE does
+not overturn rulings, and nothing here is an edit to an existing entry.
+
+**A live consequence, not only bookkeeping.** The previous pass recorded that
+AUT-4's four triage sections stopped reaching the digest, "AUT-5 working as
+designed". A shipped card's behaviour was changed by work that no card records,
+and the only trace of it is a sentence in a report.
+
+**Unblocks:** nothing. It authors AUT-10 (`todo`, no dependencies) and AUT-11
+(`todo`, `depends_on: ["AUT-10"]`).
+**Also changes:** nothing in `CLAUDE.md`. If a second class of off-board work
+appears, the test above is promoted to section 2 as a numbered rule.
+**Supersedes:** none.
+
+### R-042 - the run cap measures wall clock, and a lock whose owner is gone is not honoured forever
+**Date:** 2026-08-28
+**Asked on:** finding 3 of the 2026-08-28 acceptance pass report
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 5,
+> finding 3:
+> "CLAUDE.md section 13 states the cap 'is enforced by the harness, not by the
+> session's own sense of time.' Tonight it was enforced by neither."
+>
+> and:
+> "This run has held that lock for eight hours across the **01:00 and 04:00
+> scheduled slots**, so those runs either refused or never got a turn. One
+> overrunning run silently consumed the rest of the night."
+
+**Ruling:** Carded as **AUT-9**, priority high, no dependencies.
+
+**Verified by TRIAGE rather than accepted from the report.** `run.lock` still
+existed at `2026-08-28T10:45:33Z` with `started_at=2026-08-28T02:00:52Z`, 8h44m
+against a 2700s cap.
+
+**And the log makes the missing slots visible in a way the report did not.**
+Every previous run in `launchd.out.log` is bracketed by a start line and a
+release line. Between `2026-08-27T20:39:28Z` and `2026-08-28T02:00:52Z` there is
+nothing, and after the start line there is nothing until this run. The 01:00 and
+04:00 slots produced no line of any kind. That is worse than a refusal, because
+`CLAUDE.md` section 13 requires a run that finds the lock to **log the refusal**
+and exit 0, and a silent absence cannot be told apart from a slot that never
+fired. AUT-9 carries that as an acceptance case.
+
+**The mechanism stays a hypothesis and the card does not rest on it.** The
+report offers the suspended-clock explanation and explicitly declines to assert
+it, which is the right posture. AUT-9's acceptance tests the suspension case
+directly with `SIGSTOP`, so the fix is proved against that failure mode whether
+or not it was the actual cause.
+
+**Priority high on a board with no eligible product work is not a contradiction.**
+While one run can hold the lock for eight hours, three of the four scheduled
+slots do not exist, and every other improvement to the schedule is multiplied or
+cancelled by this one.
+
+**Unblocks:** nothing today. It authors AUT-9.
+**Also changes:** the triage watchdog is fixed in the same pass, being the same
+shape at a different step.
+**Supersedes:** none.
+
+### R-043 - finding 5 is withdrawn as stale against the file it describes, and no card is authored for it
+**Date:** 2026-08-28
+**Asked on:** finding 5 of the 2026-08-28 acceptance pass report
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 5,
+> finding 5:
+> "Carried forward, still unresolved: the harness cuts its state branch from an
+> unrefreshed origin/main."
+
+**Ruling:** The premise does not hold. **No card is authored.**
+
+**What the file actually contains.** `scripts/poc/run.sh` step 5 runs
+`git fetch origin main --quiet` eleven lines above
+`git checkout -b "$STATE_BRANCH" origin/main`, with only the report-path lookup
+and a log line between them. The state branch is cut from a refreshed
+`origin/main`.
+
+**It was already there when the finding was first written.** The 2026-08-27
+report recorded it as "line 664 does `git checkout -b ...` without a fetch
+immediately before it". `git show 3420435:scripts/poc/run.sh` carries that fetch
+at the same place. The finding was wrong on the day it was written: the reader
+looked at the line immediately above the checkout rather than at the block, and
+this run carried it forward without re-checking.
+
+**What survives, and it is a different thing.** Two branches rewriting the whole
+of `docs/poc/state.json` can still clobber each other, because a whole-file JSON
+write has no merge. That risk is real and it is already covered by R-035's
+standing rule: before merging a branch that has been open across other
+terminals' merges, read what the diff removes, not only what it adds. It needs
+no new card.
+
+**Why this ruling is the useful output and not a pedantic one.** Authoring a
+card against a premise that does not hold is how phantom work enters a board.
+The queue is already dry of product work, and a plausible-sounding harness card
+would have been picked up as the lowest-id eligible card and spent a whole run
+fixing something that is not broken.
+
+**THE RULE THIS MAKES, and it is the reason the finding survived two passes:** a
+finding CARRIED FORWARD is re-verified against the current file before it is
+carried again, and the report says which lines were read. A finding repeated
+without re-reading is a claim aging into a fact.
+
+**Unblocks:** nothing.
+**Also changes:** nothing on the board. Deliberately.
+**Supersedes:** none. It withdraws a finding, which is not a ruling.
+
+### R-044 - P2-13 gains a dependency on P2-19, because it removes the only capability that could ever take P2-19 off Ivan's hands
+**Date:** 2026-08-28
+**Asked on:** P2-13, P2-19
+**Answer, verbatim:**
+> from docs/board/rc-board-phase2.json, card P2-19 `defaults`, quoted because
+> the edge is derived from the board rather than from the report:
+> "If the connection ever becomes available to a terminal, this card is worked
+> unattended under CLAUDE.md 8.5 as a normal three-phase apply and stops being
+> an owner action."
+>
+> and from the same card's `question`, IMPACT IF UNANSWERED:
+> "It stays a known-wrong record that the next CLI-driven apply trips over, and
+> P2-13's handover inherits it."
+
+**Ruling:** `P2-13.depends_on` becomes `["P2-15", "P2-08b", "P2-19"]`.
+
+**The capability test, applied as DOCTRINE-TRIAGE section 3 check 3 writes it.**
+Ask what the card takes away, list every card that needs it, make those the
+dependencies. P2-13 takes away, permanently, the ability of any terminal to open
+a database connection: section 8.7 reverts `CLAUDE.md` section 8 to Ivan-only
+applies with no connection from any terminal.
+
+**P2-19 is a card that needs exactly that.** Its own defaults say the card stops
+being an owner action the moment a connection becomes available to a terminal.
+After P2-13 lands, that sentence can never come true, and a two-minute
+bookkeeping repair is welded to the owner's hands forever.
+
+**And the ordering is load-bearing for the handover itself.** P2-13 IS the
+handover. Handing over a database whose own record of what is installed is three
+versions behind means the first tool that reads that record afterwards tries to
+re-apply three migrations. P2-19's own impact line already says the handover
+inherits it.
+
+**The edge costs nothing.** P2-13 is already waiting on P2-15 and P2-08b and
+cannot start today under any ordering.
+
+**This is the third edge added to P2-13 for the same reason** (R-024 for P2-15,
+R-037 for P2-08b, this one for P2-19). Three is the threshold in the rules
+above: the pattern is now stated as a standing test rather than rediscovered a
+fourth time. **A card that revokes a capability depends on every card that needs
+that capability, and the check is run over the whole board rather than over the
+cards a report happened to mention.** It already lives in DOCTRINE-TRIAGE
+section 3 check 3, which is where it stays.
+
+**Unblocks:** nothing. It adds an edge and removes none.
+**Also changes:** `P2-13.depends_on` and P2-13 `notes`.
+**Supersedes:** none. R-024 and R-037 stand unchanged.
+
+### R-045 - AUT-3's acceptance event has occurred, and TRIAGE records the evidence instead of shipping the card
+**Date:** 2026-08-28
+**Asked on:** AUT-3
+**Answer, verbatim:**
+> from docs/board/rc-board-phase2.json, card AUT-3 `acceptance`:
+> "THE NEXT SCHEDULED HARNESS RUN produces a rulings PR authored by TRIAGE with
+> no human input: EXECUTOR commits its report, TRIAGE boots, reads the newest
+> file in docs/reports/, applies the rubric, and opens a PR carrying
+> decisions/inbox.md entries and board edits."
+
+**Ruling:** The event happened. The card does **not** flip to `shipped` here. It
+moves `in_flight` to `todo` so the next EXECUTOR run can verify the evidence and
+ship it.
+
+**What occurred, with the timestamps a stranger can check.** Scheduled run
+`20260827-220052` booted EXECUTOR; EXECUTOR committed its report to
+`docs/reports/2026-08-28-executor-critic-acceptance-pass.md`, merged as `#80`;
+the harness logged "invoking TRIAGE on
+docs/reports/2026-08-28-executor-critic-acceptance-pass.md, cap 900s" at
+`2026-08-28T10:42:33Z`; TRIAGE read the newest report on `origin/main`, applied
+`docs/DOCTRINE-TRIAGE.md`, and opened this pull request carrying
+`decisions/inbox.md` entries and board edits. No human started the run and no
+human was asked for anything.
+
+**Why TRIAGE does not ship it, and this is not a technicality.**
+`DOCTRINE-TRIAGE.md` says TRIAGE may not ship a card, because shipping needs an
+acceptance run and TRIAGE runs nothing. This card's acceptance IS TRIAGE's own
+output. A role that marks its own existence proven is the one failure this
+boundary was drawn to prevent, and the boundary is worth more than the day saved
+by crossing it once.
+
+**Why `todo` and not `in_flight`.** `in_flight` was correct while the card waited
+on an event nobody could schedule: it kept an unattended run from picking up a
+card whose only outstanding item was evidence that run itself would produce.
+That reason has expired. The evidence now exists, in committed files, produced
+by a different session than the one that will read it. `todo` is what puts it
+back in the queue, and its id sorts ahead of every other eligible card.
+
+**If the verification fails**, R-036 already answers it: the failure is a
+harness defect and becomes a card of its own, never a question for the owner.
+
+**Unblocks:** AUT-3 itself, which becomes the lowest-id eligible card on the
+board.
+**Also changes:** AUT-3 `status`, `lane`, `last_checkpoint` and `notes`.
+**Supersedes:** none. R-036 stands: this is the event it named, arriving.
+
+### R-046 - the 2026-08-28 gate audit: 6 of 9 stands, G4's first clause is re-derived against the P2-08 split, and none of the three open gates has a clause a terminal can close
+**Date:** 2026-08-28
+**Asked on:** G4, G7, G9
+**Answer, verbatim:**
+> from docs/reports/2026-08-28-executor-critic-acceptance-pass.md, section 1:
+> "LAUNCH GATE: 6/9 passed"
+>
+> and section 2:
+> "**None.** No board edit, no application code, no migration, no card status
+> change."
+
+**Ruling:** The gate count is unchanged at **6 of 9**. No gate flips. The audit
+is recorded anyway, into each open gate's `notes`, because DOCTRINE-TRIAGE
+section 4 requires it every time and because an audit that flips nothing is
+still the most useful thing the next session can read.
+
+**G4, stays `fail`, and its first clause is re-derived.** The clause still reads
+"Closes when P2-08 and P2-09 have both landed", naming a card that no longer
+exists: P2-08 split into P2-08a and P2-08b under R-025. Re-derived against the
+board, per DOCTRINE-TRIAGE section 3 check 4, it reads: P2-08a shipped, P2-09
+shipped, **P2-08b not shipped and blocked on andre**. The deciding clause is the
+second one and it is untouched: no real document has travelled the whole path on
+production. That clause is what P2-08b IS.
+
+**G7, stays `fail`, `blocked_on: ivan` retained.** Three things stand in front of
+the live send and none moved: `RESEND_API_KEY` in the production environment,
+`RESEND_FROM` set, and a real recipient. No database read was performed for this
+audit and none is claimed; nothing could have written a reminder row, because no
+card shipped and no session touched the production database.
+
+**G9, stays `fail`.** P2-14 is `todo` and blocked on the client, and no report of
+Mihai completing a cycle exists. It is also downstream of G4.
+
+**THE THREE OPEN GATES ARE NOT BACKLOG AND THERE IS NO CARD THAT MOVES THEM.**
+Each is one of the three kinds DOCTRINE-TRIAGE section 4 says no terminal can
+ever flip: G4 needs a third party to act, G7 needs actions in consoles no
+terminal holds plus an account that P2-13 creates, and G9 needs the client to do
+something himself. A reader who counts three of nine as remaining engineering
+work will go hunting for cards that do not exist. That sentence is the point of
+recording an audit that flips nothing.
+
+**Unblocks:** nothing.
+**Also changes:** the `notes` of G4, G7 and G9 carry the audit.
+**Supersedes:** none. R-023 remains the standing rule that gates flip on
+committed evidence only, and R-028 remains the audit it produced.
