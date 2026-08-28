@@ -384,3 +384,19 @@ out of the live system, correct the database's record of its own updates, decide
 whether to install Docker so the overnight sessions can finish features instead
 of only planning them, and put a date on Andre for the one real document that
 three of the nine launch conditions are frozen behind.
+
+---
+
+## EXECUTOR LANDING NOTE, 2026-08-28
+
+Appended by the EXECUTOR pass that landed this PR. The report above is TRIAGE's
+own text and is unchanged.
+
+**One board effect proposed by this report was not applied.** R-045's flip of
+`AUT-3` from `in_flight` to `todo` was withheld on the owner's instruction, and
+`AUT-3` is on `main` exactly as it stood before this PR: `status: in_flight`,
+`evidence: null`. Section 6 of this report and item 1 of section 11 describe a
+board state that does not exist. R-045 itself is landed unedited in
+`decisions/inbox.md`; only its effect on the card is withheld.
+
+The full account is in `docs/reports/2026-08-28-executor-land-triage-83.md`.

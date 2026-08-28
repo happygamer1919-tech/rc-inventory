@@ -18,7 +18,7 @@
     },
     {
       "card_id": "AUT-3",
-      "change": "status in_flight to todo under R-045. Its acceptance event occurred in this run, but TRIAGE may not ship a card, so the evidence is recorded and the next EXECUTOR run verifies and ships it."
+      "change": "PROPOSED status in_flight to todo under R-045, NOT APPLIED AT LANDING. The EXECUTOR pass that landed this PR (see docs/reports/2026-08-28-executor-land-triage-83.md) was directed to leave AUT-3 exactly as it stands on main: status in_flight, evidence null. R-045 itself is landed unedited in decisions/inbox.md; only its board effect is withheld. The board is the source of truth, so nothing in this run resequenced AUT-3."
     },
     {
       "card_id": "AUT-8",
