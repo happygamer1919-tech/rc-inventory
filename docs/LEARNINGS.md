@@ -1396,3 +1396,38 @@ for the case where the operator means it. And a multi-agent installer must not
 abandon agent two because agent one failed to bootstrap: record the failures,
 install everything, and report at the end with a non-zero exit. Partial installs
 are worse than failed ones, because nothing looks wrong.
+
+### A card id in a commit message is not a card
+**Tag:** infra
+**ERROR:** Three PRs merged to `main` under the ids AUT-5 and AUT-6, including a
+558-line Telegram responder. Neither id exists on any board, and `git log -S`
+over `docs/board/` proves neither was ever on one. The board reported 32 cards
+while the repository carried work from at least 34, and one of those non-cards
+changed the behaviour of a shipped card (AUT-4's triage sections stopped
+reaching the digest). None of it carried `plain`, `acceptance` or `evidence`,
+because there was no card to carry them on.
+**SOLUTION:** Retro-author the missing cards so the board matches the
+repository, then close the hole: the board validator checks cards that exist, so
+it can never catch a commit that asserts an id with no card behind it. The check
+that catches this is a CI step that reads every card-id prefix in the commit
+messages on `main` and asserts each one resolves to a card on a board. Rule: a
+validator that only inspects the artefact cannot detect the artefact's absence,
+so anything mandatory needs a check on the *reference* side too.
+
+### A sleep-based watchdog measures awake time, not wall clock
+**Tag:** infra
+**ERROR:** `scripts/poc/run.sh` enforces its 45-minute cap with a background
+`sleep "$POC_MAX_SECONDS"` that TERMs the model process when it returns. Run
+20260827-220052 took the lock at 02:00:52Z and was still alive and still holding
+it at 09:53Z, nearly 8 hours later, with the `sleep 2700` process still resident.
+On macOS a sleeping timer does not advance while the system is suspended, so an
+overnight run on a laptop that suspends measures awake seconds and calls them
+wall clock. The compounding failure is worse than the overrun: CLAUDE.md 13 says
+a run never starts while `run.lock` exists, so one overrunning run silently
+consumed the 01:00 and 04:00 slots as well.
+**SOLUTION:** Never count down to a deadline, compare against it. Store
+`date +%s` at start and have the watchdog poll a short interval against
+`start + POC_MAX_SECONDS`, which reads the clock instead of racing it and is
+therefore immune to suspension. Pair it with lock staleness: a lock older than
+the cap plus a margin is abandoned, not honoured. Rule: any timeout that must
+hold across a suspend/resume boundary is a deadline comparison, never a sleep.
