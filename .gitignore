@@ -9,6 +9,7 @@ npm-debug.log*
 docs/board/rc-board.rendered.html
 scratchpad/*.log
 docs/board/rc-board-phase2.rendered.html
+docs/board/rc-board-phase3.rendered.html
 scratchpad/*.mjs
 scratchpad/*.py
 scratchpad/*.sh

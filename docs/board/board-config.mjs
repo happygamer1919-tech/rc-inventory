@@ -225,6 +225,60 @@ export const BOARD_CONFIGS = {
     ownerTerminalPlaceholder: "executor / ivan",
     newIdPrefix: "NEW-",
   },
+
+  // Added for the Rapid Construct phase 3 CRM and density board. The phase 1 and
+  // phase 2 blocks above are untouched: this is a fifth pinned entry, not an edit
+  // to any other. It exists because deriveConfig treats an unknown board name as a
+  // hard error, on purpose, so that a new board cannot silently inherit another
+  // board's branding and Export target. Without this block the phase 3 board would
+  // validate cleanly and then throw the first time anybody rendered it.
+  //
+  // ADDING IT DOES NOT WIRE THE BOARD INTO ANYTHING. The unattended harness in
+  // scripts/poc/ reads docs/board/rc-board-phase2.json by path and is not touched
+  // here; this block only tells the renderer how to draw phase 3 if someone asks it
+  // to. The harness keeps working the phase 2 board until that board's launch gate
+  // reaches 9 of 9.
+  //
+  // outputPath has no artifact URL behind it yet. The first publish records one in
+  // the board's own `renders_to` field, as both earlier boards do.
+  "RC-INVENTORY - Phase 3 - CRM and Density": {
+    owner: "ivan",
+    whoLabels: { ivan: "Ivan", andre: "Andre", client: "Client", infra: "Infra" },
+    laneLabels: {
+      blocked_on_people: "Blocked on people",
+      in_flight: "In flight",
+      rodica_batch: "Review batch (Ivan)",
+      incidents: "Incidents",
+      loose_ends: "Loose ends",
+      shipped: "Shipped",
+    },
+    laneHints: {
+      blocked_on_people: "someone owes an answer",
+      in_flight: "being executed now",
+      rodica_batch: "owner change-wave inbox",
+      incidents: "live problems",
+      loose_ends: "tracked, not batched",
+      shipped: "done, with proof",
+    },
+    kindLabels: {
+      in_flight: "Work item",
+      rodica_batch: "Review note",
+      incidents: "Incident",
+      loose_ends: "Loose end",
+    },
+    brandmark: "Rapid Construct / Inventar",
+    footerLabel: "rapid construct / inventar faza 3",
+    briefTitle: "Made in the RC Inventory Board",
+    pageTitle: "Rapid Construct / Inventar / Board faza 3",
+    sourcePath: "docs/board/rc-board-phase3.json",
+    outputPath: "rc-board-phase3.rendered.html",
+    exportFilename: "rc-board-phase3.json",
+    // Needs the path argument or it validates the wrong file.
+    validateCommand: "node docs/board/validate-board.mjs docs/board/rc-board-phase3.json",
+    ownerTerminalDefault: "executor",
+    ownerTerminalPlaceholder: "executor / ivan",
+    newIdPrefix: "NEW-",
+  },
 };
 
 /**

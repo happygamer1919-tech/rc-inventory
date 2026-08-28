@@ -40,11 +40,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Both boards, one step, one check name. The check name stays `quality`
+      # All three boards, one step, one check name. The check name stays `quality`
       # because that is what branch protection requires; a second job would
       # silently be non-required.
+      #
+      # The phase 3 board is validated here from the commit that creates it, even
+      # though no terminal works it yet: the harness in scripts/poc/ still reads
+      # the phase 2 board by path and keeps doing so until phase 2 reaches 9 of 9.
+      # A board nobody works is exactly the board that rots, and validating it
+      # costs one file read.
       - name: Validate boards
-        run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json
+        run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json
 
       # P2-15. The nine DELETE statements aimed at the client's production
       # project are parsed with the real PostgreSQL grammar, here, on every
