@@ -57,8 +57,22 @@
     <key>AbandonProcessGroup</key>
     <false/>
 
+    <!-- Interactive, NOT Background. ProcessType Background puts the job in a
+         low QoS class that macOS throttles hard: with StartInterval set to 60,
+         the observed gaps between real polls on 2026-08-28 were 18, 32 and 38
+         minutes. A responder that answers half an hour later reads as a bot
+         that ignores you, which is worse than not having one. Interactive gets
+         normal scheduling, which is what a 60 second poll needs to mean 60
+         seconds.
+
+         Long gaps while the Mac is asleep remain, and are not a defect: launchd
+         cannot run a job on a sleeping machine, and nothing here should keep it
+         awake. -->
     <key>ProcessType</key>
-    <string>Background</string>
+    <string>Interactive</string>
+
+    <key>LowPriorityIO</key>
+    <false/>
 
     <!-- A poll that somehow runs long must not stack. The lock in responder.sh
          is the real guard; this stops launchd piling work behind it. -->
