@@ -93,22 +93,55 @@ printf 'run_id=%s\npid=%s\n' "$RUN_ID" "$$" > "$POC_CHAT_LOCK"
 LOCK_HELD=yes
 
 # ---------------------------------------------------------------------------
-# Secrets, for Telegram only. Sourced here, and stripped before claude is
-# invoked further down.
+# Secrets. The one permitted contact with that directory.
+#
+# TRACING IS SUPPRESSED ACROSS THIS ENTIRE BLOCK, and that is not belt and
+# braces, it is the actual protection. Sourcing a secrets file under `set -x`
+# traces every assignment in it, so one debug flag dumps the whole file: on
+# 2026-08-27 a `bash -x` of this script printed TELEGRAM_BOT_TOKEN in full. The
+# presence check below is inside the suppression for the same reason, because
+# `[ -n "$SECRET" ]` expands the value into the traced command word.
 # ---------------------------------------------------------------------------
+case "$-" in
+  *x*) SECRETS_WAS_X=yes; set +x ;;
+  *)   SECRETS_WAS_X=no ;;
+esac
+
 if [ ! -r "$POC_SECRETS_FILE" ]; then
-  log "FATAL: secrets file unreadable"
+  [ "$SECRETS_WAS_X" = yes ] && set -x
+  log "FATAL: secrets file is not readable, cannot run"
   exit 1
 fi
+
 set -o allexport
 # shellcheck disable=SC1090
 . "$POC_SECRETS_FILE"
 set +o allexport
 
-if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_OWNER_ID:-}" ]; then
-  log "FATAL: TELEGRAM_BOT_TOKEN or TELEGRAM_OWNER_ID is not set"
-  exit 1
-fi
+# Presence recorded as a yes or no per NAME. The value never reaches a variable
+# that is later expanded in a traced command.
+SECRET_REPORT=""
+for VAR_NAME in TELEGRAM_BOT_TOKEN TELEGRAM_OWNER_ID; do
+  if [ -n "${!VAR_NAME:-}" ]; then
+    SECRET_REPORT="$SECRET_REPORT $VAR_NAME=set"
+  else
+    SECRET_REPORT="$SECRET_REPORT $VAR_NAME=UNSET"
+  fi
+done
+
+[ "$SECRETS_WAS_X" = yes ] && set -x
+
+log "secrets sourced, values not displayed"
+for ENTRY in $SECRET_REPORT; do log "env $ENTRY"; done
+
+# Derived from the report rather than from the values, so the fatal check is not
+# itself a place where a secret gets expanded into a traced command word.
+case "$SECRET_REPORT" in
+  *=UNSET*)
+    log "FATAL: a required Telegram variable is not set:$SECRET_REPORT"
+    exit 1
+    ;;
+esac
 
 # ---------------------------------------------------------------------------
 # The read-only worktree. Recreated if absent, refreshed to origin/main, then
@@ -130,14 +163,52 @@ git -C "$POC_CHAT_WORKTREE" checkout --detach --force origin/main --quiet 2>/dev
 git -C "$POC_CHAT_WORKTREE" reset --hard origin/main --quiet 2>/dev/null
 
 # ---------------------------------------------------------------------------
+# Telegram calls, with the token kept out of the argument list.
+#
+# The Telegram API puts the token in the URL PATH, so any curl invocation that
+# takes the URL as an argument publishes the token twice over: once in `ps aux`,
+# readable by every process on this machine for as long as the call runs, and
+# once in any `set -x` trace, which is how it leaked on 2026-08-27. A script
+# that carefully never echoes a value does not help, because neither exposure
+# goes through the script's own output.
+#
+# curl --config - reads its options from stdin. The URL travels through a pipe,
+# so it is in no argv and in no trace, and the here-doc is fed by the shell
+# without ever becoming a command word.
+# ---------------------------------------------------------------------------
+tg_get() {
+  # $1 method and query, for example "getUpdates?offset=5&limit=10"
+  # $2 optional output file, defaults to discarding the body
+  TG_OUT=${2:-/dev/null}
+
+  # Suppress tracing across the call. A here-doc body is not traced by set -x,
+  # but suppressing it explicitly means the protection does not depend on that
+  # remaining true of every shell and every future edit. Restored immediately.
+  case "$-" in
+    *x*) TG_WAS_X=yes; set +x ;;
+    *)   TG_WAS_X=no ;;
+  esac
+
+  # The URL reaches curl on stdin, so it is in no argv, no process table entry
+  # and no trace. curl --config - reads options from stdin exactly as if they
+  # came from a file.
+  curl -s -m 25 -o "$TG_OUT" -w '%{http_code}' --config - <<TGCFG 2>/dev/null
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${1}"
+TGCFG
+  TG_RC=$?
+
+  [ "$TG_WAS_X" = yes ] && set -x
+  return $TG_RC
+}
+
+# ---------------------------------------------------------------------------
 # Poll. Only messages from the owner are looked at, and identity is checked
 # before the text is read.
 # ---------------------------------------------------------------------------
 OFFSET=$(cat "$POC_OFFSET_FILE" 2>/dev/null || echo 0)
 UPDATES_FILE=$POC_CHAT_LOG_DIR/$RUN_ID.updates.json
 
-HTTP=$(curl -s -m 25 -o "$UPDATES_FILE" -w '%{http_code}' \
-  "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${OFFSET}&limit=10&timeout=0" 2>/dev/null)
+HTTP=$(tg_get "getUpdates?offset=${OFFSET}&limit=10&timeout=0" "$UPDATES_FILE")
 if [ "$HTTP" != "200" ]; then
   log "getUpdates returned HTTP $HTTP, nothing done"
   exit 0
@@ -227,8 +298,7 @@ done
 # so an ignored message is not reclassified forever.
 if [ -n "$HIGHEST" ] && [ "$HIGHEST" != "-Infinity" ]; then
   echo "$((HIGHEST + 1))" > "$POC_OFFSET_FILE"
-  curl -s -m 15 -o /dev/null \
-    "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=$((HIGHEST + 1))&limit=1" 2>/dev/null
+  tg_get "getUpdates?offset=$((HIGHEST + 1))&limit=1" >/dev/null
 fi
 
 rm -f "$UPDATES_FILE"
