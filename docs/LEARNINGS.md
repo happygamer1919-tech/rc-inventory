@@ -2005,3 +2005,44 @@ the version that is stronger rather than the version that is weaker.** "Every
 file is in exactly one of two places" costs the same to write as "every file is
 in one place, or skip it", and one of them still catches the failure the rule was
 built for.
+
+### A CHECK constraint that evaluates to NULL is satisfied, so a null guard inside one does nothing
+**Tag:** data
+**ERROR:** `0016_projects.sql` writes the date-order rule as
+
+```sql
+constraint projects_dates_in_order check (
+  start_date is null
+  or planned_end_date is null
+  or planned_end_date >= start_date
+)
+```
+
+The two guards were written so that a lead with a start date and no estimated
+end could still save, which is the ordinary case the table exists for. Deleting
+them was then run as a mutation against the assertion file, expecting a failure,
+and **it passed**.
+
+The guards are redundant. **In SQL, a CHECK constraint is violated only when it
+evaluates to FALSE; NULL is accepted.** `planned_end_date >= start_date` with
+either side NULL evaluates to NULL, so the bare comparison already admits every
+row the guards were written to admit. This is the opposite of a WHERE clause,
+which discards NULL, and it is why the same expression means different things in
+the two places.
+
+**SOLUTION:** The guards are kept, with a comment in the migration saying they
+are redundant, that a NULL-valued CHECK is satisfied, and why they stay anyway:
+three-valued logic is the thing a reader is most likely to get wrong about this
+constraint, and a rule that reads the way it behaves is worth two clauses the
+planner discards. The mutation was corrected to the one that actually tests the
+constraint, **inverting the comparison**, which is caught.
+
+RULE: **a null guard inside a CHECK is documentation, not enforcement.** If a
+column combination must be rejected when one side is missing, the CHECK has to
+say so positively (`num_nonnulls(a, b) <> 1`, or a NOT NULL, or an explicit
+`is not null and ...`), because the natural way to write it accepts the row.
+This is the second no-op found by mutation testing in this wave, after the
+redundant `revoke ... from anon` on P3-01, and both were found the same way:
+**delete the line and require the check to fail.** A defensive line that nothing
+notices the absence of is either redundant or unproven, and the two need
+different responses.
