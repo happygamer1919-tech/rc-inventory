@@ -117,6 +117,44 @@ fixture inserts exactly that collision.
 
 ---
 
+## 4b. The check that turned red, and the two defects behind it
+
+The first push failed one Playwright case:
+
+```
+✘ projects.spec.ts:131 > schimbarea stării scrie un rând de istoric, iar fișa îl arată
+  Error: expect(locator).toHaveCount(expected) failed
+  Expected: 3
+  Received: 2
+```
+
+Run `33342093533`. **The failing assertion was the row count at the end. The
+defective assertions were the three that passed.**
+
+**The panel contains a `<select>`, so containment proved nothing.** The status
+panel holds the chip AND a select whose options are all six status labels, so
+`expect(panel).toContainText("Contract")` **was already true before the click**.
+The spec never waited for a change to land, the three status changes raced each
+other and `router.refresh()`, and one of them was lost. The chip now has its own
+`data-testid` and the spec asserts `toHaveText` on it: exact rather than
+contained, and scoped to the one element that renders the state.
+
+**And the change handler guarded on a stale prop.** It read
+`if (next === project.status) return`, and `project.status` is a prop that holds
+the OLD value between the write and the refresh, so a second change inside that
+window was silently dropped. The guard is gone. `set_project_status` already
+returns `changed=false` for a no-op, so the rule lives in one place instead of
+two, and the one place is the one that cannot be stale.
+
+**Both are now LEARNINGS entries**, because both are general: a containment
+assertion on a container that includes a control asserts about the control's
+options, and a write guarded on the prop it is about to change rejects exactly
+the second action a user takes in a hurry.
+
+That is one failed attempt on this card, of the three the failure ceiling allows.
+
+---
+
 ## 5. Checks
 
 | check | result |
@@ -141,7 +179,7 @@ fixture inserts exactly that collision.
 
 ## 7. Learnings appended
 
-Two entries:
+Four entries:
 
 1. **`gh pr checks` reported pass for a sha that was still running**, on P3-06's
    ship commit, and the run that did belong to that sha then failed on an
@@ -152,6 +190,9 @@ Two entries:
    faster than the job takes as evidence it is about something else.
 2. **`now()` is the transaction timestamp**, so two rows appended to a log
    together sort at random when the tiebreaker is a uuid. Section 2 above.
+3. **A containment assertion on a panel that holds a `<select>` passes for every
+   value.** Section 4b.
+4. **Never guard a write on a prop the write is about to change.** Section 4b.
 
 ---
 

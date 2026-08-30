@@ -141,10 +141,17 @@ test.describe("Proiecte", () => {
     // Nicio schimbare inca, deci niciun rand de istoric.
     await expect(page.getByTestId("project-history")).toContainText("Nicio schimbare");
 
+    // AFIRMATIA ESTE PE CHIP, NU PE PANOU. Panoul contine si selectul, iar
+    // selectul contine toate cele sase etichete ca optiuni, deci o afirmatie pe
+    // panou trece pentru orice stare si testul nu asteapta nimic. Prima versiune
+    // a acestui fisier facea exact asta, si cele trei mutari se cursau intre
+    // ele: CI a raportat 2 randuri de istoric acolo unde trebuiau 3.
     await page.getByTestId("project-status-select").selectOption("contract");
+    await expect(page.getByTestId("project-status-chip")).toHaveText("Contract", {
+      timeout: 25_000,
+    });
     await expect(page.getByTestId("history-row").first()).toBeVisible({ timeout: 25_000 });
     await expect(page.getByTestId("project-history")).toContainText("Contract");
-    await expect(page.getByTestId("project-status-panel")).toContainText("Contract");
 
     // SI PERSISTA. Un istoric care traieste in starea unui component nu este un
     // istoric.
@@ -153,11 +160,11 @@ test.describe("Proiecte", () => {
 
     // CONDUCTA NU ESTE O MASINA DE STARI: munca reala merge si inapoi.
     await page.getByTestId("project-status-select").selectOption("suspended");
-    await expect(page.getByTestId("project-status-panel")).toContainText("Suspendat", {
+    await expect(page.getByTestId("project-status-chip")).toHaveText("Suspendat", {
       timeout: 25_000,
     });
     await page.getByTestId("project-status-select").selectOption("lead");
-    await expect(page.getByTestId("project-status-panel")).toContainText("Prospect", {
+    await expect(page.getByTestId("project-status-chip")).toHaveText("Prospect", {
       timeout: 25_000,
     });
     await page.reload();

@@ -2143,3 +2143,46 @@ failures, and never compare a nullable value with `<>`.** Both produce a check
 that passes on the exact input it was written to reject. Both were found by
 mutation and neither would ever have been found by reading, because both read
 correctly.
+
+### A containment assertion on a panel that holds a `<select>` passes for every value
+**Tag:** frontend
+**ERROR:** The P3-07 status panel holds a chip showing the current status AND a
+`<select>` whose options are all six status labels. The spec asserted
+`expect(getByTestId("project-status-panel")).toContainText("Contract")` after
+choosing Contract.
+
+**That assertion passes before the click.** The panel already contains the text
+"Contract", as an `<option>`. So the spec never waited for anything, the three
+status changes raced against each other and against `router.refresh()`, and CI
+reported two history rows where three were expected:
+
+```
+Error: expect(locator).toHaveCount(expected) failed
+Expected: 3
+Received: 2
+```
+
+The failing assertion was the row count at the end. **The defective assertions
+were the three that passed.**
+
+**SOLUTION:** The chip got its own `data-testid` and the spec asserts
+`toHaveText` on it, which is exact rather than contained and scoped to the one
+element that actually reflects state. The same click also exposed a second
+defect: the change handler guarded with `if (next === project.status) return`,
+and `project.status` is a prop that is stale between the write and the refresh,
+so a second change inside that window was silently dropped. The guard is gone;
+`set_project_status` already returns `changed=false` for a no-op, so the rule
+lives in one place.
+
+RULE: **`toContainText` on a container that includes a control is not an
+assertion about state, it is an assertion about the control's options.** Scope
+state assertions to the element that renders the state, and prefer `toHaveText`
+over `toContainText` when the expected value is the whole content. The tell is a
+test that passes suspiciously fast, and the symptom appears somewhere else
+entirely: a later count, in a later step, with no obvious link to the assertion
+that lied.
+
+RULE: **never guard a write on a prop that the write is about to change.**
+Between submitting and re-rendering, the component holds the old value, so the
+guard rejects exactly the second action a user takes in a hurry. Let the server
+decide and return what happened.

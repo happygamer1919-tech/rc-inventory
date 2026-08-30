@@ -63,7 +63,12 @@ export function ProjectDetailScreen({
   const [error, setError] = React.useState<string | null>(null);
 
   async function onStatusChange(next: string) {
-    if (next === project.status) return;
+    // NICIUN GHID DE EGALITATE AICI, SI ASTA ESTE DELIBERAT. Comparatia cu
+    // project.status ar citi o proprietate care poate fi INVECHITA: intre
+    // trimitere si router.refresh() componentul inca poarta starea veche, iar o
+    // a doua alegere facuta in fereastra aceea ar fi ignorata in tacere. Functia
+    // set_project_status din 0021 decide singura: pentru aceeasi stare nu scrie
+    // nimic si intoarce changed=false. Regula sta intr-un singur loc.
     setPending(true);
     setError(null);
     const result = await setProjectStatus(project.id, next, "");
@@ -134,7 +139,10 @@ export function ProjectDetailScreen({
           <Card>
             <CardHeader title="Stare" hint="Fiecare schimbare rămâne în istoric" />
             <div className="p-5 space-y-3" data-testid="project-status-panel">
-              <div className="flex items-center gap-2">
+              {/* Starea curenta are propriul testid. Panoul contine si selectul,
+                  iar selectul contine TOATE cele sase etichete ca optiuni, deci
+                  o afirmatie pe panou ar trece pentru orice stare. */}
+              <div className="flex items-center gap-2" data-testid="project-status-chip">
                 <Chip tone={PROJECT_STATUS_TONE[project.status]}>
                   {PROJECT_STATUS_LABEL[project.status]}
                 </Chip>
