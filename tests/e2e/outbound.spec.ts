@@ -94,19 +94,12 @@ async function comboPick(page: Page, testId: string, query: string) {
   await list.locator("li").first().click();
 }
 
-/**
- * Scrie text liber intr-un combobox creatable si il CONFIRMA cu Enter.
- *
- * Fara Enter, valoarea traieste doar in starea interna a comboboxului si se
- * confirma abia la un clic in afara. Testul nu are voie sa depinda de faptul ca
- * urmatoarea actiune se intampla sa fie un clic in alta parte.
- */
-async function comboType(page: Page, testId: string, value: string) {
-  const input = page.getByTestId(testId).locator("input");
-  await input.click();
-  await input.fill(value);
-  await input.press("Enter");
-}
+
+// P3-04: destinatia nu mai este text liber. Randul vine din
+// scripts/seed-test-crm.mjs, cu id fix, si este singurul proiect deschis din
+// baza de test, deci comboPick gaseste exact o potrivire.
+const TEST_PROJECT = "TEST Șantier E2E";
+const TEST_CLIENT = "TEST Beneficiar E2E";
 
 test.describe("Ieșiri materiale", () => {
   // Fiecare test isi construieste propriul stoc de la zero: produs, comanda de
@@ -143,8 +136,7 @@ test.describe("Ieșiri materiale", () => {
     expect(before).toBe(60);
 
     await page.goto("/iesiri");
-    await comboType(page, "field-client", `TEST Client ${RUN}`);
-    await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+    await comboPick(page, "field-project", TEST_PROJECT);
     await comboPick(page, "issue-product-0", productName);
     await page.getByTestId("issue-quantity-0").fill("18");
     await page.getByTestId("issue-submit").click();
@@ -163,6 +155,39 @@ test.describe("Ieșiri materiale", () => {
     ).toHaveCount(1);
   });
 
+  // P3-04. Destinatia a incetat sa mai fie text liber.
+  test("destinația este un proiect real, clientul se citește de pe el, iar fără proiect nu se poate crea", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { sku, productName } = await productWithStock(page, "p304", "25");
+
+    await page.goto("/iesiri");
+
+    // 1. FARA PROIECT NU SE POATE. Asa se opreste multimea de iesiri fara
+    //    destinatie din a mai creste, cat timp cele istorice sunt reconciliate.
+    await comboPick(page, "issue-product-0", productName);
+    await page.getByTestId("issue-quantity-0").fill("1");
+    await page.getByTestId("issue-submit").click();
+    await expect(page.getByTestId("issue-problems")).toContainText("Alege proiectul.");
+    await expect(page.getByTestId("issue-created")).toHaveCount(0);
+
+    // 2. CLIENTUL NU SE ALEGE, SE CITESTE DE PE PROIECT. Doua intrebari cu un
+    //    singur raspuns ar fi doua feluri de a gresi.
+    await expect(page.getByTestId("field-client")).toContainText("Se completează din proiect");
+    await comboPick(page, "field-project", TEST_PROJECT);
+    await expect(page.getByTestId("field-client")).toContainText(TEST_CLIENT);
+    await expect(page.getByTestId("field-client")).toHaveAttribute("data-client", TEST_CLIENT);
+
+    // 3. Si acum trece, iar confirmarea arata aceeasi pereche.
+    await page.getByTestId("issue-submit").click();
+    await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("issue-created")).toContainText(TEST_PROJECT);
+    await expect(page.getByTestId("issue-created")).toContainText(TEST_CLIENT);
+    expect(sku).toMatch(/^TEST-/);
+  });
+
   test("o cantitate peste stocul disponibil este refuzată cu mesajul românesc", async ({
     page,
   }) => {
@@ -171,8 +196,7 @@ test.describe("Ieșiri materiale", () => {
     const { sku, productName } = await productWithStock(page, "over", "12");
 
     await page.goto("/iesiri");
-    await comboType(page, "field-client", `TEST Client ${RUN}`);
-    await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+    await comboPick(page, "field-project", TEST_PROJECT);
     await comboPick(page, "issue-product-0", productName);
     await page.getByTestId("issue-quantity-0").fill("999");
 
@@ -195,8 +219,7 @@ test.describe("Ieșiri materiale", () => {
     const { sku, productName } = await productWithStock(page, "split", "30");
 
     await page.goto("/iesiri");
-    await comboType(page, "field-client", `TEST Client ${RUN}`);
-    await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+    await comboPick(page, "field-project", TEST_PROJECT);
     await comboPick(page, "issue-product-0", productName);
     await page.getByTestId("issue-quantity-0").fill("20");
 
@@ -218,8 +241,7 @@ test.describe("Ieșiri materiale", () => {
     const { productName } = await productWithStock(page, "ship", "15");
 
     await page.goto("/iesiri");
-    await comboType(page, "field-client", `TEST Client ${RUN}`);
-    await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+    await comboPick(page, "field-project", TEST_PROJECT);
     await comboPick(page, "issue-product-0", productName);
     await page.getByTestId("issue-quantity-0").fill("5");
     await page.getByTestId("issue-submit").click();
@@ -247,8 +269,7 @@ test.describe("Ieșiri materiale", () => {
     const { productName } = await productWithStock(page, "noprice", "9");
 
     await page.goto("/iesiri");
-    await comboType(page, "field-client", `TEST Client ${RUN}`);
-    await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+    await comboPick(page, "field-project", TEST_PROJECT);
     await comboPick(page, "issue-product-0", productName);
     await page.getByTestId("issue-quantity-0").fill("2");
     // Pretul ramane gol deliberat: eliberare netarifata catre santier propriu.

@@ -130,23 +130,10 @@ export async function nextOutboundReference(): Promise<string> {
   return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
-/** Numele de clienti si proiecte deja folosite, pentru alegerile din formular. */
-export async function listClientsAndProjects(): Promise<{
-  clients: string[];
-  projects: string[];
-}> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("outbound_issues").select("client_name, project_name");
-  const clients = new Set<string>();
-  const projects = new Set<string>();
-  for (const row of data ?? []) {
-    const c = (row.client_name as string | null)?.trim();
-    const p = (row.project_name as string | null)?.trim();
-    if (c) clients.add(c);
-    if (p) projects.add(p);
-  }
-  return {
-    clients: [...clients].sort((a, b) => a.localeCompare(b, "ro")),
-    projects: [...projects].sort((a, b) => a.localeCompare(b, "ro")),
-  };
-}
+// listClientsAndProjects a fost STEARSA de cardul P3-04, nu abandonata.
+//
+// Aduna numele distincte de client si de proiect din outbound_issues si le
+// dadea celor doua casute de text liber din formular. P3-04 le-a inlocuit cu un
+// singur selector care citeste public.projects, deci functia nu mai are niciun
+// apelant si ar fi ramas ca unica sursa care mai trateaza destinatia ca text.
+// Cine cauta lista de proiecte: lib/data/projects.ts, listSelectableProjects.

@@ -2046,3 +2046,100 @@ redundant `revoke ... from anon` on P3-01, and both were found the same way:
 **delete the line and require the check to fail.** A defensive line that nothing
 notices the absence of is either redundant or unproven, and the two need
 different responses.
+
+### A test that re-implements the thing it tests proves the reimplementation
+**Tag:** data
+**ERROR:** The P3-04 backfill is a single UPDATE inside migration 0017. It meets
+zero rows on a fresh container, so the assertion file built a fixture of ten
+typed destinations and then ran **its own copy of the UPDATE**, character for
+character, against them. Every branch passed.
+
+Then the migration was mutated. **Three mutations of the matching rule came back
+green**: matching on the project name alone instead of the client-and-project
+pair, removing the `having count(*) = 1` ambiguity guard, and removing the
+idempotency guard. None of them touched the assertion file, so none of them
+changed a single character of what the test executed. The test was proving its
+own copy, and the copy was correct.
+
+**SOLUTION:** The backfill became a function,
+`public.backfill_outbound_project_ids()`, created and called once by the
+migration. The assertion calls that function. A change to the matching rule in
+the migration now changes what the test proves, and all three mutations are
+caught.
+
+It is a better migration for a second reason that has nothing to do with
+testing: the reconciliation pass will want to re-run the backfill after a human
+adds the missing clients and projects, and **a statement buried inside an
+applied migration cannot be re-run.**
+
+RULE: **when a test cannot reach the code under test, moving the code is the
+fix, not copying it.** A duplicated statement in a test is indistinguishable
+from a correct test on the day it is written and stops tracking the original the
+first time either changes. The tell is a test that contains a substring of the
+production file. If a statement needs exercising, make it a named callable
+thing; if it cannot be made callable, the test is documentation and should say
+so rather than look like proof.
+
+### A mutation that did not apply is indistinguishable from an assertion that does not bite
+**Tag:** ci
+**ERROR:** Mutation testing here works by copying the tree, editing a migration
+with a regex, and requiring the check to fail. **A regex that silently matches
+nothing produces an unchanged file, a passing run, and a "NOT CAUGHT" line that
+looks exactly like a weak assertion.** It happened four times across P3-01 and
+P3-04, and one of them cost a real investigation into an assertion that turned
+out to be fine: the file had been re-indented by an earlier refactor and the
+pattern no longer matched.
+
+**SOLUTION:** The mutation runner snapshots the file before editing and refuses
+to score the result if the bytes are unchanged:
+
+```bash
+snapshot() { cp "$1" "$SP/before"; MUTATED_FILE="$1"; }
+expect_fail() {
+  if cmp -s "$SP/before" "$MUTATED_FILE"; then
+    echo "MUTATION DID NOT APPLY: $1 (the file is unchanged, so this scores nothing)"
+    FAILURES=$((FAILURES + 1)); return
+  fi
+  ...
+}
+```
+
+It found two stale patterns on the first run after being added.
+
+RULE: **a negative test needs a positive precondition.** Any harness that proves
+something by breaking it must first prove it broke it. The general form: when a
+test's setup can silently no-op, the test reports on the setup and not on the
+subject, and it reports success either way.
+
+### `<>` against a possibly-NULL column is not an inequality test
+**Tag:** data
+**ERROR:** The P3-04 write-path assertion checked that the new issue recorded
+its project with `if got.project_id <> 'd0000000-...' then raise`. Mutating 0018
+to write `null` instead of the project id **passed**. `NULL <> 'x'` evaluates to
+NULL, the `IF` does not fire, and a write path that recorded nothing at all
+satisfied a check written to catch exactly that.
+
+A second, worse instance in the same file: a "this should have failed" raise was
+written INSIDE a block whose handler was `when sqlstate 'P0001'`. Bare `raise
+exception` defaults to errcode P0001, which is the same code
+`create_outbound_issue` uses for its own refusals, **so the check's own alarm was
+caught by the check's own handler** and two mutations passed.
+
+**SOLUTION:** `is distinct from` for any comparison whose operand can be NULL,
+and a boolean flag set inside the handler with the assertion made after the
+block:
+
+```sql
+refused := false;
+begin
+  perform something_that_should_fail();
+exception when sqlstate 'P0001' then refused := true;
+end;
+if not refused then raise exception '...'; end if;
+```
+
+RULE: **in PL/pgSQL, never raise a failure from inside the block that catches
+failures, and never compare a nullable value with `<>`.** Both produce a check
+that passes on the exact input it was written to reject. Both were found by
+mutation and neither would ever have been found by reading, because both read
+correctly.

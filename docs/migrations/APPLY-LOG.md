@@ -43,6 +43,8 @@ The format is machine-read, so keep it exactly:
 - `0014_contacts.sql`, card de aplicare P3-27
 - `0015_status_entity_project.sql`, card de aplicare P3-27
 - `0016_projects.sql`, card de aplicare P3-27
+- `0017_outbound_project_id.sql`, card de aplicare P3-27
+- `0018_outbound_issue_project_write.sql`, card de aplicare P3-27
 
 ## Rules
 
