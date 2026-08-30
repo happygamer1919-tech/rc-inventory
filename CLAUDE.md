@@ -122,67 +122,104 @@ or `blocked`. `halted` is reserved for the failure ceiling in section 10.
 - The PR description names the card id, the acceptance line, the command run to
   prove it, and every migration file added.
 
-### 3.1 Self-merge on green `quality`, by role and by path
+### 3.1 Self-merge on green `quality`
 
-**Added 2026-08-28 by ruling R-049.** Everything in section 3 above still binds,
-this one included. Nothing here permits a merge on a check that is pending,
-absent or inherited from an earlier sha.
+**Added 2026-08-28 by ruling R-049, as a grant by role and by path. WIDENED TO
+EVERY PATH ON 2026-08-30 BY RULING R-059**, on the owner's instruction, stated
+twice. Everything in section 3 above still binds, this one included. Nothing
+here permits a merge on a check that is pending, absent, skipped, or inherited
+from an earlier sha.
 
-**A terminal may merge its OWN pull request, without waiting for Ivan, when both
-of these hold:**
-
-1. the `quality` check is **green on the head sha**, meaning a run exists for
-   that exact sha and concluded success, and
-2. **every changed path** in the PR is inside that role's set below.
+**FOUR ROLES MERGE THEIR OWN PULL REQUESTS, WITHOUT WAITING FOR IVAN, ON ANY
+PATH, WHEN THE `quality` CHECK IS GREEN ON THE HEAD SHA:**
 
 | Role | Its path set |
 |---|---|
-| POC-BUILDER | anything under `scripts/poc/`, plus `CLAUDE.md`, plus `docs/poc/DESIGN.md` |
-| EXECUTOR | anything under `docs/`, plus anything under `decisions/` |
-| AUTHOR | anything under `docs/`, plus anything under `decisions/` |
+| EXECUTOR | any path in the repository |
+| AUTHOR | any path in the repository |
+| POC-BUILDER | any path in the repository |
+| TRIAGE | any path in the repository |
 
-The dispatch that granted this named `run.sh` and `docs/board/` separately. Both
-are already inside the sets above: `run.sh` is the single tracked file
-`scripts/poc/run.sh`, and `docs/board/` is inside `docs/`. They are not listed
-twice, so that a later reader does not go looking for the distinction.
+**Green on the head sha means a run exists for that exact sha and concluded
+success.** Not a run on the previous sha, not an inherited context, not a
+`gh pr checks` summary on a pull request that conflicts with `main` and
+therefore triggered no workflow at all. That last one has happened here and
+section 3 names it.
 
-**EVERY CHANGED PATH, AND THERE IS NO PARTIAL VERSION OF THIS.** One file outside
-the set removes the grant for the whole PR, whatever that file is and however
-small the change to it. There is no judgement about whether the stray file
-mattered, because that judgement is the thing being removed.
+**THE PATH COLUMN IS NOW ONE VALUE AND IT IS KEPT ANYWAY.** Four rows saying
+"any path" is a table that could be one sentence. It stays a table because the
+previous version of this section was a table of DIFFERENT sets, the whole grant
+turned on which set a path fell into, and a reader arriving from a report or a
+ruling that cites "the EXECUTOR path set" needs to land somewhere that tells
+them the distinction is gone rather than somewhere the phrase has quietly
+stopped existing.
 
-**APPLICATION CODE AND MIGRATIONS ARE EXCLUDED.** A PR touching `app/`, `lib/`,
-`components/`, `tests/`, `proxy.ts`, `supabase/migrations/` or any other
-application path keeps the full section 5b gate: green `quality` **plus** the
-card's named acceptance spec passing. Migrations keep section 8 on top of that.
-This clause removes the acceptance half of 5b, and it removes it only for the
-documentation-shaped paths in the table.
+#### THE ONE EXCLUSION, AND IT IS ABOUT EXECUTION, NOT ABOUT FILES
 
-**WHY THAT IS SAFE HERE AND WOULD NOT BE ELSEWHERE.**
+**APPLYING a migration, or any destructive statement, against the PRODUCTION
+database is not covered by this grant and never was.** It is gated by section
+8.6 and by ruling R-047, both unchanged, and it is gated whether or not a
+`quality` check is green, because a green check says nothing about a database.
+
+**MERGING THE FILE IS NOT APPLYING IT.** A pull request that ADDS
+`supabase/migrations/0013_something.sql` changes one text file in a git
+repository and changes nothing in any database. It merges under this grant like
+any other pull request. The apply is a separate act with its own three phases in
+8.5, its own journal in 8.8, and its own stop in 8.6. Those two things were run
+together in the old wording, which is why a migration card used to be
+un-mergeable until the owner was available to run something the pull request
+never asked him to run.
+
+That is the whole exclusion. There is no second one.
+
+#### WHAT THIS DOES NOT TOUCH: SECTION 5b'S ACCEPTANCE HALF
+
+**A card still does not ship without its named acceptance having been run and
+passed.** Section 5b is two conditions, green `quality` and the card's
+acceptance, and this section is about the first one only: it removes the WAIT
+FOR IVAN, not the proof.
+
+R-049 removed the acceptance half as well, and only for documentation-shaped
+paths, on the reasoning that a docs-only pull request has no acceptance to run.
+**That narrow removal is not extended here**, because the paths this widening
+adds are exactly the paths that do have one. A pull request carrying application
+code merges on green `quality` plus its card's acceptance passing, decided by the
+terminal instead of by the owner. The dispatch that widened this grant says the
+same thing in its own per-card line: "machine-checkable acceptance, committed
+report, self-merge on green".
+
+#### THE CONDITION THIS RESTS ON, WHICH IS A PROPERTY OF THE WORKFLOW
+
 `.github/workflows/quality.yml` triggers on `pull_request` with **no path
-filter**, so a documentation-only PR runs every step of the job: typecheck,
-build, both board validators, the reset SQL parser, the category vocabulary
-check, the ledger row check, the production-target check, the harness cap proof,
-the production guard refusal, and the end to end suite against a local Supabase
-stack. A docs-only green is work that actually ran. **If a `paths:` filter is
-ever added to that workflow, this clause dies with it**, because it would then
-authorise merging on a check that never executed. Whoever adds the filter
-removes this section in the same PR.
+filter**, so every pull request runs every step of the job: typecheck, build,
+all three board validators, the reset SQL parser, the conflict residue check,
+the category vocabulary check, the ledger row check, the production-target
+check, the migration apply against a bare postgres, the harness cap proof, the
+production guard refusal, and the end to end suite against a local Supabase
+stack. A green here is work that actually ran.
 
-**AUTHOR WAS ADDED 2026-08-28 BY RULING R-056, ON THE SAME PATH SET AS
-EXECUTOR.** The two rows are identical text on purpose: the owner's instruction
-was "same terms as EXECUTOR", and two rows meaning the same thing should read the
-same. The dispatch named `docs/board/` as a third path and it is already inside
-`docs/`, deduplicated here for the same reason `run.sh` and `DESIGN.md` are.
+**IF A `paths:` FILTER IS EVER ADDED TO THAT WORKFLOW, THIS SECTION DIES WITH
+IT**, because it would then authorise merging on a check that never executed.
+Whoever adds the filter removes this section in the same pull request.
 
-Until R-056 this section said AUTHOR was granted nothing and that widening the
-grant was an owner decision rather than an inference from the table. That was
-right, and it is how the widening happened: the owner said so, in his own words,
-quoted in the ruling.
+#### THE HISTORY, KEPT SHORT AND KEPT
 
-**TRIAGE IS STILL GRANTED NOTHING HERE.** Its authority is unchanged and is in
-`docs/DOCTRINE-TRIAGE.md`: its own rulings PR is the only PR it merges. Widening
-this grant to TRIAGE, or to any role not in the table, remains an owner decision.
+- **R-049, 2026-08-28.** Granted EXECUTOR and POC-BUILDER self-merge on
+  documentation-shaped paths only, and said in terms that application code and
+  migrations were excluded and that widening was an owner decision rather than
+  an inference from the table.
+- **R-056, 2026-08-28.** Added AUTHOR on the EXECUTOR path set, by the owner, in
+  his own words.
+- **R-059, 2026-08-30.** Widened all of it to every path and added TRIAGE, by
+  the owner, stated twice. The clause reserving the decision to him is what made
+  both widenings his to make, and both times it worked as written.
+
+**TRIAGE IS NOW IN THE TABLE.** Until R-059 it was granted nothing here and its
+only pull request was its own rulings pull request, under
+`docs/DOCTRINE-TRIAGE.md`. That document's authority over what TRIAGE may DECIDE
+is unchanged: its section 6 is a closed list of ten items that go to Ivan, and a
+merge grant does not touch a decision grant. TRIAGE may now merge a pull request
+it could always have opened.
 
 **REVOKED BY P2-13**, with every other terminal grant, as a checklist item in
 section 8.7.
@@ -529,8 +566,9 @@ must include, as checkable items:
 
 - **revoking this read permission in `CLAUDE.md`**, reverting section 8 to
   Ivan-only applies with no database connection from any terminal
-- **revoking the self-merge grant in section 3.1**, added by R-049. It is a
-  terminal grant like any other and it dies here with the rest. Deleting section
+- **revoking the self-merge grant in section 3.1**, added by R-049, extended by
+  R-056 and widened to every path by R-059. It is a terminal grant like any
+  other and it dies here with the rest. Deleting section
   3.1 returns every PR to Ivan.
 - **rotating `SUPABASE_DB_PASSWORD`**
 - **rotating `SUPABASE_SERVICE_ROLE_KEY`**

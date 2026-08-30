@@ -2604,3 +2604,366 @@ AUTHOR-and-TRIAGE paragraph; and the `doctrine` field of
 `docs/board/rc-board-phase3.json`, which cites R-049 and this ruling together.
 **Supersedes:** none. R-049 stands in full and this extends it by one row. R-002
 and section 5b are untouched.
+
+### R-057 - the escalation list in DOCTRINE-TRIAGE section 6 is the sole authority on what goes to the owner, for every role, and the pointer to an untracked file is deleted
+**Date:** 2026-08-30
+**Asked on:** none. An owner dispatch, step 0b.
+**Answer, verbatim:**
+> The owner escalation list, committed. Every dispatch citing "RC section 2" has
+> been citing a file that is not in the repo. That is the same false-premise
+> failure that produced two refusals. Write the list into DOCTRINE-TRIAGE section
+> 6 as the sole authority, ruling R-057, and delete every reference to an
+> external rules file from CLAUDE.md and any dispatch template:
+>   money, pricing, launch timing, legal, vendor agreements, credential grants,
+>   anything touching the client, panel actions (DNS, Vercel, Supabase,
+>   BotFather), production destructive execution, acceptance sign-off.
+> Everything else is TRIAGE's under R-050.
+
+**Ruling:** `docs/DOCTRINE-TRIAGE.md` section 6 is the sole authority on what
+escalates to the owner, **for every role and not only for TRIAGE**, and it says
+so in its own first paragraph now. The pointer to the untracked file is deleted.
+
+**THE LIST WAS ALREADY THIS LIST, AND SAYING SO IS THE USEFUL PART OF THIS
+RULING.** The dispatch's ten items map onto the committed ten one for one, with
+nothing added and nothing dropped:
+
+| dispatched | section 6 |
+|---|---|
+| money | 1, money |
+| pricing | 2, pricing |
+| launch timing | 10, launch timing |
+| legal | 3, legal |
+| vendor agreements | 4, vendor |
+| credential grants | 5, credential grants |
+| anything touching the client | 6, anything touching Mihai or Andre |
+| panel actions (DNS, Vercel, Supabase, BotFather) | 7, panel actions |
+| production destructive execution | 8, production DELETE-class execution |
+| acceptance sign-off | 9, acceptance sign-off |
+
+**So this ruling changes exactly two things and neither is the list.**
+
+**ONE: IT MAKES THE SECTION THE AUTHORITY FOR EVERY ROLE, NOT ONLY FOR TRIAGE.**
+It sat inside a document about TRIAGE and was written in TRIAGE's voice, so an
+EXECUTOR or an AUTHOR reading it could reasonably conclude it bound somebody
+else. That is how a dispatch came to cite an external document at all: there was
+no file that visibly answered "what may I decide" for the role reading it.
+
+**TWO: IT DELETES THE POINTER, WHICH THE PREVIOUS WORDING KEPT ON PURPOSE AND
+WHICH WAS THE WRONG CALL.** Section 6 carried a paragraph naming
+`/Users/ivan/Downloads/RC-PROJECT-RULES.md`, saying it held a similar list, and
+saying no terminal is required to open it. Every sentence of that was true and
+the paragraph still did harm: naming a file a terminal must not rely on leaves
+the reader wondering whether they ought to go and look, which is most of the
+cost of the citation it was trying to neutralise. It is gone. There is nothing
+to look at.
+
+**ITEM 7 GAINS NAMED EXAMPLES AND LOSES NOTHING.** It read "a hosting, database,
+DNS, email or payment console". It now reads "a console someone has to log into"
+with DNS, Vercel, Supabase, BotFather, email and payment named as examples.
+**BotFather is the one worth adding.** The Telegram bot is this project's own
+plumbing rather than a client-facing service, which made it the single panel a
+terminal was most likely to reason itself into treating as internal. It is not.
+It is a click in somebody else's session like every other item, and the test
+stays the category rather than the list.
+
+**WHAT WAS NOT DELETED, AND WHY THAT IS NOT AN OVERSIGHT.** Three places still
+name the external file: ruling R-050 in this file, the AUTHOR report of
+2026-08-28, and the AUT-12 note on the phase 2 board. All three are RECORDS THAT
+THE CITATION FAILED, not citations. Deleting them would remove the only
+committed explanation of why the reference stopped being used, and the rules of
+this file and of `CLAUDE.md` 9b both forbid rewriting a ruling or a report after
+the fact. **One live citation existed and it is gone**: the AUT-13 note on the
+phase 2 board offered the file as corroboration for the plain-hyphens rule, and
+a rule in this repository does not become more binding by being agreed with
+somewhere a terminal cannot read.
+
+**Unblocks:** every CRM card. A dispatch instruction that could not be followed
+was standing in front of all of them.
+**Also changes:** `docs/DOCTRINE-TRIAGE.md` section 6, header and item 7 and the
+closing paragraph; the AUT-13 note on `docs/board/rc-board-phase2.json`; and the
+`doctrine` field of `docs/board/rc-board-phase3.json`, which summarised the list
+as nine items and was stale from the day it was written, because R-050 had added
+launch timing two days earlier.
+**Supersedes:** none. R-050 stands in full; this makes its list reachable from
+outside TRIAGE.
+
+---
+
+### R-058 - the deviz cards are resolved in favour of the owner addendum, all twelve differences, and P3-13 is split three ways along the addendum's own build order
+**Date:** 2026-08-30
+**Asked on:** P3-12, P3-13, P3-18
+**Answer, verbatim:**
+> Deviz spec reconciliation, ruling R-058. The previous EXECUTOR report records
+> twelve differences between the owner addendum and the authored P3-13, two of
+> them contradictions, sharpest being P3-18 acceptance asserting that a project
+> in lucru is EXCLUDED when the addendum includes it. Read section 4 of
+> docs/reports/2026-08-28-executor-crm-board-halt.md, resolve every difference in
+> favour of the OWNER ADDENDUM, rewrite the affected cards and their acceptance
+> lines, and record the resolution. Do not build against the authored version.
+
+**Ruling:** every one of the twelve differences is resolved in favour of the
+addendum. `P3-13` is now the schema alone, `P3-13b` is the line editor and
+`P3-13c` is the comparison view, which are the addendum's own three build steps.
+`P3-18` and `P3-12` are rewritten. The authored versions are not built.
+
+**THE CITED FILE DOES NOT EXIST AND THE CONTENT DOES.** There is no
+`docs/reports/2026-08-28-executor-crm-board-halt.md` at any commit on any branch.
+The delta is section 4 of
+`docs/reports/2026-08-28-executor-phase-3-crm-preflight.md`, which is on `main`
+and carries all twelve differences plus a thirteenth. A wrong filename is not an
+absent premise, and this ruling records the correction rather than the halt,
+because the halt would have been on a typo.
+
+**THE TWELVE, AND WHERE EACH LANDS.**
+
+| # | the difference | resolved on |
+|---|---|---|
+| 1 | P3-18 excluded a project `active`; the addendum includes it | P3-18 |
+| 2 | P3-18 summed deviz lines with no subtraction of what was already issued | P3-18 |
+| 3 | the price was a default-and-override, not a snapshot | P3-13, P3-13b |
+| 4 | no status pipeline, so a draft would have fed procurement | P3-13, P3-18 |
+| 5 | no versioning | P3-13, P3-13b |
+| 6 | the `devize` field list was absent | P3-13 |
+| 7 | the `deviz_lines` field list was absent | P3-13 |
+| 8 | the comparison was quantity-only | P3-13c |
+| 9 | no over-issue flag | P3-13c |
+| 10 | no foot totals | P3-13c |
+| 11 | `Neprevazut` was described in English, not named in Romanian | P3-13c |
+| 12 | P3-12 carried two numbers where three are needed | P3-12 |
+| 13 | the stale `INVENTED, NOT REQUESTED` notes and the stale halt instruction | P3-13, P3-18 |
+
+**THE TWO CONTRADICTIONS ARE BOTH ON P3-18 AND BOTH WOULD HAVE SHIPPED GREEN.**
+Its acceptance line asserted that a project `in lucru` is EXCLUDED even with a
+deviz. The addendum includes it. An executor working the authored card would have
+written a Playwright assertion that asserts the opposite of the owner's spec,
+watched it pass, and shipped it. That is the whole argument for resolving a spec
+conflict before a wave starts rather than during it: a wrong acceptance line does
+not fail, it certifies.
+
+The second is quieter and costs more money. The authored card summed accepted
+deviz quantities with no subtraction of what had already gone to site, which
+over-orders by exactly the amount already delivered. The addendum's version is
+procurement. The authored version is a shopping list written by somebody who has
+not looked in the warehouse.
+
+**THE ONE PLACE THE ADDENDUM'S LITERAL TEXT IS NOT COPIED, DECLARED HERE RATHER
+THAN BURIED.** The addendum names the deviz pipeline `draft, emis, acceptat,
+respins, expirat`, which is one English word and four Romanian ones. That is a
+list of UI states, not of SQL tokens. P2-01 fixed the convention that stored enum
+values are English tokens with Romanian labels in the presentation layer, and
+`public.project_status` on P3-03 already follows it. **The set of five states,
+their order, and the rule that only `accepted` feeds procurement are the
+addendum's and are binding.** The stored tokens are `draft, sent, accepted,
+rejected, expired` and the labels are the addendum's Romanian words: Ciorna,
+Emis, Acceptat, Respins, Expirat. If that reading is wrong, it is wrong about
+five strings in a migration and nothing about behaviour.
+
+**THREE AMBIGUITIES THE ADDENDUM DID NOT COVER, DECIDED UNDER THE BOARD'S WIDE
+DEFAULTS RULE AND LOGGED HERE SO THEY ARE NOT RE-DECIDED.**
+
+- **`margin_percent` applies to the deviz total, not per line.** The addendum
+  lists it in the `devize` field list and lists no per-line margin column, so a
+  per-line markup would need a column it did not ask for. Foot rows are
+  Subtotal, Adaos, Total.
+- **`currency` is a column and a CHECK pins it to MDL for this phase.** The
+  addendum names the field; P3-03 already ruled multi-currency out of scope and
+  every wave 3 computation sums MDL. Storing a currency the arithmetic ignores
+  would be a third silent-wrong-number path on a board that has just removed two.
+  The constraint is what a later card relaxes, and `CLAUDE.md` 8.6 already
+  permits `ALTER TABLE ... DROP CONSTRAINT` for exactly this.
+- **`valid_until` is recorded and is not enforced by a job.** Nothing flips a
+  status on a date. A deviz still `sent` past its date is displayed as expired
+  with a Romanian warning; the enum value is set by a person. A scheduler is a
+  separate card.
+
+**TWO DEPENDENCY EDGES MOVED AND ONE IS NEW, WHICH IS A RESEQUENCING AND IS
+DECLARED AS ONE.** `P3-13` drops its edge to `P3-09` and takes one to `P3-03`:
+split out, the schema needs the projects table and nothing else, so it can be
+authored and proven against the AUT-14 shim while the detail tabs are still
+being built. `P3-13c` takes a new edge to `P3-04`, because a comparison built
+before `outbound_issues.project_id` exists would be comparing against a free-text
+project name. `P3-12` takes a new edge to `P3-13b`, because the accepted deviz
+total cannot be computed before deviz lines exist.
+
+**Unblocks:** P3-12, P3-13, P3-13b, P3-13c and P3-18, all of which were
+unsafe to build. It blocks nothing.
+**Also changes:** `docs/board/rc-board-phase3.json`, which gains two cards and
+goes from 28 to 30.
+**Supersedes:** the authored text of P3-13, P3-18 and P3-12 as they stood at
+`63d548a`. Nothing in this file.
+
+---
+
+### R-059 - self-merge widens to every path for EXECUTOR, AUTHOR, POC-BUILDER and TRIAGE, and the only exclusion is executing against production
+**Date:** 2026-08-30
+**Asked on:** every card on both boards
+**Answer, verbatim:**
+> R-056, self-merge widened. Owner grant, Ivan, 2026-08-28, stated twice.
+> R-049 is extended: EXECUTOR, AUTHOR, POC-BUILDER and TRIAGE merge their own
+> PRs on any path when quality is green on the head sha. Application code and
+> migration FILES are now included. The single exclusion: applying a migration
+> or any destructive statement against the production database remains gated by
+> CLAUDE.md 8.6 and R-047. Merging the file is not applying it. Amend
+> CLAUDE.md 3.1. Revoked with every other terminal grant at P2-13.
+
+**Ruling:** `CLAUDE.md` section 3.1 is rewritten. Four roles merge their own pull
+requests on any path once `quality` is green on the head sha. The path sets are
+gone. Applying against production is not covered and never was.
+
+**THE ID IS R-059 AND THE DISPATCH CALLED IT R-056, AND BOTH NUMBERS RESOLVE TO
+THIS.** R-056 was taken two days earlier by the ruling that added AUTHOR on the
+EXECUTOR path set, and the rules at the top of this file forbid editing an old
+ruling: a changed mind is a new dated ruling that supersedes the old one by id,
+so the history of the decision stays readable. Overwriting R-056 with a wider
+grant would have destroyed the record of the narrower one and made every citation
+of "R-056" ambiguous by date. **A future dispatch citing R-056 for the widening
+means this ruling.** Section 3.1 names all three ids in order so the trail works
+from either end.
+
+**MERGING THE FILE IS NOT APPLYING IT, AND THAT SENTENCE IS THE SUBSTANCE.** A
+pull request that adds `supabase/migrations/0013_something.sql` changes one text
+file in a git repository and changes nothing in any database. Under the old
+wording it was un-mergeable until the owner was available to run something the
+pull request never asked him to run. The apply keeps its own three phases in 8.5,
+its own journal in 8.8, and its own stop in 8.6, all untouched, and it is gated
+whether or not a check is green, because a green check says nothing about a
+database.
+
+**THE ACCEPTANCE HALF OF 5b IS NOT REMOVED, AND THIS IS THE ONE PLACE THE
+DISPATCH IS READ NARROWLY.** R-049 removed both halves for documentation-shaped
+paths, on the reasoning that a docs-only pull request has no acceptance to run.
+The paths this widening adds are exactly the paths that do have one. Extending
+the removal would mean application code shipping with nobody having run its named
+test, which is not what a merge grant is for and is not what the dispatch asked
+for: its own per-card line reads "machine-checkable acceptance, committed report,
+self-merge on green". **What is removed is the wait for the owner. The proof
+stays.**
+
+**THIS PULL REQUEST MERGES UNDER THE GRANT IT CREATES, WHICH R-056 SPECIFICALLY
+DECLINED TO DO, AND THE DIFFERENCE IS WHO ASKED.** R-056's own pull request went
+to Ivan, on the reasoning that a grant authorising its own creation is a terminal
+writing its own permissions. That reasoning was right and it does not apply here:
+the widening is an owner instruction stated twice, the dispatch carrying it says
+in terms to self-merge on green and to work continuously without returning to the
+owner between cards, and stopping to ask him to merge the pull request that
+implements his instruction not to stop and ask him would be a loop rather than a
+safeguard. It is recorded because it is the kind of thing that should never pass
+unremarked.
+
+**TRIAGE ENTERS THE TABLE AND ITS DECISION AUTHORITY DOES NOT MOVE.** It could
+always open a pull request; it may now merge one. What it may DECIDE is
+`docs/DOCTRINE-TRIAGE.md` section 6, unchanged, and R-057 has just made that
+section the sole authority on it.
+
+**Unblocks:** every card that authors a migration file, on both boards, and the
+whole phase 3 schema wave. The phase 3 board's `doctrine` field said in terms
+that a schema card touches `supabase/` and therefore could never be self-merged;
+that sentence is retired.
+**Also changes:** `CLAUDE.md` section 3.1 in full and the 8.7 revocation
+checklist item, which now names all three rulings; and the `doctrine` field of
+`docs/board/rc-board-phase3.json`.
+**Supersedes:** the path-set table in R-049 and R-056. The rest of both stands,
+including R-049's green-on-the-head-sha definition and its `paths:` filter
+clause, both of which are restated in the new section 3.1.
+
+---
+
+### R-060 - the migration shim check runs in the quality job, against the AUT-14 card default that said it must not
+**Date:** 2026-08-30
+**Asked on:** AUT-14
+**Answer, verbatim:**
+> AUT-14, commit the Docker shim. Authorised by R-051, never built. The nine-object
+> Supabase shim that applied twelve migrations to stock postgres:16 during RST-01.
+> Land it at scripts/poc-free/local-db/ with a check:migrations npm script, wired
+> into quality. This is the tool wave 1 needs to prove a migration.
+
+**Ruling:** `npm run check:migrations` is a step in `.github/workflows/quality.yml`.
+The AUT-14 default that forbade it is amended in the same pull request, so the
+committed record does not contradict the workflow.
+
+**THE CONFLICT IS REAL AND IS NOT A READING ERROR.** The card's `defaults` said
+`IT IS NOT ADDED TO THE QUALITY WORKFLOW`, in capitals, with a reason. The
+dispatch says `wired into quality`. `CLAUDE.md` section 5 settles the precedence
+in one line: **defaults fill silence, they do not contradict speech**, and an
+owner instruction is speech. But precedence alone is a bad reason to overwrite a
+written argument, so the argument gets answered.
+
+**THE DEFAULT'S REASONING IS CORRECT ABOUT THE MIGRATIONS AND WEIGHS THE WRONG
+THING.** It said CI already applies every migration through `supabase start` plus
+`supabase db reset` against a real stack, so a second weaker application buys
+nothing. True. **The step does not guard the migrations. It guards the shim.**
+
+`shim.sql` lists the Supabase objects a bare postgres does not have. The day a
+migration references an object the shim lacks, `supabase db reset` still passes,
+because a real stack has every object. The local tool silently stops working, and
+nobody finds out until the next session that needs it: offline, with no
+credentials, in the middle of proving a destructive statement. That is the exact
+situation the tool exists for and the worst possible moment to discover it
+rotted. The same argument is already made in this repository, in this workflow,
+in the comment explaining why the phase 3 board is validated by a job that no
+terminal was working: **a board nobody works is exactly the board that rots.**
+
+**THE COST WAS MEASURED, NOT ESTIMATED.** The full check runs in about two
+seconds locally on a warm image. The runner pays a one-time image pull.
+
+**Unblocks:** nothing. It keeps AUT-14's tool working after the session that
+built it.
+**Also changes:** `.github/workflows/quality.yml`, one step; `package.json`, one
+script; and the AUT-14 `defaults` on `docs/board/rc-board-phase2.json`.
+**Supersedes:** one paragraph of the AUT-14 card defaults, quoted in full at the
+point where it is replaced.
+
+---
+
+### R-061 - phase 3 opens to interactive terminals now, and the harness stays on the phase 2 board
+**Date:** 2026-08-30
+**Asked on:** every card on the phase 3 board
+**Answer, verbatim:**
+> STEP 1 onward, build. Wave 1 schema, then wave 2 sections, then wave 3 value
+> layer. Wave 4 density cards are independent; pick them when a wave is blocked.
+> [...]
+> Priority note: the platform currently has no client or project management at all,
+> which is the owner's primary complaint. Wave 1 and wave 2 are the path to something
+> visible on screen. Prefer them over wave 3 and wave 4 unless blocked.
+
+**Ruling:** the phase 3 board is open. Its `doctrine` field said a terminal that
+found itself picking a P3 card before phase 2 closed had made a mistake and
+should stop; that sentence is retired. **The harness is not repointed and the
+phase 2 board is still the queue for every unattended run.** The two boards are
+now worked in parallel by different terminals rather than in sequence.
+
+**THE SENTENCE THAT IS RETIRED RESERVED THIS DECISION FOR EXACTLY THIS.** It
+read: phase 3 opens after the phase 2 gate reaches 9 of 9, by an owner ruling
+that repoints the harness, and not before. The owner opened it by dispatch
+instead, which is the owner ruling half. The harness half is deliberately not
+done, so the sentence is amended rather than deleted, and what it protected is
+kept: `scripts/poc/run.sh`, `inbox.mjs` and `notify.mjs` still read
+`docs/board/rc-board-phase2.json` by path, and nothing in this ruling changes a
+line of them.
+
+**WHY WAITING FOR 9 OF 9 STOPPED BEING THE RIGHT ORDER, WHICH IS WORTH WRITING
+DOWN BECAUSE THE ORIGINAL RULE WAS SOUND.** The phase 2 gate is at 6 of 9. Of the
+three open conditions, G4 needs the extraction round trip and P2-08b is `blocked`
+on Andre, a third party nobody here can schedule; G9 needs Mihai to complete a
+full cycle on production, which is downstream of G4 and of P2-13 and P2-14.
+**The gate cannot reach 9 of 9 on any timetable this repository controls.**
+Sequencing phase 3 behind it therefore did not mean "later", it meant "when
+somebody else gets round to it", and the thing waiting behind it is the owner's
+primary complaint about the platform: it has no client or project management at
+all. A rule that would have held the visible half of the product behind an
+unschedulable third party is a rule that has stopped doing what it was for.
+
+**WHAT DOES NOT CHANGE, LISTED BECAUSE AN OPENING IS THE MOMENT SOMETHING GETS
+QUIETLY DROPPED.** The claim lease in `CLAUDE.md` section 13 still governs: a
+card is claimed before it is worked and a claim is honoured for six hours, and a
+harness working phase 2 and a terminal working phase 3 cannot see each other any
+better than two terminals could. Eligibility, the lowest-id rule, the acceptance
+rule, skip-not-halt, the halt-on-a-false-premise rule and the migration sections
+all bind this board exactly as written. Section 8.6 is untouched: authoring and
+merging a migration file is not applying one, per R-059, and applying one against
+production is still the owner's.
+
+**Unblocks:** the entire phase 3 board, 30 cards.
+**Also changes:** the `doctrine` field of `docs/board/rc-board-phase3.json`.
+**Supersedes:** the do-not-work-this-board clause of that field, quoted where it
+is replaced. Nothing in this file.

@@ -13,6 +13,7 @@
     "check:categories": "node scripts/poc-free/check-categories.mjs",
     "check:ledger-rows": "node scripts/poc-free/build-ledger-rows.mjs --check",
     "check:no-prod-target": "node scripts/poc-free/check-no-prod-target.mjs",
+    "check:migrations": "node scripts/poc-free/local-db/apply.mjs",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
