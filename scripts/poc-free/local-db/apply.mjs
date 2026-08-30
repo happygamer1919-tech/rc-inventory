@@ -172,15 +172,43 @@ containerStarted = true;
 // 3. Readiness
 // ---------------------------------------------------------------------------
 //
-// pg_isready inside the container, not a sleep. The official image restarts
-// the server once during initdb, so an early success is possible and the loop
-// requires the socket to answer at the moment the first file is sent.
+// THE PROBE IS OVER TCP AND NOT OVER THE UNIX SOCKET, AND THAT IS THE WHOLE
+// POINT OF THIS BLOCK. The official postgres image starts TWO servers. The
+// first is a temporary one that initdb runs so it can create the database and
+// execute any init scripts, and the entrypoint starts it with
+// `listen_addresses=''`, so it answers on the unix socket and on nothing else.
+// It is then SHUT DOWN and the real server is started with TCP listening.
+//
+// A socket probe cannot tell those two apart. It reports ready against the
+// temporary server, the migrations begin, and the shutdown lands in the middle
+// of them:
+//
+//   FAILED: shim.sql
+//   FATAL:  terminating connection due to administrator command
+//   server closed the connection unexpectedly
+//
+// That is a real run, on a GitHub runner, at 2026-08-30. Locally the image was
+// warm and the window was missed every time, which is exactly how this class of
+// race reaches CI.
+//
+// A TCP probe is only satisfied by the real server. psql itself still connects
+// over the unix socket, where local connections are trusted and no password is
+// needed; only the readiness question is asked over TCP.
+//
+// TWO CONSECUTIVE SUCCESSES ARE REQUIRED. One is enough in principle now that
+// the probe distinguishes the servers, and the second costs half a second and
+// removes any argument about a partially-initialised listener.
 
 const deadline = Date.now() + READY_TIMEOUT_MS;
+let consecutive = 0;
 let ready = false;
 while (Date.now() < deadline) {
-  const probe = run('docker', ['exec', CONTAINER, 'pg_isready', '-U', 'postgres', '-q']);
-  if (probe.status === 0) {
+  const probe = run('docker', [
+    'exec', CONTAINER,
+    'pg_isready', '--host', '127.0.0.1', '--port', '5432', '--username', 'postgres', '--quiet',
+  ]);
+  consecutive = probe.status === 0 ? consecutive + 1 : 0;
+  if (consecutive >= 2) {
     ready = true;
     break;
   }

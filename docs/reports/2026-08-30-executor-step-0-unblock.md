@@ -239,7 +239,58 @@ Docker is not installed, or `docker` is not on PATH. This check needs a running 
 `docker --version`, because the second answers from the client alone and would
 report success against a stopped Docker Desktop.
 
-### 5.4 The card's constraints, each one and how it is met
+### 5.4 It failed on the first runner it met, and the fix is not a retry
+
+**The passing run above is the second version of this tool.** The first passed
+locally on every attempt and failed on GitHub Actions inside the first file:
+
+```
+docker server 28.0.4
+FAILED: shim.sql
+FATAL:  terminating connection due to administrator command
+server closed the connection unexpectedly
+```
+
+Run `33328768216`, on `8b9ce4e`, the head sha of this pull request's first
+commit. **It is in this report rather than quietly fixed**, because a report that
+shows only the passing run hides the one defect this card actually produced.
+
+**The cause.** The readiness loop probed with
+`docker exec <c> pg_isready -U postgres`, over the unix socket, and broke on the
+first success. **The official `postgres` image starts two servers.** Its
+entrypoint runs a temporary one so initdb can create the database, then shuts it
+down and starts the real one. From the image's own `docker-entrypoint.sh`:
+
+```
+# start socket-only postgresql server for setting up or running scripts
+# does not listen on external TCP/IP and waits until start finishes
+set -- "$@" -c listen_addresses='' -p "${PGPORT:-5432}"
+```
+
+A socket probe cannot tell those apart. The loop reported ready against the
+temporary server and the shutdown landed in the middle of the migrations. The
+container log shows the whole sequence inside about 220ms: temp server ready,
+`shutting down`, `PostgreSQL init process complete`, real server ready.
+
+**The fix is to probe over TCP**, which only the real server can satisfy because
+the temporary one is started with `listen_addresses=''`. psql still connects over
+the unix socket, where local connections are trusted and no password is needed;
+only the readiness question goes over TCP. Two consecutive successes are
+required.
+
+**Measured on this machine rather than assumed**: the socket probe answers ready
+about 0.3s before the TCP probe does, and the shutdown falls inside that gap.
+Locally the image is warm and the window was missed on every run, which is how
+this class of race reaches CI and not a laptop.
+
+**A retry around the failure would have hidden this, not fixed it.** The
+connection loss was a true report about a server that was genuinely going away,
+and retrying would have produced a tool that works by accident and fails again
+whenever a runner is slower.
+
+That is one failed attempt on this card, of the three the failure ceiling allows.
+
+### 5.5 The card's constraints, each one and how it is met
 
 | constraint | how |
 |---|---|
@@ -272,7 +323,7 @@ left RLS off would apply `0002` cleanly and produce a bucket whose policies
 restrict nothing, which is the class of failure this tool exists to catch before
 it reaches a real project.
 
-### 5.5 Wired into `quality`, against the card default that forbade it. R-060.
+### 5.6 Wired into `quality`, against the card default that forbade it. R-060.
 
 The card's `defaults` said `IT IS NOT ADDED TO THE QUALITY WORKFLOW`, in
 capitals. The dispatch says `wired into quality`. `CLAUDE.md` section 5 settles

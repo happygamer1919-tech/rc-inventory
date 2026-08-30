@@ -1877,3 +1877,48 @@ CI, ask what it guards rather than what it asserts. Two checks can assert the
 same fact and guard different artefacts. The general form is already in this
 workflow, in the comment on the board validator: a board nobody works is exactly
 the board that rots, and the same is true of a tool nobody exercises.
+
+### pg_isready on the unix socket says ready to the server that is about to be shut down
+**Tag:** ci
+**ERROR:** `npm run check:migrations` passed locally every time and failed on the
+first GitHub runner it met, mid-way through the first file:
+
+```
+docker server 28.0.4
+FAILED: shim.sql
+FATAL:  terminating connection due to administrator command
+server closed the connection unexpectedly
+```
+
+The readiness loop probed with `docker exec <c> pg_isready -U postgres`, which
+connects over the unix socket, and broke on the first success. **The official
+`postgres` image starts two servers.** Its entrypoint runs a temporary one so
+initdb can create the database and run init scripts, then shuts it down and
+starts the real one. From the image's own `docker-entrypoint.sh`:
+
+```
+# start socket-only postgresql server for setting up or running scripts
+# does not listen on external TCP/IP and waits until start finishes
+set -- "$@" -c listen_addresses='' -p "${PGPORT:-5432}"
+```
+
+A socket probe cannot tell the two apart, so the loop reported ready against the
+temporary server and the shutdown landed in the middle of the migrations.
+Container logs show the sequence in about 220ms: temp server "ready to accept
+connections", then "shutting down", then "PostgreSQL init process complete",
+then the real server ready. **Locally the image was warm and the window was
+missed on every run**, which is how this class of race reaches CI rather than a
+laptop.
+
+**SOLUTION:** Probe over TCP: `pg_isready --host 127.0.0.1 --port 5432`. The
+temporary server is started with `listen_addresses=''`, so only the real one can
+satisfy it. psql itself still connects over the unix socket, where local
+connections are trusted and no password is needed; only the readiness question
+goes over TCP. Measured on this machine: the socket probe answers ready roughly
+0.3s before the TCP probe does, and the shutdown falls inside that gap. RULE: a
+readiness probe must be answerable ONLY by the thing you are waiting for. Where a
+service starts a private bootstrap instance on the same host, a probe on the
+shared channel is not a readiness check, it is a coin flip whose bias depends on
+how warm the image is. Adding a retry around the failure would have hidden this
+rather than fixed it: the connection loss was a true report about a server that
+was genuinely going away.
