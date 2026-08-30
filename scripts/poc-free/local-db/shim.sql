@@ -68,6 +68,29 @@ $$;
 
 grant usage on schema public to anon, authenticated, service_role;
 
+-- --- DEFAULT PRIVILEGES, AND THIS IS THE LEAST OBVIOUS OBJECT IN THE FILE ---
+--
+-- A Supabase project sets ALTER DEFAULT PRIVILEGES so that anon, authenticated
+-- and service_role are granted on every table created in `public` AT CREATE
+-- TABLE TIME. Nothing in a migration does it; it is already there when the
+-- first migration runs.
+--
+-- WITHOUT THIS THE SHIM MAKES A WHOLE CLASS OF ASSERTION VACUOUSLY TRUE. Every
+-- migration in this repository revokes anon explicitly, and 0001 says why in a
+-- comment: an accidentally permissive policy later must not be able to open a
+-- table to the public internet on its own. On a bare postgres, anon is granted
+-- nothing at CREATE TABLE, so "anon holds no privilege on this table" passes
+-- whether or not the revoke is present.
+--
+-- FOUND BY MUTATION, NOT BY READING. Deleting `revoke all on table
+-- public.clients from anon` from 0013 and re-running this check produced exit
+-- 0, which is the answer that says the check is not checking. Added by card
+-- P3-01, 2026-08-30.
+
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+
 
 -- ===========================================================================
 -- 2. SCHEMAS

@@ -18,6 +18,29 @@ was not this terminal.
 A migration path nobody can audit is a hardening defect, which is why R-013
 folded this into P2-11 rather than raising a separate card.
 
+## Pending: authored and merged, NOT applied
+
+**Added 2026-08-30 by ruling R-062.** Until that ruling, every file in
+`supabase/migrations/` was also an applied migration, so "has an entry in this
+log" and "is accounted for" were the same question. R-062 split them: **merging
+a migration file changes one text file in a git repository and changes nothing
+in any database**, and the apply is a separate card.
+
+A file listed here has been authored, proven to apply UNMODIFIED to a real
+PostgreSQL by `npm run check:migrations`, and merged. It has **not** run against
+the RC Supabase project. When it does, it gets a normal entry below and its line
+here is removed, in the same pull request.
+
+**The invariant got stronger, not weaker.** `tests/e2e/headers.spec.ts` used to
+require every migration file to have an entry. It now requires every migration
+file to be in **exactly one** of the two places: applied, or pending with the
+card that will apply it. A file in both, a file in neither, and a pending line
+naming a file that does not exist all fail the suite.
+
+The format is machine-read, so keep it exactly:
+
+- `0013_clients.sql`, card de aplicare P3-27
+
 ## Rules
 
 - **One entry per apply**, in the order they were applied, newest at the bottom.

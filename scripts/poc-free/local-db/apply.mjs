@@ -263,5 +263,47 @@ for (const file of migrations) {
 }
 
 process.stdout.write(`\n${migrations.length} migration files applied, unmodified, on ${IMAGE}\n`);
+
+// ---------------------------------------------------------------------------
+// 5. Assertions
+// ---------------------------------------------------------------------------
+//
+// Every .sql file in ./assertions runs against the finished schema, in filename
+// order. Each one raises rather than prints, so a failure fails psql under
+// ON_ERROR_STOP and fails this run. A file that printed a grid for a human to
+// read would be the exact shape CLAUDE.md 8.6 was written to stop.
+//
+// WHAT THIS IS FOR. A schema card's acceptance asks for proof that a table
+// exists with RLS on, the right policies, no delete policy and nothing granted
+// to anon. That proof used to require an apply against production, which is the
+// owner's and happens on his schedule. Everything in it except the words "on
+// production" is checkable here, with no credentials, on every push. Ruling
+// R-062.
+//
+// IT IS ALSO A REGRESSION SUITE AND THAT IS THE HALF THAT KEEPS PAYING. Once a
+// card's assertions are in this directory, a LATER migration that quietly drops
+// a policy, grants anon a privilege, or removes an updated_at trigger fails
+// here, on the pull request that does it, rather than on the day somebody
+// notices the data.
+//
+// An empty directory is not an error. Migrations 0001 to 0012 predate this and
+// have none.
+
+const ASSERTIONS_DIR = join(HERE, 'assertions');
+const assertions = existsSync(ASSERTIONS_DIR)
+  ? readdirSync(ASSERTIONS_DIR).filter((f) => f.endsWith('.sql')).sort()
+  : [];
+
+for (const file of assertions) {
+  psql(`assertions/${file}`, readFileSync(join(ASSERTIONS_DIR, file), 'utf8'));
+  process.stdout.write(`asserted ${file}\n`);
+}
+
+process.stdout.write(
+  assertions.length === 0
+    ? 'no assertion files\n'
+    : `${assertions.length} assertion files passed\n`
+);
+
 teardown();
 process.exit(EXIT_OK);
