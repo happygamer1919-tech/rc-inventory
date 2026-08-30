@@ -48,6 +48,11 @@
     }
   ],
   "digest_last_sent": "2026-08-30T11:01:24Z",
-  "claims": {},
+  "claims": {
+    "P3-03": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-30T21:07:02Z"
+    }
+  },
   "report_path": "docs/reports/2026-08-28-executor-critic-acceptance-pass.md"
 }
