@@ -230,10 +230,27 @@ one problem is how both get half-done.
 
 ## 6. The escalation test
 
-**The list is CLOSED.** Everything on it goes to Ivan. Everything not on it,
-TRIAGE decides and records. A list that ended in "and anything else significant"
-would escalate everything on a cautious day and nothing on a confident one, which
-is the same as having no rule.
+**THIS SECTION IS THE SOLE AUTHORITY ON WHAT GOES TO THE OWNER, FOR EVERY ROLE,
+NOT ONLY FOR TRIAGE. Ruled 2026-08-30 as R-057.** There is no other list, in
+this repository or outside it, and no terminal needs to open anything else to
+learn what it may decide. A dispatch, a report or a ruling that cites some other
+document for this is citing something that does not bind, and the correct
+response is to work this list and say so.
+
+**Why that sentence had to be written.** Dispatches were citing "RC section 2"
+as the authority for a terminal's escalations. No document of that name is
+tracked here at any commit, so the instruction could not be followed, and
+following an uncitable authority is the exact failure that produced two refused
+steps and three dispatches written against a record that did not exist. The list
+below is written out in full, in a committed file, for that reason. The rule it
+enforces is the repository's oldest: **ground truth is committed repository
+files only.**
+
+**The list is CLOSED.** Everything on it goes to Ivan. Everything not on it, the
+terminal decides and records, and for TRIAGE that authority is R-050. A list
+that ended in "and anything else significant" would escalate everything on a
+cautious day and nothing on a confident one, which is the same as having no
+rule.
 
 Escalate, and only escalate:
 
@@ -252,9 +269,16 @@ Escalate, and only escalate:
 6. **Anything touching Mihai or Andre.** Any decision that changes what is asked
    of the client or of the extraction vendor, or that would reach them as a
    request. TRIAGE never writes to a third party.
-7. **Panel actions.** Anything requiring a click in a hosting, database, DNS,
-   email or payment console. No terminal holds those, so a decision that assumes
-   one is a decision about somebody else's hands.
+7. **Panel actions.** Anything requiring a click in a console someone has to log
+   into. No terminal holds those, so a decision that assumes one is a decision
+   about somebody else's hands. **Named on 2026-08-30 by R-057, because a
+   category is easier to argue with than a list: DNS, Vercel, Supabase,
+   BotFather, the email console, the payment console.** BotFather is on it
+   explicitly. The Telegram bot is this project's own plumbing rather than a
+   client-facing service, which made it the one panel a terminal was most likely
+   to reason itself into treating as internal. It is not: it is a click in
+   somebody else's session, like every other item here. The named list is
+   examples, not a narrowing, and the test stays the category.
 8. **Production DELETE-class execution.** Running a statement set that destroys
    rows in production. `CLAUDE.md` 8.6 forbids the execution; this forbids TRIAGE
    deciding it should happen. **R-047 does not weaken this item.** It changed who
@@ -271,18 +295,20 @@ Escalate, and only escalate:
     arrived is not.**
 
 **THE LIST IS TEN ITEMS AND IT IS STILL CLOSED.** R-050 added item 10 and
-removed nothing. Anyone reading the 2026-08-28 dispatch as a narrowing of
-TRIAGE's escalations should read this line instead: nine of its ten items were
-already here, so the owner's kept list grew by one and TRIAGE's authority did
-not change.
+removed nothing. R-057 named examples inside item 7 and removed nothing either.
+Anyone reading the 2026-08-28 dispatch as a narrowing of TRIAGE's escalations
+should read this line instead: nine of its ten items were already here, so the
+owner's kept list grew by one and TRIAGE's authority did not change. The
+2026-08-30 dispatch listed the same ten in different words and, item for item,
+they map onto these with nothing added and nothing dropped.
 
-**THIS LIST IS THE AUTHORITY, AND IT IS DELIBERATELY WRITTEN OUT RATHER THAN
-CITED.** There is a file at `/Users/ivan/Downloads/RC-PROJECT-RULES.md` carrying
-a similar list under its OWNER VS DELEGATED heading. It is not tracked in this
-repository, its headings are not numbered, and its own first rule is that ground
-truth is committed repository files only. **No terminal is required to open an
-uncommitted file to learn what it may decide.** If that document and this list
-ever disagree, this list governs terminals and the disagreement is a card.
+**A NOTE FOR WHOEVER FINDS THE OTHER DOCUMENT.** Until 2026-08-30 this section
+carried a paragraph pointing at an untracked file in the owner's Downloads
+folder that holds a similar list under an OWNER VS DELEGATED heading. **That
+paragraph is deleted and the pointer with it, by R-057.** Naming a file a
+terminal must not rely on still leaves a reader wondering whether they should go
+and look. There is nothing to look at: this list is the whole of it, this list
+is what binds, and a disagreement with any other document is decided here.
 
 ### Everything else, TRIAGE decides
 

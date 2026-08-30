@@ -97,6 +97,28 @@ jobs:
       - name: Check CI targets no production project
         run: npm run check:no-prod-target
 
+      # AUT-14. Every migration applied to a throwaway postgres:16 container,
+      # unmodified, with no credentials and no network.
+      #
+      # THIS IS NOT A SECOND VERIFICATION OF THE MIGRATIONS. `supabase db
+      # reset` below already applies the same files to a real stack, and the
+      # AUT-14 card defaults said for that reason that the tool should stay out
+      # of this workflow. THIS STEP GUARDS THE SHIM, NOT THE MIGRATIONS, and
+      # that is a different thing the card did not weigh.
+      #
+      # scripts/poc-free/local-db/shim.sql lists the Supabase objects a bare
+      # postgres does not have. The day a migration references an object the
+      # shim lacks, `supabase db reset` still passes, because a real stack has
+      # every object. The local tool silently stops working and nobody finds
+      # out until the next session that needs it, offline, with no credentials,
+      # in the middle of proving a destructive statement. That is the exact
+      # situation the tool exists for and the worst moment to discover it rotted.
+      #
+      # Ruling R-060 records this, and the card defaults are amended to match
+      # rather than left contradicting the workflow.
+      - name: Apply every migration to a bare postgres, unmodified
+        run: npm run check:migrations
+
       # CRIT-15, runtime half. THE GUARD'S REFUSAL, EXERCISED ON THE CI PATH.
       #
       # CRIT-11 built the guard and proved six exit paths locally. In CI only

@@ -1795,3 +1795,130 @@ ruled on when it shifted four rulings rather than edit an existing one.
 leave the gap; it closes when they land, and a permanent gap is cheaper than
 forcing another lane to rewrite committed text. The same applies to migration
 numbers and to any monotonically increasing id in a shared file.
+
+### A dispatch cited a report filename that does not exist, and the report does
+**Tag:** infra
+**ERROR:** An owner dispatch instructed "read section 4 of
+`docs/reports/2026-08-28-executor-crm-board-halt.md`". That file exists at no
+commit, on no branch, in no worktree: `git log --all --name-only` for the
+pattern returns nothing and `find` over the repository returns nothing. Under
+the halt-on-a-false-premise rule that reads as an absent premise, and the
+instruction was step 0d of four, blocking the whole deviz reconciliation.
+**SOLUTION:** The content was on `main` the whole time, in
+`docs/reports/2026-08-28-executor-phase-3-crm-preflight.md`, whose section 4 is
+titled "The deviz addendum against the authored card: the delta". A wrong
+filename is not an absent artefact. RULE: before treating a cited file as
+missing, search for its CONTENT and not only its NAME. Two commands settle it:
+`ls docs/reports/` for the same date and role, then a grep for a distinctive
+phrase from the citation ("deviz addendum", "twelve differences") across
+`docs/`. Halting on a typo costs a session; the check costs ten seconds. The
+same shape has now appeared three times in this repository, and it is the mirror
+of the chat-is-not-authority failure rather than a repeat of it: there the
+record did not exist, here it did and was misnamed.
+
+### A wrong acceptance line does not fail, it certifies
+**Tag:** data
+**ERROR:** Card P3-18's acceptance asserted that a project `in lucru` is
+EXCLUDED from the material requirement even when it carries a deviz. The owner
+addendum includes it. An executor working that card would have written the
+Playwright assertion the card named, watched it pass, shipped the card green,
+and produced a procurement screen that omits the largest committed demand on the
+board. Nothing in the pipeline would have gone red at any point. The same card
+also summed estimate quantities with no subtraction of what had already been
+issued, which over-orders by exactly the amount already delivered.
+**SOLUTION:** Both were caught by a preflight that compared the authored cards
+against the owner's spec BEFORE the wave started, and they were fixed on the
+board rather than in review. RULE: a machine-checkable acceptance line is only
+as good as the spec it was written from, and it is the one artefact whose being
+wrong produces a GREEN result. When a card's acceptance and a later owner
+instruction disagree, that is not a detail to reconcile during the build. It is
+a board edit and a ruling, done first, because the build cannot detect it. The
+strong signal to look for: an acceptance line that asserts something is EXCLUDED
+or ABSENT. An assertion of absence is the one that silently keeps passing while
+the requirement changes underneath it.
+
+### A rule that waits on a third party is a rule that never fires
+**Tag:** infra
+**ERROR:** The phase 3 board's doctrine said the board was worked by nobody
+until the phase 2 launch gate reached 9 of 9, and that a terminal picking a P3
+card before then had made a mistake and should stop. The phase 2 gate is at 6 of
+9, and all three open conditions are downstream of a third party: G4 needs the
+extraction round trip, P2-08b is `blocked` on Andre, and G9 needs the client to
+complete a cycle that is itself downstream of G4. The gate cannot reach 9 of 9
+on any timetable this repository controls, so the sequencing rule did not mean
+"phase 3 comes later", it meant "phase 3 happens when somebody outside the
+project gets round to something else". What was queued behind it was client and
+project management, the owner's primary complaint about the platform.
+**SOLUTION:** The owner opened phase 3 by dispatch, which is the owner ruling
+the sentence had reserved the decision for, and the harness half of it was kept:
+the unattended runs still read the phase 2 board by path. RULE: when writing a
+sequencing rule, check whether its unblock condition is inside this project's
+control. If it is not, the rule needs an explicit escape or a named owner
+decision, or it will quietly become a permanent block that nobody rereads. Write
+the escape at authoring time, when the condition is fresh, rather than
+discovering it as a halt weeks later.
+
+### The Supabase shim is what rots, not the migrations it applies
+**Tag:** ci
+**ERROR:** `npm run check:migrations` applies every migration to a bare
+`postgres:16` after a shim that creates the objects Supabase provides. The
+AUT-14 card defaults said in capitals that it must NOT be added to the quality
+workflow, because CI already applies the same files to a real stack through
+`supabase start` and `supabase db reset`, so a second weaker application buys
+nothing. That reasoning is correct about the migrations and weighs the wrong
+artefact.
+**SOLUTION:** The step does not guard the migrations, which are already guarded.
+It guards `shim.sql`. The day a migration references a Supabase object the shim
+lacks, `supabase db reset` still passes, because a real stack has every object;
+the local tool silently stops working, and nobody finds out until the next
+session that needs it, offline, with no credentials, in the middle of proving a
+destructive statement. RULE: when deciding whether a check earns its place in
+CI, ask what it guards rather than what it asserts. Two checks can assert the
+same fact and guard different artefacts. The general form is already in this
+workflow, in the comment on the board validator: a board nobody works is exactly
+the board that rots, and the same is true of a tool nobody exercises.
+
+### pg_isready on the unix socket says ready to the server that is about to be shut down
+**Tag:** ci
+**ERROR:** `npm run check:migrations` passed locally every time and failed on the
+first GitHub runner it met, mid-way through the first file:
+
+```
+docker server 28.0.4
+FAILED: shim.sql
+FATAL:  terminating connection due to administrator command
+server closed the connection unexpectedly
+```
+
+The readiness loop probed with `docker exec <c> pg_isready -U postgres`, which
+connects over the unix socket, and broke on the first success. **The official
+`postgres` image starts two servers.** Its entrypoint runs a temporary one so
+initdb can create the database and run init scripts, then shuts it down and
+starts the real one. From the image's own `docker-entrypoint.sh`:
+
+```
+# start socket-only postgresql server for setting up or running scripts
+# does not listen on external TCP/IP and waits until start finishes
+set -- "$@" -c listen_addresses='' -p "${PGPORT:-5432}"
+```
+
+A socket probe cannot tell the two apart, so the loop reported ready against the
+temporary server and the shutdown landed in the middle of the migrations.
+Container logs show the sequence in about 220ms: temp server "ready to accept
+connections", then "shutting down", then "PostgreSQL init process complete",
+then the real server ready. **Locally the image was warm and the window was
+missed on every run**, which is how this class of race reaches CI rather than a
+laptop.
+
+**SOLUTION:** Probe over TCP: `pg_isready --host 127.0.0.1 --port 5432`. The
+temporary server is started with `listen_addresses=''`, so only the real one can
+satisfy it. psql itself still connects over the unix socket, where local
+connections are trusted and no password is needed; only the readiness question
+goes over TCP. Measured on this machine: the socket probe answers ready roughly
+0.3s before the TCP probe does, and the shutdown falls inside that gap. RULE: a
+readiness probe must be answerable ONLY by the thing you are waiting for. Where a
+service starts a private bootstrap instance on the same host, a probe on the
+shared channel is not a readiness check, it is a coin flip whose bias depends on
+how warm the image is. Adding a retry around the failure would have hidden this
+rather than fixed it: the connection loss was a true report about a server that
+was genuinely going away.
