@@ -32,7 +32,7 @@ async function ensureTestCategory(page: import("@playwright/test").Page) {
 
 async function createProduct(
   page: import("@playwright/test").Page,
-  opts: { sku: string; name: string; unit?: string; threshold?: string },
+  opts: { sku: string; name: string; unit?: string; threshold?: string; supplier?: string },
 ) {
   await page.goto("/inventar");
   await page.getByTestId("product-new").click();
@@ -42,8 +42,27 @@ async function createProduct(
   await page.getByTestId("field-category").selectOption({ label: TEST_CATEGORY });
   if (opts.unit) await page.getByTestId("field-unit").selectOption(opts.unit);
   if (opts.threshold) await page.getByTestId("field-threshold").fill(opts.threshold);
+  if (opts.supplier) await comboType(page, "field-supplier", opts.supplier);
   await page.getByTestId("form-submit").click();
   await settled(page);
+}
+
+/**
+ * Scrie text liber intr-un combobox creatable si il CONFIRMA cu Enter.
+ *
+ * Fara Enter, valoarea traieste doar in starea interna a comboboxului si se
+ * confirma abia la un clic in afara. Testul nu are voie sa depinda de faptul ca
+ * urmatoarea actiune se intampla sa fie un clic in alta parte.
+ */
+async function comboType(
+  page: import("@playwright/test").Page,
+  testId: string,
+  value: string,
+) {
+  const input = page.getByTestId(testId).locator("input");
+  await input.click();
+  await input.fill(value);
+  await input.press("Enter");
 }
 
 /**
@@ -163,6 +182,50 @@ test.describe("Catalog de produse", () => {
     await page.reload();
     await page.getByTestId("filter-visibility").selectOption("inactive");
     await expect(rowForSku(page, sku)).toHaveCount(1);
+  });
+
+  // P3-05. Furnizorul a incetat sa mai fie text liber.
+  test("furnizorul devine o înregistrare, iar o a doua scriere a aceluiași nume nu creează un al doilea furnizor", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // Un nume care nu exista: se creeaza furnizorul odata cu produsul, fara al
+    // doilea ecran.
+    const run = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
+    const supplier = `TEST Furnizor ${run}`;
+    const skuA = testSku("FURN-A");
+    await createProduct(page, { sku: skuA, name: `Produs furnizor A ${run}`, supplier });
+
+    await page.goto("/inventar");
+    const rowA = page.locator(`[data-testid="product-row"][data-sku="${skuA}"]`);
+    await expect(rowA).toHaveCount(1);
+    await expect(rowA).toContainText(supplier);
+
+    // FILTRUL ESTE PE INREGISTRARE, deci numele apare EXACT O DATA in lista de
+    // furnizori. Inainte de P3-05 fiecare scriere distincta era o optiune, si
+    // doua scrieri ale aceluiasi furnizor imparteau produsele in doua.
+    const options = page.locator("select").filter({ hasText: "Toți furnizorii" }).locator("option");
+    await expect(options.filter({ hasText: supplier })).toHaveCount(1);
+
+    // Acelasi furnizor, scris cu alta capitalizare si fara spatiile potrivite.
+    // NU trebuie sa apara un al doilea furnizor: cautarea se face pe numele
+    // pliat, cu aceeasi functie pe care o foloseste si backfill-ul.
+    const skuB = testSku("FURN-B");
+    await createProduct(page, {
+      sku: skuB,
+      name: `Produs furnizor B ${run}`,
+      supplier: `  ${supplier.toUpperCase()}  `,
+    });
+
+    await page.goto("/inventar");
+    await expect(options.filter({ hasText: supplier })).toHaveCount(1);
+
+    // Si NUMELE STOCAT ESTE CEL DE PE RANDUL DE FURNIZOR, nu ce a scris
+    // operatorul a doua oara: randul B arata scrierea reconciliata.
+    const rowB = page.locator(`[data-testid="product-row"][data-sku="${skuB}"]`);
+    await expect(rowB).toContainText(supplier);
   });
 
   test("căutarea ignoră diacriticele", async ({ page }) => {

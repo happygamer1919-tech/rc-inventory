@@ -13,6 +13,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import type { SupplierOption } from "./suppliers-types";
 import { isUnitCode, type UnitCode } from "./units";
 
 export type CatalogProduct = {
@@ -25,6 +26,9 @@ export type CatalogProduct = {
   threshold: number;
   unitValueMdl: number;
   supplierName: string | null;
+  /** P3-05: furnizorul ca inregistrare. Null cat timp randul nu a fost inca
+   *  reconciliat, sau daca produsul chiar nu are furnizor. */
+  supplierId: string | null;
   needsReview: boolean;
   active: boolean;
   /** Suma loturilor minus iesirile. Zero cat timp nu a intrat nimic. */
@@ -98,6 +102,7 @@ type ProductRow = {
   threshold: unknown;
   unit_value_mdl: unknown;
   supplier_name: string | null;
+  supplier_id: string | null;
   needs_review: boolean;
   active: boolean;
   categories: { name: string } | null;
@@ -114,6 +119,7 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
     threshold: toNumber(row.threshold),
     unitValueMdl: toNumber(row.unit_value_mdl),
     supplierName: row.supplier_name,
+    supplierId: row.supplier_id,
     needsReview: row.needs_review,
     active: row.active,
     stock: stock.get(row.id) ?? 0,
@@ -133,7 +139,7 @@ export async function listProducts(): Promise<CatalogProduct[]> {
     supabase
       .from("products")
       .select(
-        "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, needs_review, active, categories(name)",
+        "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, supplier_id, needs_review, active, categories(name)",
       )
       .order("sku", { ascending: true }),
     stockByProduct(),
@@ -202,16 +208,32 @@ export async function listUnits(): Promise<UnitCode[]> {
   return (data ?? []).map((r) => r.code as UnitCode).filter(isUnitCode);
 }
 
-/** Furnizorii in uz, derivati din produse. Nu exista tabela de furnizori. */
-export async function listSupplierNames(): Promise<string[]> {
+/** Furnizorii activi, din public.suppliers.
+ *
+ *  P3-05 a facut din furnizor o inregistrare. Pana atunci lista se deriva din
+ *  numele distincte scrise pe produse, ceea ce insemna ca "Bricolaj SRL" si
+ *  "BRICOLAJ srl" erau doi furnizori in orice filtru si in orice raport. */
+export async function listSuppliers(): Promise<SupplierOption[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("products").select("supplier_name");
-  const names = new Set<string>();
-  for (const row of data ?? []) {
-    const n = (row.supplier_name as string | null)?.trim();
-    if (n) names.add(n);
-  }
-  return [...names].sort((a, b) => a.localeCompare(b, "ro"));
+  const { data } = await supabase
+    .from("suppliers")
+    .select("id, name")
+    .eq("active", true);
+  return (data ?? [])
+    .map((r) => ({ id: r.id as string, name: r.name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ro"));
+}
+
+/** Doar numele, pentru formularele care inca scriu text liber.
+ *
+ *  Comanda de intrare are propria coloana inbound_orders.supplier_name, pe care
+ *  P3-05 nu o atinge: cardul promoveaza furnizorul PRODUSULUI la inregistrare,
+ *  nu furnizorul comenzii. Formularul acela primeste in continuare o lista de
+ *  nume, dar de acum ea vine din public.suppliers si nu din numele distincte
+ *  scrise pe produse, deci sugereaza denumirile reconciliate si nu variantele
+ *  de scriere pe care cardul tocmai le-a strans intr-una. */
+export async function listSupplierNames(): Promise<string[]> {
+  return (await listSuppliers()).map((s) => s.name);
 }
 
 /** Loturile unui produs, cele mai noi primele. Goale pana la P2-04. */
