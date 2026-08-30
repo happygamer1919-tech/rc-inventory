@@ -1179,16 +1179,20 @@
       "notes": "AUTHORED AND SHIPPED 2026-08-28 BY AUTHOR, FROM AN OWNER DISPATCH, under ruling R-050.\n\nTHE DISPATCH CARRIED THREE PREMISES AND ALL THREE WERE WRONG. Each was checked against the committed record before anything was written, and the substance of the grant survives all three. They are recorded because a card describing the chat-is-not-authority failure while itself repeating uncommitted claims would be the failure.\n\nFIRST, THE ESCALATION LIST IS NOT NARROWED, BECAUSE IT WAS ALREADY THIS LIST AND ALREADY CLOSED. DOCTRINE-TRIAGE section 6 has carried a CLOSED list of nine since AUT-2, opening with \"The list is CLOSED. Everything on it goes to Ivan.\" Nine of the dispatch's ten items were already on it, item for item. The dispatch therefore WIDENS the list by exactly one and narrows nothing. The new item is launch timing, which is genuinely absent from the nine and is genuinely the owner's. Recording this as a narrowing would have left a future reader believing TRIAGE's authority grew on this date; it did not.\n\nSECOND, THE CITED AUTHORITY DOES NOT RESOLVE. \"RC-PROJECT-RULES section 2\" cannot be followed by a terminal: the file is not tracked in this repository at any commit, it sits in the owner's Downloads folder, and its headings are unnumbered, so section 2 by position is its COMMUNICATION FORMAT heading rather than any list of owner decisions. The matching content is under its OWNER VS DELEGATED heading, the seventh. That document's own first rule is that ground truth is committed repository files only, so citing it as the boundary of a terminal's authority would break the rule it states. The list is written out in DOCTRINE-TRIAGE instead of pointed at.\n\nTHIRD, IT WAS THREE DISPATCHES WITH ABSENT PREMISES AND ONE REFUSED STEP, NOT TWO REFUSED DISPATCHES. The committed count is in the REC-01 report, section 6: landing PR #83, RST-01 and REC-01 each carried at least one premise the repository did not support. Exactly one action was refused, RST-01's step 4, correctly. One further step, REC-01's step 5, was inapplicable rather than refused. The LEARNINGS entry carries the accurate count.\n\nITEM 8 KEEPS ITS WORDING AND GAINS A POINTER, BECAUSE R-047 CHANGED A DIFFERENT VERB. R-047 lets a terminal PERFORM a DELETE-class run when the script proves its own outcome. It gave no role authority to DECIDE such a run should happen, which is what item 8 withholds from TRIAGE. Without the pointer, the next reader finds two rules that look opposed and has to guess which one won.\n\nWHY THE NO-HUMAN-INPUT CLAUSE IS WORTH WRITING WHEN IT WAS ALREADY THE DESIGN. It was implied by the list of what TRIAGE may do and by the closed escalation list, and an implication is what a cautious session talks itself out of at two in the morning. It is now a heading."
     },
     {
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
       "blocked_on": null,
       "question": null,
       "last_checkpoint": "2026-08-30T18:40:00Z",
-      "evidence": null,
+      "evidence": {
+        "kind": "pr",
+        "ref": "PR #102, run 33329018233 on 6eebe20: check:migrations exit 0 with 12 files; exit 1 naming 0007_seed_categories.sql on a corrupted copy; exit 2 naming Docker on a dead daemon and on an absent binary. All four quoted in docs/reports/2026-08-30-executor-step-0-unblock.md sections 5.1 to 5.4.",
+        "at": "2026-08-30T18:40:00Z"
+      },
       "id": "AUT-14",
       "title": "The local Postgres shim is committed and runnable, so every migration can be applied to a stock postgres:16 container by anyone, with no credentials, no Supabase CLI and no network.",
       "plain": "The tool that rebuilds the whole database structure on a throwaway copy, so changes can be tested without touching anything the client uses, is saved into the project instead of living in one person's notes from a single session.",
