@@ -40,6 +40,7 @@ naming a file that does not exist all fail the suite.
 The format is machine-read, so keep it exactly:
 
 - `0013_clients.sql`, card de aplicare P3-27
+- `0014_contacts.sql`, card de aplicare P3-27
 
 ## Rules
 
