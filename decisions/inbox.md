@@ -2967,3 +2967,76 @@ production is still the owner's.
 **Also changes:** the `doctrine` field of `docs/board/rc-board-phase3.json`.
 **Supersedes:** the do-not-work-this-board clause of that field, quoted where it
 is replaced. Nothing in this file.
+
+### R-062 - a schema card ships on the file plus the container proof, and the production apply is one card for the wave
+**Date:** 2026-08-30
+**Asked on:** P3-01, and every schema card in wave 1
+**Answer, verbatim:**
+> Migrations: author, prove against the AUT-14 shim, commit the proof in the report,
+> merge the file. The APPLY step against production is a separate blocked card per
+> 8.6. P3-04 and P3-05 backfill without dropping the old column; the drop is its own
+> card after backfill verification against real rows.
+>
+> STOP: nothing in this dispatch requires a database connection. If a step seems to,
+> you have misread it.
+
+**Ruling:** a wave 1 schema card's acceptance is met by the migration file plus
+the AUT-14 container proof. The production apply is **P3-27**, one card for the
+wave, `blocked_on: ivan`.
+
+**THE ACCEPTANCE IS SPLIT, NOT WEAKENED, AND THAT DISTINCTION IS THE WHOLE
+RULING.** P3-01 asked for a migration journal showing the table present, RLS
+enabled, exactly three policies with no delete policy, and anon holding SELECT
+on nothing. **Every one of those assertions except the words "on production" is
+now checked on every push**, by
+`scripts/poc-free/local-db/assertions/0013_clients.sql`, against a real
+PostgreSQL that has applied every migration in the repository. What P3-27 adds
+is that the same assertions hold on the real project. Nothing was dropped;
+the two halves are now in two places and both are named.
+
+**IT IS ALSO STRICTLY MORE PROOF THAN THE CARD ASKED FOR, WHICH IS WORTH SAYING
+BECAUSE SPLITTING AN ACCEPTANCE USUALLY MEANS LESS.** Migrations 0001 to 0012
+were merged and applied without any parser or server having read them: P2-15
+shipped SQL with its own card admitting "there is no PostgreSQL binary and no
+running Docker on this machine". 0013 is the first migration in this repository
+that was executed by a PostgreSQL before it was merged. On top of that, **every
+assertion was proved to FAIL on a mutated copy of the migration**, which no
+apply journal has ever established about any earlier file.
+
+**THE ASSERTIONS ARE A DIRECTORY, NOT A ONE-OFF.** `apply.mjs` runs every
+`.sql` in `scripts/poc-free/local-db/assertions/` after the migrations, in
+filename order, and each RAISES rather than printing. That makes them a
+regression suite as well as an acceptance: a LATER migration that quietly drops
+a policy, grants anon a privilege or removes an updated_at trigger fails on the
+pull request that does it. A file that printed a grid for a human to read would
+be the exact shape `CLAUDE.md` 8.6 was written to stop.
+
+**THE BLOCK ON P3-27 COMES FROM THE DISPATCH AND NOT FROM THE RULES, AND THE
+CARD SAYS SO IN ITS QUESTION.** `CLAUDE.md` section 8 has NOT been revoked:
+R-001 still grants EXECUTOR a temporary apply while the project holds zero real
+client data, P2-13 has not run, and section 8.7 has not fired. A future reader
+finding P3-27 blocked must not conclude the grant lapsed. What blocks it is one
+sentence of an owner dispatch: "nothing in this dispatch requires a database
+connection."
+
+**ONE CARD FOR THE WAVE, NOT ONE PER MIGRATION.** The dispatch says "a separate
+blocked card", singular, and does not say which. Five near-identical blocked
+cards would be five lines on the owner board saying the same sentence, and they
+would be answered in one sitting anyway, because that is how somebody applies
+migrations. P3-27 carries the pending file list in its `question`, where he
+reads it, and it deliberately has **no `depends_on` edges**: an edge per schema
+card would make it ineligible until the whole wave landed, and the owner may
+reasonably want to apply what exists rather than wait.
+
+**THE DROP-AFTER-BACKFILL HALF OF THE DISPATCH NEEDED NOTHING.** It is already
+board structure: P3-04b and P3-05b are separate cards, each carrying the drop in
+its own migration, each `depends_on` its backfill card and P3-10. That was
+authored before this dispatch and is recorded here so nobody implements it twice.
+
+**Unblocks:** P3-01, and every wave 1 schema card behind it. Without this they
+were all blocked on an apply the same dispatch forbids.
+**Also changes:** `docs/board/rc-board-phase3.json`, which gains P3-27 and goes
+from 30 to 31 cards; `scripts/poc-free/local-db/apply.mjs`, which gains the
+assertions pass.
+**Supersedes:** the production half of P3-01's acceptance line, moved to P3-27
+verbatim rather than deleted. Nothing in this file.

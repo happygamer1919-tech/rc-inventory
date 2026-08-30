@@ -1922,3 +1922,49 @@ shared channel is not a readiness check, it is a coin flip whose bias depends on
 how warm the image is. Adding a retry around the failure would have hidden this
 rather than fixed it: the connection loss was a true report about a server that
 was genuinely going away.
+
+### The shim made "anon holds nothing" vacuously true, and only a mutation found it
+**Tag:** data
+**ERROR:** `scripts/poc-free/local-db/assertions/0013_clients.sql` asserts that
+`anon` holds no privilege on `public.clients`, which is the security property
+every migration in this repository has spent a paragraph on. It passed. Then it
+was checked by DELETING the `revoke all on table public.clients from anon` line
+from the migration and re-running: **still exit 0**. The assertion was not
+checking anything.
+
+Two separate causes, and both matter:
+
+1. **The shim did not reproduce Supabase project-level default privileges.** A
+   Supabase project sets `ALTER DEFAULT PRIVILEGES` so anon, authenticated and
+   service_role are granted on every table created in `public` at CREATE TABLE
+   time. On a bare `postgres:16` anon is granted nothing, so "anon holds
+   nothing" was true for every table whether or not any migration said so, and
+   0001's whole GRANTS section was being validated against a database where it
+   could not fail.
+2. **Even with that fixed, deleting the line still passes, and correctly.**
+   Migration 0009 already ran `alter default privileges for role postgres in
+   schema public revoke all on tables from anon`, so every table created after
+   0009 starts closed. 0013's explicit revoke is a no-op.
+
+**SOLUTION:** The shim now carries the three `ALTER DEFAULT PRIVILEGES` grants,
+with a comment saying it is the least obvious object in the file and why. The
+mutation test was corrected to the one that actually exercises the assertion:
+**add `grant select on public.clients to anon`**, which fails as it should. The
+redundant revoke stays in the migration with a comment saying it is a no-op,
+that 0009 is what closes this, and why it is kept anyway: if a future migration
+re-grants the anon default privilege, every table that declared its own revoke
+is still closed and every table that relied on 0009 is open.
+
+RULE: **a mutation test must remove the thing the assertion is about, and
+"remove the line" is not always that thing.** Deleting a redundant line proves
+nothing when a different file already enforces the property. When a mutation
+comes back green, the first question is whether the assertion is weak, and the
+second is whether the mutation was. Both were, here, and the second one taught
+more: it is how anyone learned that 0013's revoke has been decoration since
+0009.
+
+RULE: **a local test double must reproduce the AMBIENT state of the real
+system, not only its objects.** Default privileges, ambient grants and
+role memberships are invisible in a schema dump and are exactly the ground a
+security assertion stands on. A double that omits them turns every negative
+security assertion into a tautology.
