@@ -49,9 +49,9 @@
   ],
   "digest_last_sent": "2026-08-30T11:01:24Z",
   "claims": {
-    "AUT-10": {
-      "claimed_by": "harness",
-      "claimed_at": "2026-08-30T11:01:25Z"
+    "P3-01": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-30T19:57:01Z"
     }
   },
   "report_path": "docs/reports/2026-08-28-executor-critic-acceptance-pass.md"
