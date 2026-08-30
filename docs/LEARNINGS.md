@@ -1968,3 +1968,40 @@ system, not only its objects.** Default privileges, ambient grants and
 role memberships are invisible in a schema dump and are exactly the ground a
 security assertion stands on. A double that omits them turns every negative
 security assertion into a tautology.
+
+### An invariant written when two things were always the same becomes a lie the day they split
+**Tag:** ci
+**ERROR:** `tests/e2e/headers.spec.ts` test 5, added by R-013, asserted that
+every file in `supabase/migrations/` has an entry in
+`docs/migrations/APPLY-LOG.md`. It was correct for four days and it turned red on
+the first migration that was merged without being applied:
+
+```
+Error: migratia 0013_clients.sql nu are intrare in APPLY-LOG.md
+```
+
+Nothing was wrong with the migration or with the log. **The test encoded an
+assumption that was true when it was written and had just stopped being true**:
+that a merged migration is an applied migration. R-062 split those on the same
+day, deliberately, and the test had no way to know.
+
+**SOLUTION:** The log gained a PENDING register, in a fixed machine-read line
+format naming the file and the card that will apply it, and the test now asserts
+that every migration file is in **exactly one** of the two places. **That is
+stronger than what it replaced, not weaker.** The old version could not detect a
+file that was listed as applied and had not been; the new one fails a file in
+both places, a file in neither, and a pending line naming a file that does not
+exist. Each of the three was proved to fail before the change was pushed.
+
+RULE: when a rule change splits one concept into two, **grep the test suite for
+the old concept before pushing**, because a test is the place an obsolete
+assumption survives longest: it keeps passing, so nobody rereads it, and the day
+it fails it looks like a defect in the new work rather than a stale premise in
+the old check. The tell is a test that asserts a one-to-one correspondence
+between two sets that a ruling has just made one-to-many.
+
+RULE: **when an invariant has to be relaxed to let new work through, look for
+the version that is stronger rather than the version that is weaker.** "Every
+file is in exactly one of two places" costs the same to write as "every file is
+in one place, or skip it", and one of them still catches the failure the rule was
+built for.

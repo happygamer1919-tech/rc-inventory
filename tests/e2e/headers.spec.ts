@@ -144,10 +144,48 @@ test.describe("Intarire pentru productie", () => {
       .filter((l) => l.startsWith("## "))
       .map((l) => l.slice(3).trim());
 
+    // Registrul de migratii AUTORATE SI NEAPLICATE, adaugat de hotararea R-062
+    // pe 2026-08-30. Pana atunci fiecare fisier din supabase/migrations era si
+    // aplicat, deci "are o intrare in jurnal" era acelasi lucru cu "este
+    // contabilizat". R-062 a despartit cele doua: un fisier de migratie fuzionat
+    // schimba un fisier text intr-un depozit git si nu schimba nimic in nicio
+    // baza de date, iar aplicarea este un card separat.
+    //
+    // INVARIANTUL NU S-A SLABIT, S-A INTARIT. Inainte se cerea ca fiecare fisier
+    // sa aiba o intrare. Acum se cere ca fiecare fisier sa fie EXACT INTR-UN
+    // singur loc: aplicat, sau in asteptare cu numele cardului care il va aplica.
+    // Un fisier in ambele locuri, sau in niciunul, cade aici.
+    const pending = new Map<string, string>();
+    for (const line of log.split("\n")) {
+      const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+([A-Z0-9-]+)\s*$/.exec(
+        line.trim(),
+      );
+      if (m) pending.set(m[1]!, m[2]!);
+    }
+
     for (const file of files) {
       const version = file.slice(0, 4);
       const entry = headings.find((h) => h.startsWith(version));
-      expect(entry, `migratia ${file} nu are intrare in APPLY-LOG.md`).toBeDefined();
+      const waiting = pending.get(file);
+
+      expect(
+        Boolean(entry) || Boolean(waiting),
+        `migratia ${file} nu are nici intrare in APPLY-LOG.md, nici linie in registrul de asteptare`,
+      ).toBe(true);
+
+      expect(
+        Boolean(entry) && Boolean(waiting),
+        `migratia ${file} este si aplicata si in asteptare in APPLY-LOG.md; una dintre ele minte`,
+      ).toBe(false);
+    }
+
+    // O linie de asteptare pentru un fisier care nu exista este un registru care
+    // a ramas in urma, si ar ascunde exact cazul pentru care exista registrul.
+    for (const [file] of pending) {
+      expect(
+        files.includes(file),
+        `registrul de asteptare numeste ${file}, care nu exista in supabase/migrations`,
+      ).toBe(true);
     }
 
     // Fiecare intrare numeste actorul si momentul. O cale de aplicare pe care
@@ -155,7 +193,11 @@ test.describe("Intarire pentru productie", () => {
     // motivul pentru care cerinta sta pe acest card.
     const sections = log.split(/^## /m).slice(1);
     const versioned = sections.filter((s) => /^\d{4}/.test(s));
-    expect(versioned.length).toBeGreaterThanOrEqual(files.length);
+    // Cel putin cate un fisier aplicat. Cele in asteptare nu au ce aplicare sa
+    // numeasca, deci sunt scazute (R-062). Ramane ">=" si nu "==" pentru ca o
+    // corectie este o intrare noua care numeste intrarea corectata, deci un
+    // fisier poate avea legitim mai multe.
+    expect(versioned.length).toBeGreaterThanOrEqual(files.length - pending.size);
     for (const section of versioned) {
       const title = section.split("\n")[0]!.trim();
       expect(section, `intrarea ${title} nu numeste actorul`).toContain("**Actor:**");

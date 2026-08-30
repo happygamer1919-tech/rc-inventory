@@ -209,7 +209,50 @@ is anything the owner can SEE, which is the complaint wave 1 exists to answer.
 
 ---
 
-## 6. The drop-after-backfill instruction needed nothing
+## 6. The check that turned red, and why the fix made it stronger
+
+The first push of this card failed `quality` in the Playwright suite:
+
+```
+1) [productie] > headers.spec.ts:128 > 5. jurnalul de aplicare are o intrare pentru fiecare migratie
+   Error: migratia 0013_clients.sql nu are intrare in APPLY-LOG.md
+   71 passed, 1 failed
+```
+
+Run `33332817113`. **Nothing was wrong with the migration or with the log.**
+Test 5, added by R-013 after `0006` was found applied and nobody could say by
+whom, asserted that every file in `supabase/migrations/` has an entry in
+`docs/migrations/APPLY-LOG.md`. **That was true for four days and R-062 had just
+made it false**, on purpose: a merged migration file is no longer an applied
+migration.
+
+**The fix is a stronger invariant, not a relaxed one.** `APPLY-LOG.md` gains a
+PENDING register in a fixed machine-read format naming the file and the card
+that will apply it, and the test now asserts that every migration file is in
+**exactly one** of the two places:
+
+| case | before | after |
+|---|---|---|
+| a file with no entry anywhere | fails | fails |
+| a file listed as applied that was not | **passes** | fails |
+| a file in both places | **passes** | fails |
+| a pending line naming a file that does not exist | **passes** | fails |
+
+All three of the new failures were proved to fail before this was pushed, by
+mutating the log and re-running the parse. P3-27's `defaults` now carry the rule
+that an apply removes its own pending line in the same pull request, so the
+register cannot rot.
+
+**That is one failed attempt on this card, of the three the failure ceiling
+allows**, and it is recorded rather than quietly fixed because the general shape
+is worth more than the incident: **a test is where an obsolete assumption
+survives longest.** It keeps passing, so nobody rereads it, and the day it fails
+it looks like a defect in the new work rather than a stale premise in the old
+check.
+
+---
+
+## 7. The drop-after-backfill instruction needed nothing
 
 The dispatch says P3-04 and P3-05 backfill without dropping the old column, and
 the drop is its own card after backfill verification. **That is already board
@@ -220,7 +263,7 @@ twice.
 
 ---
 
-## 7. Checks
+## 8. Checks
 
 | check | result |
 |---|---|
@@ -235,7 +278,7 @@ twice.
 
 ---
 
-## 8. Production writes
+## 9. Production writes
 
 **None.** `docs/PRODUCTION-WRITES.md` gets no row and
 `docs/migrations/APPLY-LOG.md` gets no entry. The only database this pull
@@ -245,14 +288,14 @@ so it cannot be pointed anywhere else.
 
 ---
 
-## 9. Learnings appended
+## 10. Learnings appended
 
 One entry: **the shim made "anon holds nothing" vacuously true, and only a
 mutation found it.** It carries both rules from section 4.3.
 
 ---
 
-## 10. Next
+## 11. Next
 
 Next eligible on the phase 3 board once this merges: **P3-02** (contacts,
 `depends_on [P3-01]`) and **P3-05** (suppliers, `depends_on []`). P3-02 is the
