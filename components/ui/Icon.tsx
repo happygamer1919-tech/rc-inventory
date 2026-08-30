@@ -51,6 +51,22 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M10.5 18a1.8 1.8 0 0 0 3 0" />
     </>
   ),
+  clients: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20a6 6 0 0 1 12 0" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.8" />
+      <path d="M17.5 20a5.5 5.5 0 0 0-2.2-4.4" />
+    </>
+  ),
+  projects: (
+    <>
+      <path d="M3 20h18" />
+      <path d="M5 20V9l5-4 5 4v11" />
+      <path d="M15 20v-7h4v7" />
+      <path d="M9 20v-4h2v4" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />

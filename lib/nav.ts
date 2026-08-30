@@ -22,7 +22,10 @@ export type IconName =
   | "truck"
   | "orders"
   | "bell"
-  | "settings";
+  | "settings"
+  // P3-06 si P3-07: grupul Relatii.
+  | "clients"
+  | "projects";
 
 export const NAV: NavGroup[] = [
   {
@@ -50,6 +53,20 @@ export const NAV: NavGroup[] = [
         label: "Adăugare manuală",
         icon: "plus",
         description: "Aceeași fișă, completată de la zero",
+      },
+    ],
+  },
+  {
+    // P3-06 si P3-07. Grupul apare INAINTE de Stoc pentru ca de aici incepe
+    // orice intrebare de-a proprietarului: cine, apoi ce santier, apoi ce
+    // material. Meniul citeste in ordinea in care se pun intrebarile.
+    title: "Relații",
+    items: [
+      {
+        href: "/clienti",
+        label: "Clienți",
+        icon: "clients",
+        description: "Beneficiarii, cu datele lor de contact și proiectele lor",
       },
     ],
   },
