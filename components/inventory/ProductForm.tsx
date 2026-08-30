@@ -13,6 +13,9 @@ import { Button, Input, Select } from "@/components/ui/primitives";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { createProduct, updateProduct } from "@/lib/data/product-actions";
+import { Combobox } from "@/components/ui/Combobox";
+import type { ComboOption } from "@/components/ui/Combobox";
+import type { SupplierOption } from "@/lib/data/suppliers-types";
 
 export function ProductForm({
   product,
@@ -24,7 +27,7 @@ export function ProductForm({
   product?: CatalogProduct;
   categories: Category[];
   units: UnitCode[];
-  suppliers: string[];
+  suppliers: SupplierOption[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -38,7 +41,25 @@ export function ProductForm({
   const [unit, setUnit] = React.useState<string>(product?.unit ?? units[0] ?? "pcs");
   const [threshold, setThreshold] = React.useState(String(product?.threshold ?? 0));
   const [unitValue, setUnitValue] = React.useState(String(product?.unitValueMdl ?? 0));
-  const [supplierName, setSupplierName] = React.useState(product?.supplierName ?? "");
+  // P3-05: furnizorul este o inregistrare, nu text liber.
+  //
+  // VALOAREA ESTE FIE UN ID DE FURNIZOR, FIE UN NUME NOU, si serverul decide
+  // care. Comboboxul creatable intoarce textul tastat cand nu se alege nimic
+  // din lista, deci un id inseamna "acesta", iar orice altceva inseamna "creeaza
+  // sau gaseste furnizorul cu numele acesta". Nu este ambiguu: un uuid nu este
+  // un nume de furnizor pe care l-ar scrie cineva.
+  //
+  // La editare se porneste de la ID cand produsul are unul, si de la numele
+  // vechi cat timp nu are, ca un produs nereconciliat inca sa nu piarda ce scrie
+  // pe el la prima salvare.
+  const [supplier, setSupplier] = React.useState(
+    product?.supplierId ?? product?.supplierName ?? "",
+  );
+
+  const supplierOptions: ComboOption[] = suppliers.map((s) => ({
+    value: s.id,
+    label: s.name,
+  }));
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -67,7 +88,7 @@ export function ProductForm({
       unit,
       threshold,
       unitValueMdl: unitValue,
-      supplierName,
+      supplier,
     };
     const result = editing ? await updateProduct(product.id, input) : await createProduct(input);
 
@@ -192,18 +213,19 @@ export function ProductForm({
           </div>
 
           <Field label="Furnizor (opțional)">
-            <Input
-              value={supplierName}
-              onChange={(e) => setSupplierName(e.target.value)}
-              list="rc-suppliers"
-              placeholder="Numele furnizorului"
-              data-testid="field-supplier"
-            />
-            <datalist id="rc-suppliers">
-              {suppliers.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
+            {/* creatable: lista furnizorilor NU este inchisa. Un furnizor nou
+                se scrie aici si se creeaza la salvare, ca introducerea unui
+                produs sa nu devina o sarcina pe doua ecrane. */}
+            <div data-testid="field-supplier">
+              <Combobox
+                options={supplierOptions}
+                value={supplier}
+                onChange={setSupplier}
+                creatable
+                placeholder="Caută sau scrie un furnizor nou"
+                emptyLabel="Niciun furnizor"
+              />
+            </div>
           </Field>
 
           {error ? (

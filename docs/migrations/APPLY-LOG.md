@@ -45,6 +45,7 @@ The format is machine-read, so keep it exactly:
 - `0016_projects.sql`, card de aplicare P3-27
 - `0017_outbound_project_id.sql`, card de aplicare P3-27
 - `0018_outbound_issue_project_write.sql`, card de aplicare P3-27
+- `0019_suppliers.sql`, card de aplicare P3-27
 
 ## Rules
 

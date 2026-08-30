@@ -14,7 +14,7 @@
 // Componenta este server: citeste, apoi preda ecranului client. Asa catalogul
 // vine din baza la fiecare cerere si nu exista strat de date in browser.
 
-import { listCategories, listProducts, listSupplierNames, listUnits } from "@/lib/data/products";
+import { listCategories, listProducts, listSuppliers, listUnits } from "@/lib/data/products";
 import { getSessionUser } from "@/lib/supabase/server";
 import { InventoryScreen } from "@/components/inventory/InventoryScreen";
 
@@ -25,7 +25,7 @@ export default async function InventoryPage() {
     listProducts(),
     listCategories(),
     listUnits(),
-    listSupplierNames(),
+    listSuppliers(),
     getSessionUser(),
   ]);
 

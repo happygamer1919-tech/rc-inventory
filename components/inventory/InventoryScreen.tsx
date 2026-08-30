@@ -22,6 +22,7 @@ import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
 import { ProductForm } from "./ProductForm";
+import type { SupplierOption } from "@/lib/data/suppliers-types";
 
 type StockLevel = "toate" | "redus" | "epuizat" | "suficient";
 
@@ -50,7 +51,7 @@ export function InventoryScreen({
   products: CatalogProduct[];
   categories: Category[];
   units: UnitCode[];
-  suppliers: string[];
+  suppliers: SupplierOption[];
   canWrite: boolean;
 }) {
   const [q, setQ] = React.useState("");
@@ -80,7 +81,9 @@ export function InventoryScreen({
       )
         return false;
       if (category && p.categoryId !== category) return false;
-      if (supplier && (p.supplierName ?? "") !== supplier) return false;
+      // Filtrul compara ID-uri de acum, nu nume: doua scrieri ale aceluiasi
+      // furnizor erau doua optiuni in lista si un filtru gasea doar jumatate.
+      if (supplier && (p.supplierId ?? "") !== supplier) return false;
       const low = p.stock <= p.threshold;
       if (level === "redus" && !(low && p.stock > 0)) return false;
       if (level === "epuizat" && p.stock !== 0) return false;
@@ -145,8 +148,8 @@ export function InventoryScreen({
           <Select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
             <option value="">Toți furnizorii</option>
             {suppliers.map((s) => (
-              <option key={s} value={s}>
-                {s}
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </Select>
