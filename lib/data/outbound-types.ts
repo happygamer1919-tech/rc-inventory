@@ -41,8 +41,11 @@ export type NewIssueLine = {
 };
 
 export type NewIssueInput = {
-  clientName: string;
-  projectName: string;
+  /** P3-04: destinatia este un proiect, nu doua siruri. Numele de client si de
+   *  proiect se citesc de pe proiect in migratia 0018, nu se trimit de aici,
+   *  ca cele doua reprezentari sa nu poata descrie destinatii diferite cat timp
+   *  exista amandoua. */
+  projectId: string;
   lines: NewIssueLine[];
 };
 

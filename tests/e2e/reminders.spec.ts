@@ -84,20 +84,11 @@ async function receiveStock(page: Page, sku: string, quantity: string) {
 /** O iesire pentru produsul dat. Scade stocul. */
 async function issueStock(page: Page, productName: string, quantity: string) {
   await page.goto("/iesiri");
-  await comboType(page, "field-client", `TEST Client ${RUN}`);
-  await comboType(page, "field-project", `TEST Proiect ${RUN}`);
+  await comboPick(page, "field-project", "TEST Șantier E2E");
   await comboPick(page, "issue-product-0", productName);
   await page.getByTestId("issue-quantity-0").fill(quantity);
   await page.getByTestId("issue-submit").click();
   await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
-}
-
-/** Scrie intr-un combobox liber si accepta ce a scris. */
-async function comboType(page: Page, testId: string, value: string) {
-  const input = page.getByTestId(testId).locator("input");
-  await input.click();
-  await input.fill(value);
-  await input.press("Enter");
 }
 
 /** Scrie in comboboxul de produs si alege optiunea din lista portalata.

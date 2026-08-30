@@ -62,13 +62,13 @@ export async function createOutboundIssue(
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
 
-  const clientName = input.clientName.trim();
-  if (clientName.length === 0)
-    return { ok: false, message: "Completează clientul.", field: "clientName" };
-
-  const projectName = input.projectName.trim();
-  if (projectName.length === 0)
-    return { ok: false, message: "Completează proiectul.", field: "projectName" };
+  // P3-04: DESTINATIA ESTE UN PROIECT SI ESTE OBLIGATORIE. Asa se opreste
+  // multimea de iesiri fara proiect din a mai creste, cat timp cele istorice
+  // sunt reconciliate. Coloana din baza ramane NULLABLE, pentru ca randurile
+  // vechi o au goala; obligatorie este CALEA DE SCRIERE, nu coloana.
+  const projectId = input.projectId.trim();
+  if (projectId.length === 0)
+    return { ok: false, message: "Alege proiectul.", field: "projectId" };
 
   const lines = input.lines
     .map((l) => ({
@@ -98,11 +98,17 @@ export async function createOutboundIssue(
   const supabase = await createClient();
   const reference = await nextOutboundReference();
 
+  // p_client_name si p_project_name sunt trimise goale INTENTIONAT. Migratia
+  // 0018 le rescrie din proiectul ales si nu se uita la ce vine de aici, exact
+  // ca sa nu poata cele doua reprezentari ale destinatiei sa se contrazica cat
+  // timp exista amandoua. Coloanele text sunt inca not null si dispar la
+  // P3-04b; pana atunci ele sunt o copie a proiectului, nu o a doua sursa.
   const { data, error } = await supabase.rpc("create_outbound_issue", {
     p_reference: reference,
-    p_client_name: clientName,
-    p_project_name: projectName,
+    p_client_name: "",
+    p_project_name: "",
     p_lines: lines,
+    p_project_id: projectId,
   });
 
   if (error) return translateWriteError(error.code, error.message);

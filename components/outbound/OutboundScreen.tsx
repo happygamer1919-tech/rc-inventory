@@ -33,6 +33,8 @@ import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber } from "@/lib/d
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
+import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
+import type { SelectableProject } from "@/lib/data/projects-types";
 
 type Line = { key: string; productId: string; quantity: string; price: string };
 
@@ -52,16 +54,19 @@ type Created = {
 
 export function OutboundScreen({
   products,
-  clients,
   projects,
 }: {
   products: CatalogProduct[];
-  clients: string[];
-  projects: string[];
+  projects: SelectableProject[];
 }) {
   const router = useRouter();
-  const [client, setClient] = React.useState("");
-  const [project, setProject] = React.useState("");
+  // O SINGURA ALEGERE, NU DOUA. Pana la P3-04 aici erau doua casute de text
+  // liber, client si proiect, si fiecare iesire scria doua siruri pe care nimic
+  // nu le lega de o inregistrare. Acum se alege proiectul, iar clientul vine de
+  // la el: un proiect apartine unui client si nu poate apartine altuia, deci a
+  // cere amandoua ar fi doua intrebari cu un singur raspuns si un mod de a
+  // gresi.
+  const [projectId, setProjectId] = React.useState("");
   const [lines, setLines] = React.useState<Line[]>([emptyLine()]);
   const [touched, setTouched] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -70,8 +75,18 @@ export function OutboundScreen({
 
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
-  const clientOptions: ComboOption[] = clients.map((c) => ({ value: c, label: c }));
-  const projectOptions: ComboOption[] = projects.map((p) => ({ value: p, label: p }));
+  const projectById = React.useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  const project = projectId ? (projectById.get(projectId) ?? null) : null;
+
+  // GRUPAT DUPA CLIENT, PRIN hint. Comboboxul cauta si peste hint, asa ca
+  // scrisul numelui clientului gaseste santierele lui, iar scrisul numelui
+  // santierului il gaseste direct. Doua feluri de a ajunge la acelasi rand,
+  // pentru ca operatorul stie cand unul si cand celalalt.
+  const projectOptions: ComboOption[] = projects.map((p) => ({
+    value: p.id,
+    label: p.name,
+    hint: `${p.clientName} · ${PROJECT_STATUS_LABEL[p.status]}`,
+  }));
   const productOptions: ComboOption[] = products.map((p) => ({
     value: p.id,
     label: p.name,
@@ -92,8 +107,9 @@ export function OutboundScreen({
   }, [filled]);
 
   const problems: string[] = [];
-  if (!client.trim()) problems.push("Completează clientul.");
-  if (!project.trim()) problems.push("Completează proiectul.");
+  // OBLIGATORIU DIN ACEST CARD INAINTE. Asa se opreste multimea de randuri fara
+  // proiect din a mai creste, cat timp cele vechi sunt reconciliate de mana.
+  if (!project) problems.push("Alege proiectul.");
   if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
   for (const [productId, wanted] of wantedByProduct) {
     const p = byId.get(productId);
@@ -116,8 +132,7 @@ export function OutboundScreen({
 
     setPending(true);
     const result = await createOutboundIssue({
-      clientName: client,
-      projectName: project,
+      projectId: project!.id,
       lines: filled.map((l) => ({
         productId: l.productId,
         quantity: l.quantity,
@@ -135,8 +150,11 @@ export function OutboundScreen({
     setCreated({
       id: result.value.id,
       reference: result.value.reference,
-      clientName: client.trim(),
-      projectName: project.trim(),
+      // Numele afisate pe confirmare sunt cele ale proiectului ales, nu ce a
+      // scris cineva: aceleasi pe care le-a scris si baza de date, pentru ca
+      // 0018 le ia tot de la proiect.
+      clientName: project!.clientName,
+      projectName: project!.name,
       lineCount: filled.length,
     });
     setPending(false);
@@ -176,8 +194,7 @@ export function OutboundScreen({
                 variant="secondary"
                 onClick={() => {
                   setCreated(null);
-                  setClient("");
-                  setProject("");
+                  setProjectId("");
                   setLines([emptyLine()]);
                   setTouched(false);
                 }}
@@ -220,28 +237,29 @@ export function OutboundScreen({
 
       <div className="space-y-4" data-testid="outbound-form">
         <Card>
-          <CardHeader title="Destinație" hint="Către cine și către ce șantier pleacă materialul" />
+          <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />
           <div className="p-5 grid grid-cols-2 gap-4">
-            <Field label="Client" required>
-              <div data-testid="field-client">
-                <Combobox
-                  options={clientOptions}
-                  value={client}
-                  onChange={setClient}
-                  creatable
-                  placeholder="Caută sau scrie un client nou"
-                />
-              </div>
-            </Field>
             <Field label="Proiect" required>
               <div data-testid="field-project">
                 <Combobox
                   options={projectOptions}
-                  value={project}
-                  onChange={setProject}
-                  creatable
-                  placeholder="Caută sau scrie un proiect nou"
+                  value={projectId}
+                  onChange={setProjectId}
+                  placeholder="Caută șantierul sau clientul"
+                  emptyLabel="Niciun proiect deschis"
                 />
+              </div>
+            </Field>
+            <Field label="Client">
+              {/* Nu se alege: se citeste de pe proiect. Randul ramane ca sa se
+                  vada CATRE CINE pleaca, ceea ce este intrebarea pe care si-o
+                  pune operatorul inainte sa apese. */}
+              <div
+                data-testid="field-client"
+                data-client={project?.clientName ?? ""}
+                className="h-9 flex items-center px-3 text-sm text-slate-600"
+              >
+                {project ? project.clientName : "Se completează din proiect"}
               </div>
             </Field>
           </div>
