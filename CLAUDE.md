@@ -139,6 +139,7 @@ of these hold:**
 |---|---|
 | POC-BUILDER | anything under `scripts/poc/`, plus `CLAUDE.md`, plus `docs/poc/DESIGN.md` |
 | EXECUTOR | anything under `docs/`, plus anything under `decisions/` |
+| AUTHOR | anything under `docs/`, plus anything under `decisions/` |
 
 The dispatch that granted this named `run.sh` and `docs/board/` separately. Both
 are already inside the sets above: `run.sh` is the single tracked file
@@ -168,10 +169,20 @@ ever added to that workflow, this clause dies with it**, because it would then
 authorise merging on a check that never executed. Whoever adds the filter
 removes this section in the same PR.
 
-**AUTHOR AND TRIAGE ARE NOT GRANTED ANYTHING HERE.** TRIAGE's authority is
-unchanged and is in `docs/DOCTRINE-TRIAGE.md`: its own rulings PR is the only PR
-it merges. An AUTHOR PR goes to Ivan. Widening this grant to another role is an
-owner decision, not an inference from the table.
+**AUTHOR WAS ADDED 2026-08-28 BY RULING R-056, ON THE SAME PATH SET AS
+EXECUTOR.** The two rows are identical text on purpose: the owner's instruction
+was "same terms as EXECUTOR", and two rows meaning the same thing should read the
+same. The dispatch named `docs/board/` as a third path and it is already inside
+`docs/`, deduplicated here for the same reason `run.sh` and `DESIGN.md` are.
+
+Until R-056 this section said AUTHOR was granted nothing and that widening the
+grant was an owner decision rather than an inference from the table. That was
+right, and it is how the widening happened: the owner said so, in his own words,
+quoted in the ruling.
+
+**TRIAGE IS STILL GRANTED NOTHING HERE.** Its authority is unchanged and is in
+`docs/DOCTRINE-TRIAGE.md`: its own rulings PR is the only PR it merges. Widening
+this grant to TRIAGE, or to any role not in the table, remains an owner decision.
 
 **REVOKED BY P2-13**, with every other terminal grant, as a checklist item in
 section 8.7.

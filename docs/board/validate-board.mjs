@@ -14,6 +14,7 @@ const BOARD_NAMES = [
   'PROJECT - Board Name',
   'RC-INVENTORY - Phase 1 Preview',
   'RC-INVENTORY - Phase 2 Build',
+  'RC-INVENTORY - Phase 3 - CRM and Density',
 ];
 
 const LANE_IDS = [
@@ -51,6 +52,13 @@ const EVIDENCE_KINDS = ['pr', 'journal', 'sha256', 'e2e', 'screenshot'];
 // still pass, which is exactly the failure the contract exists to stop.
 const PLANNING_CONTRACT_BOARDS = [
   'RC-INVENTORY - Phase 2 Build',
+  // Phase 3 is authored under the same contract from its first commit, which is
+  // the whole reason it is name-keyed rather than presence-keyed: every card on
+  // that board carries `defaults`, `acceptance`, `depends_on` and `question`
+  // because the contract demanded them at authoring time, not because an author
+  // remembered. Adding the name here is what makes a phase 3 card that drops
+  // `acceptance` a hard failure rather than a silent pass.
+  'RC-INVENTORY - Phase 3 - CRM and Density',
 ];
 
 const INFRA = 'infra';
