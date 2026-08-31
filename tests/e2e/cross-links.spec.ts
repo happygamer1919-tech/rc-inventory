@@ -50,7 +50,13 @@ test.describe("Legături între înregistrări", () => {
     await expect(projRow).toHaveCount(1, { timeout: 15_000 });
     await projRow.getByTestId("client-project-link").click();
     await expect(page.getByTestId("project-detail")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId("project-detail")).toContainText(SEED_PROJECT);
+    // AFIRMATIA ESTE PE TITLU, NU PE CARDUL DE DATE. project-detail este corpul
+    // cardului "Date proiect", care poarta clientul, adresa si bugetul si NU
+    // denumirea: denumirea este titlul paginii. Fisa clientului are un rand
+    // Denumire si de aceea acolo afirmatia echivalenta trece.
+    await expect(page.getByRole("heading", { name: SEED_PROJECT })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // PROIECT CATRE IESIRILE LUI, FILTRATE. Legatura foloseste filtrul din URL
     // pe care ecranul de comenzi il cunoaste; nu se inventeaza un mecanism nou.
@@ -112,7 +118,9 @@ test.describe("Legături între înregistrări", () => {
     const projectName = (await projectLink.innerText()).trim();
     await projectLink.click();
     await expect(page.getByTestId("project-detail")).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator("main")).toContainText(projectName);
+    await expect(page.getByRole("heading", { name: projectName })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // IESIRE CATRE CLIENT.
     await firstOutboundIssue(page);
@@ -121,7 +129,7 @@ test.describe("Legături între înregistrări", () => {
     if ((await clientLink.getAttribute("data-linked")) === "true") {
       await clientLink.click();
       await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 20_000 });
-      await expect(page.locator("main")).toContainText(clientName);
+      await expect(page.getByTestId("client-detail")).toContainText(clientName);
     }
 
     // LINIA DE COMANDA CATRE PRODUS. Deschide inventarul cu panoul produsului

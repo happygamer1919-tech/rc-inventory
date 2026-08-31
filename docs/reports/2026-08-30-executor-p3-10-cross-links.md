@@ -103,6 +103,29 @@ same panel line.
 
 ---
 
+## 5b. The check that turned red, and it was the test being imprecise
+
+```
+✘ cross-links.spec.ts:31 > proiectul duce la clientul lui și la ieșirile lui, filtrate
+  Expected substring: "TEST Șantier E2E"
+  Received string: "ClientTEST Beneficiar E2EAdresă-Data început-Termen estimat-BugetFără bugetNote-Adăugat..."
+```
+
+Run `33344...`. **`project-detail` is the body of the "Date proiect" card**,
+which carries the client, the address and the budget and **not the name**: the
+project's name is the page title. The client detail card happens to have a
+"Denumire" row, which is why the equivalent assertion passes there and reads as
+if it should pass here too.
+
+The assertion is now `getByRole("heading", { name })`, which asks for the thing
+that actually renders the identity.
+
+**No production code changed**, which is worth saying: the links were right and
+the test was looking in the wrong element. That is one failed attempt on this
+card, of the three the failure ceiling allows.
+
+---
+
 ## 6. Checks
 
 | check | result |
