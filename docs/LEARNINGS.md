@@ -2248,6 +2248,33 @@ The rule that prevents the next instance: in a trigger function that serves more
 than one operation, the `tg_op` test is a STATEMENT, not a term. Caught by
 reading, before the file reached the parser.
 
+### string_agg ordered by relname puts deviz_lines before devize
+**Tag:** data
+**ERROR:** An assertion comparing `string_agg(c.relname || '=' || c.relrowsecurity, ',' order by c.relname)` against `'devize=true,deviz_lines=true'` failed in `quality` with
+`ERROR: P3-13: expected rowsecurity true on both tables, found deviz_lines=true,devize=true`.
+Both tables were correct. The expected string was in the wrong order. The
+container's collation ignores the underscore, so `deviz_lines` is compared as
+`devizelines` and sorts BEFORE `devize`, which is the opposite of what a byte
+comparison and of what a reader's eye both say.
+**SOLUTION:** Order the expected literal the way the database orders it, and say
+in a comment why it looks wrong. The rule that prevents the next instance: an
+assertion that aggregates several rows into one string is asserting the sort
+order too, whether or not it meant to. Either pin the order the database
+actually produces, or aggregate into a set and compare membership.
+
+### An assertion seeded a unit that is not in the enum
+**Tag:** data
+**ERROR:** `insert into public.products (..., unit, ...) values (..., 'buc', ...)`
+in an assertion file failed with
+`ERROR: invalid input value for enum unit_code: "buc"`. `public.unit_code` is
+`(m2, lm, pcs, bag, kg, roll, m3)`. `buc` is the Romanian LABEL for `pcs`.
+**SOLUTION:** Seed the stored token, never the label. The rule that prevents the
+next instance: this schema stores English enum tokens and keeps Romanian in the
+presentation layer, per the P2-01 convention. Any Romanian word appearing in a
+SQL file is therefore a comment, a table name, or a defect. Test fixtures are
+the easiest place to forget that, because everything else about them is written
+in the language of the screen.
+
 ### Merged is not applied, and the deployed code did not know the difference
 **Tag:** infra
 **ERROR:** On 2026-08-31 the production site returned 500 on every screen,
