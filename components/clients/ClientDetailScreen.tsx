@@ -17,6 +17,8 @@ import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/prim
 import { CLIENT_TYPE_LABEL, type ClientDetail } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
 import { ClientForm } from "./ClientForm";
+import { ClientTabs } from "./ClientTabs";
+import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
 
 function Row({ label, value }: { label: string; value: string | null }) {
   return (
@@ -33,9 +35,15 @@ function Row({ label, value }: { label: string; value: string | null }) {
 
 export function ClientDetailScreen({
   client,
+  contacts,
+  projects,
+  materials,
   canWrite,
 }: {
   client: ClientDetail;
+  contacts: ClientContact[];
+  projects: ClientProject[];
+  materials: ClientMaterials;
   canWrite: boolean;
 }) {
   const [editing, setEditing] = React.useState(false);
@@ -89,6 +97,16 @@ export function ClientDetailScreen({
           </div>
         </div>
       </Card>
+
+      <div className="mt-5">
+        <ClientTabs
+          clientId={client.id}
+          contacts={contacts}
+          projects={projects}
+          materials={materials}
+          canWrite={canWrite}
+        />
+      </div>
 
       {editing ? (
         <ClientForm client={client} onClose={() => setEditing(false)} />

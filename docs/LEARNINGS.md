@@ -2186,3 +2186,31 @@ RULE: **never guard a write on a prop that the write is about to change.**
 Between submitting and re-rendering, the component holds the old value, so the
 guard rejects exactly the second action a user takes in a hurry. Let the server
 decide and return what happened.
+
+### A UNION cannot be ordered by an alias introduced inside one of its branches
+**Tag:** data
+**ERROR:** `public.client_material_summary` returns the top product rows and one
+total row, and ordered them so the total sorts last:
+
+```sql
+select ..., 'row'::text as row_kind from ranked where rn <= 5
+union all
+select ..., 'total'::text from ranked
+order by row_kind desc, quantity desc nulls last
+```
+
+PostgreSQL refused it: `ERROR: column "row_kind" does not exist`. The `ORDER BY`
+of a set operation is evaluated against the OUTPUT of the union, whose columns
+are named by the FIRST branch's positional list, and an alias declared inside a
+branch is not visible to it. The same query orders fine without the `UNION`,
+which is what makes it surprising.
+
+**SOLUTION:** Wrap the union in a subquery and order outside it. Ordering by
+output column POSITION (`order by 7, 5 desc`) also works and is worse to read:
+the day somebody adds a column, a positional order silently sorts by something
+else.
+
+RULE: **an `ORDER BY` attached to a set operation sees the union's output, not
+either branch's scope.** When a union needs a computed sort key, the key belongs
+in a wrapping select. The tell is an error naming a column that is plainly right
+there in the SQL.
