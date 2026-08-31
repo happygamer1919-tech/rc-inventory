@@ -2369,3 +2369,95 @@ testing, it is testing the future, not production.** That is usually what you
 want and it is exactly the blind spot here. The register of what is actually
 applied is the only artefact that knows the truth, so the check has to read the
 register.
+### Un `data-testid` pe un component de prezentare care nu isi imprastie propurile dispare in tacere
+
+**Tag:** frontend
+
+**ERROR:** Opt teste din `tests/e2e/deviz.spec.ts` au picat in CI si local pe
+timeout, fiecare asteptand un locator care nu se rezolva niciodata:
+`getByTestId('deviz-line-quoted-TEST-DEVIZ-01')`, `getByTestId('deviz-total')`,
+`getByTestId('deviz-line-unit-...')`. Prima ipoteza a fost ca lipsesc datele de
+seed, pentru ca esecul arata exact ca un ecran gol. Nu lipseau: pasul de seed din
+`quality.yml` s-a incheiat cu succes, jurnalul rularii 33385467677 contine
+`seed-deviz: gata`, iar instantaneul de pagina din artefactul Playwright arata
+tabelul complet randat, cu "100 MDL" in celula Pret ofertat si "770 MDL" la
+Total. Ecranul era corect. Atributele nu existau.
+
+Cauza: `Td` si `Th` din `components/ui/primitives.tsx` isi destructurau exact
+trei propuri, `children`, `align` si `className`, si nu imprastiau nimic altceva
+pe elementul `<td>`. Orice `data-testid` sau `data-value-mdl` scris pe `<Td>` era
+inghitit. `DevizPanel.tsx` este primul component care a pus testid-uri pe `Td`,
+deci defectul a fost latent pana atunci: `ProjectTabs.tsx` isi pune aceleasi
+atribute pe `<tr>` si pe `<div>` brute, si de aceea testele de cost ale lui P3-11
+trec.
+
+`tsc --noEmit` a trecut curat peste tot codul acesta. **Un nume de atribut JSX
+care contine o cratima nu este verificat fata de tipul propurilor**, deci
+TypeScript nu are cum sa raporteze un `data-testid` trimis unui component care nu
+il accepta. Regula exista pentru atributele HTML personalizate si aici lucreaza
+impotriva ta.
+
+**SOLUTION:** `Td` si `Th` primesc `...rest` si il imprastie pe element, cu tipul
+largit la `React.TdHTMLAttributes<HTMLTableCellElement>` si respectiv
+`React.ThHTMLAttributes`. `Button`, in acelasi fisier, facea deja exact asta;
+inconsecventa intre primitive era intreaga problema.
+
+RULE: **un component de prezentare care infasoara un element HTML isi imprastie
+propurile necunoscute pe el, sau nu primeste niciodata un `data-*`.** Alegerea se
+face o data, cand primitiva este scrisa, pentru ca a doua oara se face dupa opt
+teste picate.
+
+RULE: **cand un test pica pe un locator, citeste intai instantaneul de pagina din
+artefactul Playwright, nu logul.** Logul spune doar ce se astepta. Instantaneul
+spune ce era pe ecran, iar diferenta dintre "textul este acolo si atributul nu"
+si "nu este nimic acolo" separa un defect de randare de un defect de date, care
+au cauze complet diferite si nu se ating.
+
+RULE: **un pas de seed care raporteaza succes este o dovada, nu o presupunere.**
+Ipoteza mostenita spunea ca esecul din CI vine dintr-un seed care nu a rulat.
+Verificarea a durat un grep in jurnalul rularii si a aratat contrariul, ceea ce a
+mutat cautarea de la infrastructura la cod inainte sa fie pierdut timp pe ordinea
+pasilor din workflow.
+### `Number('0x' + <sir base36>)` este NaN aproape intotdeauna, si un IDNO "unic pe rulare" devine o constanta
+
+**Tag:** ci
+
+**ERROR:** Gasit pe 2026-08-31 in timpul lui P3-13b, NEREPARAT, si nu tine de acel
+card. `tests/e2e/clients.spec.ts:21` construieste un token de rulare cu
+`Date.now().toString(36)`, iar linia 30 incearca sa scoata din el un IDNO unic:
+
+    String(1000000000000 + (Number(`0x${RUN.slice(-4)}`) || 1) * 100 + seed).slice(0, 13)
+
+Base36 foloseste cifrele 0-9 si literele a-z. Hexazecimalul foloseste 0-9 si a-f.
+Cand ultimele patru caractere ale tokenului contin o litera de la g in sus, si la
+marcajele de timp de acum contin aproape mereu una, `Number('0x...')` intoarce
+NaN, `|| 1` intra in functiune si expresia se prabuseste la aceeasi valoare la
+fiecare rulare: 1000000000101, 1000000000102 si asa mai departe. Douazeci din
+douazeci de esantioane luate in ziua descoperirii au cazut pe varianta de rezerva.
+
+IDNO-ul are o constrangere de unicitate, deci a doua rulare pe ACEEASI baza de
+date este refuzata cu "IDNO duplicat", clientul nu se mai creeaza si cinci teste
+din `clients.spec.ts` pica pe `getByTestId('client-detail')` care nu mai apare.
+
+DE CE NU S-A VAZUT PANA ACUM: in `quality` fiecare rulare porneste o stiva
+Supabase noua, deci nu exista niciodata o a doua rulare pe aceeasi baza. Defectul
+apare numai pe o stiva locala persistenta, adica exact acolo unde un om ruleaza
+suita de doua ori la rand ca sa verifice o reparatie.
+
+**SOLUTION:** Nereparat deliberat: CLAUDE.md sectiunea 3 spune ca un defect
+observat in trecere devine un card sau o intrare aici, nu un commit tacut intr-un
+PR care poarta alt card. Reparatia este sa nu se mai treaca un sir base36 printr-o
+parsare hexazecimala: fie tokenul se genereaza direct in hex
+(`Date.now().toString(16)`), fie cifrele se scot din token cu o functie care nu
+poate da NaN, si in ambele cazuri varianta de rezerva `|| 1` trebuie sa devina
+zgomotoasa, pentru ca ea este cea care a transformat un defect intr-o tacere.
+
+RULE: **o valoare de rezerva pe o cale care nu ar trebui sa fie atinsa niciodata
+trebuie sa arunce sau sa raporteze, nu sa returneze o constanta plauzibila.**
+`|| 1` a facut din "parsarea a esuat" un IDNO valid, si asta a mutat esecul la
+sase luni distanta, in alt fisier, pe alta masina.
+
+RULE: **un test care isi construieste propria unicitate trebuie sa fie rulat de
+doua ori la rand pe aceeasi baza de date inainte sa fie crezut.** Un CI care
+provizioneaza o baza noua la fiecare rulare nu poate distinge un token unic de
+unul constant, si nu il poate distinge tocmai pentru ca este curat.
