@@ -239,3 +239,50 @@ updated, which is TRIAGE's push to make.
    stack. Nothing the owner can SEE exists on the live site until it runs. It is
    the oldest unanswered question on this board and it has grown by one file in
    each of the last four runs.
+
+---
+
+## 8. ADDENDUM, written after the merge: the two fix attempts this report did not have when it was committed
+
+Section 9b puts the report in the pull request that carries the card, so this
+report was committed BEFORE `quality` had run. It then failed twice. Both
+failures and both fixes are recorded here rather than left in a run log, because
+a report that describes only the passing attempt is a report that makes the work
+look easier than it was.
+
+**Neither failure was in the migration.** `0025_deviz.sql` applied unmodified to
+a bare `postgres:16` on the first attempt and on every attempt after it. Both
+defects were in the assertion file, which is the file whose whole job is to be
+wrong loudly.
+
+**Attempt 1.** `ERROR: P3-13: expected rowsecurity true on both tables, found
+deviz_lines=true,devize=true`. The aggregate was ordered by `relname` and the
+expected literal was written in the order a reader's eye supplies. The container
+collation ignores the underscore, so `deviz_lines` compares as `devizelines` and
+sorts BEFORE `devize`. Fixed by pinning the order the database actually produces
+and saying in a comment why it looks wrong.
+
+**Attempt 2.** `ERROR: invalid input value for enum unit_code: "buc"`.
+`public.unit_code` is `(m2, lm, pcs, bag, kg, roll, m3)` and `buc` is the
+Romanian LABEL for `pcs`. The fixture had been written in the language of the
+screen. Fixed by seeding the stored token.
+
+**Both are in `docs/LEARNINGS.md`**, with the rule that prevents the next
+instance in each. The failure ceiling in section 10 is three distinct failed fix
+attempts; this card used two, on two distinct causes, and the third was not
+needed.
+
+**A third push happened in between and was not a fix attempt.** PR #128, the
+claim, merged while `card/p3-13` was in flight, which left the branch `BEHIND`
+under this repository's branch protection. `main` was merged into the branch
+locally, per R-052, with `validate-board.mjs` on both boards and
+`check:conflict-residue` run before the commit. No conflict occurred:
+`docs/poc/state.json` auto-merged and both the P3-13 claim and this run's
+escalation survived it, verified by reading the file afterwards rather than
+assuming.
+
+**`quality` went green on `f44fd5c` and PR #129 merged as `c124529`.** The full
+job takes about fourteen minutes on this repository, and the two failures both
+came back inside ninety seconds, because `npm run check:migrations` runs early.
+That ordering is worth keeping: a schema card gets its verdict before the e2e
+suite has finished starting.
