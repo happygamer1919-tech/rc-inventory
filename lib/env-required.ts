@@ -40,6 +40,9 @@ const EXPECTED_IN_PRODUCTION = [
   "SUPABASE_SERVICE_ROLE_KEY",
   // Trimiterea documentului catre scenariul Make (P2-08a).
   "MAKE_WEBHOOK_URL",
+  // Antetul X-RC-Secret cu care scenariul Make autentifica cererea NOASTRA.
+  // Perechea lui MAKE_CALLBACK_SECRET, si in directia cealalta.
+  "MAKE_WEBHOOK_SECRET",
   // Antetul cu care se verifica un callback venit de la Make.
   "MAKE_CALLBACK_SECRET",
   // Mementourile de stoc (P2-10).
