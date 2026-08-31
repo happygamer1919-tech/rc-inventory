@@ -2247,3 +2247,36 @@ branch, never inside a boolean expression or a CASE that also mentions `tg_op`.
 The rule that prevents the next instance: in a trigger function that serves more
 than one operation, the `tg_op` test is a STATEMENT, not a term. Caught by
 reading, before the file reached the parser.
+
+### Un import de VALOARE dintr-un modul care atinge clientul Supabase de server rupe build-ul, un import de TIP nu
+**Tag:** frontend
+**ERROR:** `npm run build` a cazut cu "You're importing a component that needs
+`next/headers`" si a listat lantul complet: `lib/supabase/server.ts [Client
+Component Browser]` -> `lib/data/deviz.ts` -> `components/projects/DevizPanel.tsx`.
+Componentul de client importa `isPastValidity`, o functie de doua randuri fara
+nicio dependenta, din acelasi fisier care exporta si tipurile `Deviz` si
+`DevizSummary`. Tipurile nu erau problema: `ProjectTabs.tsx` importa de ani de
+zile `ProjectMaterials` din `lib/data/projects-list.ts`, care importa acelasi
+client de server, si nu a rupt niciodata nimic.
+**SOLUTION:** un `import type` este STERS la compilare si nu trage modulul in
+graf; un import de valoare din acelasi fisier il trage intreg, cu tot cu
+`next/headers`. Functia pura s-a mutat in `lib/data/deviz-types.ts`, un modul
+care nu importa nimic, iar tipurile au ramas unde erau, importate cu `import
+type`. Regula: intr-un modul de citiri care deschide o conexiune, NU se pune si
+o functie pura pe care o cheama un ecran. Predicatele si etichetele stau in
+fisierul `-types`, care ramane citibil de amandoua partile granitei.
+
+### Un rand de seed nu poate fi scris direct in starea finala cand un declansator apara tranzitia
+**Tag:** data
+**ERROR:** `scripts/seed-test-deviz.mjs` avea nevoie de un deviz EMIS cu doua
+linii pe el, pentru ca specul P3-13b sa poata verifica refuzul care vine din
+baza. Scris asa cum arata rezultatul, cu `status: "sent"` in acelasi upsert cu
+liniile, el nu se poate insera: `deviz_lines_require_draft` din migratia 0025
+refuza orice INSERT de linie pe un deviz care nu mai este ciorna, si o face
+inainte sa conteze cine scrie.
+**SOLUTION:** seed-ul face acelasi drum pe care il face un om prin ecran: creeaza
+devizul ciorna, scrie liniile, si abia apoi il emite printr-un al doilea upsert.
+Regula: cand o tabela are un declansator de tranzitie, un script de seed nu
+descrie starea finala, ci reproduce SECVENTA care duce la ea. Un seed care
+ocoleste declansatorul ar semăna cu date pe care aplicatia nu le-ar fi putut
+produce, si testul de deasupra lor ar verifica un sistem care nu exista.

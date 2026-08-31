@@ -9,6 +9,8 @@ import {
   listClientOptions,
 } from "@/lib/data/projects-list";
 import { getProjectMaterialCost } from "@/lib/reporting/material-cost";
+import { getProjectDevizView } from "@/lib/data/deviz";
+import { listActiveProducts } from "@/lib/data/products";
 import { ProjectDetailScreen } from "@/components/projects/ProjectDetailScreen";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +36,19 @@ export default async function ProjectDetailPage({
   const query = await searchParams;
   const shippedOnly = query["doar-expediate"] === "1";
 
-  const [user, history, materials, clients, cost] = await Promise.all([
+  // P3-13b: versiunea de deviz deschisa traieste in adresa, ca si fila. Fara
+  // parametru se deschide cea mai noua.
+  const rawDeviz = query["deviz"];
+  const requestedDeviz = typeof rawDeviz === "string" && rawDeviz ? rawDeviz : null;
+
+  const [user, history, materials, clients, cost, deviz, products] = await Promise.all([
     getSessionUser(),
     getProjectHistory(id),
     getProjectMaterials(id),
     listClientOptions(),
     getProjectMaterialCost(id, { shippedOnly }),
+    getProjectDevizView(id, requestedDeviz),
+    listActiveProducts(),
   ]);
 
   return (
@@ -48,6 +57,8 @@ export default async function ProjectDetailPage({
       history={history}
       materials={materials}
       cost={cost}
+      deviz={deviz}
+      products={products}
       clients={clients}
       canWrite={user?.role === "owner"}
     />
