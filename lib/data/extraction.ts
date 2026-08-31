@@ -125,19 +125,3 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   return pending.map((r) => mapDraft(r, byOrder.get(String(r.order_id)) ?? []));
 }
 
-export async function getReviewDraft(orderId: string): Promise<ExtractionDraft | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("extraction_drafts")
-    .select(DRAFT_COLUMNS)
-    .eq("order_id", orderId)
-    .maybeSingle();
-  if (!data) return null;
-
-  const { data: lines } = await supabase
-    .from("extraction_draft_lines")
-    .select(LINE_COLUMNS)
-    .eq("order_id", orderId);
-
-  return mapDraft(data as Record<string, unknown>, (lines ?? []) as LineRow[]);
-}

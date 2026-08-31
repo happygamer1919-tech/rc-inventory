@@ -23,8 +23,6 @@ export const INBOUND_STATUS_LABEL: Record<InboundStatus, string> = {
 
 export type Currency = "EUR" | "RON" | "MDL";
 
-export const CURRENCIES: Currency[] = ["EUR", "RON", "MDL"];
-
 /** Bucketul privat al documentelor. Numele apare o singura data in cod. */
 export const DOCS_BUCKET = "rc-docs";
 

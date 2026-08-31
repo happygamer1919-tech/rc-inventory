@@ -166,11 +166,6 @@ export async function listActiveProducts(): Promise<CatalogProduct[]> {
   return all.filter((p) => p.active);
 }
 
-export async function getProductById(id: string): Promise<CatalogProduct | null> {
-  const all = await listProducts();
-  return all.find((p) => p.id === id) ?? null;
-}
-
 /** Categoriile, cu numarul de produse care le folosesc. */
 export async function listCategories(): Promise<Category[]> {
   const supabase = await createClient();

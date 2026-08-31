@@ -175,30 +175,3 @@ export async function shipOutboundIssue(
   return { ok: true, value: { alreadyShipped: Boolean(row?.already_shipped) } };
 }
 
-/**
- * Stocul disponibil pentru produsele cerute, citit prin aceeasi functie SQL pe
- * care o foloseste si verificarea de la scriere.
- *
- * Aceasta este verificarea "din formular" ceruta de defaults: da operatorului un
- * mesaj imediat. NU este garantia. Garantia este verificarea sub blocaj din
- * migratia 0004, pentru ca intre citirea aceasta si scriere altcineva poate
- * emite acelasi material.
- */
-export async function availableStockFor(
-  productIds: string[],
-): Promise<Record<string, number>> {
-  const user = await getSessionUser();
-  if (!user || productIds.length === 0) return {};
-
-  const supabase = await createClient();
-  const result: Record<string, number> = {};
-
-  await Promise.all(
-    productIds.map(async (id) => {
-      const { data } = await supabase.rpc("product_available_stock", { p_product_id: id });
-      result[id] = Number(data) || 0;
-    }),
-  );
-
-  return result;
-}
