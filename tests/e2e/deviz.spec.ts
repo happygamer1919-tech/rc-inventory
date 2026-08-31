@@ -211,6 +211,15 @@ test.describe("Deviz pe proiect", () => {
     // aceluiasi produs loveste deviz_lines_product_unique_per_deviz din 0025.
     await expect(page.getByTestId("deviz-line-quoted-TEST-DEVIZ-01")).toBeVisible();
 
+    // NUMARUL DE DINAINTE, NU UNUL FIX. Preluarea copiaza liniile versiunii
+    // deschise, iar un test care ruleaza mai devreme in acest fisier lasa acolo o
+    // versiune cu trei linii si nu cu perechea din seed. Proprietatea pe care o
+    // numeste cardul este ca refuzul NU ADAUGA UN RAND, deci se compara cu ce era
+    // inainte: daca duplicatul ar trece, numarul ar creste si testul ar pica la
+    // fel de tare. Un 2 scris in clar afirma in plus cate linii avea versiunea
+    // copiata, ceea ce nu tine de acest test si depinde de ordinea rularii.
+    const linesBefore = await page.getByTestId("deviz-line").count();
+
     await comboPick(page, "deviz-add-product", "TEST Deviz Ciment");
     await page.getByTestId("deviz-add-quantity").fill("1");
     await page.getByTestId("deviz-add-submit").click();
@@ -218,7 +227,7 @@ test.describe("Deviz pe proiect", () => {
     await expect(page.getByTestId("deviz-message")).toContainText("deja pe acest deviz", {
       timeout: 25_000,
     });
-    await expect(page.getByTestId("deviz-line")).toHaveCount(2);
+    await expect(page.getByTestId("deviz-line")).toHaveCount(linesBefore);
   });
 
   test("o ciornă se editează și un deviz emis nu, iar refuzul vine din baza de date", async ({
