@@ -51,6 +51,7 @@ The format is machine-read, so keep it exactly:
 - `0022_client_detail.sql`, card de aplicare P3-27
 - `0023_project_material_summary.sql`, card de aplicare P3-27
 - `0024_project_material_cost.sql`, card de aplicare P3-27
+- `0025_deviz.sql`, card de aplicare P3-27
 
 ## Rules
 
