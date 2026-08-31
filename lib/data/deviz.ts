@@ -107,16 +107,30 @@ const DEVIZ_SELECT =
   "id, project_id, name, version, status, margin_percent, valid_until, notes, approved_at, created_at, " +
   "deviz_lines(id, product_id, quantity, unit_price_mdl, line_note, sort_order, products(sku, name, unit, unit_value_mdl))";
 
+/** Produsul incorporat, indiferent de forma in care vine.
+ *
+ *  Un embed catre-unu poate ajunge aici ca obiect sau ca tablou cu un element,
+ *  si diferenta nu se vede: campurile lipsesc tacut, sku devine "-", iar
+ *  fiecare data-testid construit din sku dispare de pe ecran fara nicio
+ *  eroare. Se normalizeaza aici, o singura data, in loc sa fie ghicit in
+ *  fiecare camp. */
+function embeddedProduct(products: LineRow["products"]): NonNullable<LineRow["products"]> | null {
+  if (!products) return null;
+  if (Array.isArray(products)) return (products[0] as NonNullable<LineRow["products"]>) ?? null;
+  return products;
+}
+
 function toLine(row: LineRow): DevizLine {
   const quantity = toNumber(row.quantity);
   const quoted = toNumber(row.unit_price_mdl);
-  const current = toNumber(row.products?.unit_value_mdl);
+  const product = embeddedProduct(row.products);
+  const current = toNumber(product?.unit_value_mdl);
   return {
     id: row.id,
     productId: row.product_id,
-    sku: row.products?.sku ?? "-",
-    productName: row.products?.name ?? "-",
-    unit: isUnitCode(row.products?.unit) ? (row.products?.unit as UnitCode) : "pcs",
+    sku: product?.sku ?? "-",
+    productName: product?.name ?? "-",
+    unit: isUnitCode(product?.unit) ? (product?.unit as UnitCode) : "pcs",
     quantity,
     quotedUnitPriceMdl: quoted,
     currentUnitPriceMdl: current,

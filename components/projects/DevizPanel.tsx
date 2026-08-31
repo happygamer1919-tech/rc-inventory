@@ -376,26 +376,30 @@ export function DevizPanel({
                   </tr>
                 ))}
 
-                <tr data-testid="deviz-subtotal" className="font-semibold">
+                {/* TESTID SI VALOARE PE ACELASI ELEMENT. Atributul data-value-mdl
+                    este ce citeste specul prin getAttribute, iar getAttribute nu
+                    coboara in copii: un testid pe rand si valoarea pe celula dau
+                    null, adica zero dupa Number(), pe orice total. */}
+                <tr className="font-semibold">
                   <Td>Subtotal</Td>
                   <Td /><Td /><Td /><Td /><Td />
-                  <Td align="right" data-value-mdl={open.subtotalMdl}>
+                  <Td align="right" data-testid="deviz-subtotal" data-value-mdl={open.subtotalMdl}>
                     {formatMoney(open.subtotalMdl)}
                   </Td>
                   <Td />
                 </tr>
-                <tr data-testid="deviz-adaos">
+                <tr>
                   <Td>Adaos {formatNumber(open.marginPercent)}%</Td>
                   <Td /><Td /><Td /><Td /><Td />
-                  <Td align="right" data-value-mdl={open.adaosMdl}>
+                  <Td align="right" data-testid="deviz-adaos" data-value-mdl={open.adaosMdl}>
                     {formatMoney(open.adaosMdl)}
                   </Td>
                   <Td />
                 </tr>
-                <tr data-testid="deviz-total" className="font-semibold">
+                <tr className="font-semibold">
                   <Td>Total</Td>
                   <Td /><Td /><Td /><Td /><Td />
-                  <Td align="right" data-value-mdl={open.totalMdl}>
+                  <Td align="right" data-testid="deviz-total" data-value-mdl={open.totalMdl}>
                     {formatMoney(open.totalMdl)}
                   </Td>
                   <Td />
