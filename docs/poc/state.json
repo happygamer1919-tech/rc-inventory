@@ -65,6 +65,13 @@
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260830-220004.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-08-31T02:48:59Z",
       "run_id": "20260830-220004"
+    },
+    {
+      "run_id": "20260831-010005",
+      "at": "2026-08-31T05:10:17Z",
+      "card": "P3-13",
+      "kind": "harness_defect",
+      "text": "The harness reads docs/board/rc-board-phase2.json (POC_BOARD, scripts/poc/run.sh line 23) while every run since 2026-08-30 has worked docs/board/rc-board-phase3.json. Its eligible-card line, the CLAIM_SKIPPED set it puts in the prompt, and the claim it writes at the end of a run are all computed against a board nobody is working. Visible right now in this file: a claim on AUT-10 by harness, written at the end of a run that worked P3-11. Nothing was lost today because the session reads both boards at boot, but the lease is protecting the wrong card and the lease exists because a human terminal and the harness collided once already. Needs a card against scripts/poc/run.sh. See docs/reports/2026-08-31-executor-p3-13-deviz-schema.md section 3b."
     }
   ],
   "digest_last_sent": "2026-08-31T02:48:58Z",
