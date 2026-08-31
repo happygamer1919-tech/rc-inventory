@@ -130,7 +130,18 @@ test.describe("Deviz pe proiect", () => {
     await signIn(page, ownerAccount());
     await devizTab(page, PROJECT_ID);
 
+    // ASTEPTAREA ESTE PE NUMARUL DE VERSIUNI, NU PE FORMULAR. Formularul de
+    // adaugare este DEJA vizibil, de pe versiunea deschisa inainte de clic, deci
+    // toBeVisible se intoarce imediat si nu sincronizeaza nimic: linia pleca spre
+    // versiunea veche in timp ce afirmatia citea versiunea noua. In CI asta a
+    // aratat ca o linie care nu apare, cu versiunea precedenta purtand-o.
+    // Numarul de randuri creste o singura data si numai dupa ce serverul a
+    // raspuns, ceea ce testele de mai sus foloseau deja.
+    const versionsBefore = await page.getByTestId("deviz-row").count();
     await page.getByTestId("deviz-new").click();
+    await expect(page.getByTestId("deviz-row")).toHaveCount(versionsBefore + 1, {
+      timeout: 25_000,
+    });
     await expect(page.getByTestId("deviz-add-line")).toBeVisible({ timeout: 25_000 });
 
     // TEST-DEVIZ-03 nu este pe niciun deviz din seed, deci pretul lui ofertat nu
@@ -204,7 +215,18 @@ test.describe("Deviz pe proiect", () => {
     await signIn(page, ownerAccount());
     await devizTab(page, PROJECT_ID);
 
+    // ASTEPTAREA ESTE PE NUMARUL DE VERSIUNI, NU PE FORMULAR. Formularul de
+    // adaugare este DEJA vizibil, de pe versiunea deschisa inainte de clic, deci
+    // toBeVisible se intoarce imediat si nu sincronizeaza nimic: linia pleca spre
+    // versiunea veche in timp ce afirmatia citea versiunea noua. In CI asta a
+    // aratat ca o linie care nu apare, cu versiunea precedenta purtand-o.
+    // Numarul de randuri creste o singura data si numai dupa ce serverul a
+    // raspuns, ceea ce testele de mai sus foloseau deja.
+    const versionsBefore = await page.getByTestId("deviz-row").count();
     await page.getByTestId("deviz-new").click();
+    await expect(page.getByTestId("deviz-row")).toHaveCount(versionsBefore + 1, {
+      timeout: 25_000,
+    });
     await expect(page.getByTestId("deviz-add-line")).toBeVisible({ timeout: 25_000 });
 
     // Preluarea a adus deja TEST-DEVIZ-01 pe versiunea noua. A doua adaugare a
