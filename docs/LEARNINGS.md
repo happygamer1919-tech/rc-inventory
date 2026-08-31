@@ -2248,7 +2248,6 @@ The rule that prevents the next instance: in a trigger function that serves more
 than one operation, the `tg_op` test is a STATEMENT, not a term. Caught by
 reading, before the file reached the parser.
 
-<<<<<<< HEAD
 ### string_agg ordered by relname puts deviz_lines before devize
 **Tag:** data
 **ERROR:** An assertion comparing `string_agg(c.relname || '=' || c.relrowsecurity, ',' order by c.relname)` against `'devize=true,deviz_lines=true'` failed in `quality` with
@@ -2275,7 +2274,7 @@ presentation layer, per the P2-01 convention. Any Romanian word appearing in a
 SQL file is therefore a comment, a table name, or a defect. Test fixtures are
 the easiest place to forget that, because everything else about them is written
 in the language of the screen.
-=======
+
 ### Merged is not applied, and the deployed code did not know the difference
 **Tag:** infra
 **ERROR:** On 2026-08-31 the production site returned 500 on every screen,
@@ -2334,4 +2333,3 @@ testing, it is testing the future, not production.** That is usually what you
 want and it is exactly the blind spot here. The register of what is actually
 applied is the only artefact that knows the truth, so the check has to read the
 register.
->>>>>>> origin/main
