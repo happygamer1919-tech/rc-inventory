@@ -163,3 +163,60 @@ export async function listClientOptions(): Promise<{ id: string; name: string }[
     .map((r) => ({ id: r.id as string, name: r.name as string }))
     .sort((a, b) => a.name.localeCompare(b.name, "ro"));
 }
+
+export type ProjectIssueRow = {
+  issueId: string | null;
+  reference: string | null;
+  issuedAt: string | null;
+  status: string | null;
+  lineCount: number;
+  quantity: number;
+  valueMdl: number;
+};
+
+export type ProjectMaterials = {
+  rows: ProjectIssueRow[];
+  total: ProjectIssueRow | null;
+};
+
+/** Consumul unui proiect: cele mai recente iesiri, cele mai noi primele.
+ *
+ *  FORMA DIFERA DELIBERAT DE CEA DE PE FISA CLIENTULUI. Fila clientului
+ *  raspunde "ce foloseste beneficiarul acesta" si claseaza PRODUSE dupa
+ *  cantitate; fila proiectului raspunde "ce a plecat catre santierul acesta si
+ *  cand", deci listeaza IESIRI in ordinea timpului. Doua intrebari, doua forme;
+ *  o singura forma nu ar raspunde bine la niciuna. */
+export async function getProjectMaterials(projectId: string): Promise<ProjectMaterials> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("project_material_summary", {
+    p_project_id: projectId,
+    p_limit: 5,
+  });
+
+  const raw = (data ?? []) as {
+    issue_id: string | null;
+    reference: string | null;
+    issued_at: string | null;
+    status: string | null;
+    line_count: number | string;
+    quantity: number | string;
+    value_mdl: number | string;
+    row_kind: string;
+  }[];
+
+  const map = (r: (typeof raw)[number]): ProjectIssueRow => ({
+    issueId: r.issue_id,
+    reference: r.reference,
+    issuedAt: r.issued_at,
+    status: r.status,
+    lineCount: Number(r.line_count) || 0,
+    quantity: Number(r.quantity) || 0,
+    valueMdl: Number(r.value_mdl) || 0,
+  });
+
+  const totalRow = raw.find((r) => r.row_kind === "total");
+  return {
+    rows: raw.filter((r) => r.row_kind === "row").map(map),
+    total: totalRow ? map(totalRow) : null,
+  };
+}
