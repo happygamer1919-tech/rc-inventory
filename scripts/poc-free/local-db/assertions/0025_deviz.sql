@@ -58,7 +58,11 @@ begin
   select string_agg(c.relname || '=' || c.relrowsecurity, ',' order by c.relname) into txt
   from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
   where ns.nspname = 'public' and c.relname in ('devize', 'deviz_lines');
-  if txt is distinct from 'devize=true,deviz_lines=true' then
+  -- ORDERED BY relname, AND 'deviz_lines' SORTS BEFORE 'devize'. The container
+  -- collation ignores the underscore, so the comparison runs deviz_lines
+  -- against devizelines. Written out because the expected string looks wrong
+  -- until you know that.
+  if txt is distinct from 'deviz_lines=true,devize=true' then
     raise exception 'P3-13: expected rowsecurity true on both tables, found %', txt;
   end if;
 
