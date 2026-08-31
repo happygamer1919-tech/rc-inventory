@@ -46,6 +46,7 @@ versions is three products and a category.
 |---|---|---|---|---|---|---|
 | 2026-08-28 | **Ivan, the owner**, by hand with `psql` | `scripts/reset-test-data.sql` | `6887402172e690aa4c48fc43de1994841eed5447a289312d1dc90f84c061f1f8` | **none.** The file printed grids and a human decided | **1221** | `docs/reports/2026-08-28-owner-p2-15-reset-run.md` |
 | 2026-08-28 | **EXECUTOR terminal**, under R-047 | `scripts/reset-test-data.sql` | `542e7bc72a6edc4123e6cd15b519401cf7d91f39d24fd954ab9bdf94eeb42d7f` | **20 of 20 passed**, gate committed on all-pass | **20** | `docs/reports/2026-08-28-executor-rst-01-run.md` |
+| 2026-08-31 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6` | **11 of 11 passed**, committed on all-pass | **0 rows deleted**, 13 migrations applied (0013 to 0025) | `docs/reports/2026-08-31-executor-p3-27-apply.md` |
 
 **Total written to production outside a migration: 1,241 rows, both on
 2026-08-28, both deletions, both against the Rapid Construct project

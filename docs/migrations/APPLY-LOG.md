@@ -39,19 +39,6 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
-- `0013_clients.sql`, card de aplicare P3-27
-- `0014_contacts.sql`, card de aplicare P3-27
-- `0015_status_entity_project.sql`, card de aplicare P3-27
-- `0016_projects.sql`, card de aplicare P3-27
-- `0017_outbound_project_id.sql`, card de aplicare P3-27
-- `0018_outbound_issue_project_write.sql`, card de aplicare P3-27
-- `0019_suppliers.sql`, card de aplicare P3-27
-- `0020_search_clients.sql`, card de aplicare P3-27
-- `0021_projects_search_and_status.sql`, card de aplicare P3-27
-- `0022_client_detail.sql`, card de aplicare P3-27
-- `0023_project_material_summary.sql`, card de aplicare P3-27
-- `0024_project_material_cost.sql`, card de aplicare P3-27
-- `0025_deviz.sql`, card de aplicare P3-27
 
 ## Rules
 
@@ -815,3 +802,214 @@ a Bash permission rule is added that lets a session open the derived pooler
 connection, at which point the next scheduled run does it unattended. Until one
 of those happens the row for this apply stays **NOT APPLIED**, which is the
 whole point of writing it down rather than leaving the gap implicit.
+---
+
+## WAVE 1 BATCH, 0013 to 0025 - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+ruling **R-082**, through `scripts/apply-pending-migrations.mjs`.
+
+**This is the entry that closes the pending register.** All thirteen lines were
+removed by the applier itself on commit, which is also what switched
+`npm run check:pending-schema-reads` off by its own design.
+
+Full captured stdout: `docs/reports/p3-27-apply-stdout.txt`.
+Report: `docs/reports/2026-08-31-executor-p3-27-apply.md`.
+
+**Connectivity proven first**, per 8.4: `select 1` returned 1 against the
+eu-west-1 session pooler on port 5432, server PostgreSQL 17.6.
+
+**The 8.2 precondition was checked and held**: zero real client data. products,
+inbound_orders, outbound_issues, batches, order_lines, outbound_lines,
+status_history, reminders, extraction_drafts and extraction_draft_lines were all
+0. Only categories 18, units 7 and profiles 3, all of them seeded by earlier
+migrations or by the test accounts.
+
+### Phase 1, pre-check
+
+Ledger before the batch: **10 rows**, `0001` to `0009` plus `0015` from the enum
+pre-phase. **The ledger had been at `0009` while the schema was at `0012`**,
+exactly as the P2-19 entry above records. `0010`, `0011` and `0012` had never been
+journalled; the applier wrote all three inside the batch and asserted the result.
+
+### Phase 2, apply
+
+**13 files, 202 statements, one transaction, 11 assertions, committed on
+all-pass.** 23:27:11Z to 23:27:25Z.
+
+    batch sha256    a5e9e87f46b04839ab83529f2d492f01b123c48f3ee496fd2b64c86324e14667
+    script sha256   315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6
+
+**ONE BOUNDED DEVIATION FROM A SINGLE TRANSACTION, and it is the server's rule.**
+PostgreSQL refuses to let a newly added enum label be USED in the transaction that
+added it. `0015` adds `'project'` to `status_entity` and `0021` creates
+`project_status_history` as `language sql`, whose body names it and is validated
+at CREATE time. The enum addition therefore committed in a pre-phase of its own,
+carrying exactly one statement, idempotent:
+
+    alter type public.status_entity add value if not exists 'project';
+
+R-082 and CLAUDE.md 8.6 both carry this deviation and its four bounds.
+
+### The destructive-statement declaration, per 8.6
+
+**No `DROP TABLE`, no `TRUNCATE`, no `DELETE` in any of the thirteen files**,
+established by parsing each one with `pgsql-parser` before anything executed.
+
+**One `DROP FUNCTION`, quoted verbatim** as that section requires, from `0018`:
+
+    drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+
+It removes a rule about rows and no row. The applier asserted **before** it ran
+that the target had zero dependent objects: `0018 gate: dependent objects on the
+four-argument function = 0`. After the commit exactly one function remains, with
+five arguments.
+
+### Phase 3, post-check
+
+**Ledger after: 25 rows, `0001` to `0025`, no gaps.**
+
+**Row counts identical on every pre-existing table**, which is the
+`zero-rows-deleted` assertion as a grid:
+
+    batches 0->0   categories 18->18   extraction_draft_lines 0->0
+    extraction_drafts 0->0   inbound_orders 0->0   order_lines 0->0
+    outbound_issues 0->0   outbound_lines 0->0   products 0->0
+    profiles 3->3   reminders 0->0   status_history 0->0   units 7->7
+
+RLS enabled with 3 policies on each of `clients`, `contacts`, `projects`,
+`suppliers`, `devize`, `deviz_lines`. The free-text columns
+`outbound_issues.client_name`, `outbound_issues.project_name` and
+`products.supplier_name` are **still present and untouched**; they are dropped by
+P3-04b and P3-05b, after their backfills are verified against real rows.
+
+**Both reconciliations returned zero because both source tables are empty.** The
+backfills proved nothing about real rows, so P3-04b and P3-05b cannot be closed on
+this run's evidence.
+
+### The sandbox refusal, and that it was not worked around
+
+The first attempt was refused by the Claude Code auto-mode classifier, the same
+blanket refusal recorded for 0010, 0011, 0012 and RST-01. The run stopped, the
+exact command and three options went to the owner, he granted the permission, and
+the run went through. The refusal is a harness limit, not a doctrine limit, and
+the resolution is the one RST-01 established.
+
+---
+
+## 0013_clients.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0014_contacts.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0015_status_entity_project.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0016_projects.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0017_outbound_project_id.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0018_outbound_issue_project_write.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0019_suppliers.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0020_search_clients.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0021_projects_search_and_status.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0022_client_detail.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0023_project_material_summary.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0024_project_material_cost.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
+
+## 0025_deviz.sql - APPLIED
+
+**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
+R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
+transaction, its ledger row was written in the same transaction, and the
+post-check grid covers it. Captured stdout:
+`docs/reports/p3-27-apply-stdout.txt`.
