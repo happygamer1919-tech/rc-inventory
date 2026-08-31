@@ -2280,3 +2280,33 @@ Regula: cand o tabela are un declansator de tranzitie, un script de seed nu
 descrie starea finala, ci reproduce SECVENTA care duce la ea. Un seed care
 ocoleste declansatorul ar semăna cu date pe care aplicatia nu le-ar fi putut
 produce, si testul de deasupra lor ar verifica un sistem care nu exista.
+
+### getAttribute nu coboara in copii, deci un testid pe rand si o valoare pe celula citesc null
+**Tag:** frontend
+**ERROR:** deviz.spec citea totalul cu
+`page.getByTestId("deviz-total").getAttribute("data-value-mdl")` si primea 0 in
+loc de 770. Ecranul afisa numarul corect, iar randul exista: raportul spunea
+`Expected: 770, Received: 0`, ceea ce arata ca o eroare de aritmetica si nu ca
+o eroare de selectare. Acelasi tipar pe deviz-subtotal si deviz-adaos.
+**SOLUTION:** `data-testid="deviz-total"` statea pe `<tr>` iar
+`data-value-mdl` pe `<Td>`-ul dinauntru. `getAttribute` citeste atributul
+elementului potrivit si nu se uita in descendenti, deci returneaza null, iar
+`Number(null)` este 0 si nu NaN, deci esecul arata ca un total gresit calculat.
+Regula: cand un test citeste o valoare printr-un atribut de date, testid-ul si
+atributul stau pe ACELASI element. Zero este o valoare plauzibila pentru un
+total, si de asta acest defect nu se citeste din mesajul de eroare.
+
+### un embed catre-unu care ajunge ca tablou face sa dispara fiecare testid construit din campurile lui
+**Tag:** data
+**ERROR:** Sase cazuri din deviz.spec au cazut cu `element(s) not found` pe
+`deviz-line-quoted-TEST-DEVIZ-01`, `deviz-line-unit-TEST-DEVIZ-01` si altele,
+desi randurile `deviz-line` existau si erau in numar corect.
+**SOLUTION:** liniile citesc produsul dintr-un embed imbricat pe doua niveluri,
+`devize -> deviz_lines -> products`, si codul il trata numai ca obiect:
+`row.products?.sku ?? "-"`. Daca embed-ul ajunge ca tablou cu un element,
+fiecare camp lipseste tacut, sku devine "-", iar fiecare `data-testid` construit
+din sku isi schimba numele in loc sa lipseasca vizibil. Normalizat intr-o
+singura functie. Regula: un `?? "-"` pe un camp care intra intr-un testid sau
+intr-o cheie ascunde defectul in loc sa il raporteze, si costul se plateste
+la primul esec de test care spune "not found" despre un element pe care il vezi
+pe ecran.
