@@ -255,6 +255,12 @@ jobs:
           # months, and the issue form has no date field, so those rows cannot
           # be built through the screen. Fixed ids, no DELETE.
           node scripts/seed-test-cost.mjs
+          # P3-13b. The deviz spec needs a version that is already past draft
+          # with lines on it, and a quote written in March against a catalogue
+          # that has moved since. The trigger in 0025 refuses a line on a
+          # non-draft deviz and the header is frozen after it is sent, so
+          # neither row can be built through the screen. Fixed ids, no DELETE.
+          node scripts/seed-test-deviz.mjs
           # .env.local is what both the dev server and the Playwright runner
           # read. It is gitignored and exists only on this runner.
           {

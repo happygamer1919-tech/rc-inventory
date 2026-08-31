@@ -178,13 +178,15 @@ export function Th({
   children,
   align = "left",
   className,
+  ...rest
 }: {
   children?: React.ReactNode;
   align?: "left" | "right" | "center";
   className?: string;
-}) {
+} & React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
+      {...rest}
       className={cx(
         "sticky top-0 bg-rc-paper text-rc-muted font-semibold text-[11.5px] uppercase tracking-wide px-4 py-2.5 border-b border-rc-line",
         align === "right" && "text-right",
@@ -198,17 +200,26 @@ export function Th({
   );
 }
 
+/* ATRIBUTELE NECUNOSCUTE AJUNG PE ELEMENT, ca la Button mai sus.
+ *
+ * Fara `...rest` un `data-testid` sau un `data-value-mdl` scris pe <Td> era
+ * inghitit tacut: celula se randa cu textul corect si fara niciun atribut, deci
+ * ecranul parea in regula si locatorul nu gasea nimic. TypeScript nu prinde
+ * asta, pentru ca un nume de atribut JSX care contine o cratima nu este
+ * verificat fata de tipul propurilor. */
 export function Td({
   children,
   align = "left",
   className,
+  ...rest
 }: {
   children?: React.ReactNode;
   align?: "left" | "right" | "center";
   className?: string;
-}) {
+} & React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
+      {...rest}
       className={cx(
         "px-4 py-2.5 border-b border-rc-line align-middle",
         align === "right" && "text-right",
