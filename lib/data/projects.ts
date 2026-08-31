@@ -9,6 +9,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import type { SelectableProject } from "./projects-types";
+import { one } from "./row";
 
 /**
  * Proiectele din care se poate alege o destinatie, grupate dupa client.
@@ -37,7 +38,7 @@ export async function listSelectableProjects(): Promise<SelectableProject[]> {
     // Supabase tipizeaza relatia ca obiect sau tablou dupa forma cheii straine,
     // asa ca amandoua formele sunt acceptate aici in loc sa fie presupusa una.
     const clientRaw = (row as { clients?: unknown }).clients;
-    const client = Array.isArray(clientRaw) ? clientRaw[0] : clientRaw;
+    const client = one(clientRaw);
     const clientName = (client as { name?: string } | undefined)?.name;
     const clientId = (client as { id?: string } | undefined)?.id;
     if (!clientName || !clientId) continue;

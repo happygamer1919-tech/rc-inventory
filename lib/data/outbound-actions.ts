@@ -11,6 +11,7 @@ import { hasPhase3Schema } from "./schema-capability";
 import { unitLabel, isUnitCode } from "./units";
 import type { ActionResult } from "./inbound-types";
 import type { NewIssueInput } from "./outbound-types";
+import { one } from "./row";
 
 /**
  * Traduce eroarea masinala ridicata de create_outbound_issue in propozitia
@@ -169,7 +170,7 @@ export async function shipOutboundIssue(
   const { data, error } = await supabase.rpc("ship_outbound_issue", { p_issue_id: issueId });
   if (error) return translateWriteError(error.code, error.message);
 
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = one(data);
   revalidatePath("/iesiri");
   revalidatePath("/comenzi");
   return { ok: true, value: { alreadyShipped: Boolean(row?.already_shipped) } };

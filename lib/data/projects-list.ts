@@ -18,6 +18,7 @@ import {
   type StatusEvent,
 } from "./projects-list-types";
 import type { ProjectStatus } from "./projects-types";
+import { one } from "./row";
 
 export type ProjectListResult = {
   rows: ProjectRow[];
@@ -120,7 +121,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
   if (!data) return null;
 
   const clientRaw = (data as { clients?: unknown }).clients;
-  const client = Array.isArray(clientRaw) ? clientRaw[0] : clientRaw;
+  const client = one(clientRaw);
 
   return {
     id: data.id as string,

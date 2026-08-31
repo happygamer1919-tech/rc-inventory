@@ -12,6 +12,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ALL_STATUSES } from "./projects-list-types";
 import type { ProjectStatus } from "./projects-types";
 import type { ActionResult } from "./inbound-types";
+import { one } from "./row";
 
 export type ProjectInput = {
   clientId: string;
@@ -179,7 +180,7 @@ export async function setProjectStatus(
 
   if (error) return translateWriteError(error.code, error.message);
 
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = one(data);
   revalidatePath("/proiecte");
   revalidatePath(`/proiecte/${id}`);
   return { ok: true, value: { changed: Boolean(row?.changed) } };

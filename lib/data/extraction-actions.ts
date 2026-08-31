@@ -22,6 +22,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
+import { safeFileName } from "./row";
 import {
   ACCEPTED_MIME,
   DOCS_BUCKET,
@@ -75,15 +76,7 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
   if (file.size > MAX_DOC_BYTES) return { ok: false, message: "Fișierul depășește 10 MB." };
 
   const orderId = randomUUID();
-  const safeName =
-    file.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Za-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 120) || "document";
-
-  const path = `extractions/${orderId}/${safeName}`;
+  const path = `extractions/${orderId}/${safeFileName(file.name)}`;
 
   const supabase = await createClient();
   const { error: uploadError } = await supabase.storage
