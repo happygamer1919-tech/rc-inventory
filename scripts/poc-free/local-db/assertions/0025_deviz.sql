@@ -184,8 +184,8 @@ insert into public.projects (id, client_id, name) values
 insert into public.categories (id, name) values ('ed200000-0000-0000-0000-000000000001', 'Test P3-13');
 
 insert into public.products (id, sku, name, category_id, unit, unit_value_mdl) values
-  ('ed300000-0000-0000-0000-000000000001', 'TEST-DEVIZ-01', 'Ciment P3-13', 'ed200000-0000-0000-0000-000000000001', 'buc', 100),
-  ('ed300000-0000-0000-0000-000000000002', 'TEST-DEVIZ-02', 'Nisip P3-13',  'ed200000-0000-0000-0000-000000000001', 'buc', 50);
+  ('ed300000-0000-0000-0000-000000000001', 'TEST-DEVIZ-01', 'Ciment P3-13', 'ed200000-0000-0000-0000-000000000001', 'pcs', 100),
+  ('ed300000-0000-0000-0000-000000000002', 'TEST-DEVIZ-02', 'Nisip P3-13',  'ed200000-0000-0000-0000-000000000001', 'pcs', 50);
 
 do $$
 declare
