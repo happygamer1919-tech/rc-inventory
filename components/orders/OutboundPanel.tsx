@@ -17,6 +17,7 @@ import type { OutboundIssue } from "@/lib/data/outbound-types";
 import { loadOutboundDetail } from "@/lib/data/outbound-detail";
 import { shipOutboundIssue } from "@/lib/data/outbound-actions";
 import { Panel } from "./Panel";
+import { RecordLink } from "@/components/ui/RecordLink";
 
 const tone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 
@@ -69,7 +70,30 @@ export function OutboundPanel({
   return (
     <Panel
       title={issue.reference}
-      subtitle={`${issue.projectName} · ${issue.clientName} · emis ${formatDate(issue.issuedAt)}`}
+      subtitle={
+        // P3-10. Destinatia devine navigabila in AMBELE directii: bonul catre
+        // santier si bonul catre beneficiar. Cand randul istoric nu a fost inca
+        // reconciliat, se scrie text simplu cu explicatia si NU o legatura
+        // moarta.
+        <span className="inline-flex items-center gap-1.5">
+          <RecordLink
+            href={issue.projectId ? `/proiecte/${issue.projectId}` : null}
+            fallback="Proiect neasociat"
+            testId="issue-project-link"
+          >
+            {issue.projectName}
+          </RecordLink>
+          <span className="text-rc-muted-2">·</span>
+          <RecordLink
+            href={issue.clientId ? `/clienti/${issue.clientId}` : null}
+            fallback="Client neasociat"
+            testId="issue-client-link"
+          >
+            {issue.clientName}
+          </RecordLink>
+          <span className="text-rc-muted-2">· emis {formatDate(issue.issuedAt)}</span>
+        </span>
+      }
       chip={<Chip tone={tone(issue.status)}>{OUTBOUND_STATUS_LABEL[issue.status]}</Chip>}
       onClose={onClose}
       testId="outbound-panel"
@@ -130,7 +154,18 @@ export function OutboundPanel({
               {issue.lines.map((l) => (
                 <tr key={l.id} data-testid="outbound-line">
                   <Td>
-                    <span className="text-[12.5px] font-medium">{l.productName}</span>
+                    {/* P3-10: linia de comanda catre fisa produsului. Ecranul de
+                        inventar deschide panoul produsului din parametrul de URL
+                        produs, deci legatura este partajabila si nu un clic care
+                        se pierde. */}
+                    <RecordLink
+                      href={`/inventar?produs=${encodeURIComponent(l.productSku)}`}
+                      fallback={l.productName}
+                      testId="line-product-link"
+                      className="text-[12.5px] font-medium"
+                    >
+                      {l.productName}
+                    </RecordLink>
                     <span className="block rc-num text-[11.5px] text-rc-muted-2 mt-0.5">
                       {l.productSku}
                     </span>

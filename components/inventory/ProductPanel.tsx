@@ -6,6 +6,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
+import { RecordLink } from "@/components/ui/RecordLink";
 import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -83,7 +84,18 @@ export function ProductPanel({
               {product.name}
             </h2>
             <p className="text-[12.5px] text-rc-muted mt-1">
-              {product.category} · {product.supplierName ?? "Fără furnizor"}
+              {product.category} ·{" "}
+              {/* P3-10: produsul catre furnizorul lui, si de acolo catre toate
+                  produsele aceluiasi furnizor. Sunt aceeasi legatura: nu exista
+                  o fisa de furnizor, iar "produsele acestui furnizor" ESTE ce
+                  vrea sa vada cine apasa pe un nume de furnizor. */}
+              <RecordLink
+                href={product.supplierId ? `/inventar?furnizor=${product.supplierId}` : null}
+                fallback={product.supplierName ?? "Fără furnizor"}
+                testId="product-supplier-link"
+              >
+                {product.supplierName}
+              </RecordLink>
               {!product.active ? " · inactiv" : ""}
             </p>
           </div>

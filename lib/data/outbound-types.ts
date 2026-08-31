@@ -25,6 +25,10 @@ export type OutboundLine = {
 export type OutboundIssue = {
   id: string;
   reference: string;
+  /** P3-10: destinatia ca inregistrare, pentru legaturi. Null cat timp randul
+   *  istoric nu a fost reconciliat de P3-04. */
+  projectId: string | null;
+  clientId: string | null;
   clientName: string;
   projectName: string;
   issuedAt: string;

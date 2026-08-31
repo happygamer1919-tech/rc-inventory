@@ -6,6 +6,7 @@
 // care nu existau cand nu exista baza de date.
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Button,
   Card,
@@ -54,12 +55,28 @@ export function InventoryScreen({
   suppliers: SupplierOption[];
   canWrite: boolean;
 }) {
+  // P3-10. FILTRUL DE FURNIZOR SI PRODUSUL DESCHIS VIN DIN URL, ca legaturile
+  // din alte ecrane sa fie navigabile si partajabile. Cardul cere legaturi
+  // reale catre rute reale, iar un filtru care traieste doar in starea
+  // componentului nu este nici mers pe jos de un test, nici trimis cuiva.
+  //
+  // Restul filtrelor raman locale: nimic nu leaga catre ele si a le muta pe
+  // toate in URL ar fi o redesenare a ecranului, care este scop pe care acest
+  // card nu il are.
+  const params = useSearchParams();
+  const supplierFromUrl = params.get("furnizor") ?? "";
+  const skuFromUrl = params.get("produs") ?? "";
+
   const [q, setQ] = React.useState("");
   const [category, setCategory] = React.useState("");
-  const [supplier, setSupplier] = React.useState("");
+  const [supplier, setSupplier] = React.useState(supplierFromUrl);
   const [level, setLevel] = React.useState<StockLevel>("toate");
   const [visibility, setVisibility] = React.useState<Visibility>("active");
-  const [openId, setOpenId] = React.useState<string | null>(null);
+  const [openId, setOpenId] = React.useState<string | null>(
+    // Un sku din URL deschide panoul produsului la prima randare. Un sku care nu
+    // exista nu deschide nimic si nu este o eroare: legatura poate fi veche.
+    skuFromUrl ? (products.find((p) => p.sku === skuFromUrl)?.id ?? null) : null,
+  );
   const [editing, setEditing] = React.useState<CatalogProduct | null>(null);
   const [creating, setCreating] = React.useState(false);
 

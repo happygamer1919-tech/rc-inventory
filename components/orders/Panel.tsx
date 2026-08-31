@@ -14,7 +14,7 @@ export function Panel({
   children,
 }: {
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   chip: React.ReactNode;
   onClose: () => void;
   testId?: string;

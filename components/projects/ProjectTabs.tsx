@@ -38,9 +38,11 @@ function statusLabel(token: string): string {
 }
 
 export function ProjectTabs({
+  projectId,
   materials,
   history,
 }: {
+  projectId: string;
   materials: ProjectMaterials;
   history: StatusEvent[];
 }) {
@@ -135,12 +137,15 @@ export function ProjectTabs({
                   </tbody>
                 </Table>
                 <div className="px-5 py-4 border-t border-rc-line">
+                  {/* P3-10: catre lista completa FILTRATA la acest proiect,
+                      folosind filtrul din URL pe care ecranul de comenzi il
+                      cunoaste. Nu se inventeaza un mecanism nou de filtrare. */}
                   <Link
-                    href="/comenzi"
+                    href={`/comenzi?proiect=${projectId}`}
                     className="text-[12.5px] text-rc-orange-deep hover:underline"
                     data-testid="issue-full-history"
                   >
-                    Vezi istoricul complet al ieșirilor
+                    Vezi toate ieșirile către acest șantier
                   </Link>
                 </div>
               </>
