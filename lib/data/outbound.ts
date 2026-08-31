@@ -11,9 +11,6 @@ import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
 import type { OutboundIssue, OutboundStatus } from "./outbound-types";
 
-export type { OutboundIssue, OutboundLine, OutboundStatus } from "./outbound-types";
-export { OUTBOUND_STATUS_LABEL } from "./outbound-types";
-
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
   const n = typeof value === "number" ? value : Number(value);
