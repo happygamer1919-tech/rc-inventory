@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
+import { hasPhase3Schema } from "./schema-capability";
 
 export type ActionResult =
   | { ok: true }
@@ -105,11 +106,25 @@ function validate(input: ProductInput):
  * strange cardul la un loc.
  */
 type ResolvedSupplier =
-  | { ok: true; value: { supplier_id: string | null; supplier_name: string | null } }
+  | { ok: true; value: { supplier_id?: string | null; supplier_name: string | null } }
   | { ok: false; message: string; field: string };
 
 async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
   const value = raw.trim();
+
+  // CAT TIMP 0019 NU ESTE APLICATA, public.suppliers si products.supplier_id nu
+  // exista, iar o scriere care numeste supplier_id esueaza: pana la remedierea
+  // din 2026-08-31 asta rupea salvarea ORICARUI produs pe productie, inclusiv a
+  // unuia fara furnizor, pentru ca supplier_id era in setul de scriere si atunci
+  // cand era null. Comportamentul de dinainte de P3-05 este exact acesta: numele
+  // se scrie ca text si nu exista inregistrare de furnizor.
+  if (!(await hasPhase3Schema())) {
+    return {
+      ok: true,
+      value: { supplier_name: value.length > 0 ? value : null },
+    };
+  }
+
   if (value.length === 0) return { ok: true, value: { supplier_id: null, supplier_name: null } };
 
   const supabase = await createClient();

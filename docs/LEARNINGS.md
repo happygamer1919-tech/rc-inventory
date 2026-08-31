@@ -2248,6 +2248,7 @@ The rule that prevents the next instance: in a trigger function that serves more
 than one operation, the `tg_op` test is a STATEMENT, not a term. Caught by
 reading, before the file reached the parser.
 
+<<<<<<< HEAD
 ### string_agg ordered by relname puts deviz_lines before devize
 **Tag:** data
 **ERROR:** An assertion comparing `string_agg(c.relname || '=' || c.relrowsecurity, ',' order by c.relname)` against `'devize=true,deviz_lines=true'` failed in `quality` with
@@ -2274,3 +2275,63 @@ presentation layer, per the P2-01 convention. Any Romanian word appearing in a
 SQL file is therefore a comment, a table name, or a defect. Test fixtures are
 the easiest place to forget that, because everything else about them is written
 in the language of the screen.
+=======
+### Merged is not applied, and the deployed code did not know the difference
+**Tag:** infra
+**ERROR:** On 2026-08-31 the production site returned 500 on every screen,
+including the dashboard, at the client domain. Nothing was wrong with any
+migration, any conflict resolution or any test.
+
+Thirteen phase 3 migrations were **written, proven and merged**, and **none had
+been applied**. The application code merged alongside them read the new schema
+unconditionally:
+
+```
+listProducts       -> select ..., supplier_id, ...   (added by 0019, pending)
+listOutboundIssues -> select ..., project_id, ...    (added by 0017, pending)
+```
+
+PostgREST answers 42703 for a column that does not exist, both readers throw, and
+the dashboard is the first page that calls them. Reproduced exactly by applying
+only 0001 to 0012 to a container and running the two SELECTs the deployed code
+sends.
+
+**Ten card reports said "exists in the code and not on the live site" and treated
+it as harmless.** It is the opposite of harmless: the CODE is on the live site,
+and it read a schema that was not.
+
+**NOTHING IN CI COULD HAVE CAUGHT IT.** Every check runs against a database with
+ALL migrations applied: the AUT-14 shim applies every file, and `supabase db
+reset` applies every file. **CI cannot see the difference between the merged
+schema and the applied schema**, so a green pipeline said nothing about the thing
+that was about to break.
+
+**SOLUTION:** Three parts, and the third is the one that matters.
+
+1. `lib/data/schema-capability.ts`, a memoised probe: one PostgREST read of
+   `public.projects`, cached 60 seconds, answering "is the phase 3 schema here?".
+   It probes through PostgREST and not through a SQL function, because a function
+   would itself be in an unapplied migration and could not answer the question
+   exactly when the question matters.
+2. Every reader and writer that touches phase 3 objects either asks the probe and
+   **reads only what exists**, or renders `SchemaPending`, a Romanian screen
+   saying the section is not active on this database yet. The day P3-27 applies,
+   everything lights up with no deploy.
+3. `npm run check:pending-schema-reads`, in the quality job: it reads the pending
+   register in `docs/migrations/APPLY-LOG.md`, extracts every table, column and
+   function those files add, and **fails any file under `lib/`, `app/` or
+   `components/` that names one without going past the probe.** It stops asking
+   about a migration the moment the register stops listing it.
+
+RULE: **a merged migration and an applied migration are different facts, and
+application code must be written against the second one.** In any project where
+the two can diverge, the deployed code has to tolerate the older schema, and
+something outside CI has to enforce it, because CI runs on the newer one by
+construction.
+
+RULE: **when a pipeline provisions its own database from the same files it is
+testing, it is testing the future, not production.** That is usually what you
+want and it is exactly the blind spot here. The register of what is actually
+applied is the only artefact that knows the truth, so the check has to read the
+register.
+>>>>>>> origin/main

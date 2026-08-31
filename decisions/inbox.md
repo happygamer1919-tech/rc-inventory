@@ -3040,3 +3040,846 @@ from 30 to 31 cards; `scripts/poc-free/local-db/apply.mjs`, which gains the
 assertions pass.
 **Supersedes:** the production half of P3-01's acceptance line, moved to P3-27
 verbatim rather than deleted. Nothing in this file.
+
+---
+
+### R-063 - the two deviations in the P3-11 run are ratified individually, and the four second claim collision becomes evidence on CLAIM-01 rather than a new card
+**Date:** 2026-08-31
+**Asked on:** P3-11, P3-04b, P3-05b, CLAIM-01
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 1:
+>
+> **PR #123 was opened at 02:00:00Z. This run started at 02:00:04Z.** That pull
+> request carries exactly those two cards, sets both to `blocked_on: ivan`, and
+> argues the same thing this run would have argued.
+>
+> **The claims map in `docs/poc/state.json` was empty**, so the lease mechanism
+> did not catch this. It could not: a claim only protects a card once it is on
+> `main`, and #123 had existed for four seconds. What caught it was reading the
+> open pull request list before starting, which is worth doing for exactly this
+> reason.
+>
+> from the same report, section 2:
+>
+> The card asks for three issues across two months. **The issue form has no date
+> field**: `issued_at` is `now()`. Data built through the screen can only ever
+> land in the current month, so the month breakdown, which is half the card,
+> could not have been tested at all.
+
+**Ruling:** both deviations are RATIFIED. They are ruled one at a time, with the
+test named for each, because a set ratified as a block is a set nobody read.
+
+**DEVIATION 1: THE LOWEST-ID ELIGIBLE CARDS WERE SKIPPED ON A SIGNAL THAT IS NOT
+A CLAIM.** `CLAUDE.md` section 2 says take the lowest-id eligible card and never
+skip one because a later card looks easier. Section 13 permits skipping a card
+another actor HOLDS, and holding means a claim in `docs/poc/state.json`. The
+claims map was empty, so what the run acted on was an open pull request, which
+is not a claim under any reading of section 13.
+
+- Test 1, unrecoverable data: does not fire. Nothing was written anywhere.
+- Test 2, committed evidence a stranger can re-verify: PASSES. PR #123 merged as
+  `942b6bf` and the board carries both cards blocked on ivan with its text.
+- Test 3, widening or applying: APPLYING. Reading the open pull request list and
+  declining to duplicate somebody's in-flight work is a narrowing of what the run
+  did, not a widening of what it may do. The failure mode of the narrower
+  behaviour is a delay of one scheduled window; the failure mode of the wider one
+  is two board edits to the same two cards in two pull requests.
+- Test 4, would the alternative have been worse: YES, and concretely. Taking
+  P3-04b and P3-05b would have produced a second pair of `blocked_on: ivan`
+  edits carrying a second copy of the same question, and whichever merged second
+  would have conflicted on the same lines. `CLAUDE.md` names web-editor conflict
+  resolution as the source of three residue incidents, and this would have
+  manufactured one for no gain.
+
+**RATIFIED.** The board rule that was bent is worth restating rather than
+quietly widening: **an open pull request is not a claim.** It happened to be the
+better signal here because it was the only one that existed at the moment it was
+needed, and CLAIM-01 is where that belongs.
+
+**DEVIATION 2: A SEED SCRIPT AND A FOURTH ISSUE THE CARD DID NOT ASK FOR.**
+`CLAUDE.md` section 3 forbids self-invented scope.
+
+- Test 1: does not fire. `scripts/seed-test-cost.mjs` contains no DELETE, writes
+  fixed ids so a second run overwrites rather than doubles, and ran against no
+  production database.
+- Test 2: PASSES. PR #125, the script, `tests/e2e/project-cost.spec.ts` with
+  seven cases, and the arithmetic written out twice so either copy can be checked
+  by hand against the other.
+- Test 3: APPLYING. P3-11's `defaults` state the Europe/Chisinau bucketing rule.
+  Testing a stated default is executing the card, not extending it.
+- Test 4: YES. Without the script the month breakdown, which is half the card,
+  ships with a test that could never have failed, because every row the screen
+  can create lands in the current month. Without the row at 2026-07-31T21:30Z the
+  timezone rule is untested and untestable, because it is the only row on which
+  the Chisinau rule and the UTC rule disagree.
+
+**RATIFIED.**
+
+**THE COLLISION ITSELF IS NOT A NEW CARD.** CLAIM-01 already carries it, by name:
+"a claim protects nothing until its pull request merges, which is usually after
+the work it was meant to protect has started." Authoring a second card for a
+problem an open card names is how both get half done. The four second measurement
+and the open-pull-request mitigation are appended to CLAIM-01's `notes` as
+evidence for the latency half of its own acceptance, which already permits
+recording why the pre-merge check was rejected and what was done instead.
+
+**Unblocks:** nothing. Both cards named in deviation 1 stay `blocked` on ivan,
+and P3-11 stays shipped.
+**Also changes:** `docs/board/rc-board-phase3.json`, notes on P3-11, P3-04b and
+P3-05b; `docs/board/rc-board-phase2.json`, notes on CLAIM-01.
+**Supersedes:** none.
+
+---
+
+### R-068 - the two P3-13 build deviations are ratified individually, each with the test that cleared it, and the uncovered DELETE is recorded as evidenced rather than overlooked
+**Date:** 2026-08-31
+**Asked on:** P3-13
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 1:
+>
+> "**One. The card names "a before-update trigger on `deviz_lines`" and the
+> trigger fires on INSERT as well.** Adding a line to a sent deviz changes what
+> was quoted exactly as much as editing one does. A trigger catching only UPDATE
+> would leave the larger half of the hole open, and the rule the card states is
+> the no-edit rule, not the no-update rule."
+>
+> "**Two. `approved_at` is held by the database.** The card states the rule, "set
+> when status becomes accepted, and is null otherwise", and the card's own
+> sentence about the no-edit rule is that a rule the database does not hold is a
+> rule the next screen forgets."
+
+**Ruling:** both are RATIFIED. They are ratified one at a time, with the test
+named for each, because DOCTRINE-TRIAGE section 1 says a set ratified as a block
+is a set nobody read.
+
+**DEVIATION 1, THE TRIGGER THAT ALSO FIRES ON INSERT. RATIFIED ON TEST 4.**
+
+- Test 1, unrecoverable data: does not fire. `supabase/migrations/0025_deviz.sql`
+  is a file in a git repository and has not been applied to any database. The
+  report says so in section 2 and the file joins the pending register against
+  P3-27.
+- Test 2, committed evidence a stranger can re-verify: satisfied.
+  `scripts/poc-free/local-db/assertions/0025_deviz.sql` asserts the behaviour and
+  raises rather than prints, `npm run check:migrations` is a hard step of the
+  `quality` job, and the job concluded success on head sha `f44fd5c` in PR #129.
+  The named clause is that a `sent` deviz "refuses a line ADDED to it".
+- Test 3, widen or apply: applies. The card states the no-edit rule. INSERT into
+  a sent deviz is inside that rule, not outside it. Nothing in `CLAUDE.md`, a
+  gate or a grant moved.
+- Test 4, would the alternative have been worse: yes, and this is the test that
+  decides. An UPDATE-only trigger ships a no-edit rule that any caller can walk
+  around by adding a new line instead of editing an old one, on a document a
+  client is already holding a copy of. The alternative is a rule that reads as
+  enforced and is not.
+
+**DEVIATION 2, `approved_at` HELD BY THE DATABASE. RATIFIED ON TEST 4.**
+
+- Test 1: does not fire, same reason.
+- Test 2: satisfied. The same assertion file proves `approved_at` set on accept
+  and cleared on the way out, in the same green run on `f44fd5c`.
+- Test 3: applies. The card states the rule and is silent on where it lives;
+  `defaults` and section 5 of `CLAUDE.md` say silence is filled, not contradicted.
+- Test 4: yes. Two screens write the status. The alternative is a rule that holds
+  only on whichever of them remembered it, which is the failure the card's own
+  no-edit sentence is written against.
+
+**THE UNCOVERED DELETE IS NOT A THIRD DEVIATION AND IS RECORDED SO NOBODY AUDITS
+IT TWICE.** The report states that DELETE is deliberately not covered and gives
+the reason: neither table carries a delete policy, so no authenticated role can
+reach a delete, and the only delete that can touch a line is the cascade from a
+`devize` row that RLS already forbids. The structural half of the assertion file
+proves the absence of a delete policy on both tables, so the premise the argument
+rests on is asserted rather than claimed. That is a gap closed by evidence, not a
+gap left open.
+
+**Unblocks:** nothing. P3-13 is already shipped on PR #129 and this ruling
+records why it was allowed to ship in the shape it did.
+**Supersedes:** none.
+
+---
+
+### R-064 - the board reads a clock: the as_of deviation is overturned, the drift is measured as a ratchet rather than an offset, and BOARD-02 authors the check
+**Date:** 2026-08-31
+**Asked on:** P3-11, and every card on both boards that carries a timestamp
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 4b:
+>
+> **Worth naming rather than silently following: the phase 3 board's timestamps
+> run about nine hours ahead of real UTC.** P3-10 shipped with
+> `2026-08-31T10:40:00Z` and #123 wrote `2026-08-31T11:30:00Z`, both while the
+> real clock read shortly after 02:00Z. This run wrote `2026-08-31T11:45:00Z` on
+> `as_of`, on P3-11's evidence and on both `last_checkpoint` fields, because the
+> alternative was an `as_of` that moves BACKWARDS by nine hours on a board whose
+> whole purpose is to say when it last told the truth. Following the convention
+> keeps the ordering honest and makes the offset a single, findable defect rather
+> than a jagged sequence.
+
+**Ruling:** the deviation is **OVERTURNED**. `as_of` is corrected on both boards
+in the pull request carrying this ruling, to a value read from the system clock,
+and it moves BACKWARDS by roughly nine hours on the phase 3 board. That backwards
+jump is the ruling taking effect and is not to be corrected forward.
+
+**THE FINDING IS CREDITED AND THE CHOICE IS REVERSED, AND THOSE ARE DIFFERENT
+THINGS.** Nobody else had noticed. The report measured it, named it, said it
+needed a card, and disclosed that it had followed the convention anyway. Without
+that paragraph this ruling could not have been written. What is overturned is the
+one sentence of it that decided to write a timestamp nobody had read from a
+clock.
+
+**TEST 4 IS WHY IT IS AN OVERTURN AND NOT A RATIFICATION.** The alternative, named
+concretely, is a board carrying `as_of: 2026-08-31T02:31Z` with the report's own
+section 4b explaining why the number appears to jump back. That is not worse than
+what shipped. It is the correct board plus one paragraph of explanation that was
+already written.
+
+**IT IS A RATCHET, NOT AN OFFSET, AND THAT IS WHAT MAKES IT URGENT.** The report
+reads it as a fixed nine hour skew, which would be a timezone bug somewhere. It is
+not. Measured across the eleven commits that touched
+`docs/board/rc-board-phase3.json`, the gap between `as_of` and the real commit
+time, in minutes:
+
+| commit | commit time (UTC) | as_of | ahead by |
+|---|---|---|---|
+| `b8910e5` | 2026-08-30T21:06Z | 2026-08-30T21:10Z | 3 min |
+| `afe4f88` | 2026-08-30T21:34Z | 2026-08-30T21:55Z | 21 min |
+| `f43f538` | 2026-08-30T22:18Z | 2026-08-30T23:20Z | 62 min |
+| `1a18f04` | 2026-08-30T22:50Z | 2026-08-31T01:20Z | 150 min |
+| `f0a99c1` | 2026-08-30T23:23Z | 2026-08-31T03:10Z | 226 min |
+| `111a6a3` | 2026-08-31T00:09Z | 2026-08-31T05:10Z | 300 min |
+| `8e2a78e` | 2026-08-31T00:41Z | 2026-08-31T07:20Z | 398 min |
+| `0f26ea0` | 2026-08-31T01:13Z | 2026-08-31T09:00Z | 467 min |
+| `1eab1d4` | 2026-08-31T01:58Z | 2026-08-31T10:40Z | 521 min |
+| `942b6bf` | 2026-08-31T02:13Z | 2026-08-31T11:30Z | 557 min |
+| `612ca05` | 2026-08-31T02:31Z | 2026-08-31T11:45Z | 554 min |
+
+**Every session read the previous `as_of` and wrote something plausibly later
+than it, and the increment each one added exceeded the real elapsed time.** The
+error compounds. Nothing in the repository stops it, so at the observed rate the
+board would be claiming tomorrow's date within a week, and `last_checkpoint`
+would stop ordering anything.
+
+**THE REASONING THAT PRODUCED IT IS SOUND AND IS EXACTLY THE PROBLEM.** Nobody
+wants to be the session that moves the number backwards. That is true at every
+step, which is why a rule cannot fix it and a check can. `CLAUDE.md` section 2
+already says "the top-level `as_of` bumped to the commit moment in ISO 8601", and
+it was not enough, because these are unattended runs at 22:00, 01:00, 04:00 and
+07:00 and a rule with no check survives exactly as long as nobody is tired.
+
+**WHAT IS CORRECTED NOW AND WHAT IS LEFT TO THE CARD.** This pull request sets
+`as_of` on both boards from the clock, and sets `last_checkpoint` from the clock
+on the cards it touches. It does not sweep the boards, and it does not touch
+`evidence.at` anywhere: that field belongs to the run that produced the proof, and
+rewriting another session's record of its own work is a worse fault than leaving a
+value that a committed ruling explains. **BOARD-02** carries the sweep and the
+check.
+
+**Unblocks:** nothing.
+**Also changes:** `as_of` on both boards; `last_checkpoint` on P3-11, P3-04b,
+P3-05b, P3-27 and CLAIM-01; `docs/board/rc-board-phase2.json` gains BOARD-02.
+**Supersedes:** none. It does not amend `CLAUDE.md` section 2, which already said
+this.
+
+---
+
+### R-065 - the phase 3 gate audit: 0 of 9, every condition behind P3-27, and the two drop cards stop asking Ivan a question that belongs to another card
+**Date:** 2026-08-31
+**Asked on:** the phase 3 launch gate, P3-27, P3-04b, P3-05b
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 7:
+>
+> **P3-27 is still blocked on Ivan and the pending register is now twelve files.**
+> Nothing in CI needs it, because every acceptance runs against the local stack,
+> but nothing the owner can SEE exists on the live site until it runs. It is the
+> oldest unanswered question on this board.
+
+**Ruling:** all nine phase 3 conditions were audited clause by clause under
+DOCTRINE-TRIAGE section 4. **None flips.** The audit is written into each
+condition's `evidence` field whether or not it flipped, because an audit that
+flips nothing is still the most useful thing the next session can read.
+
+**THE RESULT IS ONE SENTENCE: EVERY CLAUSE OF EVERY CONDITION SAYS "ON
+PRODUCTION", AND NOTHING IS ON PRODUCTION.** Twelve migration files, 0013 to
+0024, sit in the Pending section of `docs/migrations/APPLY-LOG.md`, every one
+naming P3-27, which is blocked on ivan. Eleven cards have shipped on this board
+and the readiness score has not moved off 0 of 9 and cannot.
+
+**THAT IS THE THIRD KIND OF UNFLIPPABLE GATE IN SECTION 4, WITH ONE DIFFERENCE
+WORTH NAMING.** Section 4 says a gate needing an action in a production
+environment no terminal holds is recognised and recorded, not treated as a
+backlog. These nine are that shape, except that a terminal DOES hold the
+capability: R-001 has not been revoked, P2-13 has not run, and section 8.7 has not
+fired. What withholds it is one sentence of the 2026-08-30 owner dispatch, which
+P3-27's own question already records. So this is not a permanent structural
+limit; it is one unanswered question, and it is escalated rather than ruled.
+
+**TWO CLAUSES DID GAIN EVIDENCE, AND BOTH COME OUT OF THE REPORT BEING TRIAGED.**
+
+- **G2 clause 3** demanded the count of issues with no project assigned, taken
+  read-only and pasted. P3-11 shipped `public.unassigned_outbound_count()` in
+  `supabase/migrations/0024_project_material_cost.sql`, and the Cost tab prints
+  the count even when it is zero. The clause was written before anything could
+  produce that number; now it is one query.
+- **G5's arithmetic half** is evidenced in full: PR #125,
+  `tests/e2e/project-cost.spec.ts`, seven cases, a total hand-calculated at
+  1850.00 MDL asserted to the leu, a month boundary row that separates Chisinau
+  bucketing from UTC, an unassigned issue carrying 10000 MDL that would have
+  broken the arithmetic loudly rather than plausibly, and a deactivated product
+  carrying 400 of the 1850. The gate's own notes say both halves are required and
+  say why. **The hand check against one real project is the missing half and it
+  cannot exist**, because there is no real project and no real client data.
+
+**THE RESEQUENCE, WITH THE OLD EDGE AND THE NEW ONE NAMED.** Section 3 check 2
+fired on three cards: P3-04b, P3-05b and P3-27 are all `blocked` on ivan with
+every `depends_on` id shipped. On P3-27 that is correct, he owes the apply. On the
+other two it is a **duplicated ask**: their `question` fields open with the same
+sentence P3-27's does, "apply the wave 1 migrations to production", so the owner
+reads one question three times and any of the three answers could be missed.
+
+- P3-04b: `depends_on` was `[P3-04, P3-10]`, is now `[P3-04, P3-10, P3-27]`.
+- P3-05b: `depends_on` was `[P3-05, P3-10]`, is now `[P3-05, P3-10, P3-27]`.
+
+**BOTH STAY BLOCKED ON IVAN AND THAT IS NOT AN OVERSIGHT.** After the apply there
+is still a reconciliation list to read with Mihai before a column is dropped, and
+on P3-05b that list may not even exist, because the backfill refuses above twenty
+distinct supplier names. Anything that reaches Mihai is item 6 of the closed
+escalation list. The edge removes the duplicated question, not the real one.
+
+**P3-27'S TITLE SAYS WAVE 1 AND ITS REGISTER HOLDS TWELVE FILES ACROSS THREE
+WAVES.** Recorded in its `notes` and not fixed: TRIAGE does not edit titles, and
+a reader who takes "wave 1" literally would otherwise conclude that 0020 to 0024
+have no apply card.
+
+**Unblocks:** nothing, and that is the finding. It makes explicit that eleven
+shipped cards and nine failed gates are one blocked card apart.
+**Also changes:** `evidence` on all nine phase 3 launch gate conditions;
+`depends_on`, `question` and `notes` on P3-04b and P3-05b; `question` and `notes`
+on P3-27.
+**Supersedes:** none. R-046 audited the PHASE 2 gate and is untouched; nothing in
+this report bears on G4, G7 or G9 of that board, which stand at fail on that
+audit.
+
+---
+
+### R-066 - the cost basis is work, not an owner decision: the issue-time value snapshot is authored as P3-28
+**Date:** 2026-08-31
+**Asked on:** P3-11, P3-12, P3-14
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 2:
+>
+> **The screen carries its own limitation in Romanian.** `unit_value_mdl` is the
+> current catalogue value and no cost is snapshotted at issue time, so editing a
+> product price moves every historical total containing it. The footnote says
+> that. The real fix is a `unit_value_at_issue_mdl` column on `outbound_lines`,
+> written at issue time, and that is a schema change this card was not given. It
+> stays on the card notes where the AUTHOR put it, for Ivan.
+
+**Ruling:** it does not stay on the card notes and it does not go to Ivan. It is
+**P3-28**, authored on the phase 3 board in the pull request carrying this ruling,
+depending on P3-11 and on nothing else.
+
+**THE ONLY DECISION TRIAGE MADE HERE IS THAT THIS IS NOT ESCALATED, SO THE TEST
+IS WRITTEN OUT.** The closed list in DOCTRINE-TRIAGE section 6 is ten items. This
+is not money, not what the client is charged, not legal, not a vendor, not a
+credential grant, not a request that reaches Mihai or Andre, not a click in
+somebody's console, not a production DELETE, not an acceptance sign-off and not
+launch timing. Everything not on that list, TRIAGE decides and records, and that
+authority is R-050. Two independent authors reached for the owner here, which is
+the cautious instinct, and the cost of it is real: a limitation parked in a
+`notes` field is rediscovered by whoever first notices that two printouts of the
+same month disagree.
+
+**IT IS NOT A DEFECT IN P3-11 AND THAT CARD IS NOT REOPENED.** P3-11 was given
+`unit_value_mdl` by its dispatch, implemented exactly that, and put the limitation
+on the screen in Romanian instead of hiding it. It shipped on a green `quality`
+run plus its named spec. This is the schema change it was not given.
+
+**THE SHAPE IS FIXED IN THE CARD'S DEFAULTS AND THE IMPORTANT ONE IS NEGATIVE:
+NOT NULL WITH A BACKFILL, NEVER NULLABLE WITH A FALLBACK.** A column read as
+`coalesce(unit_value_at_issue_mdl, p.unit_value_mdl)` is a default-and-override
+rather than a snapshot, indistinguishable from correct on the day it is built and
+silently divergent afterwards. **R-058 rejected precisely that shape on the deviz
+price three days ago**, and the same reasoning binds a second money column in the
+same schema. The card also removes the Romanian footnote, because a caveat that
+has stopped being true teaches the reader to distrust a number that is now right.
+
+**ONE ORDERING NOTE RATHER THAN A SECOND EDGE.** P3-14 credits a project by
+returned quantity times unit value. If P3-28 lands first, P3-14 reads the frozen
+value, which is the only way a return credits exactly what the issue charged. If
+P3-14 lands first it reads the catalogue and P3-28 updates it. Neither order is
+wrong, so it is written into both cards rather than made a dependency that would
+park one behind the other for no correctness gain. P3-12 needs no edge at all: it
+reads `lib/reporting/material-cost.ts` and inherits whatever that module does.
+
+**Unblocks:** nothing today. P3-28 is `todo` and eligible, since P3-11 is shipped.
+**Also changes:** `docs/board/rc-board-phase3.json`, which gains P3-28 and goes
+from 31 to 32 cards; `notes` on P3-11.
+**Supersedes:** the "for Ivan" clause of the AUTHOR note on P3-11, quoted where it
+is replaced. Nothing in this file.
+
+---
+
+### R-067 - DOCTRINE-TRIAGE's input clause contradicts its own sections 2 to 5, and the correction is a card for AUTHOR rather than an edit by TRIAGE
+**Date:** 2026-08-31
+**Asked on:** AUT-2, AUT-3, and every future TRIAGE run
+**Answer, verbatim:**
+> from docs/DOCTRINE-TRIAGE.md, "What TRIAGE is", quoted because this ruling is
+> about that file rather than about the report:
+>
+> It receives no dispatch text, no summary and no context. It finds its own
+> input: **the newest file in `docs/reports/`** by the dated naming convention in
+> `CLAUDE.md` section 9b. If it needs to know something that is not in that
+> report or in this file, **that is a defect in this file**, and saying so is a
+> legitimate TRIAGE output.
+
+**Ruling:** the invitation in that last sentence is taken. **The clause is wrong
+as written, and it is wrong against three later sections of the same document.**
+
+- **Section 2** requires the next free ruling id, which is only knowable from
+  `decisions/inbox.md`.
+- **Section 3** requires all four `depends_on` checks "over the whole board and
+  not only the cards the report touched", which is only knowable from the board
+  files.
+- **Section 4** requires each failing gate to be audited against committed
+  artefacts, naming "a PR number, a run id, a journal entry, a named screenshot".
+- **Section 5** forbids authoring a card for something an open card already
+  covers, which is only knowable from the board.
+
+**A TRIAGE session obeying the input clause literally cannot perform sections 2
+through 5.** This run opened both board files, `decisions/inbox.md`,
+`docs/migrations/APPLY-LOG.md`, `CLAUDE.md` and the git history, and every one of
+those reads was mandatory. Two of the four rulings in this pull request could not
+otherwise exist: R-064's drift table is git history, and R-065's audit is the
+board plus the migration register.
+
+**THE INTENDED READING IS OBVIOUS AND THE WORDING SHOULD SAY IT.** Section 6 of
+the same file states the rule the clause is reaching for: **ground truth is
+committed repository files only.** The report is the only DISPATCH, not the only
+readable file. What the clause correctly forbids is a human handing TRIAGE a
+summary, a chat message or a verbal ratification, which is R-050's point.
+
+**IT IS NOT FIXED HERE, AND THAT RESTRAINT IS THE OTHER HALF OF THE RULING.**
+`CLAUDE.md` section 1 gives governing documents to AUTHOR, and DOCTRINE-TRIAGE is
+TRIAGE's own rubric. A role that rewrites the document that constrains it has
+removed the constraint, whatever the edit says, and "two TRIAGE runs over the same
+report must reach the same answer" is worth exactly as much as the stability of
+the file that produces the answer. So the correction is **AUT-15**, authored for
+AUTHOR, with the wording it must satisfy written into the card.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, which gains AUT-15.
+**Supersedes:** none. It proposes an amendment to `docs/DOCTRINE-TRIAGE.md` and
+does not make one.
+
+---
+
+### R-069 - a ruling committed on an OPEN pull request is in force under two conditions and no others, and the P3-13 run following R-064 before it merged is ratified
+**Date:** 2026-08-31
+**Asked on:** P3-13, and every card whose board edit writes a timestamp
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 4:
+>
+> "**R-064 is in PR #126 and was not on `main` when this was written.** It was
+> followed anyway, because it settles the exact question this edit would
+> otherwise have had to decide for itself, it decides it the other way from the
+> last run, and writing a timestamp nobody read from a clock in full knowledge of
+> a ruling that forbids it would be the worse of the two."
+
+**Ruling:** RATIFIED, and the general rule behind it is written out so the next
+session does not have to re-derive it.
+
+**THE RATIFICATION, BY THE FOUR TESTS.**
+
+- Test 1: does not fire. Two board fields, `as_of` and `last_checkpoint`. No row,
+  no credential, no production write.
+- Test 2: satisfied, and this is the test the question actually turns on. R-064
+  is a committed line with an id at `f542e3f` on `triage/20260830-220004`, open as
+  PR #126, and the report names it by id and by pull request number. A stranger
+  can read it today without asking anyone.
+- Test 3, widen or apply: APPLIES. DOCTRINE-TRIAGE states the standing rule as "a
+  ratification is not a ratification until it is a committed line with an id" and
+  the failure it names is chat, not an unmerged branch. R-064 is a committed line
+  with an id. Reading that rule to mean "merged to main" would be a NARROWING
+  invented here, not the rule as written.
+- Test 4: yes. The alternative was to write a timestamp derived from the previous
+  board value, which is the exact practice R-064 measured as a ratchet running
+  eleven commits and 554 minutes ahead of the clock, in full knowledge of the
+  ruling forbidding it.
+
+**THE GENERAL RULE, AND IT IS DELIBERATELY NARROW.** A ruling committed on an
+OPEN pull request is in force for a terminal when BOTH hold:
+
+1. the terminal names it in its report by ruling id and pull request number, so
+   the authority it acted on is readable by whoever reads the report next, and
+2. the alternative is to WRITE something that ruling forbids. A ruling on an open
+   pull request never compels an action that could simply be deferred.
+
+**AND IT IS NEVER IN FORCE FOR THREE THINGS**, because the cost of being wrong is
+not a timestamp: a production write of any kind, a credential act, or a card
+ship. Those wait for `main`.
+
+**THE RISK THIS CARRIES IS REAL AND IS NAMED RATHER THAN WAVED AT.** If PR #126
+closes unmerged, R-064 never reaches `main` and two board fields will have been
+written on an authority that evaporated. That is not hypothetical today: #126 has
+gone from BEHIND to CONFLICTING since the report was written. R-070 authors the
+card that lands it, and the two rulings are read together.
+
+**Unblocks:** nothing. It settles a question every future board edit hits.
+**Supersedes:** none. It states a rule DOCTRINE-TRIAGE implies and does not spell
+out, and it does not touch R-064.
+
+---
+
+### R-070 - PR #126 is now CONFLICTING, so it belongs to EXECUTOR under R-052 and not to TRIAGE, and landing it is authored as RST-03
+**Date:** 2026-08-31
+**Asked on:** RST-02, RST-03
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 3a:
+>
+> "**Somebody has to update that branch and re-run `quality` on the new sha.**
+> Until then four rulings and two authored cards sit outside `main`, and every
+> board edit that lands ahead of it makes its eventual merge harder."
+>
+> and from section 6 of the same report:
+>
+> "**A second thing that is not an escalation and should not be lost:** PR #126 is
+> green and stuck behind branch protection, per section 3a. It needs its branch
+> updated, which is TRIAGE's push to make."
+
+**Ruling:** the finding stands and the assignment in its last clause does not.
+**PR #126 IS ASSIGNED TO EXECUTOR**, per R-052, and the work is card RST-03.
+
+**THE ASSIGNMENT CHANGED BECAUSE THE PULL REQUEST DID.** When the report was
+written #126 was `MERGEABLE` and `BEHIND`, which is a branch update and nothing
+more. Read today it is `CONFLICTING` and `DIRTY`, conflicting on
+`docs/board/rc-board-phase3.json`, because P3-13's own board edit landed on `main`
+as `c124529` in the hour between. R-052 is unambiguous about what that makes it:
+"A conflicting PR is assigned to EXECUTOR, which resolves it locally, against the
+full tree, with the validator run before the commit." TRIAGE writes no code and
+runs no acceptance, so it is the wrong hands for a resolution that has to be
+proved by running things.
+
+**THE COUNT IS FIVE RULINGS AND THREE CARDS, NOT FOUR AND TWO.** The report read
+the pull request title, which names R-063 to R-066. The branch carries a second
+commit, `361d40e`, adding **R-067 and card AUT-15**. So `main` is currently
+missing R-063, R-064, R-065, R-066, R-067, cards P3-28, BOARD-02 and AUT-15, and
+the committed TRIAGE report at
+`docs/reports/2026-08-31-triage-board-clock-and-gate-audit.md`.
+
+**THIS RUN MADE THE CONFLICT WORSE AND SAYS SO RATHER THAN HIDING IT.** This
+ruling and the six around it append to `decisions/inbox.md` at exactly the point
+R-063 to R-067 append, so a second conflict now exists in that file. It is
+unavoidable: writing rulings into that file is the only output the role has, and
+declining to write them to protect another branch would be a run that produced
+nothing. What IS avoidable was avoided, and it is listed so the resolver knows
+where the overlap is NOT: **this run edits no field of
+`docs/board/rc-board-phase3.json`**, which is where #126's nine gate evidence
+rewrites live, and it does not re-audit the phase 3 gate that R-065 already
+audited. See R-074.
+
+**RST-02 GAINS THE SYSTEMIC HALF INSTEAD OF A SECOND CARD.** DOCTRINE-TRIAGE
+section 5 forbids authoring a card for something an open card already covers.
+RST-02 is the leftover pull request sweep and its whole subject is a TRIAGE pull
+request abandoned by its own cap. It does not cover this case, because a sweep
+that merges cannot merge a CONFLICTING pull request, and today that failure is
+silent. The finding goes into RST-02's `notes`: the sweep must distinguish a
+pull request it can merge from one it cannot, and escalate the second rather than
+pass over it. RST-03 is the instance and RST-02 is the class, which is why one is
+a new card and the other is a note.
+
+**Unblocks:** nothing today. RST-03 unblocks R-063 to R-067, P3-28, BOARD-02 and
+AUT-15 the moment it ships.
+**Also changes:** `docs/board/rc-board-phase2.json` gains RST-03 and RST-02 gains
+a note.
+**Supersedes:** the last clause of section 6 of the P3-13 report, which assigned
+the push to TRIAGE. Nothing in this file.
+
+---
+
+### R-071 - the harness resolves a card id against one board while every unattended run works the other, so the owner cannot answer a phase 3 question and the digest cannot see phase 3 work; the harness half of R-061 is superseded and AUT-16 is authored
+**Date:** 2026-08-31
+**Asked on:** AUT-16, P3-27, and every phase 3 card that will ever be blocked on a person
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 3b:
+>
+> "`POC_BOARD=docs/board/rc-board-phase2.json` in `scripts/poc/run.sh`, line 23.
+> The consequences are visible in `docs/poc/state.json` right now: a claim on
+> `AUT-10` by `harness`, taken at the end of a run that worked P3-11. The
+> eligible-card line in the harness log, the `$CLAIM_SKIPPED` set it interpolates
+> into the prompt, and the claim it writes at the end are all computed against a
+> board nobody is currently working."
+
+**Ruling:** the finding is upheld, it is WIDER than the report found, and the
+harness half of R-061 is superseded. The work is card AUT-16.
+
+**THREE COMPONENTS HARDCODE ONE BOARD PATH AND THE REPORT FOUND ONE OF THEM.**
+
+- `scripts/poc/run.sh:23`, `POC_BOARD=docs/board/rc-board-phase2.json`. This is
+  the one the report names: eligibility, the claim-skip set and the claim written
+  at the end of the run are all computed against the wrong board. Visible in
+  `docs/poc/state.json` as a claim on `AUT-10` by `harness` at
+  `2026-08-31T02:48:59Z`, written by a run that spent its time on P3-11.
+- **`scripts/poc/inbox.mjs:38`, the same path, and this is the one that costs.**
+  The Telegram reader builds `knownCardIds` from that one board and returns
+  `{accepted: false, reason: "no card " + cardId + " on the board"}` for anything
+  else. **`R P3-27 default` is therefore REFUSED**, and so is every other phase 3
+  card id. `CLAUDE.md` section 13 names Telegram as the owner's answer channel and
+  the two accepted forms are `R <card-id> default` and `R <card-id>: <text>`.
+  Both are unusable for the entire board where the work is. The oldest unanswered
+  question in this repository is P3-27, and the owner could not have answered it
+  from his phone if he had tried.
+- `scripts/poc/notify.mjs:27`, the same path again. `plain-digest.mjs` reads
+  `board.launch_gate.readiness_passed` and counts `status === "shipped"` off that
+  one board, so the digest reports 36 done and 6 of 9 and says nothing about the
+  twelve phase 3 cards shipped since 2026-08-30. It is not that the digest
+  under-reports phase 3. It cannot see it.
+
+**R-061 IS SUPERSEDED IN ITS HARNESS HALF ONLY, AND IT IS SUPERSEDED BECAUSE ITS
+PREMISE DID NOT HOLD, NOT BECAUSE IT WAS WRONG.** R-061 said: "**The harness is
+not repointed and the phase 2 board is still the queue for every unattended
+run.**" That sentence assumes the unattended runs work the phase 2 board. They do
+not, and the evidence is committed and consecutive: run `20260830-220004` shipped
+P3-11 and run `20260831-010005` shipped P3-13, both filed as "EXECUTOR, unattended
+scheduled run" in their own reports. R-061 also kept a paragraph headed "what does
+not change" whose first item is the claim lease, and the lease is exactly what
+stopped working. A rule whose stated protection is the first thing to fail under
+it is a rule that has been overtaken.
+
+**WHAT REPLACES IT: THE HARNESS RESOLVES A CARD AGAINST EVERY BOARD, IT DOES NOT
+GET REPOINTED AT A DIFFERENT ONE.** Repointing `POC_BOARD` at the phase 3 board
+moves the blindness rather than removing it: the AUT, BOARD, CLAIM, LEARN and RST
+lanes and the phase 2 launch gate would disappear from the digest instead. The
+board set is the unit, not the board.
+
+**WHY THIS IS TRIAGE'S TO RULE.** It is measured against the closed ten-item list
+in DOCTRINE-TRIAGE section 6, item by item, and lands on none of them. It is not
+money, pricing, legal, a vendor, a credential grant, a request reaching Mihai or
+Andre, a click in anybody's console, a production DELETE, an acceptance sign-off
+or launch timing. It is which file a script reads. Under R-050 that is TRIAGE's
+and it is recorded here with an id rather than settled in a report nobody has to
+obey.
+
+**Unblocks:** nothing directly. It restores the channel P3-27's answer has to
+arrive through, which is why the P3-27 escalation is carried forward in the same
+run.
+**Also changes:** `docs/board/rc-board-phase2.json` gains AUT-16, in the AUT lane
+per R-041.
+**Supersedes:** the harness half of R-061, quoted above in full. R-061's opening
+of the phase 3 board, its retirement of the do-not-work-this-board sentence and
+its "what does not change" list are untouched.
+
+---
+
+### R-072 - the board sweep under DOCTRINE-TRIAGE section 3: P2-13 removes a capability the phase 3 board depends on and the edge cannot be authored across boards, so it becomes an acceptance clause; P2-14's status is corrected to match its own blocked_on
+**Date:** 2026-08-31
+**Asked on:** P2-13, P2-14, P3-04b, P3-05b, P3-27, P2-08b
+**Answer, verbatim:**
+> This ruling quotes no line of the input report, because it comes from a sweep
+> the report could not have performed. From docs/DOCTRINE-TRIAGE.md, section 3:
+>
+> "**Run all four checks, every time, over the whole board and not only the cards
+> the report touched.** A stale edge is invisible from the card that carries it."
+>
+> and check 3 of the same section:
+>
+> "**A capability edge missing.** **This is the one that costs.** A card that
+> REMOVES a capability - a credential rotation, a grant revocation, a cleanup -
+> must depend on every card that needs that capability."
+
+**Ruling:** all four checks were run over both open boards. Three found nothing.
+The fourth found P2-13, and it cannot be fixed the way the doctrine says to fix
+it.
+
+**CHECK 1, DANGLING EDGES: NONE.** Every id in every `depends_on` on both boards
+resolves to a card on the same board. No cross-board edge exists anywhere today.
+
+**CHECK 2, SATISFIED BUT BLOCKING: FOUR CARDS FIRE AND THREE ARE CORRECT.**
+
+- P2-08b, `blocked` on `andre`, P2-08a shipped. Andre genuinely owes the live
+  round trip now. Correct, unchanged.
+- P3-27, `blocked` on `ivan`, no edges. Ivan genuinely owes the apply decision
+  now. Correct, unchanged, and carried forward as this run's escalation.
+- P3-04b and P3-05b, both `blocked` on `ivan` with every edge shipped. The check
+  fires and **R-065 already resequenced both onto P3-27**, in PR #126. Doing it
+  again here would write the same edit into the same fields on a board whose
+  merge is already conflicting, and would destroy the earlier audit when the two
+  meet. Recorded, deliberately not repeated. DOCTRINE-TRIAGE section 5's rule
+  against a second card for one problem is the same rule.
+- P2-14 is the fourth and it is a different defect: `status: "todo"` while
+  `blocked_on: "client"`. `CLAUDE.md` section 4 makes a card with a person in
+  `blocked_on` a `blocked` card, and P2-14's own notes say "BLOCKED ON CLIENT AT
+  AUTHORING TIME". **Corrected to `blocked`**, which also moves it into the
+  BLOCKED ON PEOPLE lane under the `client` column, where the board Ivan reads
+  will show it as what it is. The counts move with it: todo 10 to 9, blocked 1 to
+  2. No eligibility changes, because a card with a non-null `blocked_on` was never
+  eligible.
+
+**CHECK 4, EDGES ON A SPLIT CARD: ALL RE-DERIVED, NOTHING STALE.** P3-13 split
+three ways under R-058 and every edge that points into that family points at the
+half it needs: P3-13b on `[P3-13, P3-09]`, P3-13c on `[P3-13b, P3-04]`, P3-12 on
+`[P3-11, P3-13b]`, P3-18 on `[P3-13c]`. Nothing depends on the schema half where
+it needs the editor half. P2-08's split is settled by R-025 and R-046 and nothing
+points at the retired id.
+
+**CHECK 3 IS THE ONE THAT FIRED, AND IT FIRED ON P2-13.**
+
+Apply the test as the doctrine writes it. **What does P2-13 take away?** Section
+8.7 of `CLAUDE.md`, which P2-13's own `defaults` quote as four tickable boxes:
+the ability of ANY terminal to open a database connection or apply a migration,
+the single permitted read under `/Users/ivan/rc-secrets`, and, added by R-059 and
+listed in 8.7, the self-merge grant in section 3.1 on every path.
+
+**Now list every card that needs those capabilities.** P3-27 needs the first one
+and is nothing else: it IS the apply of thirteen pending migration files. Every
+future phase 3 schema card needs it. And the second capability, self-merge, is
+what the sixteen unshipped phase 3 cards are being built under: without it every
+pull request returns to Ivan, which section 8.7 says in terms, "Deleting section
+3.1 returns every PR to Ivan."
+
+**P2-13's `depends_on` is `["P2-08b"]` and that is the whole set.** R-044 applied
+this identical test on 2026-08-28 and added P2-19 for exactly this reason. R-054
+then removed P2-19 because it was retired, correctly, and the reasoning did not
+survive the removal. The board then split in two, and the cards that now need the
+capability landed on the other side of the split.
+
+**THE EDGE CANNOT BE AUTHORED. THIS IS A REAL CONSTRAINT AND NOT A PREFERENCE.**
+`docs/board/validate-board.mjs` resolves `depends_on` against the cards of the
+board being validated and fails with "is not a card id on this board" otherwise.
+Adding `P3-27` to P2-13 makes the validator red, and `CLAUDE.md` section 2 makes a
+commit on a red validator a commit that gets reverted. The doctrine's check 3
+assumes one board and there are two.
+
+**SO IT IS WRITTEN WHERE THE BOARD CAN CARRY IT: AS A CLAUSE ON P2-13's OWN
+ACCEPTANCE.** P2-13's acceptance is that every box in
+`docs/RUNBOOK-CREDENTIAL-ROTATION.md` is ticked, proven by counting unticked
+boxes. That is already machine-checkable and it is already the gate on the card,
+so the precondition becomes a box in the same document rather than a new
+mechanism: before any credential is rotated, every migration file under
+`supabase/migrations/` is recorded as applied in `docs/migrations/APPLY-LOG.md`.
+Thirteen are pending today. The clause is added to `acceptance` and the reasoning
+to `notes`, which are two of the fields DOCTRINE-TRIAGE lets TRIAGE edit.
+`defaults` is NOT edited, because it is not on that list, and the runbook item
+belongs to whoever authors the runbook.
+
+**THIS IS ORDERING, NOT A GRANT, AND THE DISTINCTION IS THE SAME ONE R-037 DREW.**
+R-037 said it in one line when it added P2-08b: "This does not soften section 8.7.
+The grant still dies at P2-13. The ruling fixes when P2-13 runs, not whether it
+does." Identical here. Item 5 of the closed escalation list covers granting,
+widening, extending or renewing access; this narrows nothing and grants nothing,
+and the grant's other two death conditions in section 8.6 are untouched, first
+real client data being the one that does not wait for any card at all.
+
+**Unblocks:** nothing. It stops P2-13 from stranding the phase 3 board.
+**Also changes:** P2-14 `status`; P2-13 `acceptance` and `notes`.
+**Supersedes:** none. It restores to P2-13 what R-044 put there and R-054 removed
+for an unrelated reason, in the only form the validator permits.
+
+---
+
+### R-073 - a report committed before its acceptance ran is corrected by a dated addendum in a follow-up pull request, never by a rewrite
+**Date:** 2026-08-31
+**Asked on:** P3-13, and every card that ships a report under CLAUDE.md 9b
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 8, which
+> exists on branch `card/p3-13-learnings` in open PR #130 and is NOT on `main`:
+>
+> "Section 9b puts the report in the pull request that carries the card, so this
+> report was committed BEFORE `quality` had run. It then failed twice. Both
+> failures and both fixes are recorded here rather than left in a run log, because
+> a report that describes only the passing attempt is a report that makes the work
+> look easier than it was."
+
+**Ruling:** the addendum is the correct handling and it becomes the standing
+pattern.
+
+**THE TENSION IS STRUCTURAL AND NEITHER RULE IS AT FAULT.** Section 9b commits the
+report inside the pull request that carries the card. Section 6 requires the
+acceptance to have passed in that same pull request. The `quality` job takes about
+fourteen minutes here. So a report is always written before its own verdict, and
+sometimes the verdict disagrees with it.
+
+**WHAT A TERMINAL DOES ABOUT IT.** It appends a dated addendum in a follow-up pull
+request naming what failed, what fixed it, and how many of the three attempts in
+section 10 were used. It does NOT rewrite the body to read as though the first
+attempt passed. The record of what was believed and when is the only thing that
+makes a report worth reading later, and this repository already made that choice
+once, in G7's gate notes, where a paragraph that became false hours after it was
+written was corrected underneath rather than deleted.
+
+**THE INSTANCE IS PR #130 AND IT IS STILL OPEN.** Its `quality` run was in
+progress while this was written. Nothing here merges it: TRIAGE does not merge a
+card pull request, and this ruling is about the shape of the correction, not about
+whether that one passes.
+
+**A CONSEQUENCE FOR WHOEVER READS A REPORT NEXT, INCLUDING TRIAGE.** The version
+of a report on `main` may be missing its addendum. This run read both: 241 lines
+on `main`, 288 on the branch, and section 8 exists only in the second. A TRIAGE
+run that reads only `main` sees a report whose acceptance section says the
+migration passed and does not know it took three pushes to get there.
+
+**Unblocks:** nothing.
+**Supersedes:** none.
+
+---
+
+### R-074 - the phase 2 gate audit re-runs at 6 of 9 with nothing flipped, and the phase 3 gate is deliberately NOT re-audited because R-065 already audited it and the audit is not yet on main
+**Date:** 2026-08-31
+**Asked on:** the launch gate on both open boards
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-13-deviz-schema.md, section 2:
+>
+> "**No `DROP TABLE`, no `TRUNCATE`, no `DELETE`.** Nothing in this file is
+> destructive and nothing in it was applied to production. It joins the pending
+> register against P3-27, per R-062."
+
+**Ruling:** **PHASE 2 STAYS AT 6 OF 9 AND PHASE 3 STAYS AT 0 OF 9. NOTHING
+FLIPS.** The audit is recorded because DOCTRINE-TRIAGE section 4 says an audit
+that flips nothing is still the most useful thing the next session can read.
+
+**PHASE 2, THE THREE OPEN CONDITIONS, EACH WITH ITS DECIDING CLAUSE.**
+
+- **G4**, AI extraction end to end. Deciding clause as re-derived by R-053: the
+  ingest endpoint asserted against a fixture. P2-08a is unshipped and P2-08b is
+  `blocked` on `andre`. Unchanged since the 2026-08-28 audit under R-046.
+- **G7**, a real Resend email from a real threshold crossing. Deciding clause: one
+  real email delivered on production. The three things standing in front of it are
+  the three the 2026-08-27 audit named and none has moved: `RESEND_API_KEY` in the
+  production environment, `RESEND_FROM` set, and a recipient that is not on
+  `rc-inventory.local`, a domain that does not exist. Two are clicks in a hosting
+  console and the third lands at P2-13.
+- **G9**, Mihai completes one full cycle himself. Deciding clause: P2-14 recording
+  it. P2-14 is `blocked` on `client` as of this run, per R-072.
+
+**NONE OF THE THREE IS BACKLOG AND THE SECTION 4 RULE IS RESTATED SO A READER
+DOES NOT GO HUNTING.** G4 needs a third party, G7 needs actions in consoles no
+terminal holds, and G9 needs the client to do something himself. There is no card
+a terminal can pick up that closes any of them.
+
+**THE P3-13 REPORT MOVED NO GATE ON EITHER BOARD, AND THE QUOTED LINE IS WHY.**
+`0025_deviz.sql` is authored, parsed, proven against a bare `postgres:16` and
+merged, and it has never been applied to anything. Every phase 3 gate condition
+says "on production". A file in `supabase/migrations/` is not production, and
+thirteen of them now wait on P3-27.
+
+**THE PHASE 3 AUDIT IS NOT REPEATED HERE, DELIBERATELY.** R-065 audited all nine
+conditions on 2026-08-31 and wrote the audit into all nine `evidence` fields. That
+work is in PR #126 and is not on `main`. Writing a second audit into the same nine
+fields would conflict with it and, on resolution, would very likely delete it,
+which is the opposite of what section 4 exists for. **This run therefore edits no
+field of `docs/board/rc-board-phase3.json` at all.** Nothing has happened since
+R-065 that could flip any of the nine: no migration has been applied and no card
+has shipped on production. When RST-03 lands #126, R-065's audit is the current
+one and this ruling is its confirmation.
+
+**ONE DIVERGENCE FROM THE RUBRIC, STATED SO THE NEXT RUN REACHES THE SAME
+ANSWER.** DOCTRINE-TRIAGE section 4.4 says to write the audit into `evidence.ref`.
+On this board a failing condition carries `evidence: null` and both prior audits,
+R-023's and R-046's, are in the condition's `notes`. This audit goes to `notes`
+too, because three audits of one gate in two different fields is a record a
+stranger has to assemble. The rubric and the board practice disagree and the board
+practice is two audits old; correcting DOCTRINE-TRIAGE is AUT-15's business, and
+AUT-15 is in PR #126.
+
+**Unblocks:** nothing. A gate is not work.
+**Also changes:** the `notes` of G4, G7 and G9 on
+`docs/board/rc-board-phase2.json`.
+**Supersedes:** none. It confirms R-046 for phase 2 and R-065 for phase 3.
