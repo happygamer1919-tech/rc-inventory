@@ -2488,3 +2488,33 @@ RULE: **un test care isi construieste propria unicitate trebuie sa fie rulat de
 doua ori la rand pe aceeasi baza de date inainte sa fie crezut.** Un CI care
 provizioneaza o baza noua la fiecare rulare nu poate distinge un token unic de
 unul constant, si nu il poate distinge tocmai pentru ca este curat.
+
+### `npm install --package-lock-only` rescrie arbori de dependinte optionale care nu au legatura cu modificarea
+
+**Tag:** ci
+
+**ERROR:** Declararea lui `@next/env` ca devDependency are nevoie de o singura linie
+noua in `package-lock.json`, in `packages[""].devDependencies`, pentru ca intrarea
+`node_modules/@next/env` exista deja acolo la 16.3.1 ca dependinta a lui next.
+`npm install --package-lock-only` a produs in schimb un diff de 67 de randuri: pe
+langa linia necesara, a re-expandat sase pachete de sub
+`@tailwindcss/oxide-wasm32-wasi` (@emnapi/core, @emnapi/runtime, @emnapi/wasi-threads,
+@napi-rs/wasm-runtime, @tybys/wasm-util, tslib), care nu au nicio legatura cu
+modificarea.
+
+Un diff de 67 de randuri intr-un fisier blocat este un diff pe care nimeni nu il
+citeste. Exact acolo trece neobservata o schimbare reala de versiune.
+
+**SOLUTION:** Diff-ul a fost dat inapoi si linia necesara scrisa de mana, apoi
+`npm ci` a fost rulat ca sa dovedeasca faptul ca fisierul blocat este in continuare
+consistent, pentru ca `npm ci` este ce ruleaza CI si el refuza un lock nepotrivit cu
+package.json.
+
+RULE: **dupa orice comanda npm care atinge fisierul blocat, citeste diff-ul si
+pastreaza numai ce tine de modificare.** Un fisier blocat este un artefact generat,
+dar asta nu il scuteste de review: este si singura evidenta a ceea ce se instaleaza
+efectiv.
+
+RULE: **`npm ci` este proba, nu `npm install`.** Ele nu fac acelasi lucru: `install`
+repara pe tacute un lock inconsistent, `ci` cade. Daca CI ruleaza `ci`, atunci `ci`
+este comanda cu care se verifica local, altfel se descopera diferenta in CI.

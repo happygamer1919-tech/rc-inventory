@@ -10,9 +10,7 @@ import { hasPhase3Schema } from "./schema-capability";
 import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
 import type { OutboundIssue, OutboundStatus } from "./outbound-types";
-
-export type { OutboundIssue, OutboundLine, OutboundStatus } from "./outbound-types";
-export { OUTBOUND_STATUS_LABEL } from "./outbound-types";
+import { one } from "./row";
 
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
@@ -78,11 +76,6 @@ type IssueRow = {
 
 /** Supabase tipizeaza o relatie ca obiect sau ca tablou dupa forma cheii
  *  straine, asa ca amandoua formele sunt acceptate in loc sa fie presupusa una. */
-function one<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
-
 function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
   const project = one(row.projects);
   const client = one(project?.clients ?? null);

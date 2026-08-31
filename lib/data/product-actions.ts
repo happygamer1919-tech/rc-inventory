@@ -17,6 +17,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
 import { hasPhase3Schema } from "./schema-capability";
+import { one } from "./row";
 
 export type ActionResult =
   | { ok: true }
@@ -144,7 +145,7 @@ async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
   const { data: existing } = await supabase.rpc("find_supplier_by_folded_name", {
     p_name: value,
   });
-  const found = Array.isArray(existing) ? existing[0] : existing;
+  const found = one(existing);
   if (found?.id)
     return {
       ok: true,

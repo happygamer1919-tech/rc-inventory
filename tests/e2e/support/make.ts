@@ -36,7 +36,7 @@ export type FiredRequest = {
   callbackUrl: string | null;
 };
 
-export async function firedRequests(request: APIRequestContext): Promise<FiredRequest[]> {
+async function firedRequests(request: APIRequestContext): Promise<FiredRequest[]> {
   const r = await request.get(`${MAKE_MOCK_URL}/__fired`);
   if (!r.ok()) return [];
   return ((await r.json()) as { fired: FiredRequest[] }).fired;

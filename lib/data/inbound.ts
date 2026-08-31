@@ -10,11 +10,6 @@ import { createClient } from "@/lib/supabase/server";
 import { isUnitCode, type UnitCode } from "./units";
 import type { Currency, InboundOrder, InboundStatus, StatusEvent } from "./inbound-types";
 
-// Tipurile si etichetele traiesc in ./inbound-types, care nu importa nimic
-// de server, ca sa poata fi citite si din componente de client.
-export type { Currency, InboundLine, InboundOrder, InboundStatus, StatusEvent } from "./inbound-types";
-export { INBOUND_STATUS_LABEL } from "./inbound-types";
-
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
   const n = typeof value === "number" ? value : Number(value);

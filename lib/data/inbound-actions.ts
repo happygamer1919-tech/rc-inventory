@@ -15,6 +15,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
+import { one, safeFileName } from "./row";
 // Un fisier "use server" are voie sa exporte NUMAI functii async, deci
 // constantele si tipurile stau in ./inbound-types si se importa de acolo.
 import {
@@ -126,7 +127,7 @@ export async function receiveInboundOrder(
 
   if (error) return translateWriteError(error.code, error.message);
 
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = one(data);
 
   // Receptia ESTE miscarea de stoc pe intrare: creeaza loturile, deci stocul
   // urca. Verificarea de aici este cea care REARMEAZA mementourile produselor
@@ -178,14 +179,7 @@ export async function uploadOrderDocument(
   if (file.size > MAX_DOC_BYTES)
     return { ok: false, message: "Fișierul depășește 10 MB." };
 
-  const safeName = file.name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120);
-
-  const path = `inbound/${orderId}/${safeName || "document"}`;
+  const path = `inbound/${orderId}/${safeFileName(file.name)}`;
 
   const supabase = await createClient();
   const { error: uploadError } = await supabase.storage

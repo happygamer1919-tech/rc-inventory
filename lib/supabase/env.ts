@@ -51,13 +51,3 @@ export function supabaseAnonKey(): string {
   return RAW_ANON_KEY.trim();
 }
 
-/**
- * Verificarea de pornire: numeste variabilele lipsa si nimic altceva.
- * P2-11 o extinde; aici acopera doar ce are nevoie autentificarea.
- */
-export function missingAuthEnvVars(): string[] {
-  const missing: string[] = [];
-  if (!present(RAW_URL)) missing.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!present(RAW_ANON_KEY)) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  return missing;
-}

@@ -64,7 +64,3 @@ export async function hasPhase3Schema(): Promise<boolean> {
   return cached.value;
 }
 
-/** Doar pentru teste. Nimic din aplicatie nu cheama asta. */
-export function resetPhase3SchemaCache(): void {
-  cached = null;
-}

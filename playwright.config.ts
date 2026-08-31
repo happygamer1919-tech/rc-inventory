@@ -21,7 +21,11 @@ import {
 // cu acelasi cititor pe care il foloseste Next, ca fisierul citit de teste sa
 // fie exact fisierul citit de aplicatie.
 //
-// @next/env este dependinta directa a lui next, deci nu se adauga nimic nou.
+// @next/env este DECLARAT ca devDependency, desi vine oricum cu next. Un import
+// direct dintr-un pachet care ajunge aici doar ca dependinta a altcuiva merge
+// pana in ziua in care celalalt isi rearanjeaza dependintele, si atunci se rupe
+// fara ca nimic din acest repozitoriu sa se fi schimbat. Versiunea urmareste
+// intervalul lui next, ca npm sa pastreze o singura copie deduplicata.
 loadEnvConfig(process.cwd());
 
 // Configuratia Playwright.

@@ -8,7 +8,6 @@ export const FORBIDDEN_PATH = "/acces-interzis";
 // acelasi lucru cu FORBIDDEN_PATH: acela inseamna "ai rol, dar nu acesta",
 // acesta inseamna "nu ai niciun rol".
 export const NO_PROFILE_PATH = "/cont-fara-acces";
-export const HOME_PATH = "/";
 
 /** Rute pe care le poate deschide numai rolul owner. */
 export const OWNER_ONLY_PREFIXES = ["/setari"] as const;

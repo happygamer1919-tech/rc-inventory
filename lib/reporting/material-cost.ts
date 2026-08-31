@@ -67,7 +67,7 @@ const MONTHS_RO = [
  *  cifre. Gruparea in Europe/Chisinau s-a facut deja in SQL, asa ca aici se
  *  citeste sirul de date fara sa se construiasca un Date, care ar reintroduce
  *  fusul orar al serverului exact acolo unde tocmai a fost scos. */
-export function monthLabelRo(monthStart: string | null): string {
+function monthLabelRo(monthStart: string | null): string {
   if (!monthStart) return "-";
   const [y, m] = monthStart.split("T")[0]!.split("-");
   const index = Number(m) - 1;

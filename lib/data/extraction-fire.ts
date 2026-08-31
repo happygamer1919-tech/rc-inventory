@@ -91,7 +91,14 @@ export async function fireExtraction(input: {
       };
     }
 
-    const secret = process.env.MAKE_WEBHOOK_SECRET ?? "";
+    // FARA `?? ""`. Un secret gol nu este un secret: se trimitea un antet
+    // X-RC-Secret vid, Make raspundea 401, si ecranul spunea "Make a raspuns
+    // 401" in loc sa spuna care variabila lipseste. Refuzul aici numeste
+    // variabila, exact ca verificarea lui MAKE_WEBHOOK_URL de mai sus.
+    const secret = process.env.MAKE_WEBHOOK_SECRET;
+    if (!secret) {
+      return { ok: false, reason: "Variabila de mediu MAKE_WEBHOOK_SECRET lipseste." };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
