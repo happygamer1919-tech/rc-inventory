@@ -1,59 +1,35 @@
 {
-  "run_id": "20260827-220052",
-  "report": "docs/reports/2026-08-28-executor-critic-acceptance-pass.md",
+  "run_id": "20260830-220004",
+  "report": "docs/reports/2026-08-31-executor-p3-11-material-cost.md",
   "rulings_written": [
-    "R-039",
-    "R-040",
-    "R-041",
-    "R-042",
-    "R-043",
-    "R-044",
-    "R-045",
-    "R-046"
+    "R-063",
+    "R-064",
+    "R-065",
+    "R-066"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-13",
-      "change": "depends_on now names P2-15, P2-08b and P2-19. Capability edge under R-044: this card permanently removes any terminal's ability to open a database connection, and P2-19 is the card that needs it."
+      "card_id": "P3-04b",
+      "change": "depends_on now names P3-04, P3-10 and P3-27. Old edge was P3-04 and P3-10. Under R-065: every existing edge was shipped and the card was still blocked on Ivan, asking him word for word the question P3-27 already asks. The apply is another card's question, so it is now an edge instead of a third copy of the same ask. It stays blocked on Ivan for the half that really is his: reading the reconciliation list with Mihai before a column is dropped."
     },
     {
-      "card_id": "AUT-3",
-      "change": "PROPOSED status in_flight to todo under R-045, NOT APPLIED AT LANDING. The EXECUTOR pass that landed this PR (see docs/reports/2026-08-28-executor-land-triage-83.md) was directed to leave AUT-3 exactly as it stands on main: status in_flight, evidence null. R-045 itself is landed unedited in decisions/inbox.md; only its board effect is withheld. The board is the source of truth, so nothing in this run resequenced AUT-3."
+      "card_id": "P3-05b",
+      "change": "depends_on now names P3-05, P3-10 and P3-27. Old edge was P3-05 and P3-10. Same finding and same fix as P3-04b, under R-065."
     },
     {
-      "card_id": "AUT-8",
-      "change": "authored by TRIAGE under R-040 from finding 1. Take the system passwords away from the overnight session except at the one step that needs them."
+      "card_id": "P3-28",
+      "change": "authored by TRIAGE under R-066, from the P3-11 report. Record the price of a material on the release at the moment it leaves the warehouse, so that editing a product price stops silently rewriting what past jobs appear to have cost."
     },
     {
-      "card_id": "AUT-9",
-      "change": "authored by TRIAGE under R-042 from finding 3. Make the 45 minute stop actually stop, so one stuck session cannot eat the rest of the night."
-    },
-    {
-      "card_id": "AUT-10",
-      "change": "authored by TRIAGE under R-041 from finding 2. Write the two pieces of already delivered work onto the work list so it stops undercounting what exists."
-    },
-    {
-      "card_id": "AUT-11",
-      "change": "authored by TRIAGE under R-041 from finding 2, depends_on AUT-10. A check that refuses delivered work carrying a label that is not on the list."
+      "card_id": "BOARD-02",
+      "change": "authored by TRIAGE under R-064, from section 4b of the P3-11 report. Make the work list read a real clock: its last-updated date had drifted nine hours into the future and was still growing."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The leftover test data is still sitting in the client's live system, and the cleanup is ready to run.",
-      "recommendation": "Run it once, now. Both conditions that were holding it back are met, the file has been machine checked eight ways, and it is the single action that unblocks the most work. Waiting only raises the chance that real data arrives first and the cleanup can never be run at all."
-    },
-    {
-      "title": "The system's own record of which database updates are installed is three versions out of date, and only Ivan can correct it.",
-      "recommendation": "Run the prepared file in the database console, roughly two minutes, and paste back the two grids. Decline the alternative of letting the overnight sessions connect to the database directly: that widens access at exactly the moment those sessions are carrying passwords they should not have, and the permission would be revoked a few cards later anyway."
-    },
-    {
-      "title": "The overnight sessions cannot run the automated screen tests at all, so they can only deliver documentation and planning, never a feature. Fixing it needs Docker installed on the machine.",
-      "recommendation": "Install Docker Desktop on the build machine, and check whether the free licence covers this use before installing. It is the only way an unattended session can ever finish a feature. If the answer is no, say so and the overnight sessions stay limited to planning and review work, which should then be stated openly rather than discovered card by card."
-    },
-    {
-      "title": "Andre has still not run one real supplier document through the extraction, and three of the nine launch conditions cannot move until he does.",
-      "recommendation": "Chase him with a date attached. Everything on our side of the extraction is built and tested against the agreed contract; what is missing is one real document making the round trip. Without a date, the launch conditions for the automatic reading of documents, for the client's own sign off, and the final credential handover all stay frozen indefinitely."
+      "title": "P3-27: twelve merged migration files have never been applied to the live Supabase project, and all nine phase 3 launch gate conditions are behind that one action.",
+      "recommendation": "Answer P3-27 with option (b): lift the one sentence of the 2026-08-30 dispatch that says no terminal opens a database connection, and let EXECUTOR apply all twelve files in file order under the three-phase apply in CLAUDE.md 8.5, journalling every phase into docs/migrations/APPLY-LOG.md. Wave 1 is complete, so the reason to wait has already been met; R-001 already authorises it and has not been revoked; and none of the twelve contains DROP TABLE, TRUNCATE or DELETE, so section 8.6 does not stop any of them. If Ivan prefers to run them himself in the Supabase SQL editor, that is option (a) and it closes the same gap, one sitting, in file order 0013 to 0024, pasting the verification grids at the foot of each file back onto the card. IF UNANSWERED: eleven shipped cards stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 no matter what ships next, and P3-04b and P3-05b stay parked behind it. Nothing breaks and nothing gets worse, which is exactly why this question has now gone unanswered longer than any other on the board."
     }
   ]
 }
