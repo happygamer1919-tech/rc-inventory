@@ -5,7 +5,8 @@
     "R-063",
     "R-064",
     "R-065",
-    "R-066"
+    "R-066",
+    "R-067"
   ],
   "cards_resequenced": [
     {
@@ -23,6 +24,10 @@
     {
       "card_id": "BOARD-02",
       "change": "authored by TRIAGE under R-064, from section 4b of the P3-11 report. Make the work list read a real clock: its last-updated date had drifted nine hours into the future and was still growing."
+    },
+    {
+      "card_id": "AUT-15",
+      "change": "authored by TRIAGE under R-067, from a defect in DOCTRINE-TRIAGE.md found by applying it. The rulebook for the reviewing step tells it to read one file and nothing else, then gives it four jobs that need several more. AUTHOR corrects the sentence; TRIAGE does not edit the document that constrains it."
     }
   ],
   "gates_flipped": [],

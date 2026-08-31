@@ -3348,3 +3348,57 @@ reads `lib/reporting/material-cost.ts` and inherits whatever that module does.
 from 31 to 32 cards; `notes` on P3-11.
 **Supersedes:** the "for Ivan" clause of the AUTHOR note on P3-11, quoted where it
 is replaced. Nothing in this file.
+
+---
+
+### R-067 - DOCTRINE-TRIAGE's input clause contradicts its own sections 2 to 5, and the correction is a card for AUTHOR rather than an edit by TRIAGE
+**Date:** 2026-08-31
+**Asked on:** AUT-2, AUT-3, and every future TRIAGE run
+**Answer, verbatim:**
+> from docs/DOCTRINE-TRIAGE.md, "What TRIAGE is", quoted because this ruling is
+> about that file rather than about the report:
+>
+> It receives no dispatch text, no summary and no context. It finds its own
+> input: **the newest file in `docs/reports/`** by the dated naming convention in
+> `CLAUDE.md` section 9b. If it needs to know something that is not in that
+> report or in this file, **that is a defect in this file**, and saying so is a
+> legitimate TRIAGE output.
+
+**Ruling:** the invitation in that last sentence is taken. **The clause is wrong
+as written, and it is wrong against three later sections of the same document.**
+
+- **Section 2** requires the next free ruling id, which is only knowable from
+  `decisions/inbox.md`.
+- **Section 3** requires all four `depends_on` checks "over the whole board and
+  not only the cards the report touched", which is only knowable from the board
+  files.
+- **Section 4** requires each failing gate to be audited against committed
+  artefacts, naming "a PR number, a run id, a journal entry, a named screenshot".
+- **Section 5** forbids authoring a card for something an open card already
+  covers, which is only knowable from the board.
+
+**A TRIAGE session obeying the input clause literally cannot perform sections 2
+through 5.** This run opened both board files, `decisions/inbox.md`,
+`docs/migrations/APPLY-LOG.md`, `CLAUDE.md` and the git history, and every one of
+those reads was mandatory. Two of the four rulings in this pull request could not
+otherwise exist: R-064's drift table is git history, and R-065's audit is the
+board plus the migration register.
+
+**THE INTENDED READING IS OBVIOUS AND THE WORDING SHOULD SAY IT.** Section 6 of
+the same file states the rule the clause is reaching for: **ground truth is
+committed repository files only.** The report is the only DISPATCH, not the only
+readable file. What the clause correctly forbids is a human handing TRIAGE a
+summary, a chat message or a verbal ratification, which is R-050's point.
+
+**IT IS NOT FIXED HERE, AND THAT RESTRAINT IS THE OTHER HALF OF THE RULING.**
+`CLAUDE.md` section 1 gives governing documents to AUTHOR, and DOCTRINE-TRIAGE is
+TRIAGE's own rubric. A role that rewrites the document that constrains it has
+removed the constraint, whatever the edit says, and "two TRIAGE runs over the same
+report must reach the same answer" is worth exactly as much as the stability of
+the file that produces the answer. So the correction is **AUT-15**, authored for
+AUTHOR, with the wording it must satisfy written into the card.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, which gains AUT-15.
+**Supersedes:** none. It proposes an amendment to `docs/DOCTRINE-TRIAGE.md` and
+does not make one.
