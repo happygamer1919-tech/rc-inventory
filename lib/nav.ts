@@ -68,6 +68,12 @@ export const NAV: NavGroup[] = [
         icon: "clients",
         description: "Beneficiarii, cu datele lor de contact și proiectele lor",
       },
+      {
+        href: "/proiecte",
+        label: "Proiecte",
+        icon: "projects",
+        description: "Șantierele, cu stadiul lor și cu bugetul lor",
+      },
     ],
   },
   {
