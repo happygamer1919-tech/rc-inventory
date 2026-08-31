@@ -1,46 +1,58 @@
 {
-  "run_id": "20260831-010005",
-  "report": "docs/reports/2026-08-31-executor-p3-13-deviz-schema.md",
+  "run_id": "20260831-040003",
+  "report": "docs/reports/2026-08-31-executor-p3-13b-deviz-editor.md",
   "rulings_written": [
-    "R-068",
-    "R-069",
-    "R-070",
-    "R-071",
-    "R-072",
-    "R-073",
-    "R-074"
+    "R-075",
+    "R-076",
+    "R-077",
+    "R-078",
+    "R-079",
+    "R-080",
+    "R-081"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-13",
-      "change": "acceptance gains the capability precondition, and notes gain the reasoning. Under R-072: this card switches off the builder's database access, and thirteen migration files that have never reached the live database need exactly that access. Before any password is changed, the runbook must carry a ticked box confirming every migration file is recorded as applied. No dependency edge was added because the two cards are on different work lists and the checker rejects an edge across them."
+      "card_id": "P2-20",
+      "change": "authored by TRIAGE under R-080, and it is the first card the AI reading readiness condition has ever had. That condition was rewritten on 2026-08-28 so it no longer waits on the outside supplier, and the two pieces of work that rewrite created were never written onto the list. Three of its five checks turn out to already be built and passing, and nobody had recorded it. This card is the two that are missing: an address that has been mis-set and silently swallows every document while reporting success, and a file too big to accept."
     },
     {
-      "card_id": "P2-14",
-      "change": "status corrected from todo to blocked, so it now sits in the BLOCKED ON PEOPLE lane under the client column. Under R-072: the card already recorded that it was waiting on the client, and its status field said otherwise. Nothing about the work changed. The counts move with it, from 10 waiting and 1 blocked to 11 waiting and 2 blocked, counting the new cards."
+      "card_id": "AUT-17",
+      "change": "authored by TRIAGE under R-075, from the instruction this reviewing session itself received. The nightly review step was handed a write-up that had already been reviewed three hours earlier, while the one its own session had just produced sat unread in an unpublished change. Left alone, a future session repeats a finished review and nothing anywhere notices."
     },
     {
-      "card_id": "AUT-16",
-      "change": "authored by TRIAGE under R-071, from the P3-13 report and from two consequences it did not find. Teach the overnight system to read both work lists. Today it reads only the old one, which means Ivan cannot answer a question about the new one from Telegram, and the daily summary he reads cannot see the twelve items finished on it since 2026-08-30."
+      "card_id": "AUT-18",
+      "change": "authored by TRIAGE under R-078. Two pieces of finished work are sitting in unpublished changes that cannot be published as they stand, and nothing in the nightly run mentions either. Each run will list what is still open and flag anything stuck, the same night, instead of it being found by hand days later. It publishes nothing itself."
+    },
+    {
+      "card_id": "P2-08b",
+      "change": "the line on the card saying the readiness condition stays failed until the outside supplier answers has been false since 2026-08-28 and is corrected underneath rather than rewritten, under R-080. Nothing new is asked of him and the wording of the ask is untouched. What changed is that no readiness condition waits on him any more."
+    },
+    {
+      "card_id": "P3-21",
+      "change": "the finish line gains a second half under R-079. The Romanian sweep already promised to fix words missing their accents, and nothing checked it, so one shipped last night and was caught by luck. The check must now refuse a known word spelled without its accent, seeded with the one that already cost a run."
     },
     {
       "card_id": "RST-03",
-      "change": "authored by TRIAGE under R-070, from section 3a of the P3-13 report. Publish the finished review work from the earlier overnight session that is stuck outside the main line: five decisions, three new items and one report, all committed and all invisible until this lands."
+      "change": "its finish line is met in full on published evidence, recorded under R-077 and deliberately NOT marked done: the reviewing role may not mark work complete, because that needs the checks actually run and this role runs none. Four read-only commands and one field remain, which makes it the cheapest item on either list."
     },
     {
-      "card_id": "RST-02",
-      "change": "notes gain the systemic half of R-070. The automatic sweep that rescues abandoned work cannot rescue work that has fallen out of step with the main line, and today it passes over it in silence. It must say so instead. No dependency edge changed."
+      "card_id": "RST-02 and AUT-16",
+      "change": "notes only, no dependency changed. RST-02 gains the boundary with the new AUT-18 so the two are not half-done twice. AUT-16 gains today's instance of a consequence its finish line already covers."
     },
     {
-      "card_id": "P3-04b and P3-05b",
-      "change": "NOT resequenced here, deliberately. The check fired on both and the earlier review session already made exactly this change in the work that RST-03 publishes. Making it a second time would collide with that work and would most likely delete it. Recorded rather than repeated."
+      "card_id": "P3-13b",
+      "change": "NOT edited, deliberately, and this is the same call the previous review made. The unpublished change that carries this item already records its failed checks and the cause in the exact fields this role would write to. Writing a second copy would collide with it and most likely delete the builder's own account of its night."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Thirteen finished pieces of database work have never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the second time it has been raised: the first is still stuck outside the main line, in the work RST-03 publishes.",
-      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission already exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. ONE PRACTICAL NOTE BEFORE YOU REPLY: the Telegram answer channel currently cannot resolve a phase 3 item at all, so `R P3-27 default` will be refused as an unknown item. That is card AUT-16 and it is the reason this run authored it. Until AUT-16 ships, answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped cards stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and P3-04b and P3-05b stay parked behind it. Nothing breaks and nothing gets worse, which is exactly why this has now gone unanswered longer than anything else on either board."
+      "title": "Thirteen finished pieces of database work have still never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the third night it has been raised and the fifth run that has named it.",
+      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. PRACTICAL NOTE, UNCHANGED FROM LAST NIGHT: the Telegram answer channel still cannot resolve a phase 3 item, so `R P3-27 default` will be refused as an unknown item until card AUT-16 ships. Answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped items stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and two further items stay parked behind it. Nothing breaks and nothing gets worse, which is why this has now gone unanswered longer than anything else."
+    },
+    {
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded inside a readiness condition since 2026-08-26 and have never once been put in front of you. Setting them is two clicks and it does not, on its own, close that condition.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential rotation checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED SO YOU ARE NOT SURPRISED LATER: this does NOT make the readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at P2-13. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on rotation day instead."
     }
   ]
 }
