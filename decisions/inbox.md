@@ -4433,3 +4433,67 @@ stranger can reproduce it on, and the one card whose state differs is named.
 **Unblocks:** nothing. A sweep is not work.
 **Supersedes:** none. It confirms R-072's four checks and adds the P2-08 half that
 check 4 was written to catch.
+### R-082
+
+**Migration apply under assertion. CLAUDE.md 8.6 is amended.**
+
+**Asked by:** card P3-27a, on the owner's dispatch of 2026-08-31.
+**Decided by:** the owner, in that dispatch, in his own words.
+
+**THE GAP THIS CLOSES, AND IT WAS REAL RATHER THAN THEORETICAL.** Thirteen
+migrations are merged and unapplied. Nothing in the rulings so far let a terminal
+apply them:
+
+- **R-047** permits a terminal to execute an assertion-bearing SCRIPT against the
+  phase 2 database. It says in terms that **MIGRATIONS ARE NOT IN SCOPE**, because
+  migrations have their own three-phase path in 8.5 and their own stop in 8.6.
+- **R-049, R-056 and R-059** widened the SELF-MERGE grant, twice, to every path
+  and to four roles. None of them touched 8.6, and section 3.1 says so itself:
+  merging a migration file changes one text file in a git repository and changes
+  nothing in any database. **Merging the file is not applying it.**
+
+So the apply was reachable by nobody, and P3-27 had been blocked on the owner
+since it was authored. This ruling closes that explicitly rather than letting
+somebody infer it from the self-merge grant, which is the inference 3.1 was
+written to forbid.
+
+**THE GRANT.** A terminal may apply merged migrations to the production database
+ONLY through an applier that:
+
+- runs the whole batch inside **one transaction**
+- records the **pending register** and the **applied ledger** before and after
+- evaluates its assertions **in SQL**, inside that transaction, after the
+  mutations and before the commit
+- **commits only on all-pass**, and otherwise rolls back whole and exits non-zero
+  naming every failure
+- **never chooses.** It does not read a grid and decide, it does not judge whether
+  a count is close enough, and it does not continue past a deviation because the
+  deviation is explainable. The script decides. The terminal reports what the
+  script decided and nothing else.
+
+That last clause is R-047's fourth condition, repeated here rather than
+cross-referenced, because it is the whole reason either grant is safe.
+
+**THE ABSOLUTE EXCLUSION IS UNCHANGED.** `DROP TABLE`, `TRUNCATE` and `DELETE`
+are never auto-applied, by this applier or by anything else. Encountering one is
+an immediate refusal with **nothing executed**, the statement quoted verbatim, and
+the card goes `blocked_on: ivan`. No exception, no judgement call, no "it is
+obviously safe here".
+
+**`DROP FUNCTION` IS PERMITTED, UNDER ONE ADDITIONAL ASSERTION.** It removes a
+rule about rows and no row, which is the class 8.6 already lists as permitted
+alongside `DROP INDEX`, `DROP POLICY` and `DROP TRIGGER`. The additional
+assertion, evaluated BEFORE the drop executes, is that the target function has
+**zero dependent objects** and is **named by no deployed route that is not behind
+the phase 3 probe**. If it has any, the whole batch rolls back. The exact `DROP`
+statement is printed to stdout whatever happens, so it can be quoted to the owner
+from the run output alone.
+
+**REVOKED BY P2-13**, with every other terminal grant, exactly as 8.7 says.
+
+**ONE DEVIATION IS ALREADY KNOWN AND IT IS BOUNDED, see the P3-27a report.**
+PostgreSQL refuses to let a newly added enum label be USED in the transaction
+that added it, and this batch does exactly that across 0015 and 0021. The applier
+therefore commits enum additions in a pre-phase of their own, and refuses to put
+anything but `ALTER TYPE ... ADD VALUE IF NOT EXISTS` in it. The only thing that
+can survive a rollback of the main batch is an unused, idempotent enum label.
