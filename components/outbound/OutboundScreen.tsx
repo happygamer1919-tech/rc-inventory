@@ -55,9 +55,18 @@ type Created = {
 export function OutboundScreen({
   products,
   projects,
+  phase3,
+  clientNames,
+  projectNames,
 }: {
   products: CatalogProduct[];
   projects: SelectableProject[];
+  /** False cat timp migratiile fazei 3 nu sunt aplicate. Vezi
+   *  lib/data/schema-capability.ts: pe o baza fara tabela de proiecte nu exista
+   *  nimic de ales, iar destinatia revine la text liber. */
+  phase3: boolean;
+  clientNames: string[];
+  projectNames: string[];
 }) {
   const router = useRouter();
   // O SINGURA ALEGERE, NU DOUA. Pana la P3-04 aici erau doua casute de text
@@ -67,6 +76,9 @@ export function OutboundScreen({
   // cere amandoua ar fi doua intrebari cu un singur raspuns si un mod de a
   // gresi.
   const [projectId, setProjectId] = React.useState("");
+  // Calea de rezerva: aceleasi doua casute de text liber ca inainte de P3-04.
+  const [client, setClient] = React.useState("");
+  const [projectText, setProjectText] = React.useState("");
   const [lines, setLines] = React.useState<Line[]>([emptyLine()]);
   const [touched, setTouched] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -132,7 +144,9 @@ export function OutboundScreen({
 
     setPending(true);
     const result = await createOutboundIssue({
-      projectId: project!.id,
+      projectId: phase3 ? project!.id : "",
+      clientName: client,
+      projectName: projectText,
       lines: filled.map((l) => ({
         productId: l.productId,
         quantity: l.quantity,
@@ -153,8 +167,8 @@ export function OutboundScreen({
       // Numele afisate pe confirmare sunt cele ale proiectului ales, nu ce a
       // scris cineva: aceleasi pe care le-a scris si baza de date, pentru ca
       // 0018 le ia tot de la proiect.
-      clientName: project!.clientName,
-      projectName: project!.name,
+      clientName: phase3 ? project!.clientName : client.trim(),
+      projectName: phase3 ? project!.name : projectText.trim(),
       lineCount: filled.length,
     });
     setPending(false);
@@ -195,6 +209,8 @@ export function OutboundScreen({
                 onClick={() => {
                   setCreated(null);
                   setProjectId("");
+                  setClient("");
+                  setProjectText("");
                   setLines([emptyLine()]);
                   setTouched(false);
                 }}
@@ -238,31 +254,63 @@ export function OutboundScreen({
       <div className="space-y-4" data-testid="outbound-form">
         <Card>
           <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />
-          <div className="p-5 grid grid-cols-2 gap-4">
-            <Field label="Proiect" required>
-              <div data-testid="field-project">
-                <Combobox
-                  options={projectOptions}
-                  value={projectId}
-                  onChange={setProjectId}
-                  placeholder="Caută șantierul sau clientul"
-                  emptyLabel="Niciun proiect deschis"
-                />
-              </div>
-            </Field>
-            <Field label="Client">
-              {/* Nu se alege: se citeste de pe proiect. Randul ramane ca sa se
-                  vada CATRE CINE pleaca, ceea ce este intrebarea pe care si-o
-                  pune operatorul inainte sa apese. */}
-              <div
-                data-testid="field-client"
-                data-client={project?.clientName ?? ""}
-                className="h-9 flex items-center px-3 text-sm text-slate-600"
-              >
-                {project ? project.clientName : "Se completează din proiect"}
-              </div>
-            </Field>
-          </div>
+          {phase3 ? (
+            <div className="p-5 grid grid-cols-2 gap-4">
+              <Field label="Proiect" required>
+                <div data-testid="field-project">
+                  <Combobox
+                    options={projectOptions}
+                    value={projectId}
+                    onChange={setProjectId}
+                    placeholder="Caută șantierul sau clientul"
+                    emptyLabel="Niciun proiect deschis"
+                  />
+                </div>
+              </Field>
+              <Field label="Client">
+                {/* Nu se alege: se citeste de pe proiect. Randul ramane ca sa se
+                    vada CATRE CINE pleaca, ceea ce este intrebarea pe care si-o
+                    pune operatorul inainte sa apese. */}
+                <div
+                  data-testid="field-client"
+                  data-client={project?.clientName ?? ""}
+                  className="h-9 flex items-center px-3 text-sm text-slate-600"
+                >
+                  {project ? project.clientName : "Se completează din proiect"}
+                </div>
+              </Field>
+            </div>
+          ) : (
+            /* CALEA DE REZERVA, cat timp migratiile fazei 3 nu sunt aplicate.
+               Nu exista tabela de proiecte, deci nu exista nimic de ales, si un
+               selector obligatoriu pe o lista goala inseamna un depozit care nu
+               poate elibera material. Sunt exact cele doua casute de dinainte de
+               P3-04, si dispar singure in clipa aplicarii. */
+            <div className="p-5 grid grid-cols-2 gap-4">
+              <Field label="Client" required>
+                <div data-testid="field-client">
+                  <Combobox
+                    options={clientNames.map((c) => ({ value: c, label: c }))}
+                    value={client}
+                    onChange={setClient}
+                    creatable
+                    placeholder="Caută sau scrie un client nou"
+                  />
+                </div>
+              </Field>
+              <Field label="Proiect" required>
+                <div data-testid="field-project">
+                  <Combobox
+                    options={projectNames.map((p) => ({ value: p, label: p }))}
+                    value={projectText}
+                    onChange={setProjectText}
+                    creatable
+                    placeholder="Caută sau scrie un proiect nou"
+                  />
+                </div>
+              </Field>
+            </div>
+          )}
         </Card>
 
         <Card>
