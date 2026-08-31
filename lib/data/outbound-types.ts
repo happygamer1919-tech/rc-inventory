@@ -50,6 +50,10 @@ export type NewIssueInput = {
    *  ca cele doua reprezentari sa nu poata descrie destinatii diferite cat timp
    *  exista amandoua. */
   projectId: string;
+  /** Calea de rezerva, folosita numai cat timp migratiile fazei 3 nu sunt
+   *  aplicate si nu exista niciun proiect de ales. Vezi lib/data/outbound.ts. */
+  clientName?: string;
+  projectName?: string;
   lines: NewIssueLine[];
 };
 

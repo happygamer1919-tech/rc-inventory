@@ -13,6 +13,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { hasPhase3Schema } from "./schema-capability";
 import type { SupplierOption } from "./suppliers-types";
 import { isUnitCode, type UnitCode } from "./units";
 
@@ -102,7 +103,7 @@ type ProductRow = {
   threshold: unknown;
   unit_value_mdl: unknown;
   supplier_name: string | null;
-  supplier_id: string | null;
+  supplier_id?: string | null;
   needs_review: boolean;
   active: boolean;
   categories: { name: string } | null;
@@ -119,7 +120,7 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
     threshold: toNumber(row.threshold),
     unitValueMdl: toNumber(row.unit_value_mdl),
     supplierName: row.supplier_name,
-    supplierId: row.supplier_id,
+    supplierId: row.supplier_id ?? null,
     needsReview: row.needs_review,
     active: row.active,
     stock: stock.get(row.id) ?? 0,
@@ -135,13 +136,17 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
  */
 export async function listProducts(): Promise<CatalogProduct[]> {
   const supabase = await createClient();
+
+  // supplier_id este adaugat de migratia 0019. Cat timp ea nu este aplicata,
+  // coloana nu exista si un select care o numeste intoarce 42703, ceea ce a
+  // doborat tabloul de bord pe 2026-08-31. Se cere doar ce exista.
+  const phase3 = await hasPhase3Schema();
+  const columns = phase3
+    ? "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, supplier_id, needs_review, active, categories(name)"
+    : "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, needs_review, active, categories(name)";
+
   const [{ data, error }, stock] = await Promise.all([
-    supabase
-      .from("products")
-      .select(
-        "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, supplier_id, needs_review, active, categories(name)",
-      )
-      .order("sku", { ascending: true }),
+    supabase.from("products").select(columns).order("sku", { ascending: true }),
     stockByProduct(),
   ]);
 

@@ -119,6 +119,26 @@ jobs:
       - name: Apply every migration to a bare postgres, unmodified
         run: npm run check:migrations
 
+      # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
+      #
+      # Every screen returned 500 in production, including the dashboard. The
+      # cause was not a bad migration, a bad conflict resolution or a weak test:
+      # thirteen phase 3 migrations were WRITTEN AND MERGED but NOT APPLIED, and
+      # the application code merged alongside them read columns that did not
+      # exist yet. listProducts asked for supplier_id, which 0019 adds, and 0019
+      # is in the pending register.
+      #
+      # NOTHING HERE COULD HAVE CAUGHT IT, AND THAT IS THE POINT. Every step in
+      # this job runs against a database with ALL migrations applied: the shim
+      # applies every file, and `supabase db reset` applies every file. CI can
+      # never see the difference between the merged schema and the APPLIED
+      # schema. This step can, because it reads docs/migrations/APPLY-LOG.md.
+      #
+      # It stops asking about a migration the moment P3-27 removes it from the
+      # pending register, with no edit to this file.
+      - name: Refuse application code that reads unapplied schema
+        run: npm run check:pending-schema-reads
+
       # CRIT-15, runtime half. THE GUARD'S REFUSAL, EXERCISED ON THE CI PATH.
       #
       # CRIT-11 built the guard and proved six exit paths locally. In CI only
