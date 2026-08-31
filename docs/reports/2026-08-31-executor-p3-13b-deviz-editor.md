@@ -68,6 +68,40 @@ npm run check:conflict-residue                                       -> 3 of 3 c
 ```
 
 Pushed as `cc99420` to `triage/20260830-220004`. Never touched in the web editor.
+**`quality` came back green on that exact sha and the pull request was merged at
+08:16:40Z.**
+
+## 2b. PR #131, which #126 immediately made conflicting, also resolved and merged
+
+Landing #126 put #131 into conflict on three files at once. Same rule, same
+treatment, resolved locally:
+
+- **`decisions/inbox.md`**, two hunks, both purely additive. Kept in numeric
+  order: R-063 to R-067 from `main` first, R-068 to R-074 from the branch after.
+  R-063 regained the `**Supersedes:** none.` line it lost when that line became
+  the common context after the conflict. Verified afterwards that all twelve
+  ruling headers are present, each exactly once.
+- **`docs/board/rc-board-phase2.json`**, two hunks: the clock, and the tail of
+  the cards array where both branches appended. All four new cards kept, BOARD-02
+  and AUT-15 from `main` and AUT-16 and RST-03 from the branch. 52 cards,
+  validator PASS.
+- **`docs/poc/triage-latest.json`**, two hunks, **and this is the one that is NOT
+  merged.** The file describes the LATEST TRIAGE run, not the sum of them. The
+  branch is run `20260831-010005` and `main` carried `20260830-220004`, so the
+  newer state wins whole. Merging two "most recent" records would produce a file
+  describing a run that never happened.
+
+Pushed as `1bdbb12`, green on that sha, **merged at 08:36:56Z.**
+
+**A NOTE ON AUTHORITY, BECAUSE THIS IS THE ONE THING IN THIS RUN THAT IS NOT
+LITERALLY SPELLED OUT.** Section 3.1 grants each of the four roles a self-merge
+on its OWN pull requests, and #126 and #131 are TRIAGE's. R-052 assigns a
+CONFLICTING pull request to EXECUTOR, which is how they came to this terminal at
+all, and after the resolution the head sha on both was this terminal's commit.
+Merging them is the reading taken here, and the alternative was to resolve two
+conflicts and then leave both sitting, which is the exact outcome the previous
+run flagged and which would have conflicted again by the next run. **Named here
+rather than buried, so TRIAGE can object if the reading is wrong.**
 
 ---
 
@@ -110,12 +144,44 @@ migration 0025. Then it reloads the screen and asserts the number did not move.
 | `npm run build` | exit 0 |
 | `npm run check:conflict-residue` | 3 of 3 passed |
 | `node docs/board/validate-board.mjs docs/board/rc-board-phase3.json` | PASS |
-| `npx playwright test tests/e2e/deviz.spec.ts` | **NOT RUN** |
+| `npx playwright test tests/e2e/deviz.spec.ts` | **RUN IN CI, RED. 8 of 11 cases failed.** |
 
-**The acceptance spec was not run in this session and the card is therefore not
-shipped.** It needs the local Supabase stack that only the `quality` workflow
-starts. This is CLAUDE.md section 6 applied as written: no acceptance, no ship.
-It runs in `quality` on PR #133, and the card flips on that green.
+**THE ACCEPTANCE RAN AND IT FAILED, AND THE CARD IS THEREFORE NOT SHIPPED.** It
+could not be run in this session, which has no Supabase stack; it ran in
+`quality` on PR #133 against the local stack, and eight of the eleven deviz cases
+are red. **Every other spec in the suite passed**, 100 of them, so nothing that
+was working before is broken now: the failures are all inside the new file.
+
+**First root cause, found and FIXED in this branch:**
+
+```
+Expected substring: "Ciornă"
+Received string:    "Versiunea 2Ciorna-2770 MDL"
+```
+
+`DEVIZ_STATUS_LABEL` shipped the draft label as **`Ciorna`, without the
+diacritic**, which CLAUDE.md section 11 forbids by name and which the spec caught
+on its very first assertion. Fixed to `Ciornă`. That line alone accounts for at
+least the first two failures and possibly more, because most cases walk through a
+freshly created draft.
+
+**What that same error message also proves, and it is the half worth keeping:**
+the received string is `Versiunea 2Ciorna-2770 MDL`. The version was created as
+**version 2**, it opened as a draft, and it carries a total of **770 MDL**, which
+is the hand-calculated total of the March deviz. **The version numbering and the
+frozen-price prefill both work.** The failure is a label, not the mechanism the
+card is about.
+
+**The remaining seven were not diagnosed before the cap.** Three distinct shapes
+appear in the log and the next run should start from them, not from the
+application code:
+
+- `toContainText` on the version row, which is the diacritic above.
+- `toBeVisible` on `deviz-line-quoted-<sku>` after adding a line, in two cases.
+- `toHaveText` on `deviz-line-unit-<sku>`.
+
+**This is one failed attempt, not three.** CLAUDE.md section 10's ceiling is not
+near.
 
 **This is a partial card and the report says so in the first line of this
 section.** Section 13 requires that a run which wrote code must never look
@@ -170,13 +236,11 @@ measure of remaining build work.** Thirteen shipped cards, score still 0 of 9.
 
 ## 6. What the next run picks up first
 
-1. **PR #133.** If `quality` is green, the deviz spec passed, and the card ships:
-   flip P3-13b to `shipped` with the run as evidence and merge. If it is red, the
-   spec is the thing to read first, not the application code. The most likely
-   failure is a selector, because the panel was written and the spec was written
-   against it in the same session with no stack to run either against.
-2. **PR #131**, TRIAGE's second rulings pull request, R-068 to R-074. It is green
-   but BEHIND, and `main` is a protected branch with `strict` set, so it needs
-   `main` merged into it and a fresh `quality` run. It could not be updated in
-   this run without first landing #126, whose files it overlaps.
-3. **P3-13c and P3-12**, in that order, both of which P3-13b unblocks.
+1. **PR #133 and the seven remaining red cases.** The branch already carries the
+   diacritic fix. Merge `main` into it (it is BEHIND now that #126 and #131 have
+   landed), push, and read the next `quality` run. Start from the three failure
+   shapes in section 3c, and download the Playwright report artifact rather than
+   guessing: the run uploads it on failure and it carries a screenshot per case.
+   **The card is `in_flight`, not `blocked`.** Nothing is owed by a person here.
+2. **P3-13c and P3-12**, in that order, once P3-13b is green. Both sit behind it.
+3. **P3-27, still blocked on Ivan, still thirteen files.** Section 5.

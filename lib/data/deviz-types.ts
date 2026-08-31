@@ -12,7 +12,7 @@ export const DEVIZ_STATUSES = ["draft", "sent", "accepted", "rejected", "expired
 export type DevizStatus = (typeof DEVIZ_STATUSES)[number];
 
 export const DEVIZ_STATUS_LABEL: Record<DevizStatus, string> = {
-  draft: "Ciorna",
+  draft: "Ciornă",
   sent: "Emis",
   accepted: "Acceptat",
   rejected: "Respins",
