@@ -231,6 +231,10 @@ jobs:
           # picker is required, so the form cannot be filled in an empty
           # database. One client and one project, fixed ids, no DELETE.
           node scripts/seed-test-crm.mjs
+          # P3-11. The cost report asserts a total to the leu across two
+          # months, and the issue form has no date field, so those rows cannot
+          # be built through the screen. Fixed ids, no DELETE.
+          node scripts/seed-test-cost.mjs
           # .env.local is what both the dev server and the Playwright runner
           # read. It is gitignored and exists only on this runner.
           {

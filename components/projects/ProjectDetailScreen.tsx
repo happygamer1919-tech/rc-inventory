@@ -28,6 +28,7 @@ import { setProjectStatus } from "@/lib/data/project-actions";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectTabs } from "./ProjectTabs";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
+import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -44,12 +45,14 @@ export function ProjectDetailScreen({
   project,
   history,
   materials,
+  cost,
   clients,
   canWrite,
 }: {
   project: ProjectDetail;
   history: StatusEvent[];
   materials: ProjectMaterials;
+  cost: ProjectMaterialCost;
   clients: { id: string; name: string }[];
   canWrite: boolean;
 }) {
@@ -182,7 +185,12 @@ export function ProjectDetailScreen({
       </div>
 
       <div className="mt-5">
-        <ProjectTabs projectId={project.id} materials={materials} history={history} />
+        <ProjectTabs
+          projectId={project.id}
+          materials={materials}
+          cost={cost}
+          history={history}
+        />
       </div>
 
       {editing ? (
