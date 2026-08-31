@@ -1,8 +1,10 @@
 {
   "schema_version": 2,
-  "last_run": "2026-08-30T11:01:25Z",
-  "run_id": "20260830-070005",
-  "cards_touched": [],
+  "last_run": "2026-08-31T11:45:00Z",
+  "run_id": "20260830-220004",
+  "cards_touched": [
+    "P3-11"
+  ],
   "escalations": [
     {
       "card_id": "AUT-1 (claimed by executor), P2-15 (claimed by executor), P2-18 (claimed by executor)",
@@ -45,9 +47,21 @@
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260830-070005.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-08-30T11:01:25Z",
       "run_id": "20260830-070005"
+    },
+    {
+      "at": "2026-08-31T11:45:00Z",
+      "run_id": "20260830-220004",
+      "card": "P3-04b, P3-05b",
+      "kind": "card_held_by_another_actor",
+      "detail": "Both were the lowest-id eligible cards at boot and neither was taken. PR #123 was opened at 02:00:00Z, four seconds before this run started, and it carried board edits to exactly these two cards, blocking both on ivan. It has since merged as 942b6bf. The claims map was empty and could not have prevented the overlap: a claim protects a card only once its pull request is on main. Skipped per CLAUDE.md section 13 and logged here rather than skipped quietly. Nothing was lost, because #123 reached the same conclusion this run would have."
     }
   ],
   "digest_last_sent": "2026-08-30T11:01:24Z",
-  "claims": {},
-  "report_path": "docs/reports/2026-08-28-executor-critic-acceptance-pass.md"
+  "claims": {
+    "P3-11": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-08-31T02:03:06Z"
+    }
+  },
+  "report_path": "docs/reports/2026-08-31-executor-p3-11-material-cost.md"
 }

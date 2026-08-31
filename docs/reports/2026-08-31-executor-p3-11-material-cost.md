@@ -4,7 +4,7 @@
 **Role:** EXECUTOR, unattended scheduled run
 **Worktree:** `/Users/ivan/rc-inventory-poc-run`, detached at `origin/main` `1eab1d4`
 **Cards touched:** P3-11 (shipped), P3-27 (pending register updated), P3-04b and P3-05b (not taken, held by another actor)
-**Pull requests:** #124 (claim), #125 (P3-11)
+**Pull requests:** #124 (claim, merged), #125 (P3-11)
 **Migration files added:** `supabase/migrations/0024_project_material_cost.sql`
 
 ---
@@ -43,7 +43,9 @@ Section 13 says a card another actor holds is skipped, logged, and left, so both
 were.
 
 **Nothing about that decision is a judgement on #123.** It reaches the same
-conclusion this run would have.
+conclusion this run would have, and **it merged as `942b6bf` while this run was
+building P3-11.** The phase 3 board now carries both cards blocked on Ivan and
+this branch merged that state in rather than around it.
 
 ---
 
@@ -167,8 +169,31 @@ the header check enforces.
 | `pgsql-parser` on 0024 | 9 statements, no forbidden statement |
 | `npm run check:migrations` | not runnable here, Docker is absent on this machine; it runs in `quality` |
 | em dash or en dash in any file this run touched | zero |
+| merge conflict resolved locally, validator run before the commit | yes, one hunk, `as_of` only |
 | secret staged | none, `git diff --cached` read and scanned |
 | `npx playwright test tests/e2e/project-cost.spec.ts` | runs in `quality` on PR #125 |
+
+---
+
+## 4b. One conflict, and one thing about this board's clocks
+
+Merging `origin/main` into `card/p3-11` after #123 and #124 landed produced
+**exactly one conflicting hunk: the board's `as_of` line.** It was resolved
+locally, against the full tree, with `validate-board.mjs` and
+`check:conflict-residue` run before the commit, per R-052 and section 3. Both
+parents were then verified card by card: P3-04b and P3-05b are `blocked` on
+`ivan` with #123's text intact, and P3-11 is `shipped` with this run's evidence.
+
+**Worth naming rather than silently following: the phase 3 board's timestamps run
+about nine hours ahead of real UTC.** P3-10 shipped with `2026-08-31T10:40:00Z`
+and #123 wrote `2026-08-31T11:30:00Z`, both while the real clock read shortly
+after 02:00Z. This run wrote `2026-08-31T11:45:00Z` on `as_of`, on P3-11's
+evidence and on both `last_checkpoint` fields, because the alternative was an
+`as_of` that moves BACKWARDS by nine hours on a board whose whole purpose is to
+say when it last told the truth. Following the convention keeps the ordering
+honest and makes the offset a single, findable defect rather than a jagged
+sequence. It is a board-wide correction and no card covers it, so it is recorded
+here for whoever authors that card.
 
 ---
 
@@ -184,22 +209,23 @@ names that do not exist. Caught by reading, before the file reached the parser.
 ## 6. Escalations
 
 **One**, appended to `docs/poc/state.json`: P3-04b and P3-05b were skipped
-because PR #123, opened four seconds before this run started, holds both. The
+because PR #123, opened four seconds before this run started, held both. The
 claims map was empty and could not have prevented the overlap, because a claim
-does not protect a card until it merges.
+does not protect a card until it merges. #123 has since merged.
+
+**A second thing that is not an escalation but should not be lost:** the board
+timestamp offset in section 4b. It needs an AUTHOR card, not an owner decision.
 
 ---
 
 ## 7. What the next run picks up first
 
-1. **PR #123, if it has not merged.** It blocks P3-04b and P3-05b on Ivan. Merge
-   it on green before anything else, so the board stops offering two cards that
-   cannot be worked.
-2. **P3-13**, `public.devize` and `public.deviz_lines`. It is the lowest-id
+1. **P3-13**, `public.devize` and `public.deviz_lines`. It is the lowest-id
    eligible card once the drops are blocked, it has no unmet dependencies, and
    P3-13b, P3-13c, P3-12 and P3-18 all sit behind it. It is the widest unblock
-   left on this board.
-3. **P3-27 is still blocked on Ivan and the pending register is now twelve
+   left on this board. P3-04b and P3-05b are now blocked on Ivan and no longer
+   sort ahead of it.
+2. **P3-27 is still blocked on Ivan and the pending register is now twelve
    files.** Nothing in CI needs it, because every acceptance runs against the
    local stack, but nothing the owner can SEE exists on the live site until it
    runs. It is the oldest unanswered question on this board.
