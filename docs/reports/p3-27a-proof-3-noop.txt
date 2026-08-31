@@ -1,0 +1,9 @@
+==============================================================================
+APPLY PENDING MIGRATIONS
+==============================================================================
+target                 shim (container rc-prove-applier-noop-62902-mthto70f)
+pending register       docs/migrations/APPLY-LOG.md
+pending file count     0
+
+zero pending migrations. The register is empty, so production is already current.
+Nothing was executed and nothing was written.
