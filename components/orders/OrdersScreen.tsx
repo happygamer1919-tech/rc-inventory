@@ -16,7 +16,8 @@
 // sunt la nivel de comanda intreaga.
 
 import * as React from "react";
-import { Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
+import Link from "next/link";
+import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
 import { formatDate, formatMoney } from "@/lib/data/format";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
@@ -34,14 +35,29 @@ const outboundTone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 export function OrdersScreen({
   inbound,
   outbound,
+  filter,
 }: {
   inbound: InboundOrder[];
   outbound: OutboundIssue[];
+  /** P3-10. Filtrul de destinatie, venit din URL: /comenzi?proiect=<id> sau
+   *  /comenzi?client=<id>. Este in URL si nu in starea componentului tocmai ca
+   *  legatura din fisa proiectului sa poata fi trimisa cuiva, si ca butonul de
+   *  inapoi sa functioneze. */
+  filter?: { kind: "proiect" | "client"; id: string; label: string } | null;
 }) {
   const [sel, setSel] = React.useState<Selection>(null);
 
+  // FILTRAREA SE FACE PE INREGISTRARE SI NU PE TEXT. Randurile istorice fara
+  // proiect au projectId null si sunt deci excluse de orice filtru, ceea ce este
+  // corect: nu se stie catre cine au plecat.
+  const outboundShown = filter
+    ? outbound.filter((o) =>
+        filter.kind === "proiect" ? o.projectId === filter.id : o.clientId === filter.id,
+      )
+    : outbound;
+
   const pendingIn = inbound.filter((o) => o.status === "pending_arrival").length;
-  const pendingOut = outbound.filter((o) => o.status === "awaiting_shipment").length;
+  const pendingOut = outboundShown.filter((o) => o.status === "awaiting_shipment").length;
 
   const selectedIn = sel?.kind === "in" ? inbound.find((o) => o.id === sel.id) ?? null : null;
   const selectedOut = sel?.kind === "out" ? outbound.find((o) => o.id === sel.id) ?? null : null;
@@ -50,7 +66,20 @@ export function OrdersScreen({
     <>
       <PageHeader
         title="Comenzi"
-        lead="Intrările și ieșirile una lângă alta. Apasă pe o comandă pentru poziții și istoricul stărilor."
+        lead={
+          filter
+            ? `Ieșirile către ${filter.label}. Intrările nu sunt filtrate: ele vin de la furnizori.`
+            : "Intrările și ieșirile una lângă alta. Apasă pe o comandă pentru poziții și istoricul stărilor."
+        }
+        actions={
+          filter ? (
+            <Link href="/comenzi">
+              <Button variant="secondary" data-testid="orders-clear-filter">
+                Vezi toate ieșirile
+              </Button>
+            </Link>
+          ) : null
+        }
       />
 
       <div className="grid grid-cols-2 gap-4">
@@ -120,12 +149,12 @@ export function OrdersScreen({
             hint="Eliberări către proiecte"
             right={
               <span className="text-[12px] text-rc-muted">
-                {pendingOut} de expediat din {outbound.length}
+                {pendingOut} de expediat din {outboundShown.length}
               </span>
             }
           />
           <ul data-testid="outbound-list">
-            {outbound.map((o, i) => (
+            {outboundShown.map((o, i) => (
               <li key={o.id} className={i < outbound.length - 1 ? "border-b border-rc-line" : ""}>
                 <button
                   onClick={() => setSel({ kind: "out", id: o.id })}

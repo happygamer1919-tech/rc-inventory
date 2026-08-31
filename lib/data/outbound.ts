@@ -27,6 +27,8 @@ function toNullableNumber(value: unknown): number | null {
 
 const SELECT = `
   id, reference, client_name, project_name, issued_at, shipped_at, status,
+  project_id,
+  projects ( id, name, client_id, clients ( id, name ) ),
   outbound_lines (
     id, product_id, quantity, sale_price_mdl,
     products ( sku, name, unit )
@@ -49,13 +51,32 @@ type IssueRow = {
   issued_at: string;
   shipped_at: string | null;
   status: string;
+  project_id: string | null;
+  projects:
+    | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }
+    | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }[]
+    | null;
   outbound_lines: LineRow[] | null;
 };
 
+/** Supabase tipizeaza o relatie ca obiect sau ca tablou dupa forma cheii
+ *  straine, asa ca amandoua formele sunt acceptate in loc sa fie presupusa una. */
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
 function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
+  const project = one(row.projects);
+  const client = one(project?.clients ?? null);
   return {
     id: row.id,
     reference: row.reference,
+    // P3-10: destinatia ca INREGISTRARE, ca sa se poata lega. Null cat timp
+    // randul istoric nu a fost inca reconciliat, si ecranul scrie atunci
+    // "Proiect neasociat" ca text simplu si nu ca legatura moarta.
+    projectId: row.project_id,
+    clientId: client?.id ?? null,
     clientName: row.client_name,
     projectName: row.project_name,
     issuedAt: row.issued_at,

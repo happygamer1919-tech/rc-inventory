@@ -273,12 +273,13 @@ export function ClientTabs({
                   </tbody>
                 </Table>
                 <div className="px-5 py-4 border-t border-rc-line space-y-2">
+                  {/* P3-10: catre lista completa FILTRATA la acest client. */}
                   <Link
-                    href={`/comenzi`}
+                    href={`/comenzi?client=${clientId}`}
                     className="text-[12.5px] text-rc-orange-deep hover:underline"
                     data-testid="material-full-history"
                   >
-                    Vezi istoricul complet al ieșirilor
+                    Vezi toate ieșirile către acest client
                   </Link>
                   {materials.unassignedIssues > 0 ? (
                     // UN TOTAL PARTIAL SPUNE CA ESTE PARTIAL. Iesirile fara

@@ -182,7 +182,7 @@ export function ProjectDetailScreen({
       </div>
 
       <div className="mt-5">
-        <ProjectTabs materials={materials} history={history} />
+        <ProjectTabs projectId={project.id} materials={materials} history={history} />
       </div>
 
       {editing ? (
