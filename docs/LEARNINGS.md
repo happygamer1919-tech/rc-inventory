@@ -2231,3 +2231,19 @@ need aliases and naming them would suggest, falsely, that they contribute names.
 The rule that prevents the next instance: if a subquery alias appears anywhere
 outside the union, read the first branch and check that every column in it has a
 name that was written rather than inferred.
+
+### OLD read inside a boolean expression in an INSERT-or-UPDATE plpgsql trigger
+**Tag:** data
+**ERROR:** A `before insert or update` row trigger written as
+`if tg_op = 'INSERT' or old.status is distinct from 'accepted' then` looks
+guarded and is not. plpgsql raises `record "old" is not assigned yet` the moment
+the field is read on an INSERT, and SQL does not promise to short-circuit an
+`OR`, so the guard on the left of the operator does not reliably stop the read
+on the right. The same hazard hides inside a `case when tg_op = 'INSERT' then
+new.deviz_id else old.deviz_id end`, which reads as lazy and is not something to
+rely on.
+**SOLUTION:** Read `OLD` only inside an explicit `if tg_op = 'UPDATE' then`
+branch, never inside a boolean expression or a CASE that also mentions `tg_op`.
+The rule that prevents the next instance: in a trigger function that serves more
+than one operation, the `tg_op` test is a STATEMENT, not a term. Caught by
+reading, before the file reached the parser.
