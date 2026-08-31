@@ -2214,3 +2214,20 @@ RULE: **an `ORDER BY` attached to a set operation sees the union's output, not
 either branch's scope.** When a union needs a computed sort key, the key belongs
 in a wrapping select. The tell is an error naming a column that is plainly right
 there in the SQL.
+
+### A UNION ALL wrapped for ordering loses its column names unless the first branch aliases them
+**Tag:** data
+**ERROR:** `0024_project_material_cost.sql` returns a total row and two
+breakdowns from one `union all`, and the ordering has to sit on a wrapper
+because an `ORDER BY` on a set operation cannot see an alias declared inside a
+branch. That wrapper was written as `select u.row_kind, u.label, ... from (
+<three branches> ) u`, and the first branch began `select 'total'::text,
+null::text, ...` with no aliases. PostgreSQL names a set operation's output
+columns after the FIRST branch, so `u.row_kind` referred to a column actually
+named `?column?` and the function would not have been created at all.
+**SOLUTION:** alias every column of the FIRST branch of a `union all` whenever
+the union is wrapped and the wrapper names columns. The later branches do not
+need aliases and naming them would suggest, falsely, that they contribute names.
+The rule that prevents the next instance: if a subquery alias appears anywhere
+outside the union, read the first branch and check that every column in it has a
+name that was written rather than inferred.
