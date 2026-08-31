@@ -3040,3 +3040,365 @@ from 30 to 31 cards; `scripts/poc-free/local-db/apply.mjs`, which gains the
 assertions pass.
 **Supersedes:** the production half of P3-01's acceptance line, moved to P3-27
 verbatim rather than deleted. Nothing in this file.
+
+---
+
+### R-063 - the two deviations in the P3-11 run are ratified individually, and the four second claim collision becomes evidence on CLAIM-01 rather than a new card
+**Date:** 2026-08-31
+**Asked on:** P3-11, P3-04b, P3-05b, CLAIM-01
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 1:
+>
+> **PR #123 was opened at 02:00:00Z. This run started at 02:00:04Z.** That pull
+> request carries exactly those two cards, sets both to `blocked_on: ivan`, and
+> argues the same thing this run would have argued.
+>
+> **The claims map in `docs/poc/state.json` was empty**, so the lease mechanism
+> did not catch this. It could not: a claim only protects a card once it is on
+> `main`, and #123 had existed for four seconds. What caught it was reading the
+> open pull request list before starting, which is worth doing for exactly this
+> reason.
+>
+> from the same report, section 2:
+>
+> The card asks for three issues across two months. **The issue form has no date
+> field**: `issued_at` is `now()`. Data built through the screen can only ever
+> land in the current month, so the month breakdown, which is half the card,
+> could not have been tested at all.
+
+**Ruling:** both deviations are RATIFIED. They are ruled one at a time, with the
+test named for each, because a set ratified as a block is a set nobody read.
+
+**DEVIATION 1: THE LOWEST-ID ELIGIBLE CARDS WERE SKIPPED ON A SIGNAL THAT IS NOT
+A CLAIM.** `CLAUDE.md` section 2 says take the lowest-id eligible card and never
+skip one because a later card looks easier. Section 13 permits skipping a card
+another actor HOLDS, and holding means a claim in `docs/poc/state.json`. The
+claims map was empty, so what the run acted on was an open pull request, which
+is not a claim under any reading of section 13.
+
+- Test 1, unrecoverable data: does not fire. Nothing was written anywhere.
+- Test 2, committed evidence a stranger can re-verify: PASSES. PR #123 merged as
+  `942b6bf` and the board carries both cards blocked on ivan with its text.
+- Test 3, widening or applying: APPLYING. Reading the open pull request list and
+  declining to duplicate somebody's in-flight work is a narrowing of what the run
+  did, not a widening of what it may do. The failure mode of the narrower
+  behaviour is a delay of one scheduled window; the failure mode of the wider one
+  is two board edits to the same two cards in two pull requests.
+- Test 4, would the alternative have been worse: YES, and concretely. Taking
+  P3-04b and P3-05b would have produced a second pair of `blocked_on: ivan`
+  edits carrying a second copy of the same question, and whichever merged second
+  would have conflicted on the same lines. `CLAUDE.md` names web-editor conflict
+  resolution as the source of three residue incidents, and this would have
+  manufactured one for no gain.
+
+**RATIFIED.** The board rule that was bent is worth restating rather than
+quietly widening: **an open pull request is not a claim.** It happened to be the
+better signal here because it was the only one that existed at the moment it was
+needed, and CLAIM-01 is where that belongs.
+
+**DEVIATION 2: A SEED SCRIPT AND A FOURTH ISSUE THE CARD DID NOT ASK FOR.**
+`CLAUDE.md` section 3 forbids self-invented scope.
+
+- Test 1: does not fire. `scripts/seed-test-cost.mjs` contains no DELETE, writes
+  fixed ids so a second run overwrites rather than doubles, and ran against no
+  production database.
+- Test 2: PASSES. PR #125, the script, `tests/e2e/project-cost.spec.ts` with
+  seven cases, and the arithmetic written out twice so either copy can be checked
+  by hand against the other.
+- Test 3: APPLYING. P3-11's `defaults` state the Europe/Chisinau bucketing rule.
+  Testing a stated default is executing the card, not extending it.
+- Test 4: YES. Without the script the month breakdown, which is half the card,
+  ships with a test that could never have failed, because every row the screen
+  can create lands in the current month. Without the row at 2026-07-31T21:30Z the
+  timezone rule is untested and untestable, because it is the only row on which
+  the Chisinau rule and the UTC rule disagree.
+
+**RATIFIED.**
+
+**THE COLLISION ITSELF IS NOT A NEW CARD.** CLAIM-01 already carries it, by name:
+"a claim protects nothing until its pull request merges, which is usually after
+the work it was meant to protect has started." Authoring a second card for a
+problem an open card names is how both get half done. The four second measurement
+and the open-pull-request mitigation are appended to CLAIM-01's `notes` as
+evidence for the latency half of its own acceptance, which already permits
+recording why the pre-merge check was rejected and what was done instead.
+
+**Unblocks:** nothing. Both cards named in deviation 1 stay `blocked` on ivan,
+and P3-11 stays shipped.
+**Also changes:** `docs/board/rc-board-phase3.json`, notes on P3-11, P3-04b and
+P3-05b; `docs/board/rc-board-phase2.json`, notes on CLAIM-01.
+**Supersedes:** none.
+
+---
+
+### R-064 - the board reads a clock: the as_of deviation is overturned, the drift is measured as a ratchet rather than an offset, and BOARD-02 authors the check
+**Date:** 2026-08-31
+**Asked on:** P3-11, and every card on both boards that carries a timestamp
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 4b:
+>
+> **Worth naming rather than silently following: the phase 3 board's timestamps
+> run about nine hours ahead of real UTC.** P3-10 shipped with
+> `2026-08-31T10:40:00Z` and #123 wrote `2026-08-31T11:30:00Z`, both while the
+> real clock read shortly after 02:00Z. This run wrote `2026-08-31T11:45:00Z` on
+> `as_of`, on P3-11's evidence and on both `last_checkpoint` fields, because the
+> alternative was an `as_of` that moves BACKWARDS by nine hours on a board whose
+> whole purpose is to say when it last told the truth. Following the convention
+> keeps the ordering honest and makes the offset a single, findable defect rather
+> than a jagged sequence.
+
+**Ruling:** the deviation is **OVERTURNED**. `as_of` is corrected on both boards
+in the pull request carrying this ruling, to a value read from the system clock,
+and it moves BACKWARDS by roughly nine hours on the phase 3 board. That backwards
+jump is the ruling taking effect and is not to be corrected forward.
+
+**THE FINDING IS CREDITED AND THE CHOICE IS REVERSED, AND THOSE ARE DIFFERENT
+THINGS.** Nobody else had noticed. The report measured it, named it, said it
+needed a card, and disclosed that it had followed the convention anyway. Without
+that paragraph this ruling could not have been written. What is overturned is the
+one sentence of it that decided to write a timestamp nobody had read from a
+clock.
+
+**TEST 4 IS WHY IT IS AN OVERTURN AND NOT A RATIFICATION.** The alternative, named
+concretely, is a board carrying `as_of: 2026-08-31T02:31Z` with the report's own
+section 4b explaining why the number appears to jump back. That is not worse than
+what shipped. It is the correct board plus one paragraph of explanation that was
+already written.
+
+**IT IS A RATCHET, NOT AN OFFSET, AND THAT IS WHAT MAKES IT URGENT.** The report
+reads it as a fixed nine hour skew, which would be a timezone bug somewhere. It is
+not. Measured across the eleven commits that touched
+`docs/board/rc-board-phase3.json`, the gap between `as_of` and the real commit
+time, in minutes:
+
+| commit | commit time (UTC) | as_of | ahead by |
+|---|---|---|---|
+| `b8910e5` | 2026-08-30T21:06Z | 2026-08-30T21:10Z | 3 min |
+| `afe4f88` | 2026-08-30T21:34Z | 2026-08-30T21:55Z | 21 min |
+| `f43f538` | 2026-08-30T22:18Z | 2026-08-30T23:20Z | 62 min |
+| `1a18f04` | 2026-08-30T22:50Z | 2026-08-31T01:20Z | 150 min |
+| `f0a99c1` | 2026-08-30T23:23Z | 2026-08-31T03:10Z | 226 min |
+| `111a6a3` | 2026-08-31T00:09Z | 2026-08-31T05:10Z | 300 min |
+| `8e2a78e` | 2026-08-31T00:41Z | 2026-08-31T07:20Z | 398 min |
+| `0f26ea0` | 2026-08-31T01:13Z | 2026-08-31T09:00Z | 467 min |
+| `1eab1d4` | 2026-08-31T01:58Z | 2026-08-31T10:40Z | 521 min |
+| `942b6bf` | 2026-08-31T02:13Z | 2026-08-31T11:30Z | 557 min |
+| `612ca05` | 2026-08-31T02:31Z | 2026-08-31T11:45Z | 554 min |
+
+**Every session read the previous `as_of` and wrote something plausibly later
+than it, and the increment each one added exceeded the real elapsed time.** The
+error compounds. Nothing in the repository stops it, so at the observed rate the
+board would be claiming tomorrow's date within a week, and `last_checkpoint`
+would stop ordering anything.
+
+**THE REASONING THAT PRODUCED IT IS SOUND AND IS EXACTLY THE PROBLEM.** Nobody
+wants to be the session that moves the number backwards. That is true at every
+step, which is why a rule cannot fix it and a check can. `CLAUDE.md` section 2
+already says "the top-level `as_of` bumped to the commit moment in ISO 8601", and
+it was not enough, because these are unattended runs at 22:00, 01:00, 04:00 and
+07:00 and a rule with no check survives exactly as long as nobody is tired.
+
+**WHAT IS CORRECTED NOW AND WHAT IS LEFT TO THE CARD.** This pull request sets
+`as_of` on both boards from the clock, and sets `last_checkpoint` from the clock
+on the cards it touches. It does not sweep the boards, and it does not touch
+`evidence.at` anywhere: that field belongs to the run that produced the proof, and
+rewriting another session's record of its own work is a worse fault than leaving a
+value that a committed ruling explains. **BOARD-02** carries the sweep and the
+check.
+
+**Unblocks:** nothing.
+**Also changes:** `as_of` on both boards; `last_checkpoint` on P3-11, P3-04b,
+P3-05b, P3-27 and CLAIM-01; `docs/board/rc-board-phase2.json` gains BOARD-02.
+**Supersedes:** none. It does not amend `CLAUDE.md` section 2, which already said
+this.
+
+---
+
+### R-065 - the phase 3 gate audit: 0 of 9, every condition behind P3-27, and the two drop cards stop asking Ivan a question that belongs to another card
+**Date:** 2026-08-31
+**Asked on:** the phase 3 launch gate, P3-27, P3-04b, P3-05b
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 7:
+>
+> **P3-27 is still blocked on Ivan and the pending register is now twelve files.**
+> Nothing in CI needs it, because every acceptance runs against the local stack,
+> but nothing the owner can SEE exists on the live site until it runs. It is the
+> oldest unanswered question on this board.
+
+**Ruling:** all nine phase 3 conditions were audited clause by clause under
+DOCTRINE-TRIAGE section 4. **None flips.** The audit is written into each
+condition's `evidence` field whether or not it flipped, because an audit that
+flips nothing is still the most useful thing the next session can read.
+
+**THE RESULT IS ONE SENTENCE: EVERY CLAUSE OF EVERY CONDITION SAYS "ON
+PRODUCTION", AND NOTHING IS ON PRODUCTION.** Twelve migration files, 0013 to
+0024, sit in the Pending section of `docs/migrations/APPLY-LOG.md`, every one
+naming P3-27, which is blocked on ivan. Eleven cards have shipped on this board
+and the readiness score has not moved off 0 of 9 and cannot.
+
+**THAT IS THE THIRD KIND OF UNFLIPPABLE GATE IN SECTION 4, WITH ONE DIFFERENCE
+WORTH NAMING.** Section 4 says a gate needing an action in a production
+environment no terminal holds is recognised and recorded, not treated as a
+backlog. These nine are that shape, except that a terminal DOES hold the
+capability: R-001 has not been revoked, P2-13 has not run, and section 8.7 has not
+fired. What withholds it is one sentence of the 2026-08-30 owner dispatch, which
+P3-27's own question already records. So this is not a permanent structural
+limit; it is one unanswered question, and it is escalated rather than ruled.
+
+**TWO CLAUSES DID GAIN EVIDENCE, AND BOTH COME OUT OF THE REPORT BEING TRIAGED.**
+
+- **G2 clause 3** demanded the count of issues with no project assigned, taken
+  read-only and pasted. P3-11 shipped `public.unassigned_outbound_count()` in
+  `supabase/migrations/0024_project_material_cost.sql`, and the Cost tab prints
+  the count even when it is zero. The clause was written before anything could
+  produce that number; now it is one query.
+- **G5's arithmetic half** is evidenced in full: PR #125,
+  `tests/e2e/project-cost.spec.ts`, seven cases, a total hand-calculated at
+  1850.00 MDL asserted to the leu, a month boundary row that separates Chisinau
+  bucketing from UTC, an unassigned issue carrying 10000 MDL that would have
+  broken the arithmetic loudly rather than plausibly, and a deactivated product
+  carrying 400 of the 1850. The gate's own notes say both halves are required and
+  say why. **The hand check against one real project is the missing half and it
+  cannot exist**, because there is no real project and no real client data.
+
+**THE RESEQUENCE, WITH THE OLD EDGE AND THE NEW ONE NAMED.** Section 3 check 2
+fired on three cards: P3-04b, P3-05b and P3-27 are all `blocked` on ivan with
+every `depends_on` id shipped. On P3-27 that is correct, he owes the apply. On the
+other two it is a **duplicated ask**: their `question` fields open with the same
+sentence P3-27's does, "apply the wave 1 migrations to production", so the owner
+reads one question three times and any of the three answers could be missed.
+
+- P3-04b: `depends_on` was `[P3-04, P3-10]`, is now `[P3-04, P3-10, P3-27]`.
+- P3-05b: `depends_on` was `[P3-05, P3-10]`, is now `[P3-05, P3-10, P3-27]`.
+
+**BOTH STAY BLOCKED ON IVAN AND THAT IS NOT AN OVERSIGHT.** After the apply there
+is still a reconciliation list to read with Mihai before a column is dropped, and
+on P3-05b that list may not even exist, because the backfill refuses above twenty
+distinct supplier names. Anything that reaches Mihai is item 6 of the closed
+escalation list. The edge removes the duplicated question, not the real one.
+
+**P3-27'S TITLE SAYS WAVE 1 AND ITS REGISTER HOLDS TWELVE FILES ACROSS THREE
+WAVES.** Recorded in its `notes` and not fixed: TRIAGE does not edit titles, and
+a reader who takes "wave 1" literally would otherwise conclude that 0020 to 0024
+have no apply card.
+
+**Unblocks:** nothing, and that is the finding. It makes explicit that eleven
+shipped cards and nine failed gates are one blocked card apart.
+**Also changes:** `evidence` on all nine phase 3 launch gate conditions;
+`depends_on`, `question` and `notes` on P3-04b and P3-05b; `question` and `notes`
+on P3-27.
+**Supersedes:** none. R-046 audited the PHASE 2 gate and is untouched; nothing in
+this report bears on G4, G7 or G9 of that board, which stand at fail on that
+audit.
+
+---
+
+### R-066 - the cost basis is work, not an owner decision: the issue-time value snapshot is authored as P3-28
+**Date:** 2026-08-31
+**Asked on:** P3-11, P3-12, P3-14
+**Answer, verbatim:**
+> from docs/reports/2026-08-31-executor-p3-11-material-cost.md, section 2:
+>
+> **The screen carries its own limitation in Romanian.** `unit_value_mdl` is the
+> current catalogue value and no cost is snapshotted at issue time, so editing a
+> product price moves every historical total containing it. The footnote says
+> that. The real fix is a `unit_value_at_issue_mdl` column on `outbound_lines`,
+> written at issue time, and that is a schema change this card was not given. It
+> stays on the card notes where the AUTHOR put it, for Ivan.
+
+**Ruling:** it does not stay on the card notes and it does not go to Ivan. It is
+**P3-28**, authored on the phase 3 board in the pull request carrying this ruling,
+depending on P3-11 and on nothing else.
+
+**THE ONLY DECISION TRIAGE MADE HERE IS THAT THIS IS NOT ESCALATED, SO THE TEST
+IS WRITTEN OUT.** The closed list in DOCTRINE-TRIAGE section 6 is ten items. This
+is not money, not what the client is charged, not legal, not a vendor, not a
+credential grant, not a request that reaches Mihai or Andre, not a click in
+somebody's console, not a production DELETE, not an acceptance sign-off and not
+launch timing. Everything not on that list, TRIAGE decides and records, and that
+authority is R-050. Two independent authors reached for the owner here, which is
+the cautious instinct, and the cost of it is real: a limitation parked in a
+`notes` field is rediscovered by whoever first notices that two printouts of the
+same month disagree.
+
+**IT IS NOT A DEFECT IN P3-11 AND THAT CARD IS NOT REOPENED.** P3-11 was given
+`unit_value_mdl` by its dispatch, implemented exactly that, and put the limitation
+on the screen in Romanian instead of hiding it. It shipped on a green `quality`
+run plus its named spec. This is the schema change it was not given.
+
+**THE SHAPE IS FIXED IN THE CARD'S DEFAULTS AND THE IMPORTANT ONE IS NEGATIVE:
+NOT NULL WITH A BACKFILL, NEVER NULLABLE WITH A FALLBACK.** A column read as
+`coalesce(unit_value_at_issue_mdl, p.unit_value_mdl)` is a default-and-override
+rather than a snapshot, indistinguishable from correct on the day it is built and
+silently divergent afterwards. **R-058 rejected precisely that shape on the deviz
+price three days ago**, and the same reasoning binds a second money column in the
+same schema. The card also removes the Romanian footnote, because a caveat that
+has stopped being true teaches the reader to distrust a number that is now right.
+
+**ONE ORDERING NOTE RATHER THAN A SECOND EDGE.** P3-14 credits a project by
+returned quantity times unit value. If P3-28 lands first, P3-14 reads the frozen
+value, which is the only way a return credits exactly what the issue charged. If
+P3-14 lands first it reads the catalogue and P3-28 updates it. Neither order is
+wrong, so it is written into both cards rather than made a dependency that would
+park one behind the other for no correctness gain. P3-12 needs no edge at all: it
+reads `lib/reporting/material-cost.ts` and inherits whatever that module does.
+
+**Unblocks:** nothing today. P3-28 is `todo` and eligible, since P3-11 is shipped.
+**Also changes:** `docs/board/rc-board-phase3.json`, which gains P3-28 and goes
+from 31 to 32 cards; `notes` on P3-11.
+**Supersedes:** the "for Ivan" clause of the AUTHOR note on P3-11, quoted where it
+is replaced. Nothing in this file.
+
+---
+
+### R-067 - DOCTRINE-TRIAGE's input clause contradicts its own sections 2 to 5, and the correction is a card for AUTHOR rather than an edit by TRIAGE
+**Date:** 2026-08-31
+**Asked on:** AUT-2, AUT-3, and every future TRIAGE run
+**Answer, verbatim:**
+> from docs/DOCTRINE-TRIAGE.md, "What TRIAGE is", quoted because this ruling is
+> about that file rather than about the report:
+>
+> It receives no dispatch text, no summary and no context. It finds its own
+> input: **the newest file in `docs/reports/`** by the dated naming convention in
+> `CLAUDE.md` section 9b. If it needs to know something that is not in that
+> report or in this file, **that is a defect in this file**, and saying so is a
+> legitimate TRIAGE output.
+
+**Ruling:** the invitation in that last sentence is taken. **The clause is wrong
+as written, and it is wrong against three later sections of the same document.**
+
+- **Section 2** requires the next free ruling id, which is only knowable from
+  `decisions/inbox.md`.
+- **Section 3** requires all four `depends_on` checks "over the whole board and
+  not only the cards the report touched", which is only knowable from the board
+  files.
+- **Section 4** requires each failing gate to be audited against committed
+  artefacts, naming "a PR number, a run id, a journal entry, a named screenshot".
+- **Section 5** forbids authoring a card for something an open card already
+  covers, which is only knowable from the board.
+
+**A TRIAGE session obeying the input clause literally cannot perform sections 2
+through 5.** This run opened both board files, `decisions/inbox.md`,
+`docs/migrations/APPLY-LOG.md`, `CLAUDE.md` and the git history, and every one of
+those reads was mandatory. Two of the four rulings in this pull request could not
+otherwise exist: R-064's drift table is git history, and R-065's audit is the
+board plus the migration register.
+
+**THE INTENDED READING IS OBVIOUS AND THE WORDING SHOULD SAY IT.** Section 6 of
+the same file states the rule the clause is reaching for: **ground truth is
+committed repository files only.** The report is the only DISPATCH, not the only
+readable file. What the clause correctly forbids is a human handing TRIAGE a
+summary, a chat message or a verbal ratification, which is R-050's point.
+
+**IT IS NOT FIXED HERE, AND THAT RESTRAINT IS THE OTHER HALF OF THE RULING.**
+`CLAUDE.md` section 1 gives governing documents to AUTHOR, and DOCTRINE-TRIAGE is
+TRIAGE's own rubric. A role that rewrites the document that constrains it has
+removed the constraint, whatever the edit says, and "two TRIAGE runs over the same
+report must reach the same answer" is worth exactly as much as the stability of
+the file that produces the answer. So the correction is **AUT-15**, authored for
+AUTHOR, with the wording it must satisfy written into the card.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, which gains AUT-15.
+**Supersedes:** none. It proposes an amendment to `docs/DOCTRINE-TRIAGE.md` and
+does not make one.
