@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextOutboundReference } from "./outbound";
+import { hasPhase3Schema } from "./schema-capability";
 import { unitLabel, isUnitCode } from "./units";
 import type { ActionResult } from "./inbound-types";
 import type { NewIssueInput } from "./outbound-types";
@@ -66,9 +67,24 @@ export async function createOutboundIssue(
   // multimea de iesiri fara proiect din a mai creste, cat timp cele istorice
   // sunt reconciliate. Coloana din baza ramane NULLABLE, pentru ca randurile
   // vechi o au goala; obligatorie este CALEA DE SCRIERE, nu coloana.
+  //
+  // CAT TIMP MIGRATIILE FAZEI 3 NU SUNT APLICATE, nu exista niciun proiect de
+  // ales SI nu exista nici versiunea cu cinci argumente a functiei, adaugata de
+  // 0018. Pe calea aceea se scrie ca inainte de P3-04, cu nume in text liber.
+  // Nu este o slabire a regulii: regula nu poate exista pe o baza care nu are
+  // tabela de proiecte, iar alternativa este un depozit care nu poate elibera
+  // material deloc.
+  const phase3 = await hasPhase3Schema();
   const projectId = input.projectId.trim();
-  if (projectId.length === 0)
+  if (phase3 && projectId.length === 0)
     return { ok: false, message: "Alege proiectul.", field: "projectId" };
+
+  const fallbackClient = (input.clientName ?? "").trim();
+  const fallbackProject = (input.projectName ?? "").trim();
+  if (!phase3 && fallbackClient.length === 0)
+    return { ok: false, message: "Completează clientul.", field: "clientName" };
+  if (!phase3 && fallbackProject.length === 0)
+    return { ok: false, message: "Completează proiectul.", field: "projectName" };
 
   const lines = input.lines
     .map((l) => ({
@@ -103,13 +119,22 @@ export async function createOutboundIssue(
   // ca sa nu poata cele doua reprezentari ale destinatiei sa se contrazica cat
   // timp exista amandoua. Coloanele text sunt inca not null si dispar la
   // P3-04b; pana atunci ele sunt o copie a proiectului, nu o a doua sursa.
-  const { data, error } = await supabase.rpc("create_outbound_issue", {
-    p_reference: reference,
-    p_client_name: "",
-    p_project_name: "",
-    p_lines: lines,
-    p_project_id: projectId,
-  });
+  const { data, error } = phase3
+    ? await supabase.rpc("create_outbound_issue", {
+        p_reference: reference,
+        p_client_name: "",
+        p_project_name: "",
+        p_lines: lines,
+        p_project_id: projectId,
+      })
+    : // Semnatura cu patru argumente, cea din 0004, singura care exista pe o
+      // baza fara migratiile fazei 3. Numele sunt cele scrise de operator.
+      await supabase.rpc("create_outbound_issue", {
+        p_reference: reference,
+        p_client_name: fallbackClient,
+        p_project_name: fallbackProject,
+        p_lines: lines,
+      });
 
   if (error) return translateWriteError(error.code, error.message);
 

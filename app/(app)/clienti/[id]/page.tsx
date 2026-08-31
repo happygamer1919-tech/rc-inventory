@@ -2,6 +2,8 @@
 
 import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/server";
+import { hasPhase3Schema } from "@/lib/data/schema-capability";
+import { SchemaPending } from "@/components/ui/SchemaPending";
 import { getClient } from "@/lib/data/clients";
 import {
   getClientMaterials,
@@ -17,6 +19,17 @@ export default async function ClientDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // Migratiile fazei 3 sunt scrise si NEAPLICATE pana la cardul P3-27. Fara
+  // aceasta poarta, ecranul cere tabele care nu exista si raspunde 500.
+  if (!(await hasPhase3Schema())) {
+    return (
+      <SchemaPending
+        title="Client"
+        lead="Fișa clientului."
+      />
+    );
+  }
+
   const { id } = await params;
   const client = await getClient(id);
 
