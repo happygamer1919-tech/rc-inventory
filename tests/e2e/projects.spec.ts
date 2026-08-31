@@ -138,8 +138,13 @@ test.describe("Proiecte", () => {
     await createProject(page, { client, name, status: "lead" });
     await expect(page.getByTestId("project-detail")).toBeVisible({ timeout: 25_000 });
 
-    // Nicio schimbare inca, deci niciun rand de istoric.
-    await expect(page.getByTestId("project-history")).toContainText("Nicio schimbare");
+    // Nicio schimbare inca, deci niciun rand de istoric. ISTORICUL ESTE O FILA
+    // DE LA P3-09 INCOACE: fisa nu mai poarta un rezumat duplicat, pentru ca
+    // doua locuri cu acelasi data-testid ar fi numarate amandoua.
+    await page.getByTestId("tab-istoric").click();
+    await expect(page.getByTestId("panel-istoric")).toContainText("Nicio schimbare de stare", {
+      timeout: 15_000,
+    });
 
     // AFIRMATIA ESTE PE CHIP, NU PE PANOU. Panoul contine si selectul, iar
     // selectul contine toate cele sase etichete ca optiuni, deci o afirmatie pe
@@ -150,13 +155,14 @@ test.describe("Proiecte", () => {
     await expect(page.getByTestId("project-status-chip")).toHaveText("Contract", {
       timeout: 25_000,
     });
+    await page.getByTestId("tab-istoric").click();
     await expect(page.getByTestId("history-row").first()).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByTestId("project-history")).toContainText("Contract");
+    await expect(page.getByTestId("panel-istoric")).toContainText("Contract");
 
     // SI PERSISTA. Un istoric care traieste in starea unui component nu este un
-    // istoric.
+    // istoric. Fila supravietuieste reincarcarii pentru ca este in URL.
     await page.reload();
-    await expect(page.getByTestId("project-history")).toContainText("Contract");
+    await expect(page.getByTestId("panel-istoric")).toContainText("Contract", { timeout: 20_000 });
 
     // CONDUCTA NU ESTE O MASINA DE STARI: munca reala merge si inapoi.
     await page.getByTestId("project-status-select").selectOption("suspended");
@@ -167,7 +173,7 @@ test.describe("Proiecte", () => {
     await expect(page.getByTestId("project-status-chip")).toHaveText("Prospect", {
       timeout: 25_000,
     });
-    await page.reload();
+    await page.goto(page.url().split("?")[0] + "?fila=istoric");
     await expect(page.getByTestId("history-row")).toHaveCount(3, { timeout: 15_000 });
   });
 

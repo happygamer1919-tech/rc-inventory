@@ -26,10 +26,8 @@ import {
 } from "@/lib/data/projects-list-types";
 import { setProjectStatus } from "@/lib/data/project-actions";
 import { ProjectForm } from "./ProjectForm";
-
-/** DOCTRINA DE DENSITATE: un bloc rezumat pe o pagina care nu este ea insasi o
- *  lista arata CEL MULT 5 randuri si duce catre istoricul complet. */
-const HISTORY_PREVIEW = 5;
+import { ProjectTabs } from "./ProjectTabs";
+import type { ProjectMaterials } from "@/lib/data/projects-list";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -42,18 +40,16 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function statusLabel(token: string): string {
-  return (PROJECT_STATUS_LABEL as Record<string, string>)[token] ?? token;
-}
-
 export function ProjectDetailScreen({
   project,
   history,
+  materials,
   clients,
   canWrite,
 }: {
   project: ProjectDetail;
   history: StatusEvent[];
+  materials: ProjectMaterials;
   clients: { id: string; name: string }[];
   canWrite: boolean;
 }) {
@@ -102,6 +98,10 @@ export function ProjectDetailScreen({
         }
       />
 
+      {/* ISTORICUL S-A MUTAT PE FILA Istoric, adusa de P3-09. Rezumatul de aici
+          a fost un substitut cat timp fila nu exista, si a-l lasa ar insemna doua
+          locuri care randeaza aceleasi randuri cu acelasi data-testid: o afirmatie
+          de test le-ar numara pe amandoua. */}
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
         <Card>
           <CardHeader title="Date proiect" />
@@ -178,40 +178,11 @@ export function ProjectDetailScreen({
             </div>
           </Card>
 
-          <Card>
-            <CardHeader
-              title="Istoric stări"
-              hint={history.length > HISTORY_PREVIEW ? `${history.length} în total` : undefined}
-            />
-            <div className="px-5 py-3" data-testid="project-history">
-              {history.length === 0 ? (
-                <p className="py-3 text-[13px] text-rc-muted">
-                  Nicio schimbare de stare încă.
-                </p>
-              ) : (
-                <ul className="space-y-2.5">
-                  {history.slice(0, HISTORY_PREVIEW).map((h, i) => (
-                    <li key={`${h.createdAt}-${i}`} className="text-[13px]" data-testid="history-row">
-                      <span className="text-rc-black">
-                        {h.fromStatus ? `${statusLabel(h.fromStatus)} → ` : ""}
-                        <strong>{statusLabel(h.toStatus)}</strong>
-                      </span>
-                      <span className="block text-[12px] text-rc-muted">
-                        {formatDate(h.createdAt)}
-                        {h.note ? ` · ${h.note}` : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {history.length > HISTORY_PREVIEW ? (
-                <p className="pt-3 text-[12.5px] text-rc-muted">
-                  Istoricul complet ajunge pe fila Istoric.
-                </p>
-              ) : null}
-            </div>
-          </Card>
         </div>
+      </div>
+
+      <div className="mt-5">
+        <ProjectTabs materials={materials} history={history} />
       </div>
 
       {editing ? (
