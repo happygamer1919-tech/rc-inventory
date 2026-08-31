@@ -4,7 +4,7 @@
 **Role:** EXECUTOR, unattended scheduled run
 **Worktree:** `/Users/ivan/rc-inventory-poc-run`, detached at `origin/main` `7c38087`
 **Cards touched:** P3-13 (shipped)
-**Pull requests:** #128 (claim), #129 (P3-13), #130 (this report)
+**Pull requests:** #128 (claim), #129 (P3-13, and this report rides in it)
 **Migration files added:** `supabase/migrations/0025_deviz.sql`
 
 ---
