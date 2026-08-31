@@ -81,6 +81,31 @@ It now compares against the count taken immediately before the add. If the
 duplicate were accepted the count would grow and the test would still fail, so
 the property is preserved exactly and the order dependence is gone.
 
+## 3b. A third defect, and it was the last one CI found
+
+With the two fixes above pushed, CI went from 8 failures to 1:
+`deviz.spec.ts:129` could not find `deviz-line-quoted-TEST-DEVIZ-03`.
+
+**The page snapshot in run `33428097535`'s artifact says exactly where the line
+went.** Version 3 carried 3 lines and 836 MDL, which is 770 + 60 + the 10 percent
+margin. Version 4, the one the assertion was reading, carried 2 lines and 770 MDL.
+The line had been added to the *previous* version.
+
+`await expect(page.getByTestId("deviz-add-line")).toBeVisible()` is not a
+synchronisation point after clicking `Deviz nou`: that form is **already visible**
+from the version open before the click, so the assertion returns immediately, the
+line is written to the old version, and the refresh then brings the new one on
+screen without it. The tests at `:79` and `:113` never had this problem because
+they already waited on `toHaveCount(before + 1)`, which rises once and only after
+the server has answered.
+
+Fixed at **both** sites carrying the pattern, `:129` and `:203`, not only the one
+that failed. The second had passed in that run, which is the ordinary property of a
+race and not evidence that it is sound.
+
+`retries` is `0` in `playwright.config.ts`, so that accumulated state could not have
+come from a re-run. That was checked before anything was written.
+
 ## 4. Evidence, as it actually ran
 
 The named acceptance, against the local Supabase stack on the shifted ports
@@ -100,9 +125,21 @@ node docs/board/validate-board.mjs (all three boards) -> PASS, 0 violations
 npm run check:conflict-residue -> 3 of 3 checks passed, 283 files
 ```
 
-The full local suite alongside it: **113 passed, 5 failed.** All eleven deviz
-cases are in the passing set. The five are `clients.spec.ts`, and they are
-section 5.
+**Then the whole suite, on a database reset to match CI.** The local stack was
+rebuilt with `supabase db reset` (all 25 migrations) and re-seeded with the same
+four scripts `quality.yml` runs, so the run is CI-equivalent rather than one on
+data accumulated by earlier attempts:
+
+```
+npx playwright test
+  118 passed (3.7m)
+EXIT=0
+```
+
+Zero failures, all 11 deviz cases included. An earlier run on the persistent local
+stack had shown 113 passed and 5 failed, all in `clients.spec.ts`; those five pass
+here, which is itself the proof of the diagnosis in section 5, since a fresh
+database cannot produce the IDNO collision.
 
 ## 5. A pre-existing defect found in passing, NOT fixed here
 
