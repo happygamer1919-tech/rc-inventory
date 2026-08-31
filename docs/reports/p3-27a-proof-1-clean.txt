@@ -1,0 +1,464 @@
+==============================================================================
+APPLY PENDING MIGRATIONS
+==============================================================================
+target                 shim (container rc-prove-applier-clean-62902-mthtnye7)
+pending register       docs/migrations/APPLY-LOG.md
+pending file count     13
+total statements       202
+
+------------------------------------------------------------------------------
+DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
+------------------------------------------------------------------------------
+0018_outbound_issue_project_write.sql:
+  drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+
+no DELETE, TRUNCATE or DROP TABLE in any pending file
+
+------------------------------------------------------------------------------
+0018 GATE, REPOSITORY HALF: who names the four-argument signature
+------------------------------------------------------------------------------
+every four-argument call site is behind the hasPhase3Schema() gate: OK
+
+------------------------------------------------------------------------------
+ENUM PRE-PHASE: files that add an enum label, committed before the batch
+------------------------------------------------------------------------------
+0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
+
+==============================================================================
+batch sha256           a5e9e87f46b04839ab83529f2d492f01b123c48f3ee496fd2b64c86324e14667
+script sha256          315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6
+assertions             11
+==============================================================================
+
+
+--- applying the enum pre-phase ---
+--- pre-phase: 0015_status_entity_project.sql ---
+   enumlabel    | enumsortorder 
+----------------+---------------
+ inbound_order  |             1
+ outbound_issue |             2
+ project        |             3
+(3 rows)
+
+enum pre-phase committed
+==============================================================================
+PRE-CHECK GRID: the applied ledger BEFORE anything runs
+==============================================================================
+ version |               name               
+---------+----------------------------------
+ 0001    | phase2_schema
+ 0002    | rc_docs_bucket
+ 0003    | inbound_functions
+ 0004    | outbound_functions
+ 0005    | service_role_grants
+ 0006    | reminder_recipients
+ 0007    | seed_categories
+ 0008    | extraction_drafts
+ 0009    | revoke_anon_on_extraction_drafts
+ 0015    | status_entity_project
+(10 rows)
+
+ ledger_rows_before 
+--------------------
+                 10
+(1 row)
+
+
+PRE-CHECK GRID: row counts on every public table BEFORE anything runs
+          tbl           | n  
+------------------------+----
+ batches                |  0
+ categories             | 19
+ extraction_draft_lines |  0
+ extraction_drafts      |  0
+ inbound_orders         |  0
+ order_lines            |  0
+ outbound_issues        |  1
+ outbound_lines         |  0
+ products               |  1
+ profiles               |  0
+ reminders              |  0
+ status_history         |  0
+ units                  |  7
+(13 rows)
+
+
+0018 GATE, DATABASE HALF: dependents of the four-argument function
+
+--- applying 0013_clients.sql (20 statements) ---
+ table_name | rls_enabled | policy_count 
+------------+-------------+--------------
+ clients    | t           |            3
+(1 row)
+
+   policyname   |  cmd   |      roles      | using_expression | with_check_expression 
+----------------+--------+-----------------+------------------+-----------------------
+ clients_insert | INSERT | {authenticated} |                  | is_owner()
+ clients_select | SELECT | {authenticated} | true             | 
+ clients_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+(3 rows)
+
+ grantee | privilege_type 
+---------+----------------
+(0 rows)
+
+
+--- applying 0014_contacts.sql (20 statements) ---
+ table_name | rls_enabled | policy_count 
+------------+-------------+--------------
+ contacts   | t           |            3
+(1 row)
+
+   policyname    |  cmd   |      roles      | using_expression | with_check_expression 
+-----------------+--------+-----------------+------------------+-----------------------
+ contacts_insert | INSERT | {authenticated} |                  | is_owner()
+ contacts_select | SELECT | {authenticated} | true             | 
+ contacts_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+(3 rows)
+
+         conname         |                            definition                            
+-------------------------+------------------------------------------------------------------
+ contacts_client_id_fkey | FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+(1 row)
+
+            indexname            |                                                    indexdef                                                     
+---------------------------------+-----------------------------------------------------------------------------------------------------------------
+ contacts_client_id_idx          | CREATE INDEX contacts_client_id_idx ON public.contacts USING btree (client_id)
+ contacts_name_lower_idx         | CREATE INDEX contacts_name_lower_idx ON public.contacts USING btree (lower(name))
+ contacts_one_primary_per_client | CREATE UNIQUE INDEX contacts_one_primary_per_client ON public.contacts USING btree (client_id) WHERE is_primary
+ contacts_pkey                   | CREATE UNIQUE INDEX contacts_pkey ON public.contacts USING btree (id)
+(4 rows)
+
+
+--- applying 0016_projects.sql (21 statements) ---
+ table_name | rls_enabled | policy_count 
+------------+-------------+--------------
+ projects   | t           |            3
+(1 row)
+
+   policyname    |  cmd   |      roles      | using_expression | with_check_expression 
+-----------------+--------+-----------------+------------------+-----------------------
+ projects_insert | INSERT | {authenticated} |                  | is_owner()
+ projects_select | SELECT | {authenticated} | true             | 
+ projects_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+(3 rows)
+
+ enumlabel | enumsortorder 
+-----------+---------------
+ lead      |             1
+ offer     |             2
+ contract  |             3
+ active    |             4
+ suspended |             5
+ closed    |             6
+(6 rows)
+
+             conname             |                                            definition                                            
+---------------------------------+--------------------------------------------------------------------------------------------------
+ projects_client_id_fkey         | FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT
+ projects_created_by_fkey        | FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
+ projects_dates_in_order         | CHECK (((start_date IS NULL) OR (planned_end_date IS NULL) OR (planned_end_date >= start_date)))
+ projects_name_unique_per_client | UNIQUE (client_id, name)
+ projects_pkey                   | PRIMARY KEY (id)
+(5 rows)
+
+
+--- applying 0017_outbound_project_id.sql (17 statements) ---
+ backfill_outbound_project_ids 
+-------------------------------
+                             0
+(1 row)
+
+   attname    | type | not_null 
+--------------+------+----------
+ client_name  | text | t
+ project_id   | uuid | f
+ project_name | text | t
+(3 rows)
+
+             conname             |                              definition                               
+---------------------------------+-----------------------------------------------------------------------
+ outbound_issues_created_by_fkey | FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
+ outbound_issues_project_id_fkey | FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+(2 rows)
+
+           indexname            |                                            indexdef                                            
+--------------------------------+------------------------------------------------------------------------------------------------
+ outbound_issues_project_id_idx | CREATE INDEX outbound_issues_project_id_idx ON public.outbound_issues USING btree (project_id)
+(1 row)
+
+ total_issues | with_project | still_null 
+--------------+--------------+------------
+            1 |            0 |          1
+(1 row)
+
+ reference  | client_name  | project_name  |           issued_at           
+------------+--------------+---------------+-------------------------------
+ IES-PRV-01 | Client Prove | Santier Prove | 2026-08-31 22:40:51.848419+00
+(1 row)
+
+
+--- applying 0018_outbound_issue_project_write.sql (7 statements) ---
+        proname        |                                          arguments                                          
+-----------------------+---------------------------------------------------------------------------------------------
+ create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb, p_project_id uuid
+(1 row)
+
+
+--- applying 0019_suppliers.sql (31 statements) ---
+ backfill_product_suppliers 
+----------------------------
+                          1
+(1 row)
+
+ table_name | rls_enabled | policy_count 
+------------+-------------+--------------
+ suppliers  | t           |            3
+(1 row)
+
+    policyname    |  cmd   |      roles      
+------------------+--------+-----------------
+ suppliers_insert | INSERT | {authenticated}
+ suppliers_select | SELECT | {authenticated}
+ suppliers_update | UPDATE | {authenticated}
+(3 rows)
+
+    attname    | type | not_null 
+---------------+------+----------
+ supplier_id   | uuid | f
+ supplier_name | text | f
+(2 rows)
+
+      name      |          created_at           
+----------------+-------------------------------
+ Furnizor Prove | 2026-08-31 22:40:52.047322+00
+(1 row)
+
+ total_products | with_supplier | still_null 
+----------------+---------------+------------
+              1 |             1 |          0
+(1 row)
+
+ sku | name | supplier_name 
+-----+------+---------------
+(0 rows)
+
+
+--- applying 0020_search_clients.sql (6 statements) ---
+    proname     |                                arguments                                
+----------------+-------------------------------------------------------------------------
+ search_clients | p_q text, p_type text, p_status text, p_limit integer, p_offset integer
+(1 row)
+
+
+--- applying 0021_projects_search_and_status.sql (12 statements) ---
+        proname         |                                    arguments                                     
+------------------------+----------------------------------------------------------------------------------
+ project_status_history | p_project_id uuid
+ search_projects        | p_q text, p_statuses text[], p_client_id uuid, p_limit integer, p_offset integer
+ set_project_status     | p_project_id uuid, p_status project_status, p_note text
+(3 rows)
+
+
+--- applying 0022_client_detail.sql (9 statements) ---
+         proname         |             arguments             
+-------------------------+-----------------------------------
+ client_material_summary | p_client_id uuid, p_limit integer
+ unassigned_issue_count  | 
+(2 rows)
+
+
+--- applying 0023_project_material_summary.sql (6 statements) ---
+         proname          |             arguments              
+--------------------------+------------------------------------
+ project_material_summary | p_project_id uuid, p_limit integer
+(1 row)
+
+
+--- applying 0024_project_material_cost.sql (9 statements) ---
+          proname          |                         arguments                          
+---------------------------+------------------------------------------------------------
+ project_material_cost     | p_project_id uuid, p_shipped_only boolean, p_limit integer
+ unassigned_outbound_count | 
+(2 rows)
+
+
+--- applying 0025_deviz.sql (42 statements) ---
+ table_name  | rls_enabled | policy_count 
+-------------+-------------+--------------
+ deviz_lines | t           |            3
+ devize      | t           |            3
+(2 rows)
+
+     policyname     |  cmd   |      roles      | using_expression | with_check_expression 
+--------------------+--------+-----------------+------------------+-----------------------
+ deviz_lines_insert | INSERT | {authenticated} |                  | is_owner()
+ deviz_lines_select | SELECT | {authenticated} | true             | 
+ deviz_lines_update | UPDATE | {authenticated} | is_owner()       | is_owner()
+ devize_insert      | INSERT | {authenticated} |                  | is_owner()
+ devize_select      | SELECT | {authenticated} | true             | 
+ devize_update      | UPDATE | {authenticated} | is_owner()       | is_owner()
+(6 rows)
+
+ enumlabel | enumsortorder 
+-----------+---------------
+ draft     |             1
+ sent      |             2
+ accepted  |             3
+ rejected  |             4
+ expired   |             5
+(5 rows)
+
+               conname                |                              definition                               
+--------------------------------------+-----------------------------------------------------------------------
+ devize_created_by_fkey               | FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
+ devize_currency_mdl                  | CHECK ((currency = 'MDL'::currency_code))
+ devize_margin_percent_non_negative   | CHECK ((margin_percent >= (0)::numeric))
+ devize_pkey                          | PRIMARY KEY (id)
+ devize_project_id_fkey               | FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+ devize_version_unique_per_project    | UNIQUE (project_id, version)
+ deviz_lines_deviz_id_fkey            | FOREIGN KEY (deviz_id) REFERENCES devize(id) ON DELETE CASCADE
+ deviz_lines_pkey                     | PRIMARY KEY (id)
+ deviz_lines_product_id_fkey          | FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+ deviz_lines_product_unique_per_deviz | UNIQUE (deviz_id, product_id)
+ deviz_lines_quantity_positive        | CHECK ((quantity > (0)::numeric))
+ deviz_lines_unit_price_non_negative  | CHECK ((unit_price_mdl >= (0)::numeric))
+(12 rows)
+
+  tablename  |              indexname               |                                                     indexdef                                                      
+-------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------
+ deviz_lines | deviz_lines_pkey                     | CREATE UNIQUE INDEX deviz_lines_pkey ON public.deviz_lines USING btree (id)
+ deviz_lines | deviz_lines_product_id_idx           | CREATE INDEX deviz_lines_product_id_idx ON public.deviz_lines USING btree (product_id)
+ deviz_lines | deviz_lines_product_unique_per_deviz | CREATE UNIQUE INDEX deviz_lines_product_unique_per_deviz ON public.deviz_lines USING btree (deviz_id, product_id)
+ devize      | devize_pkey                          | CREATE UNIQUE INDEX devize_pkey ON public.devize USING btree (id)
+ devize      | devize_project_status_version_idx    | CREATE INDEX devize_project_status_version_idx ON public.devize USING btree (project_id, status, version DESC)
+ devize      | devize_version_unique_per_project    | CREATE UNIQUE INDEX devize_version_unique_per_project ON public.devize USING btree (project_id, version)
+(6 rows)
+
+ table_name  |         trigger_name         |                                                                    definition                                                                    
+-------------+------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------
+ deviz_lines | deviz_lines_require_draft    | CREATE TRIGGER deviz_lines_require_draft BEFORE INSERT OR UPDATE ON public.deviz_lines FOR EACH ROW EXECUTE FUNCTION deviz_lines_require_draft()
+ deviz_lines | deviz_lines_set_updated_at   | CREATE TRIGGER deviz_lines_set_updated_at BEFORE UPDATE ON public.deviz_lines FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+ devize      | devize_require_draft_to_edit | CREATE TRIGGER devize_require_draft_to_edit BEFORE UPDATE ON public.devize FOR EACH ROW EXECUTE FUNCTION devize_require_draft_to_edit()
+ devize      | devize_set_updated_at        | CREATE TRIGGER devize_set_updated_at BEFORE UPDATE ON public.devize FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+ devize      | devize_sync_approved_at      | CREATE TRIGGER devize_sync_approved_at BEFORE INSERT OR UPDATE ON public.devize FOR EACH ROW EXECUTE FUNCTION devize_sync_approved_at()
+(5 rows)
+
+
+--- ledger: the three rows the strategy record says were never written ---
+--- ledger: the thirteen rows for this batch ---
+
+==============================================================================
+ASSERTIONS
+==============================================================================
+  assert every-pending-applied
+  assert ledger-no-gaps-ends-at-highest
+  assert ledger-0010-0011-0012-present
+  assert promised-tables-exist
+  assert promised-columns-exist
+  assert promised-functions-exist
+  assert free-text-columns-untouched
+  assert zero-rows-deleted
+  assert outbound-destination-backfill
+  assert supplier-backfill
+  assert one-create-outbound-issue-five-args
+
+==============================================================================
+POST-CHECK GRID: the applied ledger AFTER the batch
+==============================================================================
+ version |               name               
+---------+----------------------------------
+ 0001    | phase2_schema
+ 0002    | rc_docs_bucket
+ 0003    | inbound_functions
+ 0004    | outbound_functions
+ 0005    | service_role_grants
+ 0006    | reminder_recipients
+ 0007    | seed_categories
+ 0008    | extraction_drafts
+ 0009    | revoke_anon_on_extraction_drafts
+ 0010    | confirm_extraction_draft
+ 0011    | extraction_confirm_corrections
+ 0012    | manager_flagged_products
+ 0013    | clients
+ 0014    | contacts
+ 0015    | status_entity_project
+ 0016    | projects
+ 0017    | outbound_project_id
+ 0018    | outbound_issue_project_write
+ 0019    | suppliers
+ 0020    | search_clients
+ 0021    | projects_search_and_status
+ 0022    | client_detail
+ 0023    | project_material_summary
+ 0024    | project_material_cost
+ 0025    | deviz
+(25 rows)
+
+ ledger_rows_after 
+-------------------
+                25
+(1 row)
+
+
+POST-CHECK GRID: row counts on every public table AFTER the batch
+          tbl           | before | after 
+------------------------+--------+-------
+ batches                |      0 |     0
+ categories             |     19 |    19
+ extraction_draft_lines |      0 |     0
+ extraction_drafts      |      0 |     0
+ inbound_orders         |      0 |     0
+ order_lines            |      0 |     0
+ outbound_issues        |      1 |     1
+ outbound_lines         |      0 |     0
+ products               |      1 |     1
+ profiles               |      0 |     0
+ reminders              |      0 |     0
+ status_history         |      0 |     0
+ units                  |      7 |     7
+(13 rows)
+
+
+RECONCILIATION: outbound_issues with no project_id, with their destination text
+                  id                  | reference  | client_name  | project_name  
+--------------------------------------+------------+--------------+---------------
+ 11111111-0000-4000-8000-000000000020 | IES-PRV-01 | Client Prove | Santier Prove
+(1 row)
+
+
+RECONCILIATION: products with a supplier_name and no supplier_id
+ id | sku | name | supplier_name 
+----+-----+------+---------------
+(0 rows)
+
+
+RLS and policy count per new table
+ table_name  | rls_enabled | policies 
+-------------+-------------+----------
+ clients     | t           |        3
+ contacts    | t           |        3
+ deviz_lines | t           |        3
+ devize      | t           |        3
+ projects    | t           |        3
+ suppliers   | t           |        3
+(6 rows)
+
+
+COMMITTED
+
+applied and committed: 13 migrations, 11 assertions passed
+
+target was the shim, so NOTHING was written to any journal and the pending register is untouched.
+
+started  2026-08-31T22:40:51.938Z
+finished 2026-08-31T22:40:52.089Z
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+NOTICE:  0018 gate: dependent objects on the four-argument function = 0
+NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
+NOTICE:  P3-05 backfill: 1 product(s) linked
+NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 1
+NOTICE:  P3-05 reconciliation: products with a supplier_name and no supplier_id = 0

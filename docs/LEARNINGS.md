@@ -2518,3 +2518,79 @@ efectiv.
 RULE: **`npm ci` este proba, nu `npm install`.** Ele nu fac acelasi lucru: `install`
 repara pe tacute un lock inconsistent, `ci` cade. Daca CI ruleaza `ci`, atunci `ci`
 este comanda cu care se verifica local, altfel se descopera diferenta in CI.
+### Un corp de functie `language sql` este validat la CREATE, deci nu poate folosi o eticheta de enum adaugata in aceeasi tranzactie
+
+**Tag:** data
+
+**ERROR:** Cele treisprezece migratii ale fazei 3 nu pot fi aplicate ca o singura
+tranzactie. Pe shim, prima rulare curata a cazut la 0021:
+
+    ERROR:  unsafe use of new value "project" of enum type status_entity
+    HINT:   New enum values must be committed before they can be used.
+
+`0015` ruleaza `alter type public.status_entity add value if not exists 'project'`.
+`0021` creeaza `project_status_history`, care este **`language sql`**, si al carei
+corp numeste `'project'`. Un corp `language sql` este parsat si VALIDAT la CREATE,
+deci eticheta este FOLOSITA in tranzactia care a adaugat-o, si serverul refuza.
+
+CE FACE DIFERENTA SI ESTE INVIZIBIL LA CITIRE: `set_project_status`, din acelasi
+fisier, numeste si el `'project'` si NU cade, pentru ca este `language plpgsql`,
+iar corpul unui plpgsql nu este validat atat de adanc la creare. Doua functii, in
+acelasi fisier, cu aceeasi constanta, si numai una este o problema.
+
+**SOLUTION:** Adaugarile de enum se comit intr-o pre-faza a lor, si nimic altceva
+nu calatoreste cu ele: un fisier intra in pre-faza numai daca adauga o eticheta,
+poate contine numai `AlterEnumStmt` si `SelectStmt`, si fiecare adaugare trebuie sa
+poarte `IF NOT EXISTS`. Ce poate supravietui unei anulari a lotului principal este
+atunci exact un lucru, o eticheta de enum nefolosita, care nu refera nimic si se
+re-adauga ca no-op.
+
+RULE: **un lot de migratii care adauga o eticheta de enum SI o foloseste nu poate
+fi o singura tranzactie, si asta se descopera pe un container, nu pe productie.**
+Regula serverului nu are exceptii si nu depinde de cat de sigur pare fisierul.
+
+RULE: **cauta diferenta intre `language sql` si `language plpgsql` inainte de a
+crede ca doua utilizari identice ale unei constante se comporta la fel.** Prima
+este validata la creare, a doua nu.
+
+### `pg_get_function_identity_arguments` intoarce si NUMELE parametrilor, si o poarta care nu potriveste trece in tacere
+
+**Tag:** data
+
+**ERROR:** Doua verificari din `scripts/apply-pending-migrations.mjs` comparau
+semnatura unei functii cu sirul `'text, text, text, jsonb'`. Functia are parametri
+numiti, deci `pg_get_function_identity_arguments` intoarce
+`'p_reference text, p_client_name text, p_project_name text, p_lines jsonb'`, care
+nu se potriveste niciodata.
+
+AFIRMATIA A CAZUT ZGOMOTOS SI POARTA A CAZUT IN TACERE, si a doua este cea grava.
+Poarta care trebuia sa verifice ca functia de patru argumente nu are obiecte
+dependente inainte ca `0018` sa o stearga nu a gasit-o si a raportat linistit
+"the four-argument function is not present, nothing to drop", in timp ce functia
+era acolo. O poarta care sare peste verificare arata identic cu o poarta care a
+trecut.
+
+**SOLUTION:** Se compara tipurile si numai tipurile:
+`array_to_string(array(select format_type(t, null) from unnest(p.proargtypes) as t), ', ')`.
+
+RULE: **o poarta care poate sa nu gaseasca subiectul trebuie sa trateze "nu am
+gasit" ca esec sau sa il raporteze ca atare, niciodata ca trecere.** Ambele
+verificari de aici au fost gasite de mutatii, nu de citire.
+
+### O mutatie care nu muteaza nimic raporteaza acelasi verde ca un control care functioneaza
+
+**Tag:** ci
+
+**ERROR:** Testul de mutatie care trebuia sa dovedeasca poarta lui `0018` inlocuia
+textul `drop function if exists public.create_outbound_issue(text, text, text, jsonb);`
+cu un comentariu, folosind un `String.replace` cu un sir. `0018` CITEAZA acelasi
+statement in propriul antet de comentariu, cu douazeci de randuri mai sus, iar
+`replace` cu un sir inlocuieste PRIMA aparitie. Mutatia a comentat un comentariu,
+statementul real a rulat, si proba a trecut fara sa fi probat nimic.
+
+**SOLUTION:** Ancorat la inceput de rand, cu `/^drop function .../m`, si harnasamentul
+refuza acum o mutatie a carei iesire este egala cu intrarea.
+
+RULE: **un test de mutatie trebuie sa verifice ca a mutat ceva.** Altfel esecul pe
+care il previne apare chiar in interiorul lui, si aceea este singura verificare pe
+care nimeni nu o mai verifica.

@@ -15,6 +15,7 @@
     "check:no-prod-target": "node scripts/poc-free/check-no-prod-target.mjs",
     "check:migrations": "node scripts/poc-free/local-db/apply.mjs",
     "check:pending-schema-reads": "node scripts/poc-free/check-pending-schema-reads.mjs",
+    "prove:applier": "node scripts/poc-free/local-db/prove-applier.mjs",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {

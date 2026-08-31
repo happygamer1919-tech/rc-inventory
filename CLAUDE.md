@@ -528,6 +528,59 @@ in a terminal's hands than a script that can is in anyone's.
 **The full ruling, including its bounded conflict with R-044, is R-047 in
 `decisions/inbox.md`.**
 
+#### The second exception, added 2026-08-31 by ruling R-082: a migration applied under assertion
+
+**The exception above is about SCRIPTS and says in terms that MIGRATIONS ARE NOT
+IN SCOPE. This one is about migrations, and it is the only thing that reaches
+them.** Read the absolute exclusion below before reading the grant.
+
+**WHY IT WAS NEEDED.** Thirteen migrations were merged and unapplied, and no
+ruling let any terminal apply them. R-047 excluded migrations by name. R-049,
+R-056 and R-059 widened the SELF-MERGE grant and touched none of this, because
+merging a migration file changes one text file and changes nothing in any
+database. The apply was reachable by nobody.
+
+**A TERMINAL MAY APPLY MERGED MIGRATIONS TO PRODUCTION ONLY THROUGH AN APPLIER
+THAT:**
+
+1. runs the whole batch inside **one transaction**,
+2. records the **pending register** and the **applied ledger** before and after,
+3. evaluates its assertions **in SQL**, inside that transaction, after the
+   mutations and before the commit,
+4. **commits only on all-pass**, and otherwise rolls back whole and exits
+   non-zero naming every failure, and
+5. **never chooses.** The script decides; the terminal reports what the script
+   decided and nothing else.
+
+`scripts/apply-pending-migrations.mjs` is that applier. A hand-run `psql` against
+production, or any file that prints a grid for a human to read, is not covered by
+this and never was.
+
+**THE ABSOLUTE EXCLUSION IS UNCHANGED AND SITS ABOVE THIS GRANT.** `DROP TABLE`,
+`TRUNCATE` and `DELETE` are never auto-applied. The applier refuses with
+**nothing executed**, quotes the statement, and the card goes `blocked_on: ivan`.
+
+**`DROP FUNCTION` IS PERMITTED UNDER ONE ADDITIONAL ASSERTION**, evaluated BEFORE
+the drop executes: the target has **zero dependent objects**, and no deployed
+route names it outside the phase 3 probe. Any dependent rolls the whole batch
+back. The exact statement is printed to stdout whatever the outcome, so it can be
+quoted to the owner from the run output alone. This is the same class 8.6 already
+permits, and the three conditions above the fold still apply: quoted verbatim,
+parsed with `pgsql-parser` first, journalled.
+
+**THE ONE BOUNDED DEVIATION FROM "ONE TRANSACTION", AND IT IS THE SERVER'S RULE
+RATHER THAN A PREFERENCE.** PostgreSQL refuses to let a newly added enum label be
+USED in the transaction that added it. The applier therefore commits
+`ALTER TYPE ... ADD VALUE` statements in a pre-phase of their own and **refuses to
+put anything else in it**: a file joins the pre-phase only if it contains an enum
+addition, may contain nothing but `AlterEnumStmt` and `SelectStmt`, and every
+addition must carry `IF NOT EXISTS`. What can survive a rollback of the main batch
+is therefore exactly one thing, an unused idempotent enum label, which references
+nothing and is re-added as a no-op. That is not the partial apply 8.5 forbids, and
+the applier says so in its own header.
+
+**REVOKED BY P2-13**, with every other terminal grant, per 8.7.
+
 #### What is NOT in the forbidden set
 
 `ALTER TABLE ... DROP CONSTRAINT` is **permitted** and may be auto-applied. It
