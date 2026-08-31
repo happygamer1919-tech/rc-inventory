@@ -1,40 +1,46 @@
 {
-  "run_id": "20260830-220004",
-  "report": "docs/reports/2026-08-31-executor-p3-11-material-cost.md",
+  "run_id": "20260831-010005",
+  "report": "docs/reports/2026-08-31-executor-p3-13-deviz-schema.md",
   "rulings_written": [
-    "R-063",
-    "R-064",
-    "R-065",
-    "R-066",
-    "R-067"
+    "R-068",
+    "R-069",
+    "R-070",
+    "R-071",
+    "R-072",
+    "R-073",
+    "R-074"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P3-04b",
-      "change": "depends_on now names P3-04, P3-10 and P3-27. Old edge was P3-04 and P3-10. Under R-065: every existing edge was shipped and the card was still blocked on Ivan, asking him word for word the question P3-27 already asks. The apply is another card's question, so it is now an edge instead of a third copy of the same ask. It stays blocked on Ivan for the half that really is his: reading the reconciliation list with Mihai before a column is dropped."
+      "card_id": "P2-13",
+      "change": "acceptance gains the capability precondition, and notes gain the reasoning. Under R-072: this card switches off the builder's database access, and thirteen migration files that have never reached the live database need exactly that access. Before any password is changed, the runbook must carry a ticked box confirming every migration file is recorded as applied. No dependency edge was added because the two cards are on different work lists and the checker rejects an edge across them."
     },
     {
-      "card_id": "P3-05b",
-      "change": "depends_on now names P3-05, P3-10 and P3-27. Old edge was P3-05 and P3-10. Same finding and same fix as P3-04b, under R-065."
+      "card_id": "P2-14",
+      "change": "status corrected from todo to blocked, so it now sits in the BLOCKED ON PEOPLE lane under the client column. Under R-072: the card already recorded that it was waiting on the client, and its status field said otherwise. Nothing about the work changed. The counts move with it, from 10 waiting and 1 blocked to 11 waiting and 2 blocked, counting the new cards."
     },
     {
-      "card_id": "P3-28",
-      "change": "authored by TRIAGE under R-066, from the P3-11 report. Record the price of a material on the release at the moment it leaves the warehouse, so that editing a product price stops silently rewriting what past jobs appear to have cost."
+      "card_id": "AUT-16",
+      "change": "authored by TRIAGE under R-071, from the P3-13 report and from two consequences it did not find. Teach the overnight system to read both work lists. Today it reads only the old one, which means Ivan cannot answer a question about the new one from Telegram, and the daily summary he reads cannot see the twelve items finished on it since 2026-08-30."
     },
     {
-      "card_id": "BOARD-02",
-      "change": "authored by TRIAGE under R-064, from section 4b of the P3-11 report. Make the work list read a real clock: its last-updated date had drifted nine hours into the future and was still growing."
+      "card_id": "RST-03",
+      "change": "authored by TRIAGE under R-070, from section 3a of the P3-13 report. Publish the finished review work from the earlier overnight session that is stuck outside the main line: five decisions, three new items and one report, all committed and all invisible until this lands."
     },
     {
-      "card_id": "AUT-15",
-      "change": "authored by TRIAGE under R-067, from a defect in DOCTRINE-TRIAGE.md found by applying it. The rulebook for the reviewing step tells it to read one file and nothing else, then gives it four jobs that need several more. AUTHOR corrects the sentence; TRIAGE does not edit the document that constrains it."
+      "card_id": "RST-02",
+      "change": "notes gain the systemic half of R-070. The automatic sweep that rescues abandoned work cannot rescue work that has fallen out of step with the main line, and today it passes over it in silence. It must say so instead. No dependency edge changed."
+    },
+    {
+      "card_id": "P3-04b and P3-05b",
+      "change": "NOT resequenced here, deliberately. The check fired on both and the earlier review session already made exactly this change in the work that RST-03 publishes. Making it a second time would collide with that work and would most likely delete it. Recorded rather than repeated."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "P3-27: twelve merged migration files have never been applied to the live Supabase project, and all nine phase 3 launch gate conditions are behind that one action.",
-      "recommendation": "Answer P3-27 with option (b): lift the one sentence of the 2026-08-30 dispatch that says no terminal opens a database connection, and let EXECUTOR apply all twelve files in file order under the three-phase apply in CLAUDE.md 8.5, journalling every phase into docs/migrations/APPLY-LOG.md. Wave 1 is complete, so the reason to wait has already been met; R-001 already authorises it and has not been revoked; and none of the twelve contains DROP TABLE, TRUNCATE or DELETE, so section 8.6 does not stop any of them. If Ivan prefers to run them himself in the Supabase SQL editor, that is option (a) and it closes the same gap, one sitting, in file order 0013 to 0024, pasting the verification grids at the foot of each file back onto the card. IF UNANSWERED: eleven shipped cards stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 no matter what ships next, and P3-04b and P3-05b stay parked behind it. Nothing breaks and nothing gets worse, which is exactly why this question has now gone unanswered longer than any other on the board."
+      "title": "Thirteen finished pieces of database work have never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the second time it has been raised: the first is still stuck outside the main line, in the work RST-03 publishes.",
+      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission already exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. ONE PRACTICAL NOTE BEFORE YOU REPLY: the Telegram answer channel currently cannot resolve a phase 3 item at all, so `R P3-27 default` will be refused as an unknown item. That is card AUT-16 and it is the reason this run authored it. Until AUT-16 ships, answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped cards stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and P3-04b and P3-05b stay parked behind it. Nothing breaks and nothing gets worse, which is exactly why this has now gone unanswered longer than anything else on either board."
     }
   ]
 }
