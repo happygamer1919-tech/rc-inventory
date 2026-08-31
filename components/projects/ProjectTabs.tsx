@@ -4,8 +4,8 @@
 // P3-11 adauga Cost.
 //
 // BANDA ESTE AUTORATA COMPLETA, la fel ca la client: Consum, Deviz, Documente,
-// Istoric. Deviz si Documente randeaza stari goale romanesti pana cand cardurile
-// lor le umplu.
+// Istoric. P3-13b a umplut Deviz. Documente randeaza in continuare o stare goala
+// romaneasca pana cand cardul ei o umple.
 //
 // FILA ACTIVA ESTE UN PARAMETRU DE URL, acelasi motiv si acelasi nume de
 // parametru ca pe fisa clientului: doua ecrane care fac acelasi lucru cu URL-ul
@@ -22,6 +22,9 @@ import type { ProjectMaterials } from "@/lib/data/projects-list";
 import type { StatusEvent } from "@/lib/data/projects-list-types";
 import type { UnitCode } from "@/lib/data/units";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
+import type { CatalogProduct } from "@/lib/data/products";
+import type { Deviz, DevizSummary } from "@/lib/data/deviz";
+import { DevizPanel } from "./DevizPanel";
 
 const TABS = [
   { id: "consum", label: "Consum" },
@@ -50,11 +53,17 @@ export function ProjectTabs({
   materials,
   cost,
   history,
+  deviz,
+  products,
+  canWrite,
 }: {
   projectId: string;
   materials: ProjectMaterials;
   cost: ProjectMaterialCost;
   history: StatusEvent[];
+  deviz: { list: DevizSummary[]; open: Deviz | null };
+  products: CatalogProduct[];
+  canWrite: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -318,13 +327,13 @@ export function ProjectTabs({
         ) : null}
 
         {active === "deviz" ? (
-          <Card>
-            <CardHeader title="Deviz" />
-            <EmptyState
-              title="Niciun deviz"
-              hint="Estimările pe acest șantier ajung aici odată cu cardul care le aduce."
-            />
-          </Card>
+          <DevizPanel
+            projectId={projectId}
+            list={deviz.list}
+            open={deviz.open}
+            products={products}
+            canWrite={canWrite}
+          />
         ) : null}
 
         {active === "documente" ? (

@@ -29,6 +29,8 @@ import { ProjectForm } from "./ProjectForm";
 import { ProjectTabs } from "./ProjectTabs";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
+import type { CatalogProduct } from "@/lib/data/products";
+import type { Deviz, DevizSummary } from "@/lib/data/deviz";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -46,6 +48,8 @@ export function ProjectDetailScreen({
   history,
   materials,
   cost,
+  deviz,
+  products,
   clients,
   canWrite,
 }: {
@@ -53,6 +57,8 @@ export function ProjectDetailScreen({
   history: StatusEvent[];
   materials: ProjectMaterials;
   cost: ProjectMaterialCost;
+  deviz: { list: DevizSummary[]; open: Deviz | null };
+  products: CatalogProduct[];
   clients: { id: string; name: string }[];
   canWrite: boolean;
 }) {
@@ -190,6 +196,9 @@ export function ProjectDetailScreen({
           materials={materials}
           cost={cost}
           history={history}
+          deviz={deviz}
+          products={products}
+          canWrite={canWrite}
         />
       </div>
 

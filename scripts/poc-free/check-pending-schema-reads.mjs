@@ -65,6 +65,10 @@ const EXEMPT = {
     'scrierile de clienti sunt ajunse numai din formularul de pe /clienti si /clienti/[id], iar ambele rute sunt aparate.',
   'lib/data/client-detail.ts':
     'citirile filelor de pe fisa clientului sunt chemate numai de /clienti/[id], care este aparata, si toate inghit eroarea si intorc liste goale.',
+  'lib/data/deviz.ts':
+    'getProjectDevizView este chemat dintr-un singur loc, app/(app)/proiecte/[id]/page.tsx, care randeaza SchemaPending si se intoarce inainte sa il cheme. Celelalte trei importuri din fisier sunt `import type` si dispar la compilare.',
+  'lib/data/deviz-actions.ts':
+    'scrierile de deviz sunt chemate numai din components/projects/DevizPanel.tsx, care este randat de ProjectTabs numai in arborele lui /proiecte/[id], adica numai dupa aceeasi poarta.',
 };
 
 function pendingMigrations() {
