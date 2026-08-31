@@ -56,7 +56,7 @@ export const EMPTY_INITIAL: InboundFormInitial = {
 };
 
 let lineSeq = 0;
-export function newLine(): FormLine {
+function newLine(): FormLine {
   lineSeq += 1;
   return { key: `l-${lineSeq}`, productId: "", quantity: "", unitPrice: "" };
 }

@@ -9,7 +9,7 @@
 
 export type UnitCode = "m2" | "lm" | "pcs" | "bag" | "kg" | "roll" | "m3";
 
-export const UNIT_LABEL: Record<UnitCode, string> = {
+const UNIT_LABEL: Record<UnitCode, string> = {
   m2: "m²",
   lm: "ml",
   pcs: "buc",
