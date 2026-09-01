@@ -358,6 +358,42 @@ out(`target                 ${target}${target === "shim" ? ` (container ${contai
 out(`pending register       docs/migrations/APPLY-LOG.md\n`);
 out(`pending file count     ${pending.length}\n`);
 
+// --- AN APPLIER THAT CANNOT SEE ITS WORK MUST FAIL, NEVER REPORT CLEAN -------
+//
+// THE REGISTER LINE COUNT IS ASSERTED AGAINST THE PARSED FILE COUNT, because
+// this script has already been silently wrong about exactly this. The card id
+// pattern was `[A-Z0-9-]+`, `P3-04b` did not match it, and the register parsed
+// to ZERO pending files while a line for it sat plainly in the file. The run
+// then exited 0 saying "already current", which is INDISTINGUISHABLE FROM
+// SUCCESS: nothing was applied, nothing was journalled, and the report said the
+// database was up to date.
+//
+// The parse and the eye must agree. Lines are counted with a deliberately loose
+// pattern, one that only asks whether a line LOOKS like a register entry, and
+// compared against what the strict pattern actually extracted. A line that looks
+// like an entry and did not parse is a defect in this script, not a line to skip.
+const looseRegisterLines = readFileSync(APPLY_LOG, "utf8")
+  .split("\n")
+  .filter((l) => /^-\s+`\d{4}_.*\.sql`\s*,\s*card de aplicare/i.test(l.trim()));
+
+if (looseRegisterLines.length !== pending.length) {
+  const parsed = new Set(pending);
+  const unparsed = looseRegisterLines.filter((l) => {
+    const m = /`(\d{4}_[^`]+\.sql)`/.exec(l);
+    return !m || !parsed.has(m[1]);
+  });
+  die(
+    EXIT_BAD_TREE,
+    `THE REGISTER AND THE PARSER DISAGREE, so this run is refusing rather than reporting a clean database.\n` +
+      `  lines that look like register entries: ${looseRegisterLines.length}\n` +
+      `  lines this script actually parsed:     ${pending.length}\n` +
+      (unparsed.length
+        ? `\nThese lines were not parsed:\n${unparsed.map((l) => `  ${l.trim()}`).join("\n")}\n`
+        : "") +
+      `\nA pending migration this script cannot see is a migration it will silently not apply.`,
+  );
+}
+
 // STOP: nothing pending means the database is already current. Re-running would
 // be a write with nothing to write, and the register is the authority.
 if (pending.length === 0) {
@@ -370,6 +406,7 @@ for (const f of pending) {
   const full = join(MIGRATIONS_DIR, f);
   if (!existsSync(full)) die(EXIT_BAD_TREE, `pending register names ${f}, which does not exist`);
 }
+
 
 // --- 6a. Parse every file BEFORE anything executes -------------------------
 //

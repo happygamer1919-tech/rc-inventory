@@ -16,7 +16,6 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
-import { hasPhase3Schema } from "./schema-capability";
 import { one } from "./row";
 
 export type ActionResult =
@@ -82,7 +81,7 @@ function validate(input: ProductInput):
       unit: input.unit,
       threshold,
       unit_value_mdl: value,
-      // supplier_id si supplier_name se rezolva separat, in resolveSupplier,
+      // supplier_id se rezolva separat, in resolveSupplier,
       // pentru ca poate fi nevoie de o SCRIERE (un furnizor nou) si validarea
       // nu are voie sa scrie nimic.
     },
@@ -90,16 +89,16 @@ function validate(input: ProductInput):
 }
 
 /**
- * Traduce ce a ales operatorul intr-o pereche (supplier_id, supplier_name).
+ * Traduce ce a ales operatorul intr-un supplier_id.
  *
  * P3-05 face din furnizor o inregistrare si lasa lista DESCHISA: un furnizor
  * nou se scrie in acelasi combobox, ca introducerea unui produs sa nu devina o
  * sarcina pe doua ecrane. Valoarea primita este deci fie un id, fie un nume.
  *
- * NUMELE STOCAT VINE INTOTDEAUNA DE PE RANDUL DE FURNIZOR, niciodata din ce a
- * scris cineva. products.supplier_name mai exista pana la P3-05b, si cat timp
- * exista amandoua nu au voie sa spuna lucruri diferite. Aceeasi regula ca la
- * iesiri in migratia 0018.
+ * P3-05b: NU SE MAI SCRIE NICIUN NUME. products.supplier_name a fost sters de
+ * migratia 0027, deci nu mai exista o a doua ortografie care sa se contrazica cu
+ * randul de furnizor. Functia rezolva un id si numai atat; numele se citeste la
+ * afisare, prin legatura.
  *
  * CAUTAREA UNUI NUME NOU SE FACE PE NUMELE PLIAT, cu aceeasi functie pe care o
  * foloseste si backfill-ul: public.fold_text. Cine scrie "bricolaj srl" cand
@@ -107,26 +106,16 @@ function validate(input: ProductInput):
  * strange cardul la un loc.
  */
 type ResolvedSupplier =
-  | { ok: true; value: { supplier_id?: string | null; supplier_name: string | null } }
+  | { ok: true; value: { supplier_id: string | null } }
   | { ok: false; message: string; field: string };
 
 async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
   const value = raw.trim();
 
-  // CAT TIMP 0019 NU ESTE APLICATA, public.suppliers si products.supplier_id nu
-  // exista, iar o scriere care numeste supplier_id esueaza: pana la remedierea
-  // din 2026-08-31 asta rupea salvarea ORICARUI produs pe productie, inclusiv a
-  // unuia fara furnizor, pentru ca supplier_id era in setul de scriere si atunci
-  // cand era null. Comportamentul de dinainte de P3-05 este exact acesta: numele
-  // se scrie ca text si nu exista inregistrare de furnizor.
-  if (!(await hasPhase3Schema())) {
-    return {
-      ok: true,
-      value: { supplier_name: value.length > 0 ? value : null },
-    };
-  }
-
-  if (value.length === 0) return { ok: true, value: { supplier_id: null, supplier_name: null } };
+  // P3-05b: RAMURA DE DINAINTE DE FAZA 3 A DISPARUT ODATA CU COLOANA. Ea scria
+  // numele ca text pe products.supplier_name, care nu mai exista, deci nu ar mai
+  // fi degradat elegant: ar fi esuat scrierea oricarui produs.
+  if (value.length === 0) return { ok: true, value: { supplier_id: null } };
 
   const supabase = await createClient();
 
@@ -138,7 +127,7 @@ async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
       .maybeSingle();
     if (!data)
       return { ok: false, message: "Furnizorul ales nu mai există.", field: "supplier" };
-    return { ok: true, value: { supplier_id: data.id as string, supplier_name: data.name as string } };
+    return { ok: true, value: { supplier_id: data.id as string } };
   }
 
   // Un nume: mai intai cautat pliat, si creat doar daca nu exista.
@@ -149,7 +138,7 @@ async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
   if (found?.id)
     return {
       ok: true,
-      value: { supplier_id: found.id as string, supplier_name: found.name as string },
+      value: { supplier_id: found.id as string },
     };
 
   const { data: created, error } = await supabase
@@ -168,7 +157,7 @@ async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
     };
   return {
     ok: true,
-    value: { supplier_id: created.id as string, supplier_name: created.name as string },
+    value: { supplier_id: created.id as string },
   };
 }
 

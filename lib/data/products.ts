@@ -102,8 +102,8 @@ type ProductRow = {
   unit: string;
   threshold: unknown;
   unit_value_mdl: unknown;
-  supplier_name: string | null;
-  supplier_id?: string | null;
+  supplier_id: string | null;
+  suppliers: { name: string } | { name: string }[] | null;
   needs_review: boolean;
   active: boolean;
   categories: { name: string } | null;
@@ -119,7 +119,10 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
     unit: isUnitCode(row.unit) ? row.unit : "pcs",
     threshold: toNumber(row.threshold),
     unitValueMdl: toNumber(row.unit_value_mdl),
-    supplierName: row.supplier_name,
+    // P3-05b: THE NAME COMES FROM THE JOINED SUPPLIER RECORD. products.supplier_name
+    // is dropped by 0027, so there is no second spelling left to disagree with it.
+    // Still nullable: a product may genuinely have no supplier.
+    supplierName: (Array.isArray(row.suppliers) ? row.suppliers[0]?.name : row.suppliers?.name) ?? null,
     supplierId: row.supplier_id ?? null,
     needsReview: row.needs_review,
     active: row.active,
@@ -137,13 +140,11 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
 export async function listProducts(): Promise<CatalogProduct[]> {
   const supabase = await createClient();
 
-  // supplier_id este adaugat de migratia 0019. Cat timp ea nu este aplicata,
-  // coloana nu exista si un select care o numeste intoarce 42703, ceea ce a
-  // doborat tabloul de bord pe 2026-08-31. Se cere doar ce exista.
-  const phase3 = await hasPhase3Schema();
-  const columns = phase3
-    ? "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, supplier_id, needs_review, active, categories(name)"
-    : "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, needs_review, active, categories(name)";
+  // P3-05b: ONE COLUMN LIST. The pre-phase-3 fallback named supplier_name, which
+  // 0027 drops, and it was only ever reached when hasPhase3Schema() said no. The
+  // wave 1 migrations are applied, so that branch is unreachable AND unsafe.
+  const columns =
+    "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_id, needs_review, active, categories(name), suppliers(name)";
 
   const [{ data, error }, stock] = await Promise.all([
     supabase.from("products").select(columns).order("sku", { ascending: true }),

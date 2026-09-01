@@ -39,6 +39,8 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
+- `0027_drop_products_supplier_name.sql`, card de aplicare P3-05b
+
 
 ## Rules
 
