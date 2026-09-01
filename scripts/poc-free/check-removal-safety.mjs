@@ -60,6 +60,15 @@ const MIGRATIONS = process.env.RC_REMOVAL_MIGRATIONS || join(ROOT, "supabase/mig
 // leaving the check with nothing to scan and reporting OK. That is the same
 // shape of silent-pass this whole card exists to stop, so it is handled here.
 const abs = (d) => (d.startsWith("/") ? d : join(ROOT, d));
+
+// A PATH IS ONLY SHORTENED WHEN IT IS ACTUALLY UNDER THE REPO ROOT.
+// Slicing by ROOT.length assumes every scanned file lives in the repository. The
+// fixtures do not: they live in a temporary directory, and the slice then cut a
+// tmp path at an arbitrary offset and printed a mangled name. It passed locally
+// and failed on the CI runner purely because the two machines make tmp paths of
+// different lengths, which is the kind of luck that hides a defect until it
+// matters.
+const shown = (f) => (f.startsWith(ROOT + "/") ? f.slice(ROOT.length + 1) : f);
 const SOURCE_DIRS = (process.env.RC_REMOVAL_SOURCE || "lib,app,components")
   .split(",")
   .map((d) => abs(d.trim()))
@@ -159,14 +168,14 @@ for (const f of pending) {
       const text = readFileSync(src, "utf8");
       text.split("\n").forEach((line, i) => {
         if (new RegExp(`\\b${column}\\b`).test(line) && !/^\s*(\/\/|\*|--)/.test(line))
-          findings.push({ file: f, kind: `column ${table}.${column}`, at: `${src.slice(ROOT.length + 1)}:${i + 1}`, line: line.trim().slice(0, 110) });
+          findings.push({ file: f, kind: `column ${table}.${column}`, at: `${shown(src)}:${i + 1}`, line: line.trim().slice(0, 110) });
       });
     }
   }
 
   for (const table of tables) {
     for (const src of filesTouching(table, files))
-      findings.push({ file: f, kind: `table ${table}`, at: src.slice(ROOT.length + 1), line: "file references the table" });
+      findings.push({ file: f, kind: `table ${table}`, at: shown(src), line: "file references the table" });
   }
 
   for (const fn of funcs) {
@@ -174,7 +183,7 @@ for (const f of pending) {
       const text = readFileSync(src, "utf8");
       text.split("\n").forEach((line, i) => {
         if (new RegExp(`\\.rpc\\(\\s*["'\`]${fn}["'\`]`).test(line))
-          findings.push({ file: f, kind: `function ${fn}`, at: `${src.slice(ROOT.length + 1)}:${i + 1}`, line: line.trim().slice(0, 110) });
+          findings.push({ file: f, kind: `function ${fn}`, at: `${shown(src)}:${i + 1}`, line: line.trim().slice(0, 110) });
       });
     }
   }
