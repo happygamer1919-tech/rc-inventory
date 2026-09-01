@@ -294,7 +294,24 @@ async function main() {
   if (updates.length === 0) return 0;
 
   const board = JSON.parse(readFileSync(BOARD_PATH, "utf8"));
-  const knownCardIds = new Set((board.cards || []).map((c) => c.id));
+  // FOLDED ON BOTH SIDES. The ruling form is upper-cased on the way in, because
+  // the owner types `R P3-27 default` and should not have to match a card's
+  // capitalisation from his phone. The BOARD is not upper-case: ids carry
+  // lower-case suffixes, P3-04b, P3-11a, P3-13c. Folding only the incoming id and
+  // comparing it to a set of verbatim board ids REJECTED every ruling on every
+  // one of those cards with "no card P3-11A on the board", which is the owner's
+  // own decision channel refusing his decisions.
+  //
+  // Third instance of one defect class. The pending-register regex accepted only
+  // [A-Z0-9-]+ and silently reported zero pending migrations for P3-04b;
+  // ask.mjs folded the id and then failed to find the card it had just messaged
+  // about. Tooling that folds an id must fold BOTH SIDES of every comparison.
+  const knownCardIds = new Set((board.cards || []).map((c) => String(c.id).toUpperCase()));
+  // The board's own spelling, so a verdict is written onto the card with the id
+  // the board actually uses rather than the folded one.
+  const cardIdBySpelling = new Map(
+    (board.cards || []).map((c) => [String(c.id).toUpperCase(), c.id]),
+  );
 
   const accepted = [];
   let ignored = 0;
@@ -361,7 +378,9 @@ async function main() {
   const cardIds = [];
 
   for (const a of accepted) {
-    const card = (boardJson.cards || []).find((c) => c.id === a.verdict.cardId);
+    const card = (boardJson.cards || []).find(
+      (c) => String(c.id).toUpperCase() === String(a.verdict.cardId).toUpperCase(),
+    );
     if (!card) continue;
 
     const rulingId = nextRulingId(inboxText);

@@ -397,7 +397,21 @@ export function deriveLane(card) {
 }
 
 export function applyExpiry(board, record, nowIso) {
-  const card = (board.cards || []).find((c) => c.id === record.card_id);
+  // CASE-INSENSITIVE, AND THAT IS A BUG FIX RATHER THAN A LOOSENING. The card id
+  // is upper-cased on the way in, because the spool file name and the Telegram
+  // reply form are upper-case by design and a reply must match whatever the owner
+  // types. The BOARD is not upper-case: ids carry lower-case suffixes, P3-11a,
+  // P3-04b, P3-13b. Comparing the folded id to the board id therefore matched
+  // nothing for exactly those cards, and ask.sh died with "no board named P3-11C"
+  // after having already sent the question to Telegram. The owner saw a question
+  // that could never be written onto its card.
+  //
+  // Same defect class as the pending-register regex that only accepted [A-Z0-9-]+
+  // and silently reported zero pending migrations for P3-04b. Tooling that folds
+  // an id must fold BOTH SIDES of every comparison.
+  const card = (board.cards || []).find(
+    (c) => String(c.id).toUpperCase() === String(record.card_id).toUpperCase(),
+  );
   if (!card) return null;
   card.status = "blocked";
   card.blocked_on = "ivan";

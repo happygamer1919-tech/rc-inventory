@@ -184,6 +184,28 @@ jobs:
       - name: Refuse application code that reads unapplied schema
         run: npm run check:pending-schema-reads
 
+      # THE OTHER DIRECTION, AND IT COST ITS OWN OUTAGE. Card P3-11c.
+      #
+      # The step above guards ADDITIVE drift: merged code reading schema that is
+      # not applied yet. That is INC-05. It cannot guard the reverse, by
+      # construction: when a migration REMOVES something, the code still reading
+      # it is already on main and the register is about to be cleared, so there
+      # is nothing for that check to compare.
+      #
+      # INC-06, 2026-09-01: migration 0027 dropped products.supplier_name while
+      # deployed code still selected it, and six screens answered 500.
+      #
+      # This step asks the other question, and it enumerates readers against the
+      # TABLE rather than grepping the column name with exclusions, because that
+      # exact filter hid lib/data/extraction-actions.ts:269 during P3-05b.
+      - name: Refuse a removal while something still reads it
+        run: npm run check:removal-safety
+
+      # BOTH OUTAGES, RECONSTRUCTED, EACH FAILING ITS OWN GUARD ON DEMAND.
+      # Neither guard had ever been seen to fail anywhere except production.
+      - name: Prove both schema-direction guards still fire
+        run: npm run prove:schema-direction
+
       # CRIT-15, runtime half. THE GUARD'S REFUSAL, EXERCISED ON THE CI PATH.
       #
       # CRIT-11 built the guard and proved six exit paths locally. In CI only
