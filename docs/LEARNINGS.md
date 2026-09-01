@@ -2631,3 +2631,121 @@ rau decat o casuta nebifata, pentru ca nimeni nu se mai intoarce la ea.
 
 Vezi si intrarea despre cele doua redirectari care se arata una pe alta, unde
 acelasi lucru a ascuns un defect: site-ul parea sanatos oricui NU era autentificat.
+
+### A silent success is worse than a loud failure, and an unresolved symlink produced one
+**Tag:** infra
+**ERROR:** `node scripts/poc/ask.mjs open ...` printed nothing, wrote nothing,
+sent nothing, and exited 0. `ask.sh` read that zero as "the question was asked",
+logged "asked, waiting until ...", waited out the whole deadline against a
+question that had never been sent, and then blocked the card on an owner who had
+never been contacted.
+
+The cause was the entry-point guard, in the idiom this repository already uses in
+`eligible.mjs` and `plain-digest.mjs`:
+
+    const RUN_DIRECTLY = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+`import.meta.url` is ALREADY SYMLINK-RESOLVED. `process.argv[1]` is not. On macOS
+`/var` is a symlink to `/private/var`, so the same file invoked through a path
+under `/var` (every `mktemp -d` on this machine) compares unequal to itself. The
+guard says "I am not the entry point", `main()` never runs, and node exits 0
+because nothing failed.
+
+**SOLUTION:** Resolve BOTH sides before comparing:
+
+    realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+
+RULE: **an entry-point guard that decides it is not the entry point must not exit
+0 silently.** Exit 0 is the code every caller reads as success, and a module that
+does nothing at all is indistinguishable from one that did the job.
+
+RULE: **never compare a resolved path against an unresolved one.**
+`import.meta.url`, `__filename` and `realpath` are resolved; `process.argv[1]`,
+`$0` and anything a user typed are not.
+
+RULE, AND THIS IS THE ONE THAT GENERALISES: **when a zero exit is the whole
+evidence that something external happened, check for the ARTEFACT instead.**
+`ask.sh` now refuses to wait unless the open-question record exists on disk. The
+exit code says a process ended without complaining; the file says the work
+happened.
+
+`scripts/poc/eligible.mjs`, `scripts/poc/plain-digest.mjs` and
+`scripts/poc/notify.mjs` still carry the unresolved form. None of them is reached
+through a symlinked path today, so this is recorded rather than swept: fixing
+three files that are not broken is scope, and the next person to move one of them
+under `/var` needs to find this entry.
+
+### The 60 second responder eats a ruling before the inbox reader can see it
+**Tag:** infra
+**ERROR:** `scripts/poc/responder.sh` acknowledges the Telegram offset for EVERY
+message it read in a poll, including the ones it classified `ruling` and
+deliberately did not act on:
+
+    # Acknowledge everything read this poll, including messages that were ignored,
+    # so an ignored message is not reclassified forever.
+    tg_get "getUpdates?offset=$((HIGHEST + 1))&limit=1"
+
+Acknowledging an offset DELETES those updates on Telegram's side. `inbox.mjs`
+runs at the start of a work run, three hours later at most, calls
+`getUpdates?limit=100`, and gets nothing. So `R P2-12 default` sent at any moment
+while the responder is running is consumed by the responder, classified as a
+ruling, logged as "not answered here", and destroyed. The ruling never becomes a
+ruling and the card stays blocked.
+
+The comment above the acknowledgement is right about ignored messages and wrong
+about rulings: an ignored message must not be reclassified forever, but a ruling
+has not been HANDLED yet by anyone.
+
+**SOLUTION:** Not fixed here. It belongs to whoever owns the ruling path, and
+CLAUDE.md section 3 says a defect noticed in passing becomes an entry or a card,
+not a quiet extra commit. The fix is one of two shapes: either the responder
+spools ruling-form messages to disk the way ASK-01 spools answers, and
+`inbox.mjs` reads the spool instead of the network, or the responder stops
+acknowledging past the lowest ruling it saw.
+
+RULE: **`getUpdates` is destructive, so exactly one process may read a bot.** Two
+pollers do not share a queue, they race for it, and the loser never learns that
+it lost. ASK-01 is built on this rule rather than around it: `ask.sh` does not
+poll Telegram at all, it reads a spool the one existing reader writes.
+
+### The credential guard refused the commit that added the file it was named after
+**Tag:** infra
+**ERROR:** `scripts/poc/inbox.mjs` refuses to commit when the staged diff matches:
+
+    /eyJ[A-Za-z0-9]|gho_[A-Za-z0-9]|sk-[A-Za-z0-9]|re_[A-Za-z0-9]|bot[0-9]{8}:/
+
+None of those alternatives is anchored. `sk-[A-Za-z0-9]` matches the MIDDLE of
+`test-ask-digest.sh`, and `re_[A-Za-z0-9]` matches the middle of
+`features_are_re_enabled`. Adding a file called `scripts/poc/test-ask-digest.sh`
+therefore made every board card and every ruling that names it look like a
+credential. The check fired 20 times on the commit that introduced the file, all
+20 on the filename.
+
+A guard that refuses a legitimate commit is a guard that gets switched off, and a
+switched-off guard is worse than no guard, because the file still says it is
+protected.
+
+**SOLUTION:** In `scripts/poc/ask.sh` the same shapes are anchored at a
+non-alphanumeric, non-underscore boundary and fenced as `EXTRACT-BEGIN
+credential-shapes`, so `scripts/poc/test-ask-digest.sh` exercises them in BOTH
+directions:
+
+    (^|[^A-Za-z0-9_])(eyJ[A-Za-z0-9]|gho_[A-Za-z0-9]|sk-[A-Za-z0-9]|re_[A-Za-z0-9]|bot[0-9]{8}:)
+
+The anchor loses nothing real: in a diff a credential is preceded by `+`, `-`,
+`"`, `=` or a space, all of which match it. The underscore has to be in the
+excluded class as well, or `features_are_re_enabled` still matches.
+
+`inbox.mjs` still carries the unanchored form. It is recorded here rather than
+fixed, per CLAUDE.md section 3: it stages `decisions/inbox.md` and the board, and
+only a ruling or a card edit that quotes one of these filenames would trip it, so
+the exposure is a refused ruling rather than a leaked secret. Whoever touches
+that file next should copy the anchored form from `ask.sh`.
+
+RULE: **a guard is TWO claims, and the one nobody tests is "it lets the good case
+through".** Assert both directions or the first false positive turns the guard
+off permanently.
+
+RULE: **a secret-shaped regex must be anchored at a token boundary.** `sk-`,
+`re_` and `gho_` are all common substrings of ordinary English and ordinary
+identifiers.
