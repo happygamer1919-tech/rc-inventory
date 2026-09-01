@@ -2594,3 +2594,40 @@ refuza acum o mutatie a carei iesire este egala cu intrarea.
 RULE: **un test de mutatie trebuie sa verifice ca a mutat ceva.** Altfel esecul pe
 care il previne apare chiar in interiorul lui, si aceea este singura verificare pe
 care nimeni nu o mai verifica.
+### O ruta care intoarce 200 nu este un ecran verificat, daca 200 vine de la pagina de autentificare
+
+**Tag:** ci
+
+**ERROR:** Dupa aplicarea migratiilor pe productie (P3-27), verificarea ceruta era
+ca cele patru rute CRM sa intoarca 200 cu continut real si nu cu ecranul de
+asteptare. Toate patru au intors 200:
+
+    /clienti /proiecte /inventar /comenzi   ->  200
+
+Rezultatul este GOL. Rutele sunt aparate de autentificare, iar neautentificat ele
+redirectioneaza catre `/autentificare`, care este pagina care a intors de fapt
+acel 200:
+
+    curl -L /clienti  ->  https://www.rapidconstructmd.com/autentificare
+                          <title>Autentificare - Rapid Construct</title>
+
+Un 200 dupa redirectare masoara ultima pagina din lant, nu pe cea ceruta. Cu
+`curl` fara `-L` s-ar fi vazut 307, care ar fi spus adevarul; cu `-L` codul arata
+exact ca succesul cautat.
+
+**SOLUTION:** Verificarea a fost raportata ca NEFACUTA, nu ca trecuta, pentru ca
+nu exista credentiale de productie in `phase2.env` cu care sa se deschida o
+sesiune. In locul ei s-a dovedit ce se putea dovedi fara sesiune: PostgREST
+raspunde `42501` insufficient_privilege pe tabelele noi si NU `PGRST205` "table
+not found in schema cache", ceea ce spune doua lucruri deodata, ca stratul de API
+vede tabelele si ca `anon` nu are niciun drept pe ele.
+
+RULE: **cand verifici o ruta aparata, verifica si UNDE ai ajuns, nu doar codul.**
+`--url-effective`, sau cere codul FARA sa urmezi redirectarile si asteapta 307.
+
+RULE: **spune ca o verificare nu s-a facut, in loc sa raportezi masuratoarea care
+seamana cu ea.** Un 200 de la pagina de login raportat ca ecran verificat este mai
+rau decat o casuta nebifata, pentru ca nimeni nu se mai intoarce la ea.
+
+Vezi si intrarea despre cele doua redirectari care se arata una pe alta, unde
+acelasi lucru a ascuns un defect: site-ul parea sanatos oricui NU era autentificat.

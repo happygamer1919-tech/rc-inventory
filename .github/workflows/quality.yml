@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # THE APPLIER PROOF STEP BELOW NEEDS TO DIFF AGAINST THE BASE COMMIT,
+          # and the default shallow clone has no base commit to diff against.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -118,6 +122,47 @@ jobs:
       # rather than left contradicting the workflow.
       - name: Apply every migration to a bare postgres, unmodified
         run: npm run check:migrations
+
+      # THE APPLIER PROOF, AND IT IS THE ONE PATH-FILTERED STEP IN THIS JOB.
+      #
+      # Ruling R-084. `npm run prove:applier` builds five throwaway postgres
+      # containers and takes minutes, so it runs only when something that could
+      # break the applier changed: the applier itself, a migration file, or the
+      # local-db shim it proves against.
+      #
+      # THE FILTER IS COMPUTED HERE RATHER THAN DECLARED AS A WORKFLOW `paths:`
+      # KEY, AND THE DIFFERENCE IS THE WHOLE REASON THIS IS SAFE. A `paths:`
+      # filter on the workflow would make the ENTIRE `quality` job skip, and
+      # GitHub reports a skipped required check as success. CLAUDE.md 3.1 rests
+      # on every pull request running every step, so that would silently
+      # authorise merging on a check that never executed. A step-level `if:`
+      # skips one step and leaves the other twenty-one running and reporting.
+      #
+      # IT FAILS OPEN. If the base commit cannot be resolved, the proof RUNS.
+      # A filter that cannot tell what changed must not conclude "nothing did".
+      - name: Decide whether the applier proof must run
+        id: applier_scope
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "${BASE}" ] || [ "${BASE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "base commit not resolvable, running the proof rather than assuming nothing changed"
+            exit 0
+          fi
+          CHANGED="$(git diff --name-only "${BASE}" HEAD)"
+          echo "changed files against ${BASE}:"
+          echo "${CHANGED}"
+          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prove the migration applier against the Docker shim
+        if: steps.applier_scope.outputs.run == 'true'
+        run: npm run prove:applier
 
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
       #
