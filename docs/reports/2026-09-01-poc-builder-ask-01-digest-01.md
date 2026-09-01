@@ -140,6 +140,29 @@ Two decisions worth naming:
   system he has been watching for a week is the noise this card removes.
   `install.sh` prints the one line that sends a proof digest by hand.
 
+### Where it does not apply, and why that had to be written down
+
+CLAUDE.md now has two sections that would otherwise contradict each other.
+Section 13 tells an unattended run to write the escalation and take the next
+card, in `run.sh`'s own words: "Never wait for an answer." Section 14 tells a
+role to call `ask.sh` and block.
+
+Both are right, for different roles, and the wrong resolution is expensive: a
+scheduled run has a 45 minute cap the harness enforces by killing it, so a six
+hour `ask.sh` inside that cap is killed mid-wait and leaves an open question on
+the spool with NOTHING written to the card. That is strictly worse than the
+escalation skip-not-halt would have produced.
+
+So section 14 states the precedence explicitly. Skip-not-halt is unchanged for
+an unattended run. `ask.sh` is for a role that can afford to wait, which is the
+case that had no channel: the escalation path already existed for a run that
+moves on, and did not exist for a role that cannot. A role in doubt applies
+skip-not-halt, because its failure mode is a card that waits for the next
+digest and the other one loses a whole run.
+
+The test asserts that sentence is present, so it cannot be dropped in a later
+edit that only looks at section 14.
+
 ---
 
 ## 4. Four defects found while building, three fixed here
@@ -350,6 +373,7 @@ digest.mjs under test: /Users/ivan/rc-inventory-ask/scripts/poc/digest.mjs
   ok    install.sh creates the answer spool, rather than leaving the poller to race for it
   ok    the responder still forwards only questions to the model, so an answer never reaches it
   ok    CLAUDE.md names ask.sh as the escalation path
+  ok    CLAUDE.md says an unattended run does not block, so the 45 minute cap and the 6 hour deadline cannot collide
   ok    ask.sh parses
   ok    digest.sh parses
   ok    the digest plist parses

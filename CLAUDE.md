@@ -1023,6 +1023,29 @@ two or more questions outstanding and no reply and no card id, **nothing is
 routed**, because a channel that guesses which decision was approved is worse
 than one that asks again.
 
+### WHERE THIS DOES NOT APPLY: the unattended scheduled run
+
+**An unattended run under section 13 does NOT block on a question. Skip-not-halt
+still governs there, unchanged, and `run.sh` says so in its own words: write the
+structured decision-needed text, set `blocked_on`, commit the board, append the
+escalation, and take the next eligible card.**
+
+This is stated because the two rules would otherwise read as a contradiction, and
+the wrong resolution is expensive. A scheduled run has a 45 minute wall clock cap
+that the harness enforces by killing it. A six hour `ask.sh` inside that cap is
+killed mid-wait, and a killed wait leaves an open question on the spool with
+nothing written to the card, which is a worse outcome than the escalation
+skip-not-halt would have produced.
+
+**`ask.sh` is for a role that can afford to wait**: a foreground terminal, or an
+unattended step whose budget genuinely exceeds the deadline it sets. That is the
+case this section was written for, because that is the case that had no channel:
+the escalation path already existed for a run that moves on, and did not exist
+for a role that cannot.
+
+A role in doubt about which it is applies skip-not-halt. Its failure mode is a
+card that waits for the next digest; the other one loses a whole run.
+
 ### One process reads Telegram, and it is the responder
 
 `getUpdates` is destructive: acknowledging an offset deletes every update below

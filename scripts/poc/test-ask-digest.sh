@@ -947,6 +947,14 @@ if grep -q 'ask.sh' "$REPO_ROOT/CLAUDE.md"; then
 else
   fail "CLAUDE.md does not name ask.sh"
 fi
+# The precedence sentence. Without it sections 13 and 14 read as a
+# contradiction, and the wrong resolution puts a six hour wait inside a 45 minute
+# cap, where the harness kills it mid-wait and NOTHING is written to the card.
+if grep -q 'An unattended run under section 13 does NOT block on a question' "$REPO_ROOT/CLAUDE.md"; then
+  pass "CLAUDE.md says an unattended run does not block, so the 45 minute cap and the 6 hour deadline cannot collide"
+else
+  fail "CLAUDE.md no longer resolves section 13 against section 14"
+fi
 for SCRIPT in "$ASK_SH" "$HERE/digest.sh"; do
   if bash -n "$SCRIPT"; then
     pass "$(basename "$SCRIPT") parses"
