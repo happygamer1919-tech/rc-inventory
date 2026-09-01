@@ -57,16 +57,20 @@ select ('e8300000-0000-0000-0000-00000000000' || i)::uuid,
        1000
 from generate_series(1, 7) as i;
 
-insert into public.outbound_issues (id, reference, client_name, project_name, project_id, status) values
+insert into public.outbound_issues (id, reference, project_id, status) values
   -- TWO PROJECTS OF THE SAME CLIENT. The tab aggregates ACROSS their projects,
   -- which is what makes it a client view rather than a project view.
-  ('e8600000-0000-0000-0000-000000000001', 'IES-P308-1', 'x', 'y', 'e8100000-0000-0000-0000-000000000001', 'awaiting_shipment'),
-  ('e8600000-0000-0000-0000-000000000002', 'IES-P308-2', 'x', 'y', 'e8100000-0000-0000-0000-000000000002', 'awaiting_shipment'),
+  ('e8600000-0000-0000-0000-000000000001', 'IES-P308-1', 'e8100000-0000-0000-0000-000000000001', 'awaiting_shipment'),
+  ('e8600000-0000-0000-0000-000000000002', 'IES-P308-2', 'e8100000-0000-0000-0000-000000000002', 'awaiting_shipment'),
   -- Another client's project. Must never appear in the first client's totals.
-  ('e8600000-0000-0000-0000-000000000003', 'IES-P308-3', 'x', 'y', 'e8100000-0000-0000-0000-000000000003', 'awaiting_shipment'),
-  -- NO PROJECT. Cannot be attributed to anybody, and must be COUNTED rather
-  -- than dropped.
-  ('e8600000-0000-0000-0000-000000000004', 'IES-P308-4', 'x', 'y', null, 'awaiting_shipment');
+  ('e8600000-0000-0000-0000-000000000003', 'IES-P308-3', 'e8100000-0000-0000-0000-000000000003', 'awaiting_shipment');
+  -- THE FOURTH ISSUE, WITH NO PROJECT, WAS REMOVED BY P3-04b AND ITS ABSENCE IS
+  -- THE POINT. It existed to prove that an issue attributable to nobody is
+  -- COUNTED rather than dropped. outbound_issues.project_id is NOT NULL as of
+  -- migration 0026, so that row can no longer be inserted and that state can no
+  -- longer occur. The half of the leak assertion below that it fed is gone with
+  -- it; the other-client half, which is the one that proves the join goes
+  -- through projects.client_id, is untouched and still fails if the join breaks.
 
 -- Client one takes all seven products across two projects, in descending
 -- quantity so the ranking is unambiguous, and product 1 twice so the
@@ -82,8 +86,7 @@ values ('e8600000-0000-0000-0000-000000000002', 'e8300000-0000-0000-0000-0000000
 -- The other client, and the unassigned issue, both take product 7 heavily. If
 -- either leaked into client one's summary it would top the ranking.
 insert into public.outbound_lines (outbound_issue_id, product_id, quantity) values
-  ('e8600000-0000-0000-0000-000000000003', 'e8300000-0000-0000-0000-000000000007', 5000),
-  ('e8600000-0000-0000-0000-000000000004', 'e8300000-0000-0000-0000-000000000007', 5000);
+  ('e8600000-0000-0000-0000-000000000003', 'e8300000-0000-0000-0000-000000000007', 5000);
 
 do $$
 declare
@@ -120,13 +123,15 @@ begin
   end if;
 
   -- --- ANOTHER CLIENT DOES NOT LEAK ----------------------------------------
-  -- Product 7 is 5000 on the other client and 5000 on an unassigned issue, and
-  -- only 10 here. If either leaked it would top the list, so this is the
-  -- assertion that proves the join goes through projects.client_id.
+  -- Product 7 is 5000 on the OTHER CLIENT and only 10 here. If it leaked it
+  -- would top the list, so this is the assertion that proves the join goes
+  -- through projects.client_id. It used to carry a second 5000 on an issue with
+  -- no project at all; P3-04b made that row impossible to insert, so that half
+  -- is gone and this half is unchanged.
   select quantity into q from public.client_material_summary('e8000000-0000-0000-0000-000000000001', 7)
   where product_sku = 'P308-7';
   if q is distinct from 10 then
-    raise exception 'P3-08: product 7 came to % for this client, expected 10; another client or an unassigned issue leaked in', q;
+    raise exception 'P3-08: product 7 came to % for this client, expected 10; another client leaked in', q;
   end if;
 
   -- --- THE TOTAL COVERS EVERYTHING, NOT ONLY THE ROWS SHOWN ----------------
@@ -158,10 +163,20 @@ begin
     raise exception 'P3-08: a client with no issues has a total of %, expected 0', q;
   end if;
 
-  -- --- THE UNASSIGNED COUNT -------------------------------------------------
+  -- --- THE UNASSIGNED COUNT, WHICH CAN NOW ONLY EVER BE ZERO ---------------
+  -- P3-04b made outbound_issues.project_id NOT NULL, so an issue without a
+  -- project cannot be inserted and this function counts a state that can no
+  -- longer occur. The assertion is kept rather than deleted because it still
+  -- proves the function EXISTS and RUNS; what it can no longer prove is that a
+  -- non-zero count is reported correctly, and no fixture can make it non-zero.
+  --
+  -- The screen degrades correctly on its own: ClientTabs renders the notice only
+  -- when the count is above zero, so the warning disappears exactly when the
+  -- condition it warns about becomes impossible. The function is now a constant
+  -- and retiring it is a later card, not this one.
   select public.unassigned_issue_count() into n;
-  if n <> 1 then
-    raise exception 'P3-08: expected 1 unassigned issue, found %', n;
+  if n <> 0 then
+    raise exception 'P3-08: expected 0 unassigned issues now that project_id is NOT NULL, found %', n;
   end if;
 end
 $$;

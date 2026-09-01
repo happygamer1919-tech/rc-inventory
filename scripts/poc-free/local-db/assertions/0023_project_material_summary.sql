@@ -35,18 +35,17 @@ values ('e9300000-0000-0000-0000-000000000001', 'e9400000-0000-0000-0000-0000000
 
 -- Seven issues on this project with DISTINCT timestamps, so "newest first" has
 -- an unambiguous answer, plus one on another project that must never appear.
-insert into public.outbound_issues (id, reference, client_name, project_name, project_id, status, issued_at)
+insert into public.outbound_issues (id, reference, project_id, status, issued_at)
 select
   ('e9600000-0000-0000-0000-00000000000' || i)::uuid,
   'IES-P309-' || i,
-  'x', 'y',
   'e9100000-0000-0000-0000-000000000001',
   'awaiting_shipment',
   timestamptz '2026-01-01 00:00:00+00' + (i || ' days')::interval
 from generate_series(1, 7) as i;
 
-insert into public.outbound_issues (id, reference, client_name, project_name, project_id, status, issued_at)
-values ('e9600000-0000-0000-0000-0000000000ff', 'IES-P309-STRAIN', 'x', 'y',
+insert into public.outbound_issues (id, reference, project_id, status, issued_at)
+values ('e9600000-0000-0000-0000-0000000000ff', 'IES-P309-STRAIN',
         'e9100000-0000-0000-0000-000000000002', 'awaiting_shipment', timestamptz '2026-12-31 00:00:00+00');
 
 insert into public.outbound_lines (outbound_issue_id, product_id, quantity)
@@ -121,8 +120,8 @@ begin
   -- AN ISSUE WITH NO LINES IS STILL AN ISSUE. It happens: a bon created and not
   -- yet filled. It must appear with a zero quantity rather than vanish, because
   -- vanishing would make the count on the tab disagree with the orders screen.
-  insert into public.outbound_issues (id, reference, client_name, project_name, project_id, status, issued_at)
-  values ('e9600000-0000-0000-0000-0000000000ee', 'IES-P309-GOL', 'x', 'y',
+  insert into public.outbound_issues (id, reference, project_id, status, issued_at)
+  values ('e9600000-0000-0000-0000-0000000000ee', 'IES-P309-GOL',
           'e9100000-0000-0000-0000-000000000009', 'awaiting_shipment', now());
   select count(*) into n from public.project_material_summary('e9100000-0000-0000-0000-000000000009', 5)
   where row_kind = 'row';

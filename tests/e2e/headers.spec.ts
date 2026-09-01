@@ -157,7 +157,7 @@ test.describe("Intarire pentru productie", () => {
     // Un fisier in ambele locuri, sau in niciunul, cade aici.
     const pending = new Map<string, string>();
     for (const line of log.split("\n")) {
-      const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+([A-Z0-9-]+)\s*$/.exec(
+      const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+([A-Za-z0-9-]+)\s*$/.exec(
         line.trim(),
       );
       if (m) pending.set(m[1]!, m[2]!);
