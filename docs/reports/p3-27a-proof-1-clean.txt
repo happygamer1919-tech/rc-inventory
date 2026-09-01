@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-12074-mtiov61f)
+target                 shim (container rc-prove-applier-clean-26724-mtiqfgvt)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     14
-total statements       211
+pending file count     15
+total statements       217
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -16,6 +16,8 @@ DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 
 
 -- =======;
+0027_drop_products_supplier_name.sql:
+  drop function if exists public.backfill_product_suppliers(integer);
 
 no DELETE, TRUNCATE or DROP TABLE in any pending file
 
@@ -30,8 +32,8 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
 ==============================================================================
-batch sha256           f9ae2157a8800448baee075869e646322bc1f78a9938e4b4b7ecd8f8b434bf66
-script sha256          ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe
+batch sha256           575e0eb64765e76442d4372122055747617e3e447e2793e3d20ef71dbb32af7e
+script sha256          a37407bb8a296aa3248497b6b8aa8d31452bd7b144605e367996f1b0508ca238
 assertions             12
 ==============================================================================
 
@@ -242,7 +244,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-01 13:14:17.017617+00
+ Furnizor Prove | 2026-09-01 13:58:04.115382+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -363,6 +365,15 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (1 row)
 
 
+--- applying 0027_drop_products_supplier_name.sql (6 statements) ---
+    table_name     |  column_name  | is_nullable 
+-------------------+---------------+-------------
+ extraction_drafts | supplier_name | YES
+ inbound_orders    | supplier_name | YES
+ products          | supplier_id   | YES
+(3 rows)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -413,11 +424,12 @@ POST-CHECK GRID: the applied ledger AFTER the batch
  0024    | project_material_cost
  0025    | deviz
  0026    | drop_outbound_free_text
-(26 rows)
+ 0027    | drop_products_supplier_name
+(27 rows)
 
  ledger_rows_after 
 -------------------
-                26
+                27
 (1 row)
 
 
@@ -447,8 +459,8 @@ RECONCILIATION: outbound_issues with no project_id, with their destination text
 
 
 RECONCILIATION: products with a supplier_name and no supplier_id
- id | sku | name | supplier_name 
-----+-----+------+---------------
+ id | sku | name 
+----+-----+------
 (0 rows)
 
 
@@ -466,12 +478,12 @@ RLS and policy count per new table
 
 COMMITTED
 
-applied and committed: 14 migrations, 12 assertions passed
+applied and committed: 15 migrations, 12 assertions passed
 
 target was the shim, so NOTHING was written to any journal and the pending register is untouched.
 
-started  2026-09-01T13:14:16.899Z
-finished 2026-09-01T13:14:17.065Z
+started  2026-09-01T13:58:03.978Z
+finished 2026-09-01T13:58:04.168Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping

@@ -2749,3 +2749,56 @@ off permanently.
 RULE: **a secret-shaped regex must be anchored at a token boundary.** `sk-`,
 `re_` and `gho_` are all common substrings of ordinary English and ordinary
 identifiers.
+
+### Un aplicator care nu isi vede propria treaba trebuie sa CADA, niciodata sa raporteze curat
+
+**Tag:** infra
+
+**ERROR:** `scripts/apply-pending-migrations.mjs` citea registrul de asteptare cu
+tiparul `card de aplicare\s+[A-Z0-9-]+`. Id-ul de card `P3-04b` are un `b` mic,
+deci NU se potrivea. Registrul se parsa la ZERO fisiere in asteptare in timp ce
+linia lui statea acolo, la vedere:
+
+    - `0026_drop_outbound_free_text.sql`, card de aplicare P3-04b
+
+Si atunci scriptul lua ramura de oprire scrisa special pentru cazul in care nu mai
+este nimic de aplicat:
+
+    zero pending migrations. The register is empty, so production is already current.
+    Nothing was executed and nothing was written.
+    EXIT=0
+
+**IESIREA 0 ESTE PROBLEMA, NU EXPRESIA REGULATA.** Un lot gol si un lot aplicat cu
+succes arata identic din afara: amandoua ies cu 0, amandoua spun ca baza este la
+zi, si niciunul nu scrie nimic in jurnal pentru ca nu are ce. Un card ar fi fost
+raportat livrat, cu migratia neaplicata, iar urmatorul care ar fi citit registrul
+ar fi crezut ca schema contine ceva ce nu contine. Exact forma lui INC-05, ajunsa
+prin alta usa.
+
+Toate id-urile de card cu sufix mic erau atinse: P3-04b, P3-05b, P2-08b, si asa mai
+departe. Suita prindea starea (`headers.spec.ts` cere ca fiecare migratie sa fie
+fie aplicata, fie in registru), dar aplicatorul nu, si el este cel care actioneaza.
+
+**SOLUTION:** Doua lucruri, si al doilea este cel care conteaza.
+
+1. Tiparul acceptat este `[A-Za-z0-9-]+`, in toate cele trei copii ale lui:
+   aplicatorul, `check-pending-schema-reads.mjs` si `headers.spec.ts`.
+2. **NUMARUL DE LINII DIN REGISTRU ESTE AFIRMAT FATA DE NUMARUL DE FISIERE
+   PARSATE**, inainte de orice oprire pe "nimic de aplicat". Liniile se numara cu
+   un tipar deliberat larg, care intreaba doar daca o linie ARATA ca o intrare de
+   registru, si se compara cu ce a extras tiparul strict. O linie care arata a
+   intrare si nu s-a parsat este un defect al scriptului, nu o linie de sarit, si
+   scriptul refuza cu exit 4 numind linia.
+
+ORDINEA ESTE JUMATATE DIN REPARATIE. Prima varianta a pus verificarea DUPA oprirea
+pe zero, deci exact cazul pe care il apara scurtcircuita pe langa ea si scriptul
+raporta in continuare "already current". O paza asezata dupa ramura pe care o
+apara nu este o paza.
+
+RULE: **cand o unealta nu gaseste nimic de facut, distinge intre "nu este nimic"
+si "nu am putut vedea".** Prima este un raspuns, a doua este un esec, si daca ies
+amandoua cu acelasi cod nimeni nu le va deosebi vreodata la 3 dimineata.
+
+RULE: **cand un tipar strict decide ce se executa, tine-l langa un tipar larg care
+decide doar ce ARATA a treaba, si afirma ca sunt de acord.** Diferenta dintre ele
+este exact multimea lucrurilor pe care unealta le va rata in tacere.

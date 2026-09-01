@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-12074-mtiove2w)
+target                 shim (container rc-prove-applier-mut-26724-mtiqfozw)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     14
-total statements       210
+pending file count     15
+total statements       216
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -14,6 +14,8 @@ DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 
 
 -- =======;
+0027_drop_products_supplier_name.sql:
+  drop function if exists public.backfill_product_suppliers(integer);
 
 no DELETE, TRUNCATE or DROP TABLE in any pending file
 
@@ -28,8 +30,8 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
 ==============================================================================
-batch sha256           f29cc9a67042760f02b7ba721183bbc257e52a1130bda97cbfc2e5a5151bc166
-script sha256          ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe
+batch sha256           1c558727a689c07fe9f64bf2031d88257a59d13cfc49504af559964e3c8bb376
+script sha256          a37407bb8a296aa3248497b6b8aa8d31452bd7b144605e367996f1b0508ca238
 assertions             12
 ==============================================================================
 
@@ -239,9 +241,9 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
  supplier_name | text | f
 (2 rows)
 
-      name      |          created_at           
-----------------+-------------------------------
- Furnizor Prove | 2026-09-01 13:14:27.334152+00
+      name      |          created_at          
+----------------+------------------------------
+ Furnizor Prove | 2026-09-01 13:58:13.94257+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -360,6 +362,15 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 -------------+-------------
  project_id  | NO
 (1 row)
+
+
+--- applying 0027_drop_products_supplier_name.sql (6 statements) ---
+    table_name     |  column_name  | is_nullable 
+-------------------+---------------+-------------
+ extraction_drafts | supplier_name | YES
+ inbound_orders    | supplier_name | YES
+ products          | supplier_id   | YES
+(3 rows)
 
 
 --- ledger: the three rows the strategy record says were never written ---

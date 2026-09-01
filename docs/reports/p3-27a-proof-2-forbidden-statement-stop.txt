@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-12074-mtiov8mk)
+target                 shim (container rc-prove-applier-mut-26724-mtiqfjp4)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     14
-total statements       212
+pending file count     15
+total statements       218
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -16,6 +16,8 @@ DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 
 
 -- =======;
+0027_drop_products_supplier_name.sql:
+  drop function if exists public.backfill_product_suppliers(integer);
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 REFUSED. A row-destroying statement is present and NOTHING was executed.

@@ -41,6 +41,7 @@ The format is machine-read, so keep it exactly:
 
 
 
+
 ## Rules
 
 - **One entry per apply**, in the order they were applied, newest at the bottom.
@@ -1162,3 +1163,74 @@ Verified from a fresh connection after the commit:
     create_outbound_issue                  -> exactly one, (text, text, text, jsonb, uuid)
     ledger                                 -> 26 rows, highest 0026
     products 0, outbound_issues 0, categories 18, units 7, profiles 3  -> unchanged
+---
+
+## 0027_drop_products_supplier_name.sql - APPLIED
+
+- **Version:** 0027
+- **Name:** drop_products_supplier_name
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-09-01T13:58:32Z
+- **Authority:** ruling R-082, card P3-05b, owner ratification of 2026-09-01
+- **Card:** P3-05b
+
+Full captured stdout: `docs/reports/p3-05b-apply-stdout.txt`.
+Report: `docs/reports/2026-09-01-executor-p3-05b-drop.md`.
+
+### Phase 1, pre-check
+
+    select count(*) from public.products
+     where supplier_id is null and supplier_name is not null
+       and btrim(supplier_name) <> '';                       -> 0
+    select count(*) from public.products;                    -> 0
+
+**THE FIRST ZERO IS TRUE BECAUSE THE SECOND IS.** No row was matched because no
+row existed, and 0019's backfill had created zero suppliers and linked zero
+products. This apply did not verify a backfill and its evidence must not be read
+as though it had. The owner ratified the drop on that stated basis.
+
+All three `supplier_name` columns present beforehand, on `products`,
+`inbound_orders` and `extraction_drafts`.
+
+### Phase 2, apply
+
+One file, one transaction, **12 of 12 assertions passed**, committed on all-pass.
+13:58:29Z to 13:58:32Z.
+
+**THE FIRST ATTEMPT ROLLED BACK AND NOTHING WAS COMMITTED.** The applier's
+reconciliation grid named `client_name`, which migration 0026 had dropped in the
+PREVIOUS batch. The grid keyed off the set of columns the CURRENT batch declares
+it will drop, and a column dropped earlier is not in that set. Both the grid and
+the supplier reconciliation now build themselves from `information_schema` at run
+time. **A batch's declarations describe what it CHANGES, never what EXISTS**, and
+this was the third time that confusion produced a defect.
+
+### The destructive-statement declaration, per 8.6
+
+No `DROP TABLE`, no `TRUNCATE`, no `DELETE`, established by parsing the file with
+`pgsql-parser` before anything executed.
+
+**One `DROP FUNCTION`, quoted verbatim:**
+
+    drop function if exists public.backfill_product_suppliers(integer);
+
+**One `DROP COLUMN`, quoted verbatim:**
+
+    alter table public.products drop column supplier_name;
+
+Neither reduces the number of rows in any table.
+
+### Phase 3, post-check
+
+Verified from a fresh connection after the commit:
+
+    products.supplier_name                      -> ABSENT
+    inbound_orders.supplier_name                -> present, untouched
+    extraction_drafts.supplier_name             -> present, untouched
+    products.supplier_id                        -> present, is_nullable = YES
+    backfill_product_suppliers                  -> dropped
+    ledger                                      -> 27 rows, highest 0027
+    products 0, suppliers 0, categories 18, profiles 3  -> unchanged
+
+`supplier_id` stays NULLABLE deliberately: a product may genuinely have no
+supplier, which is not true of an outbound issue and its project.
