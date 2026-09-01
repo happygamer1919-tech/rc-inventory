@@ -388,6 +388,42 @@ out(`target                 ${target}${target === "shim" ? ` (container ${contai
 out(`pending register       docs/migrations/APPLY-LOG.md\n`);
 out(`pending file count     ${pending.length}\n`);
 
+// --- AN APPLIER THAT CANNOT SEE ITS WORK MUST FAIL, NEVER REPORT CLEAN -------
+//
+// THE REGISTER LINE COUNT IS ASSERTED AGAINST THE PARSED FILE COUNT, because
+// this script has already been silently wrong about exactly this. The card id
+// pattern was `[A-Z0-9-]+`, `P3-04b` did not match it, and the register parsed
+// to ZERO pending files while a line for it sat plainly in the file. The run
+// then exited 0 saying "already current", which is INDISTINGUISHABLE FROM
+// SUCCESS: nothing was applied, nothing was journalled, and the report said the
+// database was up to date.
+//
+// The parse and the eye must agree. Lines are counted with a deliberately loose
+// pattern, one that only asks whether a line LOOKS like a register entry, and
+// compared against what the strict pattern actually extracted. A line that looks
+// like an entry and did not parse is a defect in this script, not a line to skip.
+const looseRegisterLines = readFileSync(APPLY_LOG, "utf8")
+  .split("\n")
+  .filter((l) => /^-\s+`\d{4}_.*\.sql`\s*,\s*card de aplicare/i.test(l.trim()));
+
+if (looseRegisterLines.length !== pending.length) {
+  const parsed = new Set(pending);
+  const unparsed = looseRegisterLines.filter((l) => {
+    const m = /`(\d{4}_[^`]+\.sql)`/.exec(l);
+    return !m || !parsed.has(m[1]);
+  });
+  die(
+    EXIT_BAD_TREE,
+    `THE REGISTER AND THE PARSER DISAGREE, so this run is refusing rather than reporting a clean database.\n` +
+      `  lines that look like register entries: ${looseRegisterLines.length}\n` +
+      `  lines this script actually parsed:     ${pending.length}\n` +
+      (unparsed.length
+        ? `\nThese lines were not parsed:\n${unparsed.map((l) => `  ${l.trim()}`).join("\n")}\n`
+        : "") +
+      `\nA pending migration this script cannot see is a migration it will silently not apply.`,
+  );
+}
+
 // STOP: nothing pending means the database is already current. Re-running would
 // be a write with nothing to write, and the register is the authority.
 if (pending.length === 0) {
@@ -400,6 +436,7 @@ for (const f of pending) {
   const full = join(MIGRATIONS_DIR, f);
   if (!existsSync(full)) die(EXIT_BAD_TREE, `pending register names ${f}, which does not exist`);
 }
+
 
 // --- 6a. Parse every file BEFORE anything executes -------------------------
 //
@@ -884,9 +921,20 @@ end`);
 A("supplier-backfill", `
 declare v_unmatched bigint;
 begin
-  select count(*) into v_unmatched
-  from public.products
-  where supplier_id is null${dropped.has("products.supplier_name") ? "" : " and supplier_name is not null and btrim(supplier_name) <> ''"};
+  -- SAME REASON AS THE GRID: what exists is a question for the database, not for
+  -- this batch's declarations. A column dropped by an EARLIER run is gone and
+  -- not in the dropped set, so keying off it named a column that had not existed
+  -- since the previous apply.
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'products' and column_name = 'supplier_name'
+  ) then
+    execute 'select count(*) from public.products
+             where supplier_id is null and supplier_name is not null and btrim(supplier_name) <> $q$$q$'
+      into v_unmatched;
+  else
+    select count(*) into v_unmatched from public.products where supplier_id is null;
+  end if;
   raise notice 'P3-05 reconciliation: products with no supplier_id = %', v_unmatched;
 end`);
 
@@ -927,27 +975,60 @@ P(`select b.tbl, b.n as before,
    from rc_rowcounts_before b order by b.tbl;`);
 P(`\\echo ''`);
 P(`\\echo 'RECONCILIATION: outbound_issues with no project_id, with their destination text'`);
-// THE GRID CANNOT NAME A COLUMN THIS BATCH DROPS. When P3-04b's migration is in
-// the batch, client_name and project_name are gone by the time the post-check
-// runs, and a select naming them fails the whole transaction on the last step.
-P(
-  dropped.has("outbound_issues.client_name")
-    ? `select id, reference, project_id
-   from public.outbound_issues where project_id is null order by reference;`
-    : `select id, reference, client_name, project_name
-   from public.outbound_issues where project_id is null order by reference;`,
-);
-P(`\\echo ''`);
+// THE GRID ADAPTS TO THE LIVE SCHEMA, NOT TO THIS BATCH'S DECLARATIONS.
+//
+// It keyed off `dropped`, the set of columns THIS batch declares it will drop,
+// and that was wrong twice over. A column dropped by an EARLIER batch is not in
+// this batch's set, so the grid named a column that had been gone since the
+// previous apply and the whole transaction failed on its last step. P3-05b hit
+// exactly that: 0026 dropped client_name in one run, and 0027's run then tried
+// to print it.
+//
+// The only thing that knows which columns exist is the database, so the grid is
+// built with dynamic SQL from information_schema at the moment it runs. That is
+// correct whether the column was dropped by this batch, by an earlier one, or
+// never existed.
+P(`do $rc$
+declare
+  has_text boolean;
+begin
+  select count(*) = 2 into has_text
+  from information_schema.columns
+  where table_schema = 'public' and table_name = 'outbound_issues'
+    and column_name in ('client_name', 'project_name');
+
+  if has_text then
+    raise notice 'reconciliation grid includes the free-text destination columns';
+    execute 'create temporary view rc_recon_outbound as
+      select id, reference, client_name, project_name from public.outbound_issues
+      where project_id is null';
+  else
+    execute 'create temporary view rc_recon_outbound as
+      select id, reference, project_id::text as project_id from public.outbound_issues
+      where project_id is null';
+  end if;
+end $rc$;`);
+P(`select * from rc_recon_outbound;`);P(`\\echo ''`);
 P(`\\echo 'RECONCILIATION: products with a supplier_name and no supplier_id'`);
-P(
-  dropped.has("products.supplier_name")
-    ? `select id, sku, name from public.products where supplier_id is null order by sku;`
-    : `select id, sku, name, supplier_name
-   from public.products
-   where supplier_id is null and supplier_name is not null and btrim(supplier_name) <> ''
-   order by sku;`,
-);
-P(`\\echo ''`);
+P(`do $rc$
+declare
+  has_name boolean;
+begin
+  select count(*) = 1 into has_name
+  from information_schema.columns
+  where table_schema = 'public' and table_name = 'products'
+    and column_name = 'supplier_name';
+
+  if has_name then
+    execute 'create temporary view rc_recon_products as
+      select id, sku, name, supplier_name from public.products
+      where supplier_id is null and supplier_name is not null and btrim(supplier_name) <> $q$$q$';
+  else
+    execute 'create temporary view rc_recon_products as
+      select id, sku, name from public.products where supplier_id is null';
+  end if;
+end $rc$;`);
+P(`select * from rc_recon_products;`);P(`\\echo ''`);
 P(`\\echo 'RLS and policy count per new table'`);
 P(`select c.relname as table_name, c.relrowsecurity as rls_enabled,
      (select count(*) from pg_policies pol where pol.schemaname='public' and pol.tablename=c.relname) as policies

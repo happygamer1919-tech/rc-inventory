@@ -23,6 +23,7 @@ import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
 import { safeFileName } from "./row";
+import { resolveSupplier } from "./suppliers";
 import {
   ACCEPTED_MIME,
   DOCS_BUCKET,
@@ -196,6 +197,9 @@ export async function confirmExtractionDraft(
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
 
   const supplierName = input.supplierName.trim();
+  // undefined pana la prima folosire, ca un document fara produse noi sa nu creeze
+  // un furnizor de care nu are nimeni nevoie.
+  let supplierId: string | null | undefined = undefined;
   if (supplierName.length === 0)
     return { ok: false, message: "Completează furnizorul.", field: "supplierName" };
   if (!["EUR", "RON", "MDL"].includes(input.currency))
@@ -257,6 +261,15 @@ export async function confirmExtractionDraft(
           field: "lines",
         };
 
+      // Rezolvat o singura data pentru tot documentul: toate produsele noi dintr-o
+      // confirmare vin de la acelasi furnizor, cel de pe ciorna.
+      if (supplierId === undefined) {
+        const resolved = await resolveSupplier(supplierName);
+        if (!resolved.ok)
+          return { ok: false, message: resolved.message, field: "supplierName" };
+        supplierId = resolved.value.supplier_id;
+      }
+
       const { data: created, error: createError } = await supabase
         .from("products")
         .insert({
@@ -266,7 +279,11 @@ export async function confirmExtractionDraft(
           unit,
           threshold: 0,
           unit_value_mdl: 0,
-          supplier_name: supplierName,
+          // P3-05b: products.supplier_name nu mai exista. Furnizorul documentului
+          // se rezolva la o INREGISTRARE, prin acelasi resolveSupplier pe care il
+          // foloseste si formularul de catalog, ca doua cai care creeaza produse
+          // sa nu ajunga la doi furnizori diferiti pentru acelasi nume.
+          supplier_id: supplierId,
           needs_review: true,
         })
         .select("id")
