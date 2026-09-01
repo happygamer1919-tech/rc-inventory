@@ -104,12 +104,19 @@ function die(code, message) {
 // check-pending-schema-reads.mjs reads. One source of truth for "what is
 // pending", so the two can never disagree about it.
 
+// THE CARD ID ACCEPTS A LOWERCASE SUFFIX, AND THAT IS A BUG FIX RATHER THAN A
+// LOOSENING. The pattern was `[A-Z0-9-]+`, so `P3-04b` did not match and the
+// register reported ZERO pending files while a line for it sat right there.
+// tests/e2e/headers.spec.ts fails loudly on that state, but THIS script does
+// not: a batch of nothing exits 0 and reports "already current", which is the
+// worst possible way to be wrong about a migration. Card ids on this board have
+// carried lowercase suffixes since P3-04b was authored.
 function pendingFromRegister() {
   if (!existsSync(APPLY_LOG)) die(EXIT_BAD_TREE, `apply log not found at ${APPLY_LOG}`);
   const log = readFileSync(APPLY_LOG, "utf8");
   const files = [];
   for (const line of log.split("\n")) {
-    const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Z0-9-]+\s*$/.exec(
+    const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Za-z0-9-]+\s*$/.exec(
       line.trim(),
     );
     if (m) files.push(m[1]);
@@ -270,7 +277,14 @@ function stripTransactionControl(sql, label) {
 function objectsPromisedBy(files) {
   const tables = new Set();
   const columns = new Set();
-  const functions = new Set();
+  const dropped = new Set();
+  // THE LAST ACTION ON A FUNCTION NAME WINS, AND ORDER IS THE WHOLE ANSWER.
+  // 0018 drops create_outbound_issue and then creates it: alive. 0017 creates
+  // backfill_outbound_project_ids and 0026 drops it: dead. A pair of sets built
+  // independently cannot tell those apart, and two passes over them fight.
+  // Files arrive in register order and statements in file order, so a single
+  // walk recording the last verb per name is exact.
+  const funcState = new Map();
 
   for (const f of files) {
     const sql = readFileSync(join(MIGRATIONS_DIR, f), "utf8");
@@ -282,11 +296,23 @@ function objectsPromisedBy(files) {
       if (kind === "CreateStmt" && node?.relation?.relname) {
         if ((node.relation.schemaname ?? "public") === "public") tables.add(node.relation.relname);
       }
+      // A FUNCTION THE BATCH DROPS IS NOT A FUNCTION THE BATCH PROMISES.
+      // 0017 creates backfill_outbound_project_ids and 0026 drops it, both in
+      // one batch, so a promised-set built only from CREATE would demand a
+      // function the same batch deliberately removed.
+      if (kind === "DropStmt" && node?.removeType === "OBJECT_FUNCTION") {
+        for (const o of node.objects ?? []) {
+          const names = (o?.ObjectWithArgs?.objname ?? []).map((x) => x?.String?.sval).filter(Boolean);
+          const fname = names[names.length - 1];
+          const schema = names.length > 1 ? names[0] : "public";
+          if (fname && schema === "public") funcState.set(fname, false);
+        }
+      }
       if (kind === "CreateFunctionStmt") {
         const names = (node?.funcname ?? []).map((n) => n?.String?.sval).filter(Boolean);
         const fname = names[names.length - 1];
         const schema = names.length > 1 ? names[0] : "public";
-        if (fname && schema === "public") functions.add(fname);
+        if (fname && schema === "public") funcState.set(fname, true);
       }
       if (kind === "AlterTableStmt" && node?.relation?.relname) {
         const rel = node.relation.relname;
@@ -295,11 +321,15 @@ function objectsPromisedBy(files) {
           const cmd = cmdWrap?.AlterTableCmd;
           if (cmd?.subtype === "AT_AddColumn" && cmd?.def?.ColumnDef?.colname)
             columns.add(`${rel}.${cmd.def.ColumnDef.colname}`);
+          if (cmd?.subtype === "AT_DropColumn" && cmd?.name)
+            dropped.add(`${rel}.${cmd.name}`);
         }
       }
     }
   }
-  return { tables, columns, functions };
+  const functions = new Set([...funcState].filter(([, alive]) => alive).map(([n]) => n));
+  const droppedFunctions = new Set([...funcState].filter(([, alive]) => !alive).map(([n]) => n));
+  return { tables, columns, functions, dropped, droppedFunctions };
 }
 
 // ---------------------------------------------------------------------------
@@ -591,7 +621,18 @@ for (const f of prePhase) {
 
 const versions = pending.map((f) => f.slice(0, 4));
 const highest = versions[versions.length - 1];
-const { tables, columns, functions } = objectsPromisedBy(pending);
+const { tables, columns, functions, dropped, droppedFunctions } = objectsPromisedBy(pending);
+
+// A TYPED ARRAY LITERAL, ALWAYS. `array[]` with no members has no type and
+// PostgreSQL refuses it: "cannot determine type of empty array". A batch that
+// creates no tables, or no columns, or no functions produces exactly that, and
+// the assertion then fails for a reason that has nothing to do with the schema.
+// Found by applying P3-04b's single-file batch to production, which creates no
+// table at all; the shim proof never hit it because its batch always had one.
+const sqlTextArray = (items) =>
+  items.length === 0
+    ? "array[]::text[]"
+    : `array[${items.map((i) => `'${String(i).replace(/'/g, "''")}'`).join(",")}]::text[]`;
 
 const sqlParts = [];
 const P = (s) => sqlParts.push(s);
@@ -624,6 +665,14 @@ begin
   end loop;
 end $rc$;`);
 P(`select tbl, n from rc_rowcounts_before order by tbl;`);
+
+P(`\\echo ''`);
+P(`\\echo 'PRE-CHECK: every column in public, so a disappearance can be noticed'`);
+P(`create temporary table rc_columns_before (tbl text, col text) on commit drop;`);
+P(`insert into rc_columns_before
+     select table_name, column_name from information_schema.columns
+     where table_schema = 'public';`);
+P(`select count(*) as columns_before from rc_columns_before;`);
 
 // --- the 0018 gate, database half, BEFORE the drop executes ---------------
 P(`\\echo ''`);
@@ -747,7 +796,7 @@ A("promised-tables-exist", `
 declare missing text;
 begin
   select string_agg(t, ', ' order by t) into missing
-  from unnest(array[${[...tables].map((t) => `'${t}'`).join(",")}]) as t
+  from unnest(${sqlTextArray([...tables])}) as t
   where to_regclass('public.' || t) is null;
   if missing is not null then
     raise exception 'ASSERTION FAILED [promised-tables-exist]: missing after apply: %', missing;
@@ -758,7 +807,7 @@ A("promised-columns-exist", `
 declare missing text;
 begin
   select string_agg(c, ', ' order by c) into missing
-  from unnest(array[${[...columns].map((c) => `'${c}'`).join(",")}]) as c
+  from unnest(${sqlTextArray([...columns])}) as c
   where not exists (
     select 1 from information_schema.columns
     where table_schema = 'public'
@@ -773,7 +822,7 @@ A("promised-functions-exist", `
 declare missing text;
 begin
   select string_agg(f, ', ' order by f) into missing
-  from unnest(array[${[...functions].map((f) => `'${f}'`).join(",")}]) as f
+  from unnest(${sqlTextArray([...functions])}) as f
   where not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = f);
@@ -782,18 +831,68 @@ begin
   end if;
 end`);
 
-A("free-text-columns-untouched", `
-declare missing text;
+A("declared-function-drops-happened", `
+declare surviving text;
 begin
-  select string_agg(c, ', ' order by c) into missing
-  from unnest(array['outbound_issues.client_name','outbound_issues.project_name','products.supplier_name']) as c
+${droppedFunctions.size === 0 ? "  -- This batch declares no function drops." : `  -- This batch declares ${droppedFunctions.size}: ${[...droppedFunctions].join(", ")}.`}
+  select string_agg(f, ', ' order by f) into surviving
+  from unnest(${sqlTextArray([...droppedFunctions])}) as f
+  where f is not null and exists (
+    select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'public' and p.proname = f);
+  if surviving is not null then
+    raise exception 'ASSERTION FAILED [declared-function-drops-happened]: the batch declared these functions dropped and they are still present: %', surviving;
+  end if;
+end`);
+
+A("declared-column-drops-only", `
+declare missing text; surviving text;
+begin
+  -- A COLUMN MAY ONLY VANISH IF A PENDING MIGRATION SAID IT WOULD.
+  --
+  -- This replaced a hardcoded list asserting that client_name, project_name and
+  -- supplier_name were still present. That was right for the wave 1 batch, whose
+  -- job was explicitly NOT to drop them, and it became wrong the moment a card
+  -- existed whose whole job IS to drop one: the applier would have refused the
+  -- migration it was built to apply.
+  --
+  -- HARDCODING THE ANSWER WAS THE DEFECT, TWICE OVER. The first version guarded
+  -- three named columns, so it could not notice ANY OTHER column disappearing.
+  -- A mutation that dropped clients.notes committed cleanly under it. This
+  -- version snapshots every column in the schema before the batch and requires
+  -- every disappearance to have been DECLARED by an ALTER TABLE ... DROP COLUMN
+  -- in a pending file, which is the same shape as the row-count assertion and
+  -- catches the accident rather than a list of three guesses about it.
+  --
+  -- IT GUARDS PRE-EXISTING COLUMNS, WHICH IS THE SCOPE THAT MATTERS. A column the
+  -- batch itself creates and then drops never appears in the snapshot and is not
+  -- flagged. That is deliberate: the loss this exists to prevent is of data that
+  -- was already there, and a column that lived only inside one transaction never
+  -- held any.
+${dropped.size === 0 ? `
+  -- This batch declares no column drops, so ANY disappearance fails.` : `
+  -- This batch declares ${dropped.size}: ${[...dropped].join(", ")}.`}
+  select string_agg(b.tbl || '.' || b.col, ', ' order by b.tbl, b.col) into missing
+  from rc_columns_before b
   where not exists (
+    select 1 from information_schema.columns c
+    where c.table_schema = 'public' and c.table_name = b.tbl and c.column_name = b.col)
+  and (b.tbl || '.' || b.col) <> all (${sqlTextArray([...dropped])});
+  if missing is not null then
+    raise exception 'ASSERTION FAILED [declared-column-drops-only]: these columns are gone and NO pending migration declared dropping them: %', missing;
+  end if;
+
+  -- And the inverse: a declared drop that did not happen is a migration that
+  -- silently did not do what its own text says.
+  select string_agg(c, ', ' order by c) into surviving
+  from unnest(${sqlTextArray([...dropped])}) as c
+  where c is not null and exists (
     select 1 from information_schema.columns
     where table_schema = 'public'
       and table_name = split_part(c, '.', 1)
       and column_name = split_part(c, '.', 2));
-  if missing is not null then
-    raise exception 'ASSERTION FAILED [free-text-columns-untouched]: a column this batch must NOT drop is gone: %. The drops are P3-04b and P3-05b.', missing;
+  if surviving is not null then
+    raise exception 'ASSERTION FAILED [declared-column-drops-only]: the batch declared these columns dropped and they are still present: %', surviving;
   end if;
 end`);
 
@@ -824,8 +923,8 @@ declare v_unmatched bigint;
 begin
   select count(*) into v_unmatched
   from public.products
-  where supplier_id is null and supplier_name is not null and btrim(supplier_name) <> '';
-  raise notice 'P3-05 reconciliation: products with a supplier_name and no supplier_id = %', v_unmatched;
+  where supplier_id is null${dropped.has("products.supplier_name") ? "" : " and supplier_name is not null and btrim(supplier_name) <> ''"};
+  raise notice 'P3-05 reconciliation: products with no supplier_id = %', v_unmatched;
 end`);
 
 A("one-create-outbound-issue-five-args", `
@@ -865,21 +964,33 @@ P(`select b.tbl, b.n as before,
    from rc_rowcounts_before b order by b.tbl;`);
 P(`\\echo ''`);
 P(`\\echo 'RECONCILIATION: outbound_issues with no project_id, with their destination text'`);
-P(`select id, reference, client_name, project_name
-   from public.outbound_issues where project_id is null order by reference;`);
+// THE GRID CANNOT NAME A COLUMN THIS BATCH DROPS. When P3-04b's migration is in
+// the batch, client_name and project_name are gone by the time the post-check
+// runs, and a select naming them fails the whole transaction on the last step.
+P(
+  dropped.has("outbound_issues.client_name")
+    ? `select id, reference, project_id
+   from public.outbound_issues where project_id is null order by reference;`
+    : `select id, reference, client_name, project_name
+   from public.outbound_issues where project_id is null order by reference;`,
+);
 P(`\\echo ''`);
 P(`\\echo 'RECONCILIATION: products with a supplier_name and no supplier_id'`);
-P(`select id, sku, name, supplier_name
+P(
+  dropped.has("products.supplier_name")
+    ? `select id, sku, name from public.products where supplier_id is null order by sku;`
+    : `select id, sku, name, supplier_name
    from public.products
    where supplier_id is null and supplier_name is not null and btrim(supplier_name) <> ''
-   order by sku;`);
+   order by sku;`,
+);
 P(`\\echo ''`);
 P(`\\echo 'RLS and policy count per new table'`);
 P(`select c.relname as table_name, c.relrowsecurity as rls_enabled,
      (select count(*) from pg_policies pol where pol.schemaname='public' and pol.tablename=c.relname) as policies
    from pg_class c join pg_namespace n on n.oid=c.relnamespace
    where n.nspname='public' and c.relkind='r'
-     and c.relname = any(array[${[...tables].map((t) => `'${t}'`).join(",")}])
+     and c.relname = any(${sqlTextArray([...tables])})
    order by c.relname;`);
 
 P(`commit;`);
@@ -987,7 +1098,7 @@ if (target === "production") {
     .split("\n")
     .filter(
       (l) =>
-        !/^-\s+`\d{4}_[a-z0-9_]+\.sql`\s*,\s*card de aplicare\s+[A-Z0-9-]+\s*$/.test(l.trim()),
+        !/^-\s+`\d{4}_[a-z0-9_]+\.sql`\s*,\s*card de aplicare\s+[A-Za-z0-9-]+\s*$/.test(l.trim()),
     )
     .join("\n");
   writeFileSync(APPLY_LOG, cleared, "utf8");

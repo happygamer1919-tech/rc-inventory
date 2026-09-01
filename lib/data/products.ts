@@ -269,7 +269,12 @@ export async function listProductMovements(productId: string): Promise<ProductMo
       .eq("product_id", productId),
     supabase
       .from("outbound_lines")
-      .select("id, quantity, outbound_issues(reference, client_name, project_name, issued_at)")
+      // P3-04b: the destination comes from the joined records. client_name and
+      // project_name were dropped by 0026, and a select naming a dropped column
+      // returns 42703 and answers the screen with a 500.
+      .select(
+        "id, quantity, outbound_issues(reference, issued_at, projects(name, clients(name)))",
+      )
       .eq("product_id", productId),
   ]);
 
@@ -290,16 +295,27 @@ export async function listProductMovements(productId: string): Promise<ProductMo
   }
 
   for (const row of issued ?? []) {
+    type Named = { name: string } | { name: string }[] | null;
+    const pickName = (v: Named): string | null =>
+      Array.isArray(v) ? (v[0]?.name ?? null) : (v?.name ?? null);
     const issue = row.outbound_issues as unknown as
-      | { reference: string; client_name: string; project_name: string; issued_at: string }
+      | {
+          reference: string;
+          issued_at: string;
+          projects: ({ name: string; clients: Named } | { name: string; clients: Named }[]) | null;
+        }
       | null;
+    const project = Array.isArray(issue?.projects) ? issue?.projects[0] : issue?.projects;
+    const projectName = project?.name ?? null;
+    const clientName = pickName(project?.clients ?? null);
     movements.push({
       id: row.id as string,
       direction: "out",
       quantity: toNumber(row.quantity),
       at: issue?.issued_at ?? "",
       reference: issue?.reference ?? "-",
-      context: issue ? `${issue.client_name} · ${issue.project_name}` : "Ieșire",
+      context:
+        clientName && projectName ? `${clientName} · ${projectName}` : (projectName ?? "Ieșire"),
     });
   }
 

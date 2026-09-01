@@ -6,7 +6,6 @@ import "server-only";
 // care pleaca acolo. Regula este a fazei 1 si nu se schimba.
 
 import { createClient } from "@/lib/supabase/server";
-import { hasPhase3Schema } from "./schema-capability";
 import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
 import type { OutboundIssue, OutboundStatus } from "./outbound-types";
@@ -28,16 +27,14 @@ function toNullableNumber(value: unknown): number | null {
 // ea nu este aplicata, coloana nu exista, un select care o numeste intoarce
 // 42703 si ecranul de comenzi cade cu 500, ceea ce s-a si intamplat pe
 // 2026-08-31. Se cere doar ce exista.
-const SELECT_BASE = `
-  id, reference, client_name, project_name, issued_at, shipped_at, status,
-  outbound_lines (
-    id, product_id, quantity, sale_price_mdl,
-    products ( sku, name, unit )
-  )
-`;
-
-const SELECT_WITH_PROJECT = `
-  id, reference, client_name, project_name, issued_at, shipped_at, status,
+// P3-04b: ONE SELECT LIST, because there is no longer a schema in which the old
+// one would work. SELECT_BASE named client_name and project_name, which 0026
+// drops, and it was only ever reached when hasPhase3Schema() said no. The wave 1
+// migrations are applied, so that branch is unreachable AND unsafe: a select
+// naming a dropped column returns 42703 and the screen answers 500, which is
+// exactly the INC-05 shape.
+const SELECT_ISSUE = `
+  id, reference, issued_at, shipped_at, status,
   project_id,
   projects ( id, name, client_id, clients ( id, name ) ),
   outbound_lines (
@@ -47,7 +44,7 @@ const SELECT_WITH_PROJECT = `
 `;
 
 async function issueSelect(): Promise<string> {
-  return (await hasPhase3Schema()) ? SELECT_WITH_PROJECT : SELECT_BASE;
+  return SELECT_ISSUE;
 }
 
 type LineRow = {
@@ -61,12 +58,10 @@ type LineRow = {
 type IssueRow = {
   id: string;
   reference: string;
-  client_name: string;
-  project_name: string;
   issued_at: string;
   shipped_at: string | null;
   status: string;
-  project_id?: string | null;
+  project_id: string;
   projects?:
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }[]
@@ -82,13 +77,17 @@ function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
   return {
     id: row.id,
     reference: row.reference,
-    // P3-10: destinatia ca INREGISTRARE, ca sa se poata lega. Null cat timp
-    // randul istoric nu a fost inca reconciliat, si ecranul scrie atunci
-    // "Proiect neasociat" ca text simplu si nu ca legatura moarta.
-    projectId: row.project_id ?? null,
+    // P3-10: destinatia ca INREGISTRARE, ca sa se poata lega.
+    //
+    // P3-04b: THE NAMES COME FROM THE JOINED RECORDS AND NOWHERE ELSE. The text
+    // columns are dropped, so there is no second representation left that could
+    // disagree with the project. project_id is NOT NULL as of 0026, so the join
+    // resolves for every row; the fallbacks below are for a project or client
+    // row deleted out from under an issue, which the foreign keys refuse anyway.
+    projectId: row.project_id,
     clientId: client?.id ?? null,
-    clientName: row.client_name,
-    projectName: row.project_name,
+    clientName: client?.name ?? "Client necunoscut",
+    projectName: project?.name ?? "Proiect necunoscut",
     issuedAt: row.issued_at,
     shippedAt: row.shipped_at,
     status: (row.status as OutboundStatus) ?? "awaiting_shipment",
@@ -161,33 +160,3 @@ export async function nextOutboundReference(): Promise<string> {
   return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
-/** Numele de clienti si proiecte deja folosite, pentru destinatia LIBERA.
- *
- *  STEARSA DE P3-04 SI READUSA PE 2026-08-31, si ambele decizii sunt corecte.
- *  P3-04 a inlocuit destinatia text cu un selector de proiect si a sters aceasta
- *  functie pentru ca nu mai avea apelant. Migratiile fazei 3 nu au fost insa
- *  aplicate, deci pe productie NU EXISTA niciun proiect din care sa se aleaga,
- *  si ecranul de iesiri a ramas fara nicio cale de a crea un bon.
- *
- *  Aceasta este calea de rezerva si NUMAI atat: se foloseste doar cand
- *  hasPhase3Schema() spune nu. Din clipa aplicarii, selectorul de proiect este
- *  singura cale, iar functia aceasta nu mai are apelant din nou. */
-export async function listClientsAndProjects(): Promise<{
-  clients: string[];
-  projects: string[];
-}> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("outbound_issues").select("client_name, project_name");
-  const clients = new Set<string>();
-  const projects = new Set<string>();
-  for (const row of data ?? []) {
-    const c = (row.client_name as string | null)?.trim();
-    const p = (row.project_name as string | null)?.trim();
-    if (c) clients.add(c);
-    if (p) projects.add(p);
-  }
-  return {
-    clients: [...clients].sort((a, b) => a.localeCompare(b, "ro")),
-    projects: [...projects].sort((a, b) => a.localeCompare(b, "ro")),
-  };
-}

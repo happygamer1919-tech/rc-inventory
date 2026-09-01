@@ -75,7 +75,7 @@ function pendingMigrations() {
   const log = readFileSync(join(ROOT, 'docs/migrations/APPLY-LOG.md'), 'utf8');
   const files = [];
   for (const line of log.split('\n')) {
-    const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Z0-9-]+\s*$/.exec(
+    const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Za-z0-9-]+\s*$/.exec(
       line.trim(),
     );
     if (m) files.push(m[1]);

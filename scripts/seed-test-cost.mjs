@@ -53,6 +53,14 @@ const SERVICE_ROLE_KEY = required("SUPABASE_SERVICE_ROLE_KEY");
 
 const CLIENT_ID = "7e57c051-0000-4000-8000-000000000001";
 const PROJECT_ID = "7e57c051-0000-4000-8000-000000000002";
+// P3-04b: A SECOND PROJECT, BECAUSE "NO PROJECT" STOPPED BEING POSSIBLE.
+// IES-TEST-C005 existed to prove that an issue outside this project is excluded
+// from its totals, and it did that by having NO project. outbound_issues.project_id
+// is NOT NULL since migration 0026, so that row can no longer exist. It now belongs
+// to a SECOND project of the same client, which proves the same exclusion through
+// the mechanism that still exists.
+const OTHER_PROJECT_ID = "7e57c051-0000-4000-8000-00000000000f";
+const OTHER_PROJECT_NAME = "TEST Santier Cost Strain";
 const CLIENT_NAME = "TEST Beneficiar Cost";
 const PROJECT_NAME = "TEST Cost Material P3-11";
 
@@ -170,7 +178,16 @@ async function main() {
 
   await upsert(
     "projects",
-    [{ id: PROJECT_ID, client_id: CLIENT_ID, name: PROJECT_NAME, status: "active", active: true }],
+    [
+      { id: PROJECT_ID, client_id: CLIENT_ID, name: PROJECT_NAME, status: "active", active: true },
+      {
+        id: OTHER_PROJECT_ID,
+        client_id: CLIENT_ID,
+        name: OTHER_PROJECT_NAME,
+        status: "active",
+        active: true,
+      },
+    ],
     "proiectul de cost",
   );
 
@@ -194,11 +211,10 @@ async function main() {
     ISSUES.map((i) => ({
       id: i.id,
       reference: i.reference,
-      // Cele doua coloane de text liber sunt inca NOT NULL. Cardul P3-04b le
-      // sterge; pana atunci seed-ul trebuie sa le dea o valoare.
-      client_name: CLIENT_NAME,
-      project_name: i.project ? PROJECT_NAME : "",
-      project_id: i.project ? PROJECT_ID : null,
+      // P3-04b: coloanele de text liber au disparut si project_id este NOT NULL,
+      // deci fiecare bon apartine undeva. Cel care nu apartine ACESTUI proiect
+      // apartine celuilalt, ceea ce este exact proprietatea pe care o dovedea.
+      project_id: i.project ? PROJECT_ID : OTHER_PROJECT_ID,
       issued_at: i.issued_at,
       shipped_at: i.shipped_at,
       status: i.status,
