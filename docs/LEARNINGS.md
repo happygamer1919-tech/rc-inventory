@@ -2749,3 +2749,49 @@ off permanently.
 RULE: **a secret-shaped regex must be anchored at a token boundary.** `sk-`,
 `re_` and `gho_` are all common substrings of ordinary English and ordinary
 identifiers.
+### INC-06: aplicat inainte de fuzionat, care este INC-05 exact pe dos
+
+**Tag:** infra
+
+**ERROR:** Pe 2026-09-01 sase ecrane de productie au raspuns 500: /setari,
+/inventar, /iesiri, /adauga-manual, /incarca-comanda si /proiecte/[id]. Toate
+cheama listProducts.
+
+Migratia 0027 sterge products.supplier_name si a fost APLICATA pe productie la
+13:58, sub cardul P3-05b. Codul care nu mai cere acea coloana traieste in ACELASI
+card, si PR-ul lui nu era fuzionat. Codul desfasurat de pe main cerea in
+continuare supplier_name in lista de coloane din lib/data/products.ts, coloana nu
+mai exista, PostgREST a raspuns 42703 si ecranele au raspuns 500.
+
+**ESTE INC-05 INTORS PE DOS, SI ASTA ESTE INTREGUL INVATAMANT.** INC-05: cod
+fuzionat inainte ca migratia sa fie aplicata. INC-06: migratie aplicata inainte ca
+codul sa fie fuzionat. Aceeasi cauza, doua ordini. `npm run check:pending-schema-reads`,
+construita dupa INC-05, apara O SINGURA directie: refuza cod care citeste schema
+NEAPLICATA. Nu are ce sa spuna despre schema aplicata pe care codul desfasurat inca
+o citeste ca si cum ar fi acolo.
+
+A INRAUTATIT-O O A DOUA CAPCANA, deja numita in CLAUDE.md sectiunea 3: PR-ul cu
+reparatia era CONFLICTUAL cu main, iar un PR conflictual nu declanseaza NICIUN
+workflow. Impingerea reparatiei nu a pornit nicio rulare, `gh pr checks` arata in
+continuare verdele unei sha vechi, si nimic nu a semnalat ca reparatia nu se misca.
+Incidenta a durat cat a durat pentru ca sculele aratau sanatate.
+
+**SOLUTION:** Reparatia imediata este fuzionarea PR-ului care poarta codul, si ea
+nu poate fi grabita: verificarea trebuie sa ruleze pe sha-ul rezolvat. Nu s-a
+readaugat coloana pe productie, desi ar fi fost mai rapid, pentru ca ar fi fost o a
+doua scriere nejurnalizata care ar fi facut jurnalul sa minta si ar fi cerut inca o
+migratie ca sa fie desfacuta, pentru un sistem cu zero produse si zero clienti.
+
+RULE: **o migratie care STERGE ceva se aplica DUPA ce codul care nu mai citeste acel
+ceva este pe main si desfasurat. O migratie care ADAUGA ceva se aplica INAINTE.**
+Directia depinde de semn, si a fost invatata o data in fiecare sens, cu o incidenta
+de fiecare data.
+
+RULE: **inainte de a aplica o migratie distructiva, verifica ce cere CODUL DE PE
+main, nu ce cere codul din arborele de lucru.** `git show origin/main:<fisier>` este
+comanda. Arborele de lucru contine reparatia; utilizatorii primesc main.
+
+RULE: **un PR conflictual nu ruleaza nimic, si asta se verifica inainte de a te
+baza pe el ca pe o reparatie.** `gh pr view --json mergeStateStatus` spune DIRTY.
+Sectiunea 3 numeste deja capcana pentru fuzionari; aceasta intrare o numeste si
+pentru asteptarea unei reparatii.

@@ -324,6 +324,45 @@ writes what is blocked, on whom, and since when, and stops.
 
 ---
 
+## 4b. Stopping
+
+**Added 2026-09-01 by ruling R-086, on the owner's instruction. THIS BINDS EVERY
+ROLE, not only EXECUTOR.**
+
+**STOPPING IS ONLY CORRECT WHEN WORK CANNOT CONTINUE.**
+
+A terminal that stops to tell the owner something has confused *reporting* with
+*blocking*. A finding is not a block. A defect already fixed is not a block. A
+pattern noticed in passing is not a block. Each of those goes in the report and
+the digest **while the run keeps going**.
+
+| what you have | what to do |
+|---|---|
+| a doctrine finding, a defect you already fixed, a pattern you noticed | **report and continue** |
+| a choice you could make yourself under the card's wide defaults | **make it, record it, continue** |
+| something on the R-057 escalation list, or a genuine fork where being wrong is expensive | **`scripts/poc/ask.sh` with your recommendation and what happens on silence**, then claim another card while it waits |
+| every eligible card blocked or shipped | **send the Telegram message saying the board is dry**, then stop |
+
+**THE ASK PATH BLOCKS ONE CARD, NOT THE RUN.** That is the whole reason it
+exists. A question asked through `ask.sh` parks the card it belongs to, carries a
+recommendation and a stated default for silence, and leaves every other eligible
+card claimable. A question asked by stopping and printing parks **everything**,
+including work that had nothing to do with the question.
+
+**THE DRY-BOARD MESSAGE IS A SIGNAL, NOT A COURTESY.** When nothing is left to
+work, the owner needs to know so he can author more. Stopping silently looks
+identical to stopping because the terminal broke.
+
+**WHY THIS IS A RULE AND NOT A PREFERENCE.** On 2026-09-01 three pauses in one
+session were notes rather than blocks: a doctrine finding about applier guards, a
+defect that had already been fixed, and a recommendation the terminal was
+authorised to act on. Each cost the rest of the session's momentum and none of
+them needed an answer to proceed. Section 4 already said the run never halts for a
+question; this section says the same thing about halting for an ANSWER nobody was
+waiting on.
+
+---
+
 ## 5. Defaults rule
 
 Every card carries a `defaults` field. It is the pre-authorized answer to the
