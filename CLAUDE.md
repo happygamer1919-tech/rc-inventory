@@ -202,6 +202,38 @@ stack. A green here is work that actually ran.
 IT**, because it would then authorise merging on a check that never executed.
 Whoever adds the filter removes this section in the same pull request.
 
+##### ONE STEP IS NOW PATH-FILTERED, AND THIS SECTION SURVIVES IT. Added 2026-09-01 by ruling R-084.
+
+**There is still NO `paths:` key on the workflow, and the sentence above is
+unchanged and still binds.** What was added is a filter on ONE STEP, expressed as
+a step-level `if:`, and the distinction is the whole reason the grant survives:
+
+| | what it skips | what the required check reports |
+|---|---|---|
+| a workflow `paths:` key | the **entire** `quality` job | **success**, on a job that never ran |
+| a step-level `if:` | **one step** | the real result of the other twenty-one |
+
+The path-filtered step is **Prove the migration applier against the Docker shim**
+(`npm run prove:applier`). It builds five throwaway postgres containers and takes
+minutes, so it runs only when `scripts/apply-pending-migrations.*`,
+`supabase/migrations/**` or `scripts/poc-free/local-db/**` changed. **It fails
+open**: when the base commit cannot be resolved, the proof runs rather than
+concluding that nothing changed.
+
+**WHAT SELF-MERGE REQUIRES IS UNCHANGED AND IS RESTATED HERE SO IT CANNOT BE READ
+LOOSELY:**
+
+1. **the full, unfiltered suite green.** Every other step in the job runs on every
+   pull request, exactly as before. That is the green this section has always
+   meant and it is still the only green that authorises a merge.
+2. **and additionally**, a pull request touching any of the three applier paths
+   above requires the applier proof step to have RUN and PASSED, not skipped. A
+   pull request that changes a migration file and shows that step as skipped has
+   not met this section, whatever the overall check says.
+
+A second path-filtered step is a change to this section, not an application of
+it. The exemption is for this one step and does not generalise.
+
 #### THE HISTORY, KEPT SHORT AND KEPT
 
 - **R-049, 2026-08-28.** Granted EXECUTOR and POC-BUILDER self-merge on
