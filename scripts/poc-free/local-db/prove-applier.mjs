@@ -75,7 +75,7 @@ function psql(name, sql) {
 // last part is the state the strategy record describes and it is the reason
 // this batch has to repair three rows: the schema is at 0012 and the ledger
 // says 0009.
-function buildBaseline(name) {
+function buildBaseline(name, opts = {}) {
   const applied = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort()
     .filter((f) => Number(f.slice(0, 4)) <= 12);
   let r = psql(name, readFileSync(SHIM, "utf8"));
@@ -104,10 +104,26 @@ function buildBaseline(name) {
     insert into public.products (id, sku, name, category_id, unit, supplier_name, active, needs_review)
       values ('11111111-0000-4000-8000-000000000010','PRV-01','Produs Prove',
               '11111111-0000-4000-8000-000000000001','bag','Furnizor Prove',true,false);
-    insert into public.outbound_issues (id, reference, client_name, project_name, status)
-      values ('11111111-0000-4000-8000-000000000020','IES-PRV-01','Client Prove','Santier Prove','awaiting_shipment');
   `);
   if (r.status !== 0) { console.error(`fixture seed failed:\n${r.stderr}`); process.exit(1); }
+
+  // AN OUTBOUND ISSUE WITH A DESTINATION NOTHING CAN MATCH.
+  //
+  // Only for the proof that asks for it. 0017's backfill matches client_name and
+  // project_name against public.clients and public.projects, and on a baseline
+  // built from 0001 to 0012 those tables do not exist yet and are empty when they
+  // do, so a historical row like this can NEVER be matched. 0026 then refuses to
+  // make project_id NOT NULL and the whole batch rolls back, which is the
+  // behaviour P3-04b depends on: if production had held unreconciled rows, the
+  // drop would have refused rather than destroyed the only record of where
+  // materials went.
+  if (opts.unmatchedIssue) {
+    r = psql(name, `
+      insert into public.outbound_issues (id, reference, client_name, project_name, status)
+        values ('11111111-0000-4000-8000-000000000020','IES-PRV-01','Client Prove','Santier Prove','awaiting_shipment');
+    `);
+    if (r.status !== 0) { console.error(`unmatched issue seed failed:\n${r.stderr}`); process.exit(1); }
+  }
 }
 
 function pendingRegisterFile(dir, files) {
@@ -156,8 +172,16 @@ out("\n" + "=".repeat(78) + "\nPROOF 1: clean pass from an 0001-0012 baseline\n"
   record("clean pass commits, exit 0", r.status === 0 && committed, `exit ${r.status}`);
 
   // And the database really is at 0025 with the ledger repaired.
-  const check = psql(c, `select count(*) from supabase_migrations.schema_migrations;`);
-  record("ledger holds 25 rows after commit", (check.stdout || "").includes("25"), (check.stdout || "").trim());
+  // DERIVED, NOT HARDCODED. This said 25 and broke the moment a 26th migration
+  // was authored, which is a proof harness failing for a reason that has nothing
+  // to do with what it proves.
+  const expectedLedger = 12 + PENDING.length;
+  const check = psql(c, `select count(*) as n from supabase_migrations.schema_migrations;`);
+  record(
+    `ledger holds ${expectedLedger} rows after commit`,
+    new RegExp(`\\b${expectedLedger}\\b`).test(check.stdout || ""),
+    (check.stdout || "").trim(),
+  );
   const tbl = psql(c, `select to_regclass('public.devize') is not null as ok;`);
   record("a table from the batch exists after commit", (tbl.stdout || "").includes("t"), (tbl.stdout || "").trim());
   rmSync(dir, { recursive: true, force: true });
@@ -180,15 +204,33 @@ const MUTATIONS = [
     control: "forbidden-statement-stop",
   },
   {
-    name: "dropping a free-text column rolls the batch back",
+    name: "an UNDECLARED column drop rolls the batch back",
     // Appended to the LAST file in the batch on purpose. Dropping it earlier
     // trips a raw "column does not exist" in a later migration, which is a
     // rollback for the wrong reason and would prove nothing about this control.
     file: "0025_deviz.sql",
-    mutate: (s) => s + "\n\nalter table public.products drop column supplier_name;\n",
+    // A PRE-EXISTING, DEPENDENCY-FREE COLUMN, AND BOTH WORDS MATTER.
+    // PRE-EXISTING: the assertion snapshots the columns that exist BEFORE the
+    // batch, so a column the batch itself creates and drops is invisible to it.
+    // clients.notes was tried and committed cleanly for exactly that reason:
+    // public.clients is created by 0013, inside the batch.
+    // DEPENDENCY-FREE: products.needs_review was tried too and PostgreSQL refused
+    // the drop first, because a policy from 0012 reads it, so the batch rolled
+    // back proving the server's dependency tracking rather than this assertion.
+    // inbound_orders.document_uploaded_at is from 0001 and is read only from a
+    // plpgsql body, which creates no catalogue dependency.
+    // AND IT IS DROPPED THROUGH DYNAMIC SQL, WHICH IS THE ONLY WAY TO MAKE THE
+    // DROP UNDECLARED. A plain `alter table ... drop column` appended to a
+    // migration is parsed as a DECLARED drop, so the assertion allows it and the
+    // mutation tests nothing: that version committed cleanly. Inside `execute`
+    // the statement is a string the grammar never sees as a drop, which is also
+    // the realistic shape of the accident this assertion exists to catch.
+    mutate: (s) =>
+      s +
+      "\n\ndo $mut$ begin execute 'alter table public.inbound_orders drop column document_uploaded_at'; end $mut$;\n",
     expectExit: 1,
-    expectText: "ASSERTION FAILED [free-text-columns-untouched]",
-    control: "free-text-columns-untouched",
+    expectText: "ASSERTION FAILED [declared-column-drops-only]",
+    control: "declared-column-drops-only",
   },
   {
     name: "removing the 0018 drop leaves two functions and rolls the batch back",
@@ -233,6 +275,29 @@ for (const m of MUTATIONS) {
 // ===========================================================================
 // PROOF 3: second run is a clean no-op
 // ===========================================================================
+out("\n" + "=".repeat(78) + "\nPROOF 2b: an unreconciled outbound issue refuses the free-text drop\n" + "=".repeat(78) + "\n");
+{
+  const c = startContainer("unmatched");
+  buildBaseline(c, { unmatchedIssue: true });
+  const { dir, mig } = copyTree(PENDING);
+  const reg = pendingRegisterFile(dir, PENDING);
+  const r = runApplier(c, mig, reg);
+  const all = (r.stdout || "") + (r.stderr || "");
+  const refused = r.status !== 0 && /contains null values/.test(all);
+  record("an unmatched historical row rolls the batch back", refused, `exit ${r.status}`);
+  const after = psql(c, `select to_regclass('public.devize') is null as untouched;`);
+  record("  ...and the database is untouched", (after.stdout || "").includes("t"), (after.stdout || "").trim());
+  // The columns it protects are still there, which is the whole point.
+  const cols = psql(c, `select count(*) as n from information_schema.columns
+    where table_schema='public' and table_name='outbound_issues'
+      and column_name in ('client_name','project_name');`);
+  record("  ...and client_name and project_name survived", /\b2\b/.test(cols.stdout || ""), (cols.stdout || "").trim());
+  writeFileSync(join(ROOT, "docs/reports/p3-27a-proof-2b-unreconciled-refuses.txt"), all, "utf8");
+  rmSync(dir, { recursive: true, force: true });
+  run("docker", ["rm", "-f", c], { stdio: "ignore" });
+  containers = containers.filter((x) => x !== c);
+}
+
 out("\n" + "=".repeat(78) + "\nPROOF 3: an emptied register is a clean no-op\n" + "=".repeat(78) + "\n");
 {
   const c = startContainer("noop");
