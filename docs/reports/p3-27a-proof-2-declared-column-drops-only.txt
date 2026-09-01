@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-12074-mtiov61f)
+target                 shim (container rc-prove-applier-mut-12074-mtiovbhf)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     14
-total statements       211
+total statements       212
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -30,7 +30,7 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
 ==============================================================================
-batch sha256           f9ae2157a8800448baee075869e646322bc1f78a9938e4b4b7ecd8f8b434bf66
+batch sha256           3c624ae4e20a74b878f0369c0d6b485dca80252b35056aff04849b89995c6361
 script sha256          ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe
 assertions             12
 ==============================================================================
@@ -242,7 +242,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-01 13:14:17.017617+00
+ Furnizor Prove | 2026-09-01 13:14:24.173587+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -294,7 +294,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (2 rows)
 
 
---- applying 0025_deviz.sql (42 statements) ---
+--- applying 0025_deviz.sql (43 statements) ---
  table_name  | rls_enabled | policy_count 
 -------------+-------------+--------------
  deviz_lines | t           |            3
@@ -377,101 +377,6 @@ ASSERTIONS
   assert promised-functions-exist
   assert declared-function-drops-happened
   assert declared-column-drops-only
-  assert zero-rows-deleted
-  assert outbound-destination-backfill
-  assert supplier-backfill
-  assert one-create-outbound-issue-five-args
-
-==============================================================================
-POST-CHECK GRID: the applied ledger AFTER the batch
-==============================================================================
- version |               name               
----------+----------------------------------
- 0001    | phase2_schema
- 0002    | rc_docs_bucket
- 0003    | inbound_functions
- 0004    | outbound_functions
- 0005    | service_role_grants
- 0006    | reminder_recipients
- 0007    | seed_categories
- 0008    | extraction_drafts
- 0009    | revoke_anon_on_extraction_drafts
- 0010    | confirm_extraction_draft
- 0011    | extraction_confirm_corrections
- 0012    | manager_flagged_products
- 0013    | clients
- 0014    | contacts
- 0015    | status_entity_project
- 0016    | projects
- 0017    | outbound_project_id
- 0018    | outbound_issue_project_write
- 0019    | suppliers
- 0020    | search_clients
- 0021    | projects_search_and_status
- 0022    | client_detail
- 0023    | project_material_summary
- 0024    | project_material_cost
- 0025    | deviz
- 0026    | drop_outbound_free_text
-(26 rows)
-
- ledger_rows_after 
--------------------
-                26
-(1 row)
-
-
-POST-CHECK GRID: row counts on every public table AFTER the batch
-          tbl           | before | after 
-------------------------+--------+-------
- batches                |      0 |     0
- categories             |     19 |    19
- extraction_draft_lines |      0 |     0
- extraction_drafts      |      0 |     0
- inbound_orders         |      0 |     0
- order_lines            |      0 |     0
- outbound_issues        |      0 |     0
- outbound_lines         |      0 |     0
- products               |      1 |     1
- profiles               |      0 |     0
- reminders              |      0 |     0
- status_history         |      0 |     0
- units                  |      7 |     7
-(13 rows)
-
-
-RECONCILIATION: outbound_issues with no project_id, with their destination text
- id | reference | project_id 
-----+-----------+------------
-(0 rows)
-
-
-RECONCILIATION: products with a supplier_name and no supplier_id
- id | sku | name | supplier_name 
-----+-----+------+---------------
-(0 rows)
-
-
-RLS and policy count per new table
- table_name  | rls_enabled | policies 
--------------+-------------+----------
- clients     | t           |        3
- contacts    | t           |        3
- deviz_lines | t           |        3
- devize      | t           |        3
- projects    | t           |        3
- suppliers   | t           |        3
-(6 rows)
-
-
-COMMITTED
-
-applied and committed: 14 migrations, 12 assertions passed
-
-target was the shim, so NOTHING was written to any journal and the pending register is untouched.
-
-started  2026-09-01T13:14:16.899Z
-finished 2026-09-01T13:14:17.065Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -479,5 +384,10 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
-NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
+ERROR:  ASSERTION FAILED [declared-column-drops-only]: these columns are gone and NO pending migration declared dropping them: inbound_orders.document_uploaded_at
+CONTEXT:  PL/pgSQL function inline_code_block line 34 at RAISE
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ROLLED BACK. Nothing was committed.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ERROR:  ASSERTION FAILED [declared-column-drops-only]: these columns are gone and NO pending migration declared dropping them: inbound_orders.document_uploaded_at
