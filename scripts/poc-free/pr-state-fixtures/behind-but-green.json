@@ -1,0 +1,9 @@
+{
+  "number": 130,
+  "headRefOid": "58b99ed90f7ea0240c286152f1044658a9af5419",
+  "mergeStateStatus": "BEHIND",
+  "mergeable": "MERGEABLE",
+  "statusCheckRollup": [
+    { "name": "quality", "conclusion": "SUCCESS", "state": "SUCCESS" }
+  ]
+}
