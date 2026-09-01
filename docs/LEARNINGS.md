@@ -2594,3 +2594,28 @@ refuza acum o mutatie a carei iesire este egala cu intrarea.
 RULE: **un test de mutatie trebuie sa verifice ca a mutat ceva.** Altfel esecul pe
 care il previne apare chiar in interiorul lui, si aceea este singura verificare pe
 care nimeni nu o mai verifica.
+
+### The digest truncates a recommendation to 160 characters, which is the one field the rubric calls mandatory
+**Tag:** infra
+**ERROR:** `scripts/poc/notify.mjs` renders every TRIAGE escalation through
+`firstLine(e.recommendation, 160)`. DOCTRINE-TRIAGE's escalation shape is six
+fields and the rubric says in terms that "an escalation with no recommendation
+is not finished". The owner reads the digest, so the field the rubric protects is
+the field the transport cuts, and the cut is silent: a recommendation of 800
+characters and one of 160 look identical on the receiving end, with the second
+half of the reasoning, the alternative option and the whole `IF UNANSWERED` line
+gone. Found on 2026-09-01 by TRIAGE run `20260901-070544` while writing three
+escalations averaging 900 characters.
+**SOLUTION:** For now, **every escalation is written so its first 160 characters
+carry the action**, and the reasoning follows: the three written by that run were
+rewritten to lead with "Confirm the permission stands", "Add a live-site sign-in
+to the secrets file" and "Answer yes, delete the old fields now". The rule that
+prevents the next instance: **a field a rubric calls mandatory is rendered whole
+or the transport is the defect**, and whoever next touches the digest renderer
+should let the recommendation through at full length or split it across lines.
+**NO CARD IS AUTHORED FOR IT DELIBERATELY.** AUT-5 and AUT-6 shipped a second
+digest path, `scripts/poc/plain-digest.mjs`, on an open branch the same night, so
+a card written against `notify.mjs` from `main` would be a card against a
+renderer that may be on its way out. That is DOCTRINE-TRIAGE section 5's rule
+against two cards for one problem, applied to a moving target. The next TRIAGE
+that still sees the truncation on `main` should author it.

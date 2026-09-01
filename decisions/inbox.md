@@ -4497,3 +4497,437 @@ that added it, and this batch does exactly that across 0015 and 0021. The applie
 therefore commits enum additions in a pre-phase of their own, and refuses to put
 anything but `ALTER TYPE ... ADD VALUE IF NOT EXISTS` in it. The only thing that
 can survive a rollback of the main batch is an unused, idempotent enum label.
+
+---
+
+### R-083 - the input this run was handed was again not the newest committed report, for the second consecutive TRIAGE, so both untriaged reports are triaged here and AUT-17 now has a measured cost
+**Date:** 2026-09-01
+**Asked on:** AUT-17
+**Answer, verbatim:**
+> from `docs/DOCTRINE-TRIAGE.md`, "What TRIAGE is":
+> "It finds its own input: **the newest file in `docs/reports/`** by the dated
+> naming convention in `CLAUDE.md` section 9b."
+
+**Ruling:** the dispatch named
+`docs/reports/2026-08-31-executor-p3-27a-applier.md`, committed in `f420d02` at
+`2026-09-01T01:56:36+03:00`. **The newest committed executor report is
+`docs/reports/2026-08-31-executor-p3-27-apply.md`**, committed in `db88f80` at
+`2026-09-01T03:14:45+03:00`, seventy-eight minutes later. **Both are triaged
+here**, because unlike the last occurrence neither had been triaged before: the
+named one is genuinely untriaged, and the newer one is the one that records a
+production apply.
+
+**THIS IS THE SECOND CONSECUTIVE RUN THE SELECTOR HAS MIS-AIMED AND THE TWO
+FAILURES ARE DIFFERENT.** R-075 found a selector that handed back a report
+already triaged three hours earlier. This one handed back a report that was
+never triaged but was superseded within the same night by a second report from
+the same card family. AUT-17 is already authored for the first; **this ruling
+adds the second failure mode to its `notes` rather than authoring a second
+card**, per DOCTRINE-TRIAGE section 5's rule against two cards for one problem.
+
+**WHY IT MATTERED THIS TIME AND NOT MERELY IN PRINCIPLE.** The report the
+dispatch named ends with "P3-27 is not unblocked by this card. The applier
+exists and is proven; the run against production is a separate act." Read alone
+it describes a tool that has never been used. The report it omitted records that
+the tool was used, on the client's production database, four hours before this
+session booted. A TRIAGE that followed the dispatch literally would have audited
+nine phase 3 gate conditions against the premise "no phase 3 migration has been
+applied", which every one of those conditions still carried, and every one of
+those audits would have been false.
+
+**Unblocks:** nothing.
+**Also changes:** nothing on the board; AUT-17 keeps its `acceptance` unchanged
+and this ruling is the second instance its fix must cover.
+**Supersedes:** none. R-075 stands and this extends its finding.
+
+---
+
+### R-084 - the deviations in both reports, ratified individually with the test that cleared each, and the one that is not TRIAGE's to ratify
+**Date:** 2026-09-01
+**Asked on:** P3-27a, P3-27
+**Answer, verbatim:**
+> from `docs/reports/2026-08-31-executor-p3-27a-applier.md`, section 2:
+> "The thirteen migrations cannot be applied as one transaction. PostgreSQL
+> refuses. This was found on the shim, on the first clean run, which is exactly
+> what the shim is for. Against production the batch would have rolled back at
+> 0021 and P3-27 would have failed."
+
+**Ruling:** four deviations, four verdicts, each naming the test from
+DOCTRINE-TRIAGE section 1 that decided it. **A set ratified as a block is a set
+nobody read**, so they are written out.
+
+**DEVIATION 1: THE ENUM PRE-PHASE, A SECOND TRANSACTION IN A PROCEDURE THAT SAYS
+ONE. RATIFIED ON TEST 3, WITH THE AUTHORISING RULING CITED BY ID.** `CLAUDE.md`
+8.5 requires one transaction and forbids a partial apply. The applier commits
+`ALTER TYPE ... ADD VALUE` in a pre-phase of its own. That is a widening of a
+standing rule, so test 3 fires, and test 3 clears it when a ruling already
+authorised it: **R-082 authorises it by name**, describes the same four bounds
+the report describes, and calls it "the one bounded deviation". The bound is
+what makes it survivable: a file joins the pre-phase only if it contains an enum
+addition, may contain nothing but `AlterEnumStmt` and `SelectStmt`, and every
+addition carries `IF NOT EXISTS`. The only thing that can outlive a rollback is
+one unused idempotent enum label. **It is not a server preference and not a
+design choice**: a `language sql` function body is validated at CREATE time, so
+`0021` uses the label `0015` added, and PostgreSQL refuses. The alternative was
+not a cleaner apply, it was a batch that rolls back at `0021` against
+production.
+
+**DEVIATION 2: THE 60-SECOND MEMOISATION WINDOW WAS ACCEPTED RATHER THAN GATED.
+RATIFIED ON TEST 4, WITH THE ALTERNATIVE NAMED.** `hasPhase3Schema()` is
+memoised for 60 seconds and `lib/data/outbound-actions.ts` calls the
+four-argument `create_outbound_issue` in the branch taken when that probe returns
+false, so for up to a minute after the commit a warm instance could call a
+function `0018` had just dropped. The applier's `0018` gate refuses only on a
+four-argument call site **outside** the phase 3 probe. The alternative, named
+concretely: a gate that refused on the guarded fallback would refuse forever,
+because that fallback is the only thing keeping the application working *before*
+the apply, so `P3-27` could never run. **The risk was also retired in fact and
+not only in argument**: the apply report section 2 records zero
+`outbound_issues` and no operator, which made the window theoretical on the
+night. It will not be theoretical at the next apply and both reports say so.
+
+**DEVIATION 3: THE APPLIER RUN WAS REFUSED BY THE HARNESS CLASSIFIER AND THE
+OWNER WAS ASKED RATHER THAN THE REFUSAL BEING ROUTED AROUND. RATIFIED ON TEST 2,
+AND IT IS THE BEHAVIOUR THIS RUBRIC WANTS.** `docs/migrations/APPLY-LOG.md`
+records the same refusal twice on 2026-08-27 and once on RST-01, so the evidence
+is committed and re-verifiable by a stranger. The run stopped, put the exact
+command and three options to the owner, and proceeded on his grant. Recorded as
+a ratification rather than passed over, because a terminal that hits a harness
+refusal on a command its own rules permit has an obvious wrong move available
+and did not take it.
+
+**DEVIATION 4: EXECUTOR WROTE THE RULING THAT AUTHORISED ITS OWN GRANT, AND
+AMENDED `CLAUDE.md` 8.6 TO MATCH. TEST 3 FIRES AND DOES NOT CLEAR. NOT RATIFIED
+HERE, ESCALATED, AND R-082 STAYS IN FORCE MEANWHILE.** R-082 widens who may
+write to the production database. That is item 5 of the closed list in
+DOCTRINE-TRIAGE section 6, credential and environment grants, where the rubric
+says **narrowing is a terminal's to rule and widening is not**. Test 3 clears a
+widening only when a ruling **already** authorised it, and the only ruling that
+authorises R-082 is R-082. **R-085 carries the escalation and the record
+correction.** What this ruling does not do is unwind anything: R-082 is a
+committed entry with an id, DOCTRINE-TRIAGE says in terms that a committed line
+is what ratifies, and the apply it authorised is done, journalled and asserted.
+**An escalation here asks the owner to confirm a grant, not to undo a night.**
+
+**Unblocks:** nothing.
+**Also changes:** nothing on the board.
+**Supersedes:** none.
+
+---
+
+### R-085 - R-082 records the owner as its decider with no verbatim text, and the record is corrected forward; separately, the applier proof enters the required check because its cost was checked and is not money
+**Date:** 2026-09-01
+**Asked on:** P3-27a, AUT-19
+**Answer, verbatim:**
+> from `decisions/inbox.md`, entry R-082, its attribution lines in full:
+> "**Asked by:** card P3-27a, on the owner's dispatch of 2026-08-31.
+> **Decided by:** the owner, in that dispatch, in his own words."
+
+> from `docs/reports/2026-08-31-executor-p3-27a-applier.md`, section 7:
+> "`npm run prove:applier` is not wired into `quality.yml`. It costs five
+> containers and several minutes on every pull request. Docker is already
+> available there (`check:migrations` uses it), so it is a one-step change, but
+> it is a real runtime cost on every PR and that is the owner's call, not scope
+> I should take. Recommendation: add it, since a check nobody runs rots."
+
+**Ruling, first half: the record.** R-082 says the owner decided it "in his own
+words" and **contains none of his words**. `decisions/inbox.md` opens with
+"Verbatim first, interpretation second. Paste what Ivan wrote, then write the
+ruling underneath it", and its entry format makes `Answer, verbatim` a required
+field. R-082 has no such field. It also has no `Unblocks` line, though it plainly
+unblocked P3-27. **The dispatch it cites is not a tracked file at any commit in
+this repository**, so a stranger cannot check the attribution, and DOCTRINE-TRIAGE
+is explicit that the next session cannot read a conversation.
+
+**THIS IS A CORRECTION FORWARD AND NOT AN OVERTURN, AND THE DISTINCTION IS THE
+WHOLE POINT.** R-082 is not edited: TRIAGE may not touch an existing entry and
+would not want to here, because the ruling's substance is careful, its bounds are
+tight and the apply it governed passed 11 of 11 assertions with zero rows
+deleted. What is defective is its **provenance record**, and the fix for that is
+a later entry that says so plus a confirmation from the person named. That
+confirmation is **escalation 1 of this run**, with the recommended default that
+he confirm the grant as written, and with `IF UNANSWERED: R-082 stands`, because
+a committed ruling is what ratifies in this repository and nothing else is.
+
+**THE STANDING RULE, STATED SO THE NEXT TERMINAL DOES NOT REPEAT IT.** A ruling
+that names Ivan as its decider carries his words or it does not name him. A
+terminal that must act on an untracked instruction records the instruction as
+**the terminal's reading of a dispatch**, in its own voice, and leaves
+`Answer, verbatim` for text that exists. DOCTRINE-TRIAGE already binds TRIAGE
+this way, in section 2 requirement 2: "TRIAGE is not Ivan and never writes in his
+voice. A ruling that reads as though the owner said something he did not is the
+one failure this role could cause that nobody would catch." **The failure is not
+specific to TRIAGE and the rule is not either.**
+
+**Ruling, second half: the check.** The executor deferred wiring
+`npm run prove:applier` into `quality.yml` on cost grounds and recommended doing
+it anyway. **The cost was checked rather than assumed: the repository is public,
+so GitHub Actions minutes are free.** The cost is wall clock on a job that
+already starts a Supabase stack, installs Chromium and runs a Docker migration
+pass. **Nothing on the closed escalation list fires**, so the decision is a
+terminal's, and it is yes. **AUT-19 is authored**, and its `defaults` forbid the
+one shortcut that would look attractive later: the step is never conditional and
+never path-filtered, because `CLAUDE.md` 3.1 rests four roles' self-merge
+authority on `quality` meaning exactly one thing.
+
+**WHY THE DEFERRAL WAS STILL RIGHT.** Section 3 of `CLAUDE.md` forbids
+self-invented scope, and a workflow edit inside a card about an applier is
+scope. Stopping and writing the recommendation down is what turned it into a
+card instead of a quiet extra commit.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, new card **AUT-19**.
+**Supersedes:** none. R-082 stands, uncorrected in substance and unedited in
+text.
+
+---
+
+### R-086 - the phase 3 gate audit re-runs after the apply: the blocker every condition named is discharged, the count stays 0 of 9, three new and distinct blockers replace it, and G1 turns out to be one command from three of its four clauses
+**Date:** 2026-09-01
+**Asked on:** the phase 3 launch gate, G1 to G9, and card P3-30
+**Answer, verbatim:**
+> from `docs/reports/2026-08-31-executor-p3-27-apply.md`, section 10:
+> "The phase 3 launch gate is still 0/9. Every condition says 'on production'
+> and the schema is now there, but each one names its own proof and none of
+> those proofs is a schema check. They are a separate pass."
+
+**Ruling:** the executor is right and this is that pass. **Phase 3 stays at 0 of
+9. Nothing flipped.** Every one of the nine was audited clause by clause and the
+audit is written into each condition's `evidence.ref`, per DOCTRINE-TRIAGE
+section 4 point 4, whether or not it moved.
+
+**WHAT CHANGED, AND IT IS THE WHOLE REASON THIS AUDIT WAS OWED.** All nine
+previous audits, under R-065, carried the same sentence: "no phase 3 migration
+has been applied to the RC Supabase project". That sentence is false as of
+2026-08-31T23:27:25Z. Thirteen migrations, 202 statements, one transaction,
+11 of 11 assertions, ledger at 25 rows with no gaps, zero rows deleted on any
+pre-existing table. **A gate audit that repeats a discharged blocker is worse
+than no audit**, because it tells the next session to go and do something that
+is already done.
+
+**THE ONE COMMON BLOCKER IS NOW THREE, AND THEY ARE NOT INTERCHANGEABLE.**
+
+1. **No terminal can see a signed-in production screen.** G3 clause 4, G4, and
+   G5 clause 1. The apply report section 9b is exact about it: the four CRM
+   routes return 200 and the result is vacuous, because they are auth-gated and
+   unauthenticated they redirect to `/autentificare`, which is what returned the
+   200. No `TEST_OWNER_EMAIL` or `TEST_OWNER_PASSWORD` exists for this project.
+   **Escalation 2 of this run**, with a recommended default.
+2. **No real data exists.** G2 clause 3 and G5 clause 2. Production holds 0
+   products, 0 outbound issues, 0 inbound orders and 0 batches. G5 clause 2 wants
+   one real project reconciled by hand to the leu, which is the third kind of
+   unflippable gate in section 4 and **must not be read as backlog**.
+3. **The card is simply not built.** G6, G8 and G9, and half of G7. P3-12,
+   P3-13c, P3-15, P3-16 and P3-19 to P3-26 are todo. Nothing but sessions stands
+   in front of these, and G9 is untouched by the apply in any respect.
+
+**THE TEST THIS AUDIT WRITES DOWN, BECAUSE G2 WOULD OTHERWISE HAVE FLIPPED ON A
+LITERAL READING: A CLAUSE WHOSE ONLY EVIDENCE IS THE SUBJECT OF AN OPEN
+ESCALATION DOES NOT CLOSE A GATE.** G2 clause 3 asks for a count of outbound
+issues with no project, zero, taken read-only on the day and pasted. That count
+was taken, it is zero, and it is pasted. It is also **zero over an empty table**,
+and whether such a zero satisfies an acceptance is the exact question P3-04b is
+asking Ivan right now, in its own `question` field. Flipping G2 on it would
+answer his question for him and make his eventual ruling retroactive. The gate's
+own notes tie clause 3 to the backfill, and the backfill reconciled nothing.
+**Two TRIAGE runs must reach the same answer, so the test is stated rather than
+the instance being decided.**
+
+**G1 IS THREE CLAUSES DONE AND ONE COMMAND SHORT, AND NOBODY HAD RECORDED IT.**
+Clause 1, the tables exist with RLS and three policies each: met, post-check grid
+plus a fresh connection after the commit. Clause 2, an unauthenticated request
+returning zero rows: **met, and the proof came back stronger than the clause
+asked**, because an anon-key read answered `42501 insufficient_privilege` rather
+than an empty set, which also proves PostgREST reloaded its schema cache. Clause
+4, products carry a supplier foreign key: met. **Clause 3, a write refused at the
+database, has never been attempted by anyone**: every anon request that night was
+a read. The write attempt is the same call with a different verb and the same
+public key. **P3-30 is authored for it**, needs no new credential and no owner
+action, and is the cheapest gate work on either board.
+
+**THIS IS THE SECOND TIME A GATE HAS TURNED OUT TO BE CLOSEABLE WITH NO CARD
+BEHIND IT.** R-080 found the same shape on the phase 2 G4 on 2026-08-31 and
+authored P2-20. Both times the audit had correctly recorded what was missing and
+nobody had converted the cheap half into work. That conversion is
+DOCTRINE-TRIAGE section 5 and it is where this role earns its time.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase3.json`, all nine `launch_gate`
+conditions get a 2026-09-01 `evidence.ref` audit; new card **P3-30**.
+**Supersedes:** none. R-065's audit was correct on its date and its premise
+expired; this is the re-run that premise made necessary.
+
+---
+
+### R-087 - the phase 2 gate audit re-runs at 6 of 9 with nothing flipped, one precondition on G7 was discharged by the apply without anybody noticing, and the three failing audits move to where the rubric says to look
+**Date:** 2026-09-01
+**Asked on:** the phase 2 launch gate, G4, G7 and G9
+**Answer, verbatim:**
+> from `docs/DOCTRINE-TRIAGE.md`, section 4 point 4:
+> "Write the audit into `evidence.ref` whether or not it flips. An audit that
+> flips nothing is still the most useful thing the next session can read,
+> because it says what is actually missing."
+
+**Ruling:** **phase 2 stays at 6 of 9.** G4, G7 and G9 were each audited and none
+flips.
+
+**A CORRECTION OF FORM THAT IS NOT COSMETIC.** All three failing conditions on
+this board carried `evidence: null` while their audits sat in `notes`, and the
+phase 3 board carried its audits in `evidence.ref` correctly. The rubric names
+one field. **An audit filed where the rubric does not say to look is an audit the
+next session finds by luck**, and this board is the one with three days of audit
+history on it. The audits already in `notes` are left exactly as they are and the
+new one is written to `evidence.ref` on each.
+
+**G7 MOVED AND NOTHING ANNOUNCED IT.** Its notes record a second precondition the
+original text did not know about: migration `0006_reminder_recipients` had to be
+applied before any real email could send. **The wave 1 apply reconciled the
+ledger to 25 rows with no gaps, so `0006` is now recorded as applied.** That
+clause is discharged. The gate still fails on two things, and neither is a
+terminal's: `RESEND_API_KEY` in the production environment, which is a panel
+action raised in the digest on 2026-08-31 and unanswered, and one real email from
+a real threshold crossing, which is client use. **The gate is unchanged and the
+reason it fails is one clause shorter, which is exactly the kind of fact an audit
+exists to surface.**
+
+**G4 IS RE-STATED RATHER THAN RE-DERIVED, BECAUSE THE OLD PHRASING HAS NOW COST
+TWO AUDITS.** Its deciding clause was replaced by R-053 on 2026-08-28 and R-080
+found three of its five new clauses already green in `tests/e2e/extraction.spec.ts`,
+with redirect and oversize absent and P2-20 authored for them. The sentence "no
+terminal can close this gate", in R-046 and repeated in R-074, is superseded by
+R-080 and is not repeated here. Neither report under audit touches this gate.
+
+**G9 CANNOT BE FLIPPED BY ANY TERMINAL, EVER, AND THAT IS RECORDED AS A PROPERTY
+RATHER THAN AS A GAP.** It needs Mihai to complete a full cycle himself on
+production. It is the second kind of unflippable gate in section 4, the rubric
+says such a gate must not be treated as a backlog, and the audit says in terms
+that **there is no card that closes it and there should not be one**. If
+anything the apply moved it further off: production now carries the phase 3
+schema and zero rows of anything Mihai would work with.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, G4, G7 and G9 gain a
+2026-09-01 `evidence.ref` audit.
+**Supersedes:** none.
+
+---
+
+### R-088 - the only lawful path to production hardcodes wave 1, and one of its assertions will refuse, by name, the two migrations already sitting on the board
+**Date:** 2026-09-01
+**Asked on:** P3-29, P3-04b, P3-05b
+**Answer, verbatim:**
+> from `scripts/apply-pending-migrations.mjs`, the body of assertion
+> `free-text-columns-untouched`:
+> "raise exception 'ASSERTION FAILED [free-text-columns-untouched]: a column
+> this batch must NOT drop is gone: %. The drops are P3-04b and P3-05b.'"
+
+**Ruling:** the assertion is **unconditional**. It raises whenever
+`outbound_issues.client_name`, `outbound_issues.project_name` or
+`products.supplier_name` is absent after a batch, on every future run of the
+applier, and **its own failure message names the two cards it will refuse**. The
+author saw the collision and left no off-ramp. **P3-29 is authored** to turn the
+three batch-specific assertions into declared intent, and **P3-04b and P3-05b
+gain a `depends_on` edge onto it**.
+
+**WHY THIS IS NOT A NUISANCE BUT A STOP.** R-082 makes this one script the only
+lawful route from a merged migration file to the production database. A batch
+containing either drop **rolls back whole**, which takes down every unrelated
+migration batched alongside it. The failure is invisible until the apply, and the
+apply is the last step. Neither card's `acceptance` requires an apply, so the
+migration file would merge green and the wall would be hit by whoever ran the
+next batch, on a card that had nothing to do with either.
+
+**THE EDGE, RECORDED WITH BOTH SIDES PER SECTION 3.** P3-04b old edge
+`["P3-04", "P3-10", "P3-27"]`, new edge `["P3-04", "P3-10", "P3-27", "P3-29"]`.
+P3-05b old edge `["P3-05", "P3-10", "P3-27"]`, new edge
+`["P3-05", "P3-10", "P3-27", "P3-29"]`. **Neither card's `blocked_on` or
+`question` is touched**: the vacuous-zero question is still Ivan's, it is
+unaffected by this edge, and it is escalation 3 of this run.
+
+**THE SAME SHAPE EXISTS ON TWO MORE ASSERTIONS AND P3-29 COVERS BOTH.**
+`one-create-outbound-issue-five-args` pins `create_outbound_issue` to exactly the
+signature `(text, text, text, jsonb, uuid)` and would refuse any later migration
+that legitimately changes it, which a deviz-aware issue is a plausible reason to
+do. `ledger-0010-0011-0012-present` asserts a one-time repair forever; that one
+**stays as it is**, because those rows are now permanently present and the
+assertion is permanently true, so removing it would be change without benefit.
+The card's `defaults` say so, so nobody spends a session tidying it.
+
+**WHAT P3-29 MAY NOT DO, WRITTEN INTO ITS `defaults` RATHER THAN LEFT TO
+JUDGEMENT.** The declaration lives in the migration file and is parsed, never
+passed at the prompt, because R-082 and R-047 both rest on the script deciding
+rather than the terminal choosing, and anything a terminal can type is a choice.
+A declaration is honoured only for the exact object it names. **The absolute
+exclusion is untouched: `DROP TABLE`, `TRUNCATE` and `DELETE` stay refused with
+nothing executed, and no declaration reaches them.**
+
+**HOW IT WAS FOUND, BECAUSE THE METHOD IS THE TRANSFERABLE PART.** The P3-27a
+report lists this assertion under its mutation proofs as a control working
+correctly, which it is. The finding came from reading the control itself rather
+than the report's account of it. **A report that says an assertion bites tells
+you it bites; it does not tell you what else it bites.**
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase3.json`, new card **P3-29**;
+P3-04b and P3-05b `depends_on` and `notes`.
+**Supersedes:** none. R-082's grant is unchanged in every respect; this is
+maintenance of the applier it names, not a widening of what it permits.
+
+---
+
+### R-089 - the board sweep under DOCTRINE-TRIAGE section 3: four checks over both boards, no dangling edge, three correctly-blocked cards, and a capability edge that has now gone unauthorable twice
+**Date:** 2026-09-01
+**Asked on:** P2-13, P2-08b, P3-04b, P3-05b
+**Answer, verbatim:**
+> from `docs/DOCTRINE-TRIAGE.md`, section 3:
+> "Run all four checks, every time, over the whole board and not only the cards
+> the report touched. A stale edge is invisible from the card that carries it."
+
+**Ruling:** all four checks were run over `rc-board-phase2.json` and
+`rc-board-phase3.json`, mechanically rather than by eye.
+
+**CHECK 1, DANGLING EDGES: none.** Every id in every `depends_on` on both boards
+resolves to a card on the same board.
+
+**CHECK 2, SATISFIED BUT BLOCKING: three, and all three are correct.** P2-08b,
+every dependency shipped, blocked on `andre`, who genuinely owes the webhook
+contract. P3-04b and P3-05b, every dependency shipped, blocked on `ivan`, who
+genuinely owes the vacuous-zero ruling their `question` fields now ask; that
+question was rewritten by the P3-27 run last night and is escalation 3 of this
+run. **Nothing is cleared.**
+
+**CHECK 3, THE CAPABILITY EDGE, AND IT IS THE ONE THAT COSTS.** P2-13 takes away
+the migration-apply grant. **R-082 created a new grant of exactly that class on
+2026-08-31, after R-072 wrote P2-13's capability clause**, so the clause could not
+have known about it. `CLAUDE.md` 8.7 covers R-082 by the blanket phrase
+"reverting section 8", and **a checklist that enumerates two grants by id and
+leaves the third to a blanket is a checklist that will revoke two.** P2-13's
+`acceptance` now names R-082 explicitly as a third tickable box. **No
+`depends_on` edge is added, for the reason R-072 already gave**: the cards that
+need the capability are on the phase 3 board, the validator requires every
+`depends_on` id to exist on the same board, and a cross-board edge is
+unauthorable. That is the second time the acceptance line has had to stand in for
+an edge, and it is recorded as a limitation of the board format rather than as a
+choice.
+
+**THE SAME SWEEP CORRECTS A STALE ACCEPTANCE LINE.** P2-13's capability clause
+ended "THIRTEEN FILES ARE PENDING TODAY, 0013 to 0025, and P3-27 is the card that
+applies them." That is no longer true. **The box is kept and is deliberately not
+converted into a statement of fact**: it is a precondition to be re-checked on
+rotation day against whatever the highest migration number is then, not a note
+about wave 1.
+
+**CHECK 4, EDGES ON SPLIT CARDS: eleven edges point at a card that has since
+grown a lettered half, and every one is correct as it stands.** `P3-08`,
+`P3-09`, `P3-11`, `P3-13c` and `P3-14` depend on `P3-04` and need the foreign
+key, not the column drop in `P3-04b`. `P3-10` depends on `P3-05` on the same
+reasoning. `P3-13b` and `P3-13c` depend on `P3-13`, which is the schema half they
+both build on. `P3-04b` and `P3-05b` depend on `P3-27`, the apply, not on
+`P3-27a`, the applier that was built for it. **Re-derived rather than declared
+unchanged in substance**, which is what the check asks for.
+
+**Unblocks:** nothing.
+**Also changes:** `docs/board/rc-board-phase2.json`, P2-13 `acceptance` and
+`notes`.
+**Supersedes:** none. R-072 and R-081 stand; this is the sweep they require to be
+re-run each time.

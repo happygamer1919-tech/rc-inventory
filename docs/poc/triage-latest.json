@@ -1,58 +1,62 @@
 {
-  "run_id": "20260831-040003",
-  "report": "docs/reports/2026-08-31-executor-p3-13b-deviz-editor.md",
+  "run_id": "20260901-070544",
+  "report": "docs/reports/2026-08-31-executor-p3-27a-applier.md",
   "rulings_written": [
-    "R-075",
-    "R-076",
-    "R-077",
-    "R-078",
-    "R-079",
-    "R-080",
-    "R-081"
+    "R-083",
+    "R-084",
+    "R-085",
+    "R-086",
+    "R-087",
+    "R-088",
+    "R-089"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-20",
-      "change": "authored by TRIAGE under R-080, and it is the first card the AI reading readiness condition has ever had. That condition was rewritten on 2026-08-28 so it no longer waits on the outside supplier, and the two pieces of work that rewrite created were never written onto the list. Three of its five checks turn out to already be built and passing, and nobody had recorded it. This card is the two that are missing: an address that has been mis-set and silently swallows every document while reporting success, and a file too big to accept."
+      "card_id": "P3-29",
+      "change": "authored by TRIAGE under R-088. The safety tool that puts database changes onto the live system will refuse two changes the plan already calls for, and refusing them would roll back every unrelated change queued in the same batch. Its refusal message names the two items it will block, so this was known and left without a way out. The tool must learn to tell a change somebody meant to make from one nobody did."
+    },
+    {
+      "card_id": "P3-30",
+      "change": "authored by TRIAGE under R-086, and it is the cheapest item on either list. The first phase 3 readiness condition has four parts, three of them have been proven since last night, and the fourth has never been tried by anybody: that a stranger cannot ADD a record to the live system, only that they cannot read one. It is the same request with a different verb and the same public key, so it needs no new password and nothing from you."
+    },
+    {
+      "card_id": "AUT-19",
+      "change": "authored by TRIAGE under R-085. The check that proves the database tool is safe runs nowhere automatic, so the next edit to that tool is unproven until somebody remembers to run it by hand. The builder held back from wiring it in because it thought the running cost was yours to approve. The cost was checked here: this repository is public, so that time is free, and the answer is simply yes."
+    },
+    {
+      "card_id": "P3-04b and P3-05b",
+      "change": "both gain a dependency on the new P3-29 under R-088, because the tool that applies database changes would refuse the very change these two exist to make. Neither is unblocked and neither question is touched: what you owe on them is unchanged and is escalation 3 below."
+    },
+    {
+      "card_id": "P2-13",
+      "change": "the credential rotation item now names the new permission granted on 2026-08-31 as a third thing that must be switched off on rotation day, under R-089. The standing rules cover it only by a general phrase, and a checklist that names two permissions and leaves the third to a general phrase is a checklist that will switch off two. Its stale line about thirteen waiting database changes is also corrected: there are none waiting now."
     },
     {
       "card_id": "AUT-17",
-      "change": "authored by TRIAGE under R-075, from the instruction this reviewing session itself received. The nightly review step was handed a write-up that had already been reviewed three hours earlier, while the one its own session had just produced sat unread in an unpublished change. Left alone, a future session repeats a finished review and nothing anywhere notices."
+      "change": "notes only, no dependency changed, under R-083. This is the second night running that the nightly review step was handed the wrong write-up. Last time it was one already reviewed; this time it was one that had been overtaken within the same night by a second write-up recording that thirteen database changes went live. The fix already on this item must cover both."
     },
     {
-      "card_id": "AUT-18",
-      "change": "authored by TRIAGE under R-078. Two pieces of finished work are sitting in unpublished changes that cannot be published as they stand, and nothing in the nightly run mentions either. Each run will list what is still open and flag anything stuck, the same night, instead of it being found by hand days later. It publishes nothing itself."
+      "card_id": "the nine phase 3 readiness conditions",
+      "change": "every one re-audited under R-086 and every one still fails, but the reason they all shared is gone. They no longer wait on the database changes, which went live on 2026-08-31. Three distinct reasons replace it: four of them wait on somebody being able to sign in to the live site and look, two wait on real business data existing, and the rest simply wait on work nobody has done yet."
     },
     {
-      "card_id": "P2-08b",
-      "change": "the line on the card saying the readiness condition stays failed until the outside supplier answers has been false since 2026-08-28 and is corrected underneath rather than rewritten, under R-080. Nothing new is asked of him and the wording of the ask is untouched. What changed is that no readiness condition waits on him any more."
-    },
-    {
-      "card_id": "P3-21",
-      "change": "the finish line gains a second half under R-079. The Romanian sweep already promised to fix words missing their accents, and nothing checked it, so one shipped last night and was caught by luck. The check must now refuse a known word spelled without its accent, seeded with the one that already cost a run."
-    },
-    {
-      "card_id": "RST-03",
-      "change": "its finish line is met in full on published evidence, recorded under R-077 and deliberately NOT marked done: the reviewing role may not mark work complete, because that needs the checks actually run and this role runs none. Four read-only commands and one field remain, which makes it the cheapest item on either list."
-    },
-    {
-      "card_id": "RST-02 and AUT-16",
-      "change": "notes only, no dependency changed. RST-02 gains the boundary with the new AUT-18 so the two are not half-done twice. AUT-16 gains today's instance of a consequence its finish line already covers."
-    },
-    {
-      "card_id": "P3-13b",
-      "change": "NOT edited, deliberately, and this is the same call the previous review made. The unpublished change that carries this item already records its failed checks and the cause in the exact fields this role would write to. Writing a second copy would collide with it and most likely delete the builder's own account of its night."
+      "card_id": "the three failing phase 2 readiness conditions",
+      "change": "re-audited under R-087, still six of nine, nothing moved. One quiet improvement: the low-stock email condition had a hidden second requirement, a database change that had never gone live, and that requirement is now met. The condition still fails for two other reasons, neither of which is a machine's to fix."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Thirteen finished pieces of database work have still never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the third night it has been raised and the fifth run that has named it.",
-      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. PRACTICAL NOTE, UNCHANGED FROM LAST NIGHT: the Telegram answer channel still cannot resolve a phase 3 item, so `R P3-27 default` will be refused as an unknown item until card AUT-16 ships. Answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped items stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and two further items stay parked behind it. Nothing breaks and nothing gets worse, which is why this has now gone unanswered longer than anything else."
+      "title": "A permission to write to the live database was granted last night by a ruling that names you as its decider and records none of your words. Confirm it stands.",
+      "recommendation": "Confirm the permission stands as written. It lets an overnight terminal apply already-approved database changes to the live system, but only through one tool that runs the whole batch all-or-nothing, checks its own work in the database before committing, and undoes everything if any check fails. RECOMMENDED BECAUSE THE SUBSTANCE WAS PROVEN BEFORE IT WAS USED: the tool was tested against a throwaway copy of the database five ways, including three deliberate sabotages it caught and refused, and its real run committed only after all eleven of its own checks passed with nothing deleted. What is defective is the paperwork: the ruling quotes an instruction that exists in no file anybody can open, and the rule here is that only a written line counts. THIS IS ON YOUR LIST BECAUSE IT WIDENS ACCESS TO THE LIVE SYSTEM, which is item 5 and never a machine's to decide. IF UNANSWERED: the permission stands, because a committed ruling is what counts here, and the only cost is a record that says you said something nobody can check."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded inside a readiness condition since 2026-08-26 and have never once been put in front of you. Setting them is two clicks and it does not, on its own, close that condition.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential rotation checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED SO YOU ARE NOT SURPRISED LATER: this does NOT make the readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at P2-13. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on rotation day instead."
+      "title": "Nobody can sign in to the live site to look at it, so four readiness conditions cannot be checked no matter what gets built. One credential closes all four.",
+      "recommendation": "Add a live-site sign-in to the secrets file, by name only, reusing the existing test owner account that gets retired on rotation day anyway. RECOMMENDED BECAUSE THE EXTRA RISK IS AS CLOSE TO NOTHING AS IT GETS: the same terminal already holds the live database password and the master key, both strictly more powerful than a login box, and this dies with the rest on rotation day. What it buys is four readiness conditions moving from cannot ever be checked to checkable tonight. IF YOU WOULD RATHER NOT: open the four screens yourself once and say what you see. That closes the same conditions and costs you ten minutes every time somebody asks again. IF UNANSWERED: the customers, projects, connections and cost conditions stay unproven whatever ships, and the phase 3 readiness score keeps measuring your availability instead of the build."
+    },
+    {
+      "title": "Third night on one question: does a count of zero taken against an empty table count as proof? Two items wait on it and nothing else waits on them.",
+      "recommendation": "Answer yes, delete the old fields now, and record on both items that they went ahead on an empty-table zero, so nobody later reads it as proof that a matching exercise worked. RECOMMENDED BECAUSE THE CHEAP MOMENT IS NOW: with no data, the deletion can lose nothing, and holding means the identical deletion later against a table that by then holds real work, which is strictly the more dangerous moment. ONE THING FOUND TONIGHT THAT YOU SHOULD KNOW BEFORE IT IS ACTED ON: the tool that applies database changes would currently refuse these two deletions and undo everything batched with them, so a new item was written to fix that first. Your answer is still what unblocks them. IF UNANSWERED: nothing breaks and nothing else waits, but the same information keeps living in two places that can disagree the moment real work arrives."
     }
   ]
 }
