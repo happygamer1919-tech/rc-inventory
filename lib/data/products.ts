@@ -102,8 +102,8 @@ type ProductRow = {
   unit: string;
   threshold: unknown;
   unit_value_mdl: unknown;
-  supplier_name: string | null;
-  supplier_id?: string | null;
+  supplier_id: string | null;
+  suppliers: { name: string } | { name: string }[] | null;
   needs_review: boolean;
   active: boolean;
   categories: { name: string } | null;
@@ -119,7 +119,10 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
     unit: isUnitCode(row.unit) ? row.unit : "pcs",
     threshold: toNumber(row.threshold),
     unitValueMdl: toNumber(row.unit_value_mdl),
-    supplierName: row.supplier_name,
+    // P3-05b: THE NAME COMES FROM THE JOINED SUPPLIER RECORD. products.supplier_name
+    // is dropped by 0027, so there is no second spelling left to disagree with it.
+    // Still nullable: a product may genuinely have no supplier.
+    supplierName: (Array.isArray(row.suppliers) ? row.suppliers[0]?.name : row.suppliers?.name) ?? null,
     supplierId: row.supplier_id ?? null,
     needsReview: row.needs_review,
     active: row.active,
@@ -137,13 +140,11 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
 export async function listProducts(): Promise<CatalogProduct[]> {
   const supabase = await createClient();
 
-  // supplier_id este adaugat de migratia 0019. Cat timp ea nu este aplicata,
-  // coloana nu exista si un select care o numeste intoarce 42703, ceea ce a
-  // doborat tabloul de bord pe 2026-08-31. Se cere doar ce exista.
-  const phase3 = await hasPhase3Schema();
-  const columns = phase3
-    ? "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, supplier_id, needs_review, active, categories(name)"
-    : "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_name, needs_review, active, categories(name)";
+  // P3-05b: ONE COLUMN LIST. The pre-phase-3 fallback named supplier_name, which
+  // 0027 drops, and it was only ever reached when hasPhase3Schema() said no. The
+  // wave 1 migrations are applied, so that branch is unreachable AND unsafe.
+  const columns =
+    "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_id, needs_review, active, categories(name), suppliers(name)";
 
   const [{ data, error }, stock] = await Promise.all([
     supabase.from("products").select(columns).order("sku", { ascending: true }),
@@ -268,7 +269,12 @@ export async function listProductMovements(productId: string): Promise<ProductMo
       .eq("product_id", productId),
     supabase
       .from("outbound_lines")
-      .select("id, quantity, outbound_issues(reference, client_name, project_name, issued_at)")
+      // P3-04b: the destination comes from the joined records. client_name and
+      // project_name were dropped by 0026, and a select naming a dropped column
+      // returns 42703 and answers the screen with a 500.
+      .select(
+        "id, quantity, outbound_issues(reference, issued_at, projects(name, clients(name)))",
+      )
       .eq("product_id", productId),
   ]);
 
@@ -289,16 +295,27 @@ export async function listProductMovements(productId: string): Promise<ProductMo
   }
 
   for (const row of issued ?? []) {
+    type Named = { name: string } | { name: string }[] | null;
+    const pickName = (v: Named): string | null =>
+      Array.isArray(v) ? (v[0]?.name ?? null) : (v?.name ?? null);
     const issue = row.outbound_issues as unknown as
-      | { reference: string; client_name: string; project_name: string; issued_at: string }
+      | {
+          reference: string;
+          issued_at: string;
+          projects: ({ name: string; clients: Named } | { name: string; clients: Named }[]) | null;
+        }
       | null;
+    const project = Array.isArray(issue?.projects) ? issue?.projects[0] : issue?.projects;
+    const projectName = project?.name ?? null;
+    const clientName = pickName(project?.clients ?? null);
     movements.push({
       id: row.id as string,
       direction: "out",
       quantity: toNumber(row.quantity),
       at: issue?.issued_at ?? "",
       reference: issue?.reference ?? "-",
-      context: issue ? `${issue.client_name} · ${issue.project_name}` : "Ieșire",
+      context:
+        clientName && projectName ? `${clientName} · ${projectName}` : (projectName ?? "Ieșire"),
     });
   }
 

@@ -1,14 +1,16 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-92839-mtiyz0xw)
+target                 shim (container rc-prove-applier-unmatched-92839-mtiyz3pi)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     15
-total statements       216
+total statements       217
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
+0018_outbound_issue_project_write.sql:
+  drop function if exists public.create_outbound_issue(text, text, text, jsonb);
 0026_drop_outbound_free_text.sql:
   if exists public.backfill_outbound_project_ids();
 
@@ -35,7 +37,7 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: no pending migrations, nothing to check
 
 ==============================================================================
-batch sha256           1c558727a689c07fe9f64bf2031d88257a59d13cfc49504af559964e3c8bb376
+batch sha256           575e0eb64765e76442d4372122055747617e3e447e2793e3d20ef71dbb32af7e
 script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
 assertions             12
 ==============================================================================
@@ -83,7 +85,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  extraction_drafts      |  0
  inbound_orders         |  0
  order_lines            |  0
- outbound_issues        |  0
+ outbound_issues        |  1
  outbound_lines         |  0
  products               |  1
  profiles               |  0
@@ -206,20 +208,20 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
  total_issues | with_project | still_null 
 --------------+--------------+------------
-            0 |            0 |          0
+            1 |            0 |          1
 (1 row)
 
- reference | client_name | project_name | issued_at 
------------+-------------+--------------+-----------
-(0 rows)
+ reference  | client_name  | project_name  |           issued_at           
+------------+--------------+---------------+-------------------------------
+ IES-PRV-01 | Client Prove | Santier Prove | 2026-09-01 17:57:16.191206+00
+(1 row)
 
 
---- applying 0018_outbound_issue_project_write.sql (6 statements) ---
+--- applying 0018_outbound_issue_project_write.sql (7 statements) ---
         proname        |                                          arguments                                          
 -----------------------+---------------------------------------------------------------------------------------------
- create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb
  create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb, p_project_id uuid
-(2 rows)
+(1 row)
 
 
 --- applying 0019_suppliers.sql (31 statements) ---
@@ -246,9 +248,9 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
  supplier_name | text | f
 (2 rows)
 
-      name      |          created_at          
-----------------+------------------------------
- Furnizor Prove | 2026-09-01 17:57:13.47401+00
+      name      |          created_at           
+----------------+-------------------------------
+ Furnizor Prove | 2026-09-01 17:57:16.455087+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -363,39 +365,6 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
 
 --- applying 0026_drop_outbound_free_text.sql (9 statements) ---
- column_name | is_nullable 
--------------+-------------
- project_id  | NO
-(1 row)
-
-
---- applying 0027_drop_products_supplier_name.sql (6 statements) ---
-    table_name     |  column_name  | is_nullable 
--------------------+---------------+-------------
- extraction_drafts | supplier_name | YES
- inbound_orders    | supplier_name | YES
- products          | supplier_id   | YES
-(3 rows)
-
-
---- ledger: the three rows the strategy record says were never written ---
---- ledger: the thirteen rows for this batch ---
-
-==============================================================================
-ASSERTIONS
-==============================================================================
-  assert every-pending-applied
-  assert ledger-no-gaps-ends-at-highest
-  assert ledger-0010-0011-0012-present
-  assert promised-tables-exist
-  assert promised-columns-exist
-  assert promised-functions-exist
-  assert declared-function-drops-happened
-  assert declared-column-drops-only
-  assert zero-rows-deleted
-  assert outbound-destination-backfill
-  assert supplier-backfill
-  assert one-create-outbound-issue-five-args
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -403,12 +372,9 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
-NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
-ERROR:  ASSERTION FAILED [one-create-outbound-issue-five-args]: 2 versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.
-CONTEXT:  PL/pgSQL function inline_code_block line 8 at RAISE
+ERROR:  column "project_id" of relation "outbound_issues" contains null values
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ROLLED BACK. Nothing was committed.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-ERROR:  ASSERTION FAILED [one-create-outbound-issue-five-args]: 2 versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.
+ERROR:  column "project_id" of relation "outbound_issues" contains null values

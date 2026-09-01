@@ -8,9 +8,9 @@ import { signIn } from "./support/auth";
 // patru produse raporteaza un total egal cu suma calculata de mana, afirmata la
 // leu; defalcarea pe produs da acelasi total; defalcarea pe luna da acelasi
 // total; un proiect fara iesiri raporteaza zero si o stare goala romaneasca, nu
-// o pagina alba; o iesire fara proiect este exclusa din orice total pe proiect SI
-// este raportata in numaratorul de neasociate; produsele dezactivate raman in
-// istoric.
+// o pagina alba; o iesire a ALTUI proiect este exclusa din orice total pe acest
+// proiect, ceea ce inainte de P3-04b era dovedit cu o iesire fara niciun proiect,
+// stare care nu mai poate exista; produsele dezactivate raman in istoric.
 //
 // DATELE VIN DIN scripts/seed-test-cost.mjs SI SUNT FIXE. Aritmetica este scrisa
 // in capul acelui fisier si repetata aici, ca amandoua sa poata fi verificate de
@@ -122,11 +122,22 @@ test.describe("Cost material pe proiect", () => {
     // 10000 MDL. Daca ar fi fost inclus undeva, totalul nu ar fi 1850.
     expect(await valueOf(page, "cost-total")).toBe(TOTAL_MDL);
 
+    // P3-04b: NU MAI POATE EXISTA O IESIRE FARA PROIECT, deci numaratorul de
+    // neasociate nu mai poate fi diferit de zero si notificarea nu se mai
+    // randeaza. outbound_issues.project_id este NOT NULL de la migratia 0026.
+    //
+    // IES-TEST-C005 nu a disparut din fixture: apartine acum unui AL DOILEA
+    // proiect al aceluiasi client, deci cele 10000 MDL ale lui sunt in
+    // continuare excluse din totalul acestui proiect, prin mecanismul care a
+    // ramas. Afirmatia de mai sus, ca totalul este 1850, este cea care o
+    // dovedeste, si ea nu s-a schimbat.
+    // Randul se randeaza INTOTDEAUNA, inclusiv la zero, si atunci spune ca totalul
+    // NU este partial. Un total partial care nu spune ca este partial ar fi mai
+    // rau decat lipsa lui, si acum raspunsul este zero pentru totdeauna.
     const unassigned = page.getByTestId("cost-unassigned");
     await expect(unassigned).toBeVisible();
-    const count = Number(await unassigned.getAttribute("data-count"));
-    expect(count).toBeGreaterThanOrEqual(1);
-    await expect(unassigned).toContainText("fără proiect asociat");
+    expect(Number(await unassigned.getAttribute("data-count"))).toBe(0);
+    await expect(unassigned).toContainText("Toate ieșirile au un proiect asociat");
   });
 
   test("produsele dezactivate rămân în istoric", async ({ page }) => {

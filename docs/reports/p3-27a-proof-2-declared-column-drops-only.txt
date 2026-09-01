@@ -1,16 +1,23 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-62902-mthto2ri)
+target                 shim (container rc-prove-applier-mut-92839-mtiyyy7i)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     13
-total statements       203
+pending file count     15
+total statements       218
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
 0018_outbound_issue_project_write.sql:
   drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+0026_drop_outbound_free_text.sql:
+  if exists public.backfill_outbound_project_ids();
+
+
+-- =======;
+0027_drop_products_supplier_name.sql:
+  drop function if exists public.backfill_product_suppliers(integer);
 
 no DELETE, TRUNCATE or DROP TABLE in any pending file
 
@@ -24,10 +31,15 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
+------------------------------------------------------------------------------
+REMOVAL DIRECTION: this batch takes something away
+------------------------------------------------------------------------------
+check-removal-safety: no pending migrations, nothing to check
+
 ==============================================================================
-batch sha256           891951e7c5d81fada608971546e5478700c1fc496b45155491df720c527bd02c
-script sha256          315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6
-assertions             11
+batch sha256           182d15771711f9755a0523afc71a7e4047623d3f8184ca2f30580b32d1c13391
+script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
+assertions             12
 ==============================================================================
 
 
@@ -73,7 +85,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  extraction_drafts      |  0
  inbound_orders         |  0
  order_lines            |  0
- outbound_issues        |  1
+ outbound_issues        |  0
  outbound_lines         |  0
  products               |  1
  profiles               |  0
@@ -81,6 +93,13 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  status_history         |  0
  units                  |  7
 (13 rows)
+
+
+PRE-CHECK: every column in public, so a disappearance can be noticed
+ columns_before 
+----------------
+            133
+(1 row)
 
 
 0018 GATE, DATABASE HALF: dependents of the four-argument function
@@ -189,13 +208,12 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 
  total_issues | with_project | still_null 
 --------------+--------------+------------
-            1 |            0 |          1
+            0 |            0 |          0
 (1 row)
 
- reference  | client_name  | project_name  |           issued_at           
-------------+--------------+---------------+-------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-08-31 22:40:57.369746+00
-(1 row)
+ reference | client_name | project_name | issued_at 
+-----------+-------------+--------------+-----------
+(0 rows)
 
 
 --- applying 0018_outbound_issue_project_write.sql (7 statements) ---
@@ -229,9 +247,9 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  supplier_name | text | f
 (2 rows)
 
-      name      |         created_at          
-----------------+-----------------------------
- Furnizor Prove | 2026-08-31 22:40:57.5845+00
+      name      |          created_at           
+----------------+-------------------------------
+ Furnizor Prove | 2026-09-01 17:57:09.892788+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -345,6 +363,22 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 (5 rows)
 
 
+--- applying 0026_drop_outbound_free_text.sql (9 statements) ---
+ column_name | is_nullable 
+-------------+-------------
+ project_id  | NO
+(1 row)
+
+
+--- applying 0027_drop_products_supplier_name.sql (6 statements) ---
+    table_name     |  column_name  | is_nullable 
+-------------------+---------------+-------------
+ extraction_drafts | supplier_name | YES
+ inbound_orders    | supplier_name | YES
+ products          | supplier_id   | YES
+(3 rows)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -357,7 +391,8 @@ ASSERTIONS
   assert promised-tables-exist
   assert promised-columns-exist
   assert promised-functions-exist
-  assert free-text-columns-untouched
+  assert declared-function-drops-happened
+  assert declared-column-drops-only
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -365,10 +400,10 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-ERROR:  ASSERTION FAILED [free-text-columns-untouched]: a column this batch must NOT drop is gone: products.supplier_name. The drops are P3-04b and P3-05b.
-CONTEXT:  PL/pgSQL function inline_code_block line 12 at RAISE
+ERROR:  ASSERTION FAILED [declared-column-drops-only]: these columns are gone and NO pending migration declared dropping them: inbound_orders.document_uploaded_at
+CONTEXT:  PL/pgSQL function inline_code_block line 34 at RAISE
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ROLLED BACK. Nothing was committed.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-ERROR:  ASSERTION FAILED [free-text-columns-untouched]: a column this batch must NOT drop is gone: products.supplier_name. The drops are P3-04b and P3-05b.
+ERROR:  ASSERTION FAILED [declared-column-drops-only]: these columns are gone and NO pending migration declared dropping them: inbound_orders.document_uploaded_at

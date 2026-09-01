@@ -1,16 +1,23 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-62902-mthtnye7)
+target                 shim (container rc-prove-applier-clean-92839-mtiyyt7o)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     13
-total statements       202
+pending file count     15
+total statements       217
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
 0018_outbound_issue_project_write.sql:
   drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+0026_drop_outbound_free_text.sql:
+  if exists public.backfill_outbound_project_ids();
+
+
+-- =======;
+0027_drop_products_supplier_name.sql:
+  drop function if exists public.backfill_product_suppliers(integer);
 
 no DELETE, TRUNCATE or DROP TABLE in any pending file
 
@@ -24,10 +31,15 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
+------------------------------------------------------------------------------
+REMOVAL DIRECTION: this batch takes something away
+------------------------------------------------------------------------------
+check-removal-safety: no pending migrations, nothing to check
+
 ==============================================================================
-batch sha256           a5e9e87f46b04839ab83529f2d492f01b123c48f3ee496fd2b64c86324e14667
-script sha256          315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6
-assertions             11
+batch sha256           575e0eb64765e76442d4372122055747617e3e447e2793e3d20ef71dbb32af7e
+script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
+assertions             12
 ==============================================================================
 
 
@@ -73,7 +85,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  extraction_drafts      |  0
  inbound_orders         |  0
  order_lines            |  0
- outbound_issues        |  1
+ outbound_issues        |  0
  outbound_lines         |  0
  products               |  1
  profiles               |  0
@@ -81,6 +93,13 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  status_history         |  0
  units                  |  7
 (13 rows)
+
+
+PRE-CHECK: every column in public, so a disappearance can be noticed
+ columns_before 
+----------------
+            133
+(1 row)
 
 
 0018 GATE, DATABASE HALF: dependents of the four-argument function
@@ -189,13 +208,12 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 
  total_issues | with_project | still_null 
 --------------+--------------+------------
-            1 |            0 |          1
+            0 |            0 |          0
 (1 row)
 
- reference  | client_name  | project_name  |           issued_at           
-------------+--------------+---------------+-------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-08-31 22:40:51.848419+00
-(1 row)
+ reference | client_name | project_name | issued_at 
+-----------+-------------+--------------+-----------
+(0 rows)
 
 
 --- applying 0018_outbound_issue_project_write.sql (7 statements) ---
@@ -231,7 +249,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-08-31 22:40:52.047322+00
+ Furnizor Prove | 2026-09-01 17:57:03.447734+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -345,6 +363,22 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 (5 rows)
 
 
+--- applying 0026_drop_outbound_free_text.sql (9 statements) ---
+ column_name | is_nullable 
+-------------+-------------
+ project_id  | NO
+(1 row)
+
+
+--- applying 0027_drop_products_supplier_name.sql (6 statements) ---
+    table_name     |  column_name  | is_nullable 
+-------------------+---------------+-------------
+ extraction_drafts | supplier_name | YES
+ inbound_orders    | supplier_name | YES
+ products          | supplier_id   | YES
+(3 rows)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -357,7 +391,8 @@ ASSERTIONS
   assert promised-tables-exist
   assert promised-columns-exist
   assert promised-functions-exist
-  assert free-text-columns-untouched
+  assert declared-function-drops-happened
+  assert declared-column-drops-only
   assert zero-rows-deleted
   assert outbound-destination-backfill
   assert supplier-backfill
@@ -393,11 +428,13 @@ POST-CHECK GRID: the applied ledger AFTER the batch
  0023    | project_material_summary
  0024    | project_material_cost
  0025    | deviz
-(25 rows)
+ 0026    | drop_outbound_free_text
+ 0027    | drop_products_supplier_name
+(27 rows)
 
  ledger_rows_after 
 -------------------
-                25
+                27
 (1 row)
 
 
@@ -410,7 +447,7 @@ POST-CHECK GRID: row counts on every public table AFTER the batch
  extraction_drafts      |      0 |     0
  inbound_orders         |      0 |     0
  order_lines            |      0 |     0
- outbound_issues        |      1 |     1
+ outbound_issues        |      0 |     0
  outbound_lines         |      0 |     0
  products               |      1 |     1
  profiles               |      0 |     0
@@ -421,15 +458,14 @@ POST-CHECK GRID: row counts on every public table AFTER the batch
 
 
 RECONCILIATION: outbound_issues with no project_id, with their destination text
-                  id                  | reference  | client_name  | project_name  
---------------------------------------+------------+--------------+---------------
- 11111111-0000-4000-8000-000000000020 | IES-PRV-01 | Client Prove | Santier Prove
-(1 row)
+ id | reference | project_id 
+----+-----------+------------
+(0 rows)
 
 
 RECONCILIATION: products with a supplier_name and no supplier_id
- id | sku | name | supplier_name 
-----+-----+------+---------------
+ id | sku | name 
+----+-----+------
 (0 rows)
 
 
@@ -447,12 +483,12 @@ RLS and policy count per new table
 
 COMMITTED
 
-applied and committed: 13 migrations, 11 assertions passed
+applied and committed: 15 migrations, 12 assertions passed
 
 target was the shim, so NOTHING was written to any journal and the pending register is untouched.
 
-started  2026-08-31T22:40:51.938Z
-finished 2026-08-31T22:40:52.089Z
+started  2026-09-01T17:57:03.330Z
+finished 2026-09-01T17:57:03.504Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -460,5 +496,5 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 1
-NOTICE:  P3-05 reconciliation: products with a supplier_name and no supplier_id = 0
+NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
+NOTICE:  P3-05 reconciliation: products with no supplier_id = 0

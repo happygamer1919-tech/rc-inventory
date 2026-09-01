@@ -2594,3 +2594,258 @@ refuza acum o mutatie a carei iesire este egala cu intrarea.
 RULE: **un test de mutatie trebuie sa verifice ca a mutat ceva.** Altfel esecul pe
 care il previne apare chiar in interiorul lui, si aceea este singura verificare pe
 care nimeni nu o mai verifica.
+### O ruta care intoarce 200 nu este un ecran verificat, daca 200 vine de la pagina de autentificare
+
+**Tag:** ci
+
+**ERROR:** Dupa aplicarea migratiilor pe productie (P3-27), verificarea ceruta era
+ca cele patru rute CRM sa intoarca 200 cu continut real si nu cu ecranul de
+asteptare. Toate patru au intors 200:
+
+    /clienti /proiecte /inventar /comenzi   ->  200
+
+Rezultatul este GOL. Rutele sunt aparate de autentificare, iar neautentificat ele
+redirectioneaza catre `/autentificare`, care este pagina care a intors de fapt
+acel 200:
+
+    curl -L /clienti  ->  https://www.rapidconstructmd.com/autentificare
+                          <title>Autentificare - Rapid Construct</title>
+
+Un 200 dupa redirectare masoara ultima pagina din lant, nu pe cea ceruta. Cu
+`curl` fara `-L` s-ar fi vazut 307, care ar fi spus adevarul; cu `-L` codul arata
+exact ca succesul cautat.
+
+**SOLUTION:** Verificarea a fost raportata ca NEFACUTA, nu ca trecuta, pentru ca
+nu exista credentiale de productie in `phase2.env` cu care sa se deschida o
+sesiune. In locul ei s-a dovedit ce se putea dovedi fara sesiune: PostgREST
+raspunde `42501` insufficient_privilege pe tabelele noi si NU `PGRST205` "table
+not found in schema cache", ceea ce spune doua lucruri deodata, ca stratul de API
+vede tabelele si ca `anon` nu are niciun drept pe ele.
+
+RULE: **cand verifici o ruta aparata, verifica si UNDE ai ajuns, nu doar codul.**
+`--url-effective`, sau cere codul FARA sa urmezi redirectarile si asteapta 307.
+
+RULE: **spune ca o verificare nu s-a facut, in loc sa raportezi masuratoarea care
+seamana cu ea.** Un 200 de la pagina de login raportat ca ecran verificat este mai
+rau decat o casuta nebifata, pentru ca nimeni nu se mai intoarce la ea.
+
+Vezi si intrarea despre cele doua redirectari care se arata una pe alta, unde
+acelasi lucru a ascuns un defect: site-ul parea sanatos oricui NU era autentificat.
+
+### A silent success is worse than a loud failure, and an unresolved symlink produced one
+**Tag:** infra
+**ERROR:** `node scripts/poc/ask.mjs open ...` printed nothing, wrote nothing,
+sent nothing, and exited 0. `ask.sh` read that zero as "the question was asked",
+logged "asked, waiting until ...", waited out the whole deadline against a
+question that had never been sent, and then blocked the card on an owner who had
+never been contacted.
+
+The cause was the entry-point guard, in the idiom this repository already uses in
+`eligible.mjs` and `plain-digest.mjs`:
+
+    const RUN_DIRECTLY = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+`import.meta.url` is ALREADY SYMLINK-RESOLVED. `process.argv[1]` is not. On macOS
+`/var` is a symlink to `/private/var`, so the same file invoked through a path
+under `/var` (every `mktemp -d` on this machine) compares unequal to itself. The
+guard says "I am not the entry point", `main()` never runs, and node exits 0
+because nothing failed.
+
+**SOLUTION:** Resolve BOTH sides before comparing:
+
+    realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+
+RULE: **an entry-point guard that decides it is not the entry point must not exit
+0 silently.** Exit 0 is the code every caller reads as success, and a module that
+does nothing at all is indistinguishable from one that did the job.
+
+RULE: **never compare a resolved path against an unresolved one.**
+`import.meta.url`, `__filename` and `realpath` are resolved; `process.argv[1]`,
+`$0` and anything a user typed are not.
+
+RULE, AND THIS IS THE ONE THAT GENERALISES: **when a zero exit is the whole
+evidence that something external happened, check for the ARTEFACT instead.**
+`ask.sh` now refuses to wait unless the open-question record exists on disk. The
+exit code says a process ended without complaining; the file says the work
+happened.
+
+`scripts/poc/eligible.mjs`, `scripts/poc/plain-digest.mjs` and
+`scripts/poc/notify.mjs` still carry the unresolved form. None of them is reached
+through a symlinked path today, so this is recorded rather than swept: fixing
+three files that are not broken is scope, and the next person to move one of them
+under `/var` needs to find this entry.
+
+### The 60 second responder eats a ruling before the inbox reader can see it
+**Tag:** infra
+**ERROR:** `scripts/poc/responder.sh` acknowledges the Telegram offset for EVERY
+message it read in a poll, including the ones it classified `ruling` and
+deliberately did not act on:
+
+    # Acknowledge everything read this poll, including messages that were ignored,
+    # so an ignored message is not reclassified forever.
+    tg_get "getUpdates?offset=$((HIGHEST + 1))&limit=1"
+
+Acknowledging an offset DELETES those updates on Telegram's side. `inbox.mjs`
+runs at the start of a work run, three hours later at most, calls
+`getUpdates?limit=100`, and gets nothing. So `R P2-12 default` sent at any moment
+while the responder is running is consumed by the responder, classified as a
+ruling, logged as "not answered here", and destroyed. The ruling never becomes a
+ruling and the card stays blocked.
+
+The comment above the acknowledgement is right about ignored messages and wrong
+about rulings: an ignored message must not be reclassified forever, but a ruling
+has not been HANDLED yet by anyone.
+
+**SOLUTION:** Not fixed here. It belongs to whoever owns the ruling path, and
+CLAUDE.md section 3 says a defect noticed in passing becomes an entry or a card,
+not a quiet extra commit. The fix is one of two shapes: either the responder
+spools ruling-form messages to disk the way ASK-01 spools answers, and
+`inbox.mjs` reads the spool instead of the network, or the responder stops
+acknowledging past the lowest ruling it saw.
+
+RULE: **`getUpdates` is destructive, so exactly one process may read a bot.** Two
+pollers do not share a queue, they race for it, and the loser never learns that
+it lost. ASK-01 is built on this rule rather than around it: `ask.sh` does not
+poll Telegram at all, it reads a spool the one existing reader writes.
+
+### The credential guard refused the commit that added the file it was named after
+**Tag:** infra
+**ERROR:** `scripts/poc/inbox.mjs` refuses to commit when the staged diff matches:
+
+    /eyJ[A-Za-z0-9]|gho_[A-Za-z0-9]|sk-[A-Za-z0-9]|re_[A-Za-z0-9]|bot[0-9]{8}:/
+
+None of those alternatives is anchored. `sk-[A-Za-z0-9]` matches the MIDDLE of
+`test-ask-digest.sh`, and `re_[A-Za-z0-9]` matches the middle of
+`features_are_re_enabled`. Adding a file called `scripts/poc/test-ask-digest.sh`
+therefore made every board card and every ruling that names it look like a
+credential. The check fired 20 times on the commit that introduced the file, all
+20 on the filename.
+
+A guard that refuses a legitimate commit is a guard that gets switched off, and a
+switched-off guard is worse than no guard, because the file still says it is
+protected.
+
+**SOLUTION:** In `scripts/poc/ask.sh` the same shapes are anchored at a
+non-alphanumeric, non-underscore boundary and fenced as `EXTRACT-BEGIN
+credential-shapes`, so `scripts/poc/test-ask-digest.sh` exercises them in BOTH
+directions:
+
+    (^|[^A-Za-z0-9_])(eyJ[A-Za-z0-9]|gho_[A-Za-z0-9]|sk-[A-Za-z0-9]|re_[A-Za-z0-9]|bot[0-9]{8}:)
+
+The anchor loses nothing real: in a diff a credential is preceded by `+`, `-`,
+`"`, `=` or a space, all of which match it. The underscore has to be in the
+excluded class as well, or `features_are_re_enabled` still matches.
+
+`inbox.mjs` still carries the unanchored form. It is recorded here rather than
+fixed, per CLAUDE.md section 3: it stages `decisions/inbox.md` and the board, and
+only a ruling or a card edit that quotes one of these filenames would trip it, so
+the exposure is a refused ruling rather than a leaked secret. Whoever touches
+that file next should copy the anchored form from `ask.sh`.
+
+RULE: **a guard is TWO claims, and the one nobody tests is "it lets the good case
+through".** Assert both directions or the first false positive turns the guard
+off permanently.
+
+RULE: **a secret-shaped regex must be anchored at a token boundary.** `sk-`,
+`re_` and `gho_` are all common substrings of ordinary English and ordinary
+identifiers.
+
+### Un aplicator care nu isi vede propria treaba trebuie sa CADA, niciodata sa raporteze curat
+
+**Tag:** infra
+
+**ERROR:** `scripts/apply-pending-migrations.mjs` citea registrul de asteptare cu
+tiparul `card de aplicare\s+[A-Z0-9-]+`. Id-ul de card `P3-04b` are un `b` mic,
+deci NU se potrivea. Registrul se parsa la ZERO fisiere in asteptare in timp ce
+linia lui statea acolo, la vedere:
+
+    - `0026_drop_outbound_free_text.sql`, card de aplicare P3-04b
+
+Si atunci scriptul lua ramura de oprire scrisa special pentru cazul in care nu mai
+este nimic de aplicat:
+
+    zero pending migrations. The register is empty, so production is already current.
+    Nothing was executed and nothing was written.
+    EXIT=0
+
+**IESIREA 0 ESTE PROBLEMA, NU EXPRESIA REGULATA.** Un lot gol si un lot aplicat cu
+succes arata identic din afara: amandoua ies cu 0, amandoua spun ca baza este la
+zi, si niciunul nu scrie nimic in jurnal pentru ca nu are ce. Un card ar fi fost
+raportat livrat, cu migratia neaplicata, iar urmatorul care ar fi citit registrul
+ar fi crezut ca schema contine ceva ce nu contine. Exact forma lui INC-05, ajunsa
+prin alta usa.
+
+Toate id-urile de card cu sufix mic erau atinse: P3-04b, P3-05b, P2-08b, si asa mai
+departe. Suita prindea starea (`headers.spec.ts` cere ca fiecare migratie sa fie
+fie aplicata, fie in registru), dar aplicatorul nu, si el este cel care actioneaza.
+
+**SOLUTION:** Doua lucruri, si al doilea este cel care conteaza.
+
+1. Tiparul acceptat este `[A-Za-z0-9-]+`, in toate cele trei copii ale lui:
+   aplicatorul, `check-pending-schema-reads.mjs` si `headers.spec.ts`.
+2. **NUMARUL DE LINII DIN REGISTRU ESTE AFIRMAT FATA DE NUMARUL DE FISIERE
+   PARSATE**, inainte de orice oprire pe "nimic de aplicat". Liniile se numara cu
+   un tipar deliberat larg, care intreaba doar daca o linie ARATA ca o intrare de
+   registru, si se compara cu ce a extras tiparul strict. O linie care arata a
+   intrare si nu s-a parsat este un defect al scriptului, nu o linie de sarit, si
+   scriptul refuza cu exit 4 numind linia.
+
+ORDINEA ESTE JUMATATE DIN REPARATIE. Prima varianta a pus verificarea DUPA oprirea
+pe zero, deci exact cazul pe care il apara scurtcircuita pe langa ea si scriptul
+raporta in continuare "already current". O paza asezata dupa ramura pe care o
+apara nu este o paza.
+
+RULE: **cand o unealta nu gaseste nimic de facut, distinge intre "nu este nimic"
+si "nu am putut vedea".** Prima este un raspuns, a doua este un esec, si daca ies
+amandoua cu acelasi cod nimeni nu le va deosebi vreodata la 3 dimineata.
+
+RULE: **cand un tipar strict decide ce se executa, tine-l langa un tipar larg care
+decide doar ce ARATA a treaba, si afirma ca sunt de acord.** Diferenta dintre ele
+este exact multimea lucrurilor pe care unealta le va rata in tacere.
+
+### INC-06: aplicat inainte de fuzionat, care este INC-05 exact pe dos
+
+**Tag:** infra
+
+**ERROR:** Pe 2026-09-01 sase ecrane de productie au raspuns 500: /setari,
+/inventar, /iesiri, /adauga-manual, /incarca-comanda si /proiecte/[id]. Toate
+cheama listProducts.
+
+Migratia 0027 sterge products.supplier_name si a fost APLICATA pe productie la
+13:58, sub cardul P3-05b. Codul care nu mai cere acea coloana traieste in ACELASI
+card, si PR-ul lui nu era fuzionat. Codul desfasurat de pe main cerea in
+continuare supplier_name in lista de coloane din lib/data/products.ts, coloana nu
+mai exista, PostgREST a raspuns 42703 si ecranele au raspuns 500.
+
+**ESTE INC-05 INTORS PE DOS, SI ASTA ESTE INTREGUL INVATAMANT.** INC-05: cod
+fuzionat inainte ca migratia sa fie aplicata. INC-06: migratie aplicata inainte ca
+codul sa fie fuzionat. Aceeasi cauza, doua ordini. `npm run check:pending-schema-reads`,
+construita dupa INC-05, apara O SINGURA directie: refuza cod care citeste schema
+NEAPLICATA. Nu are ce sa spuna despre schema aplicata pe care codul desfasurat inca
+o citeste ca si cum ar fi acolo.
+
+A INRAUTATIT-O O A DOUA CAPCANA, deja numita in CLAUDE.md sectiunea 3: PR-ul cu
+reparatia era CONFLICTUAL cu main, iar un PR conflictual nu declanseaza NICIUN
+workflow. Impingerea reparatiei nu a pornit nicio rulare, `gh pr checks` arata in
+continuare verdele unei sha vechi, si nimic nu a semnalat ca reparatia nu se misca.
+Incidenta a durat cat a durat pentru ca sculele aratau sanatate.
+
+**SOLUTION:** Reparatia imediata este fuzionarea PR-ului care poarta codul, si ea
+nu poate fi grabita: verificarea trebuie sa ruleze pe sha-ul rezolvat. Nu s-a
+readaugat coloana pe productie, desi ar fi fost mai rapid, pentru ca ar fi fost o a
+doua scriere nejurnalizata care ar fi facut jurnalul sa minta si ar fi cerut inca o
+migratie ca sa fie desfacuta, pentru un sistem cu zero produse si zero clienti.
+
+RULE: **o migratie care STERGE ceva se aplica DUPA ce codul care nu mai citeste acel
+ceva este pe main si desfasurat. O migratie care ADAUGA ceva se aplica INAINTE.**
+Directia depinde de semn, si a fost invatata o data in fiecare sens, cu o incidenta
+de fiecare data.
+
+RULE: **inainte de a aplica o migratie distructiva, verifica ce cere CODUL DE PE
+main, nu ce cere codul din arborele de lucru.** `git show origin/main:<fisier>` este
+comanda. Arborele de lucru contine reparatia; utilizatorii primesc main.
+
+RULE: **un PR conflictual nu ruleaza nimic, si asta se verifica inainte de a te
+baza pe el ca pe o reparatie.** `gh pr view --json mergeStateStatus` spune DIRTY.
+Sectiunea 3 numeste deja capcana pentru fuzionari; aceasta intrare o numeste si
+pentru asteptarea unei reparatii.

@@ -16,8 +16,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
-import { hasPhase3Schema } from "./schema-capability";
-import { one } from "./row";
+import { resolveSupplier } from "./suppliers";
 
 export type ActionResult =
   | { ok: true }
@@ -82,93 +81,10 @@ function validate(input: ProductInput):
       unit: input.unit,
       threshold,
       unit_value_mdl: value,
-      // supplier_id si supplier_name se rezolva separat, in resolveSupplier,
+      // supplier_id se rezolva separat, in resolveSupplier,
       // pentru ca poate fi nevoie de o SCRIERE (un furnizor nou) si validarea
       // nu are voie sa scrie nimic.
     },
-  };
-}
-
-/**
- * Traduce ce a ales operatorul intr-o pereche (supplier_id, supplier_name).
- *
- * P3-05 face din furnizor o inregistrare si lasa lista DESCHISA: un furnizor
- * nou se scrie in acelasi combobox, ca introducerea unui produs sa nu devina o
- * sarcina pe doua ecrane. Valoarea primita este deci fie un id, fie un nume.
- *
- * NUMELE STOCAT VINE INTOTDEAUNA DE PE RANDUL DE FURNIZOR, niciodata din ce a
- * scris cineva. products.supplier_name mai exista pana la P3-05b, si cat timp
- * exista amandoua nu au voie sa spuna lucruri diferite. Aceeasi regula ca la
- * iesiri in migratia 0018.
- *
- * CAUTAREA UNUI NUME NOU SE FACE PE NUMELE PLIAT, cu aceeasi functie pe care o
- * foloseste si backfill-ul: public.fold_text. Cine scrie "bricolaj srl" cand
- * exista "Bricolaj SRL" nu creeaza al doilea furnizor, pentru ca exact asta
- * strange cardul la un loc.
- */
-type ResolvedSupplier =
-  | { ok: true; value: { supplier_id?: string | null; supplier_name: string | null } }
-  | { ok: false; message: string; field: string };
-
-async function resolveSupplier(raw: string): Promise<ResolvedSupplier> {
-  const value = raw.trim();
-
-  // CAT TIMP 0019 NU ESTE APLICATA, public.suppliers si products.supplier_id nu
-  // exista, iar o scriere care numeste supplier_id esueaza: pana la remedierea
-  // din 2026-08-31 asta rupea salvarea ORICARUI produs pe productie, inclusiv a
-  // unuia fara furnizor, pentru ca supplier_id era in setul de scriere si atunci
-  // cand era null. Comportamentul de dinainte de P3-05 este exact acesta: numele
-  // se scrie ca text si nu exista inregistrare de furnizor.
-  if (!(await hasPhase3Schema())) {
-    return {
-      ok: true,
-      value: { supplier_name: value.length > 0 ? value : null },
-    };
-  }
-
-  if (value.length === 0) return { ok: true, value: { supplier_id: null, supplier_name: null } };
-
-  const supabase = await createClient();
-
-  if (looksLikeUuid(value)) {
-    const { data } = await supabase
-      .from("suppliers")
-      .select("id, name")
-      .eq("id", value)
-      .maybeSingle();
-    if (!data)
-      return { ok: false, message: "Furnizorul ales nu mai există.", field: "supplier" };
-    return { ok: true, value: { supplier_id: data.id as string, supplier_name: data.name as string } };
-  }
-
-  // Un nume: mai intai cautat pliat, si creat doar daca nu exista.
-  const { data: existing } = await supabase.rpc("find_supplier_by_folded_name", {
-    p_name: value,
-  });
-  const found = one(existing);
-  if (found?.id)
-    return {
-      ok: true,
-      value: { supplier_id: found.id as string, supplier_name: found.name as string },
-    };
-
-  const { data: created, error } = await supabase
-    .from("suppliers")
-    .insert({ name: value })
-    .select("id, name")
-    .single();
-  if (error || !created)
-    return {
-      ok: false,
-      message:
-        error?.code === "42501"
-          ? "Doar administratorul poate adăuga un furnizor."
-          : `Nu s-a putut crea furnizorul. ${error?.message ?? ""}`.trim(),
-      field: "supplier",
-    };
-  return {
-    ok: true,
-    value: { supplier_id: created.id as string, supplier_name: created.name as string },
   };
 }
 

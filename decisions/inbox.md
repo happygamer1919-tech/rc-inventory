@@ -4497,3 +4497,117 @@ that added it, and this batch does exactly that across 0015 and 0021. The applie
 therefore commits enum additions in a pre-phase of their own, and refuses to put
 anything but `ALTER TYPE ... ADD VALUE IF NOT EXISTS` in it. The only thing that
 can survive a rollback of the main batch is an unused, idempotent enum label.
+### R-083
+
+**Deviz is INTERNAL ONLY. No PDF, no letterhead, no client-facing layout, anywhere
+in wave 3.**
+
+**Asked by:** nobody. **Decided by:** the owner, unprompted, in his dispatch of
+2026-09-01, and recorded here so it is not rediscovered by the next terminal that
+opens a deviz card and reasons its way to an export button.
+
+The deviz screens are a tool the business uses to work out what a job costs and to
+see where quoted prices have drifted from today's catalogue. They are **not** a
+document that goes to a client. Nothing in wave 3 produces a PDF, applies a
+letterhead, or lays a deviz out for printing or sending.
+
+**WHY IT NEEDS TO BE A RULING RATHER THAN A CARD NOTE.** P3-13b's own defaults
+already said "NO PDF, NO EXPORT, NO EMAIL IN THIS CARD", and reasoned that getting
+the estimate out to a client is a separate decision with a document-template
+question inside it. That sentence is scoped to one card, so the next deviz card
+starts the argument again from zero. This ruling scopes it to the wave: a deviz
+card that wants an export is not applying a default, it is asking for this ruling
+to be overturned, and that is the owner's.
+
+**WHAT IS STILL IN SCOPE:** everything the screens already do. Versions, frozen
+quoted prices, the current-price comparison, totals, the Romanian labels. Reading
+a deviz on screen is the product. Sending one is not, yet.
+
+### R-084
+
+**`npm run prove:applier` runs in `quality`, as the one path-filtered STEP in the
+job. CLAUDE.md 3.1 survives it, and 3.1 says how.**
+
+**Asked by:** the P3-27a report, which recommended adding it and said the runtime
+cost was the owner's call. **Decided by:** the owner, in his dispatch of
+2026-09-01: add it, with a path filter.
+
+**The filter.** The step runs only when `scripts/apply-pending-migrations.*`,
+`supabase/migrations/**` or `scripts/poc-free/local-db/**` changed. It builds five
+throwaway postgres containers and takes minutes, which is why it is not run on a
+pull request that touches a board file.
+
+**IT IS A STEP-LEVEL `if:`, NOT A WORKFLOW `paths:` KEY, AND THAT DISTINCTION IS
+THE RULING.** A `paths:` key would skip the entire `quality` job, and GitHub
+reports a skipped required check as SUCCESS, which would silently authorise
+merging on a check that never executed. CLAUDE.md 3.1 says in terms that adding a
+path filter kills the self-merge grant. A step-level `if:` skips one step and
+leaves every other step running and reporting, so the grant survives, and 3.1 now
+carries a subsection saying exactly that.
+
+**IT FAILS OPEN.** When the base commit cannot be resolved, the proof RUNS. A
+filter that cannot tell what changed must never conclude that nothing did.
+
+**SELF-MERGE STILL REQUIRES THE FULL UNFILTERED SUITE GREEN**, and additionally,
+for a pull request touching any of the three applier paths, requires this step to
+have RUN and PASSED rather than skipped.
+
+**A SECOND PATH-FILTERED STEP IS NOT COVERED BY THIS.** The exemption is for this
+one step. Adding another is a change to 3.1 and needs its own ruling.
+### R-085
+
+**A batch's declarations describe what it CHANGES, never what EXISTS. Every applier
+guard reads `information_schema` at run time.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-01, ratifying a finding
+the terminal reported after hitting it three times.
+
+`scripts/apply-pending-migrations.mjs` parses the pending files and derives sets
+from them: tables created, columns added, columns dropped, functions dropped.
+Those sets are the batch's **intent**, and they are the right thing to check the
+batch's own work against. They are the WRONG thing to ask what the schema looks
+like, and the difference produced three separate defects:
+
+1. `free-text-columns-untouched` hardcoded three column names and would have
+   REFUSED the migration it was built to apply.
+2. Its derived replacement still guarded only three names, so a mutation dropping
+   `clients.notes` committed cleanly.
+3. The reconciliation grid named `client_name`, a column dropped by the PREVIOUS
+   batch and therefore absent from this batch's set. It rolled back the first
+   production attempt of P3-05b.
+
+The first two were patched at the symptom. The third was found in production.
+
+**THE RULE.** A guard that needs to know whether an object exists asks the
+database, at run time, through `information_schema` or the `pg_` catalogues. A
+guard that needs to know what the batch INTENDED reads the parsed declarations.
+Neither substitutes for the other.
+
+**THE AUDIT THIS RULING REQUIRES**, run once and recorded: every guard in the
+applier is classified as batch-derived or schema-reading, and every batch-derived
+one is checked to be asserting intent rather than inferring existence. Two were
+found still confusing them, `supplier-backfill` and `outbound-destination-backfill`,
+and both are fixed in the pull request that carries this ruling.
+
+### R-086
+
+**Stopping is only correct when work cannot continue. CLAUDE.md gains section 4b,
+and it binds every role.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-01, in his own words,
+after three pauses in one session that were notes rather than blocks.
+
+A finding, a fixed defect or a noticed pattern is REPORTED and the run continues.
+A choice the card's defaults already cover is MADE, recorded, and the run
+continues. A decision only the owner can make goes through `scripts/poc/ask.sh`
+with a recommendation and a stated default for silence, which blocks THAT CARD and
+leaves every other eligible card claimable. A terminal stops and prints only when
+every eligible card is blocked or shipped, and it sends the dry-board Telegram
+message first, because that message is the signal the owner needs in order to
+author more.
+
+**THE DISTINCTION IS BETWEEN BLOCKING AND REPORTING**, and it was being made
+wrongly in the direction that costs the most: a question asked by stopping parks
+the whole run, including work with no relation to the question. Section 4 already
+forbade halting for a question. This forbids halting for an answer nobody was
+waiting on.

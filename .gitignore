@@ -31,3 +31,10 @@ next-env.d.ts
 
 # P2-11: dosarul de build folosit de serverul de productie din suita.
 .next-prod
+
+# Stare locala a CLI-ului Supabase, nu sursa. .branches/_current_branch si
+# .temp/cli-latest sunt scrise de `supabase start` si `supabase db reset` pe
+# masina fiecaruia si nu descriu nimic despre proiect. Au ajuns urmarite pe
+# 2026-09-01 printr-un `git add -A` din cardul P3-04b si sunt scoase de P3-05b.
+supabase/.branches/
+supabase/.temp/

@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # THE APPLIER PROOF STEP BELOW NEEDS TO DIFF AGAINST THE BASE COMMIT,
+          # and the default shallow clone has no base commit to diff against.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -119,6 +123,47 @@ jobs:
       - name: Apply every migration to a bare postgres, unmodified
         run: npm run check:migrations
 
+      # THE APPLIER PROOF, AND IT IS THE ONE PATH-FILTERED STEP IN THIS JOB.
+      #
+      # Ruling R-084. `npm run prove:applier` builds five throwaway postgres
+      # containers and takes minutes, so it runs only when something that could
+      # break the applier changed: the applier itself, a migration file, or the
+      # local-db shim it proves against.
+      #
+      # THE FILTER IS COMPUTED HERE RATHER THAN DECLARED AS A WORKFLOW `paths:`
+      # KEY, AND THE DIFFERENCE IS THE WHOLE REASON THIS IS SAFE. A `paths:`
+      # filter on the workflow would make the ENTIRE `quality` job skip, and
+      # GitHub reports a skipped required check as success. CLAUDE.md 3.1 rests
+      # on every pull request running every step, so that would silently
+      # authorise merging on a check that never executed. A step-level `if:`
+      # skips one step and leaves the other twenty-one running and reporting.
+      #
+      # IT FAILS OPEN. If the base commit cannot be resolved, the proof RUNS.
+      # A filter that cannot tell what changed must not conclude "nothing did".
+      - name: Decide whether the applier proof must run
+        id: applier_scope
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "${BASE}" ] || [ "${BASE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "base commit not resolvable, running the proof rather than assuming nothing changed"
+            exit 0
+          fi
+          CHANGED="$(git diff --name-only "${BASE}" HEAD)"
+          echo "changed files against ${BASE}:"
+          echo "${CHANGED}"
+          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prove the migration applier against the Docker shim
+        if: steps.applier_scope.outputs.run == 'true'
+        run: npm run prove:applier
+
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
       #
       # Every screen returned 500 in production, including the dashboard. The
@@ -138,6 +183,28 @@ jobs:
       # pending register, with no edit to this file.
       - name: Refuse application code that reads unapplied schema
         run: npm run check:pending-schema-reads
+
+      # THE OTHER DIRECTION, AND IT COST ITS OWN OUTAGE. Card P3-11c.
+      #
+      # The step above guards ADDITIVE drift: merged code reading schema that is
+      # not applied yet. That is INC-05. It cannot guard the reverse, by
+      # construction: when a migration REMOVES something, the code still reading
+      # it is already on main and the register is about to be cleared, so there
+      # is nothing for that check to compare.
+      #
+      # INC-06, 2026-09-01: migration 0027 dropped products.supplier_name while
+      # deployed code still selected it, and six screens answered 500.
+      #
+      # This step asks the other question, and it enumerates readers against the
+      # TABLE rather than grepping the column name with exclusions, because that
+      # exact filter hid lib/data/extraction-actions.ts:269 during P3-05b.
+      - name: Refuse a removal while something still reads it
+        run: npm run check:removal-safety
+
+      # BOTH OUTAGES, RECONSTRUCTED, EACH FAILING ITS OWN GUARD ON DEMAND.
+      # Neither guard had ever been seen to fail anywhere except production.
+      - name: Prove both schema-direction guards still fire
+        run: npm run prove:schema-direction
 
       # CRIT-15, runtime half. THE GUARD'S REFUSAL, EXERCISED ON THE CI PATH.
       #
@@ -169,6 +236,28 @@ jobs:
       # watchdog and REQUIRES it to fail.
       - name: Prove the harness caps enforce  # HARNESS-CAP-PROOF
         run: bash scripts/poc/test-harness-caps.sh
+
+      # ASK-01 and DIGEST-01. Both cards are about the system being honest when
+      # nobody is watching, and every guarantee in them fails SILENTLY when it
+      # breaks: a deadline that never fires looks like a question nobody
+      # answered, a recommendation taken on silence looks like an approval, and
+      # a reply accepted from the wrong sender looks like a reply.
+      #
+      # It runs the REAL ask.sh end to end in a throwaway git repository: the
+      # real deadline loop against a shadowed clock, the real spool, the real
+      # board write, the real board validator, the real commit and the real exit
+      # codes. The single HTTPS call is redirected to a file through a
+      # documented seam, because that is the only part that cannot run on a
+      # runner with no credentials.
+      #
+      # EVERY ASSERTION THAT COULD PASS VACUOUSLY IS PROVED TO FAIL AGAINST A
+      # MUTATED COPY, and each mutant is itself proved to RUN first, against an
+      # unmutated control in the same scratch tree. Without that control, a
+      # mutant that merely fails to load passes every mutation case while
+      # proving nothing, which is what the first draft of this suite did on all
+      # three of its mutants at once.
+      - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
+        run: bash scripts/poc/test-ask-digest.sh
 
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |
