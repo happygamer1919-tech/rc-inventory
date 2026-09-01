@@ -27,11 +27,27 @@
 // migratiile si liniile dispar din registru, verificarea inceteaza singura sa
 // mai ceara ceva despre ele, fara sa fie editata.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const GUARD = 'hasPhase3Schema';
+
+// TESTABILITY OVERRIDES, so scripts/poc-free/prove-schema-direction.mjs can point
+// this check at a reconstruction of INC-05 and watch it fire. A guard that has
+// never been seen to fail is not a guard, and this one had only ever fired in
+// production. An absolute override is used as given; a relative one is resolved
+// against the repo root.
+const absPath = (d) => (d.startsWith('/') ? d : join(ROOT, d));
+const APPLY_LOG_PATH = process.env.RC_PENDING_REGISTER
+  ? absPath(process.env.RC_PENDING_REGISTER)
+  : join(ROOT, 'docs/migrations/APPLY-LOG.md');
+const MIGRATIONS_PATH = process.env.RC_PENDING_MIGRATIONS
+  ? absPath(process.env.RC_PENDING_MIGRATIONS)
+  : join(ROOT, 'supabase/migrations');
+const SOURCE_ROOTS = process.env.RC_PENDING_SOURCE
+  ? [absPath(process.env.RC_PENDING_SOURCE)]
+  : [join(ROOT, 'lib'), join(ROOT, 'app'), join(ROOT, 'components')];
 
 // FISIERELE SCUTITE, FIECARE CU MOTIVUL LUI SCRIS.
 //
@@ -72,7 +88,7 @@ const EXEMPT = {
 };
 
 function pendingMigrations() {
-  const log = readFileSync(join(ROOT, 'docs/migrations/APPLY-LOG.md'), 'utf8');
+  const log = readFileSync(APPLY_LOG_PATH, 'utf8');
   const files = [];
   for (const line of log.split('\n')) {
     const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Za-z0-9-]+\s*$/.exec(
@@ -90,7 +106,7 @@ function objectsAddedBy(files) {
   const functions = new Set();
 
   for (const f of files) {
-    const sql = readFileSync(join(ROOT, 'supabase/migrations', f), 'utf8');
+    const sql = readFileSync(join(MIGRATIONS_PATH, f), 'utf8');
     // Comentariile sunt scoase intai: fisierele acestea explica ce fac, si o
     // explicatie nu este o definitie.
     const code = sql
@@ -119,9 +135,7 @@ function sourceFiles() {
       else if (/\.(ts|tsx)$/.test(name)) out.push(full);
     }
   };
-  walk(join(ROOT, 'lib'));
-  walk(join(ROOT, 'app'));
-  walk(join(ROOT, 'components'));
+  for (const r of SOURCE_ROOTS) if (existsSync(r)) walk(r);
   return out;
 }
 
