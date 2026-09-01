@@ -899,8 +899,14 @@ the resolution is the one RST-01 established.
 
 ## 0013_clients.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0013
+- **Name:** clients
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -908,8 +914,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0014_contacts.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0014
+- **Name:** contacts
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -917,8 +929,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0015_status_entity_project.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0015
+- **Name:** status_entity_project
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -926,8 +944,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0016_projects.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0016
+- **Name:** projects
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -935,8 +959,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0017_outbound_project_id.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0017
+- **Name:** outbound_project_id
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -944,8 +974,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0018_outbound_issue_project_write.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0018
+- **Name:** outbound_issue_project_write
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -953,8 +989,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0019_suppliers.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0019
+- **Name:** suppliers
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -962,8 +1004,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0020_search_clients.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0020
+- **Name:** search_clients
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -971,8 +1019,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0021_projects_search_and_status.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0021
+- **Name:** projects_search_and_status
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -980,8 +1034,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0022_client_detail.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0022
+- **Name:** client_detail
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -989,8 +1049,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0023_project_material_summary.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0023
+- **Name:** project_material_summary
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -998,8 +1064,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0024_project_material_cost.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0024
+- **Name:** project_material_cost
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
@@ -1007,8 +1079,14 @@ post-check grid covers it. Captured stdout:
 
 ## 0025_deviz.sql - APPLIED
 
-**Card:** P3-27. **Date:** 2026-08-31. **Applied by:** EXECUTOR terminal, under
-R-082, as part of the wave 1 batch. The three-phase journal for this file is the
+- **Version:** 0025
+- **Name:** deviz
+- **Actor:** EXECUTOR terminal, under R-082
+- **Applied at:** 2026-08-31T23:27:25Z
+- **Authority:** ruling R-082, card P3-27
+- **Card:** P3-27
+
+Applied as part of the wave 1 batch. The three-phase journal for this file is the
 batch entry above, `WAVE 1 BATCH, 0013 to 0025 - APPLIED`: it ran inside that one
 transaction, its ledger row was written in the same transaction, and the
 post-check grid covers it. Captured stdout:
