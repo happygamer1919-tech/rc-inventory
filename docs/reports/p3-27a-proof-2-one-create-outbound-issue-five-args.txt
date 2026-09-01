@@ -1,15 +1,19 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-62902-mthto4vt)
+target                 shim (container rc-prove-applier-mut-12074-mtiove2w)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     13
-total statements       201
+pending file count     14
+total statements       210
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
-(none)
+0026_drop_outbound_free_text.sql:
+  if exists public.backfill_outbound_project_ids();
+
+
+-- =======;
 
 no DELETE, TRUNCATE or DROP TABLE in any pending file
 
@@ -24,9 +28,9 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
 
 ==============================================================================
-batch sha256           3f36545273c9f34dc671a1a5ca6118dee490a64c58f1ed42839e2f28f087a174
-script sha256          315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6
-assertions             11
+batch sha256           f29cc9a67042760f02b7ba721183bbc257e52a1130bda97cbfc2e5a5151bc166
+script sha256          ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe
+assertions             12
 ==============================================================================
 
 
@@ -72,7 +76,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  extraction_drafts      |  0
  inbound_orders         |  0
  order_lines            |  0
- outbound_issues        |  1
+ outbound_issues        |  0
  outbound_lines         |  0
  products               |  1
  profiles               |  0
@@ -80,6 +84,13 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
  status_history         |  0
  units                  |  7
 (13 rows)
+
+
+PRE-CHECK: every column in public, so a disappearance can be noticed
+ columns_before 
+----------------
+            133
+(1 row)
 
 
 0018 GATE, DATABASE HALF: dependents of the four-argument function
@@ -188,13 +199,12 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 
  total_issues | with_project | still_null 
 --------------+--------------+------------
-            1 |            0 |          1
+            0 |            0 |          0
 (1 row)
 
- reference  | client_name  | project_name  |           issued_at           
-------------+--------------+---------------+-------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-08-31 22:41:00.132167+00
-(1 row)
+ reference | client_name | project_name | issued_at 
+-----------+-------------+--------------+-----------
+(0 rows)
 
 
 --- applying 0018_outbound_issue_project_write.sql (6 statements) ---
@@ -231,7 +241,7 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-08-31 22:41:00.329375+00
+ Furnizor Prove | 2026-09-01 13:14:27.334152+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -345,6 +355,13 @@ PRE-CHECK GRID: row counts on every public table BEFORE anything runs
 (5 rows)
 
 
+--- applying 0026_drop_outbound_free_text.sql (9 statements) ---
+ column_name | is_nullable 
+-------------+-------------
+ project_id  | NO
+(1 row)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -357,7 +374,8 @@ ASSERTIONS
   assert promised-tables-exist
   assert promised-columns-exist
   assert promised-functions-exist
-  assert free-text-columns-untouched
+  assert declared-function-drops-happened
+  assert declared-column-drops-only
   assert zero-rows-deleted
   assert outbound-destination-backfill
   assert supplier-backfill
@@ -369,8 +387,8 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 1
-NOTICE:  P3-05 reconciliation: products with a supplier_name and no supplier_id = 0
+NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
+NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
 ERROR:  ASSERTION FAILED [one-create-outbound-issue-five-args]: 2 versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.
 CONTEXT:  PL/pgSQL function inline_code_block line 8 at RAISE
 

@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextOutboundReference } from "./outbound";
-import { hasPhase3Schema } from "./schema-capability";
 import { unitLabel, isUnitCode } from "./units";
 import type { ActionResult } from "./inbound-types";
 import type { NewIssueInput } from "./outbound-types";
@@ -64,28 +63,18 @@ export async function createOutboundIssue(
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
 
-  // P3-04: DESTINATIA ESTE UN PROIECT SI ESTE OBLIGATORIE. Asa se opreste
-  // multimea de iesiri fara proiect din a mai creste, cat timp cele istorice
-  // sunt reconciliate. Coloana din baza ramane NULLABLE, pentru ca randurile
-  // vechi o au goala; obligatorie este CALEA DE SCRIERE, nu coloana.
+  // P3-04: DESTINATIA ESTE UN PROIECT SI ESTE OBLIGATORIE.
   //
-  // CAT TIMP MIGRATIILE FAZEI 3 NU SUNT APLICATE, nu exista niciun proiect de
-  // ales SI nu exista nici versiunea cu cinci argumente a functiei, adaugata de
-  // 0018. Pe calea aceea se scrie ca inainte de P3-04, cu nume in text liber.
-  // Nu este o slabire a regulii: regula nu poate exista pe o baza care nu are
-  // tabela de proiecte, iar alternativa este un depozit care nu poate elibera
-  // material deloc.
-  const phase3 = await hasPhase3Schema();
+  // P3-04b A INCHIS SI ULTIMA PORTITA: coloana este acum NOT NULL, nu doar calea
+  // de scriere, iar cele doua coloane text au disparut. Sonda hasPhase3Schema()
+  // nu mai are ce sa ramifice aici, pentru ca schema fara faza 3 nu mai este o
+  // stare in care aceasta functie poate rula deloc.
   const projectId = input.projectId.trim();
-  if (phase3 && projectId.length === 0)
+  // P3-04b: THE PROJECT IS REQUIRED, FULL STOP. outbound_issues.project_id is
+  // NOT NULL as of 0026 and the free-text columns are gone, so there is no
+  // longer a shape of this call that records a destination without one.
+  if (projectId.length === 0)
     return { ok: false, message: "Alege proiectul.", field: "projectId" };
-
-  const fallbackClient = (input.clientName ?? "").trim();
-  const fallbackProject = (input.projectName ?? "").trim();
-  if (!phase3 && fallbackClient.length === 0)
-    return { ok: false, message: "Completează clientul.", field: "clientName" };
-  if (!phase3 && fallbackProject.length === 0)
-    return { ok: false, message: "Completează proiectul.", field: "projectName" };
 
   const lines = input.lines
     .map((l) => ({
@@ -115,27 +104,22 @@ export async function createOutboundIssue(
   const supabase = await createClient();
   const reference = await nextOutboundReference();
 
-  // p_client_name si p_project_name sunt trimise goale INTENTIONAT. Migratia
-  // 0018 le rescrie din proiectul ales si nu se uita la ce vine de aici, exact
-  // ca sa nu poata cele doua reprezentari ale destinatiei sa se contrazica cat
-  // timp exista amandoua. Coloanele text sunt inca not null si dispar la
-  // P3-04b; pana atunci ele sunt o copie a proiectului, nu o a doua sursa.
-  const { data, error } = phase3
-    ? await supabase.rpc("create_outbound_issue", {
-        p_reference: reference,
-        p_client_name: "",
-        p_project_name: "",
-        p_lines: lines,
-        p_project_id: projectId,
-      })
-    : // Semnatura cu patru argumente, cea din 0004, singura care exista pe o
-      // baza fara migratiile fazei 3. Numele sunt cele scrise de operator.
-      await supabase.rpc("create_outbound_issue", {
-        p_reference: reference,
-        p_client_name: fallbackClient,
-        p_project_name: fallbackProject,
-        p_lines: lines,
-      });
+  // p_client_name si p_project_name sunt trimise goale INTENTIONAT SI SUNT
+  // IGNORATE. Migratia 0026 a sters coloanele pe care le umpleau si a pastrat
+  // semnatura cu cinci argumente asa cum era, ca sa nu fie nevoie de un al
+  // doilea DROP FUNCTION si ca sa nu cada afirmatia de semnatura din aplicator.
+  // Destinatia este p_project_id si nimic altceva.
+  //
+  // RAMURA CU PATRU ARGUMENTE A DISPARUT. Functia aceea a fost stearsa de 0018,
+  // care este aplicata pe productie de pe 2026-08-31, deci ramura nu mai avea ce
+  // sa cheme: ar fi raspuns "function does not exist", nu ar fi degradat elegant.
+  const { data, error } = await supabase.rpc("create_outbound_issue", {
+    p_reference: reference,
+    p_client_name: "",
+    p_project_name: "",
+    p_lines: lines,
+    p_project_id: projectId,
+  });
 
   if (error) return translateWriteError(error.code, error.message);
 

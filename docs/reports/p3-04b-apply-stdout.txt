@@ -1,0 +1,230 @@
+==============================================================================
+APPLY PENDING MIGRATIONS
+==============================================================================
+target                 production
+pending register       docs/migrations/APPLY-LOG.md
+pending file count     1
+total statements       9
+
+------------------------------------------------------------------------------
+DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
+------------------------------------------------------------------------------
+0026_drop_outbound_free_text.sql:
+  if exists public.backfill_outbound_project_ids();
+
+
+-- =======;
+
+no DELETE, TRUNCATE or DROP TABLE in any pending file
+
+------------------------------------------------------------------------------
+0018 GATE, REPOSITORY HALF: who names the four-argument signature
+------------------------------------------------------------------------------
+every four-argument call site is behind the hasPhase3Schema() gate: OK
+
+------------------------------------------------------------------------------
+ENUM PRE-PHASE: files that add an enum label, committed before the batch
+------------------------------------------------------------------------------
+(none: the whole batch is one transaction)
+
+==============================================================================
+batch sha256           09dad0538293726fc812e45d1ad910aa945bbb654636d2620f0a2dbcd3f57a34
+script sha256          ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe
+assertions             12
+==============================================================================
+
+==============================================================================
+PRE-CHECK GRID: the applied ledger BEFORE anything runs
+==============================================================================
+ version |               name               
+---------+----------------------------------
+ 0001    | phase2_schema
+ 0002    | rc_docs_bucket
+ 0003    | inbound_functions
+ 0004    | outbound_functions
+ 0005    | service_role_grants
+ 0006    | reminder_recipients
+ 0007    | seed_categories
+ 0008    | extraction_drafts
+ 0009    | revoke_anon_on_extraction_drafts
+ 0010    | confirm_extraction_draft
+ 0011    | extraction_confirm_corrections
+ 0012    | manager_flagged_products
+ 0013    | clients
+ 0014    | contacts
+ 0015    | status_entity_project
+ 0016    | projects
+ 0017    | outbound_project_id
+ 0018    | outbound_issue_project_write
+ 0019    | suppliers
+ 0020    | search_clients
+ 0021    | projects_search_and_status
+ 0022    | client_detail
+ 0023    | project_material_summary
+ 0024    | project_material_cost
+ 0025    | deviz
+(25 rows)
+
+ ledger_rows_before 
+--------------------
+                 25
+(1 row)
+
+
+PRE-CHECK GRID: row counts on every public table BEFORE anything runs
+          tbl           | n  
+------------------------+----
+ batches                |  0
+ categories             | 18
+ clients                |  0
+ contacts               |  0
+ deviz_lines            |  0
+ devize                 |  0
+ extraction_draft_lines |  0
+ extraction_drafts      |  0
+ inbound_orders         |  0
+ order_lines            |  0
+ outbound_issues        |  0
+ outbound_lines         |  0
+ products               |  0
+ profiles               |  3
+ projects               |  0
+ reminders              |  0
+ status_history         |  0
+ suppliers              |  0
+ units                  |  7
+(19 rows)
+
+
+PRE-CHECK: every column in public, so a disappearance can be noticed
+ columns_before 
+----------------
+            205
+(1 row)
+
+
+0018 GATE, DATABASE HALF: dependents of the four-argument function
+
+--- applying 0026_drop_outbound_free_text.sql (9 statements) ---
+ column_name | is_nullable 
+-------------+-------------
+ project_id  | NO
+(1 row)
+
+
+--- ledger: the three rows the strategy record says were never written ---
+--- ledger: the thirteen rows for this batch ---
+
+==============================================================================
+ASSERTIONS
+==============================================================================
+  assert every-pending-applied
+  assert ledger-no-gaps-ends-at-highest
+  assert ledger-0010-0011-0012-present
+  assert promised-tables-exist
+  assert promised-columns-exist
+  assert promised-functions-exist
+  assert declared-function-drops-happened
+  assert declared-column-drops-only
+  assert zero-rows-deleted
+  assert outbound-destination-backfill
+  assert supplier-backfill
+  assert one-create-outbound-issue-five-args
+
+==============================================================================
+POST-CHECK GRID: the applied ledger AFTER the batch
+==============================================================================
+ version |               name               
+---------+----------------------------------
+ 0001    | phase2_schema
+ 0002    | rc_docs_bucket
+ 0003    | inbound_functions
+ 0004    | outbound_functions
+ 0005    | service_role_grants
+ 0006    | reminder_recipients
+ 0007    | seed_categories
+ 0008    | extraction_drafts
+ 0009    | revoke_anon_on_extraction_drafts
+ 0010    | confirm_extraction_draft
+ 0011    | extraction_confirm_corrections
+ 0012    | manager_flagged_products
+ 0013    | clients
+ 0014    | contacts
+ 0015    | status_entity_project
+ 0016    | projects
+ 0017    | outbound_project_id
+ 0018    | outbound_issue_project_write
+ 0019    | suppliers
+ 0020    | search_clients
+ 0021    | projects_search_and_status
+ 0022    | client_detail
+ 0023    | project_material_summary
+ 0024    | project_material_cost
+ 0025    | deviz
+ 0026    | drop_outbound_free_text
+(26 rows)
+
+ ledger_rows_after 
+-------------------
+                26
+(1 row)
+
+
+POST-CHECK GRID: row counts on every public table AFTER the batch
+          tbl           | before | after 
+------------------------+--------+-------
+ batches                |      0 |     0
+ categories             |     18 |    18
+ clients                |      0 |     0
+ contacts               |      0 |     0
+ deviz_lines            |      0 |     0
+ devize                 |      0 |     0
+ extraction_draft_lines |      0 |     0
+ extraction_drafts      |      0 |     0
+ inbound_orders         |      0 |     0
+ order_lines            |      0 |     0
+ outbound_issues        |      0 |     0
+ outbound_lines         |      0 |     0
+ products               |      0 |     0
+ profiles               |      3 |     3
+ projects               |      0 |     0
+ reminders              |      0 |     0
+ status_history         |      0 |     0
+ suppliers              |      0 |     0
+ units                  |      7 |     7
+(19 rows)
+
+
+RECONCILIATION: outbound_issues with no project_id, with their destination text
+ id | reference | project_id 
+----+-----------+------------
+(0 rows)
+
+
+RECONCILIATION: products with a supplier_name and no supplier_id
+ id | sku | name | supplier_name 
+----+-----+------+---------------
+(0 rows)
+
+
+RLS and policy count per new table
+ table_name | rls_enabled | policies 
+------------+-------------+----------
+(0 rows)
+
+
+COMMITTED
+NOTICE:  schema "supabase_migrations" already exists, skipping
+NOTICE:  relation "schema_migrations" already exists, skipping
+NOTICE:  0018 gate: the four-argument function is not present, nothing to drop
+NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
+NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
+
+applied and committed: 1 migrations, 12 assertions passed
+wrote a row to docs/PRODUCTION-WRITES.md
+cleared 1 lines from the pending register in docs/migrations/APPLY-LOG.md
+check:pending-schema-reads switches itself off on the next run: the register is empty
+
+started  2026-09-01T13:14:44.001Z
+finished 2026-09-01T13:14:47.095Z
+EXIT=0
