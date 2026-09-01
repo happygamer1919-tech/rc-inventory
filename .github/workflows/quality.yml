@@ -215,6 +215,28 @@ jobs:
       - name: Prove the harness caps enforce  # HARNESS-CAP-PROOF
         run: bash scripts/poc/test-harness-caps.sh
 
+      # ASK-01 and DIGEST-01. Both cards are about the system being honest when
+      # nobody is watching, and every guarantee in them fails SILENTLY when it
+      # breaks: a deadline that never fires looks like a question nobody
+      # answered, a recommendation taken on silence looks like an approval, and
+      # a reply accepted from the wrong sender looks like a reply.
+      #
+      # It runs the REAL ask.sh end to end in a throwaway git repository: the
+      # real deadline loop against a shadowed clock, the real spool, the real
+      # board write, the real board validator, the real commit and the real exit
+      # codes. The single HTTPS call is redirected to a file through a
+      # documented seam, because that is the only part that cannot run on a
+      # runner with no credentials.
+      #
+      # EVERY ASSERTION THAT COULD PASS VACUOUSLY IS PROVED TO FAIL AGAINST A
+      # MUTATED COPY, and each mutant is itself proved to RUN first, against an
+      # unmutated control in the same scratch tree. Without that control, a
+      # mutant that merely fails to load passes every mutation case while
+      # proving nothing, which is what the first draft of this suite did on all
+      # three of its mutants at once.
+      - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
+        run: bash scripts/poc/test-ask-digest.sh
+
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |
           set -uo pipefail

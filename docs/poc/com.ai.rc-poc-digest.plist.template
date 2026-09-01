@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  DIGEST-01. The scheduled plain digest, twice a day.
+
+  A THIRD AGENT, deliberately. com.ai.rc-poc builds four times a day and can
+  hold its lock for forty five minutes; com.ai.rc-poc-chat answers questions
+  every sixty seconds. Neither is a report that arrives when Ivan starts and
+  when he stops, which is when a report is worth reading, and a digest attached
+  to the build cycle goes silent on exactly the night the build did not run.
+
+  08:00 and 19:00 LOCAL, which is what StartCalendarInterval means: launchd
+  reads these as wall clock in the machine's timezone, not UTC. Morning is
+  before he starts, evening is after the working day and long enough before he
+  stops that a question asked here can still be answered today.
+
+  MOST FIRINGS SEND NOTHING. digest.mjs decides, and it sends only when a card
+  shipped, a card became blocked, a question is outstanding, or a run failed. A
+  report that arrives every day saying the same thing is a report that gets
+  skimmed, then ignored, and the one that mattered is ignored with it.
+
+  Installed verbatim by scripts/poc/install.sh. It carries NO secret value: the
+  job reads what it needs from the secrets file at run time, so this file is
+  safe to commit and safe to read. It knows a path and two times of day.
+
+  Program is /Users/ivan/rc-poc-bin/digest.sh, the stable installed copy, and
+  not the copy inside a worktree. The digest worktree is hard reset to
+  origin/main on every run, so a script executing from inside it would be
+  rewritten under its own interpreter; bash reads a script by byte offset as it
+  goes.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ai.rc-poc-digest</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/ivan/rc-poc-bin/digest.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>8</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <!-- NOT RunAtLoad. Installing the agent is not news, and a digest that
+         fires on every reinstall trains him to ignore the ones that fire on a
+         schedule. scripts/poc/install.sh prints the one-line command that sends
+         a proof digest by hand instead. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ivan</string>
+
+    <!-- digest.sh appends to /Users/ivan/rc-poc-logs/digest.log. These two
+         catch what happens before it can log anything. -->
+    <key>StandardOutPath</key>
+    <string>/Users/ivan/rc-poc-logs/digest-launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ivan/rc-poc-logs/digest-launchd.err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>AbandonProcessGroup</key>
+    <false/>
+
+    <!-- Interactive, NOT Background, for the reason the chat agent documents:
+         ProcessType Background puts the job in a QoS class macOS throttles
+         hard, and the observed gaps on 2026-08-28 were 18 to 38 minutes against
+         a 60 second interval. A digest is two fetches and one HTTPS call; it
+         should run when it is asked to.
+
+         A firing missed because the Mac was asleep is caught on wake, because
+         launchd runs a missed StartCalendarInterval job once the machine comes
+         back. That is the behaviour this needs: a morning digest that arrives
+         at 09:20 because the lid was shut is still the morning digest. -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>LowPriorityIO</key>
+    <false/>
+
+    <!-- A run that somehow goes long must not stack. The lock in digest.sh is
+         the real guard; this stops launchd piling work behind it. -->
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+</dict>
+</plist>

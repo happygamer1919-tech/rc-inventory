@@ -925,3 +925,140 @@ exact forms `R <card-id> default` and `R <card-id>: <text>`. Every other message
 is logged and never acted on, whatever it says. Free text in a chat group is not
 an instruction, because group membership is not authentication. While
 `TELEGRAM_OWNER_ID` is unset the reader accepts nothing at all.
+
+---
+
+## 14. Asking Ivan, and blocking on the answer. Added 2026-09-01 by ASK-01.
+
+**A role facing an item on the escalation list calls `scripts/poc/ask.sh`.
+Printing a question to a terminal and stopping is a DEFECT, not an escalation.**
+
+That is what this section exists to make unrepeatable. A foreground EXECUTOR hit
+a decision it was not allowed to make, wrote the question to a terminal nobody
+was watching, and stopped. The question would have taken ten seconds to answer.
+Nothing was red, nothing was blocked on the board, nothing reached Telegram, and
+the run was simply gone. A question nobody can see is worse than no question,
+because it consumes a run and looks like a hang.
+
+**The escalation list is unchanged and is still the closed ten items in section
+6 of `docs/DOCTRINE-TRIAGE.md`, under R-057.** This section changes HOW an
+escalation is delivered, and changes nothing about WHAT gets escalated.
+Everything not on that list, the terminal still decides and records.
+
+### How
+
+```
+scripts/poc/ask.sh <card-id> \
+  --question       "one line, plain language, no jargon" \
+  --recommendation "one line, what you would do" \
+  --if-silent      "what happens if he says nothing" \
+  [--deadline-seconds 21600] [--role executor] [--run-id <id>]
+```
+
+**All four payload fields are required and the script refuses without them.** A
+question with no recommendation hands the decision back with no work done on it,
+which section 4 has refused since it was written. A question that does not say
+what silence costs cannot be prioritised by the person reading it.
+
+It sends ONE message, in the plain register of section 13's digest: no card ids,
+no pull request numbers, no CI, no claim mechanics. The one exempt line is a
+copy-paste reply line, printed only when more than one question is outstanding
+and `go` on its own could not be routed.
+
+### The exit codes ARE the interface
+
+| exit | meaning | what the caller does |
+|---|---|---|
+| 0 | `go` | take the recommendation |
+| 10 | `stop` | halt the card |
+| 11 | `instruction` | do what stdout says, from line 2, verbatim |
+| 12 | `expired` | the question is on the card, blocked on Ivan, and committed. **Move to another card.** |
+| 2 | usage | the payload is incomplete. Fix it and ask again. |
+| 3 | infrastructure | nothing was sent, so nothing may be assumed answered |
+
+**Exit 0 means `go` and nothing else means `go`.** The codes are arranged so the
+LAZY reading is the SAFE one: a caller that writes `if ask.sh ...; then take the
+recommendation; fi` takes it only on a real approval.
+
+**EXIT 12 IS DELIBERATELY NOT 0.** "Exits clean" means it terminates promptly
+with the board committed and the harness free to move on. It does not mean it
+reports success, because a run that cannot tell an expiry from an approval is
+the exact failure the deadline exists to prevent.
+
+### Silence is not consent
+
+**On expiry the recommendation is NOT taken.** An owner who never saw the
+message and an owner who read it and approved it produce the same empty inbox,
+and a channel that cannot tell them apart must choose the outcome that is
+recoverable. The question goes onto the card as `blocked_on: ivan`, with the
+full payload in the structured decision-needed text of section 4, `status` set
+to `blocked`, the validator run, and the board COMMITTED on the current branch.
+It is not pushed: the caller's own pull request carries it.
+
+The default deadline is **six hours**.
+
+### The deadline is a wall clock, never an elapsed sleep
+
+`nanosleep` does not advance while the machine is suspended. On 2026-08-27 that
+let a run outrun a 2700 second cap by 28600 seconds, with the guard sitting
+inside a `sleep`. Every wait in `ask.sh` compares `date +%s` against a deadline
+computed once, and `scripts/poc/test-ask-digest.sh` reproduces a suspend and
+requires the sleep-counter version to FAIL on the same input.
+
+**This binds any future wait added anywhere in `scripts/poc/`.** A cap, a
+timeout or a deadline expressed as a countdown is a defect on this machine,
+which sleeps every night.
+
+### Who may answer
+
+**`TELEGRAM_OWNER_ID` only.** Identity is checked before the text is read, every
+other sender is logged and ignored whatever the message says, and an unset owner
+id accepts nothing at all. That is section 13's rule and this channel does not
+widen it by one sender.
+
+Three forms are accepted: `go` or `default` takes the recommendation, `no` or
+`stop` halts the card, and anything else is passed to the role verbatim as an
+instruction. A Telegram reply to the question's own message routes exactly; with
+two or more questions outstanding and no reply and no card id, **nothing is
+routed**, because a channel that guesses which decision was approved is worse
+than one that asks again.
+
+### One process reads Telegram, and it is the responder
+
+`getUpdates` is destructive: acknowledging an offset deletes every update below
+it, so two pollers do not share a queue, they race for it and the loser never
+sees the message. `ask.sh` therefore does NOT poll Telegram. The 60 second
+responder already reads every message; `scripts/poc/chat-classify.mjs` writes
+answers to a spool under `/Users/ivan/rc-poc-logs/asks/` and `ask.sh` reads that.
+**Anything that adds a second reader of that bot breaks this and breaks the
+responder with it.**
+
+---
+
+## 15. The scheduled digest. Added 2026-09-01 by DIGEST-01.
+
+**A third launchd agent, `com.ai.rc-poc-digest`, sends the plain digest at 08:00
+and 19:00 local.** It renders from the `plain` field only, under the same rules
+as section 2's `plain` contract and AUT-5: what got done, what needs you, what is
+waiting on other people, what has not started, progress. No card ids except in
+the copy-paste reply line, no pull request numbers, no CI, no claim mechanics.
+
+**It is silent unless one of four things is true**: a card shipped, a card
+became blocked, a question is outstanding, or a run failed. A digest that arrives
+every day saying the same thing gets skimmed, then ignored, and the one that
+mattered is ignored with it. Silence here is a feature and removing it is a
+change to this section, not an improvement to the digest.
+
+**Staleness is decided by CONTENT, never by date.** Two digests on the same day
+with different content are two different digests.
+
+**A question outstanding from `ask.sh` LEADS the digest and repeats in every
+subsequent one until it is answered.** That is deliberate nagging. An unanswered
+question is the one thing in this system that must never go quiet, because a
+role is stopped behind it.
+
+**`scripts/poc/install.sh` must be re-run after any change to `run.sh`,
+`responder.sh` or `digest.sh`.** Those three are deployed copies under
+`/Users/ivan/rc-poc-bin`; the repository is the source of truth and the deployed
+copy is never edited in place. The `.mjs` files are read from a worktree at
+`origin/main` and need no reinstall.
