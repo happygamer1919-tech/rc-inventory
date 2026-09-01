@@ -1058,7 +1058,7 @@
       "last_checkpoint": "2026-09-01T12:00:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "PR_PLACEHOLDER",
+        "ref": "PR #142. Acceptance run in that PR and recorded in its description. node docs/board/validate-board.mjs docs/board/rc-board-phase2.json: PASS, 0 violations. node -e over the board: AUT-5 and AUT-6 both present, both with non-empty plain, acceptance and defaults, both with evidence of kind pr, AUT-5 naming #70 and #84, AUT-6 naming #71, #77 and #88, exit 0. Each retro-authored card OWN acceptance also re-run in that PR: the digest assertion printed \"cards with no plain field: 0\" and \"PASS: zero card ids, ruling ids, PR numbers, links or file paths in prose\" at exit 0 against the live board and live run state, and bash scripts/poc/test-chat-classify.sh printed six PASS lines and \"AUT-6 ACCEPTANCE PASSED\" at exit 0.",
         "at": "2026-09-01T12:00:00Z"
       },
       "id": "AUT-10",
