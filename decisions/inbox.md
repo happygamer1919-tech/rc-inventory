@@ -4497,3 +4497,60 @@ that added it, and this batch does exactly that across 0015 and 0021. The applie
 therefore commits enum additions in a pre-phase of their own, and refuses to put
 anything but `ALTER TYPE ... ADD VALUE IF NOT EXISTS` in it. The only thing that
 can survive a rollback of the main batch is an unused, idempotent enum label.
+### R-083
+
+**Deviz is INTERNAL ONLY. No PDF, no letterhead, no client-facing layout, anywhere
+in wave 3.**
+
+**Asked by:** nobody. **Decided by:** the owner, unprompted, in his dispatch of
+2026-09-01, and recorded here so it is not rediscovered by the next terminal that
+opens a deviz card and reasons its way to an export button.
+
+The deviz screens are a tool the business uses to work out what a job costs and to
+see where quoted prices have drifted from today's catalogue. They are **not** a
+document that goes to a client. Nothing in wave 3 produces a PDF, applies a
+letterhead, or lays a deviz out for printing or sending.
+
+**WHY IT NEEDS TO BE A RULING RATHER THAN A CARD NOTE.** P3-13b's own defaults
+already said "NO PDF, NO EXPORT, NO EMAIL IN THIS CARD", and reasoned that getting
+the estimate out to a client is a separate decision with a document-template
+question inside it. That sentence is scoped to one card, so the next deviz card
+starts the argument again from zero. This ruling scopes it to the wave: a deviz
+card that wants an export is not applying a default, it is asking for this ruling
+to be overturned, and that is the owner's.
+
+**WHAT IS STILL IN SCOPE:** everything the screens already do. Versions, frozen
+quoted prices, the current-price comparison, totals, the Romanian labels. Reading
+a deviz on screen is the product. Sending one is not, yet.
+
+### R-084
+
+**`npm run prove:applier` runs in `quality`, as the one path-filtered STEP in the
+job. CLAUDE.md 3.1 survives it, and 3.1 says how.**
+
+**Asked by:** the P3-27a report, which recommended adding it and said the runtime
+cost was the owner's call. **Decided by:** the owner, in his dispatch of
+2026-09-01: add it, with a path filter.
+
+**The filter.** The step runs only when `scripts/apply-pending-migrations.*`,
+`supabase/migrations/**` or `scripts/poc-free/local-db/**` changed. It builds five
+throwaway postgres containers and takes minutes, which is why it is not run on a
+pull request that touches a board file.
+
+**IT IS A STEP-LEVEL `if:`, NOT A WORKFLOW `paths:` KEY, AND THAT DISTINCTION IS
+THE RULING.** A `paths:` key would skip the entire `quality` job, and GitHub
+reports a skipped required check as SUCCESS, which would silently authorise
+merging on a check that never executed. CLAUDE.md 3.1 says in terms that adding a
+path filter kills the self-merge grant. A step-level `if:` skips one step and
+leaves every other step running and reporting, so the grant survives, and 3.1 now
+carries a subsection saying exactly that.
+
+**IT FAILS OPEN.** When the base commit cannot be resolved, the proof RUNS. A
+filter that cannot tell what changed must never conclude that nothing did.
+
+**SELF-MERGE STILL REQUIRES THE FULL UNFILTERED SUITE GREEN**, and additionally,
+for a pull request touching any of the three applier paths, requires this step to
+have RUN and PASSED rather than skipped.
+
+**A SECOND PATH-FILTERED STEP IS NOT COVERED BY THIS.** The exemption is for this
+one step. Adding another is a change to 3.1 and needs its own ruling.
