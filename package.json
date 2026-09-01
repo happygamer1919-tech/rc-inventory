@@ -16,7 +16,9 @@
     "check:migrations": "node scripts/poc-free/local-db/apply.mjs",
     "check:pending-schema-reads": "node scripts/poc-free/check-pending-schema-reads.mjs",
     "prove:applier": "node scripts/poc-free/local-db/prove-applier.mjs",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "checks:state": "node scripts/poc-free/pr-check-state.mjs",
+    "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

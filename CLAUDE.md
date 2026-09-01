@@ -116,6 +116,17 @@ or `blocked`. `halted` is reserved for the failure ceiling in section 10.
 - **No force pushes.** Not to `main`, not to a card branch, not with
   `--force-with-lease`. A branch whose history needs rewriting gets a new
   branch.
+- **A GREEN CHECK ON A CONFLICTING PULL REQUEST IS STALE, AND THIS APPLIES TO
+  WAITING AS WELL AS TO MERGING.** Added 2026-09-01 by card P3-11d. The rule above
+  is written for the moment of merging. The same trap catches a terminal that is
+  simply WAITING on a fix: a conflicting pull request triggers **zero workflows**,
+  so a fix pushed onto it never runs, while the check result from the previous
+  head sha stays attached and `gh pr checks` keeps reporting `quality pass`.
+  During INC-06 the fix for a six-screen production outage sat in exactly that
+  state for about an hour, pushed and reporting green, having never run.
+  **Read `mergeStateStatus` beside the check result, always.**
+  `npm run checks:state <pr>` prints both and exits non-zero when a green result
+  belongs to a commit nobody is proposing to merge.
 - **No self-invented scope.** The PR does what the card says and nothing else.
   A defect noticed in passing becomes a new card or a `docs/LEARNINGS.md` entry,
   not a quiet extra commit. Refactors that were not asked for are scope.
