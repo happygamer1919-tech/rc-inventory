@@ -76,10 +76,17 @@ const ROOT = resolve(HERE, "..");
 // the production target both paths are fixed and no environment variable can
 // move them, so a mutated tree can never be applied to the client's database.
 const shimTarget = process.env.RC_APPLY_TARGET === "shim";
+// A DRY RUN NEVER EXECUTES ANYTHING, so it is safe to let it read a fixture tree
+// even when the named target is production. That is what makes the
+// production-only deploy gate testable without weakening the rule that a mutated
+// tree can never be APPLIED to the client's database: this mode exits before the
+// first psql call, always.
+const dryRun = process.env.RC_APPLY_DRY_RUN === "yes";
+const overridable = shimTarget || dryRun;
 const MIGRATIONS_DIR =
-  (shimTarget && process.env.RC_APPLY_MIGRATIONS_DIR) || join(ROOT, "supabase", "migrations");
+  (overridable && process.env.RC_APPLY_MIGRATIONS_DIR) || join(ROOT, "supabase", "migrations");
 const APPLY_LOG =
-  (shimTarget && process.env.RC_APPLY_REGISTER) || join(ROOT, "docs", "migrations", "APPLY-LOG.md");
+  (overridable && process.env.RC_APPLY_REGISTER) || join(ROOT, "docs", "migrations", "APPLY-LOG.md");
 const WRITES_LOG = join(ROOT, "docs", "PRODUCTION-WRITES.md");
 
 const EXIT_OK = 0;
@@ -486,6 +493,8 @@ if (allForbidden.length > 0) {
 }
 out("\nno DELETE, TRUNCATE or DROP TABLE in any pending file\n");
 
+
+
 // --- 6b. The 0018 gate, evaluated against the repository -------------------
 //
 // The database half of this gate is an assertion inside the transaction
@@ -622,6 +631,68 @@ for (const f of prePhase) {
 const versions = pending.map((f) => f.slice(0, 4));
 const highest = versions[versions.length - 1];
 const { tables, columns, functions, dropped, droppedFunctions } = objectsPromisedBy(pending);
+
+// --- THE REMOVAL DIRECTION, WHICH IS INC-06 ---------------------------------
+//
+// A batch that TAKES SOMETHING AWAY may only be applied once nothing still reads
+// it. check:removal-safety enumerates readers against the TABLE, and this script
+// refuses to run the batch while that check is red.
+//
+// THE MERGED HALF IS ASSERTED HERE. THE DEPLOYED HALF IS NOT, AND IS NOT FAKED.
+// The rule is that a removal applies after the code that stops reading it is
+// merged AND DEPLOYED, and this process cannot see a deployment: there is no
+// usable Vercel credential in the single permitted secret read, and a substitute
+// for "deployed" invented here would be exactly the guess that produced INC-06.
+// The question is open to the owner on card P3-11c through scripts/poc/ask.sh.
+// UNTIL IT IS ANSWERED, A BATCH CONTAINING A REMOVAL IS REFUSED unless the
+// operator states, in the environment, that the deploy has landed.
+const batchRemoves =
+  dropped.size > 0 || droppedFunctions.size > 0 || allDropFunctions.length > 0;
+
+if (batchRemoves) {
+  out("\n" + "-".repeat(78) + "\n");
+  out("REMOVAL DIRECTION: this batch takes something away\n");
+  out("-".repeat(78) + "\n");
+
+  const safety = spawnSync("node", [join(ROOT, "scripts/poc-free/check-removal-safety.mjs")], {
+    encoding: "utf8",
+  });
+  if (safety.stdout) out(safety.stdout);
+  if (safety.status !== 0) {
+    err(safety.stderr || "");
+    err("\n" + "!".repeat(78) + "\n");
+    err("REFUSED. Something still reads what this batch removes. NOTHING was executed.\n");
+    err("!".repeat(78) + "\n");
+    process.exit(EXIT_FORBIDDEN);
+  }
+
+  const deployed = process.env.RC_DEPLOY_CONFIRMED === "yes";
+  if (target === "production" && !deployed) {
+    err("\n" + "!".repeat(78) + "\n");
+    err("REFUSED. This batch removes schema and the DEPLOY cannot be verified from here.\n");
+    err("!".repeat(78) + "\n");
+    err(
+      "\nA removal applies only after the code that stops reading it is merged AND DEPLOYED.\n" +
+        "check-removal-safety proved the MERGED half: no reader remains on main.\n" +
+        "The DEPLOYED half is an open question on card P3-11c and is deliberately not guessed,\n" +
+        "because guessing it is what produced INC-06.\n\n" +
+        "If you have confirmed the deploy carrying that code is live, re-run with\n" +
+        "  RC_DEPLOY_CONFIRMED=yes\n" +
+        "and the confirmation is recorded in the journal as an operator statement.\n",
+    );
+    process.exit(EXIT_FORBIDDEN);
+  }
+  if (deployed)
+    out("\ndeploy confirmed by the operator via RC_DEPLOY_CONFIRMED, recorded as a statement\n");
+}
+
+if (dryRun) {
+  out("\n" + "=".repeat(78) + "\n");
+  out("DRY RUN: every refusal above was evaluated and NOTHING will be executed.\n");
+  out("=".repeat(78) + "\n");
+  process.exit(EXIT_OK);
+}
+
 
 // A TYPED ARRAY LITERAL, ALWAYS. `array[]` with no members has no type and
 // PostgreSQL refuses it: "cannot determine type of empty array". A batch that
