@@ -109,7 +109,18 @@ export function decide(signals, previous, opts = {}) {
   const fp = fingerprint(signals);
 
   if (opts.force) {
-    return { send: true, reasons: ["forced by hand"], fingerprint: fp, first: !previous, newly_shipped: [] };
+    // A forced digest still reports what actually moved, when there is a
+    // baseline to compare against. Forcing is for proving the channel works, and
+    // a proof that says "nothing finished" when three cards shipped proves the
+    // wrong thing.
+    const wasShippedForced = new Set((previous && previous.shipped) || []);
+    return {
+      send: true,
+      reasons: ["forced by hand"],
+      fingerprint: fp,
+      first: !previous,
+      newly_shipped: previous ? signals.shipped.filter((id) => !wasShippedForced.has(id)) : [],
+    };
   }
 
   // The first run has no baseline, so everything looks new. Record it and stay

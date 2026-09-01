@@ -4,7 +4,7 @@
 **Role:** POC-BUILDER
 **Cards:** ASK-01, DIGEST-01
 **Branch:** `card/ask-01-digest-01`
-**Acceptance:** `bash scripts/poc/test-ask-digest.sh`, exit 0, wired into the
+**Acceptance:** `bash scripts/poc/test-ask-digest.sh`, exit 0, 72 assertions, wired into the
 `quality` job as the step `Prove the question channel and the scheduled digest`.
 **Migrations added:** none.
 
@@ -317,6 +317,8 @@ digest.mjs under test: /Users/ivan/rc-inventory-ask/scripts/poc/digest.mjs
   ok    the commit message says the recommendation was not taken
   ok    the board validator is green on the committed board
   ok    the expired question is off the open spool
+  ok    an unknown verdict is not consumed, prints nothing, and leaves the question open
+  ok    it is archived where a human can see it rather than silently deleted
   ok    the unmutated copy in the same scratch tree still blocks the card, so the mutant below actually runs
   ok    an expire that does not block the card fails this case, so the case has teeth
 

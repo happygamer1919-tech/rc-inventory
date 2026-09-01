@@ -449,6 +449,26 @@ else
   fi
 fi
 
+# An answer file carrying a verdict this script cannot interpret must leave the
+# question OPEN. Consuming it would close the open record and then leave the
+# expiry path with nothing to write onto the card, so the caller would get
+# neither an answer nor a blocked card.
+spool "$WORK/asks-3v"
+open_question "$WORK/asks-3v" P2-13 5100
+printf '{"card_id":"P2-13","verdict":"banana","text":"x"}\n' > "$WORK/asks-3v/answers/P2-13.json"
+POC_ASK_DIR=$WORK/asks-3v node "$ASK_MJS" poll --card P2-13 > "$WORK/poll-3v.out" 2>/dev/null
+POLL_RC=$?
+if [ "$POLL_RC" -ne 0 ] && [ ! -s "$WORK/poll-3v.out" ] && [ -e "$WORK/asks-3v/open/P2-13.json" ]; then
+  pass "an unknown verdict is not consumed, prints nothing, and leaves the question open"
+else
+  fail "an unknown verdict was consumed: rc=$POLL_RC out=$(cat "$WORK/poll-3v.out")"
+fi
+if [ -n "$(ls -A "$WORK/asks-3v/answered" 2>/dev/null)" ]; then
+  pass "it is archived where a human can see it rather than silently deleted"
+else
+  fail "the unreadable answer was not archived"
+fi
+
 # The mutation: an expire that takes the recommendation instead of blocking.
 MUT3=$(mutant_tree mut-3)
 sed 's/  card.status = "blocked";/  card.status = "todo";/' "$ASK_MJS" > "$MUT3/ask.mjs"

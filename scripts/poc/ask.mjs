@@ -318,12 +318,16 @@ function cmdPoll(args) {
   if (!existsSync(file)) return 1;
 
   const answer = readJson(file);
-  if (!answer || !answer.verdict) {
-    // An unparseable answer must not be read as consent. It is archived so a
-    // human can see it and the question stays open.
+  // THE VERDICT MUST BE ONE OF THE THREE, and an unknown one is not merely
+  // logged, it leaves the question OPEN. Consuming an answer this file cannot
+  // interpret would close the open record and then leave the expiry path with
+  // nothing to write onto the card: the caller would get neither an answer nor a
+  // blocked card, which is the one outcome worse than either.
+  const KNOWN = [VERDICT_GO, VERDICT_STOP, VERDICT_INSTRUCTION];
+  if (!answer || !KNOWN.includes(answer.verdict)) {
     ensureDirs();
     renameSync(file, path.join(ARCHIVE_DIR, cardId + "-" + Date.now() + ".unparseable.json"));
-    log("an answer file for " + cardId + " did not parse, archived, the question stays open");
+    log("an answer file for " + cardId + " did not parse or carried an unknown verdict, archived, the question stays open");
     return 1;
   }
 
