@@ -2952,3 +2952,22 @@ client library in the test is a second implementation that can pass while the
 contract fails. Second instance of the node 20 gap in one card, which is why the
 version divergence itself is now the first thing checked when local and CI
 disagree.
+
+### A boolean read out of psql output that matched the column header
+**Tag:** ci
+**ERROR:** Four assertions in `scripts/poc-free/local-db/prove-applier.mjs` read a
+one-column boolean with `(out.stdout || "").includes("t")`. `psql` prints the
+COLUMN NAME above the value, and every one of those columns is named `untouched`
+- which contains a `t`. The three `...and the database is untouched` assertions
+were therefore **true whatever the database said**, and had never once been
+capable of failing. They had been reported as passing on every run since the
+proof was written.
+**SOLUTION:** `booleanFrom()` takes the value from the line before the `(N rows)`
+marker and returns `null` for a shape it cannot parse, which the callers treat as
+a hard failure. **It surfaced only because APPLY-01 added the first case that
+expects FALSE**, and that is the general point: a boolean assertion whose two
+outcomes have never both been exercised is an assertion with one outcome. The
+rule: **when a check reads a value out of formatted human output, the parse must
+be anchored to the format, not to a substring** - a column header, a NOTICE line,
+a units suffix and a row count are all in that stream and all of them contain
+letters somebody's `includes()` is looking for.
