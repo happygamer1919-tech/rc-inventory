@@ -69,6 +69,29 @@ function psql(name, sql) {
     "--dbname", "postgres", "--set", "ON_ERROR_STOP=1", "--quiet", "--no-psqlrc"], { input: sql });
 }
 
+// APPLY-01. A BOOLEAN READ OUT OF psql OUTPUT, WITHOUT READING THE HEADER.
+//
+// THIS EXISTS BECAUSE THE OBVIOUS VERSION WAS WRONG AND HAD BEEN PASSING
+// VACUOUSLY. Four assertions in this file read a one-column boolean with
+// `(out.stdout || "").includes("t")`. psql prints the COLUMN NAME above the
+// value, and every one of those columns is named `untouched`, which contains a
+// `t`. The test was therefore true whatever the database said, and the three
+// "...and the database is untouched" assertions had never once been capable of
+// failing. It surfaced only when a new case expected FALSE and got a pass.
+//
+// docs/LEARNINGS.md names the class: a matcher that cannot fail is not a check.
+// So the value is taken from the line before `(N rows)`, and a shape that does
+// not parse is a hard false rather than a shrug.
+function booleanFrom(result) {
+  const lines = (result.stdout || "").split("\n").map((l) => l.trim());
+  const marker = lines.findIndex((l) => /^\(\d+ rows?\)$/.test(l));
+  if (marker < 1) return null;
+  const value = lines[marker - 1];
+  if (value === "t") return true;
+  if (value === "f") return false;
+  return null;
+}
+
 // --- the baseline: what production looks like the moment before the apply ---
 //
 // shim, then 0001 to 0012, then the ledger with rows 0001 to 0009 ONLY. That
@@ -183,7 +206,7 @@ out("\n" + "=".repeat(78) + "\nPROOF 1: clean pass from an 0001-0012 baseline\n"
     (check.stdout || "").trim(),
   );
   const tbl = psql(c, `select to_regclass('public.devize') is not null as ok;`);
-  record("a table from the batch exists after commit", (tbl.stdout || "").includes("t"), (tbl.stdout || "").trim());
+  record("a table from the batch exists after commit", booleanFrom(tbl) === true, (tbl.stdout || "").trim());
   rmSync(dir, { recursive: true, force: true });
   run("docker", ["rm", "-f", c], { stdio: "ignore" });
   containers = containers.filter((x) => x !== c);
@@ -243,8 +266,42 @@ const MUTATIONS = [
       "-- drop removed by the proof harness",
     ),
     expectExit: 1,
-    expectText: "ASSERTION FAILED [one-create-outbound-issue-five-args]",
-    control: "one-create-outbound-issue-five-args",
+    expectText: "ASSERTION FAILED [declared-function-versions-only]",
+    control: "declared-function-versions-only",
+  },
+  {
+    // APPLY-01. THE CASE THAT USED TO BE IMPOSSIBLE.
+    //
+    // The assertion this replaces pinned create_outbound_issue to the literal
+    // argument list (text, text, text, jsonb, uuid), unconditionally, on every
+    // future run. A migration that legitimately changed that signature, and a
+    // deviz-aware outbound issue is a near reason to, would have rolled back the
+    // WHOLE batch it travelled in, including every unrelated migration in it.
+    //
+    // This mutation is that migration. It drops the five-argument function and
+    // creates a six-argument one, exactly as a real card would, and the batch
+    // must COMMIT. Under the old assertion it rolled back.
+    name: "APPLY-01: a batch that legitimately changes create_outbound_issue's signature COMMITS",
+    file: "0018_outbound_issue_project_write.sql",
+    mutate: (s) =>
+      s +
+      "\n\n-- Added by the proof harness: a legitimate later change of signature,\n" +
+      "-- exactly the shape a deviz-aware outbound issue would take. The batch\n" +
+      "-- drops the signature it declared earlier in this same file and declares a\n" +
+      "-- six-argument one instead, which is what a change of signature IS.\n" +
+      "create or replace function public.rc_apply01_shim()\n" +
+      "returns uuid language sql as $shim$ select null::uuid $shim$;\n" +
+      "drop function if exists public.create_outbound_issue(text, text, text, jsonb, uuid);\n" +
+      "create function public.create_outbound_issue(\n" +
+      "  p_destination text, p_note text, p_requested_by text, p_lines jsonb,\n" +
+      "  p_project_id uuid, p_deviz_id uuid)\n" +
+      "returns uuid language plpgsql security definer set search_path = public as $apply01$\n" +
+      "begin\n" +
+      "  return public.rc_apply01_shim();\n" +
+      "end $apply01$;\n",
+    expectExit: 0,
+    expectText: "applied and committed",
+    control: "apply-01-signature-change",
   },
 ];
 
@@ -263,9 +320,16 @@ for (const m of MUTATIONS) {
   const ok = r.status === m.expectExit && all.includes(m.expectText);
   record(m.name, ok, `exit ${r.status} (wanted ${m.expectExit}), text "${m.expectText}" ${all.includes(m.expectText) ? "found" : "NOT FOUND"}`);
 
-  // The database must be exactly as it was: the batch rolled back whole.
+  // A REFUSAL must leave the database exactly as it was: the batch rolled back
+  // whole. A mutation that is EXPECTED TO COMMIT must have done the opposite,
+  // and asserting "untouched" on it would be asserting that the apply failed.
   const after = psql(c, `select to_regclass('public.devize') is null as untouched;`);
-  record(`  ...and the database is untouched (${m.control})`, (after.stdout || "").includes("t"), (after.stdout || "").trim());
+  const untouched = booleanFrom(after);
+  if (m.expectExit === 0) {
+    record(`  ...and the database CARRIES the batch (${m.control})`, untouched === false, (after.stdout || "").trim());
+  } else {
+    record(`  ...and the database is untouched (${m.control})`, untouched === true, (after.stdout || "").trim());
+  }
   writeFileSync(join(ROOT, `docs/reports/p3-27a-proof-2-${m.control}.txt`), all, "utf8");
   rmSync(dir, { recursive: true, force: true });
   run("docker", ["rm", "-f", c], { stdio: "ignore" });
@@ -286,7 +350,7 @@ out("\n" + "=".repeat(78) + "\nPROOF 2b: an unreconciled outbound issue refuses 
   const refused = r.status !== 0 && /contains null values/.test(all);
   record("an unmatched historical row rolls the batch back", refused, `exit ${r.status}`);
   const after = psql(c, `select to_regclass('public.devize') is null as untouched;`);
-  record("  ...and the database is untouched", (after.stdout || "").includes("t"), (after.stdout || "").trim());
+  record("  ...and the database is untouched", booleanFrom(after) === true, (after.stdout || "").trim());
   // The columns it protects are still there, which is the whole point.
   const cols = psql(c, `select count(*) as n from information_schema.columns
     where table_schema='public' and table_name='outbound_issues'
@@ -309,7 +373,7 @@ out("\n" + "=".repeat(78) + "\nPROOF 3: an emptied register is a clean no-op\n" 
   const ok = r.status === 0 && all.includes("zero pending migrations") && all.includes("Nothing was executed");
   record("empty register: exit 0, nothing executed", ok, `exit ${r.status}`);
   const after = psql(c, `select to_regclass('public.devize') is null as untouched;`);
-  record("  ...and the database is untouched", (after.stdout || "").includes("t"), (after.stdout || "").trim());
+  record("  ...and the database is untouched", booleanFrom(after) === true, (after.stdout || "").trim());
   writeFileSync(join(ROOT, "docs/reports/p3-27a-proof-3-noop.txt"), all, "utf8");
   rmSync(dir, { recursive: true, force: true });
 }

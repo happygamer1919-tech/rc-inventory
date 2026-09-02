@@ -1,16 +1,19 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-59767-mtke9los)
+target                 shim (container rc-prove-applier-mut-59767-mtke9xho)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     16
-total statements       227
+total statements       230
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
 0018_outbound_issue_project_write.sql:
   drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+0018_outbound_issue_project_write.sql:
+  n if exists public.create_outbound_issue(text, text, text, jsonb, uuid);
+create fun;
 0026_drop_outbound_free_text.sql:
   if exists public.backfill_outbound_project_ids();
 
@@ -37,7 +40,7 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           5de294d5ac1d78da7be6bd2c11b1d9c48c216897ccd82a891ea47aeddcbea6c1
+batch sha256           ff9208874aef59e21995f9e8e4f9722ddea35e9142011e534e2b41c69533be63
 script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
 assertions             13
 ==============================================================================
@@ -216,7 +219,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (0 rows)
 
 
---- applying 0018_outbound_issue_project_write.sql (7 statements) ---
+--- applying 0018_outbound_issue_project_write.sql (10 statements) ---
         proname        |                                          arguments                                          
 -----------------------+---------------------------------------------------------------------------------------------
  create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb, p_project_id uuid
@@ -249,7 +252,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-02 17:53:07.348108+00
+ Furnizor Prove | 2026-09-02 17:53:22.209452+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -502,8 +505,8 @@ applied and committed: 16 migrations, 13 assertions passed
 
 target was the shim, so NOTHING was written to any journal and the pending register is untouched.
 
-started  2026-09-02T17:53:07.220Z
-finished 2026-09-02T17:53:07.397Z
+started  2026-09-02T17:53:22.062Z
+finished 2026-09-02T17:53:22.261Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping

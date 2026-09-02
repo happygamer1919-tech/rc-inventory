@@ -1,16 +1,14 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-59767-mtke9los)
+target                 shim (container rc-prove-applier-mut-59767-mtke9uf5)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     16
-total statements       227
+total statements       226
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
-0018_outbound_issue_project_write.sql:
-  drop function if exists public.create_outbound_issue(text, text, text, jsonb);
 0026_drop_outbound_free_text.sql:
   if exists public.backfill_outbound_project_ids();
 
@@ -37,7 +35,7 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           5de294d5ac1d78da7be6bd2c11b1d9c48c216897ccd82a891ea47aeddcbea6c1
+batch sha256           e28baa9d9cba80a8586f4006f6f85ed8361fe0086fcc1dd95e247aac8eb709bf
 script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
 assertions             13
 ==============================================================================
@@ -216,11 +214,12 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (0 rows)
 
 
---- applying 0018_outbound_issue_project_write.sql (7 statements) ---
+--- applying 0018_outbound_issue_project_write.sql (6 statements) ---
         proname        |                                          arguments                                          
 -----------------------+---------------------------------------------------------------------------------------------
+ create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb
  create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb, p_project_id uuid
-(1 row)
+(2 rows)
 
 
 --- applying 0019_suppliers.sql (31 statements) ---
@@ -249,7 +248,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-02 17:53:07.348108+00
+ Furnizor Prove | 2026-09-02 17:53:19.010953+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -411,99 +410,6 @@ ASSERTIONS
   assert supplier-backfill
   assert declared-function-signatures-exist
   assert declared-function-versions-only
-
-==============================================================================
-POST-CHECK GRID: the applied ledger AFTER the batch
-==============================================================================
- version |               name               
----------+----------------------------------
- 0001    | phase2_schema
- 0002    | rc_docs_bucket
- 0003    | inbound_functions
- 0004    | outbound_functions
- 0005    | service_role_grants
- 0006    | reminder_recipients
- 0007    | seed_categories
- 0008    | extraction_drafts
- 0009    | revoke_anon_on_extraction_drafts
- 0010    | confirm_extraction_draft
- 0011    | extraction_confirm_corrections
- 0012    | manager_flagged_products
- 0013    | clients
- 0014    | contacts
- 0015    | status_entity_project
- 0016    | projects
- 0017    | outbound_project_id
- 0018    | outbound_issue_project_write
- 0019    | suppliers
- 0020    | search_clients
- 0021    | projects_search_and_status
- 0022    | client_detail
- 0023    | project_material_summary
- 0024    | project_material_cost
- 0025    | deviz
- 0026    | drop_outbound_free_text
- 0027    | drop_products_supplier_name
- 0028    | applied_ledger_version
-(28 rows)
-
- ledger_rows_after 
--------------------
-                28
-(1 row)
-
-
-POST-CHECK GRID: row counts on every public table AFTER the batch
-          tbl           | before | after 
-------------------------+--------+-------
- batches                |      0 |     0
- categories             |     19 |    19
- extraction_draft_lines |      0 |     0
- extraction_drafts      |      0 |     0
- inbound_orders         |      0 |     0
- order_lines            |      0 |     0
- outbound_issues        |      0 |     0
- outbound_lines         |      0 |     0
- products               |      1 |     1
- profiles               |      0 |     0
- reminders              |      0 |     0
- status_history         |      0 |     0
- units                  |      7 |     7
-(13 rows)
-
-
-RECONCILIATION: outbound_issues with no project_id, with their destination text
- id | reference | project_id 
-----+-----------+------------
-(0 rows)
-
-
-RECONCILIATION: products with a supplier_name and no supplier_id
- id | sku | name 
-----+-----+------
-(0 rows)
-
-
-RLS and policy count per new table
- table_name  | rls_enabled | policies 
--------------+-------------+----------
- clients     | t           |        3
- contacts    | t           |        3
- deviz_lines | t           |        3
- devize      | t           |        3
- projects    | t           |        3
- suppliers   | t           |        3
-(6 rows)
-
-
-COMMITTED
-
-applied and committed: 16 migrations, 13 assertions passed
-
-target was the shim, so NOTHING was written to any journal and the pending register is untouched.
-
-started  2026-09-02T17:53:07.220Z
-finished 2026-09-02T17:53:07.397Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -513,3 +419,10 @@ NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
 NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
 NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
+ERROR:  ASSERTION FAILED [declared-function-versions-only]: create_outbound_issue has 2 version(s), this batch declared 1. A leftover overload makes every call to that name ambiguous.
+CONTEXT:  PL/pgSQL function inline_code_block line 14 at RAISE
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ROLLED BACK. Nothing was committed.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ERROR:  ASSERTION FAILED [declared-function-versions-only]: create_outbound_issue has 2 version(s), this batch declared 1. A leftover overload makes every call to that name ambiguous.

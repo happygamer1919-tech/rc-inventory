@@ -1,7 +1,7 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-unmatched-35444-mtka11sb)
+target                 shim (container rc-prove-applier-unmatched-59767-mtke9zwr)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     16
 total statements       227
@@ -37,9 +37,9 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           52e380ee1287bd6a8b2c281a71aaa4ed57b3dcd7256b6798f29c3bd58297160b
-script sha256          597a2546cedce531e4df7acb5bbd45ca1f865becffb8298e860e9a02056b65be
-assertions             12
+batch sha256           5de294d5ac1d78da7be6bd2c11b1d9c48c216897ccd82a891ea47aeddcbea6c1
+script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
+assertions             13
 ==============================================================================
 
 
@@ -213,7 +213,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
  reference  | client_name  | project_name  |           issued_at           
 ------------+--------------+---------------+-------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-09-02 15:54:29.200363+00
+ IES-PRV-01 | Client Prove | Santier Prove | 2026-09-02 17:53:25.162232+00
 (1 row)
 
 
@@ -250,7 +250,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-02 15:54:29.611294+00
+ Furnizor Prove | 2026-09-02 17:53:25.552167+00
 (1 row)
 
  total_products | with_supplier | still_null 

@@ -1,7 +1,7 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-35444-mtka0wrz)
+target                 shim (container rc-prove-applier-mut-59767-mtke9rgw)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     16
 total statements       228
@@ -37,9 +37,9 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           48cdf6a2929ebb4cc0d48c985383e5bbc5c7f9e1df42596157c69ed883dd6c18
-script sha256          597a2546cedce531e4df7acb5bbd45ca1f865becffb8298e860e9a02056b65be
-assertions             12
+batch sha256           5ac6dbddb02a67ff42d3df379c2fb9a64b735042f779188ef982901a852cd82a
+script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
+assertions             13
 ==============================================================================
 
 
@@ -247,9 +247,9 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
  supplier_name | text | f
 (2 rows)
 
-      name      |          created_at          
-----------------+------------------------------
- Furnizor Prove | 2026-09-02 15:54:22.98046+00
+      name      |          created_at           
+----------------+-------------------------------
+ Furnizor Prove | 2026-09-02 17:53:15.082652+00
 (1 row)
 
  total_products | with_supplier | still_null 
