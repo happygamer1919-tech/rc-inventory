@@ -21,7 +21,8 @@
     "prove:schema-direction": "node scripts/poc-free/prove-schema-direction.mjs",
     "checks:state": "node scripts/poc-free/pr-check-state.mjs",
     "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs",
-    "check:card-ids": "node scripts/poc-free/check-card-ids.mjs"
+    "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
+    "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

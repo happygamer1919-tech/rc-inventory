@@ -17,6 +17,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { DOCS_BUCKET } from "./inbound-types";
+import { toDocumentUrl } from "./document-url";
 
 /** Cat traieste legatura semnata. Destul pentru o extragere, nu mai mult. */
 const SIGNED_URL_TTL_SECONDS = 15 * 60;
@@ -31,15 +32,18 @@ function webhookUrl(): string | null {
   return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
 }
 
+/** Originea noastra publica. Aceeasi pentru callback si pentru document. */
+function siteOrigin(): string {
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  return typeof site === "string" && site.trim().length > 0
+    ? site.trim().replace(/\/+$/, "")
+    : "https://www.rapidconstructmd.com";
+}
+
 function callbackUrl(): string {
   const raw = process.env.RC_CALLBACK_URL;
   if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
-  const base =
-    typeof site === "string" && site.trim().length > 0
-      ? site.trim().replace(/\/+$/, "")
-      : "https://www.rapidconstructmd.com";
-  return `${base}/api/extraction/callback`;
+  return `${siteOrigin()}/api/extraction/callback`;
 }
 
 /**
@@ -91,6 +95,26 @@ export async function fireExtraction(input: {
       };
     }
 
+    // EXT-08. DOCUMENT_URL TRECE PRIN RUTA NOASTRA, NU DIRECT PRIN STORAGE.
+    //
+    // Forma, bucket-ul, calea, jetonul si TTL-ul raman identice; se schimba
+    // numai originea. Ce se castiga este singurul lucru pe care Storage nu il
+    // da: un contract de esec pe care Make il poate citi. Storage raspunde 400
+    // si acelasi cod "InvalidJWT" si pentru o legatura expirata si pentru una
+    // stricata, iar Make raporteaza amandoua ca aceeasi eroare de date.
+    //
+    // Daca ruta NU s-ar aplica aici, contractul ar fi adevarat pentru cele patru
+    // documente de proba si fals pentru fiecare document real, ceea ce este mai
+    // rau decat sa nu existe: cealalta parte l-ar programa si ar cadea in
+    // productie.
+    const documentUrl = toDocumentUrl(signed.signedUrl, siteOrigin());
+    if (documentUrl === null) {
+      return {
+        ok: false,
+        reason: "Legatura semnata nu are forma asteptata si nu a fost trimisa mai departe.",
+      };
+    }
+
     // FARA `?? ""`. Un secret gol nu este un secret: se trimitea un antet
     // X-RC-Secret vid, Make raspundea 401, si ecranul spunea "Make a raspuns
     // 401" in loc sa spuna care variabila lipseste. Refuzul aici numeste
@@ -112,7 +136,7 @@ export async function fireExtraction(input: {
         },
         body: JSON.stringify({
           order_id: input.orderId,
-          document_url: signed.signedUrl,
+          document_url: documentUrl,
           document_filename: input.documentFilename,
           mime_type: input.mimeType,
           size_bytes: input.sizeBytes,
