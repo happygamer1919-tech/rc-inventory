@@ -30,6 +30,7 @@
 //
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { archiveRuling, pendingRulings, RULING_DIR } from "./ruling-spool.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -142,6 +143,17 @@ function appendOwnerId(id) {
 }
 
 async function resolveOwner() {
+  // P3-11a. THIS IS THE ONE REMAINING getUpdates IN THIS FILE AND IT IS NOT A
+  // SECOND READER OF THE BOT.
+  //
+  // It carries NO OFFSET, and an offset is the only thing that consumes: reading
+  // without one returns the pending updates and deletes nothing, so it cannot
+  // take a message away from responder.sh. It is also not a process: it runs
+  // only under `--resolve-owner`, typed by hand, once, before TELEGRAM_OWNER_ID
+  // exists at all, which is before the responder can classify anything.
+  //
+  // The single reader that acknowledges is chat-classify.mjs by way of
+  // responder.sh, and after this card it is the only one anywhere in the harness.
   const updates = await telegram("getUpdates", "?limit=100");
   if (updates === null) return 1;
 
@@ -288,9 +300,37 @@ async function main() {
     return 0;
   }
 
-  const updates = await telegram("getUpdates", "?limit=100");
-  if (updates === null) return 1;
-  log("read " + updates.length + " update(s)");
+  // P3-11a. THE RULINGS COME OFF THE SPOOL, NOT OFF TELEGRAM.
+  //
+  // This used to be getUpdates. Two processes polling one bot do not share a
+  // queue, they race for it: responder.sh polls every 60 seconds and
+  // acknowledges the offset past everything it read, and an acknowledged offset
+  // DELETES the update server side. So a ruling sent while the responder was
+  // running was gone before this file, on the three hour harness cycle, ever
+  // ran. The log line a few lines below has been describing that failure mode
+  // for as long as it has existed.
+  //
+  // chat-classify.mjs, invoked by responder.sh, is now the ONLY caller of
+  // getUpdates with an offset anywhere in this harness. It writes ruling forms
+  // into the spool and this file reads them, which is exactly what ASK-01
+  // already does for answers.
+  const rulingDir = process.env.POC_RULING_DIR || RULING_DIR;
+  const { rulings, unreadable } = pendingRulings(rulingDir);
+  for (const bad of unreadable) {
+    // Reported, never skipped in silence. Each of these carries a decision the
+    // owner made, and losing one quietly is the defect this card removed.
+    log("UNREADABLE ruling file, left in place for a human: " + bad.path + " (" + bad.reason + ")");
+  }
+  const updates = rulings.map((r) => ({
+    update_id: r.update_id,
+    _spooled: r,
+    message: {
+      message_id: r.message_id,
+      from: { id: r.from_id },
+      text: r.text,
+    },
+  }));
+  log("read " + updates.length + " spooled ruling(s) from " + rulingDir);
   if (updates.length === 0) return 0;
 
   const board = JSON.parse(readFileSync(BOARD_PATH, "utf8"));
@@ -347,9 +387,10 @@ async function main() {
 
   log("accepted " + accepted.length + ", ignored " + ignored);
 
-  // A dry run inspects and reports. It must not acknowledge the offset either:
-  // acknowledging consumes the update on Telegram's side, so a dry run that
-  // cleared it would destroy the very message the real run was meant to act on.
+  // A dry run inspects and reports. It must not consume the spool either: a dry
+  // run that archived the file would destroy the very message the real run was
+  // meant to act on. Before P3-11a the same sentence was about the Telegram
+  // offset, and it was true for the same reason.
   if (dryRun) {
     for (const a of accepted) {
       log("would rule on " + a.verdict.cardId + " (" + a.verdict.form + "): " + a.text);
@@ -359,7 +400,10 @@ async function main() {
   }
 
   if (accepted.length === 0) {
-    if (updates.length > 0) await clearOffset(updates);
+    // Nothing was accepted, but the files were read and judged. Leaving them in
+    // pending would re-judge and re-log them on every run forever, which is the
+    // reclassify loop responder.sh's acknowledgement exists to avoid.
+    consume(updates);
     return 0;
   }
 
@@ -454,16 +498,33 @@ async function main() {
   }
   log("opened " + prUrl);
 
-  await clearOffset(updates);
+  consume(updates);
   return 0;
 }
 
-// Acknowledge what was read so the next run does not see it again. Telegram
-// clears an update once getUpdates is called with an offset past it.
-async function clearOffset(updates) {
-  const highest = Math.max(...updates.map((u) => u.update_id));
-  await telegram("getUpdates", "?offset=" + (highest + 1) + "&limit=1");
-  log("acknowledged updates through " + highest);
+// P3-11a. Consume what was read so the next run does not see it again.
+//
+// MOVED, NEVER DELETED. The consumed directory is the only surviving copy: the
+// responder acknowledged the Telegram update the moment it spooled the file, so
+// Telegram no longer has it. A ruling that has been acted on is a record, and
+// this harness has already paid once for a decision that was acted on and not
+// written down.
+//
+// A move that fails is REPORTED and the file is left in pending. Re-judging a
+// ruling next run is survivable; losing it is not.
+function consume(updates) {
+  let moved = 0;
+  for (const update of updates) {
+    if (!update._spooled) continue;
+    try {
+      archiveRuling(update._spooled, process.env.POC_RULING_DIR || RULING_DIR);
+      moved += 1;
+    } catch (error) {
+      log("could NOT archive " + update._spooled._path + ": " + error.message);
+      log("it stays in pending and will be judged again on the next run");
+    }
+  }
+  log("consumed " + moved + " of " + updates.length + " spooled ruling(s)");
 }
 
 // ---------------------------------------------------------------------------
