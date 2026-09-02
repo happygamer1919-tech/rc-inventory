@@ -40,6 +40,8 @@ naming a file that does not exist all fail the suite.
 The format is machine-read, so keep it exactly:
 
 - `0028_applied_ledger_version.sql`, card de aplicare P3-11e
+- `0030_units_tonne_litre.sql`, card de aplicare P3-33
+- `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
 
 ## Rules
 

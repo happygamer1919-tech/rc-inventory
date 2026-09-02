@@ -16,6 +16,15 @@ const UNIT_MEANING: Record<UnitCode, string> = {
   kg: "Kilogram, pentru materiale vrac",
   roll: "Rolă, pentru izolații livrate rulou",
   m3: "Volum, pentru izolații în vrac",
+  // P3-33. Adaugate de migratia 0030.
+  //
+  // TIPUL A CERUT ACESTE DOUA RANDURI SI ASTA ESTE O PROPRIETATE, NU UN
+  // DERANJ. UNIT_MEANING este Record<UnitCode, string>, deci extinderea
+  // enumului a facut acest fisier sa nu compileze pana cand cineva a spus la
+  // ce se foloseste fiecare unitate noua. Un Partial aici ar fi lasat ecranul
+  // sa afiseze o unitate fara explicatie si nimic nu ar fi observat.
+  t: "Tonă, pentru materiale vrac livrate la camion",
+  l: "Litru, pentru vopsele, lacuri și solvenți",
 };
 
 export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: number }> }) {
