@@ -1,14 +1,8 @@
 {
   "schema_version": 2,
-  "last_run": "2026-09-01T12:11:43Z",
-  "run_id": "20260901-070544",
-  "cards_touched": [
-    {
-      "card_id": "AUT-10",
-      "status": "branch",
-      "run_id": "20260901-070544"
-    }
-  ],
+  "last_run": "2026-09-02T05:30:54Z",
+  "run_id": "20260901-220131",
+  "cards_touched": [],
   "escalations": [
     {
       "card_id": "AUT-1 (claimed by executor), P2-15 (claimed by executor), P2-18 (claimed by executor)",
@@ -107,13 +101,27 @@
       "recommendation": "Read the run log before assuming the work is complete.",
       "raised_at": "2026-09-01T12:11:43Z",
       "run_id": "20260901-070544"
+    },
+    {
+      "card_id": null,
+      "question": "The executor ran 4495s against its 2700s wall clock cap and was stopped there.",
+      "recommendation": "Read the run log before assuming the work is complete.",
+      "raised_at": "2026-09-02T05:30:54Z",
+      "run_id": "20260901-220131"
+    },
+    {
+      "card_id": "AUT-11,AUT-15,AUT-16,AUT-17,AUT-18,AUT-8,AUT-9,BOARD-01,BOARD-02,CLAIM-01,LEARN-01,P2-20,RST-02,RST-03",
+      "question": "Eligible card(s) AUT-11,AUT-15,AUT-16,AUT-17,AUT-18,AUT-8,AUT-9,BOARD-01,BOARD-02,CLAIM-01,LEARN-01,P2-20,RST-02,RST-03 were not shipped by this run. the executor ran 4495s against a 2700s cap and was stopped before it could ship.",
+      "recommendation": "Read /Users/ivan/rc-poc-logs/20260901-220131.log. Silence on an eligible card is a defect, not a normal outcome.",
+      "raised_at": "2026-09-02T05:30:54Z",
+      "run_id": "20260901-220131"
     }
   ],
-  "digest_last_sent": "2026-09-01T12:11:42Z",
+  "digest_last_sent": "2026-09-02T05:30:53Z",
   "claims": {
-    "AUT-10": {
+    "AUT-11": {
       "claimed_by": "harness",
-      "claimed_at": "2026-09-01T12:11:43Z"
+      "claimed_at": "2026-09-02T05:30:54Z"
     }
   },
   "report_path": "docs/reports/2026-08-31-triage-board-clock-and-gate-audit.md"
