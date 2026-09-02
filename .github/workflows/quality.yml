@@ -177,6 +177,10 @@ jobs:
       #
       # IT FAILS OPEN. If the base commit cannot be resolved, the proof RUNS.
       # A filter that cannot tell what changed must not conclude "nothing did".
+      # PROVE-01 ADDED prove-assertions-can-fail.mjs TO THE SAME GATE AND TO THIS
+      # PATTERN. A proof whose own file is not in the filter is a proof that
+      # cannot be changed and re-run by the change, which is the failure mode the
+      # fail-open branch above exists to avoid, one level up.
       - name: Decide whether the applier proof must run
         id: applier_scope
         run: |
@@ -191,7 +195,7 @@ jobs:
           CHANGED="$(git diff --name-only "${BASE}" HEAD)"
           echo "changed files against ${BASE}:"
           echo "${CHANGED}"
-          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/)'; then
+          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/|scripts/poc-free/prove-assertions-can-fail\.)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -200,6 +204,24 @@ jobs:
       - name: Prove the migration applier against the Docker shim
         if: steps.applier_scope.outputs.run == 'true'
         run: npm run prove:applier
+
+      # PROVE-01. EVERY APPLIER ASSERTION, WATCHED TO FAIL.
+      #
+      # One postgres container brought to the state the applier leaves behind,
+      # then per assertion: a CONTROL that must hold on a correct database and a
+      # PERTURBATION that must raise. Both halves are required. A body that
+      # raises on everything passes the perturbation and fails the control; a
+      # body that raises on nothing passes the control and fails the
+      # perturbation. Only one that does both is doing its job.
+      #
+      # The bodies are read from the applier through RC_APPLY_PRINT_ASSERTIONS,
+      # so what is proved is the SHIPPED text and not a copy that can drift.
+      #
+      # It rides the same path filter as the applier proof above: both build
+      # containers and both are about the same file.
+      - name: Prove every applier assertion can fail
+        if: steps.applier_scope.outputs.run == 'true'
+        run: npm run prove:assertions
 
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
       #
@@ -260,6 +282,24 @@ jobs:
       # beyond loopback, no credentials, no production.
       - name: Prove the deployed-commit guard refuses
         run: npm run prove:deployed-commit
+
+      # PROVE-01. AN ASSERTION WITH NO FAILING CASE FAILS THE BUILD.
+      #
+      # Three defects of one class were found in these guards on 2026-09-02.
+      # Three assertions in prove-applier read a psql boolean with includes("t")
+      # against a column named `untouched` and matched the COLUMN NAME. Two
+      # entries in the applier's assertion list had `raise notice` as their only
+      # statement, so they COULD NOT FAIL, and were counted in "N assertions
+      # passed" and in the row written to docs/PRODUCTION-WRITES.md.
+      #
+      # docs/ASSERTION-REGISTER.md names every assertion and refusal in the four
+      # guards together with the case that proves it can fail. This step keeps
+      # the register honest in both directions: an assertion with no row, a row
+      # naming an assertion that is gone, and a row whose case is NONE all fail.
+      #
+      # It needs no database and no network.
+      - name: Refuse an assertion with no failing case
+        run: npm run check:assertion-register
 
       - name: Prove both schema-direction guards still fire
         run: npm run prove:schema-direction

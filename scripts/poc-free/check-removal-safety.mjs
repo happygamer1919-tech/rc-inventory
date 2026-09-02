@@ -82,6 +82,7 @@ const SOURCE_DIRS = (process.env.RC_REMOVAL_SOURCE || "lib,app,components")
   .filter((d) => existsSync(d));
 
 if (SOURCE_DIRS.length === 0) {
+  // REFUSAL: removal-safety-no-source
   console.error("check-removal-safety: no source directory to scan, refusing to report OK");
   process.exit(2);
 }
@@ -202,6 +203,7 @@ if (pending.length === 0) {
 }
 
 if (findings.length > 0) {
+  // REFUSAL: removal-safety-reader-remains
   console.error("check-removal-safety: CODE STILL READS SCHEMA A PENDING MIGRATION REMOVES\n");
   for (const v of findings) {
     console.error(`  ${v.file} removes ${v.kind}`);
@@ -235,6 +237,7 @@ if (process.argv.includes("--deployed")) {
     stdio: "inherit",
   });
   if (deployed.status !== 0) {
+    // REFUSAL: removal-safety-deployed-half
     console.error(
       "\ncheck-removal-safety: the MERGED half passed and the DEPLOYED half did not.",
     );

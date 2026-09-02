@@ -245,6 +245,35 @@ LOOSELY:**
 A second path-filtered step is a change to this section, not an application of
 it. The exemption is for this one step and does not generalise.
 
+###### THERE IS NOW A SECOND, AND THIS SECTION WAS AMENDED TO ADD IT. Added 2026-09-02 by card PROVE-01.
+
+The sentence above is why this paragraph exists rather than a quiet second `if:`.
+
+The step is **Prove every applier assertion can fail** (`npm run prove:assertions`).
+It builds a postgres container, brings it to the state the applier leaves behind,
+and then runs every one of the applier's SQL assertions twice: once against a
+correct database, where it must hold, and once against a database perturbed to
+violate it, where it must raise.
+
+**It shares the existing filter rather than adding one.** Both steps are gated by
+the same `applier_scope` decision, on the same paths plus the new proof's own
+file, so there are two filtered steps and still **one** filter. Whoever adds a
+third reads this paragraph and amends it again.
+
+**Why it is filtered at all:** it costs a container and minutes, and it is about
+`scripts/apply-pending-migrations.mjs`. A pull request that does not touch the
+applier, its migrations, the shim or the proof cannot change what it proves.
+
+**WHAT SELF-MERGE REQUIRES IS UNCHANGED.** A pull request touching any of those
+paths requires BOTH filtered steps to have RUN and PASSED, not skipped. The rest
+of the job is unfiltered and runs on every pull request, and that is still the
+green this section means.
+
+**`npm run check:assertion-register` is NOT filtered and must never be.** It is
+the step that notices an assertion arriving with no failing case, it needs no
+container and no database, and filtering it would let exactly the gap it exists
+to catch through on a pull request that touched something else.
+
 #### THE HISTORY, KEPT SHORT AND KEPT
 
 - **R-049, 2026-08-28.** Granted EXECUTOR and POC-BUILDER self-merge on
