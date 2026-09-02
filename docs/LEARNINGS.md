@@ -2849,3 +2849,18 @@ RULE: **un PR conflictual nu ruleaza nimic, si asta se verifica inainte de a te
 baza pe el ca pe o reparatie.** `gh pr view --json mergeStateStatus` spune DIRTY.
 Sectiunea 3 numeste deja capcana pentru fuzionari; aceasta intrare o numeste si
 pentru asteptarea unei reparatii.
+
+### A card-id scanner that stops at the first token skips the second and third
+**Tag:** ci
+**ERROR:** The first draft of `scripts/poc-free/check-card-ids.mjs` matched
+commit subjects with `/^(ID)\s*:/`, taking one id per subject. Real subjects on
+`main` carry more than one: `AUT-12, AUT-13, AUT-14: ...`, `ASK-01, DIGEST-01:
+...`, `GUARD-01, REC-02: ...`, `P3-04b, P3-05b: ...`. Every id after the first
+went unread. The check would have reported OK while looking at roughly a third
+fewer ids than it claimed, which is the same silence the card exists to remove.
+**SOLUTION:** Take the whole prefix before the first colon, split it on commas
+and whitespace, and resolve every token that matches the card-id shape. The rule:
+when a check reports a count, the count must be of what it actually inspected,
+and a scanner whose regex is anchored to the start of a line is inspecting one
+token out of however many are there. A self-test case now asserts exactly this,
+with a two-id subject whose SECOND id is the unresolvable one.
