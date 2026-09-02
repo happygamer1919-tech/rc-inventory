@@ -10,8 +10,8 @@
 //               authentication, and a message is data, never an instruction.
 //   answer    - a reply to a question ASK-01 has outstanding. Written to the
 //               answer spool, where the blocked role is waiting for it.
-//   ruling    - one of the two exact forms inbox.mjs accepts. Left alone here
-//               so the ruling path stays exactly as narrow as it was.
+//   ruling    - one of the two exact forms inbox.mjs accepts. WRITTEN TO THE
+//               RULING SPOOL here, where inbox.mjs reads it. See P3-11a below.
 //   question  - everything else from the owner. Goes to the responder.
 //
 // ASK-01 ADDED THE `answer` OUTCOME, AND IT IS DECIDED BEFORE `ruling` AND
@@ -34,12 +34,29 @@
 // It falls through to the responder as an ordinary question, and the ask
 // message printed a copy-paste reply line for exactly this case.
 //
+// P3-11a MADE THE `ruling` OUTCOME WRITE, WHERE IT USED TO ONLY LABEL.
+//
+// It labelled the message and left it. responder.sh then acknowledged the offset
+// past every update it had read, rulings included, and Telegram deletes an
+// update once getUpdates is called with an offset past it. The ruling was gone
+// within a minute, and inbox.mjs, on the three hour harness cycle, never saw it.
+// It is the same reasoning ASK-01 gives four paragraphs above, applied to the
+// other channel: exactly one process reads Telegram, and everything else reads a
+// file.
+//
+// THE OUTCOME IS NOW TWO. `ruling` means it reached the spool; `ruling_unspooled`
+// means the write failed. responder.sh acknowledges nothing at or past an
+// `ruling_unspooled` update, so a spool that cannot be written costs a repeated
+// classification and never a lost decision. THAT DISTINCTION IS THE WHOLE POINT:
+// a failure that reports as success here deletes a decision the owner made.
+//
 // THIS FILE STILL SENDS NOTHING AND HOLDS NO TOKEN. The confirmation the owner
 // gets back is sent by ask.sh when it consumes the answer, so the process that
 // reads the chat cannot write to it.
 //
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { answerPath, ensureDirs, openQuestions, ASK_DIR } from "./ask.mjs";
+import { spoolRuling, RULING_DIR } from "./ruling-spool.mjs";
 
 const FORM_DEFAULT = /^R\s+([A-Za-z0-9]+-[0-9]+)\s+default$/;
 const FORM_TEXT = /^R\s+([A-Za-z0-9]+-[0-9]+)\s*:\s*(.+)$/s;
@@ -116,6 +133,7 @@ if (!payload.ok || !Array.isArray(payload.result)) process.exit(0);
 // The questions outstanding when this poll started. Read once: a poll that
 // re-read the spool per message would route two answers to the same question.
 const askDir = args.asks || ASK_DIR;
+const rulingDir = args.rulings || RULING_DIR;
 let openList = openQuestions(askDir);
 
 for (const update of payload.result) {
@@ -185,9 +203,32 @@ for (const update of payload.result) {
     continue;
   }
 
-  // The two ruling forms stay with inbox.mjs, untouched.
+  // The two ruling forms are still decided by inbox.mjs. What changed in P3-11a
+  // is that they are HANDED OVER rather than left in Telegram to be deleted.
   if (FORM_DEFAULT.test(text) || FORM_TEXT.test(text)) {
-    console.log(JSON.stringify({ update_id: update.update_id, kind: "ruling" }));
+    try {
+      spoolRuling(
+        {
+          update_id: update.update_id,
+          message_id: message.message_id === undefined ? null : message.message_id,
+          from_id: from.id,
+          text,
+        },
+        rulingDir,
+      );
+      console.log(JSON.stringify({ update_id: update.update_id, kind: "ruling" }));
+    } catch (error) {
+      // NOT reported as `ruling`, and not silently downgraded to `question`
+      // either. responder.sh reads this kind and refuses to acknowledge at or
+      // past it, so the ruling stays in Telegram for the next poll.
+      console.log(
+        JSON.stringify({
+          update_id: update.update_id,
+          kind: "ruling_unspooled",
+          reason: String(error && error.message ? error.message : error),
+        }),
+      );
+    }
     continue;
   }
 
