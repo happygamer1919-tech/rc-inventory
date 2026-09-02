@@ -93,6 +93,34 @@ jobs:
       - name: Prove the document URL failure contract
         run: npm run check:document-url
 
+      # RULE-02. A DUPLICATE RULING ID OR CARD ID FAILS THE BUILD.
+      #
+      # "Namespaced by author" was doctrine and was enforced by nothing. On
+      # 2026-09-01 a TRIAGE branch authored R-083 through R-089 while R-083
+      # through R-086 were being authored on main, with COMPLETELY DIFFERENT
+      # MEANINGS. The two branches appended to different parts of
+      # decisions/inbox.md, so there was NO MERGE CONFLICT to notice, and the
+      # only thing that caught it was a human reading both.
+      #
+      # The check asks two questions. Is any id duplicated within the record, on
+      # one board, across boards, or in the inbox. And does this branch REDEFINE
+      # an id that origin/main already uses, which is the question that would
+      # have caught the incident, because within each side the ids were perfectly
+      # unique.
+      #
+      # It also reads decisions/NEXT-RULING-ID and refuses a counter that has not
+      # moved past the ruling just written, because that is the state in which
+      # the NEXT author collides.
+      - name: Refuse a duplicate ruling id or card id
+        run: npm run check:unique-ids
+
+      # And the proof that it refuses. A duplicate check that parses zero ids
+      # also reports OK, so each of its refusals is driven against a throwaway
+      # git repository with its own origin/main, and each is paired with a
+      # control that must pass on the same fixture.
+      - name: Prove the duplicate-id check refuses
+        run: npm run prove:unique-ids
+
       # P2-15. The nine DELETE statements aimed at the client's production
       # project are parsed with the real PostgreSQL grammar, here, on every
       # push, with no database and no credentials. The card shipped saying the
