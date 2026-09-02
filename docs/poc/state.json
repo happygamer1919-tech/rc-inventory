@@ -111,9 +111,9 @@
   ],
   "digest_last_sent": "2026-09-01T12:11:42Z",
   "claims": {
-    "AUT-10": {
+    "AUT-11": {
       "claimed_by": "harness",
-      "claimed_at": "2026-09-01T12:11:43Z"
+      "claimed_at": "2026-09-02T12:26:53Z"
     }
   },
   "report_path": "docs/reports/2026-08-31-triage-board-clock-and-gate-audit.md"
