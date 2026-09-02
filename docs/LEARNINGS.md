@@ -2849,3 +2849,51 @@ RULE: **un PR conflictual nu ruleaza nimic, si asta se verifica inainte de a te
 baza pe el ca pe o reparatie.** `gh pr view --json mergeStateStatus` spune DIRTY.
 Sectiunea 3 numeste deja capcana pentru fuzionari; aceasta intrare o numeste si
 pentru asteptarea unei reparatii.
+
+### A matcher that fails to match reports as no work, not as an error
+**Tag:** ci
+**ERROR:** Third instance of one defect, and it is now named as a class. The
+pending-register regex excluded lowercase card ids and reported nothing pending.
+`inbox.mjs` upper-cased a card id before comparing it against verbatim board ids
+and matched none. The `grep -v` extraction filter dropped a line that was a real
+reader and reported the removal safe. In all three the matcher ran, matched
+nothing, and the empty result was read as "there is nothing to do" rather than as
+"this did not work". None of the three was red anywhere.
+**SOLUTION:** **Any matcher whose empty result means "nothing to do" asserts its
+input count against its match count and fails when they diverge.** A scanner that
+reads 220 subjects and resolves 0 ids is broken, not clean, and it is the only
+one that can tell the difference. The general rule: a check that can report
+success without having inspected anything is not a check, it is a coin that lands
+the same way twice.
+
+### Keying on a response field that only one deployment sends
+**Tag:** backend
+**ERROR:** The EXT-08 classifier switched on the `code` field of a Supabase
+Storage error body, written from captures taken against the hosted project, which
+sends it. The storage server in the local Supabase stack, which is the one CI
+runs, does not send `code` at all: only `statusCode`, `error` and `message`. Both
+token cases fell through to the unrecognised branch and answered 502 where the
+contract requires 400 and 401. Two of eight end-to-end cases failed on the first
+local run.
+**SOLUTION:** Key on `error` and `statusCode`, which both deployments send, and
+accept `code` as a bonus where it exists. The rule that generalises: **when two
+deployments of the same service are in play and only one is reachable from CI,
+the fields the unreachable one sends must be replayed from captured bodies in a
+check that needs no network.** The inverse of this bug, a classifier keyed only on
+what the local server sends, would have passed CI forever and failed only in
+production, with nothing turning red. `scripts/poc-free/check-document-url-contract.mjs`
+replays both shapes for exactly that reason.
+
+### A CDN can serve a deleted object through a still-valid signed URL
+**Tag:** infra
+**ERROR:** While probing the not-found path, the probe object was deleted and the
+same signed URL re-fetched. The response was `200 OK` with the original bytes,
+`cf-cache-status: HIT`, `x-smart-cdn: true`. The `404` shape only appeared on a
+cache-busted request a minute later.
+**SOLUTION:** Nothing was changed: bucket policy 0002 grants DELETE to no
+application role precisely so a document behind an order cannot vanish. It is
+recorded because a probe that had used the plain URL would have concluded that
+Supabase serves deleted objects forever, and a probe that had used only the
+cache-busted URL would never have learned this. **When probing a cached edge, run
+both the plain and the cache-busted request and report the difference; either one
+alone tells a story that is wrong in a different direction.**

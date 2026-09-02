@@ -49,10 +49,26 @@ versions is three products and a category.
 | 2026-08-31 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `315448e15f4e02e83d55bb1003fb9c28ff1152b45acd5a4020c54ff4a0b0b9a6` | **11 of 11 passed**, committed on all-pass | **0 rows deleted**, 13 migrations applied (0013 to 0025) | `docs/reports/2026-08-31-executor-p3-27-apply.md` |
 | 2026-09-01 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe` | **12 of 12 passed**, committed on all-pass | **0 rows deleted**, 1 migrations applied (0026 to 0026) | `docs/reports/2026-09-01-executor-p3-04b-drop.md` |
 | 2026-09-01 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `a37407bb8a296aa3248497b6b8aa8d31452bd7b144605e367996f1b0508ca238` | **12 of 12 passed**, committed on all-pass | **0 rows deleted**, 1 migrations applied (0027 to 0027) | `docs/reports/2026-09-01-executor-p3-05b-drop.md` |
+| 2026-09-02 | **EXECUTOR terminal**, card EXT-08 | `scripts/ext/serve-sample-documents.mjs` | `f3f0ec96779b6ccb916ac5ec20ef4962a7073445931d0d9dce43bf14e8848404` | **none.** The script writes objects and reads back responses; the assertions for this card are `npm run check:document-url` (22 cases) and `tests/e2e/document-url.spec.ts` (8 cases), both in `quality` | **0 database rows.** 4 objects written to storage under `rc-docs/_samples/andre/`, plus one throwaway probe object written and deleted | `docs/reports/2026-09-02-executor-ext-08-sample-documents.md` |
 
 **Total written to production outside a migration: 1,241 rows, both on
 2026-08-28, both deletions, both against the Rapid Construct project
 `bwhzatwwjqmyfesfnisa`.**
+
+## The storage row, which is the first one that is not the database
+
+**2026-09-02 is the first row here that wrote to production STORAGE and not to
+the production database.** It is in this file rather than in a third one because
+the question this file answers is "what has been done to production", and a
+reader asking that question is not asking it one backing service at a time. The
+header of this file says "the production database"; that wording is now narrower
+than its own purpose, and widening it is a documentation card rather than a
+reason to keep the write unlogged.
+
+**It has no assertion count and the field says so instead of saying zero.** The
+script writes four objects and captures responses; there is nothing for it to
+assert about a database. What holds this card is two checks in `quality`, both
+named in the row.
 
 ## Notes on the two backfilled rows
 

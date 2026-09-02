@@ -56,6 +56,23 @@ jobs:
       - name: Validate boards
         run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json
 
+      # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
+      #
+      # tests/e2e/document-url.spec.ts proves the three failure paths end to end,
+      # but only against the LOCAL Supabase storage server, and that server does
+      # not send the same body as the hosted project: it omits the `code` field
+      # entirely. A classifier keyed on `code` passes against the hosted project
+      # and fails locally; one keyed only on what the local server sends passes
+      # here and fails in production, WITH NOTHING TURNING RED, because CI has no
+      # access to the hosted project and must not have any.
+      #
+      # This step closes that half. It replays the captured bodies of BOTH
+      # deployments, copied verbatim from the captures in the card's report, plus
+      # the code-to-status pairing that is the contract itself. No network, no
+      # database, no secret.
+      - name: Prove the document URL failure contract
+        run: npm run check:document-url
+
       # P2-15. The nine DELETE statements aimed at the client's production
       # project are parsed with the real PostgreSQL grammar, here, on every
       # push, with no database and no credentials. The card shipped saying the
