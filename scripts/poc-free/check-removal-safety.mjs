@@ -25,11 +25,18 @@
 //                            AND DEPLOYED
 //
 // DEPLOYED IS NOT MERGED, AND THAT DISTINCTION IS THE WHOLE OF INC-06. This file
-// asserts the MERGED half. The DEPLOYED half is an open question to the owner,
-// asked through scripts/poc/ask.sh on card P3-11c, because there is no usable
-// Vercel credential in the permitted secret read and inventing a substitute for
-// "deployed" is the exact class of mistake this card exists to stop. Until it is
-// answered, the applier refuses every batch containing a removal.
+// asserts the MERGED half.
+//
+// THE DEPLOYED HALF IS NOW ASSERTED TOO, BY scripts/poc-free/check-deployed-commit.mjs,
+// added by card P3-11e. It asks /api/health which commit production is running
+// and refuses unless git says the commit being applied against is an ancestor of
+// it. It needs no credential: Vercel exposes VERCEL_GIT_COMMIT_SHA to the
+// application at build time, so the deployment states its own commit.
+//
+// PASS --deployed TO RUN BOTH HALVES. Without it this file checks the merged
+// half alone, which is what CI needs: a pull request branch is not deployed and
+// never will be, so a deployed assertion there would fail on every green run and
+// be switched off within a week. The applier passes it; CI does not.
 //
 // HOW READERS ARE FOUND, AND WHY IT IS NOT A GREP FOR THE COLUMN NAME.
 //
@@ -214,3 +221,24 @@ if (findings.length > 0) {
 console.log(
   `check-removal-safety: OK, ${pending.length} pending migration(s) checked, no reader remains on main`,
 );
+
+// --- P3-11e. THE DEPLOYED HALF, ONLY WHEN ASKED FOR ------------------------
+//
+// The merged half passed. On its own that is what CI needs and it stops here.
+// With --deployed, the second half runs too, and the two together are the whole
+// ordering rule stated at the top of this file.
+if (process.argv.includes("--deployed")) {
+  const { spawnSync } = await import("node:child_process");
+  console.log("");
+  const deployed = spawnSync("node", [join(HERE, "check-deployed-commit.mjs")], {
+    encoding: "utf8",
+    stdio: "inherit",
+  });
+  if (deployed.status !== 0) {
+    console.error(
+      "\ncheck-removal-safety: the MERGED half passed and the DEPLOYED half did not.",
+    );
+    console.error("That is INC-06's exact precondition. Nothing may be applied.");
+    process.exit(1);
+  }
+}

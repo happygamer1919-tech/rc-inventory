@@ -21,7 +21,9 @@
     "prove:schema-direction": "node scripts/poc-free/prove-schema-direction.mjs",
     "checks:state": "node scripts/poc-free/pr-check-state.mjs",
     "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs",
-    "check:card-ids": "node scripts/poc-free/check-card-ids.mjs"
+    "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
+    "prove:deployed-commit": "node scripts/poc-free/prove-deployed-commit.mjs",
+    "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

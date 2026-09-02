@@ -223,6 +223,27 @@ jobs:
 
       # BOTH OUTAGES, RECONSTRUCTED, EACH FAILING ITS OWN GUARD ON DEMAND.
       # Neither guard had ever been seen to fail anywhere except production.
+      # P3-11e. THE DEPLOYED HALF OF THE ORDERING RULE, AND ITS REFUSALS.
+      #
+      #   an ADDITIVE migration applies BEFORE the code that reads it merges
+      #   a REMOVAL migration applies AFTER the code that stops reading it is
+      #                            merged AND DEPLOYED
+      #
+      # check:removal-safety proves MERGED. check-deployed-commit proves DEPLOYED:
+      # it asks /api/health which commit production is running and refuses unless
+      # git says the commit being applied against is an ancestor of it. It replaces
+      # RC_DEPLOY_CONFIRMED, which was an operator statement standing in for a
+      # fact, and an operator statement is what produced INC-06.
+      #
+      # THE CHECK ITSELF IS NOT RUN HERE, and it must not be: a pull request
+      # branch is not deployed and never will be, so it would fail on every green
+      # run and be switched off within a week. What runs here is the PROOF that
+      # its eleven refusals fire, against a fake health route on 127.0.0.1, each
+      # paired with a control that must pass on the same harness. No network
+      # beyond loopback, no credentials, no production.
+      - name: Prove the deployed-commit guard refuses
+        run: npm run prove:deployed-commit
+
       - name: Prove both schema-direction guards still fire
         run: npm run prove:schema-direction
 
