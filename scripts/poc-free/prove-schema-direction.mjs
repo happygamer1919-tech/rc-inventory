@@ -18,7 +18,7 @@
 // because a guard that does not fire on a reconstruction of the exact outage it
 // was written for is not guarding anything.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -155,10 +155,22 @@ function run(script, env) {
 }
 
 // ===========================================================================
-// THE APPLIER REFUSES A REMOVAL, AND REFUSES IT TWICE OVER
+// THE APPLIER REFUSES A REMOVAL UNTIL PRODUCTION SAYS IT IS RUNNING THE CODE
 // ===========================================================================
-// Both refusals are exercised as a DRY RUN, which evaluates every gate and exits
-// before the first psql call, so the fixture tree can never reach a database.
+//
+// REWRITTEN BY P3-11e. This block used to assert RC_DEPLOY_CONFIRMED: the
+// applier refused a removal until the OPERATOR STATED that the deploy had
+// landed, and accepted it the moment they did. That statement is exactly the
+// guess that produced INC-06, and it is gone.
+//
+// What is asserted now is the wiring: the applier runs
+// check-deployed-commit.mjs, refuses when it refuses, and proceeds when it
+// passes. The check's own eleven refusals are proved separately by
+// scripts/poc-free/prove-deployed-commit.mjs; this block is about the applier
+// being connected to it at all.
+//
+// Both cases are DRY RUNS, which evaluate every gate and exit before the first
+// psql call, so the fixture tree can never reach a database.
 {
   const dir = build({
     "mig/0027_drop_products_supplier_name.sql":
@@ -170,27 +182,80 @@ function run(script, env) {
     RC_APPLY_DRY_RUN: "yes",
     RC_APPLY_MIGRATIONS_DIR: join(dir, "mig"),
     RC_APPLY_REGISTER: join(dir, "REG.md"),
-    RC_DEPLOY_CONFIRMED: "",
   };
 
-  const refused = run("scripts/apply-pending-migrations.mjs", base);
+  // --- 1. THE HEALTH ROUTE IS UNREACHABLE ----------------------------------
+  // Port 1 is never listening. No server is needed to prove a refusal, and not
+  // needing one is worth having: this case cannot pass because a fixture failed
+  // to start.
+  const refused = run("scripts/apply-pending-migrations.mjs", {
+    ...base,
+    RC_HEALTH_ORIGIN: "http://127.0.0.1:1",
+  });
   const rOut = (refused.stdout || "") + (refused.stderr || "");
   record(
-    "applier refuses a removal when the deploy is not confirmed",
-    refused.status === 2 && /DEPLOY cannot be verified/.test(rOut),
-    `exit ${refused.status}. A removal applying without a confirmed deploy is INC-06 again.`,
+    "applier refuses a removal when production cannot be asked what it is running",
+    refused.status === 2 && /the DEPLOY is not proven/.test(rOut),
+    `exit ${refused.status}. A removal applying without a proven deploy is INC-06 again.\n${rOut.slice(-500)}`,
   );
 
-  const allowed = run("scripts/apply-pending-migrations.mjs", {
+  // --- 2. RC_DEPLOY_CONFIRMED IS DEAD AND DOES NOT REVIVE IT ---------------
+  // The old escape hatch, set exactly as the old instructions said. It must
+  // change nothing: a statement that still works beside a machine check is the
+  // one that gets used at three in the morning.
+  const stated = run("scripts/apply-pending-migrations.mjs", {
     ...base,
+    RC_HEALTH_ORIGIN: "http://127.0.0.1:1",
     RC_DEPLOY_CONFIRMED: "yes",
   });
-  const aOut = (allowed.stdout || "") + (allowed.stderr || "");
+  const sOut = (stated.stdout || "") + (stated.stderr || "");
   record(
-    "  ...and allows it once the operator confirms, recorded as a statement",
-    allowed.status === 0 && /deploy confirmed by the operator/.test(aOut),
-    `exit ${allowed.status}. If this fails the gate can never be satisfied and no column can ever be dropped.`,
+    "  ...and RC_DEPLOY_CONFIRMED=yes no longer buys past that refusal",
+    stated.status === 2 && /the DEPLOY is not proven/.test(sOut),
+    `exit ${stated.status}. The operator statement is supposed to be dead.\n${sOut.slice(-500)}`,
   );
+
+  // --- 3. IT PROCEEDS WHEN PRODUCTION REPORTS A COMMIT CONTAINING THIS TREE -
+  //
+  // WITHOUT THIS CONTROL THE TWO REFUSALS ABOVE PROVE NOTHING: an applier that
+  // refused every removal unconditionally would satisfy both, and no column
+  // could ever be dropped again.
+  //
+  // The fake route runs in ANOTHER PROCESS. run() is spawnSync and blocks the
+  // event loop, so a server in this process could never answer, and the control
+  // would fail while looking like a refusal that fired correctly.
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" })
+    .stdout.trim();
+  const fake = spawn("node", [join(HERE, "fake-health-server.mjs"), "--commit", head, "--ledger", "0028"], {
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const origin = await new Promise((resolveOrigin, rejectOrigin) => {
+    const timer = setTimeout(() => rejectOrigin(new Error("the fake health route did not start")), 10000);
+    let buf = "";
+    fake.stdout.on("data", (d) => {
+      buf += d;
+      const line = buf.split("\n")[0].trim();
+      if (line.startsWith("http://")) {
+        clearTimeout(timer);
+        resolveOrigin(line);
+      }
+    });
+  }).catch((e) => {
+    record("  ...and proceeds once production reports a commit containing this tree", false, e.message);
+    return null;
+  });
+
+  if (origin) {
+    const allowed = run("scripts/apply-pending-migrations.mjs", { ...base, RC_HEALTH_ORIGIN: origin });
+    const aOut = (allowed.stdout || "") + (allowed.stderr || "");
+    record(
+      "  ...and proceeds once production reports a commit containing this tree",
+      allowed.status === 0 && /\nOK: production is running exactly the commit|already deployed/.test(aOut),
+      `exit ${allowed.status}. If this fails the gate can never be satisfied and no column can ever be dropped.\n${aOut.slice(-600)}`,
+    );
+    fake.kill();
+  }
+
   rmSync(dir, { recursive: true, force: true });
 }
 

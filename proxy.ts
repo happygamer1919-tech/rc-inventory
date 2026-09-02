@@ -50,6 +50,23 @@ function isPublic(pathname: string): boolean {
   // "Public" aici inseamna doar "proxy-ul nu il redirecteaza". Ruta refuza
   // singura orice cerere fara antetul corect, si o face pe primul rand.
   if (pathname === "/api/extraction/callback") return true;
+  // EXT-08. LEGATURA CATRE DOCUMENT ESTE TOT UN ENDPOINT DE MASINA.
+  //
+  // Extractorul lui Andre descarca documentul de aici, fara sesiune si fara
+  // cookie. Autorizarea ei este jetonul semnat de Supabase din querystring,
+  // verificat de Supabase insusi, si ruta nu poate acorda nimic peste el.
+  //
+  // FARA ACEASTA EXCEPTIE FIECARE ESEC AR FI O PAGINA DE AUTENTIFICARE. Proxy-ul
+  // ar raspunde 307 catre /login, un client care urmareste redirectarile ar primi
+  // 200 si text/html, iar Make ar raporta "raspuns care nu este document" fara sa
+  // poata spune daca legatura a expirat sau s-a stricat. Contractul din
+  // docs/contracts/document-url.md interzice exact acel raspuns, deci linia
+  // aceasta este parte din contract si nu o comoditate.
+  //
+  // Matcher-ul de la finalul fisierului exclude deja caile care se termina in
+  // ".pdf", deci astazi majoritatea acestor cereri nici nu ajung la proxy. Pe
+  // aceea nu se poate baza nimeni: un obiect fara extensie, sau cu alta, ajunge.
+  if (pathname === "/api/documents" || pathname.startsWith("/api/documents/")) return true;
   // P3-11e. RUTA DE SANATATE ESTE INTEROGATA DE APLIER, DE PE ALTA MASINA.
   //
   // Ea spune ce commit ruleaza in productie, si aplierul refuza o migratie de
