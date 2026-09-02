@@ -67,6 +67,17 @@ function isPublic(pathname: string): boolean {
   // ".pdf", deci astazi majoritatea acestor cereri nici nu ajung la proxy. Pe
   // aceea nu se poate baza nimeni: un obiect fara extensie, sau cu alta, ajunge.
   if (pathname === "/api/documents" || pathname.startsWith("/api/documents/")) return true;
+  // P3-11e. RUTA DE SANATATE ESTE INTEROGATA DE APLIER, DE PE ALTA MASINA.
+  //
+  // Ea spune ce commit ruleaza in productie, si aplierul refuza o migratie de
+  // eliminare pana cand raspunsul acela dovedeste ca desfasurarea contine deja
+  // codul care a incetat sa citeasca obiectul eliminat. Cel care intreaba nu are
+  // sesiune si nu poate avea una: este un script, nu un ecran.
+  //
+  // Fara aceasta linie proxy-ul ar raspunde 307 catre /login, iar aplierul ar
+  // citi o pagina HTML de autentificare in loc de un commit. Ar refuza, ceea ce
+  // este partea sigura, dar ar refuza PENTRU TOTDEAUNA si pentru motivul gresit.
+  if (pathname === "/api/health") return true;
   return false;
 }
 

@@ -22,7 +22,9 @@
     "checks:state": "node scripts/poc-free/pr-check-state.mjs",
     "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs",
     "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
-    "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs"
+    "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs",
+    "prove:deployed-commit": "node scripts/poc-free/prove-deployed-commit.mjs",
+    "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
