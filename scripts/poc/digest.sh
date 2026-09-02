@@ -35,7 +35,19 @@ DIGEST_STATE=${POC_DIGEST_STATE:-$DIGEST_LOG_DIR/digest-state.json}
 # on a machine that just woke up is slow.
 DIGEST_STALE_LOCK_SECONDS=${POC_DIGEST_STALE_LOCK_SECONDS:-600}
 
-PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# P3-11b. THE OWNER'S DIRECTORIES ARE PREPENDED, NOT SUBSTITUTED.
+#
+# launchd hands a job a minimal PATH that has neither node nor git in it, which
+# is why these directories are named literally: on the Mac they are still what
+# wins, in the order they are written, exactly as before.
+#
+# What changed is the `:$PATH` at the end. Replacing PATH outright meant this
+# script could only ever run on one machine, so the install-then-invoke
+# acceptance this card requires could not run anywhere else: on a Linux runner
+# node is under /opt/hostedtoolcache and none of the paths above contain it, so
+# the digest died at `node` with the installer reported as fine. An installer
+# proved only by an invocation that cannot run is the same gap one level up.
+PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}
 export PATH
 
 DIGEST_FORCE=no
