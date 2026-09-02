@@ -438,7 +438,16 @@ if (target !== "shim" && target !== "production") {
       "  production:  also set the PG* variables (PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD)",
   );
 }
-if (target === "shim" && !container)
+// PROVE-01. THE PRINT MODE NEEDS NO TARGET AT ALL.
+//
+// It reads the migration files, builds the assertion bodies and prints them.
+// Nothing connects, so demanding a container would be demanding a database in
+// order to look at a string. The exemption is HERE and not earlier so the print
+// mode still goes through every other refusal above it: an unreadable register
+// or a missing migrations directory is still fatal, because an assertion list
+// built from a tree that does not resolve is not the shipped one.
+const printOnly = process.env.RC_APPLY_PRINT_ASSERTIONS === "yes";
+if (target === "shim" && !container && !printOnly)
   die(EXIT_ENV, "RC_APPLY_TARGET=shim requires RC_APPLY_CONTAINER=<docker container name>");
 
 // psql is not on the default PATH on this machine. The location is read from
@@ -933,6 +942,22 @@ P(`\\echo '=====================================================================
 const assertions = [];
 const A = (name, body) => assertions.push({ name, body });
 
+// PROVE-01. A RECONCILIATION NOTICE IS NOT AN ASSERTION AND STOPS BEING COUNTED
+// AS ONE.
+//
+// outbound-destination-backfill and supplier-backfill sat in the assertion list
+// and their whole body was `raise notice`. They have no `raise exception` on any
+// path, so THEY CANNOT FAIL, and they were counted in "N assertions passed" and
+// in the row this script writes to docs/PRODUCTION-WRITES.md. The record said
+// thirteen guards held when eleven did and two printed a number.
+//
+// They are useful and they are kept, exactly as they are. What changes is that
+// they are counted and reported as what they are. The rule this follows is the
+// one docs/LEARNINGS.md now states as its fourth instance: any check whose
+// passing path is reachable without the condition being true is not a check.
+const notices = [];
+const N = (name, body) => notices.push({ name, body });
+
 A("every-pending-applied", `
 declare missing text;
 begin
@@ -1093,14 +1118,14 @@ begin
   end if;
 end`);
 
-A("outbound-destination-backfill", `
+N("outbound-destination-backfill", `
 declare v_unmatched bigint;
 begin
   select count(*) into v_unmatched from public.outbound_issues where project_id is null;
   raise notice 'P3-04 reconciliation: outbound_issues with no project_id = %', v_unmatched;
 end`);
 
-A("supplier-backfill", `
+N("supplier-backfill", `
 declare v_unmatched bigint;
 begin
   -- SAME REASON AS THE GRID: what exists is a question for the database, not for
@@ -1204,9 +1229,33 @@ begin
 end`);
 }
 
+// PROVE-01. THE ASSERTION BODIES, PRINTED, FOR THE PROOF THAT THEY CAN FAIL.
+//
+// scripts/poc-free/prove-assertions-can-fail.mjs runs EVERY assertion below
+// against a correct database (it must hold) and then against a database
+// perturbed to violate it (it must raise). It reads the bodies from here rather
+// than carrying copies, for the same reason test-ask-digest.sh lifts
+// responder.sh's offset program out from between fences: a copy drifts, and the
+// proof goes on passing about the copy.
+//
+// IT PRINTS AND EXITS. No connection is opened, no secret is read, no database
+// is touched, and the pending register is not modified. The mode exists so a
+// proof can be about the SHIPPED text.
+if (printOnly) {
+  process.stdout.write(JSON.stringify({ assertions, notices }, null, 2) + "\n");
+  process.exit(EXIT_OK);
+}
+
 for (const a of assertions) {
   P(`\\echo '  assert ${a.name}'`);
   P(`do $rc$ ${a.body} $rc$;`);
+}
+
+// The notices run in the same transaction and in the same place they always did.
+// Only their LABEL changed, so nobody reads a printed number as a guard.
+for (const n of notices) {
+  P(`\\echo '  notice ${n.name} (reports a number, cannot fail)'`);
+  P(`do $rc$ ${n.body} $rc$;`);
 }
 
 // --- 6e. The post-check grid, still inside the transaction ----------------
@@ -1303,6 +1352,7 @@ out("\n" + "=".repeat(78) + "\n");
 out(`batch sha256           ${batchSha}\n`);
 out(`script sha256          ${scriptSha}\n`);
 out(`assertions             ${assertions.length}\n`);
+out(`notices                ${notices.length} (report a number, cannot fail)\n`);
 out("=".repeat(78) + "\n\n");
 
 const started = new Date();
@@ -1353,7 +1403,7 @@ if (res.status !== 0) {
 }
 
 const finished = new Date();
-out(`\napplied and committed: ${pending.length} migrations, ${assertions.length} assertions passed\n`);
+out(`\napplied and committed: ${pending.length} migrations, ${assertions.length} assertions passed, ${notices.length} notices printed\n`);
 
 // ---------------------------------------------------------------------------
 // 8. THE JOURNALS, WRITTEN ONLY AFTER A COMMIT
@@ -1369,7 +1419,7 @@ if (target === "production") {
   const reportPath = process.env.RC_APPLY_REPORT ?? `docs/reports/${day}-executor-p3-27-apply.md`;
   const row =
     `| ${day} | **EXECUTOR terminal**, under R-082 | \`scripts/apply-pending-migrations.mjs\` | ` +
-    `\`${scriptSha}\` | **${assertions.length} of ${assertions.length} passed**, committed on all-pass | ` +
+    `\`${scriptSha}\` | **${assertions.length} of ${assertions.length} passed**, committed on all-pass (plus ${notices.length} reconciliation notices, which report a number and cannot fail) | ` +
     `**0 rows deleted**, ${pending.length} migrations applied (${versions[0]} to ${highest}) | \`${reportPath}\` |\n`;
 
   const writes = readFileSync(WRITES_LOG, "utf8");

@@ -259,6 +259,139 @@ function run(script, env) {
   rmSync(dir, { recursive: true, force: true });
 }
 
+// ===========================================================================
+// PROVE-01. THE REFUSAL PATHS THAT HAD NO FAILING CASE
+// ===========================================================================
+//
+// The two guards above each had exactly one fixture, covering one of their exit
+// paths. The others had never been watched fail. An assertion nobody has watched
+// fail is an assertion nobody has tested, and these two guards are what stand
+// between a removal migration and a repeat of INC-06.
+//
+// Each case below is paired with a control on the same fixture shape, so a
+// fixture that fails to build cannot satisfy the refusal by dying.
+
+// --- check-removal-safety: a TABLE drop, not a column ----------------------
+{
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/clients.ts":
+      'import { createClient } from "@/lib/supabase/server";\n' +
+      "export async function listClients() {\n" +
+      '  const supabase = await createClient();\n' +
+      '  return supabase.from("clients").select("id, name");\n' +
+      "}\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety refuses a TABLE drop while code still reads the table",
+    r.status !== 0 && /table clients/.test(out),
+    `exit ${r.status}. Only the COLUMN path had a fixture before this card.\n${out.slice(0, 400)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+{
+  // The control for the case above: the same table drop with no reader left.
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/orders.ts": "export const ORDERS = 1;\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  record(
+    "  ...and allows the same TABLE drop once nothing reads it",
+    r.status === 0,
+    `exit ${r.status}. If this fails the guard blocks every table drop forever.`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-removal-safety: a FUNCTION drop, reached through .rpc() ---------
+{
+  const dir = build({
+    "migrations/0099_drop_fn.sql":
+      "begin;\ndrop function public.confirm_extraction_draft(uuid);\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_fn.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/extraction.ts":
+      'export async function confirm(supabase, id) {\n' +
+      '  return supabase.rpc("confirm_extraction_draft", { p_id: id });\n' +
+      "}\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety refuses a FUNCTION drop while code still calls it through rpc()",
+    r.status !== 0 && /confirm_extraction_draft/.test(out),
+    `exit ${r.status}. This path had never been watched fail.\n${out.slice(0, 400)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-removal-safety: no source directory is a REFUSAL, not an OK -----
+//
+// The most dangerous shape a check can have: pointed at nothing, find nothing,
+// report clean. It exits 2 instead, and this is the case that proves it.
+{
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "does-not-exist"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety REFUSES when it has no source to scan, rather than reporting clean",
+    r.status === 2 && /refusing to report OK/.test(out),
+    `exit ${r.status}. A check pointed at nothing that reports OK is the worst shape available.\n${out.slice(0, 300)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-pending-schema-reads: a stale exemption -------------------------
+//
+// The exemption list is how a false positive is silenced, so a rotting entry is
+// how a real reader gets silenced. The check refuses an entry naming a file that
+// no longer exists, and that refusal had no fixture.
+{
+  const dir = build({
+    "migrations/0099_add_col.sql":
+      "begin;\nalter table public.products add column rc_prove_01 text;\ncommit;\n",
+    "REGISTER.md": "- `0099_add_col.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/nothing.ts": "export const NOTHING = 1;\n",
+  });
+  const r = run("scripts/poc-free/check-pending-schema-reads.mjs", {
+    RC_PENDING_REGISTER: join(dir, "REGISTER.md"),
+    RC_PENDING_MIGRATIONS: join(dir, "migrations"),
+    RC_PENDING_SOURCE: join(dir, "src"),
+    RC_PENDING_EXEMPT_EXTRA: "lib/data/a-file-that-was-deleted.ts",
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "pending-schema-reads refuses an exemption naming a file that no longer exists",
+    r.status !== 0 && /a-file-that-was-deleted/.test(out),
+    `exit ${r.status}. A rotting exemption is how a real reader gets silenced.\n${out.slice(0, 400)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length} of ${results.length} passed`);
 process.exit(failed.length === 0 ? 0 : 1);
