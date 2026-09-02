@@ -2897,3 +2897,22 @@ Supabase serves deleted objects forever, and a probe that had used only the
 cache-busted URL would never have learned this. **When probing a cached edge, run
 both the plain and the cache-busted request and report the difference; either one
 alone tells a story that is wrong in a different direction.**
+
+### Node 20 in CI cannot import a .ts file, and the fix is not to bump Node
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-document-url-contract.mjs` imported the
+classifier from `lib/data/document-url.ts`. It ran locally on node 22.22, which
+strips type annotations by default since 22.18, and it failed in `quality` with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+the workflow pins `node-version: 20`. The check had passed every local run.
+**SOLUTION:** The pure logic moved to `lib/data/document-url-contract.mjs`, plain
+ESM with a hand-written `.d.mts` beside it, imported by both the TypeScript route
+and the node check. **The tempting fix was to raise `node-version` in the
+workflow, and it was the wrong one:** that changes the runtime for all twenty-two
+steps of the job for a reason that has nothing to do with any of them, and a
+green afterwards would be a green on a different environment than the one the
+last hundred merges were proved on. The rule: **when a local run and CI disagree,
+find which environment difference explains it before changing either, and prefer
+the change whose blast radius is one file.** Proved under the real version with
+`docker run --rm -v "$PWD:/w:ro" -w /w node:20-alpine node <script>` before the
+second push.

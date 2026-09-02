@@ -26,7 +26,7 @@ import {
   DOCUMENT_STATUS,
   classifyStorageFailure,
   tokenExpiry,
-} from "../../lib/data/document-url.ts";
+} from "../../lib/data/document-url-contract.mjs";
 
 // Un jeton de forma reala: trei segmente, payload citibil, semnatura care nu
 // este verificata de nimeni aici. Nu deschide nimic, nicaieri.
