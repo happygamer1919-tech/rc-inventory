@@ -24,7 +24,9 @@
     "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
     "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs",
     "prove:deployed-commit": "node scripts/poc-free/prove-deployed-commit.mjs",
-    "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs"
+    "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs",
+    "check:unique-ids": "node scripts/poc-free/check-unique-ids.mjs",
+    "prove:unique-ids": "node scripts/poc-free/prove-unique-ids.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
