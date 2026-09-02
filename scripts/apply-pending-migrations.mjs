@@ -638,14 +638,26 @@ const { tables, columns, functions, dropped, droppedFunctions } = objectsPromise
 // it. check:removal-safety enumerates readers against the TABLE, and this script
 // refuses to run the batch while that check is red.
 //
-// THE MERGED HALF IS ASSERTED HERE. THE DEPLOYED HALF IS NOT, AND IS NOT FAKED.
+// BOTH HALVES ARE ASSERTED HERE NOW. P3-11e CLOSED THE SECOND ONE.
+//
 // The rule is that a removal applies after the code that stops reading it is
-// merged AND DEPLOYED, and this process cannot see a deployment: there is no
-// usable Vercel credential in the single permitted secret read, and a substitute
-// for "deployed" invented here would be exactly the guess that produced INC-06.
-// The question is open to the owner on card P3-11c through scripts/poc/ask.sh.
-// UNTIL IT IS ANSWERED, A BATCH CONTAINING A REMOVAL IS REFUSED unless the
-// operator states, in the environment, that the deploy has landed.
+// merged AND DEPLOYED. check-removal-safety proves MERGED: no reader remains on
+// main. check-deployed-commit proves DEPLOYED: it asks /api/health which commit
+// production is running and refuses unless git says the commit being applied
+// against is an ancestor of it, which is true only when the live deployment
+// CONTAINS this tree.
+//
+// IT NEEDS NO CREDENTIAL. Vercel exposes VERCEL_GIT_COMMIT_SHA to the
+// application at build time, so the deployment states its own commit. There is
+// no Vercel API call and no VERCEL_TOKEN, and that is deliberate: this check
+// survives P2-13's credential revocation, and a check that dies when the keys
+// rotate is a check that dies on the day it matters.
+//
+// RC_DEPLOY_CONFIRMED IS GONE AND IS NOT KEPT AS A FALLBACK. It was an operator
+// statement, which is precisely the guess that produced INC-06. An operator
+// statement that survives beside a machine check is the one that gets used at
+// three in the morning. If the health route cannot be reached, this REFUSES; it
+// does not fall back to asking.
 const batchRemoves =
   dropped.size > 0 || droppedFunctions.size > 0 || allDropFunctions.length > 0;
 
@@ -666,24 +678,38 @@ if (batchRemoves) {
     process.exit(EXIT_FORBIDDEN);
   }
 
-  const deployed = process.env.RC_DEPLOY_CONFIRMED === "yes";
-  if (target === "production" && !deployed) {
-    err("\n" + "!".repeat(78) + "\n");
-    err("REFUSED. This batch removes schema and the DEPLOY cannot be verified from here.\n");
-    err("!".repeat(78) + "\n");
-    err(
-      "\nA removal applies only after the code that stops reading it is merged AND DEPLOYED.\n" +
-        "check-removal-safety proved the MERGED half: no reader remains on main.\n" +
-        "The DEPLOYED half is an open question on card P3-11c and is deliberately not guessed,\n" +
-        "because guessing it is what produced INC-06.\n\n" +
-        "If you have confirmed the deploy carrying that code is live, re-run with\n" +
-        "  RC_DEPLOY_CONFIRMED=yes\n" +
-        "and the confirmation is recorded in the journal as an operator statement.\n",
+  if (target === "production") {
+    // P3-11e. THE DEPLOYED HALF, ASKED OF PRODUCTION ITSELF.
+    const deployedCheck = spawnSync(
+      "node",
+      [join(ROOT, "scripts/poc-free/check-deployed-commit.mjs")],
+      { encoding: "utf8" },
     );
-    process.exit(EXIT_FORBIDDEN);
+    if (deployedCheck.stdout) out(deployedCheck.stdout);
+    if (deployedCheck.status !== 0) {
+      err(deployedCheck.stderr || "");
+      err("\n" + "!".repeat(78) + "\n");
+      err("REFUSED. This batch removes schema and the DEPLOY is not proven. NOTHING was executed.\n");
+      err("!".repeat(78) + "\n");
+      err(
+        "\nRC_DEPLOY_CONFIRMED no longer exists and is not coming back. It was an operator\n" +
+          "statement standing in for a fact, which is what produced INC-06. The fact is now\n" +
+          "available: /api/health reports the commit production is running, with no credential.\n\n" +
+          "If the deployment has not finished, wait for it. If the health route is unreachable,\n" +
+          "fix that. Neither is a reason to apply.\n",
+      );
+      process.exit(EXIT_FORBIDDEN);
+    }
+    // A leftover from the old path is named rather than ignored: an operator who
+    // still exports it is working from an instruction that no longer applies,
+    // and silence would let them believe it did something.
+    if (process.env.RC_DEPLOY_CONFIRMED !== undefined) {
+      out(
+        "\nNOTE: RC_DEPLOY_CONFIRMED is set in this environment and was IGNORED.\n" +
+          "P3-11e replaced it with check-deployed-commit, which just passed on its own.\n",
+      );
+    }
   }
-  if (deployed)
-    out("\ndeploy confirmed by the operator via RC_DEPLOY_CONFIRMED, recorded as a statement\n");
 }
 
 if (dryRun) {

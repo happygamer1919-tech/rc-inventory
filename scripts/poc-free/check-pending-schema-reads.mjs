@@ -85,6 +85,22 @@ const EXEMPT = {
     'getProjectDevizView este chemat dintr-un singur loc, app/(app)/proiecte/[id]/page.tsx, care randeaza SchemaPending si se intoarce inainte sa il cheme. Celelalte trei importuri din fisier sunt `import type` si dispar la compilare.',
   'lib/data/deviz-actions.ts':
     'scrierile de deviz sunt chemate numai din components/projects/DevizPanel.tsx, care este randat de ProjectTabs numai in arborele lui /proiecte/[id], adica numai dupa aceeasi poarta.',
+  // P3-11e. Singura scutire de pe lista aceasta care NU este aparata de o
+  // poarta, si care nu poate fi: hasPhase3Schema raspunde la alta intrebare, iar
+  // o poarta pentru 0028 ar fi ea insasi o functie dintr-o migratie neaplicata,
+  // exact cursa pe care antetul lui schema-capability.ts o numeste.
+  //
+  // Ruta este structural incapabila sa cada pe lipsa functiei: apelul rpc este
+  // intr-un try, o eroare de la PostgREST devine null, si null se citeste ca
+  // "nu stiu" si nu ca "niciuna", inclusiv de aplierul care o interogheaza.
+  // Numarul de versiune este in plus fata de ce foloseste aplierul: el decide pe
+  // commit, care nu atinge baza de date deloc.
+  //
+  // O RUTA DE SANATATE CARE CADE ESTE MAI RAU DECAT INUTILA, si aceea este
+  // ratiunea de a fi a formei: este singurul endpoint pe care cineva il
+  // interogheaza tocmai cand restul este stricat.
+  'app/api/health/route.ts':
+    'apelul catre applied_ledger_version() este intr-un try si orice eroare devine null, deci ruta raspunde 200 cu ledger_version null si nu se prabuseste cat timp 0028 este in asteptare. Aplierul decide pe campul commit, care nu atinge baza de date.',
 };
 
 function pendingMigrations() {
