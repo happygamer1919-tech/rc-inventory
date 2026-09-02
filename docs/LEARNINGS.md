@@ -2864,3 +2864,91 @@ when a check reports a count, the count must be of what it actually inspected,
 and a scanner whose regex is anchored to the start of a line is inspecting one
 token out of however many are there. A self-test case now asserts exactly this,
 with a two-id subject whose SECOND id is the unresolvable one.
+
+### A matcher that fails to match reports as no work, not as an error
+**Tag:** ci
+**ERROR:** Third instance of one defect, and it is now named as a class. The
+pending-register regex excluded lowercase card ids and reported nothing pending.
+`inbox.mjs` upper-cased a card id before comparing it against verbatim board ids
+and matched none. The `grep -v` extraction filter dropped a line that was a real
+reader and reported the removal safe. In all three the matcher ran, matched
+nothing, and the empty result was read as "there is nothing to do" rather than as
+"this did not work". None of the three was red anywhere.
+**SOLUTION:** **Any matcher whose empty result means "nothing to do" asserts its
+input count against its match count and fails when they diverge.** A scanner that
+reads 220 subjects and resolves 0 ids is broken, not clean, and it is the only
+one that can tell the difference. The general rule: a check that can report
+success without having inspected anything is not a check, it is a coin that lands
+the same way twice.
+
+### Keying on a response field that only one deployment sends
+**Tag:** backend
+**ERROR:** The EXT-08 classifier switched on the `code` field of a Supabase
+Storage error body, written from captures taken against the hosted project, which
+sends it. The storage server in the local Supabase stack, which is the one CI
+runs, does not send `code` at all: only `statusCode`, `error` and `message`. Both
+token cases fell through to the unrecognised branch and answered 502 where the
+contract requires 400 and 401. Two of eight end-to-end cases failed on the first
+local run.
+**SOLUTION:** Key on `error` and `statusCode`, which both deployments send, and
+accept `code` as a bonus where it exists. The rule that generalises: **when two
+deployments of the same service are in play and only one is reachable from CI,
+the fields the unreachable one sends must be replayed from captured bodies in a
+check that needs no network.** The inverse of this bug, a classifier keyed only on
+what the local server sends, would have passed CI forever and failed only in
+production, with nothing turning red. `scripts/poc-free/check-document-url-contract.mjs`
+replays both shapes for exactly that reason.
+
+### A CDN can serve a deleted object through a still-valid signed URL
+**Tag:** infra
+**ERROR:** While probing the not-found path, the probe object was deleted and the
+same signed URL re-fetched. The response was `200 OK` with the original bytes,
+`cf-cache-status: HIT`, `x-smart-cdn: true`. The `404` shape only appeared on a
+cache-busted request a minute later.
+**SOLUTION:** Nothing was changed: bucket policy 0002 grants DELETE to no
+application role precisely so a document behind an order cannot vanish. It is
+recorded because a probe that had used the plain URL would have concluded that
+Supabase serves deleted objects forever, and a probe that had used only the
+cache-busted URL would never have learned this. **When probing a cached edge, run
+both the plain and the cache-busted request and report the difference; either one
+alone tells a story that is wrong in a different direction.**
+
+### Node 20 in CI cannot import a .ts file, and the fix is not to bump Node
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-document-url-contract.mjs` imported the
+classifier from `lib/data/document-url.ts`. It ran locally on node 22.22, which
+strips type annotations by default since 22.18, and it failed in `quality` with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+the workflow pins `node-version: 20`. The check had passed every local run.
+**SOLUTION:** The pure logic moved to `lib/data/document-url-contract.mjs`, plain
+ESM with a hand-written `.d.mts` beside it, imported by both the TypeScript route
+and the node check. **The tempting fix was to raise `node-version` in the
+workflow, and it was the wrong one:** that changes the runtime for all twenty-two
+steps of the job for a reason that has nothing to do with any of them, and a
+green afterwards would be a green on a different environment than the one the
+last hundred merges were proved on. The rule: **when a local run and CI disagree,
+find which environment difference explains it before changing either, and prefer
+the change whose blast radius is one file.** Proved under the real version with
+`docker run --rm -v "$PWD:/w:ro" -w /w node:20-alpine node <script>` before the
+second push.
+
+### The same Node 20 gap again, one layer up: supabase-js needs a global WebSocket
+**Tag:** ci
+**ERROR:** `tests/e2e/document-url.spec.ts` built its storage fixtures with
+`@supabase/supabase-js`. It passed every local run on node 22.22 and failed all
+four storage-touching cases in `quality` with `Error: Node.js detected but native
+WebSocket not found.` The client constructs a realtime client that needs a global
+`WebSocket`; node 22 has one, **node 20 does not**, and the workflow pins node 20.
+Other files in the repository use the same client under node 20 without trouble,
+so "supabase-js works in CI" was true and still did not cover this construction.
+**SOLUTION:** The spec drives Supabase Storage over its HTTP API with plain
+`fetch`: `POST /storage/v1/object/<bucket>/<path>` to upload, `POST
+/storage/v1/object/sign/<bucket>/<path>` to sign, `DELETE` to remove. The signing
+path is identical either way. **This was not only a fix.** The contract under test
+is an HTTP contract, so a test that exercises it over HTTP checks what the other
+side actually sees rather than what a client library makes of it. The rule:
+**when the thing under test is a wire contract, drive it on the wire**, and a
+client library in the test is a second implementation that can pass while the
+contract fails. Second instance of the node 20 gap in one card, which is why the
+version divergence itself is now the first thing checked when local and CI
+disagree.
