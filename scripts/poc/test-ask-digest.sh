@@ -125,8 +125,43 @@ classify() {
   CL_ASKS=$2
   CL_OWNER=${3:-$OWNER}
   CL_SCRIPT=${4:-$CLASSIFY_MJS}
+  CL_RULINGS=${5:-$CL_ASKS/rulings}
   TELEGRAM_OWNER_ID=$CL_OWNER node "$CL_SCRIPT" \
-    --updates "$CL_UPDATES" --log "$CL_ASKS/ignored.log" --asks "$CL_ASKS" 2>/dev/null
+    --updates "$CL_UPDATES" --log "$CL_ASKS/ignored.log" --asks "$CL_ASKS" \
+    --rulings "$CL_RULINGS" 2>/dev/null
+}
+
+# P3-11a. TWO updates in ONE getUpdates batch: an ordinary chat message and a
+# ruling form. That is the exact shape of the defect, because the responder read
+# both, answered the first, ignored the second, and acknowledged past both.
+two_update_batch() {
+  TB_PATH=$1
+  TB_CHAT=$2
+  TB_RULING=$3
+  cat > "$TB_PATH" <<JSON
+{"ok":true,"result":[
+ {"update_id":9101,"message":{"message_id":81,"from":{"id":$OWNER,"is_bot":false},"chat":{"id":$OWNER,"type":"private"},"text":$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$TB_CHAT")}},
+ {"update_id":9102,"message":{"message_id":82,"from":{"id":$OWNER,"is_bot":false},"chat":{"id":$OWNER,"type":"private"},"text":$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$TB_RULING")}}
+]}
+JSON
+}
+
+# The REAL offset computation, lifted out of responder.sh between its fences.
+highest_ackable() {
+  HA_ROWS=$1
+  HA_PROG=$WORK/highest-ackable.js
+  awk '
+    $0 == "# EXTRACT-BEGIN highest-ackable" { taking = 1; next }
+    $0 == "# EXTRACT-END highest-ackable"   { taking = 0; found = 1; next }
+    taking { print }
+    END { if (!found) exit 3 }
+  ' "$HERE/responder.sh" > "$WORK/highest-ackable.sh" || {
+    echo "FATAL: no EXTRACT block named highest-ackable in responder.sh"
+    exit 1
+  }
+  # The block is a shell assignment wrapping a node program. Run it with
+  # CLASSIFIED bound to the rows under test and echo what it computed.
+  CLASSIFIED=$(cat "$HA_ROWS") bash -c "$(cat "$WORK/highest-ackable.sh"); echo \"\$HIGHEST\""
 }
 
 echo "ask.sh under test:   $ASK_SH"
@@ -967,6 +1002,148 @@ if grep -q 'ask.sh' "$REPO_ROOT/CLAUDE.md"; then
 else
   fail "CLAUDE.md does not name ask.sh"
 fi
+# ===========================================================================
+# P3-11a. A RULING IN THE SAME BATCH AS A CHAT MESSAGE SURVIVES THE RESPONDER.
+# ===========================================================================
+#
+# THE DEFECT, WHICH WAS LIVE IN THE OWNER'S OWN DECISION PATH. responder.sh
+# polls getUpdates every 60 seconds, classifies, deliberately does not answer
+# ruling forms because inbox.mjs owns them, and then acknowledges the offset past
+# EVERY update it read. Telegram deletes an update once getUpdates is called with
+# an offset past it, so the ruling was gone before inbox.mjs, on the three hour
+# harness cycle, ever ran.
+#
+# THE ASSERTION IS END TO END AND USES THE REAL FILES: the real chat-classify.mjs
+# writes the spool, the real offset program is lifted out of responder.sh between
+# its fences, and the real inbox.mjs reads what is left.
+
+echo
+echo "P3-11a: a ruling in the same batch as a chat message"
+
+P11_DIR=$WORK/p311a
+mkdir -p "$P11_DIR"
+spool "$P11_DIR"
+P11_RULINGS=$P11_DIR/rulings
+P11_UPDATES=$P11_DIR/updates.json
+two_update_batch "$P11_UPDATES" "how many cards are left on the board" "R P2-13 default"
+
+P11_ROWS=$P11_DIR/rows.jsonl
+classify "$P11_UPDATES" "$P11_DIR" "$OWNER" "$CLASSIFY_MJS" "$P11_RULINGS" > "$P11_ROWS"
+
+if grep -q '"kind":"question"' "$P11_ROWS" && grep -q '"kind":"ruling"' "$P11_ROWS"; then
+  pass "one batch classifies as one question and one ruling"
+else
+  fail "the two-update batch did not classify as one question and one ruling: $(cat "$P11_ROWS")"
+fi
+
+if [ -f "$P11_RULINGS/pending/9102.json" ]; then
+  pass "the ruling reached the spool, named by its update id"
+else
+  fail "the ruling did NOT reach the spool; this is the defect P3-11a exists to close"
+fi
+
+# The responder may now acknowledge past BOTH, because the ruling is on disk.
+P11_HIGHEST=$(highest_ackable "$P11_ROWS")
+if [ "$P11_HIGHEST" = "9102" ]; then
+  pass "the responder acknowledges past both updates, because the ruling is safely spooled"
+else
+  fail "expected the acknowledgement to reach 9102, got '$P11_HIGHEST'"
+fi
+
+# AFTER the responder has run and acknowledged, inbox.mjs still sees the ruling.
+P11_INBOX=$(POC_RULING_DIR=$P11_RULINGS TELEGRAM_OWNER_ID=$OWNER \
+  node "$HERE/inbox.mjs" --dry-run 2>&1)
+if echo "$P11_INBOX" | grep -q "read 1 spooled ruling"; then
+  pass "inbox.mjs reads the ruling off the spool AFTER the responder acknowledged it"
+else
+  fail "inbox.mjs did not see the spooled ruling. Output: $P11_INBOX"
+fi
+if echo "$P11_INBOX" | grep -q "would rule on P2-13"; then
+  pass "inbox.mjs resolves the spooled ruling to its card"
+else
+  fail "inbox.mjs did not resolve the spooled ruling to P2-13. Output: $P11_INBOX"
+fi
+if [ -f "$P11_RULINGS/pending/9102.json" ]; then
+  pass "a dry run leaves the spool untouched"
+else
+  fail "the dry run consumed the spool, which would destroy the message the real run must act on"
+fi
+
+# THE FAILING HALF, WITHOUT WHICH THE ASSERTION IS UNTESTED. A mutant
+# chat-classify.mjs that behaves exactly as the file did before this card: it
+# labels the ruling and writes nothing. The mutation replaces the imported
+# spoolRuling with a no-op that SUCCEEDS, which is precisely the old behaviour:
+# the outcome is still reported as `ruling`, and nothing reaches disk.
+P11_MUT=$(mutant_tree p311a-old-classify)
+sed -i.bak \
+  's|^import { spoolRuling, RULING_DIR } from "./ruling-spool.mjs";$|import { RULING_DIR } from "./ruling-spool.mjs";\nconst spoolRuling = () => {};|' \
+  "$P11_MUT/chat-classify.mjs"
+if grep -q 'const spoolRuling = () => {};' "$P11_MUT/chat-classify.mjs"; then
+  pass "the old-classifier mutant was built"
+else
+  fail "the old-classifier mutant was NOT built, so nothing below it proves anything"
+fi
+
+P11_MDIR=$WORK/p311a-mut
+mkdir -p "$P11_MDIR"
+spool "$P11_MDIR"
+P11_MRULINGS=$P11_MDIR/rulings
+classify "$P11_UPDATES" "$P11_MDIR" "$OWNER" "$P11_MUT/chat-classify.mjs" "$P11_MRULINGS" > "$P11_MDIR/rows.jsonl"
+
+if grep -q '"kind":"ruling"' "$P11_MDIR/rows.jsonl"; then
+  pass "the mutant still runs and still classifies the ruling, so it is a real control"
+else
+  fail "the old-classifier mutant did not run at all, so it proves nothing"
+fi
+if [ -f "$P11_MRULINGS/pending/9102.json" ]; then
+  fail "the old classifier wrote a spool file, so this control is not testing what it claims"
+else
+  pass "the old classifier spools nothing, which is the defect"
+fi
+P11_MINBOX=$(POC_RULING_DIR=$P11_MRULINGS TELEGRAM_OWNER_ID=$OWNER \
+  node "$HERE/inbox.mjs" --dry-run 2>&1)
+if echo "$P11_MINBOX" | grep -q "read 0 spooled ruling"; then
+  pass "against the old classifier the ruling is LOST, which is what this case had to show fail"
+else
+  fail "the old classifier did not lose the ruling, so the assertion above proves nothing"
+fi
+
+# A SPOOL THAT CANNOT BE WRITTEN MUST NOT BE ACKNOWLEDGED.
+P11_STUCK_ROWS=$P11_DIR/stuck.jsonl
+printf '%s\n' \
+  '{"update_id":9101,"kind":"question","text":"x"}' \
+  '{"update_id":9102,"kind":"ruling_unspooled","reason":"EROFS"}' \
+  '{"update_id":9103,"kind":"question","text":"y"}' > "$P11_STUCK_ROWS"
+P11_STUCK=$(highest_ackable "$P11_STUCK_ROWS")
+if [ "$P11_STUCK" = "9101" ]; then
+  pass "the acknowledgement stops below a ruling that failed to spool, and does not skip past it"
+else
+  fail "expected the acknowledgement to stop at 9101, got '$P11_STUCK'"
+fi
+
+P11_ONLY_ROWS=$P11_DIR/only-stuck.jsonl
+printf '%s\n' '{"update_id":9102,"kind":"ruling_unspooled","reason":"EROFS"}' > "$P11_ONLY_ROWS"
+P11_ONLY=$(highest_ackable "$P11_ONLY_ROWS")
+if [ -z "$P11_ONLY" ]; then
+  pass "when the only update is an unspooled ruling, nothing is acknowledged at all"
+else
+  fail "expected no acknowledgement, got '$P11_ONLY'"
+fi
+
+# ONE READER. The claim is mechanical, so it is checked mechanically: no file in
+# scripts/poc other than responder.sh may call getUpdates with an offset.
+# This file is excluded from its own search, and by NAME rather than by a
+# cleverer pattern: it necessarily contains the string it is looking for, and a
+# pattern tuned to exclude itself would be a pattern that could stop matching the
+# real thing without anybody noticing.
+P11_OFFSET_CALLERS=$(grep -l 'getUpdates?offset=\|getUpdates", "?offset=' "$HERE"/*.mjs "$HERE"/*.sh 2>/dev/null \
+  | xargs -n1 basename 2>/dev/null | grep -v '^test-ask-digest.sh$' | sort | tr '\n' ' ')
+if [ "$(echo "$P11_OFFSET_CALLERS" | tr -d ' ')" = "responder.sh" ]; then
+  pass "exactly one file acknowledges an offset, and it is responder.sh"
+else
+  fail "more than one process acknowledges the bot: $P11_OFFSET_CALLERS"
+fi
+
 # The precedence sentence. Without it sections 13 and 14 read as a
 # contradiction, and the wrong resolution puts a six hour wait inside a 45 minute
 # cap, where the harness kills it mid-wait and NOTHING is written to the card.
