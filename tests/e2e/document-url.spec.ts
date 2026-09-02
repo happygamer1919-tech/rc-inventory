@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
 import { DOCS_BUCKET } from "@/lib/data/inbound-types";
 
 // document-url.spec - linia de acceptanta a cardului EXT-08.
@@ -26,14 +25,25 @@ const BASE = "/api/documents";
 const PDF = Buffer.from("%PDF-1.4\n% ext-08 fixture\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n");
 
 /**
- * Clientul cu cheia de service_role.
+ * Stocarea se conduce prin API-ul HTTP al lui Storage, DIRECT, fara supabase-js.
+ *
+ * DE CE FARA CLIENT. supabase-js construieste un client de realtime care cere un
+ * WebSocket global. Node 22 il are; node 20, versiunea pe care o fixeaza
+ * .github/workflows/quality.yml, NU. Prima versiune a acestui fisier folosea
+ * clientul, trecea la fiecare rulare locala si cadea in CI cu "Node.js detected
+ * but native WebSocket not found" pe toate cele patru cazuri care ating stocarea.
+ *
+ * Nu este numai o reparatie. Contractul din docs/contracts/document-url.md este
+ * despre HTTP, iar un test care il verifica prin HTTP verifica exact ce vede
+ * cealalta parte, in loc sa verifice ce face o biblioteca de client din el.
+ * Calea de semnare este aceeasi in ambele cazuri: POST /storage/v1/object/sign.
  *
  * DACA CHEIA LIPSESTE, TESTUL CADE. Nu sare. Un test care sare cand nu isi
  * gaseste o conditie raporteaza ca "nu era nimic de facut", ceea ce arata
  * identic cu "totul este in regula", si asta este exact clasa de defect pe care
  * docs/LEARNINGS.md o numeste la intrarea despre potriviri care nu se potrivesc.
  */
-function service() {
+function storage() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -42,7 +52,50 @@ function service() {
         "In CI sunt exportate de pasul 'Export local Supabase credentials'. Local: supabase status -o env.",
     );
   }
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const origin = new URL(url).origin;
+  const auth = { Authorization: `Bearer ${key}`, apikey: key };
+
+  async function must(label: string, response: Response) {
+    if (!response.ok) {
+      throw new Error(`${label} a raspuns ${response.status}: ${(await response.text()).slice(0, 200)}`);
+    }
+    return response;
+  }
+
+  return {
+    async upload(objectPath: string) {
+      await must(
+        "upload",
+        await fetch(`${origin}/storage/v1/object/${DOCS_BUCKET}/${objectPath}`, {
+          method: "POST",
+          headers: { ...auth, "Content-Type": "application/pdf", "x-upsert": "true" },
+          body: PDF,
+        }),
+      );
+    },
+    async sign(objectPath: string, expiresIn: number) {
+      const response = await must(
+        "sign",
+        await fetch(`${origin}/storage/v1/object/sign/${DOCS_BUCKET}/${objectPath}`, {
+          method: "POST",
+          headers: { ...auth, "Content-Type": "application/json" },
+          body: JSON.stringify({ expiresIn }),
+        }),
+      );
+      // signedURL vine relativ, incepand cu /object/sign/...
+      const { signedURL } = (await response.json()) as { signedURL: string };
+      return new URL(`${origin}/storage/v1${signedURL}`).toString();
+    },
+    async remove(objectPath: string) {
+      await must(
+        "delete",
+        await fetch(`${origin}/storage/v1/object/${DOCS_BUCKET}/${objectPath}`, {
+          method: "DELETE",
+          headers: auth,
+        }),
+      );
+    },
+  };
 }
 
 /** Din legatura semnata de Supabase se pastreaza numai jetonul si calea. */
@@ -71,11 +124,10 @@ async function failureBody(request: APIRequestContext, url: string) {
 
 test.describe("EXT-08: contractul de esec al legaturii catre document", () => {
   test("1. o legatura valida serveste documentul, si asta este martorul", async ({ request }) => {
-    const sb = service();
+    const sb = storage();
     const path = `_ext08/control-${Date.now()}.pdf`;
-    await sb.storage.from(DOCS_BUCKET).upload(path, PDF, { contentType: "application/pdf" });
-    const signed = await sb.storage.from(DOCS_BUCKET).createSignedUrl(path, 3600);
-    const { objectPath, token } = parts(signed.data!.signedUrl);
+    await sb.upload(path);
+    const { objectPath, token } = parts(await sb.sign(path, 3600));
 
     const response = await request.get(`${BASE}/${objectPath}?token=${token}`);
     expect(response.status()).toBe(200);
@@ -84,11 +136,10 @@ test.describe("EXT-08: contractul de esec al legaturii catre document", () => {
   });
 
   test("2. jeton expirat: 400, application/json, EXPIRED_TOKEN", async ({ request }) => {
-    const sb = service();
+    const sb = storage();
     const path = `_ext08/expired-${Date.now()}.pdf`;
-    await sb.storage.from(DOCS_BUCKET).upload(path, PDF, { contentType: "application/pdf" });
-    const signed = await sb.storage.from(DOCS_BUCKET).createSignedUrl(path, 1);
-    const { objectPath, token } = parts(signed.data!.signedUrl);
+    await sb.upload(path);
+    const { objectPath, token } = parts(await sb.sign(path, 1));
 
     await new Promise((r) => setTimeout(r, 2500));
 
@@ -98,11 +149,10 @@ test.describe("EXT-08: contractul de esec al legaturii catre document", () => {
   });
 
   test("3. jeton falsificat: 401, application/json, INVALID_TOKEN", async ({ request }) => {
-    const sb = service();
+    const sb = storage();
     const path = `_ext08/invalid-${Date.now()}.pdf`;
-    await sb.storage.from(DOCS_BUCKET).upload(path, PDF, { contentType: "application/pdf" });
-    const signed = await sb.storage.from(DOCS_BUCKET).createSignedUrl(path, 3600);
-    const { objectPath, token } = parts(signed.data!.signedUrl);
+    await sb.upload(path);
+    const { objectPath, token } = parts(await sb.sign(path, 3600));
 
     // Semnatura stricata, payload-ul intact: `exp` ramane in viitor, deci
     // singurul raspuns corect este INVALID si nu EXPIRED. Aceasta este exact
@@ -115,16 +165,14 @@ test.describe("EXT-08: contractul de esec al legaturii catre document", () => {
   });
 
   test("4. obiect inexistent: 404, application/json, OBJECT_NOT_FOUND", async ({ request }) => {
-    const sb = service();
+    const sb = storage();
     const path = `_ext08/gone-${Date.now()}.pdf`;
-    await sb.storage.from(DOCS_BUCKET).upload(path, PDF, { contentType: "application/pdf" });
-    const signed = await sb.storage.from(DOCS_BUCKET).createSignedUrl(path, 3600);
-    const { objectPath, token } = parts(signed.data!.signedUrl);
+    await sb.upload(path);
+    const { objectPath, token } = parts(await sb.sign(path, 3600));
 
     // Jetonul ramane valabil, obiectul dispare de sub el. Aceasta este singura
     // cale prin care Storage raspunde NoSuchKey pe o legatura semnata.
-    const removed = await sb.storage.from(DOCS_BUCKET).remove([path]);
-    expect(removed.error, "stergerea de pregatire a testului").toBeNull();
+    await sb.remove(path);
 
     const { response, json } = await failureBody(request, `${BASE}/${objectPath}?token=${token}`);
     expect(response.status()).toBe(404);

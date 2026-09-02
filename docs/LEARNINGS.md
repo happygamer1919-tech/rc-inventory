@@ -2916,3 +2916,24 @@ find which environment difference explains it before changing either, and prefer
 the change whose blast radius is one file.** Proved under the real version with
 `docker run --rm -v "$PWD:/w:ro" -w /w node:20-alpine node <script>` before the
 second push.
+
+### The same Node 20 gap again, one layer up: supabase-js needs a global WebSocket
+**Tag:** ci
+**ERROR:** `tests/e2e/document-url.spec.ts` built its storage fixtures with
+`@supabase/supabase-js`. It passed every local run on node 22.22 and failed all
+four storage-touching cases in `quality` with `Error: Node.js detected but native
+WebSocket not found.` The client constructs a realtime client that needs a global
+`WebSocket`; node 22 has one, **node 20 does not**, and the workflow pins node 20.
+Other files in the repository use the same client under node 20 without trouble,
+so "supabase-js works in CI" was true and still did not cover this construction.
+**SOLUTION:** The spec drives Supabase Storage over its HTTP API with plain
+`fetch`: `POST /storage/v1/object/<bucket>/<path>` to upload, `POST
+/storage/v1/object/sign/<bucket>/<path>` to sign, `DELETE` to remove. The signing
+path is identical either way. **This was not only a fix.** The contract under test
+is an HTTP contract, so a test that exercises it over HTTP checks what the other
+side actually sees rather than what a client library makes of it. The rule:
+**when the thing under test is a wire contract, drive it on the wire**, and a
+client library in the test is a second implementation that can pass while the
+contract fails. Second instance of the node 20 gap in one card, which is why the
+version divergence itself is now the first thing checked when local and CI
+disagree.
