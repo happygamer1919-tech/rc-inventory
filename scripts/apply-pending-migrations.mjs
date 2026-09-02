@@ -281,6 +281,53 @@ function stripTransactionControl(sql, label) {
 // existence assertions in section 6: every table, column and function the batch
 // claims to add must be present after the apply, or the batch rolls back.
 
+// APPLY-01. THE IDENTITY ARGUMENT LIST A `CREATE FUNCTION` DECLARES.
+//
+// PostgreSQL identifies a function by name plus its IN, INOUT and VARIADIC
+// argument types. OUT and TABLE parameters are not part of that identity, and a
+// type modifier is not either: `varchar(20)` and `varchar` are the same
+// function. So both are dropped here.
+//
+// THE TYPE NAME IS TAKEN VERBATIM FROM THE PARSE TREE AND NOT TRANSLATED.
+// `int` parses to `pg_catalog.int4` and `varchar` to `pg_catalog.varchar`, and
+// PostgreSQL accepts both spellings in `to_regprocedure`. Building a mapping
+// table from internal names to display names here would be a second, private
+// copy of a thing PostgreSQL already does, and it would be wrong for the first
+// type nobody thought of. The last element of the name is what is used, so a
+// schema qualifier falls away and a domain type resolves in the search_path,
+// which is what a CREATE in the same file means by it.
+function typeNameText(typeName) {
+  const names = (typeName?.names ?? []).map((n) => n?.String?.sval).filter(Boolean);
+  if (names.length === 0) return null;
+  return names[names.length - 1] + "[]".repeat((typeName?.arrayBounds ?? []).length);
+}
+
+function declaredArgList(node) {
+  const parts = [];
+  for (const wrap of node?.parameters ?? []) {
+    const p = wrap?.FunctionParameter;
+    if (!p) continue;
+    // OUT and TABLE columns are not part of the identity.
+    if (p.mode === "FUNC_PARAM_OUT" || p.mode === "FUNC_PARAM_TABLE") continue;
+    const t = typeNameText(p.argType);
+    if (t === null) return null;
+    parts.push(t);
+  }
+  return parts.join(", ");
+}
+
+/** The identity argument list a `DROP FUNCTION` names, or null when it names none. */
+function droppedArgList(objectWithArgs) {
+  if (objectWithArgs?.objargs === undefined) return null;
+  const parts = [];
+  for (const a of objectWithArgs.objargs) {
+    const t = typeNameText(a?.TypeName);
+    if (t === null) return null;
+    parts.push(t);
+  }
+  return parts.join(", ");
+}
+
 function objectsPromisedBy(files) {
   const tables = new Set();
   const columns = new Set();
@@ -292,6 +339,20 @@ function objectsPromisedBy(files) {
   // Files arrive in register order and statements in file order, so a single
   // walk recording the last verb per name is exact.
   const funcState = new Map();
+  // APPLY-01. What the batch DECLARES about each function it creates: the set of
+  // identity argument lists, and whether it also dropped that name first.
+  // APPLY-01. SIGNATURE-LEVEL STATE, NOT NAME-LEVEL, AND THE DIFFERENCE MATTERS.
+  //
+  // funcState above answers "does this NAME survive the batch". That is the
+  // right question for the drop assertions and the wrong one here: a batch can
+  // legitimately drop one signature of a name and create another in the same
+  // run, which is exactly what a change of signature IS. Keyed by name alone,
+  // the batch would appear to both drop and keep the function and the
+  // declaration would be self-contradictory.
+  //
+  // The last verb on each `name(args)` wins, walked in register and file order,
+  // for the same reason funcState does it that way.
+  const sigState = new Map(); // "name(args)" -> alive
 
   for (const f of files) {
     const sql = readFileSync(join(MIGRATIONS_DIR, f), "utf8");
@@ -312,14 +373,28 @@ function objectsPromisedBy(files) {
           const names = (o?.ObjectWithArgs?.objname ?? []).map((x) => x?.String?.sval).filter(Boolean);
           const fname = names[names.length - 1];
           const schema = names.length > 1 ? names[0] : "public";
-          if (fname && schema === "public") funcState.set(fname, false);
+          if (fname && schema === "public") {
+            funcState.set(fname, false);
+            const dropped = droppedArgList(o?.ObjectWithArgs);
+            // A drop with no argument list names every version of the name.
+            if (dropped === null) {
+              for (const key of [...sigState.keys()])
+                if (key.startsWith(fname + "(")) sigState.set(key, false);
+            } else {
+              sigState.set(`${fname}(${dropped})`, false);
+            }
+          }
         }
       }
       if (kind === "CreateFunctionStmt") {
         const names = (node?.funcname ?? []).map((n) => n?.String?.sval).filter(Boolean);
         const fname = names[names.length - 1];
         const schema = names.length > 1 ? names[0] : "public";
-        if (fname && schema === "public") funcState.set(fname, true);
+        if (fname && schema === "public") {
+          funcState.set(fname, true);
+          const args = declaredArgList(node);
+          if (args !== null) sigState.set(`${fname}(${args})`, true);
+        }
       }
       if (kind === "AlterTableStmt" && node?.relation?.relname) {
         const rel = node.relation.relname;
@@ -336,7 +411,16 @@ function objectsPromisedBy(files) {
   }
   const functions = new Set([...funcState].filter(([, alive]) => alive).map(([n]) => n));
   const droppedFunctions = new Set([...funcState].filter(([, alive]) => !alive).map(([n]) => n));
-  return { tables, columns, functions, dropped, droppedFunctions };
+  // What the batch DECLARES is alive at the end, grouped by name.
+  const funcSignatures = new Map();
+  for (const [key, alive] of sigState) {
+    if (!alive) continue;
+    const name = key.slice(0, key.indexOf("("));
+    const args = key.slice(key.indexOf("(") + 1, -1);
+    if (!funcSignatures.has(name)) funcSignatures.set(name, new Set());
+    funcSignatures.get(name).add(args);
+  }
+  return { tables, columns, functions, dropped, droppedFunctions, funcSignatures };
 }
 
 // ---------------------------------------------------------------------------
@@ -354,7 +438,16 @@ if (target !== "shim" && target !== "production") {
       "  production:  also set the PG* variables (PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD)",
   );
 }
-if (target === "shim" && !container)
+// PROVE-01. THE PRINT MODE NEEDS NO TARGET AT ALL.
+//
+// It reads the migration files, builds the assertion bodies and prints them.
+// Nothing connects, so demanding a container would be demanding a database in
+// order to look at a string. The exemption is HERE and not earlier so the print
+// mode still goes through every other refusal above it: an unreadable register
+// or a missing migrations directory is still fatal, because an assertion list
+// built from a tree that does not resolve is not the shipped one.
+const printOnly = process.env.RC_APPLY_PRINT_ASSERTIONS === "yes";
+if (target === "shim" && !container && !printOnly)
   die(EXIT_ENV, "RC_APPLY_TARGET=shim requires RC_APPLY_CONTAINER=<docker container name>");
 
 // psql is not on the default PATH on this machine. The location is read from
@@ -630,7 +723,8 @@ for (const f of prePhase) {
 
 const versions = pending.map((f) => f.slice(0, 4));
 const highest = versions[versions.length - 1];
-const { tables, columns, functions, dropped, droppedFunctions } = objectsPromisedBy(pending);
+const { tables, columns, functions, dropped, droppedFunctions, funcSignatures } =
+  objectsPromisedBy(pending);
 
 // --- THE REMOVAL DIRECTION, WHICH IS INC-06 ---------------------------------
 //
@@ -638,14 +732,26 @@ const { tables, columns, functions, dropped, droppedFunctions } = objectsPromise
 // it. check:removal-safety enumerates readers against the TABLE, and this script
 // refuses to run the batch while that check is red.
 //
-// THE MERGED HALF IS ASSERTED HERE. THE DEPLOYED HALF IS NOT, AND IS NOT FAKED.
+// BOTH HALVES ARE ASSERTED HERE NOW. P3-11e CLOSED THE SECOND ONE.
+//
 // The rule is that a removal applies after the code that stops reading it is
-// merged AND DEPLOYED, and this process cannot see a deployment: there is no
-// usable Vercel credential in the single permitted secret read, and a substitute
-// for "deployed" invented here would be exactly the guess that produced INC-06.
-// The question is open to the owner on card P3-11c through scripts/poc/ask.sh.
-// UNTIL IT IS ANSWERED, A BATCH CONTAINING A REMOVAL IS REFUSED unless the
-// operator states, in the environment, that the deploy has landed.
+// merged AND DEPLOYED. check-removal-safety proves MERGED: no reader remains on
+// main. check-deployed-commit proves DEPLOYED: it asks /api/health which commit
+// production is running and refuses unless git says the commit being applied
+// against is an ancestor of it, which is true only when the live deployment
+// CONTAINS this tree.
+//
+// IT NEEDS NO CREDENTIAL. Vercel exposes VERCEL_GIT_COMMIT_SHA to the
+// application at build time, so the deployment states its own commit. There is
+// no Vercel API call and no VERCEL_TOKEN, and that is deliberate: this check
+// survives P2-13's credential revocation, and a check that dies when the keys
+// rotate is a check that dies on the day it matters.
+//
+// RC_DEPLOY_CONFIRMED IS GONE AND IS NOT KEPT AS A FALLBACK. It was an operator
+// statement, which is precisely the guess that produced INC-06. An operator
+// statement that survives beside a machine check is the one that gets used at
+// three in the morning. If the health route cannot be reached, this REFUSES; it
+// does not fall back to asking.
 const batchRemoves =
   dropped.size > 0 || droppedFunctions.size > 0 || allDropFunctions.length > 0;
 
@@ -666,24 +772,38 @@ if (batchRemoves) {
     process.exit(EXIT_FORBIDDEN);
   }
 
-  const deployed = process.env.RC_DEPLOY_CONFIRMED === "yes";
-  if (target === "production" && !deployed) {
-    err("\n" + "!".repeat(78) + "\n");
-    err("REFUSED. This batch removes schema and the DEPLOY cannot be verified from here.\n");
-    err("!".repeat(78) + "\n");
-    err(
-      "\nA removal applies only after the code that stops reading it is merged AND DEPLOYED.\n" +
-        "check-removal-safety proved the MERGED half: no reader remains on main.\n" +
-        "The DEPLOYED half is an open question on card P3-11c and is deliberately not guessed,\n" +
-        "because guessing it is what produced INC-06.\n\n" +
-        "If you have confirmed the deploy carrying that code is live, re-run with\n" +
-        "  RC_DEPLOY_CONFIRMED=yes\n" +
-        "and the confirmation is recorded in the journal as an operator statement.\n",
+  if (target === "production") {
+    // P3-11e. THE DEPLOYED HALF, ASKED OF PRODUCTION ITSELF.
+    const deployedCheck = spawnSync(
+      "node",
+      [join(ROOT, "scripts/poc-free/check-deployed-commit.mjs")],
+      { encoding: "utf8" },
     );
-    process.exit(EXIT_FORBIDDEN);
+    if (deployedCheck.stdout) out(deployedCheck.stdout);
+    if (deployedCheck.status !== 0) {
+      err(deployedCheck.stderr || "");
+      err("\n" + "!".repeat(78) + "\n");
+      err("REFUSED. This batch removes schema and the DEPLOY is not proven. NOTHING was executed.\n");
+      err("!".repeat(78) + "\n");
+      err(
+        "\nRC_DEPLOY_CONFIRMED no longer exists and is not coming back. It was an operator\n" +
+          "statement standing in for a fact, which is what produced INC-06. The fact is now\n" +
+          "available: /api/health reports the commit production is running, with no credential.\n\n" +
+          "If the deployment has not finished, wait for it. If the health route is unreachable,\n" +
+          "fix that. Neither is a reason to apply.\n",
+      );
+      process.exit(EXIT_FORBIDDEN);
+    }
+    // A leftover from the old path is named rather than ignored: an operator who
+    // still exports it is working from an instruction that no longer applies,
+    // and silence would let them believe it did something.
+    if (process.env.RC_DEPLOY_CONFIRMED !== undefined) {
+      out(
+        "\nNOTE: RC_DEPLOY_CONFIRMED is set in this environment and was IGNORED.\n" +
+          "P3-11e replaced it with check-deployed-commit, which just passed on its own.\n",
+      );
+    }
   }
-  if (deployed)
-    out("\ndeploy confirmed by the operator via RC_DEPLOY_CONFIRMED, recorded as a statement\n");
 }
 
 if (dryRun) {
@@ -821,6 +941,22 @@ P(`\\echo '=====================================================================
 
 const assertions = [];
 const A = (name, body) => assertions.push({ name, body });
+
+// PROVE-01. A RECONCILIATION NOTICE IS NOT AN ASSERTION AND STOPS BEING COUNTED
+// AS ONE.
+//
+// outbound-destination-backfill and supplier-backfill sat in the assertion list
+// and their whole body was `raise notice`. They have no `raise exception` on any
+// path, so THEY CANNOT FAIL, and they were counted in "N assertions passed" and
+// in the row this script writes to docs/PRODUCTION-WRITES.md. The record said
+// thirteen guards held when eleven did and two printed a number.
+//
+// They are useful and they are kept, exactly as they are. What changes is that
+// they are counted and reported as what they are. The rule this follows is the
+// one docs/LEARNINGS.md now states as its fourth instance: any check whose
+// passing path is reachable without the condition being true is not a check.
+const notices = [];
+const N = (name, body) => notices.push({ name, body });
 
 A("every-pending-applied", `
 declare missing text;
@@ -982,14 +1118,14 @@ begin
   end if;
 end`);
 
-A("outbound-destination-backfill", `
+N("outbound-destination-backfill", `
 declare v_unmatched bigint;
 begin
   select count(*) into v_unmatched from public.outbound_issues where project_id is null;
   raise notice 'P3-04 reconciliation: outbound_issues with no project_id = %', v_unmatched;
 end`);
 
-A("supplier-backfill", `
+N("supplier-backfill", `
 declare v_unmatched bigint;
 begin
   -- SAME REASON AS THE GRID: what exists is a question for the database, not for
@@ -1009,27 +1145,117 @@ begin
   raise notice 'P3-05 reconciliation: products with no supplier_id = %', v_unmatched;
 end`);
 
-A("one-create-outbound-issue-five-args", `
-declare v_count int; v_args text;
+// APPLY-01. THE SIGNATURE IS DECLARED INTENT NOW, NOT A SNAPSHOT.
+//
+// WHAT THIS REPLACES AND WHY. The assertion here used to be
+// `one-create-outbound-issue-five-args`, and it was UNCONDITIONAL: it demanded
+// that public.create_outbound_issue exist exactly once with the literal argument
+// list (text, text, text, jsonb, uuid), on EVERY future run of this script, for
+// EVERY batch, whether or not the batch touched that function at all.
+//
+// R-082 makes this script the only lawful route from a merged migration file to
+// the production database, and a raised assertion rolls the WHOLE batch back. So
+// the first migration that legitimately changed that signature, and a
+// deviz-aware outbound issue is a near and plausible reason to, would have taken
+// down every unrelated migration travelling with it. The failure would have been
+// invisible until the apply, and the apply is the last step.
+//
+// WHAT WAS RIGHT ABOUT IT AND IS KEPT. Its real concern was 0018's shape:
+// DROP then CREATE, where two surviving versions mean the drop did not happen and
+// every call is ambiguous. That half is not loosened at all. It is generalised
+// from one hardcoded name to every function a batch replaces.
+//
+// THE DECLARATION IS PARSED FROM THE MIGRATION FILE AND IS NEVER PASSED AT THE
+// PROMPT. R-082 and R-047 both rest on the script deciding rather than the
+// terminal choosing, and anything a terminal can type is a choice.
+//
+// to_regprocedure DOES THE TYPE RESOLUTION, not a mapping table in here.
+// It is PostgreSQL's own parser, so `int` and `integer` and `int4` all resolve,
+// and a type nobody thought of resolves too.
+
+if (funcSignatures.size > 0) {
+  const rows = [];
+  for (const [name, sigs] of funcSignatures) for (const args of sigs) rows.push([name, args]);
+  A("declared-function-signatures-exist", `
+declare missing text;
 begin
-  select count(*) into v_count
-  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.proname = 'create_outbound_issue';
-  if v_count <> 1 then
-    raise exception 'ASSERTION FAILED [one-create-outbound-issue-five-args]: % versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.', v_count;
-  end if;
-  select array_to_string(array(select format_type(t, null) from unnest(p.proargtypes) as t), ', ')
-    into v_args
-  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.proname = 'create_outbound_issue';
-  if v_args <> 'text, text, text, jsonb, uuid' then
-    raise exception 'ASSERTION FAILED [one-create-outbound-issue-five-args]: signature is (%), expected (text, text, text, jsonb, uuid)', v_args;
+  select string_agg(sig, ', ') into missing
+  from (values ${rows.map(([n, a]) => `('public.${n}(${a})')`).join(", ")}) as v(sig)
+  where to_regprocedure(sig) is null;
+  if missing is not null then
+    raise exception 'ASSERTION FAILED [declared-function-signatures-exist]: this batch declares these functions and they are not present with the signature it declared: %', missing;
   end if;
 end`);
+}
+
+if (funcSignatures.size > 0) {
+  // AS MANY VERSIONS AS THE BATCH DECLARED, AND NOT ONE MORE.
+  //
+  // This is 0018's assertion, one hardcoded name widened into a derived rule.
+  // 0018 drops create_outbound_issue(text, text, text, jsonb) and creates the
+  // five-argument one: one declared, one alive, pass. Remove that drop and two
+  // survive against one declared, which fails, and every call to the name is
+  // ambiguous from then on. That is the defect the original was written for and
+  // it is not loosened by one inch.
+  //
+  // IT IS KEYED ON WHAT THE BATCH CREATES, NOT ON WHAT IT DROPS, and that
+  // distinction is the whole reason this shape was chosen. A rule keyed on
+  // "names the batch drops and re-creates" stops applying the moment somebody
+  // deletes the drop, which is EXACTLY the accident it exists to catch: the
+  // check would disappear together with the thing it was checking.
+  //
+  // A DELIBERATE OVERLOAD IS DECLARED, NOT ASSUMED. Two signatures in the batch
+  // means two are expected. A function that already carries an overload from an
+  // earlier migration and is created again here without declaring both will
+  // fail, and the message says the count and the declaration so the author can
+  // see which of the two is wrong. This repository has no intentional overloads:
+  // the assertion this replaces demanded exactly one, forever, for one name.
+  const rows = [...funcSignatures].map(([n, sigs]) => [n, sigs.size]);
+  A("declared-function-versions-only", `
+declare bad text;
+begin
+  select string_agg(format('%s has %s version(s), this batch declared %s', v.fname, actual.n, v.declared), '; ')
+    into bad
+  from (values ${rows.map(([n, k]) => `('${n}', ${k})`).join(", ")}) as v(fname, declared)
+  cross join lateral (
+    select count(*) as n
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'public' and p.proname = v.fname
+  ) as actual
+  where actual.n <> v.declared;
+  if bad is not null then
+    raise exception 'ASSERTION FAILED [declared-function-versions-only]: %. A leftover overload makes every call to that name ambiguous.', bad;
+  end if;
+end`);
+}
+
+// PROVE-01. THE ASSERTION BODIES, PRINTED, FOR THE PROOF THAT THEY CAN FAIL.
+//
+// scripts/poc-free/prove-assertions-can-fail.mjs runs EVERY assertion below
+// against a correct database (it must hold) and then against a database
+// perturbed to violate it (it must raise). It reads the bodies from here rather
+// than carrying copies, for the same reason test-ask-digest.sh lifts
+// responder.sh's offset program out from between fences: a copy drifts, and the
+// proof goes on passing about the copy.
+//
+// IT PRINTS AND EXITS. No connection is opened, no secret is read, no database
+// is touched, and the pending register is not modified. The mode exists so a
+// proof can be about the SHIPPED text.
+if (printOnly) {
+  process.stdout.write(JSON.stringify({ assertions, notices }, null, 2) + "\n");
+  process.exit(EXIT_OK);
+}
 
 for (const a of assertions) {
   P(`\\echo '  assert ${a.name}'`);
   P(`do $rc$ ${a.body} $rc$;`);
+}
+
+// The notices run in the same transaction and in the same place they always did.
+// Only their LABEL changed, so nobody reads a printed number as a guard.
+for (const n of notices) {
+  P(`\\echo '  notice ${n.name} (reports a number, cannot fail)'`);
+  P(`do $rc$ ${n.body} $rc$;`);
 }
 
 // --- 6e. The post-check grid, still inside the transaction ----------------
@@ -1126,6 +1352,7 @@ out("\n" + "=".repeat(78) + "\n");
 out(`batch sha256           ${batchSha}\n`);
 out(`script sha256          ${scriptSha}\n`);
 out(`assertions             ${assertions.length}\n`);
+out(`notices                ${notices.length} (report a number, cannot fail)\n`);
 out("=".repeat(78) + "\n\n");
 
 const started = new Date();
@@ -1176,7 +1403,7 @@ if (res.status !== 0) {
 }
 
 const finished = new Date();
-out(`\napplied and committed: ${pending.length} migrations, ${assertions.length} assertions passed\n`);
+out(`\napplied and committed: ${pending.length} migrations, ${assertions.length} assertions passed, ${notices.length} notices printed\n`);
 
 // ---------------------------------------------------------------------------
 // 8. THE JOURNALS, WRITTEN ONLY AFTER A COMMIT
@@ -1192,7 +1419,7 @@ if (target === "production") {
   const reportPath = process.env.RC_APPLY_REPORT ?? `docs/reports/${day}-executor-p3-27-apply.md`;
   const row =
     `| ${day} | **EXECUTOR terminal**, under R-082 | \`scripts/apply-pending-migrations.mjs\` | ` +
-    `\`${scriptSha}\` | **${assertions.length} of ${assertions.length} passed**, committed on all-pass | ` +
+    `\`${scriptSha}\` | **${assertions.length} of ${assertions.length} passed**, committed on all-pass (plus ${notices.length} reconciliation notices, which report a number and cannot fail) | ` +
     `**0 rows deleted**, ${pending.length} migrations applied (${versions[0]} to ${highest}) | \`${reportPath}\` |\n`;
 
   const writes = readFileSync(WRITES_LOG, "utf8");

@@ -2864,3 +2864,157 @@ when a check reports a count, the count must be of what it actually inspected,
 and a scanner whose regex is anchored to the start of a line is inspecting one
 token out of however many are there. A self-test case now asserts exactly this,
 with a two-id subject whose SECOND id is the unresolvable one.
+
+### A matcher that fails to match reports as no work, not as an error
+**Tag:** ci
+**ERROR:** **FOURTH instance of one defect, and it is now named as a class.**
+
+1. The pending-register regex excluded lowercase card ids and reported nothing
+   pending.
+2. `inbox.mjs` upper-cased a card id before comparing it against verbatim board
+   ids and matched none.
+3. The `grep -v` extraction filter dropped a line that was a real reader and
+   reported the removal safe.
+4. **2026-09-02, and the worst placement of the four: inside the guard that
+   protects production.** Three assertions in
+   `scripts/poc-free/local-db/prove-applier.mjs` read a one-column `psql` boolean
+   with `(out.stdout || "").includes("t")`. `psql` prints the COLUMN NAME above
+   the value and every one of those columns is named **`untouched`**, which
+   contains a `t`. The three `...and the database is untouched` assertions were
+   true whatever the database said and had **never once been capable of failing**.
+   In the same audit, `outbound-destination-backfill` and `supplier-backfill`
+   turned out to sit in the applier's assertion list with `raise notice` as their
+   only statement: **no `raise exception` on any path**, so they could not fail
+   either, and they were counted in "N assertions passed" and in the row written
+   to `docs/PRODUCTION-WRITES.md`.
+
+In all four the check ran, produced an empty or unconditional result, and that
+result was read as "there is nothing wrong" rather than as "this did not work".
+None of the four was red anywhere.
+
+**SOLUTION, TWO RULES, THE SECOND GENERAL.**
+
+**Any matcher whose empty result means "nothing to do" asserts its input count
+against its match count and fails when they diverge.** A scanner that reads 220
+subjects and resolves 0 ids is broken, not clean, and it is the only one that can
+tell the difference.
+
+**ANY CHECK WHOSE PASSING PATH IS REACHABLE WITHOUT THE CONDITION BEING TRUE IS
+NOT A CHECK.** That covers all four and it covers shapes the first rule does not:
+a boolean parsed by substring out of formatted output, an assertion body with no
+failing branch, a mutant that dies on import, an `await` on a condition that was
+already true. The test that finds them is to ask **what would have to be true for
+this to fail**, and if the answer is "nothing", it is decoration.
+
+**AN ASSERTION WITH NO FAILING CASE IS DELETED OR FIXED, NEVER LEFT.**
+`docs/ASSERTION-REGISTER.md` names every assertion and refusal in the four guards
+together with the case that proves it can fail, and
+`npm run check:assertion-register` fails the build when one arrives without one.
+
+### Keying on a response field that only one deployment sends
+**Tag:** backend
+**ERROR:** The EXT-08 classifier switched on the `code` field of a Supabase
+Storage error body, written from captures taken against the hosted project, which
+sends it. The storage server in the local Supabase stack, which is the one CI
+runs, does not send `code` at all: only `statusCode`, `error` and `message`. Both
+token cases fell through to the unrecognised branch and answered 502 where the
+contract requires 400 and 401. Two of eight end-to-end cases failed on the first
+local run.
+**SOLUTION:** Key on `error` and `statusCode`, which both deployments send, and
+accept `code` as a bonus where it exists. The rule that generalises: **when two
+deployments of the same service are in play and only one is reachable from CI,
+the fields the unreachable one sends must be replayed from captured bodies in a
+check that needs no network.** The inverse of this bug, a classifier keyed only on
+what the local server sends, would have passed CI forever and failed only in
+production, with nothing turning red. `scripts/poc-free/check-document-url-contract.mjs`
+replays both shapes for exactly that reason.
+
+### A CDN can serve a deleted object through a still-valid signed URL
+**Tag:** infra
+**ERROR:** While probing the not-found path, the probe object was deleted and the
+same signed URL re-fetched. The response was `200 OK` with the original bytes,
+`cf-cache-status: HIT`, `x-smart-cdn: true`. The `404` shape only appeared on a
+cache-busted request a minute later.
+**SOLUTION:** Nothing was changed: bucket policy 0002 grants DELETE to no
+application role precisely so a document behind an order cannot vanish. It is
+recorded because a probe that had used the plain URL would have concluded that
+Supabase serves deleted objects forever, and a probe that had used only the
+cache-busted URL would never have learned this. **When probing a cached edge, run
+both the plain and the cache-busted request and report the difference; either one
+alone tells a story that is wrong in a different direction.**
+
+### Node 20 in CI cannot import a .ts file, and the fix is not to bump Node
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-document-url-contract.mjs` imported the
+classifier from `lib/data/document-url.ts`. It ran locally on node 22.22, which
+strips type annotations by default since 22.18, and it failed in `quality` with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+the workflow pins `node-version: 20`. The check had passed every local run.
+**SOLUTION:** The pure logic moved to `lib/data/document-url-contract.mjs`, plain
+ESM with a hand-written `.d.mts` beside it, imported by both the TypeScript route
+and the node check. **The tempting fix was to raise `node-version` in the
+workflow, and it was the wrong one:** that changes the runtime for all twenty-two
+steps of the job for a reason that has nothing to do with any of them, and a
+green afterwards would be a green on a different environment than the one the
+last hundred merges were proved on. The rule: **when a local run and CI disagree,
+find which environment difference explains it before changing either, and prefer
+the change whose blast radius is one file.** Proved under the real version with
+`docker run --rm -v "$PWD:/w:ro" -w /w node:20-alpine node <script>` before the
+second push.
+
+### The same Node 20 gap again, one layer up: supabase-js needs a global WebSocket
+**Tag:** ci
+**ERROR:** `tests/e2e/document-url.spec.ts` built its storage fixtures with
+`@supabase/supabase-js`. It passed every local run on node 22.22 and failed all
+four storage-touching cases in `quality` with `Error: Node.js detected but native
+WebSocket not found.` The client constructs a realtime client that needs a global
+`WebSocket`; node 22 has one, **node 20 does not**, and the workflow pins node 20.
+Other files in the repository use the same client under node 20 without trouble,
+so "supabase-js works in CI" was true and still did not cover this construction.
+**SOLUTION:** The spec drives Supabase Storage over its HTTP API with plain
+`fetch`: `POST /storage/v1/object/<bucket>/<path>` to upload, `POST
+/storage/v1/object/sign/<bucket>/<path>` to sign, `DELETE` to remove. The signing
+path is identical either way. **This was not only a fix.** The contract under test
+is an HTTP contract, so a test that exercises it over HTTP checks what the other
+side actually sees rather than what a client library makes of it. The rule:
+**when the thing under test is a wire contract, drive it on the wire**, and a
+client library in the test is a second implementation that can pass while the
+contract fails. Second instance of the node 20 gap in one card, which is why the
+version divergence itself is now the first thing checked when local and CI
+disagree.
+
+### A boolean read out of psql output that matched the column header
+**Tag:** ci
+**ERROR:** Four assertions in `scripts/poc-free/local-db/prove-applier.mjs` read a
+one-column boolean with `(out.stdout || "").includes("t")`. `psql` prints the
+COLUMN NAME above the value, and every one of those columns is named `untouched`
+- which contains a `t`. The three `...and the database is untouched` assertions
+were therefore **true whatever the database said**, and had never once been
+capable of failing. They had been reported as passing on every run since the
+proof was written.
+**SOLUTION:** `booleanFrom()` takes the value from the line before the `(N rows)`
+marker and returns `null` for a shape it cannot parse, which the callers treat as
+a hard failure. **It surfaced only because APPLY-01 added the first case that
+expects FALSE**, and that is the general point: a boolean assertion whose two
+outcomes have never both been exercised is an assertion with one outcome. The
+rule: **when a check reads a value out of formatted human output, the parse must
+be anchored to the format, not to a substring** - a column header, a NOTICE line,
+a units suffix and a row count are all in that stream and all of them contain
+letters somebody's `includes()` is looking for.
+
+### Waiting on a condition that was already true is not waiting
+**Tag:** ci
+**ERROR:** `tests/e2e/project-budget.spec.ts` accepted a deviz through the screen
+and then waited for `deviz-locked` before reading the project detail page.
+`deviz-locked` renders for **any** status other than `draft`, so it was already
+true after the preceding *send*. The wait returned instantly, the detail page was
+read before the acceptance reached the database, and the screen correctly
+reported no accepted deviz. Three of seven cases failed and the failure looked
+like a defect in the screen under test rather than in the test.
+**SOLUTION:** Wait on the condition that becomes true **only** after the
+transition. From `accepted` there is no onward transition, so the status buttons
+disappear: `toHaveCount(0)` on `deviz-status-accepted`, plus the row chip reading
+`Acceptat`. The rule: **an await whose condition already holds before the action
+is a synchronous statement wearing an await, and it makes the next assertion race
+the database.** Before waiting on a selector, ask what it looked like one step
+earlier; if the answer is "the same", it is the wrong selector.

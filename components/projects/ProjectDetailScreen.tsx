@@ -27,6 +27,8 @@ import {
 import { setProjectStatus } from "@/lib/data/project-actions";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectTabs } from "./ProjectTabs";
+import { ProjectBudgetPanel } from "./ProjectBudgetPanel";
+import { projectBudgetSummary } from "@/lib/reporting/project-budget";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -188,6 +190,21 @@ export function ProjectDetailScreen({
           </Card>
 
         </div>
+      </div>
+
+      {/* P3-12. Cele trei numere, INAINTE de file si niciunul dupa un click.
+          Bugetul, totalul devizului acceptat si costul real sunt trei intrebari
+          diferite, iar oricare doua spun o poveste incompleta: fara totalul
+          devizului nu se poate deosebi o lucrare peste buget de una sub-cotata.
+
+          Se calculeaza AICI, din ce pagina a citit deja, si nu printr-o a patra
+          interogare: costul vine din modulul de cost si totalul devizului din
+          aceeasi lista pe care o randeaza fila de deviz, deci cele doua ecrane
+          nu pot fi in dezacord. */}
+      <div className="mt-5">
+        <ProjectBudgetPanel
+          summary={projectBudgetSummary(project.budgetMdl, deviz.list, cost.totalValueMdl)}
+        />
       </div>
 
       <div className="mt-5">

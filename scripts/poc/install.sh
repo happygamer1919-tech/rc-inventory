@@ -20,36 +20,106 @@
 #
 set -u -o pipefail
 
+# P3-11b. THE ROOT IS A VARIABLE, SO THIS SCRIPT CAN BE PROVED BY RUNNING IT.
+#
+# Every path below used to be a literal under /Users/ivan, which meant the only
+# way to find out whether the installer works was to run it over the owner's live
+# installation. So nobody ran it, and DIGEST-01 shipped an installer that carried
+# the digest and a machine that did not: `bash /Users/ivan/rc-poc-bin/digest.sh
+# --force` answered "No such file or directory" for a day, with the code to
+# install it sitting on main the whole time.
+#
+# POC_INSTALL_ROOT lets scripts/poc/test-install.sh install into a temporary
+# directory and then INVOKE what it installed. The default is unchanged, so a
+# real install is still `bash scripts/poc/install.sh` with no environment at all.
+POC_INSTALL_ROOT=${POC_INSTALL_ROOT:-/Users/ivan}
+
 POC_LABEL=com.ai.rc-poc
 POC_CHAT_LABEL=com.ai.rc-poc-chat
 POC_DIGEST_LABEL=com.ai.rc-poc-digest
-POC_BIN_DIR=/Users/ivan/rc-poc-bin
-POC_LOG_DIR=/Users/ivan/rc-poc-logs
-POC_AGENT_DIR=/Users/ivan/Library/LaunchAgents
-POC_PLIST=/Users/ivan/Library/LaunchAgents/com.ai.rc-poc.plist
-POC_CHAT_PLIST=/Users/ivan/Library/LaunchAgents/com.ai.rc-poc-chat.plist
-POC_DIGEST_PLIST=/Users/ivan/Library/LaunchAgents/com.ai.rc-poc-digest.plist
+POC_BIN_DIR=$POC_INSTALL_ROOT/rc-poc-bin
+POC_LOG_DIR=$POC_INSTALL_ROOT/rc-poc-logs
+POC_AGENT_DIR=$POC_INSTALL_ROOT/Library/LaunchAgents
+POC_PLIST=$POC_AGENT_DIR/com.ai.rc-poc.plist
+POC_CHAT_PLIST=$POC_AGENT_DIR/com.ai.rc-poc-chat.plist
+POC_DIGEST_PLIST=$POC_AGENT_DIR/com.ai.rc-poc-digest.plist
+
+# launchctl and plutil are macOS and they act on the LIVE session, so they are
+# skipped when the root is not the real one. A temporary prefix that bootstrapped
+# an agent would install a launchd job pointing at a directory the test is about
+# to delete.
+if [ "$POC_INSTALL_ROOT" = "/Users/ivan" ]; then
+  POC_LIVE_INSTALL=yes
+else
+  POC_LIVE_INSTALL=no
+  echo "POC_INSTALL_ROOT=$POC_INSTALL_ROOT, so launchctl and plutil are skipped"
+fi
 
 # Resolve the repository this script was invoked from, so the install works
 # from any worktree without being told which one.
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
-SOURCE_RUN_SH=$REPO_ROOT/scripts/poc/run.sh
-SOURCE_PLIST=$REPO_ROOT/docs/poc/com.ai.rc-poc.plist.template
-SOURCE_RESPONDER=$REPO_ROOT/scripts/poc/responder.sh
-SOURCE_CHAT_PLIST=$REPO_ROOT/docs/poc/com.ai.rc-poc-chat.plist.template
-SOURCE_DIGEST=$REPO_ROOT/scripts/poc/digest.sh
-SOURCE_DIGEST_PLIST=$REPO_ROOT/docs/poc/com.ai.rc-poc-digest.plist.template
+# POC_INSTALL_REPO_ROOT exists for one caller: scripts/poc/test-install.sh runs a
+# MUTATED COPY of this file from a temporary directory, and a copy resolves its
+# repository from its own location, which is the temporary directory. Without the
+# override the mutant dies on "missing .../scripts/poc/run.sh", which installs no
+# digest either and would satisfy the assertion it is supposed to fail.
+REPO_ROOT=${POC_INSTALL_REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}
+# P3-11b. THE MANIFEST. ONE LIST, AND EVERY LOOP BELOW DERIVES FROM IT.
+#
+# Three agents used to be three copy-pasted blocks of eight lines each. Adding a
+# fourth meant remembering eight lines in three places, and the failure mode of
+# forgetting one is an installer that reports success having deployed part of
+# itself. That has already happened here once, in a different form, and the
+# comment about --force below is what it left behind.
+#
+# Each row: LABEL|SOURCE|DESTINATION|MODE|DESCRIPTION
+# The plist row of each agent immediately follows its script row, because the
+# order below is the install order and a plist that is bootstrapped before its
+# script exists points at nothing.
+POC_MANIFEST="\
+$POC_LABEL|$REPO_ROOT/scripts/poc/run.sh|$POC_BIN_DIR/run.sh|755|the work harness
+$POC_LABEL|$REPO_ROOT/docs/poc/com.ai.rc-poc.plist.template|$POC_PLIST|644|its agent
+$POC_CHAT_LABEL|$REPO_ROOT/scripts/poc/responder.sh|$POC_BIN_DIR/responder.sh|755|the conversational responder
+$POC_CHAT_LABEL|$REPO_ROOT/docs/poc/com.ai.rc-poc-chat.plist.template|$POC_CHAT_PLIST|644|its agent
+$POC_DIGEST_LABEL|$REPO_ROOT/scripts/poc/digest.sh|$POC_BIN_DIR/digest.sh|755|the scheduled digest
+$POC_DIGEST_LABEL|$REPO_ROOT/docs/poc/com.ai.rc-poc-digest.plist.template|$POC_DIGEST_PLIST|644|its agent"
 
-echo "installing from $REPO_ROOT"
+# THE SPOOL DIRECTORIES, ALSO A LIST AND ALSO DERIVED.
+#
+# asks/ is the ASK-01 spool and rulings/ is the P3-11a spool. Both are created
+# HERE rather than lazily by the process that writes into them, and the reason is
+# the same for both: the writer is chat-classify.mjs, running inside the
+# responder, and it must never be the thing that creates a directory it then
+# races the next poll to fill.
+#
+# rulings/ WAS MISSING UNTIL THIS CARD. P3-11a added the spool and its module
+# creates the directory on first write, which is exactly the race the paragraph
+# above exists to prevent. Found by reading this list against that card rather
+# than by anything going red, which is why the list is now one place.
+POC_SPOOL_DIRS="\
+$POC_BIN_DIR
+$POC_LOG_DIR
+$POC_LOG_DIR/chat
+$POC_AGENT_DIR
+$POC_LOG_DIR/asks
+$POC_LOG_DIR/asks/open
+$POC_LOG_DIR/asks/answers
+$POC_LOG_DIR/asks/answered
+$POC_LOG_DIR/rulings
+$POC_LOG_DIR/rulings/pending
+$POC_LOG_DIR/rulings/consumed"
 
-for REQUIRED in "$SOURCE_RUN_SH" "$SOURCE_PLIST" "$SOURCE_RESPONDER" "$SOURCE_CHAT_PLIST" \
-                "$SOURCE_DIGEST" "$SOURCE_DIGEST_PLIST"; do
-  if [ ! -f "$REQUIRED" ]; then
-    echo "FATAL: missing $REQUIRED"
+echo "installing from $REPO_ROOT into $POC_INSTALL_ROOT"
+
+# Every source is checked BEFORE anything is written, so a missing file cannot
+# leave half an installation behind.
+while IFS='|' read -r M_LABEL M_SRC M_DEST M_MODE M_DESC; do
+  [ -z "$M_LABEL" ] && continue
+  if [ ! -f "$M_SRC" ]; then
+    echo "FATAL: missing $M_SRC ($M_DESC)"
     exit 1
   fi
-done
+done <<< "$POC_MANIFEST"
 
 # Refuse while a work run is in flight. launchctl bootout TERMINATES a running
 # job, so reinstalling mid-run kills it: on 2026-08-27 a reinstall stopped an
@@ -57,7 +127,7 @@ done
 # looked like a model failure. Worse, bootstrap then failed with "Input/output
 # error" and the script exited before installing the responder at all, so a
 # reinstall that appeared to have run had silently deployed half of itself.
-POC_RUN_LOCK=/Users/ivan/rc-poc-logs/run.lock
+POC_RUN_LOCK=$POC_LOG_DIR/run.lock
 if [ -e "$POC_RUN_LOCK" ]; then
   echo "REFUSED: a work run is in flight and reinstalling would kill it."
   echo "holder: $(tr '\n' ' ' < "$POC_RUN_LOCK" 2>/dev/null)"
@@ -68,89 +138,72 @@ if [ -e "$POC_RUN_LOCK" ]; then
   echo "--force given, installing over a live run."
 fi
 
-# asks/ is the ASK-01 spool: open questions, answers landing from the chat
-# poller, and the archive of both. It is created here rather than lazily,
-# because the process that WRITES an answer into it is chat-classify.mjs, which
-# runs inside the responder and must never be the thing that creates a
-# directory it then races another poll to fill.
-mkdir -p "$POC_BIN_DIR" "$POC_LOG_DIR" "$POC_LOG_DIR/chat" "$POC_AGENT_DIR" \
-         "$POC_LOG_DIR/asks" "$POC_LOG_DIR/asks/open" "$POC_LOG_DIR/asks/answers" \
-         "$POC_LOG_DIR/asks/answered"
+while IFS= read -r SPOOL_DIR; do
+  [ -z "$SPOOL_DIR" ] && continue
+  mkdir -p "$SPOOL_DIR"
+done <<< "$POC_SPOOL_DIRS"
 
-install -m 755 "$SOURCE_RUN_SH" "$POC_BIN_DIR/run.sh"
-echo "installed $POC_BIN_DIR/run.sh"
-
-# Copied verbatim. The template carries no secret and no placeholder, so there
-# is nothing to substitute and no rendered variant to drift from it.
-install -m 644 "$SOURCE_PLIST" "$POC_PLIST"
-echo "installed $POC_PLIST"
-
-if ! plutil -lint "$POC_PLIST"; then
-  echo "FATAL: the installed plist does not parse"
-  exit 1
-fi
-
-# bootout first so a reinstall replaces the definition rather than layering on
-# it. A missing agent is not an error here.
-launchctl bootout "gui/$(id -u)/$POC_LABEL" 2>/dev/null
-
-# A bootstrap failure on the first agent must not abandon the second one
-# half-installed. Recorded and carried, then reported at the end.
+# ---------------------------------------------------------------------------
+# THE INSTALL, ONE LOOP OVER THE MANIFEST.
+#
+# A bootstrap failure on one agent must not abandon the next one half-installed.
+# Recorded and carried, then reported at the end. That is not a hypothetical:
+# on 2026-08-27 a bootstrap failed with "Input/output error" and the old script
+# exited before installing the responder at all, so a reinstall that appeared to
+# have run had silently deployed half of itself.
+# ---------------------------------------------------------------------------
 BOOTSTRAP_FAILURES=""
-if ! launchctl bootstrap "gui/$(id -u)" "$POC_PLIST"; then
-  echo "WARNING: launchctl bootstrap failed for $POC_LABEL"
-  BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $POC_LABEL"
-else
-  echo "bootstrapped $POC_LABEL"
-fi
+INSTALLED_COUNT=0
 
-# ---------------------------------------------------------------------------
-# The responder, AUT-6. A second agent on its own 60 second schedule, so a
-# question never waits on the three hour build cycle and never delays it.
-# ---------------------------------------------------------------------------
-install -m 755 "$SOURCE_RESPONDER" "$POC_BIN_DIR/responder.sh"
-echo "installed $POC_BIN_DIR/responder.sh"
+while IFS='|' read -r M_LABEL M_SRC M_DEST M_MODE M_DESC; do
+  [ -z "$M_LABEL" ] && continue
 
-install -m 644 "$SOURCE_CHAT_PLIST" "$POC_CHAT_PLIST"
-echo "installed $POC_CHAT_PLIST"
+  install -m "$M_MODE" "$M_SRC" "$M_DEST"
+  INSTALLED_COUNT=$(( INSTALLED_COUNT + 1 ))
+  echo "installed $M_DEST ($M_DESC)"
 
-if ! plutil -lint "$POC_CHAT_PLIST"; then
-  echo "FATAL: the installed chat plist does not parse"
+  # Only plists are linted and bootstrapped, and a plist is exactly a 644 row.
+  case "$M_DEST" in
+    *.plist) ;;
+    *) continue ;;
+  esac
+
+  if [ "$POC_LIVE_INSTALL" = yes ]; then
+    if ! plutil -lint "$M_DEST"; then
+      echo "FATAL: the installed plist does not parse: $M_DEST"
+      exit 1
+    fi
+
+    # bootout first so a reinstall replaces the definition rather than layering
+    # on it. A missing agent is not an error here.
+    launchctl bootout "gui/$(id -u)/$M_LABEL" 2>/dev/null
+
+    if ! launchctl bootstrap "gui/$(id -u)" "$M_DEST"; then
+      echo "WARNING: launchctl bootstrap failed for $M_LABEL"
+      BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $M_LABEL"
+    else
+      echo "bootstrapped $M_LABEL"
+    fi
+  fi
+done <<< "$POC_MANIFEST"
+
+# THE COUNT IS ASSERTED AGAINST THE MANIFEST, and that is the whole reason the
+# manifest is a list. A loop that reads zero rows installs nothing and reports
+# every step it did not take as a step that did not fail. docs/LEARNINGS.md
+# names that class: any matcher whose empty result means "nothing to do" asserts
+# its input count against its match count.
+POC_MANIFEST_ROWS=$(printf '%s\n' "$POC_MANIFEST" | grep -c '|')
+if [ "$INSTALLED_COUNT" -ne "$POC_MANIFEST_ROWS" ]; then
+  echo "FATAL: the manifest has $POC_MANIFEST_ROWS row(s) and $INSTALLED_COUNT were installed."
+  echo "An installer that skipped a row silently is the defect this count exists to catch."
   exit 1
 fi
+echo "installed $INSTALLED_COUNT of $POC_MANIFEST_ROWS manifest row(s)"
 
-launchctl bootout "gui/$(id -u)/$POC_CHAT_LABEL" 2>/dev/null
-
-if ! launchctl bootstrap "gui/$(id -u)" "$POC_CHAT_PLIST"; then
-  echo "WARNING: launchctl bootstrap failed for $POC_CHAT_LABEL"
-  BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $POC_CHAT_LABEL"
-else
-  echo "bootstrapped $POC_CHAT_LABEL"
-fi
-
-# ---------------------------------------------------------------------------
-# The scheduled digest, DIGEST-01. A third agent on a wall clock schedule, so a
-# report arrives when Ivan starts and when he stops rather than when the build
-# cycle happens to finish. It is silent unless something changed.
-# ---------------------------------------------------------------------------
-install -m 755 "$SOURCE_DIGEST" "$POC_BIN_DIR/digest.sh"
-echo "installed $POC_BIN_DIR/digest.sh"
-
-install -m 644 "$SOURCE_DIGEST_PLIST" "$POC_DIGEST_PLIST"
-echo "installed $POC_DIGEST_PLIST"
-
-if ! plutil -lint "$POC_DIGEST_PLIST"; then
-  echo "FATAL: the installed digest plist does not parse"
-  exit 1
-fi
-
-launchctl bootout "gui/$(id -u)/$POC_DIGEST_LABEL" 2>/dev/null
-
-if ! launchctl bootstrap "gui/$(id -u)" "$POC_DIGEST_PLIST"; then
-  echo "WARNING: launchctl bootstrap failed for $POC_DIGEST_LABEL"
-  BOOTSTRAP_FAILURES="$BOOTSTRAP_FAILURES $POC_DIGEST_LABEL"
-else
-  echo "bootstrapped $POC_DIGEST_LABEL"
+if [ "$POC_LIVE_INSTALL" != yes ]; then
+  echo "---"
+  echo "prefix install complete under $POC_INSTALL_ROOT, no agent was bootstrapped"
+  exit 0
 fi
 
 echo "---"

@@ -1,14 +1,19 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-35444-mtka0z8y)
+target                 shim (container rc-prove-applier-mut-59767-mtke9xho)
 pending register       docs/migrations/APPLY-LOG.md
 pending file count     16
-total statements       226
+total statements       230
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
 ------------------------------------------------------------------------------
+0018_outbound_issue_project_write.sql:
+  drop function if exists public.create_outbound_issue(text, text, text, jsonb);
+0018_outbound_issue_project_write.sql:
+  n if exists public.create_outbound_issue(text, text, text, jsonb, uuid);
+create fun;
 0026_drop_outbound_free_text.sql:
   if exists public.backfill_outbound_project_ids();
 
@@ -35,9 +40,9 @@ REMOVAL DIRECTION: this batch takes something away
 check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           00f395f88c3d45c1f5de921762e01acd9fb7cfd86524d34acf9d6f46325030d9
-script sha256          597a2546cedce531e4df7acb5bbd45ca1f865becffb8298e860e9a02056b65be
-assertions             12
+batch sha256           ff9208874aef59e21995f9e8e4f9722ddea35e9142011e534e2b41c69533be63
+script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
+assertions             13
 ==============================================================================
 
 
@@ -214,12 +219,11 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (0 rows)
 
 
---- applying 0018_outbound_issue_project_write.sql (6 statements) ---
+--- applying 0018_outbound_issue_project_write.sql (10 statements) ---
         proname        |                                          arguments                                          
 -----------------------+---------------------------------------------------------------------------------------------
- create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb
  create_outbound_issue | p_reference text, p_client_name text, p_project_name text, p_lines jsonb, p_project_id uuid
-(2 rows)
+(1 row)
 
 
 --- applying 0019_suppliers.sql (31 statements) ---
@@ -248,7 +252,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-02 15:54:26.269477+00
+ Furnizor Prove | 2026-09-02 17:53:22.209452+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -408,7 +412,101 @@ ASSERTIONS
   assert zero-rows-deleted
   assert outbound-destination-backfill
   assert supplier-backfill
-  assert one-create-outbound-issue-five-args
+  assert declared-function-signatures-exist
+  assert declared-function-versions-only
+
+==============================================================================
+POST-CHECK GRID: the applied ledger AFTER the batch
+==============================================================================
+ version |               name               
+---------+----------------------------------
+ 0001    | phase2_schema
+ 0002    | rc_docs_bucket
+ 0003    | inbound_functions
+ 0004    | outbound_functions
+ 0005    | service_role_grants
+ 0006    | reminder_recipients
+ 0007    | seed_categories
+ 0008    | extraction_drafts
+ 0009    | revoke_anon_on_extraction_drafts
+ 0010    | confirm_extraction_draft
+ 0011    | extraction_confirm_corrections
+ 0012    | manager_flagged_products
+ 0013    | clients
+ 0014    | contacts
+ 0015    | status_entity_project
+ 0016    | projects
+ 0017    | outbound_project_id
+ 0018    | outbound_issue_project_write
+ 0019    | suppliers
+ 0020    | search_clients
+ 0021    | projects_search_and_status
+ 0022    | client_detail
+ 0023    | project_material_summary
+ 0024    | project_material_cost
+ 0025    | deviz
+ 0026    | drop_outbound_free_text
+ 0027    | drop_products_supplier_name
+ 0028    | applied_ledger_version
+(28 rows)
+
+ ledger_rows_after 
+-------------------
+                28
+(1 row)
+
+
+POST-CHECK GRID: row counts on every public table AFTER the batch
+          tbl           | before | after 
+------------------------+--------+-------
+ batches                |      0 |     0
+ categories             |     19 |    19
+ extraction_draft_lines |      0 |     0
+ extraction_drafts      |      0 |     0
+ inbound_orders         |      0 |     0
+ order_lines            |      0 |     0
+ outbound_issues        |      0 |     0
+ outbound_lines         |      0 |     0
+ products               |      1 |     1
+ profiles               |      0 |     0
+ reminders              |      0 |     0
+ status_history         |      0 |     0
+ units                  |      7 |     7
+(13 rows)
+
+
+RECONCILIATION: outbound_issues with no project_id, with their destination text
+ id | reference | project_id 
+----+-----------+------------
+(0 rows)
+
+
+RECONCILIATION: products with a supplier_name and no supplier_id
+ id | sku | name 
+----+-----+------
+(0 rows)
+
+
+RLS and policy count per new table
+ table_name  | rls_enabled | policies 
+-------------+-------------+----------
+ clients     | t           |        3
+ contacts    | t           |        3
+ deviz_lines | t           |        3
+ devize      | t           |        3
+ projects    | t           |        3
+ suppliers   | t           |        3
+(6 rows)
+
+
+COMMITTED
+
+applied and committed: 16 migrations, 13 assertions passed
+
+target was the shim, so NOTHING was written to any journal and the pending register is untouched.
+
+started  2026-09-02T17:53:22.062Z
+finished 2026-09-02T17:53:22.261Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -418,10 +516,3 @@ NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
 NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
 NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
-ERROR:  ASSERTION FAILED [one-create-outbound-issue-five-args]: 2 versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.
-CONTEXT:  PL/pgSQL function inline_code_block line 8 at RAISE
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-ROLLED BACK. Nothing was committed.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-ERROR:  ASSERTION FAILED [one-create-outbound-issue-five-args]: 2 versions of create_outbound_issue exist, expected exactly 1. Two means the drop did not happen and every call is ambiguous.

@@ -76,6 +76,51 @@ jobs:
       - name: Refuse a commit whose card id resolves to no card
         run: npm run check:card-ids
 
+      # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
+      #
+      # tests/e2e/document-url.spec.ts proves the three failure paths end to end,
+      # but only against the LOCAL Supabase storage server, and that server does
+      # not send the same body as the hosted project: it omits the `code` field
+      # entirely. A classifier keyed on `code` passes against the hosted project
+      # and fails locally; one keyed only on what the local server sends passes
+      # here and fails in production, WITH NOTHING TURNING RED, because CI has no
+      # access to the hosted project and must not have any.
+      #
+      # This step closes that half. It replays the captured bodies of BOTH
+      # deployments, copied verbatim from the captures in the card's report, plus
+      # the code-to-status pairing that is the contract itself. No network, no
+      # database, no secret.
+      - name: Prove the document URL failure contract
+        run: npm run check:document-url
+
+      # RULE-02. A DUPLICATE RULING ID OR CARD ID FAILS THE BUILD.
+      #
+      # "Namespaced by author" was doctrine and was enforced by nothing. On
+      # 2026-09-01 a TRIAGE branch authored R-083 through R-089 while R-083
+      # through R-086 were being authored on main, with COMPLETELY DIFFERENT
+      # MEANINGS. The two branches appended to different parts of
+      # decisions/inbox.md, so there was NO MERGE CONFLICT to notice, and the
+      # only thing that caught it was a human reading both.
+      #
+      # The check asks two questions. Is any id duplicated within the record, on
+      # one board, across boards, or in the inbox. And does this branch REDEFINE
+      # an id that origin/main already uses, which is the question that would
+      # have caught the incident, because within each side the ids were perfectly
+      # unique.
+      #
+      # It also reads decisions/NEXT-RULING-ID and refuses a counter that has not
+      # moved past the ruling just written, because that is the state in which
+      # the NEXT author collides.
+      - name: Refuse a duplicate ruling id or card id
+        run: npm run check:unique-ids
+
+      # And the proof that it refuses. A duplicate check that parses zero ids
+      # also reports OK, so each of its refusals is driven against a throwaway
+      # git repository with its own origin/main, and each is paired with a
+      # control that must pass on the same fixture.
+      - name: Prove the duplicate-id check refuses
+        run: npm run prove:unique-ids
+
       # P2-15. The nine DELETE statements aimed at the client's production
       # project are parsed with the real PostgreSQL grammar, here, on every
       # push, with no database and no credentials. The card shipped saying the
@@ -160,6 +205,10 @@ jobs:
       #
       # IT FAILS OPEN. If the base commit cannot be resolved, the proof RUNS.
       # A filter that cannot tell what changed must not conclude "nothing did".
+      # PROVE-01 ADDED prove-assertions-can-fail.mjs TO THE SAME GATE AND TO THIS
+      # PATTERN. A proof whose own file is not in the filter is a proof that
+      # cannot be changed and re-run by the change, which is the failure mode the
+      # fail-open branch above exists to avoid, one level up.
       - name: Decide whether the applier proof must run
         id: applier_scope
         run: |
@@ -174,7 +223,7 @@ jobs:
           CHANGED="$(git diff --name-only "${BASE}" HEAD)"
           echo "changed files against ${BASE}:"
           echo "${CHANGED}"
-          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/)'; then
+          if printf '%s\n' "${CHANGED}" | grep -qE '^(scripts/apply-pending-migrations\.|supabase/migrations/|scripts/poc-free/local-db/|scripts/poc-free/prove-assertions-can-fail\.)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -183,6 +232,24 @@ jobs:
       - name: Prove the migration applier against the Docker shim
         if: steps.applier_scope.outputs.run == 'true'
         run: npm run prove:applier
+
+      # PROVE-01. EVERY APPLIER ASSERTION, WATCHED TO FAIL.
+      #
+      # One postgres container brought to the state the applier leaves behind,
+      # then per assertion: a CONTROL that must hold on a correct database and a
+      # PERTURBATION that must raise. Both halves are required. A body that
+      # raises on everything passes the perturbation and fails the control; a
+      # body that raises on nothing passes the control and fails the
+      # perturbation. Only one that does both is doing its job.
+      #
+      # The bodies are read from the applier through RC_APPLY_PRINT_ASSERTIONS,
+      # so what is proved is the SHIPPED text and not a copy that can drift.
+      #
+      # It rides the same path filter as the applier proof above: both build
+      # containers and both are about the same file.
+      - name: Prove every applier assertion can fail
+        if: steps.applier_scope.outputs.run == 'true'
+        run: npm run prove:assertions
 
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
       #
@@ -223,6 +290,45 @@ jobs:
 
       # BOTH OUTAGES, RECONSTRUCTED, EACH FAILING ITS OWN GUARD ON DEMAND.
       # Neither guard had ever been seen to fail anywhere except production.
+      # P3-11e. THE DEPLOYED HALF OF THE ORDERING RULE, AND ITS REFUSALS.
+      #
+      #   an ADDITIVE migration applies BEFORE the code that reads it merges
+      #   a REMOVAL migration applies AFTER the code that stops reading it is
+      #                            merged AND DEPLOYED
+      #
+      # check:removal-safety proves MERGED. check-deployed-commit proves DEPLOYED:
+      # it asks /api/health which commit production is running and refuses unless
+      # git says the commit being applied against is an ancestor of it. It replaces
+      # RC_DEPLOY_CONFIRMED, which was an operator statement standing in for a
+      # fact, and an operator statement is what produced INC-06.
+      #
+      # THE CHECK ITSELF IS NOT RUN HERE, and it must not be: a pull request
+      # branch is not deployed and never will be, so it would fail on every green
+      # run and be switched off within a week. What runs here is the PROOF that
+      # its eleven refusals fire, against a fake health route on 127.0.0.1, each
+      # paired with a control that must pass on the same harness. No network
+      # beyond loopback, no credentials, no production.
+      - name: Prove the deployed-commit guard refuses
+        run: npm run prove:deployed-commit
+
+      # PROVE-01. AN ASSERTION WITH NO FAILING CASE FAILS THE BUILD.
+      #
+      # Three defects of one class were found in these guards on 2026-09-02.
+      # Three assertions in prove-applier read a psql boolean with includes("t")
+      # against a column named `untouched` and matched the COLUMN NAME. Two
+      # entries in the applier's assertion list had `raise notice` as their only
+      # statement, so they COULD NOT FAIL, and were counted in "N assertions
+      # passed" and in the row written to docs/PRODUCTION-WRITES.md.
+      #
+      # docs/ASSERTION-REGISTER.md names every assertion and refusal in the four
+      # guards together with the case that proves it can fail. This step keeps
+      # the register honest in both directions: an assertion with no row, a row
+      # naming an assertion that is gone, and a row whose case is NONE all fail.
+      #
+      # It needs no database and no network.
+      - name: Refuse an assertion with no failing case
+        run: npm run check:assertion-register
+
       - name: Prove both schema-direction guards still fire
         run: npm run prove:schema-direction
 
@@ -276,6 +382,26 @@ jobs:
       # mutant that merely fails to load passes every mutation case while
       # proving nothing, which is what the first draft of this suite did on all
       # three of its mutants at once.
+      # P3-11b. THE INSTALLER IS PROVED BY INSTALLING AND THEN INVOKING.
+      #
+      # DIGEST-01 shipped digest.sh, its launchd plist, and the lines in
+      # install.sh that deploy both, and every one of them was proved by a test
+      # that ran the SOURCE. Nobody ran the installer. A day after it merged,
+      # `bash /Users/ivan/rc-poc-bin/digest.sh --force` still answered "No such
+      # file or directory": the 08:00 and 19:00 agent did not exist, and the code
+      # to create it had been on main the whole time.
+      #
+      # A test that runs the source proves the source. It says nothing about
+      # whether the file reached the place the scheduler looks. That is the same
+      # class as a migration that is merged and never applied.
+      #
+      # It installs into a TEMPORARY PREFIX and then invokes what it installed.
+      # No launchctl, no plutil, no network, no credentials: the digest's one
+      # HTTPS call goes through the documented POC_DIGEST_OUTBOX seam. It never
+      # writes under /Users/ivan, and one of its assertions is exactly that.
+      - name: Prove the installer by installing and invoking  # P3-11B-INSTALL-PROOF
+        run: bash scripts/poc/test-install.sh
+
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
 

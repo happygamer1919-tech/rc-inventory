@@ -18,7 +18,7 @@
 // because a guard that does not fire on a reconstruction of the exact outage it
 // was written for is not guarding anything.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -155,10 +155,22 @@ function run(script, env) {
 }
 
 // ===========================================================================
-// THE APPLIER REFUSES A REMOVAL, AND REFUSES IT TWICE OVER
+// THE APPLIER REFUSES A REMOVAL UNTIL PRODUCTION SAYS IT IS RUNNING THE CODE
 // ===========================================================================
-// Both refusals are exercised as a DRY RUN, which evaluates every gate and exits
-// before the first psql call, so the fixture tree can never reach a database.
+//
+// REWRITTEN BY P3-11e. This block used to assert RC_DEPLOY_CONFIRMED: the
+// applier refused a removal until the OPERATOR STATED that the deploy had
+// landed, and accepted it the moment they did. That statement is exactly the
+// guess that produced INC-06, and it is gone.
+//
+// What is asserted now is the wiring: the applier runs
+// check-deployed-commit.mjs, refuses when it refuses, and proceeds when it
+// passes. The check's own eleven refusals are proved separately by
+// scripts/poc-free/prove-deployed-commit.mjs; this block is about the applier
+// being connected to it at all.
+//
+// Both cases are DRY RUNS, which evaluate every gate and exit before the first
+// psql call, so the fixture tree can never reach a database.
 {
   const dir = build({
     "mig/0027_drop_products_supplier_name.sql":
@@ -170,26 +182,212 @@ function run(script, env) {
     RC_APPLY_DRY_RUN: "yes",
     RC_APPLY_MIGRATIONS_DIR: join(dir, "mig"),
     RC_APPLY_REGISTER: join(dir, "REG.md"),
-    RC_DEPLOY_CONFIRMED: "",
   };
 
-  const refused = run("scripts/apply-pending-migrations.mjs", base);
+  // --- 1. THE HEALTH ROUTE IS UNREACHABLE ----------------------------------
+  // Port 1 is never listening. No server is needed to prove a refusal, and not
+  // needing one is worth having: this case cannot pass because a fixture failed
+  // to start.
+  const refused = run("scripts/apply-pending-migrations.mjs", {
+    ...base,
+    RC_HEALTH_ORIGIN: "http://127.0.0.1:1",
+  });
   const rOut = (refused.stdout || "") + (refused.stderr || "");
   record(
-    "applier refuses a removal when the deploy is not confirmed",
-    refused.status === 2 && /DEPLOY cannot be verified/.test(rOut),
-    `exit ${refused.status}. A removal applying without a confirmed deploy is INC-06 again.`,
+    "applier refuses a removal when production cannot be asked what it is running",
+    refused.status === 2 && /the DEPLOY is not proven/.test(rOut),
+    `exit ${refused.status}. A removal applying without a proven deploy is INC-06 again.\n${rOut.slice(-500)}`,
   );
 
-  const allowed = run("scripts/apply-pending-migrations.mjs", {
+  // --- 2. RC_DEPLOY_CONFIRMED IS DEAD AND DOES NOT REVIVE IT ---------------
+  // The old escape hatch, set exactly as the old instructions said. It must
+  // change nothing: a statement that still works beside a machine check is the
+  // one that gets used at three in the morning.
+  const stated = run("scripts/apply-pending-migrations.mjs", {
     ...base,
+    RC_HEALTH_ORIGIN: "http://127.0.0.1:1",
     RC_DEPLOY_CONFIRMED: "yes",
   });
-  const aOut = (allowed.stdout || "") + (allowed.stderr || "");
+  const sOut = (stated.stdout || "") + (stated.stderr || "");
   record(
-    "  ...and allows it once the operator confirms, recorded as a statement",
-    allowed.status === 0 && /deploy confirmed by the operator/.test(aOut),
-    `exit ${allowed.status}. If this fails the gate can never be satisfied and no column can ever be dropped.`,
+    "  ...and RC_DEPLOY_CONFIRMED=yes no longer buys past that refusal",
+    stated.status === 2 && /the DEPLOY is not proven/.test(sOut),
+    `exit ${stated.status}. The operator statement is supposed to be dead.\n${sOut.slice(-500)}`,
+  );
+
+  // --- 3. IT PROCEEDS WHEN PRODUCTION REPORTS A COMMIT CONTAINING THIS TREE -
+  //
+  // WITHOUT THIS CONTROL THE TWO REFUSALS ABOVE PROVE NOTHING: an applier that
+  // refused every removal unconditionally would satisfy both, and no column
+  // could ever be dropped again.
+  //
+  // The fake route runs in ANOTHER PROCESS. run() is spawnSync and blocks the
+  // event loop, so a server in this process could never answer, and the control
+  // would fail while looking like a refusal that fired correctly.
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" })
+    .stdout.trim();
+  const fake = spawn("node", [join(HERE, "fake-health-server.mjs"), "--commit", head, "--ledger", "0028"], {
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const origin = await new Promise((resolveOrigin, rejectOrigin) => {
+    const timer = setTimeout(() => rejectOrigin(new Error("the fake health route did not start")), 10000);
+    let buf = "";
+    fake.stdout.on("data", (d) => {
+      buf += d;
+      const line = buf.split("\n")[0].trim();
+      if (line.startsWith("http://")) {
+        clearTimeout(timer);
+        resolveOrigin(line);
+      }
+    });
+  }).catch((e) => {
+    record("  ...and proceeds once production reports a commit containing this tree", false, e.message);
+    return null;
+  });
+
+  if (origin) {
+    const allowed = run("scripts/apply-pending-migrations.mjs", { ...base, RC_HEALTH_ORIGIN: origin });
+    const aOut = (allowed.stdout || "") + (allowed.stderr || "");
+    record(
+      "  ...and proceeds once production reports a commit containing this tree",
+      allowed.status === 0 && /\nOK: production is running exactly the commit|already deployed/.test(aOut),
+      `exit ${allowed.status}. If this fails the gate can never be satisfied and no column can ever be dropped.\n${aOut.slice(-600)}`,
+    );
+    fake.kill();
+  }
+
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ===========================================================================
+// PROVE-01. THE REFUSAL PATHS THAT HAD NO FAILING CASE
+// ===========================================================================
+//
+// The two guards above each had exactly one fixture, covering one of their exit
+// paths. The others had never been watched fail. An assertion nobody has watched
+// fail is an assertion nobody has tested, and these two guards are what stand
+// between a removal migration and a repeat of INC-06.
+//
+// Each case below is paired with a control on the same fixture shape, so a
+// fixture that fails to build cannot satisfy the refusal by dying.
+
+// --- check-removal-safety: a TABLE drop, not a column ----------------------
+{
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/clients.ts":
+      'import { createClient } from "@/lib/supabase/server";\n' +
+      "export async function listClients() {\n" +
+      '  const supabase = await createClient();\n' +
+      '  return supabase.from("clients").select("id, name");\n' +
+      "}\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety refuses a TABLE drop while code still reads the table",
+    r.status !== 0 && /table clients/.test(out),
+    `exit ${r.status}. Only the COLUMN path had a fixture before this card.\n${out.slice(0, 400)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+{
+  // The control for the case above: the same table drop with no reader left.
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/orders.ts": "export const ORDERS = 1;\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  record(
+    "  ...and allows the same TABLE drop once nothing reads it",
+    r.status === 0,
+    `exit ${r.status}. If this fails the guard blocks every table drop forever.`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-removal-safety: a FUNCTION drop, reached through .rpc() ---------
+{
+  const dir = build({
+    "migrations/0099_drop_fn.sql":
+      "begin;\ndrop function public.confirm_extraction_draft(uuid);\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_fn.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/extraction.ts":
+      'export async function confirm(supabase, id) {\n' +
+      '  return supabase.rpc("confirm_extraction_draft", { p_id: id });\n' +
+      "}\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "src"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety refuses a FUNCTION drop while code still calls it through rpc()",
+    r.status !== 0 && /confirm_extraction_draft/.test(out),
+    `exit ${r.status}. This path had never been watched fail.\n${out.slice(0, 400)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-removal-safety: no source directory is a REFUSAL, not an OK -----
+//
+// The most dangerous shape a check can have: pointed at nothing, find nothing,
+// report clean. It exits 2 instead, and this is the case that proves it.
+{
+  const dir = build({
+    "migrations/0099_drop_clients.sql": "begin;\ndrop table public.clients;\ncommit;\n",
+    "REGISTER.md": "- `0099_drop_clients.sql`, card de aplicare PROVE-01\n",
+  });
+  const r = run("scripts/poc-free/check-removal-safety.mjs", {
+    RC_REMOVAL_REGISTER: join(dir, "REGISTER.md"),
+    RC_REMOVAL_MIGRATIONS: join(dir, "migrations"),
+    RC_REMOVAL_SOURCE: join(dir, "does-not-exist"),
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "removal-safety REFUSES when it has no source to scan, rather than reporting clean",
+    r.status === 2 && /refusing to report OK/.test(out),
+    `exit ${r.status}. A check pointed at nothing that reports OK is the worst shape available.\n${out.slice(0, 300)}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// --- check-pending-schema-reads: a stale exemption -------------------------
+//
+// The exemption list is how a false positive is silenced, so a rotting entry is
+// how a real reader gets silenced. The check refuses an entry naming a file that
+// no longer exists, and that refusal had no fixture.
+{
+  const dir = build({
+    "migrations/0099_add_col.sql":
+      "begin;\nalter table public.products add column rc_prove_01 text;\ncommit;\n",
+    "REGISTER.md": "- `0099_add_col.sql`, card de aplicare PROVE-01\n",
+    "src/lib/data/nothing.ts": "export const NOTHING = 1;\n",
+  });
+  const r = run("scripts/poc-free/check-pending-schema-reads.mjs", {
+    RC_PENDING_REGISTER: join(dir, "REGISTER.md"),
+    RC_PENDING_MIGRATIONS: join(dir, "migrations"),
+    RC_PENDING_SOURCE: join(dir, "src"),
+    RC_PENDING_EXEMPT_EXTRA: "lib/data/a-file-that-was-deleted.ts",
+  });
+  const out = (r.stdout || "") + (r.stderr || "");
+  record(
+    "pending-schema-reads refuses an exemption naming a file that no longer exists",
+    r.status !== 0 && /a-file-that-was-deleted/.test(out),
+    `exit ${r.status}. A rotting exemption is how a real reader gets silenced.\n${out.slice(0, 400)}`,
   );
   rmSync(dir, { recursive: true, force: true });
 }

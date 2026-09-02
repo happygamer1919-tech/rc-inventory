@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-clean-92839-mtiyyt7o)
+target                 shim (container rc-prove-applier-clean-59767-mtke9los)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     15
-total statements       217
+pending file count     16
+total statements       227
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -34,12 +34,12 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: no pending migrations, nothing to check
+check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           575e0eb64765e76442d4372122055747617e3e447e2793e3d20ef71dbb32af7e
-script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
-assertions             12
+batch sha256           5de294d5ac1d78da7be6bd2c11b1d9c48c216897ccd82a891ea47aeddcbea6c1
+script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
+assertions             13
 ==============================================================================
 
 
@@ -249,7 +249,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-01 17:57:03.447734+00
+ Furnizor Prove | 2026-09-02 17:53:07.348108+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -379,6 +379,19 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (3 rows)
 
 
+--- applying 0028_applied_ledger_version.sql (10 statements) ---
+ applied_ledger_version 
+------------------------
+ 0015
+(1 row)
+
+        proname         | security_definer |           acl           
+------------------------+------------------+-------------------------
+ applied_ledger_version | t                | postgres=X/postgres    +
+                        |                  | service_role=X/postgres
+(1 row)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -396,7 +409,8 @@ ASSERTIONS
   assert zero-rows-deleted
   assert outbound-destination-backfill
   assert supplier-backfill
-  assert one-create-outbound-issue-five-args
+  assert declared-function-signatures-exist
+  assert declared-function-versions-only
 
 ==============================================================================
 POST-CHECK GRID: the applied ledger AFTER the batch
@@ -430,11 +444,12 @@ POST-CHECK GRID: the applied ledger AFTER the batch
  0025    | deviz
  0026    | drop_outbound_free_text
  0027    | drop_products_supplier_name
-(27 rows)
+ 0028    | applied_ledger_version
+(28 rows)
 
  ledger_rows_after 
 -------------------
-                27
+                28
 (1 row)
 
 
@@ -483,12 +498,12 @@ RLS and policy count per new table
 
 COMMITTED
 
-applied and committed: 15 migrations, 12 assertions passed
+applied and committed: 16 migrations, 13 assertions passed
 
 target was the shim, so NOTHING was written to any journal and the pending register is untouched.
 
-started  2026-09-01T17:57:03.330Z
-finished 2026-09-01T17:57:03.504Z
+started  2026-09-02T17:53:07.220Z
+finished 2026-09-02T17:53:07.397Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
