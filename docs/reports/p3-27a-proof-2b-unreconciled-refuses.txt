@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-unmatched-92839-mtiyz3pi)
+target                 shim (container rc-prove-applier-unmatched-35444-mtka11sb)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     15
-total statements       217
+pending file count     16
+total statements       227
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -34,11 +34,11 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: no pending migrations, nothing to check
+check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           575e0eb64765e76442d4372122055747617e3e447e2793e3d20ef71dbb32af7e
-script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
+batch sha256           52e380ee1287bd6a8b2c281a71aaa4ed57b3dcd7256b6798f29c3bd58297160b
+script sha256          597a2546cedce531e4df7acb5bbd45ca1f865becffb8298e860e9a02056b65be
 assertions             12
 ==============================================================================
 
@@ -213,7 +213,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
  reference  | client_name  | project_name  |           issued_at           
 ------------+--------------+---------------+-------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-09-01 17:57:16.191206+00
+ IES-PRV-01 | Client Prove | Santier Prove | 2026-09-02 15:54:29.200363+00
 (1 row)
 
 
@@ -250,7 +250,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-01 17:57:16.455087+00
+ Furnizor Prove | 2026-09-02 15:54:29.611294+00
 (1 row)
 
  total_products | with_supplier | still_null 

@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-92839-mtiyyy7i)
+target                 shim (container rc-prove-applier-mut-35444-mtka0wrz)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     15
-total statements       218
+pending file count     16
+total statements       228
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -34,11 +34,11 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: no pending migrations, nothing to check
+check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           182d15771711f9755a0523afc71a7e4047623d3f8184ca2f30580b32d1c13391
-script sha256          f7a042561427ad08ae41c660f750a567e985aea6e100b5765824b4516d7a455e
+batch sha256           48cdf6a2929ebb4cc0d48c985383e5bbc5c7f9e1df42596157c69ed883dd6c18
+script sha256          597a2546cedce531e4df7acb5bbd45ca1f865becffb8298e860e9a02056b65be
 assertions             12
 ==============================================================================
 
@@ -247,9 +247,9 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
  supplier_name | text | f
 (2 rows)
 
-      name      |          created_at           
-----------------+-------------------------------
- Furnizor Prove | 2026-09-01 17:57:09.892788+00
+      name      |          created_at          
+----------------+------------------------------
+ Furnizor Prove | 2026-09-02 15:54:22.98046+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -377,6 +377,19 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
  inbound_orders    | supplier_name | YES
  products          | supplier_id   | YES
 (3 rows)
+
+
+--- applying 0028_applied_ledger_version.sql (10 statements) ---
+ applied_ledger_version 
+------------------------
+ 0015
+(1 row)
+
+        proname         | security_definer |           acl           
+------------------------+------------------+-------------------------
+ applied_ledger_version | t                | postgres=X/postgres    +
+                        |                  | service_role=X/postgres
+(1 row)
 
 
 --- ledger: the three rows the strategy record says were never written ---
