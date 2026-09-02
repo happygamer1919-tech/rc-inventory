@@ -225,13 +225,50 @@ if [ -z "$CLASSIFIED" ]; then
   exit 0
 fi
 
-HIGHEST=$(echo "$CLASSIFIED" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const rows=s.trim().split("\n").filter(Boolean).map(JSON.parse);console.log(Math.max(...rows.map(r=>r.update_id)));});' 2>/dev/null)
+# P3-11a. THE ACKNOWLEDGEMENT STOPS BEFORE A RULING THAT DID NOT REACH THE SPOOL.
+#
+# Acknowledging an offset DELETES every update below it on Telegram's side, for
+# everybody. Before this card, a ruling form was labelled `ruling`, left alone
+# here, and then deleted by the acknowledgement below, so inbox.mjs never saw it.
+# chat-classify.mjs now writes rulings to the spool that inbox.mjs reads.
+#
+# It reports `ruling_unspooled` when that write FAILS. Acknowledging past such an
+# update would delete a decision the owner made and that nothing recorded. So the
+# highest acknowledgeable id is the one below the LOWEST unspooled ruling, and
+# only the plain maximum when there is none.
+#
+# THIS IS NOT THE NARROWED OFFSET THE CARD FORBIDS. Everything ignored, every
+# question, every classified answer is still acknowledged exactly as before: the
+# reclassify loop the old comment warns about needs a message that is read and
+# never acknowledged, and the only message that can now happen to is one whose
+# spool write failed, which is a broken disk and not a routine outcome.
+# EXTRACT-BEGIN highest-ackable
+# The fences are part of the contract: scripts/poc/test-ask-digest.sh lifts the
+# node program between them and runs THIS code, so the assertion is about the
+# offset the responder actually computes and not about a copy of it that can
+# drift. Removing them breaks that test loudly, which is the point.
+HIGHEST=$(echo "$CLASSIFIED" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const rows = s.trim().split("\n").filter(Boolean).map(JSON.parse);
+  if (rows.length === 0) { console.log(""); return; }
+  const stuck = rows.filter(r => r.kind === "ruling_unspooled").map(r => Number(r.update_id));
+  const ids = rows.map(r => Number(r.update_id));
+  if (stuck.length === 0) { console.log(Math.max(...ids)); return; }
+  const floor = Math.min(...stuck);
+  const safe = ids.filter(id => id < floor);
+  console.log(safe.length === 0 ? "" : Math.max(...safe));
+});' 2>/dev/null)
+# EXTRACT-END highest-ackable
 
 ANSWERED=0
 echo "$CLASSIFIED" | while IFS= read -r ROW; do
   [ -z "$ROW" ] && continue
   KIND=$(echo "$ROW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{console.log(JSON.parse(s).kind);});')
   UPDATE_ID=$(echo "$ROW" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{console.log(JSON.parse(s).update_id);});')
+
+  if [ "$KIND" = "ruling_unspooled" ]; then
+    log "update $UPDATE_ID is a ruling that could NOT be written to the spool; the offset stops below it"
+    continue
+  fi
 
   if [ "$KIND" != "question" ]; then
     log "update $UPDATE_ID classified $KIND, not answered here"
@@ -295,7 +332,8 @@ $(cat "$QUESTION_FILE")" \
 done
 
 # Acknowledge everything read this poll, including messages that were ignored,
-# so an ignored message is not reclassified forever.
+# so an ignored message is not reclassified forever. HIGHEST is computed above
+# and already stops below any ruling that failed to reach the spool.
 if [ -n "$HIGHEST" ] && [ "$HIGHEST" != "-Infinity" ]; then
   echo "$((HIGHEST + 1))" > "$POC_OFFSET_FILE"
   tg_get "getUpdates?offset=$((HIGHEST + 1))&limit=1" >/dev/null
