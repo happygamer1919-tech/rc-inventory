@@ -56,6 +56,26 @@ jobs:
       - name: Validate boards
         run: node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json
 
+      # AUT-11. A COMMIT WHOSE CARD ID RESOLVES TO NO CARD IS REFUSED.
+      #
+      # AUT-5 and AUT-6 were built, committed and merged under ids that existed
+      # on no board. The board undercounted the work that had been done and
+      # nothing was red. It was found by a human reading a log, which is the one
+      # detection method this repository cannot schedule.
+      #
+      # IT READS origin/main, NOT THE BRANCH, and that is deliberate. A branch
+      # mid-work legitimately carries commits for a card being authored in the
+      # same pull request. Running against HEAD would fire on the normal case and
+      # teach everybody to ignore it. The question is whether the RECORD is
+      # complete, and the record is main.
+      #
+      # It self-tests before it reads any history: six fixture cases, each
+      # negative one paired with a control that must pass on the same harness, so
+      # a fixture that silently fails to run cannot satisfy every assertion while
+      # proving nothing.
+      - name: Refuse a commit whose card id resolves to no card
+        run: npm run check:card-ids
+
       # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
       #
       # tests/e2e/document-url.spec.ts proves the three failure paths end to end,
