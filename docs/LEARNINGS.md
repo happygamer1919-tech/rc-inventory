@@ -2867,19 +2867,49 @@ with a two-id subject whose SECOND id is the unresolvable one.
 
 ### A matcher that fails to match reports as no work, not as an error
 **Tag:** ci
-**ERROR:** Third instance of one defect, and it is now named as a class. The
-pending-register regex excluded lowercase card ids and reported nothing pending.
-`inbox.mjs` upper-cased a card id before comparing it against verbatim board ids
-and matched none. The `grep -v` extraction filter dropped a line that was a real
-reader and reported the removal safe. In all three the matcher ran, matched
-nothing, and the empty result was read as "there is nothing to do" rather than as
-"this did not work". None of the three was red anywhere.
-**SOLUTION:** **Any matcher whose empty result means "nothing to do" asserts its
-input count against its match count and fails when they diverge.** A scanner that
-reads 220 subjects and resolves 0 ids is broken, not clean, and it is the only
-one that can tell the difference. The general rule: a check that can report
-success without having inspected anything is not a check, it is a coin that lands
-the same way twice.
+**ERROR:** **FOURTH instance of one defect, and it is now named as a class.**
+
+1. The pending-register regex excluded lowercase card ids and reported nothing
+   pending.
+2. `inbox.mjs` upper-cased a card id before comparing it against verbatim board
+   ids and matched none.
+3. The `grep -v` extraction filter dropped a line that was a real reader and
+   reported the removal safe.
+4. **2026-09-02, and the worst placement of the four: inside the guard that
+   protects production.** Three assertions in
+   `scripts/poc-free/local-db/prove-applier.mjs` read a one-column `psql` boolean
+   with `(out.stdout || "").includes("t")`. `psql` prints the COLUMN NAME above
+   the value and every one of those columns is named **`untouched`**, which
+   contains a `t`. The three `...and the database is untouched` assertions were
+   true whatever the database said and had **never once been capable of failing**.
+   In the same audit, `outbound-destination-backfill` and `supplier-backfill`
+   turned out to sit in the applier's assertion list with `raise notice` as their
+   only statement: **no `raise exception` on any path**, so they could not fail
+   either, and they were counted in "N assertions passed" and in the row written
+   to `docs/PRODUCTION-WRITES.md`.
+
+In all four the check ran, produced an empty or unconditional result, and that
+result was read as "there is nothing wrong" rather than as "this did not work".
+None of the four was red anywhere.
+
+**SOLUTION, TWO RULES, THE SECOND GENERAL.**
+
+**Any matcher whose empty result means "nothing to do" asserts its input count
+against its match count and fails when they diverge.** A scanner that reads 220
+subjects and resolves 0 ids is broken, not clean, and it is the only one that can
+tell the difference.
+
+**ANY CHECK WHOSE PASSING PATH IS REACHABLE WITHOUT THE CONDITION BEING TRUE IS
+NOT A CHECK.** That covers all four and it covers shapes the first rule does not:
+a boolean parsed by substring out of formatted output, an assertion body with no
+failing branch, a mutant that dies on import, an `await` on a condition that was
+already true. The test that finds them is to ask **what would have to be true for
+this to fail**, and if the answer is "nothing", it is decoration.
+
+**AN ASSERTION WITH NO FAILING CASE IS DELETED OR FIXED, NEVER LEFT.**
+`docs/ASSERTION-REGISTER.md` names every assertion and refusal in the four guards
+together with the case that proves it can fail, and
+`npm run check:assertion-register` fails the build when one arrives without one.
 
 ### Keying on a response field that only one deployment sends
 **Tag:** backend

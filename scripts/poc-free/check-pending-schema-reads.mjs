@@ -195,6 +195,7 @@ for (const file of sourceFiles()) {
 }
 
 if (violations.length > 0) {
+  // REFUSAL: pending-schema-reads-unapplied-read
   console.error('check-pending-schema-reads: COD DE APLICATIE CARE CITESTE SCHEMA NEAPLICATA\n');
   console.error(`Migratii in asteptare, din docs/migrations/APPLY-LOG.md: ${pending.join(', ')}\n`);
   for (const v of violations) {
@@ -218,7 +219,18 @@ if (violations.length > 0) {
 
 // O scutire pentru un fisier care nu mai exista este o lista care a ramas in urma
 // si ar ascunde exact cazul pentru care exista lista.
-const stale = Object.keys(EXEMPT).filter((rel) => {
+// PROVE-01. AN EXTRA EXEMPTION, FOR THE PROOF THAT THE STALE CHECK FIRES.
+//
+// The stale-exemption refusal had never been watched fail, and the only way to
+// watch it is to hand the check an exemption naming a file that does not exist.
+// Adding one to the committed EXEMPT map to test it would leave a permanent lie
+// in the list; this seam is read from the environment and is empty in every real
+// run, so the committed list is exactly what a reader sees.
+const EXEMPT_KEYS = Object.keys(EXEMPT).concat(
+  (process.env.RC_PENDING_EXEMPT_EXTRA || '').split(',').map((x) => x.trim()).filter(Boolean),
+);
+
+const stale = EXEMPT_KEYS.filter((rel) => {
   try {
     statSync(join(ROOT, rel));
     return false;
@@ -227,6 +239,7 @@ const stale = Object.keys(EXEMPT).filter((rel) => {
   }
 });
 if (stale.length > 0) {
+  // REFUSAL: pending-schema-reads-stale-exemption
   console.error('check-pending-schema-reads: scutiri pentru fisiere care nu mai exista:');
   for (const rel of stale) console.error(`  ${rel}`);
   process.exit(1);
