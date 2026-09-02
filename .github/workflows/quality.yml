@@ -276,6 +276,26 @@ jobs:
       # mutant that merely fails to load passes every mutation case while
       # proving nothing, which is what the first draft of this suite did on all
       # three of its mutants at once.
+      # P3-11b. THE INSTALLER IS PROVED BY INSTALLING AND THEN INVOKING.
+      #
+      # DIGEST-01 shipped digest.sh, its launchd plist, and the lines in
+      # install.sh that deploy both, and every one of them was proved by a test
+      # that ran the SOURCE. Nobody ran the installer. A day after it merged,
+      # `bash /Users/ivan/rc-poc-bin/digest.sh --force` still answered "No such
+      # file or directory": the 08:00 and 19:00 agent did not exist, and the code
+      # to create it had been on main the whole time.
+      #
+      # A test that runs the source proves the source. It says nothing about
+      # whether the file reached the place the scheduler looks. That is the same
+      # class as a migration that is merged and never applied.
+      #
+      # It installs into a TEMPORARY PREFIX and then invokes what it installed.
+      # No launchctl, no plutil, no network, no credentials: the digest's one
+      # HTTPS call goes through the documented POC_DIGEST_OUTBOX seam. It never
+      # writes under /Users/ivan, and one of its assertions is exactly that.
+      - name: Prove the installer by installing and invoking  # P3-11B-INSTALL-PROOF
+        run: bash scripts/poc/test-install.sh
+
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
 
