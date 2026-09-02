@@ -772,6 +772,55 @@ two later dispatches were written against a record that did not exist.
 
 ---
 
+## 8b. Id allocation. Added 2026-09-02 by card RULE-02.
+
+**AN ID NAMES EXACTLY ONE DECISION OR ONE UNIT OF WORK.** Two things wearing one
+number is how R-083 through R-086 came to mean different things on a branch and
+on `main` at the same time, and the only thing that caught it was a human reading
+both.
+
+### Allocating a ruling id
+
+1. Read `decisions/NEXT-RULING-ID`. It holds one id, `R-NNN`, and nothing else.
+2. Use that id.
+3. **Advance the file in the same commit as the ruling.** Not afterwards, not in
+   a follow-up.
+
+That third step is the whole mechanism. The counter is one line, so two terminals
+allocating at the same time produce a **merge conflict on that line**, which is
+the loudest signal git has. Before it existed the two authors appended to
+different parts of `decisions/inbox.md` and there was no conflict at all: the
+collision was invisible until somebody read both files side by side.
+
+**A COUNTER RATHER THAN A ROLE PREFIX, AND THE REASON IS THE READERS.** A prefix
+(`R-TRIAGE-001`) makes collisions structurally impossible, and it forks a
+namespace that ninety rulings and every cross reference already use, so every
+future reader has to know both schemes and which era a citation belongs to. The
+counter keeps one flat namespace and turns the collision into a conflict.
+
+### Allocating a card id
+
+Card ids are allocated on the board, and the board is one file per phase, so two
+cards authored at once already conflict. What did not exist is a check that the
+ids are unique **across** boards, and that is now `npm run check:unique-ids`.
+
+### What the check enforces, in `quality`, on every pull request
+
+- no card id twice, on one board or across all three
+- no ruling id twice in `decisions/inbox.md`
+- **no ruling id whose heading differs from the same id on `origin/main`**, which
+  is the one that would have caught the incident, because within each side the
+  ids were perfectly unique
+- `decisions/NEXT-RULING-ID` ahead of the highest ruling actually written
+
+**NO ID IS EVER RENUMBERED TO MAKE IT PASS.** History is not rewritten. Where two
+ids already collide, the pair goes in the check's `TOLERATED` list with its
+reason next to it, exactly as `check-card-ids` keeps an allow-list. That list is
+committed **empty**, so the first entry anybody adds is a decision somebody made
+and can be read in a diff.
+
+---
+
 ## 9. Learnings
 
 **Before reporting any card done, append every ERROR/SOLUTION pair discovered
