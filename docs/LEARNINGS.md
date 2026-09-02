@@ -2971,3 +2971,20 @@ rule: **when a check reads a value out of formatted human output, the parse must
 be anchored to the format, not to a substring** - a column header, a NOTICE line,
 a units suffix and a row count are all in that stream and all of them contain
 letters somebody's `includes()` is looking for.
+
+### Waiting on a condition that was already true is not waiting
+**Tag:** ci
+**ERROR:** `tests/e2e/project-budget.spec.ts` accepted a deviz through the screen
+and then waited for `deviz-locked` before reading the project detail page.
+`deviz-locked` renders for **any** status other than `draft`, so it was already
+true after the preceding *send*. The wait returned instantly, the detail page was
+read before the acceptance reached the database, and the screen correctly
+reported no accepted deviz. Three of seven cases failed and the failure looked
+like a defect in the screen under test rather than in the test.
+**SOLUTION:** Wait on the condition that becomes true **only** after the
+transition. From `accepted` there is no onward transition, so the status buttons
+disappear: `toHaveCount(0)` on `deviz-status-accepted`, plus the row chip reading
+`Acceptat`. The rule: **an await whose condition already holds before the action
+is a synchronous statement wearing an await, and it makes the next assertion race
+the database.** Before waiting on a selector, ask what it looked like one step
+earlier; if the answer is "the same", it is the wrong selector.
