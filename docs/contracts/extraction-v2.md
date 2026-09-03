@@ -344,7 +344,7 @@ it.
 
 ---
 
-## 8. Three prompt rules
+## 8. Four prompt rules
 
 These bind Andre's prompt, not our code. They are here because every one of them
 produces silently wrong numbers rather than an error, which means our side
@@ -378,6 +378,43 @@ manufacturer or the colour or the thickness.
 The name is how the operator matches an extracted line against the catalogue,
 and a translated or tidied name matches nothing. Diacritics are preserved as
 printed; when the document prints none, none are added.
+
+### 8.4 `document_source` is declared, and `scan` is the answer under any doubt.
+
+Ruling R-097, amendments 1, 2 and 3.
+
+**Amendment 1. The emitter carries `scan` and `digital`, and nothing else.** No
+`unknown`, no `photo`, no `mixed`, no empty string. Every consumer of this field
+has exactly two arms, and a third value is not a richer signal, it is a branch
+nobody wrote.
+
+**Amendment 2. The model declares `scan` whenever it is not certain.** This is a
+prompt rule, which is why it is in this section and not in section 4. Uncertainty
+about the source is not reported as uncertainty; it is reported as `scan`.
+
+The asymmetry is the reason and it is not generic caution. Calling a scanned
+document `digital` puts invented stock into a real warehouse. Calling a digital
+one `scan` costs somebody reading a document with their own eyes. Those two errors
+are not the same size, so the tie is not broken in the middle.
+
+**This is not `confidence` under a new name.** `confidence`, removed by EXT-14,
+asked the model to know that it had misread something, which is knowledge it does
+not have. This asks it to break a tie in a stated direction when it cannot tell an
+image from a text layer. The first is introspection. The second is a default.
+
+**Amendment 3. Absent reads as `scan` on our side, and that is the SECOND layer.**
+A payload omitting the field, or sending it null, is read as `scan`. Amendment 2 is
+not made redundant by this, and the order matters: a prompt rule enforced only by
+our default is one nobody can observe being broken, because every violation arrives
+looking exactly like a payload that obeyed it. The default catches the emitter that
+has not shipped the rule yet. It is not the rule.
+
+**Our accepted set is not narrowed by any of the three.** These amendments bind
+what the scenario EMITS. What our validator ACCEPTS is a separate set, it is wider,
+and it stays wider deliberately: an acceptance set that tracks the emitter's
+exactly turns either ordering of two deploys into an outage. **Acceptance may be
+wider than emission and is never narrower.** Dropping a value from the emitter is
+therefore safe to do at any time and needs no coordination with us.
 
 ---
 

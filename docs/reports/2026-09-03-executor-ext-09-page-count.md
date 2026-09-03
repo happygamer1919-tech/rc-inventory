@@ -293,6 +293,22 @@ cases and nothing else disturbed.
    of them on `main` or on any of the 48 remote branches. Full detail in
    `docs/reports/STATE-2026-09-03.md` item 4. `0032` joins that register today,
    so if the register is wrong it is wrong about five files now.
+
+   **CONFIRMED INDEPENDENTLY WHILE THIS CARD WAS IN FLIGHT, AND THE OPEN QUESTION
+   IS CLOSED.** PR #179 merged a `docs/LEARNINGS.md` entry,
+   *The pending migration list said pending, and production said applied*, which
+   reports direct reads: `applied_ledger_version()` returns `"0031"`, `categories`
+   holds nineteen active rows including the paints category at `sort_order` 19,
+   and `units` holds `t` and `l`. Those are `0029` and `0030` observed
+   individually.
+
+   `STATE-2026-09-03.md` item 4 said it could prove `0028` and the ledger maximum
+   but **not** whether `0029` and `0030` had their own rows, because only `max()`
+   was reachable without a per-row read. **That gap is now closed by somebody
+   else's evidence and the answer is that all four are applied.** The state report
+   is left as written, because it was accurate about what it could see at the time
+   and rewriting a point-in-time record to look better informed is worse than
+   annotating it here.
 3. **`_meta` has never been validated in any way.** This card reads one key out
    of it and validates that key. The rest of the block is still stored verbatim
    with no shape enforced, which is defensible for a diagnostic blob and is worth
