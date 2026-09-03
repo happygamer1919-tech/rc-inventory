@@ -122,7 +122,6 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
     "model": "gpt-4o-mini",
     "prompt_version": "v2.0",
     "page_count": 2,
-    "characters_extracted": 4820,
     "duration_ms": 8140
   }
 }
@@ -171,12 +170,64 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 |---|---|---|
 | `model` | string | The model that did the extraction. |
 | `prompt_version` | string | Bumped whenever the prompt changes. Lets a bad batch be traced to a prompt. |
-| `page_count` | integer | Pages in the source document. |
-| `characters_extracted` | integer | Characters the model actually saw. A low number against a high page count is the signature of a scan that did not OCR. |
+| `page_count` | integer or null | **Pages in the source document AS THE MODEL REPORTS THEM.** Null when it reports none, which is not an error. See 4.3a. |
 | `duration_ms` | integer | Wall clock for the extraction. |
 
-`_meta` is stored and never shown to the operator. It exists so that a wrong
-extraction can be explained rather than argued about.
+`_meta` is stored verbatim and never shown to the operator. It exists so that a
+wrong extraction can be explained rather than argued about.
+
+**`page_count` is the one field in `_meta` that is also read out of it**, into a
+column of its own. Everything else here is diagnostic only.
+
+### 4.3a `page_count`, and `characters_extracted` which is gone
+
+**Added 2026-09-03 by card EXT-09.**
+
+**`characters_extracted` IS REMOVED FROM THIS CONTRACT.** It was specified when
+the plan involved extracting text on our side. We hand the file to the model, so
+no character count exists anywhere in the chain and the field could only ever
+have been null. A number that is null by construction is not a weak signal, it is
+a field that reads like coverage and provides none.
+
+**IT IS REMOVED FROM WHAT WE EXPECT, NOT FROM WHAT WE TOLERATE.** A callback that
+still carries `characters_extracted` is **accepted**, and the field is **ignored**:
+nothing reads it and nothing requires it. It is not stripped either, because
+`_meta` is the diagnostic block and throwing away what the sender chose to send
+loses the thing the block exists for.
+
+That tolerance is not politeness. The extraction side and this side do not deploy
+in the same second, and a contract change that makes the previous version's
+payload invalid is an outage scheduled for whichever side ships first. Make
+retries on 5xx, so it would be a loop rather than a single failure.
+
+**WHAT `page_count` IS FOR, WHICH IS THE REASON FOR THE SWAP.** A model reporting
+one page on a three-page document has silently read a third of it and returned a
+result that is consistent with itself. **Nothing else in the chain catches that.**
+A totals check does not: the totals of page one reconcile against the lines of
+page one, and every number on the screen looks right.
+
+| | |
+|---|---|
+| **type** | integer, or null |
+| **null means** | no page count was reported. **Not an error.** |
+| **minimum** | 1. A document has at least one page, so 0 is a broken report and not a smaller reading. |
+| **stored as** | a column, `extraction_drafts.page_count`, added by `0033_extraction_draft_page_count.sql` |
+| **broken report** | 0, negative, fractional, a string, a boolean: all read as null, and none of them rejects the document |
+
+**A broken report is null, never a 400.** A diagnostic field that cannot be
+trusted says exactly what an absent one says, and throwing away a whole document
+over it would cost a manual entry to gain nothing.
+
+**IT IS A COLUMN AND NOT ONLY A KEY IN `_meta`, DELIBERATELY.** The value already
+arrived inside `_meta`, which is stored verbatim, so nothing had to be built for
+it to be present. `_meta` is unvalidated jsonb that is documented as never shown,
+and a signal no query can reach is not a signal.
+
+**COMPARING IT AGAINST THE REAL PAGE COUNT IS NOT PART OF THIS CONTRACT.** What
+happens when the model's number and the file's number disagree, and whether that
+blocks or flags, is separate work: it needs a page counter on our side, and there
+is not one. This contract carries the reported number and says where it is
+stored.
 
 ### 4.4 The `category` caveat, recorded rather than hidden
 

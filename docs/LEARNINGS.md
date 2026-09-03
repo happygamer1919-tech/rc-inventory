@@ -3084,3 +3084,63 @@ wall approached from the other side:** any control that depends on a model
 noticing its own uncertainty is not a control. `confidence` returned `1.0` on the
 document with four invented lines, which is why card EXT-14 removes it rather
 than displaying it.
+
+### A capability gate named by a literal string sends the next card to the wrong gate
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-pending-schema-reads.mjs` held
+`const GUARD = 'hasPhase3Schema'` and asked only whether a source file CONTAINS
+that string. The rule is deliberately crude, which is fine, but the crudeness was
+attached to ONE gate's name. EXT-09 added a column on an existing phase 2 table,
+`extraction_drafts.page_count`, which `hasPhase3Schema` says nothing about: that
+gate answers whether the phase 3 TABLES are applied, and 0033 can be applied
+before or after them. The cheapest way to make the check green was therefore to
+import the WRONG gate. The check would have passed, the callback route would
+still have written a column production did not have, PostgREST would have
+returned 42703, and Make retries on 5xx, so it would have been a loop rather than
+one failure.
+**SOLUTION:** the gate list is derived from `lib/data/schema-capability.ts` by
+pattern, so a third gate is covered without editing the check, and the count is
+VERIFIED: zero gates found means the pattern stopped matching, and the check
+exits 2 rather than reporting every guarded file as unguarded.
+**The rule:** a check that names one implementation of a concept tests that
+implementation, not the concept. When the concept can have a second instance,
+the check enumerates instances instead of naming one, and refuses to report when
+it enumerates none.
+
+### `add column if not exists` made a guard hunt for a column named `if`
+**Tag:** ci
+**ERROR:** the same check extracted pending column names with
+`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0033 writes
+`add column if not exists page_count integer`, so the capture was the word `if`.
+The check then searched every file under `lib/`, `app/` and `components/` for the
+token `if` and reported **52 violations**, one per file, each saying
+`numeste coloana if`. Nothing was wrong with any of them.
+**SOLUTION:** the pattern now allows the optional `(?:if\s+not\s+exists\s+)?`
+before the column name. Migration 0032, on another branch, hit the identical
+defect independently, which is how a one-character-class omission cost two cards.
+**The rule:** a regex over SQL must accept every optional clause the grammar
+allows at that position, and the failure to do so is not a miss, it is a WRONG
+CAPTURE, which is worse. A miss reports nothing; a wrong capture reports a wall
+of findings, and a mass refusal read as a discovery is the worst output a check
+can produce: either somebody spends an hour on it, or they stop believing the
+check, and the second one is permanent.
+
+### A local e2e suite can be blocked by another project's Supabase stack
+**Tag:** infra
+**ERROR:** `supabase db reset` for rc-inventory failed with
+`Bind for 0.0.0.0:54322 failed: port is already allocated`. The OsteoJP stack
+holds 54322 on this machine. Two further mismatches sat behind it:
+`supabase/config.toml` on main names 54321 and 54322 while the working
+`.env.local` names 54421, so the rc-inventory stack that was up was half up, kong
+on 54421 with no database container at all; and `.env.local` carries eight
+variables of which `SUPABASE_SERVICE_ROLE_KEY` is not one, so the extraction
+callback route would have returned 500 and every case in the spec would have
+failed for a reason unrelated to the card.
+**SOLUTION:** the before-and-after proof was moved onto the runner, by splitting
+the branch so the tests land in one commit and the implementation in the next.
+The two `quality` runs on the pull request are then the two results, produced by
+the acceptance command itself rather than described in prose.
+**The rule:** when a card's acceptance cannot run locally for reasons that are
+not the card's, do not weaken the acceptance to fit the machine. Move it to a
+machine that can run it, and say in the pull request which obstacles were hit, so
+the next card does not rediscover all three.
