@@ -31,35 +31,26 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
-
-// EXT-09. FIECARE POARTA DE CAPABILITATE, NU UNA SINGURA NUMITA LITERAL.
+// EXT-15. FIECARE POARTA DE CAPABILITATE, NU UNA SINGURA NUMITA LITERAL.
 //
-// Constanta era sirul 'hasPhase3Schema', si cat timp exista o singura poarta
-// aceea era acelasi lucru. EXT-09 a adaugat a doua, hasExtractionPageCount,
-// pentru o migratie separata: hasPhase3Schema intreaba daca TABELELE fazei 3
-// sunt aplicate, iar 0033 adauga o coloana pe o tabela a fazei 2 si poate fi
-// aplicata inainte sau dupa ele. O poarta care raspunde la intrebarea gresita
+// Constanta era sirul 'hasPhase3Schema', si atat timp cat exista o singura
+// poarta aceea era acelasi lucru. EXT-15 a adaugat a doua,
+// hasExtractionDocumentSource, pentru o migratie separata: hasPhase3Schema
+// raspunde la alta intrebare, iar o poarta care raspunde la intrebarea gresita
 // este o poarta care se deschide in ziua nepotrivita.
-//
-// FARA GENERALIZAREA ACEASTA REGULA AR FI IMPINS SPRE POARTA GRESITA. Verificarea
-// cere numai ca fisierul sa CONTINA numele porti, deliberat grosolan, deci un
-// fisier care are nevoie de o poarta noua ar fi trecut importand-o pe cea veche.
-// Verificarea ar fi devenit verde si codul ar fi ramas exact la fel de expus,
-// ceea ce este mai rau decat un refuz.
 //
 // LISTA SE DERIVA DIN lib/data/schema-capability.ts, deci a treia poarta este
 // acoperita fara ca acest fisier sa fie editat, iar numarul citit este VERIFICAT:
-// zero porti ar insemna ca tiparul a incetat sa mai citeasca acel fisier, si
-// atunci FIECARE fisier aparat ar fi raportat ca neaparat. Un refuz in masa citit
-// ca descoperire este cea mai proasta iesire posibila pentru o verificare.
+// zero porti inseamna ca tiparul a incetat sa citeasca acel fisier, si atunci
+// FIECARE fisier aparat ar fi raportat ca neaparat. Un refuz in masa citit ca
+// descoperire este exact defectul pe care aceasta rulare l-a produs o data deja,
+// cand o coloana numita `if` a fost cautata in tot codul sursa.
 const CAPABILITY_MODULE = 'lib/data/schema-capability.ts';
 const GUARDS = (() => {
   const src = readFileSync(join(ROOT, CAPABILITY_MODULE), 'utf8');
   const names = [...src.matchAll(/export\s+async\s+function\s+(has\w+)/g)].map((m) => m[1]);
   if (names.length === 0) {
-    console.error(
-      `check-pending-schema-reads: zero porti de capabilitate gasite in ${CAPABILITY_MODULE}.`,
-    );
+    console.error(`check-pending-schema-reads: zero porti de capabilitate gasite in ${CAPABILITY_MODULE}.`);
     console.error('Fara ele fiecare fisier aparat ar fi raportat ca neaparat. Refuz sa raportez.');
     process.exit(2);
   }
@@ -166,17 +157,14 @@ function objectsAddedBy(files) {
 
     for (const m of code.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?public\.(\w+)/gi))
       tables.add(m[1]);
-    // `if not exists` ESTE OPTIONAL AICI, SI OMITEREA LUI A FOST UN DEFECT REAL.
+    // `if not exists` IS OPTIONAL HERE AND OMITTING IT WAS A REAL DEFECT.
     //
-    // Tiparul era `add\s+column\s+(\w+)`, iar 0033 scrie
-    // `add column if not exists page_count integer`, deci captura a fost cuvantul
-    // `if`. Verificarea a cautat apoi o coloana numita `if` in TOT codul sursa,
-    // a gasit-o in cincizeci si doua de fisiere, si a raportat cincizeci si doua
-    // de incalcari.
-    //
-    // UN REFUZ IN MASA CITIT CA DESCOPERIRE ESTE CEA MAI PROASTA IESIRE POSIBILA
-    // pentru o verificare: fie cineva il crede si petrece o ora pe el, fie
-    // inceteaza sa mai creada verificarea, si a doua oara este permanenta.
+    // The pattern was `add\s+column\s+(\w+)` and migration 0032 writes
+    // `add column if not exists document_source text`, so the capture was the
+    // word `if`. The check then looked for a column named `if` in every source
+    // file, found it in almost all of them, and reported the whole application
+    // as reading unapplied schema. The `create table` pattern two lines above
+    // already handled the same clause; this one did not.
     for (const m of code.matchAll(
       /alter\s+table\s+public\.(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)/gi,
     ))
@@ -185,6 +173,42 @@ function objectsAddedBy(files) {
       functions.add(m[1]);
     for (const m of code.matchAll(/create\s+function\s+public\.(\w+)/gi)) functions.add(m[1]);
   }
+  // AN OBJECT NAME THAT IS A SQL KEYWORD IS A PARSE FAILURE, NOT AN OBJECT.
+  //
+  // This is the durable half of the fix above, and it is here because the regex
+  // was not the whole defect. A pattern that captures the wrong token produces a
+  // NAME, and this file then searches for that name in every source file and
+  // reports what it finds. The output was confident, specific, and about nothing:
+  // "lib/data/dashboard.ts numeste coloana if".
+  //
+  // docs/LEARNINGS.md names the class: a check whose passing path is reachable
+  // without the condition being true. This is its mirror, a check whose FAILING
+  // path is reachable without the condition being true, and it is worse, because
+  // a false green is ignored once and a false red is ignored forever.
+  //
+  // So a captured name that is a keyword stops the run instead of being searched
+  // for. The list is short and explicit: these are the words a broken pattern
+  // actually lands on, and adding one is a decision readable in a diff.
+  const KEYWORDS = new Set([
+    'if', 'not', 'exists', 'column', 'table', 'add', 'drop', 'alter', 'create',
+    'or', 'replace', 'function', 'public', 'and', 'set', 'to', 'default',
+  ]);
+  for (const [kind, set] of [['tabela', tables], ['coloana', columns], ['functie', functions]]) {
+    for (const name of set) {
+      if (!KEYWORDS.has(String(name).toLowerCase())) continue;
+      console.error(
+        `check-pending-schema-reads: a extras ${kind} numita "${name}", care este un cuvant cheie SQL.`,
+      );
+      console.error(
+        'Asta nu este un obiect, este o potrivire gresita: tiparul a capturat alt token decat numele.',
+      );
+      console.error(
+        'Refuz sa caut acest nume in codul sursa, fiindca l-as gasi peste tot si as raporta cu incredere despre nimic.',
+      );
+      process.exit(2);
+    }
+  }
+
   return { tables, columns, functions };
 }
 

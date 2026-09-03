@@ -3253,6 +3253,68 @@ Second: a number taken on another unmerged branch is not free, and the collision
 is invisible to git whenever the two files have different names. Say it out loud
 in the file, because the next reader's only other warning is a red proof.
 
+### A branch whose migration is numbered above an unmerged one goes red until the lower number lands
+**Tag:** ci
+**ERROR:** `P3-33` numbered its migrations `0030` and `0031` on the assumption
+that `P3-34`'s `0029` would land first, which the board's `depends_on` edge
+required. Until it did, the applier saw a pending batch ending at `0031` with
+`0029` absent, and `ledger-no-gaps-ends-at-highest` rolled **every** case back.
+`prove:applier` reported `0 of 16`, including the clean pass, so the failure
+looked total and unrelated to the change. `EXT-15` hit the identical shape a day
+later with `0032` above an unmerged `0030`/`0031`.
+**SOLUTION:** **This is the assertion working, not a flake, and no re-run will
+ever clear it.** The ledger genuinely has a gap; the only thing that closes it is
+merging the lower number. Two rules follow:
+
+**Migration-carrying pull requests merge in migration-number order**, which the
+board's `depends_on` edges already encode where the cards are ordered. When a
+branch is cut, merge `main` into it *before* choosing a number, so the number is
+chosen against what has actually landed.
+
+**Do not re-run CI on a red `prove:applier` hoping it turns green.** An hour was
+lost that way on a conflicting pull request that was triggering zero workflows,
+and this failure reads the same from the outside: total, sudden, and nothing to
+do with the diff. Read which assertion raised. `ledger-no-gaps-ends-at-highest`
+naming a number your branch does not contain is a merge-order problem, not a
+test problem.
+
+### A capability probe on a different connection answers a different question
+**Tag:** backend
+**ERROR:** `hasExtractionDocumentSource` built its own **session** client to
+probe whether `extraction_drafts.document_source` exists. The extraction callback
+is a **machine endpoint** authenticated by a shared secret, with no session, and
+the RLS policies on that table are `to authenticated`. The probe got a permission
+refusal, which has nothing to do with whether the column exists, read it as
+"absent", and the gate answered **no forever on the one path that mattered** -
+silently disabling the whole feature on the endpoint it was written for. The
+end-to-end cases failed with `document_source: null` on a database that had the
+column.
+**SOLUTION:** The probe takes the caller's client as a parameter, so it asks on
+**the same connection that will do the read**. The rule: **a capability probe is
+only meaningful on the connection whose capability is in question.** Anon,
+authenticated and `service_role` see different schemas through PostgREST, so
+"does this column exist" is not one question - it is one question per role, and
+an error from the wrong role is indistinguishable from an absent column.
+
+### An extractor that captures the wrong token invents an object and searches for it everywhere
+**Tag:** ci
+**ERROR:** `check-pending-schema-reads` matched added columns with
+`alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)`. Migration `0032` writes
+`add column if not exists document_source text`, so the capture was the word
+**`if`**. The check then looked for a column named `if` in every source file,
+found it in nearly all of them, and reported the entire application as reading
+unapplied schema: *"lib/data/dashboard.ts numeste coloana if"*. Confident,
+specific, and about nothing. The `create table` pattern three lines above already
+handled `if not exists`; this one did not.
+**SOLUTION:** The pattern accepts the clause, and - the durable half - **a
+captured object name that is a SQL keyword now stops the run instead of being
+searched for.** This is the mirror of the class `docs/LEARNINGS.md` already
+names: not a check whose *passing* path is reachable without the condition, but
+one whose *failing* path is. **The mirror is worse**, because a false green is
+ignored once and a false red is ignored forever. Any extractor that produces a
+NAME which is then used to search should validate that the name is plausible
+before trusting it.
+
 ### Second instance: an instruction not to invent a self-consistent total was ignored three runs of three
 **Tag:** data
 **ERROR:** The prompt forbade the model from constructing a quantity, a unit

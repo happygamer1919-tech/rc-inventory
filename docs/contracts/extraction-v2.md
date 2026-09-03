@@ -145,6 +145,7 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
 | `confidence` | number or null | yes | 0 to 1, for the document as a whole. |
+| `document_source` | enum or null | yes | `scan` or `digital`. **Declared by the extractor.** Null is accepted and read as `scan`. See section 4.2c. |
 | `lines` | array | no | May be empty on `failed`. Never null. |
 | `_meta` | object | no | Section 4.3. |
 
@@ -163,6 +164,59 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `category` | string or null | yes | Mapped. **See section 4.4, this one has a caveat.** |
 | `category_raw` | string or null | yes | Verbatim, as the document grouped it. |
 | `confidence` | number or null | yes | 0 to 1, for this line. |
+
+### 4.2c `document_source`, and why this self-report is accepted when others were not
+
+**Card EXT-15, 2026-09-03.** `scan` when the model read an image, `digital` when
+it read a text layer. Null is accepted and **read as `scan`**.
+
+**Nothing else in the payload answers this question.** `mime_type` does not: one
+of the four sample documents is a **PDF with no text layer**, so
+`application/pdf` covers both cases. `_meta.characters_extracted` was the only
+proxy and card EXT-09 removes it, because with the file handed straight to the
+model that number could only ever be null. Only the extractor knows.
+
+**Null is read as `scan`, and the asymmetry is the reason.** Guessing `digital`
+on a scanned document costs invented stock in a real warehouse. Guessing `scan`
+on a digital one costs somebody keying a document in by hand.
+
+**A value outside the set is REJECTED, not ignored.** A stray third value would
+otherwise fall through into the safe branch, which is correct by accident today
+and silent on the day somebody adds a third source and forgets a branch.
+
+#### This is a self-report, and it is accepted on a narrower basis than the self-reports this contract rejected
+
+`confidence` was removed by card EXT-14 because it returned `1.0` on a scan where
+four of seven lines were wrong. `status: extracted` was equally wrong on the same
+payload. Both are the model **judging its own output**, and the rule this
+repository keeps is that any control depending on a model noticing its own
+uncertainty is not a control.
+
+**`document_source` is a different kind of claim, and the difference is not a
+matter of degree.**
+
+| the report | what it requires of the model |
+|---|---|
+| "I am confident in this line" | knowing that it misread a digit - **knowing what it does not know** |
+| "this page was a photograph, not rendered text" | **perception**, not introspection |
+
+The scan failure was the model being asked whether it had misread something. It
+cannot answer that, because a misreading it is aware of is one it would have
+corrected. Whether the input was an image or a text layer is a property of the
+input that is **present in the input**, and reporting it is description rather
+than self-assessment.
+
+**This is stated so that a future reader does not treat it as licence for the
+other kind.** The test to apply before accepting any new self-reported field is
+not "does the model sound sure", it is: **would answering this correctly require
+the model to know something it does not know?** If yes, it is `confidence`
+wearing a new name.
+
+**And it is still not load-bearing on its own.** `document_source` decides which
+of two rules applies; it is not trusted to decide whether a document is correct.
+An extractor that reported `digital` on every scan would put those payloads back
+on the digital path, which is why EXT-17 refuses to auto-accept **either** source
+and EXT-16 reconciles **before** the source is consulted.
 
 ### 4.3 `_meta`
 

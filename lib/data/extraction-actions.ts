@@ -22,6 +22,8 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
+import { effectiveSource } from "./extraction-types";
+import { hasExtractionDocumentSource } from "./schema-capability";
 import { safeFileName } from "./row";
 import { resolveSupplier } from "./suppliers";
 import {
@@ -208,6 +210,34 @@ export async function confirmExtractionDraft(
     return { ok: false, message: "Completează data estimată de livrare.", field: "expectedAt" };
 
   const supabase = await createClient();
+
+  // EXT-15. O SCANARE AL CAREI CONTINUT NU A FOST CITIT NU SE POATE INREGISTRA,
+  // SI REFUZUL ESTE AICI SI NU NUMAI PE ECRAN.
+  //
+  // ExtractionReviewPanel se intoarce inainte de a randa formularul pentru o
+  // astfel de ciorna, deci ecranul nu ofera calea. Dar o actiune de server este o
+  // cale de executie de sine statatoare: oricine o poate chema, iar o paza
+  // dovedita pe o singura cale de executie nu este o paza. Aceeasi doctrina pe
+  // care o poarta EXT-16 despre reconciliere, aplicata unei margini in loc de
+  // unui numar.
+  //
+  // SE CITESTE STAREA DIN BAZA, NU DIN CE A TRIMIS APELANTUL. Apelantul este
+  // exact lucrul de care ne aparam aici.
+  if (await hasExtractionDocumentSource(supabase)) {
+    const { data: source } = await supabase
+      .from("extraction_drafts")
+      .select("status, document_source")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    const row = (source ?? {}) as { status?: unknown; document_source?: unknown };
+    if (row.status === "failed" && effectiveSource(row.document_source) === "scan") {
+      return {
+        ok: false,
+        message:
+          "Conținutul acestui document nu a fost citit. Este o scanare fără linii verificate și nu poate fi înregistrată.",
+      };
+    }
+  }
 
   const resolved: { product_id: string; quantity: number; unit_price: number | null }[] = [];
   let flagged = 0;

@@ -165,6 +165,92 @@ test.describe("Extragere documente", () => {
     expect(fired[0]!.documentFilename).toContain(".pdf");
   });
 
+  test("1c. EXT-15: o scanare esuata NU pastreaza nicio linie, iar antetul ramane", async ({
+    page,
+    request,
+  }) => {
+    // EXT-15. Regula proprietarului, din rezultatul scanarii din 2026-09-02:
+    // calea de scanare a intors PATRU LINII GRESITE DIN SAPTE, fiecare
+    // consistenta aritmetic. O linie marcata este tot o linie. Singura randare
+    // sigura a unei linii care s-ar putea sa fie inventata este NICIO linie.
+    await signIn(page, ownerAccount());
+    const { orderId } = await orderWithDocument(page, "scanfail");
+
+    const body = callbackBody(orderId, {
+      status: "failed",
+      error_code: "unreadable_document",
+      reason: "Scanarea nu a putut fi cititaa.",
+      document_source: "scan",
+    });
+    expect((await post(request, body)).status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("failed");
+    expect(d.document_source).toBe("scan");
+    // ZERO LINII, desi payload-ul a trimis una.
+    expect(d.lines).toHaveLength(0);
+    // ANTETUL RAMANE, si acela este rostul ecranului: proprietarul identifica
+    // documentul si bate liniile de mana contra unui total cunoscut.
+    expect(d.supplier_name).toBe("Bilka Steel SRL");
+    expect(Number(d.document_total)).toBe(22140);
+    expect(Number(d.vat_rate)).toBe(20);
+    expect(d.currency).toBe("MDL");
+  });
+
+  test("1d. EXT-15: acelasi payload marcat DIGITAL isi pastreaza liniile", async ({
+    page,
+    request,
+  }) => {
+    // MARTORUL, SI FARA EL CAZUL DE MAI SUS NU DOVEDESTE NIMIC. O implementare
+    // care ar sterge liniile oricarui esec ar trece 1c si ar rupe calea
+    // digitala, care ramane neschimbata. DISTINCTIA ESTE SURSA, NU ESECUL.
+    await signIn(page, ownerAccount());
+    const { orderId } = await orderWithDocument(page, "digitalfail");
+
+    const body = callbackBody(orderId, {
+      status: "partial",
+      error_code: "extraction_failed",
+      reason: "O linie nu a putut fi citita.",
+      document_source: "digital",
+    });
+    expect((await post(request, body)).status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("partial");
+    expect(d.document_source).toBe("digital");
+    expect(d.lines).toHaveLength(1);
+  });
+
+  test("1e. EXT-15: o sursa absenta se citeste ca scan, si una necunoscuta este 400", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    const { orderId } = await orderWithDocument(page, "srcdefault");
+
+    // ABSENTA -> scan. Asimetria costurilor: a ghici digital pe o scanare
+    // inseamna stoc inventat; a ghici scan pe un document digital inseamna ca
+    // cineva bate documentul de mana.
+    const body = callbackBody(orderId, {
+      status: "failed",
+      error_code: "unreadable_document",
+      reason: "fara sursa declarata",
+    });
+    delete (body as Record<string, unknown>).document_source;
+    expect((await post(request, body)).status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.document_source).toBe("scan");
+    expect(d.lines).toHaveLength(0);
+
+    // O VALOARE NECUNOSCUTA ESTE REFUZATA, NU IGNORATA. Ignorata, ar cadea in
+    // ramura sigura, ceea ce este corect din intamplare astazi si tacut in ziua
+    // in care apare a treia valoare.
+    const { orderId: other } = await orderWithDocument(page, "srcbad");
+    const bad = callbackBody(other, { document_source: "photo" });
+    expect((await post(request, bad)).status()).toBe(400);
+  });
+
   test("2. un callback extracted scrie fiecare camp al contractului", async ({ page, request }) => {
     await signIn(page, ownerAccount());
     await ensureTestCategory(page);

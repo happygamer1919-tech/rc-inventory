@@ -317,6 +317,40 @@ decision only. Its `defaults` say the pre-merge check that refuses a row-destroy
 statement is NOT blocked on his answer and should be built first, because it is
 what makes the permissive answer safe to choose.
 
+## 0033_extraction_document_source.sql - APPLIED, OBSERVED PROSPECTIVELY, THIRD CONFIRMATION
+
+**Actor:** **the Supabase GitHub app, on the merge of PR #177 to `main`.** Stated
+rather than left unrecorded, for the same reason as `0032` and with the same kind
+of evidence: this apply was **predicted before it happened** and then observed.
+**No terminal ran it.**
+
+**Applied at:** between `2026-09-03T22:22Z`, when PR #177 merged as `c3f5bb3`, and
+`2026-09-03T22:24:24Z`, when the `Supabase Preview` check on that commit completed
+`success`. Read as present immediately after.
+
+**What it creates:** `public.extraction_drafts.document_source`, text, with a
+check constraining it to the declared set, no default.
+
+**Proof that it is applied:** this column was **the control in the `0032` test.**
+While PR #177 sat open it was read three separate times and returned `42703,
+undefined column` every time, in exactly the same query that showed `page_count`
+appearing the moment #180 merged. Merging #177 was therefore a second, independent
+prediction:
+
+    while #177 was OPEN:   GET ...?select=document_source  ->  42703  (three reads)
+    after #177 merged:     GET ...?select=document_source  ->  200
+                           POST /rest/v1/rpc/applied_ledger_version  ->  "0033"
+
+**THREE MIGRATIONS, THREE MERGES, THREE APPLIES, AND TWO OF THEM PREDICTED.** The
+first four entries in this group were reconstructed after the fact from
+circumstantial evidence. `0032` was predicted and observed with `0033` as the
+control. `0033` was then predicted and observed in its turn. There is no longer
+any reasonable doubt about the mechanism, and the sentence in CLAUDE.md 3.1 that
+merging a migration "changes nothing in any database" is simply false here.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist.** Card `MIG-01` carries the
+decision.
+
 ## Rules
 
 - **One entry per apply**, in the order they were applied, newest at the bottom.
