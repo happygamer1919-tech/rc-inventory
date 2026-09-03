@@ -102,7 +102,6 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
   "vat_rate": 20.0,
   "currency": "MDL",
   "currency_raw": "lei",
-  "confidence": 0.94,
   "lines": [
     {
       "product_name": "Tigla metalica Bilka Classic 0.45mm visiniu",
@@ -115,7 +114,6 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
       "currency_raw": "lei",
       "category": null,
       "category_raw": "Invelitori",
-      "confidence": 0.91
     }
   ],
   "_meta": {
@@ -145,7 +143,6 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `vat_rate` | number or null | yes | Percentage, as a number. `20.0`, not `"20%"`, not `0.2`. |
 | `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
-| `confidence` | number or null | yes | 0 to 1, for the document as a whole. |
 | `lines` | array | no | May be empty on `failed`. Never null. |
 | `_meta` | object | no | Section 4.3. |
 
@@ -163,7 +160,29 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `currency_raw` | string or null | yes | Verbatim. |
 | `category` | string or null | yes | Mapped. **See section 4.4, this one has a caveat.** |
 | `category_raw` | string or null | yes | Verbatim, as the document grouped it. |
-| `confidence` | number or null | yes | 0 to 1, for this line. |
+
+### 4.2b `confidence` was removed. Card EXT-14, 2026-09-03.
+
+**It is gone from both levels and it is not coming back as a display field.**
+
+It returned `1.0` on a scan where **four of seven lines were wrong**, every one
+arithmetically self-consistent, with `status` reported as `extracted`. A number
+that says "certain" on that document is not a weak signal, it is a **misleading**
+one: the person reviewing reads `1.0` as "the machine is sure" at exactly the
+moment it is not.
+
+**A callback that still sends it is still accepted and the field is ignored.**
+Andre's side and ours do not deploy in the same second, and a contract change that
+invalidates the previous version's payload is an outage scheduled for whenever he
+ships first.
+
+**The database columns are still there and are simply never written.**
+`extraction_drafts.confidence` and `extraction_draft_lines.confidence` are
+nullable. Dropping a column is a REMOVAL migration and carries the P3-11c and
+P3-11e proofs with it, which is its own card and its own apply.
+
+**The general rule this belongs to** is in `docs/LEARNINGS.md`: any control that
+depends on a model noticing its own uncertainty is not a control.
 
 ### 4.3 `_meta`
 

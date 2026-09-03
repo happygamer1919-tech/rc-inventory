@@ -190,7 +190,6 @@ export async function POST(request: Request) {
       vat_rate: num(body.vat_rate),
       currency: str(body.currency),
       currency_raw: str(body.currency_raw),
-      confidence: num(body.confidence),
       meta: body._meta ?? null,
       callback_at: new Date().toISOString(),
     })
@@ -230,7 +229,6 @@ export async function POST(request: Request) {
           return mapped !== null && knownCategories.has(mapped) ? mapped : null;
         })(),
         category_raw: str(l.category_raw),
-        confidence: num(l.confidence),
       };
     });
     const { error: insertError } = await supabase.from("extraction_draft_lines").insert(rows);

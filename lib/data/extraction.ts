@@ -17,10 +17,10 @@ import { createClient } from "@/lib/supabase/server";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
 
 const DRAFT_COLUMNS =
-  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, confidence, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
+  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
 
 const LINE_COLUMNS =
-  "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw, confidence";
+  "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw";
 
 /** numeric() peste PostgREST vine ca sir. null ramane null, mereu: contract 2.1. */
 function num(v: unknown): number | null {
@@ -44,7 +44,6 @@ function mapLine(row: LineRow) {
     currencyRaw: (row.currency_raw as string | null) ?? null,
     category: (row.category as string | null) ?? null,
     categoryRaw: (row.category_raw as string | null) ?? null,
-    confidence: num(row.confidence),
   };
 }
 
@@ -67,7 +66,6 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     vatRate: num(row.vat_rate),
     currency: (row.currency as string | null) ?? null,
     currencyRaw: (row.currency_raw as string | null) ?? null,
-    confidence: num(row.confidence),
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),

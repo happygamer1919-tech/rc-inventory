@@ -58,7 +58,6 @@ export type ExtractionLine = {
   currencyRaw: string | null;
   category: string | null;
   categoryRaw: string | null;
-  confidence: number | null;
 };
 
 export type ExtractionDraft = {
@@ -80,7 +79,6 @@ export type ExtractionDraft = {
   vatRate: number | null;
   currency: string | null;
   currencyRaw: string | null;
-  confidence: number | null;
   firedAt: string | null;
   callbackAt: string | null;
   lines: ExtractionLine[];

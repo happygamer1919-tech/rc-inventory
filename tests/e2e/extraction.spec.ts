@@ -161,6 +161,31 @@ test.describe("Extragere documente", () => {
     expect(fired[0]!.documentFilename).toContain(".pdf");
   });
 
+  test("1b. EXT-14: un payload FARA confidence este acceptat la fel", async ({ page, request }) => {
+    // EXT-14, cealalta jumatate. Cazul 1 dovedeste ca un payload care TRIMITE
+    // confidence este acceptat si campul nu se stocheaza. Acesta dovedeste ca
+    // unul care NU il trimite este acceptat identic.
+    //
+    // AMANDOUA SUNT NECESARE SI NICIUNA NU O IMPLICA PE CEALALTA. O
+    // implementare care refuza payload-ul fara campul respectiv ar trece cazul
+    // 1 si ar rupe extractorul in ziua in care Andre il scoate; una care refuza
+    // payload-ul cu el ar trece acesta si ar rupe totul pana atunci.
+    await signIn(page, ownerAccount());
+    const { orderId } = await orderWithDocument(page, "ext14");
+    const body = callbackBody(orderId);
+    delete (body as Record<string, unknown>).confidence;
+    for (const line of body.lines as Array<Record<string, unknown>>) delete line.confidence;
+
+    const response = await post(request, body);
+    expect(response.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("extracted");
+    expect(d.confidence).toBeNull();
+    expect(d.lines).toHaveLength(1);
+    expect(d.lines[0].confidence).toBeNull();
+  });
+
   test("2. un callback extracted scrie fiecare camp al contractului", async ({ page, request }) => {
     await signIn(page, ownerAccount());
     await ensureTestCategory(page);
@@ -180,7 +205,14 @@ test.describe("Extragere documente", () => {
     expect(d.order_date).toBe("2026-08-14");
     expect(d.currency).toBe("MDL");
     expect(d.currency_raw).toBe("lei");
-    expect(Number(d.confidence)).toBeCloseTo(0.94, 2);
+    // EXT-14. IT IS SENT AND IT IS NOT STORED, WHICH IS THE WHOLE CARD.
+    //
+    // callbackBody still carries confidence: 0.94, deliberately, because Andre's
+    // side and ours do not deploy in the same second and a payload that still
+    // sends it must still be ACCEPTED. What must be true is that it did not
+    // reach the draft. Asserting only that the response was 202 would pass on a
+    // version that stored it.
+    expect(d.confidence, "EXT-14: confidence must not be stored").toBeNull();
     expect(d.meta?.prompt_version).toBe("v2.0");
 
     expect(d.lines).toHaveLength(1);
@@ -195,7 +227,8 @@ test.describe("Extragere documente", () => {
     expect(l.currency_raw).toBe("lei");
     expect(l.category).toBeNull();
     expect(l.category_raw).toBe("Invelitori");
-    expect(Number(l.confidence)).toBeCloseTo(0.91, 2);
+    // EXT-14, the line half. Same reasoning as the document half above.
+    expect(l.confidence, "EXT-14: line confidence must not be stored").toBeNull();
   });
 
   test("3. acelasi order_id de doua ori inlocuieste ciorna, 202 apoi 200", async ({
@@ -384,7 +417,9 @@ test.describe("Extragere documente", () => {
       "vat_rate",
       "currency",
       "currency_raw",
-      "confidence",
+      // EXT-14 removed `confidence` from this list. It is asserted null in the
+      // case above for a payload that DOES send it, which is a stronger claim
+      // than asserting it is null in a payload that sends nothing.
     ]) {
       expect(d[f], `camp document ${f}`).toBeNull();
       expect(d[f], `camp document ${f}`).not.toBe("");
@@ -401,7 +436,6 @@ test.describe("Extragere documente", () => {
       "currency_raw",
       "category",
       "category_raw",
-      "confidence",
     ]) {
       expect(l[f], `camp linie ${f}`).toBeNull();
       expect(l[f], `camp linie ${f}`).not.toBe("");
