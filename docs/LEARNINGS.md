@@ -3018,3 +3018,31 @@ disappear: `toHaveCount(0)` on `deviz-status-accepted`, plus the row chip readin
 is a synchronous statement wearing an await, and it makes the next assertion race
 the database.** Before waiting on a selector, ask what it looked like one step
 earlier; if the answer is "the same", it is the wrong selector.
+
+### The same migration file passes psql and fails `supabase db reset`
+**Tag:** data
+**ERROR:** `0030_units_tonne_litre.sql` added two `unit_code` enum labels and then
+inserted the matching `public.units` rows, with an explicit `commit;` between the
+two halves, because **a newly added enum label cannot be used in the transaction
+that added it** (PostgreSQL `55P04`). It applied cleanly through
+`scripts/apply-pending-migrations.mjs` and through the Docker shim
+(`npm run check:migrations`), because both feed the file to `psql`, which honours
+that commit. It **failed** under `supabase db reset`:
+
+```
+ERROR: unsafe use of new value "t" of enum type unit_code (SQLSTATE 55P04)
+At statement: 3   insert into public.units (code, sort_order) values ('t', 8),
+```
+
+`supabase db reset` wraps **each migration file in one transaction of its own**
+and swallows the explicit commit. The file worked in both places it had been
+tested and broke in the one place it had not - and that place is the runner CI
+uses to build the end-to-end stack.
+**SOLUTION:** Split it. `0030` adds the labels, `0031` adds the rows. **Two files
+are two transactions under all three runners**, with no special case anywhere.
+The rule: **a migration is not proven until it has been applied by every runner
+that will ever apply it**, and this repository has three - the applier, the shim,
+and `supabase db reset`. They disagree about transaction boundaries, which is
+exactly the property an enum addition is sensitive to. When a file needs a
+statement to be committed before the next one, the boundary is a **file
+boundary**, because that is the only one all three agree on.

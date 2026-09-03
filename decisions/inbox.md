@@ -4713,7 +4713,7 @@ doctrine file rather than in a ruling, and it corrects nothing anybody decided.
 
 ### R-089 - a merged migration's apply is orphaned: the pending register names an apply card that has already shipped, so nothing open carries the apply
 **Date:** 2026-09-03
-**Asked on:** the DOCTRINE-TRIAGE section 3 board sweep. Authors card P3-35.
+**Asked on:** the DOCTRINE-TRIAGE section 3 board sweep. Authors card P3-37.
 **Answer, verbatim:**
 > NOT FROM THE DISPATCH REPORT, AND SAID SO RATHER THAN ATTRIBUTED.
 > DOCTRINE-TRIAGE section 2 requires this field to quote the report. This finding
@@ -4759,10 +4759,10 @@ applier and does not go to Ivan under 8.6. **TRIAGE APPLIES NOTHING AND DECIDES
 NOTHING ABOUT A DESTRUCTIVE RUN**; it authors the card, and the applier's own
 assertions decide the outcome.
 
-Authored as **P3-35** on the phase 3 board, carrying both halves: the apply, and
+Authored as **P3-37** on the phase 3 board, carrying both halves: the apply, and
 the check that would have caught this.
 
-**Unblocks:** nothing. Authors P3-35 on the phase 3 board.
+**Unblocks:** nothing. Authors P3-37 on the phase 3 board.
 **Supersedes:** none.
 
 ---
@@ -4900,7 +4900,7 @@ changed.**
 
 **THE THREE CARDS AUTHORED TODAY CARRY NO EDGES, AND THAT IS DERIVED RATHER THAN
 DEFAULTED.** RULE-03, AUT-19 and BOARD-03 each touch a file that exists on `main`
-now and none needs a capability another card grants or removes. P3-35 carries no
+now and none needs a capability another card grants or removes. P3-37 carries no
 edge for the same reason: 0028 is merged and the applier exists.
 
 **Unblocks:** nothing. Records the audit into the notes of G4, G7 and G9 per

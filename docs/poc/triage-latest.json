@@ -18,7 +18,7 @@
       "change": "authored by TRIAGE under R-088. The rulebook the reviewing role follows still describes the old way of numbering decisions, which was replaced yesterday. A session that follows its own rulebook now produces work that fails the automatic checks. This run had to ignore its own rulebook to be correct, which is how the gap was found."
     },
     {
-      "card_id": "P3-35",
+      "card_id": "P3-37",
       "change": "authored by TRIAGE under R-089. One finished piece of database work has been published but never switched on in the live system, and the job that was supposed to switch it on has already been closed, so nobody owns it. This switches it on and adds a check so the next unowned one cannot sit there quietly."
     },
     {

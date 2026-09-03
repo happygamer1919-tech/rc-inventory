@@ -169,7 +169,7 @@ closed.
 `grep -inE "drop table|truncate|delete"` over the file matches nothing, so it is in
 scope for the R-082 applier and does not go to Ivan under 8.6. **TRIAGE applied
 nothing and decided nothing about a destructive run.** Ruled **R-089**, card
-**P3-35** authored carrying both the apply and the check that would have caught it.
+**P3-37** authored carrying both the apply and the check that would have caught it.
 
 ---
 
@@ -262,3 +262,26 @@ carrying forward is one sentence and it is in R-087 and R-089 both:
 and the hole is always the automated path, because that is the one nobody reads
 before they act.** The counter had one honest allocator and one that predated it.
 The pending register had one honest apply card and one that had closed.
+
+
+---
+
+## Renumbered from P3-35 to P3-37 on the merge, 2026-09-03, by EXECUTOR
+
+**Two open TRIAGE pull requests each allocated `P3-35`, for different work.**
+
+| pull request | what its P3-35 was |
+|---|---|
+| #157, cut 2026-09-02 | the phase 3 schema verified on production read-only |
+| this one, cut 2026-09-03 | migration 0028 applied, and the pending-register check |
+
+**Neither branch could see the other**, which is the exact collision class RULE-02
+was built for. It was caught here on the merge rather than after both had landed,
+which is the whole point of the check reading `origin/main`: it would have gone
+red on whichever landed second.
+
+**This one moved and #157 kept `P3-35`**, on the older-branch-wins rule: #157 was
+cut first and is the one whose id other text already cites. Only the identifier
+changed. Every reference to it in this branch's own report, rulings and run state
+moved with it in the same commit, so nothing is left pointing at a number that now
+means something else - which is precisely the failure the R-083 collision caused.
