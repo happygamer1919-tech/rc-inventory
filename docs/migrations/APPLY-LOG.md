@@ -98,7 +98,43 @@ both are **unmerged**. Production having everything that has merged and nothing
 that has not is the strongest available evidence about **WHEN** these applies
 happen: **on merge to `main`, and not on a pull request.**
 
-## The probable mechanism, labelled probable because nothing observed says so
+## THE MECHANISM WAS PROBABLE WHEN THIS WAS WRITTEN AND IS NOW OBSERVED
+
+**This section was written as circumstantial and was then confirmed by a
+PREDICTION, with a control, half an hour later.** The upgrade is recorded rather
+than the original wording quietly replaced, because how a claim was established
+matters as much as the claim.
+
+**The prediction.** If the mechanism is the Supabase GitHub app applying on merge
+to `main`, then merging a migration should make it appear in production within
+minutes, and a migration on an unmerged branch should stay absent.
+
+**The test.** `0032_extraction_draft_page_count.sql` was merged as PR #180 at
+`71dd97a`. Before the merge, read at 21:2xZ:
+
+    applied_ledger_version()                 ->  "0031"
+    extraction_drafts.page_count             ->  42703, absent
+    extraction_drafts.document_source        ->  42703, absent
+
+After the merge, with the `Supabase Preview` check on `71dd97a` completing at
+**2026-09-03T21:33:39Z**:
+
+    applied_ledger_version()                 ->  "0032"
+    extraction_drafts.page_count             ->  PRESENT
+    extraction_drafts.document_source        ->  still absent
+
+**`document_source` is the control and it is what makes this a test rather than a
+coincidence.** It is the OTHER migration numbered 0032, on PR #177, which is still
+open. Both were written the same day, both sat in the same pending register, and
+only the merged one appeared. Nothing else about the two differs in a way that
+could explain it.
+
+**So the four entries below are reconstructions of an event whose MECHANISM is now
+directly established**, even though their own actor and timestamp remain
+unrecorded. That is the strongest form the reconstruction can take and it is still
+not a journal.
+
+## The original circumstantial argument, kept because it was the basis at the time
 
 A **`Supabase Preview` check, from the GitHub app `supabase`**, runs on every push
 to `main` and points at
@@ -218,6 +254,42 @@ moment inside that window.
 **Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
 assertion count, no post-check grid. That is the whole reason this entry is marked
 reconstructed.
+
+## 0032_extraction_draft_page_count.sql - APPLIED, OBSERVED PROSPECTIVELY
+
+**Actor:** **the Supabase GitHub app, on the merge of PR #180 to `main`.** This is
+the one entry in this group where the actor is stated rather than left unrecorded,
+because this apply was PREDICTED BEFORE IT HAPPENED and then observed, with a
+control. See the mechanism section above. **No terminal ran it. EXECUTOR authored
+the file and did not apply it, and the card's own evidence says "NOT APPLIED",
+which was true when written and is false now.**
+
+**Applied at:** between `2026-09-03T21:31Z`, when PR #180 merged as `71dd97a`, and
+`2026-09-03T21:33:39Z`, when the `Supabase Preview` check on that commit completed
+`success`. Read as present immediately after.
+
+**What it creates:** `public.extraction_drafts.page_count`, integer, nullable, no
+default, with `extraction_drafts_page_count_positive` checking `page_count is null
+or page_count >= 1`.
+
+**Proof that it is applied:**
+
+    before merge:  GET /rest/v1/extraction_drafts?select=page_count&limit=1  ->  42703
+    after merge:   GET /rest/v1/extraction_drafts?select=page_count&limit=1  ->  200
+                   POST /rest/v1/rpc/applied_ledger_version                  ->  "0032"
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and here that is not a gap in
+the record, it is the finding. A migration reached production **with no pre-check,
+no in-transaction assertions, no post-check, no journal and no human**, minutes
+after a pull request merged. `scripts/apply-pending-migrations.mjs` and the whole
+of R-082 were bypassed, not by anybody deciding to bypass them, but because this
+path does not go through them at all.
+
+**THIS IS NOT A LICENCE AND IT IS NOT A CONVENIENCE.** It means the destructive
+statement stop in 8.6 protects nothing on this path: a merged migration containing
+`DROP TABLE` would apply on merge, and the rule that says it "is never
+auto-applied" would have been obeyed by every terminal and broken anyway. That is
+a card, and it is named in the report that accompanies this entry.
 
 ## Rules
 

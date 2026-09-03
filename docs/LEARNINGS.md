@@ -3159,6 +3159,100 @@ counter hands you, check the branches: `git show origin/<branch>:decisions/NEXT-
 across the open PRs takes one loop and tells you whether the counter is describing
 the present.** Deviating is defensible. Deviating silently is not.
 
+### A capability gate named by a literal string sends the next card to the wrong gate
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-pending-schema-reads.mjs` held
+`const GUARD = 'hasPhase3Schema'` and asked only whether a source file CONTAINS
+that string. The rule is deliberately crude, which is fine, but the crudeness was
+attached to ONE gate's name. EXT-09 added a column on an existing phase 2 table,
+`extraction_drafts.page_count`, which `hasPhase3Schema` says nothing about: that
+gate answers whether the phase 3 TABLES are applied, and 0033 can be applied
+before or after them. The cheapest way to make the check green was therefore to
+import the WRONG gate. The check would have passed, the callback route would
+still have written a column production did not have, PostgREST would have
+returned 42703, and Make retries on 5xx, so it would have been a loop rather than
+one failure.
+**SOLUTION:** the gate list is derived from `lib/data/schema-capability.ts` by
+pattern, so a third gate is covered without editing the check, and the count is
+VERIFIED: zero gates found means the pattern stopped matching, and the check
+exits 2 rather than reporting every guarded file as unguarded.
+**The rule:** a check that names one implementation of a concept tests that
+implementation, not the concept. When the concept can have a second instance,
+the check enumerates instances instead of naming one, and refuses to report when
+it enumerates none.
+
+### `add column if not exists` made a guard hunt for a column named `if`
+**Tag:** ci
+**ERROR:** the same check extracted pending column names with
+`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0032 writes
+`add column if not exists page_count integer`, so the capture was the word `if`.
+The check then searched every file under `lib/`, `app/` and `components/` for the
+token `if` and reported **52 violations**, one per file, each saying
+`numeste coloana if`. Nothing was wrong with any of them.
+**SOLUTION:** the pattern now allows the optional `(?:if\s+not\s+exists\s+)?`
+before the column name. The document_source migration on another branch hit the
+identical defect independently, which is how a one-character-class omission cost two cards.
+**The rule:** a regex over SQL must accept every optional clause the grammar
+allows at that position, and the failure to do so is not a miss, it is a WRONG
+CAPTURE, which is worse. A miss reports nothing; a wrong capture reports a wall
+of findings, and a mass refusal read as a discovery is the worst output a check
+can produce: either somebody spends an hour on it, or they stop believing the
+check, and the second one is permanent.
+
+### A local e2e suite can be blocked by another project's Supabase stack
+**Tag:** infra
+**ERROR:** `supabase db reset` for rc-inventory failed with
+`Bind for 0.0.0.0:54322 failed: port is already allocated`. The OsteoJP stack
+holds 54322 on this machine. Two further mismatches sat behind it:
+`supabase/config.toml` on main names 54321 and 54322 while the working
+`.env.local` names 54421, so the rc-inventory stack that was up was half up, kong
+on 54421 with no database container at all; and `.env.local` carries eight
+variables of which `SUPABASE_SERVICE_ROLE_KEY` is not one, so the extraction
+callback route would have returned 500 and every case in the spec would have
+failed for a reason unrelated to the card.
+**SOLUTION:** the before-and-after proof was moved onto the runner, by splitting
+the branch so the tests land in one commit and the implementation in the next.
+The two `quality` runs on the pull request are then the two results, produced by
+the acceptance command itself rather than described in prose.
+**The rule:** when a card's acceptance cannot run locally for reasons that are
+not the card's, do not weaken the acceptance to fit the machine. Move it to a
+machine that can run it, and say in the pull request which obstacles were hit, so
+the next card does not rediscover all three.
+
+### A migration numbering GAP is refused by the applier, and CLAUDE.md does not say so
+**Tag:** data
+**ERROR:** EXT-09 took number **0033** and deliberately left 0032 free, because
+0032 was held by an open pull request on another branch and a duplicate number
+looked worse than a hole. The reasoning was written into the migration header
+and the pull request, and it cited CLAUDE.md 8.1, which asks for
+"four-digit zero-padded, monotonically increasing" and says nothing about gaps.
+**Everything applied fine.** `npm run check:migrations` passed, 32 files against
+a bare `postgres:16`, 15 assertion files. `npx tsc --noEmit` passed. The dry run
+of the applier passed. What failed was `npm run prove:applier`, at **9 of 16**,
+with the clean-pass proof rolling the whole batch back:
+
+    ASSERTION FAILED [ledger-no-gaps-ends-at-highest]:
+    ledger holds 32 rows, expected 33 with no gaps
+
+`scripts/apply-pending-migrations.mjs` asserts, in SQL, inside the transaction,
+that **every integer from 1 to the highest is present exactly once**. With 0001
+to 0031 plus 0033 the ledger holds 32 and the assertion wants 33, so the batch
+cannot be applied at all. Six further proofs then failed as downstream noise,
+which made the output look like six problems instead of one.
+**SOLUTION:** renumbered to 0032. `prove:applier` went to **16 of 16**. The
+collision with the other branch is real and is stated in the migration header
+instead of avoided, because **git will not report it**: the two file names differ,
+so both would simply land, both numbered 0032. `check:migrations` and
+`prove:applier` fail loudly on the duplicate, so it cannot ship unnoticed, but
+nothing warns at merge time.
+**The rule, and it has two halves.** First: **migration numbers are contiguous
+here, not merely increasing**, and CLAUDE.md 8.1 does not say so while the
+applier enforces it. When a document and a running check disagree about a rule,
+**the check is the rule** and the document is the thing that is out of date.
+Second: a number taken on another unmerged branch is not free, and the collision
+is invisible to git whenever the two files have different names. Say it out loud
+in the file, because the next reader's only other warning is a red proof.
+
 ### Second instance: an instruction not to invent a self-consistent total was ignored three runs of three
 **Tag:** data
 **ERROR:** The prompt forbade the model from constructing a quantity, a unit
@@ -3216,3 +3310,70 @@ against a number we read, and it is not asking the model anything. That is a
 layer. The three fixtures above are its test cases, and they are committed as
 observed rather than rounded, with no fourth invented sum added to make the set
 look tidier.
+
+### A migration reaches production on merge, with no applier, no journal and no human
+**Tag:** infra
+**ERROR:** `docs/migrations/APPLY-LOG.md` listed `0028` to `0031` as pending while
+production reported them applied. Every card report said "authored and merged,
+**NOT applied**". No commit, no journal row, no actor. The obvious reading was
+that somebody applied them and failed to write it down.
+
+**Nobody did.** A **`Supabase Preview` check, from the GitHub app `supabase`,
+runs on every push to `main`** and points at the production project. It applies
+merged migrations. Its check output carries no title and no summary, so it says
+nothing about what it did.
+
+**IT WAS CONFIRMED BY PREDICTION, WITH A CONTROL, AND THAT IS WHY THIS ENTRY IS
+NOT SPECULATION.** Two migrations both numbered `0032` existed on the same day:
+`0032_extraction_draft_page_count.sql` on PR #180 and
+`0032_extraction_document_source.sql` on PR #177. Before merging either:
+
+    applied_ledger_version()           "0031"
+    extraction_drafts.page_count       42703, absent
+    extraction_drafts.document_source  42703, absent
+
+PR #180 was merged. PR #177 was left open. Within two minutes:
+
+    applied_ledger_version()           "0032"
+    extraction_drafts.page_count       PRESENT
+    extraction_drafts.document_source  still absent
+
+**The unmerged twin is the control.** Same day, same register, same shape, and
+only the merged one landed.
+
+**SOLUTION, and it is not a fix, it is a correction to what everyone believed.**
+
+**"Merging a migration file changes one text file in a git repository and changes
+nothing in any database" IS FALSE IN THIS REPOSITORY.** That sentence is in
+CLAUDE.md 3.1, it is the entire basis of the self-merge grant separating merge
+from apply, and it was true when written. It is not true now. **On this repo, on
+this integration, MERGE IS APPLY.**
+
+Everything downstream of that sentence needs re-reading:
+
+- **R-082's applier is not the only path to production, it is the path a terminal
+  takes.** `scripts/apply-pending-migrations.mjs` runs one transaction, records
+  the register, asserts in SQL and commits only on all-pass. **The integration
+  does none of that** and needs no permission from anyone.
+- **8.6's destructive-statement stop protects nothing here.** A merged migration
+  containing `DROP TABLE` applies on merge. Every terminal would have obeyed the
+  rule and the table would be gone anyway.
+- **8.8 is broken by a party it does not describe.** It says a production write
+  with no row in one of the two journals is a violation. It is written for
+  terminals. This writer is not one.
+- **The pending register cannot be trusted as a statement about production.** It
+  is a statement about what a terminal has applied, which is a different and much
+  smaller set.
+
+**The rule.** **A repository's doctrine describes the actors it knows about. Before
+relying on a control, ask what ELSE can perform the action it controls** - an
+integration, a bot, a scheduled job, a console someone can click. A control that
+binds every actor you thought of, and there is a writer you did not, is not a
+weaker control; it is an inventory error, and the gap is invisible precisely
+because every actor you audit is compliant.
+
+**How it was found, which is the reusable part:** by reading production and the
+repository and refusing to reconcile them by assumption. The register said
+pending, production said applied, and the temptation was to write four journal
+entries and move on. The entries would have been fiction, and the actual defect -
+an unaudited write path - would have stayed hidden behind them.
