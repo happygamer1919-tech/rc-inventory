@@ -246,6 +246,26 @@ column, which is exactly what the card changes, and it is why a case asserting
 `d.meta.page_count` instead could not have failed here: `_meta` is stored
 verbatim and reads back whatever was posted.
 
+### The AFTER result, run 33803084103, head `cc72af7`
+
+`quality` concluded **success**. `npx playwright test`: **137 passed**, zero
+failed, 13.1 minutes.
+
+    ✓  69  extraction.spec.ts:440  9. _meta.page_count fara characters_extracted ...   (7.3s)
+    ✓  70  extraction.spec.ts:475  10. un callback care inca poarta characters_extracted ...  (7.3s)
+    ✓  71  extraction.spec.ts:502  11. un numar de pagini absent sau stricat este null ...  (7.6s)
+
+134 passed before and 137 pass after, which is the same suite plus the three new
+cases and nothing else disturbed.
+
+**Both path-filtered steps RAN and PASSED rather than skipping**, which section
+3.1 requires of a pull request touching `supabase/migrations/**` or
+`scripts/poc-free/local-db/**`:
+
+    completed/success  Decide whether the applier proof must run
+    completed/success  Prove the migration applier against the Docker shim
+    completed/success  Prove every applier assertion can fail
+
 ---
 
 ## Findings carried forward
