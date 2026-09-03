@@ -3158,3 +3158,54 @@ on purpose just makes one number name two decisions. **Before taking the id the
 counter hands you, check the branches: `git show origin/<branch>:decisions/NEXT-RULING-ID`
 across the open PRs takes one loop and tells you whether the counter is describing
 the present.** Deviating is defensible. Deviating silently is not.
+
+### Second instance: an instruction not to invent a self-consistent total was ignored three runs of three
+**Tag:** data
+**ERROR:** The prompt forbade the model from constructing a quantity, a unit
+price and a line total that agree with each other when it cannot actually read
+all three. **It did it anyway, on three runs out of three.** Andre's Matnord scan,
+7 lines, printed total **50,336.40** excluding VAT, produced three different line
+sums across three runs: **49035.40**, **39242.00**, **38429.40**. Every one of the
+three arrived with `status: extracted` and `reason: null`, which is the payload
+shape meaning "read cleanly, nothing to report". The spread between the runs is
+larger than the gap from any of them to the printed total, so the numbers are not
+a reading that drifted; they are three different fabrications of the same page.
+
+**THIS IS THE SECOND CONTROL OF THIS SHAPE TO FAIL, AND THAT IS THE ENTRY.** The
+first was `confidence`, which returned **1.0** on a document with four invented
+lines, and which card EXT-14 removes rather than displays. The two failures are
+the same failure wearing different clothes:
+
+| the control | what it asks the model to do | what it returned |
+|---|---|---|
+| `confidence` | report how sure it is | `1.0`, on four invented lines |
+| "do not construct a self-consistent total you cannot read" | notice it is about to invent, and stop | three fabrications, three runs, all `extracted`, all `reason: null` |
+
+**SOLUTION, and it is a generalisation rather than a fix to either instance.**
+
+**A CONTROL THAT DEPENDS ON THE MODEL NOTICING IT HAS MISREAD IS NOT A LAYER, AND
+IT MUST NOT BE COUNTED AS ONE IN ANY CARD, CONTRACT, GATE OR REPORT.**
+
+Not "is a weak layer". **Not a layer.** It contributes zero to a defence-in-depth
+argument and it must be worth zero when the layers are counted, because a
+protection that reads as present and is absent is worse than an acknowledged gap:
+the gap gets a card and the phantom gets a tick.
+
+**The test to apply before writing any such instruction or field**, and it is one
+question: **would obeying this correctly require the model to know something it
+does not know?** Noticing that you misread a digit requires knowing the digit. If
+the answer is yes, it is `confidence` with a new name, however procedural the
+wording looks.
+
+**An instruction to a model specifies what its output must LOOK LIKE, never what
+its output MEANS.** Already in this file from the first instance, and the reason
+this one was predictable: **the more precisely a consistency rule is stated, the
+more convincingly a fabrication satisfies it.** "Make the lines sum to the total"
+is also a template for inventing lines that sum to the total.
+
+**Where the real control goes: on our side of the wire, in arithmetic we perform.**
+Card EXT-16 reconciles the line sum against the printed total in our validator,
+against a number we read, and it is not asking the model anything. That is a
+layer. The three fixtures above are its test cases, and they are committed as
+observed rather than rounded, with no fourth invented sum added to make the set
+look tidier.

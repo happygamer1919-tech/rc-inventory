@@ -39,10 +39,185 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
-- `0028_applied_ledger_version.sql`, card de aplicare P3-11e
-- `0029_category_paints.sql`, card de aplicare P3-34
-- `0030_units_tonne_litre.sql`, card de aplicare P3-33
-- `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
+
+# RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
+
+**The four entries below are RECONSTRUCTED, NOT JOURNALLED, and each one says so
+in its own heading.** Every other entry in this file was written by whoever ran
+the apply, in the same pull request, with the three phases of CLAUDE.md 8.5.
+These four were written afterwards by a terminal that did not run them and cannot
+find anyone who did. They must never be read as carrying the same weight.
+
+## What was searched for first, and does not exist
+
+The evidence of the applies AS EVENTS was looked for before a word was written
+here, because inventing four journal entries would be far worse than recording
+that there are none.
+
+- **`git log --all -S"0031_units_tonne_litre_rows.sql - APPLIED"` over this file
+  returns no commit.** The same for `0029`. No branch, merged or open, has ever
+  carried an APPLIED heading for any of the four.
+- **`docs/PRODUCTION-WRITES.md` has no row.** Its only two rows are the
+  2026-08-28 reset runs, and it says in its own text that neither is a migration.
+- **Every card report asserts the opposite of applied.** P3-34's report says
+  `0029_category_paints.sql`, "authored and merged, NOT applied". P3-33's says the
+  same of `0030` and `0031` and adds that "until they are applied, tonne and litre
+  are live in the code and the validator, and not in the database". P3-11e's says
+  `0028` was "AUTHORED AND MERGED, NOT APPLIED".
+- **No pre-check, no post-check, no assertion count, no statement list, no
+  actor.** There is nothing to transcribe. A journal entry under 8.5 needs those
+  and they were never produced.
+
+**So: the applies have no record of having run, and nothing below invents one.**
+
+## What DOES exist: production, queried directly
+
+Read 2026-09-03, against project ref `bwhzatwwjqmyfesfnisa`, through PostgREST
+with the service role, by EXECUTOR. Variable names only, per section 7. The
+queries and their output, verbatim:
+
+    POST /rest/v1/rpc/applied_ledger_version   ->  "0031"
+
+    GET  /rest/v1/categories?select=name,sort_order,active&order=sort_order
+      ->  19 rows, 19 active, including
+          {"name":"Vopsele, lacuri si solventi","sort_order":19,"active":true}
+          (stored with diacritics; transcribed here without them)
+
+    GET  /rest/v1/units?select=*
+      ->  9 rows; columns code,sort_order,active,created_at,updated_at
+      ->  codes: m2,lm,pcs,bag,kg,roll,m3,t,l
+
+    GET  /rest/v1/extraction_drafts?select=document_source&limit=1  ->  42703
+    GET  /rest/v1/extraction_drafts?select=page_count&limit=1       ->  42703
+
+## The two NEGATIVE reads are load-bearing and are here on purpose
+
+`document_source` and `page_count` both return **42703, undefined column**. Those
+are the two migrations numbered `0032` on open pull requests #177 and #180, and
+both are **unmerged**. Production having everything that has merged and nothing
+that has not is the strongest available evidence about **WHEN** these applies
+happen: **on merge to `main`, and not on a pull request.**
+
+## The probable mechanism, labelled probable because nothing observed says so
+
+A **`Supabase Preview` check, from the GitHub app `supabase`**, runs on every push
+to `main` and points at
+`https://supabase.com/dashboard/project/bwhzatwwjqmyfesfnisa`, the production
+project. It concluded `success` on exactly the merges that carried these files,
+within seconds of each:
+
+| merge | carried | Supabase check |
+|---|---|---|
+| `9862111` (#163, P3-11e) | `0028` | 2026-09-02T17:41:09Z to 17:41:13Z, success |
+| `1f7d3ab` (#169, P3-34) | `0029` | 2026-09-03T16:08:52Z to 16:08:56Z, success |
+| `c9c1c14` (#170, P3-33) | `0030`, `0031` | 2026-09-03T16:47:26Z to 16:47:31Z, success |
+
+**The check carries no title and no summary, so it does not state what it
+applied.** Timing, app identity and project ref line up on every merge that
+carried a migration. That is circumstantial. It is recorded as the probable
+mechanism because a reader deserves the best available explanation, and it is
+labelled probable because nothing observed actually says so.
+
+## What this means, and it is not small
+
+**There is a path that writes production and journals nothing.** CLAUDE.md 8.8
+says a write with no row in one of the two journals is a violation. That section
+is written for terminals; this path is not a terminal, so the rule has been broken
+without anybody breaking it, which is the harder kind to notice.
+
+**The stale register reached a third party.** `/Users/ivan/rc-samples/ANDRE-STATUS.md`
+told the extraction counterparty that the category and the two units "land when
+the pending migration batch is applied to production, which is a separate
+owner-run step". That was already false when it was written, and it was written
+from this file.
+
+**Nothing here is a licence to stop journalling.** The next apply a terminal
+performs is journalled in full under 8.5, like every entry that is not one of
+these four.
+
+## 0028_applied_ledger_version.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-02T17:41:09Z`, when the merge `9862111` (#163) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-02T17:41:13Z`, which is the probable
+moment inside that window.
+
+**What it creates:** `public.applied_ledger_version()`, a SECURITY DEFINER function granted to `service_role` only.
+
+**Proof that it is applied:** the RPC **answered with `"0031"`**. A missing function returns an error, not a string, so the function exists. This is a direct observation.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0029_category_paints.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:08:52Z`, when the merge `1f7d3ab` (#169) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:08:56Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the nineteenth category row, `Vopsele, lacuri si solventi`.
+
+**Proof that it is applied:** the row is present, `sort_order` 19, `active` true, in a table of 19 rows. **Direct observation.**
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0030_units_tonne_litre.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:47:26Z`, when the merge `c9c1c14` (#170) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:47:31Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the enum labels `t` and `l` on `public.unit_code`.
+
+**Proof that it is applied:** **INDIRECT, AND FLAGGED AS INDIRECT.** Enum labels are not rows and PostgREST cannot list them. `public.units.code` IS of type `public.unit_code` (`0001_phase2_schema.sql`, line 126), and rows keyed `t` and `l` are present, so the labels must exist because the insert could not otherwise have succeeded. Sound, but an inference rather than an observation.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0031_units_tonne_litre_rows.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:47:26Z`, when the merge `c9c1c14` (#170) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:47:31Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the `t` and `l` rows in `public.units`.
+
+**Proof that it is applied:** both rows present among the 9 returned: `m2,lm,pcs,bag,kg,roll,m3,t,l`. **Direct observation.**
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
 
 ## Rules
 

@@ -246,6 +246,60 @@ is a rejected payload, `400`.
 `reason` stays free text alongside the code. The code is what we branch on; the
 reason is what the operator reads.
 
+### 5.2a The set is named in two halves, and a new code is announced before it exists
+
+**Ruling R-098, amendment 1. Added 2026-09-03.**
+
+**A FAILURE CODE THAT IS NEW ON ANY SURFACE IS COMMUNICATED TO THE COUNTERPARTY
+BEFORE IT CAN BE EMITTED OR RECEIVED, IN BOTH DIRECTIONS.**
+
+The seven codes above are one enum spanning **two surfaces**, and they are named
+here as two groups so that the eighth code is added to a **stated** set rather
+than to an assumed one.
+
+| group | what the code is about | members |
+|---|---|---|
+| **download path** | failures BEFORE the model runs. The subject is our signed URL and our storage. | `download_failed`, `url_expired` |
+| **payload path** | failures OF the extraction. The subject is the document and the model. | `unsupported_format`, `unreadable_document`, `extraction_failed`, `invalid_output`, `timeout` |
+
+**A THIRD SURFACE EXISTS AND HAS NO MEMBERS YET, AND IT IS DECLARED HERE SO IT IS
+NOT DISCOVERED LATER.** Our own validator can refuse a payload that is
+well-formed. That is neither a download failure nor an extraction failure: the
+download succeeded and the model returned. **`reconciliation_failed` will be the
+first member of that group**, emitted by US and not by Make, and it does not
+exist in the enum on the day this paragraph is written.
+
+**Why the rule, in the two ways it goes wrong.** Section 5.2 says any value
+outside the set is a rejected payload, `400`. So:
+
+- **He emits a new code first and we reject it.** Our `400` reads
+  `error_code in afara multimii`, **Make does not retry a `4xx`**, and a document
+  is dropped once and quietly.
+- **We emit or accept one first and he has not been told.** Whatever his side
+  does with it, it was not designed for this one.
+
+Neither is a bug in anybody's code. Both are the two sides holding different
+copies of a set this section calls **fixed**.
+
+**What adding a code requires, all four:**
+
+1. **Both directions.** His new code reaches us before he emits it; ours reaches
+   him before we emit **or accept** it. The asymmetry to guard against is
+   thinking of his codes as "the contract" and ours as "our behaviour". They are
+   one set.
+2. **Before it can be emitted OR RECEIVED.** Accepting an unknown code is as much
+   a change as sending one, because acceptance is exactly what the `400` decides.
+3. **Named group.** The pull request adding a code says which group it joins, or
+   declares a new group as this amendment declares the third.
+4. **This file is the record, not the message.** Telling him is not enough. The
+   code and its group land here in the same pull request that makes it
+   emittable.
+
+**It does not require his agreement, only his knowledge before the fact.** A
+control on our side is ours; waiting on a counterparty to approve our own
+refusals would put a third party in front of them. What it forbids is surprising
+him.
+
 ---
 
 ## 6. Callback response codes
