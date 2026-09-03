@@ -288,8 +288,12 @@ path does not go through them at all.
 **THIS IS NOT A LICENCE AND IT IS NOT A CONVENIENCE.** It means the destructive
 statement stop in 8.6 protects nothing on this path: a merged migration containing
 `DROP TABLE` would apply on merge, and the rule that says it "is never
-auto-applied" would have been obeyed by every terminal and broken anyway. That is
-a card, and it is named in the report that accompanies this entry.
+auto-applied" would have been obeyed by every terminal and broken anyway.
+
+**That is card `MIG-01`**, on the phase 2 board, `blocked_on: ivan` for the vendor
+decision only. Its `defaults` say the pre-merge check that refuses a row-destroying
+statement is NOT blocked on his answer and should be built first, because it is
+what makes the permissive answer safe to choose.
 
 ## Rules
 
