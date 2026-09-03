@@ -66,6 +66,29 @@ export async function hasPhase3Schema(): Promise<boolean> {
 
 
 // ---------------------------------------------------------------------------
+// EXT-15. Exista coloana extraction_drafts.document_source?
+//
+// DE CE ARE NEVOIE DE O POARTA PROPRIE SI NU DE hasPhase3Schema. Aceea intreaba
+// daca tabelele fazei 3 sunt aplicate, ceea ce este alta intrebare: 0033 este o
+// migratie separata, in asteptare, si poate fi aplicata inainte sau dupa ele.
+// O poarta care raspunde la intrebarea gresita este o poarta care se deschide in
+// ziua nepotrivita.
+//
+// FARA ACEASTA POARTA, EXT-15 AR FI FOST INC-05 DIN NOU. Codul fuzionat citeste
+// si scrie o coloana pe care baza de productie nu o are inca: PostgREST intoarce
+// 42703, citirea arunca, iar callback-ul raspunde 500 lui Make. Exact forma pe
+// care check:pending-schema-reads o refuza, si el a refuzat-o.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI, NU CEL NOU. Cand
+// coloana lipseste nu se stie sursa, iar a nu sti nu inseamna `scan`: inseamna
+// ca regula EXT-15 nu se aplica inca. Liniile se pastreaza exact ca pana acum.
+// Implicitul `scan` din effectiveSource este pentru un payload care NU A DECLARAT
+// sursa pe o baza care POATE sa o stocheze, ceea ce este alt lucru.
+//
+// SONDA MERGE PE COLOANA, prin PostgREST, din acelasi motiv pentru care sonda de
+// mai sus merge pe o tabela si nu pe o functie: o functie ar fi ea insasi
+// intr-o migratie neaplicata.
+
 // EXT-09. Exista coloana extraction_drafts.page_count?
 //
 // DE CE ARE NEVOIE DE O POARTA PROPRIE SI NU DE hasPhase3Schema. Aceea intreaba
@@ -93,6 +116,35 @@ type ColumnProbe = {
     select: (columns: string) => { limit: (n: number) => PromiseLike<{ error: unknown }> };
   };
 };
+
+let cachedDocumentSource: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI APELANTUL, si acesta este intregul
+ *   motiv pentru care functia ia un parametru.
+ *
+ *   Prima varianta isi facea singura un client de sesiune. In ruta de callback nu
+ *   exista sesiune, fiindca este un endpoint de masina autentificat printr-un
+ *   antet secret, iar politicile RLS de pe extraction_drafts sunt "to
+ *   authenticated": sonda primea o eroare care nu avea nimic de a face cu
+ *   existenta coloanei, o citea ca "coloana lipseste", si poarta raspundea NU
+ *   pentru totdeauna acolo unde conteaza cel mai mult.
+ *
+ *   O sonda care intreaba pe alta legatura decat cea care va citi raspunde la
+ *   alta intrebare. Aceasta o ia pe a apelantului.
+ */
+export async function hasExtractionDocumentSource(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedDocumentSource && now - cachedDocumentSource.at < TTL_MS) return cachedDocumentSource.value;
+
+  try {
+    const { error } = await client.from("extraction_drafts").select("document_source").limit(1);
+    cachedDocumentSource = { value: !error, at: now };
+  } catch {
+    cachedDocumentSource = { value: false, at: now };
+  }
+  return cachedDocumentSource.value;
+}
 
 let cachedPageCount: { value: boolean; at: number } | null = null;
 
