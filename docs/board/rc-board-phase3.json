@@ -1232,9 +1232,9 @@
       "id": "P3-34",
       "title": "A nineteenth category, paints varnishes and solvents.",
       "plain": "Add a category for paints, varnishes and solvents, so those products stop being filed under something that does not describe them.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -1243,9 +1243,13 @@
       "question": null,
       "acceptance": "MIGRATION: a new numbered file inserts one row into public.categories with the next sort_order after the existing eighteen. COMMAND: `npm run check:migrations` exits 0 and `npm run check:categories` exits 0, the second being the check that the committed vocabulary and the seeded rows agree. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
       "defaults": "OWNER-RATIFIED 2026-09-01. The name is Vopsele, lacuri si solventi, with proper diacritics on the screen. THE COMMITTED VOCABULARY AND THE MIGRATION ARE TWO FILES HOLDING ONE FACT and npm run check:categories exists to compare them, so both change in the same commit or the check fails. That check is the acceptance and it has been seen to fail, which is what makes it a check. SORT_ORDER IS THE NEXT ONE, not an insertion into the middle: reordering the existing eighteen would be a change nobody asked for and would move every category on every screen.",
-      "last_checkpoint": "2026-09-01T15:10:00Z",
-      "evidence": null,
-      "notes": "AUTHORED AND OWNER-RATIFIED 2026-09-01. The smallest card in this set and the only one with no schema change beyond a row.\n\nRENUMBERED 2026-09-01 SO THE BOARD PREDICTS THE WORK ORDER INSTEAD OF A DISPATCH OVERRIDING IT. These cards were authored as P3-34 and sorted ABOVE P3-12, so CLAUDE.md section 2's lowest-id rule would have pulled them in front of wave 3 while the dispatch said otherwise. The owner's correction is that a board which cannot express the intended order is the defect, not the dispatch that worked around it. The order the ids now produce, unaided: P3-11a (the broken ruling path) and P3-11b (the uninstalled digest agent) come first because both break a channel everything else depends on, then P3-12 and wave 3, then wave 4, then P3-29 to P3-34. Nothing needs to be told to a terminal that the ids do not already say."
+      "last_checkpoint": "2026-09-02T23:15:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "#PENDING, supabase/migrations/0029_category_paints.sql, AUTHORED AND MERGED, NOT APPLIED, registered under this card. npm run check:categories 8 checks passed over 19 entries in both directions; npm run check:migrations 29 applied to a bare postgres:16 with 13 assertion files, the new one asserting the row exists, is LAST, that sort_order 1 and 18 did not move, and that 1..19 is contiguous.",
+        "at": "2026-09-02T23:15:00Z"
+      },
+      "notes": "AUTHORED AND OWNER-RATIFIED 2026-09-01. The smallest card in this set and the only one with no schema change beyond a row.\n\nRENUMBERED 2026-09-01 SO THE BOARD PREDICTS THE WORK ORDER INSTEAD OF A DISPATCH OVERRIDING IT. These cards were authored as P3-34 and sorted ABOVE P3-12, so CLAUDE.md section 2's lowest-id rule would have pulled them in front of wave 3 while the dispatch said otherwise. The owner's correction is that a board which cannot express the intended order is the defect, not the dispatch that worked around it. The order the ids now produce, unaided: P3-11a (the broken ruling path) and P3-11b (the uninstalled digest agent) come first because both break a channel everything else depends on, then P3-12 and wave 3, then wave 4, then P3-29 to P3-34. Nothing needs to be told to a terminal that the ids do not already say.\n\nSHIPPED 2026-09-02 BY EXECUTOR, ahead of P3-33 as the depends_on edge requires.\n\nTHE CHECK LEARNED THAT THE VOCABULARY IS SEEDED BY MORE THAN ONE MIGRATION. check-categories read 0007 alone, so a nineteenth row in a new file read as 'the JSON was hand-edited'. It now reads an EXPLICIT list of the migrations that touch public.categories, in apply order, and not a glob: a migration that touches that table should be a line in the diff rather than a silent widening of what the check accepts.\n\nEXPECTED_COUNT STAYS AN EXPLICIT NUMBER AND WAS NOT DERIVED FROM THE JSON. Derived, it would agree with itself whatever the JSON said, which is a check whose passing path is reachable without the condition being true. That is the class PROVE-01 named the same day.\n\nSORT_ORDER 19, NOT AN INSERTION. The assertion file checks the ORDER and not only the count: the row is last, sort_order 1 and 18 still hold the names they held, and 1..19 is contiguous. Two anchors rather than one, because a shift of the whole block moves both and a middle insertion moves only the second.\n\nFOR ANDRE: the value is live on the validator the moment this merges. R-057's enum-ordering rule is satisfied in the direction it requires, ours accepting before his side emits, and the confirmation goes to him on landing."
     },
     {
       "id": "APPLY-01",
