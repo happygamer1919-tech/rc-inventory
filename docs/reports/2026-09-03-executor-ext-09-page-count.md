@@ -188,6 +188,35 @@ in the next, which makes **the two `quality` runs on #180 the before and after
 results**, produced by the acceptance command itself against a real stack. The
 first commit is expected to be red and says so in its own message.
 
+### The BEFORE result, run 33800619982, head `272b2a7`
+
+`quality` concluded **failure**. `npx playwright test`: **134 passed, 3 failed**,
+12.7 minutes. The three are exactly the three new cases, and cases 1 to 8 of the
+same spec all passed, so nothing was broken on the way:
+
+    ✓  68  extraction.spec.ts:341  8. absent este null, niciodata sir gol si niciodata zero
+    ✘  69  extraction.spec.ts:440  9. _meta.page_count fara characters_extracted ...
+    ✘  70  extraction.spec.ts:475  10. un callback care inca poarta characters_extracted ...
+    ✘  71  extraction.spec.ts:502  11. un numar de pagini absent sau stricat este null ...
+
+**All three fail on the same fact, which is the one the card is about:** the
+value is not on the row.
+
+    9)  > 467 |  expect(d.page_count).toBe(3);
+        Expected: 3          Received: undefined
+
+    10) > 499 |  expect(d.page_count).toBe(2);
+        Expected: 2          Received: undefined
+
+    11) > 520 |  expect((await draftState(request, orderId)).page_count).toBeNull();
+        Received: undefined
+
+**`undefined` and not `null` is the whole point.** `null` would mean the column
+exists and holds nothing. `undefined` means `extraction_drafts` has no such
+column, which is exactly what the card changes, and it is why a case asserting
+`d.meta.page_count` instead could not have failed here: `_meta` is stored
+verbatim and reads back whatever was posted.
+
 ---
 
 ## Findings carried forward
