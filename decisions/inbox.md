@@ -4611,3 +4611,52 @@ wrongly in the direction that costs the most: a question asked by stopping parks
 the whole run, including work with no relation to the question. Section 4 already
 forbade halting for a question. This forbids halting for an answer nobody was
 waiting on.
+
+### R-096
+
+**The sample document signed URL TTL is raised from two hours to twenty-four,
+for the four permanent test documents only.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch.
+
+**Scope, and it is the whole ruling.** `scripts/ext/serve-sample-documents.mjs`
+signs at `TTL_SECONDS`, which becomes `24 * 60 * 60`. That script signs exactly
+the four PDFs under `_samples/andre` and its own throwaway probe object. Those
+are **test fixtures containing no client data**: they are supplier documents
+handed over as an extraction sample set, and nothing under that prefix is reached
+by any product surface.
+
+**NO OTHER SIGNING PATH CHANGES.** `lib/data/inbound-actions.ts` line 238 and
+`lib/data/extraction-fire.ts` line 23 both sign at fifteen minutes and are not
+touched by this ruling. A real supplier document carried to the extractor still
+expires in fifteen minutes. Anyone reading this ruling as a general TTL increase
+has read it wrong.
+
+**The reason line, verbatim from the dispatch:** a TTL shorter than the
+counterparty response cycle produces repeat handoffs through the owner.
+
+Two hours was chosen when the links were issued and checked inside one sitting.
+The counterparty is a person in another company working his own week: a link
+issued on our afternoon is opened on his morning. Every expiry between those two
+moments is not a security event, it is a message to the owner asking for a fresh
+link, and the owner is the one path in this project that does not scale.
+
+**What did NOT change and why it is safe.** The token is still a Supabase signed
+JWT over one object path, still single-scope `download`, still unguessable, and
+still verified by the same route. The failure contract in
+`docs/contracts/document-url.md` is untouched: expired is still `400`
+`EXPIRED_TOKEN`, tampered is still `401` `INVALID_TOKEN`, missing is still `404`
+`OBJECT_NOT_FOUND`, and no path returns `text/html`. Lengthening the window on a
+fixture set widens no blast radius, because the objects behind it are the four
+documents we deliberately gave away.
+
+**ON THE ID, AND IT IS A DEVIATION WORTH READING.** `decisions/NEXT-RULING-ID` on
+`origin/main` holds `R-087`, and by section 8b that is the id to take. It was not
+taken. `R-087` through `R-095` are each already written as a DIFFERENT decision on
+an open pull request: `triage/20260903-070005` (PR #172) claims `R-087` to
+`R-091`, `triage/20260902-070904` (PR #157) claims through `R-095`. Section 8b
+exists to stop one number naming two decisions, and taking `R-087` here would
+have produced exactly that, knowingly, rather than as the invisible race the
+counter was built to convert into a conflict. `R-096` is the first id no open
+branch has written. The counter advances to `R-097`. Nothing is renumbered.
+
