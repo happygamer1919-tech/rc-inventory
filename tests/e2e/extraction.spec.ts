@@ -428,7 +428,7 @@ test.describe("Extragere documente", () => {
   // si pana acum. Exact asta este problema: _meta este documentat ca "stocat si
   // niciodata aratat", nu este validat, si nimic din platforma nu ii poate pune
   // o intrebare. Cazul 9 cere valoarea de pe RAND, nu din bloc, si de aceea pica
-  // fara 0033: draft.page_count nu exista.
+  // fara 0032: draft.page_count nu exista.
   //
   // SEMNALUL PENTRU CARE EXISTA CAMPUL: un model care raporteaza o pagina pe un
   // document de trei a citit o treime din el si a intors un rezultat consistent
@@ -463,7 +463,7 @@ test.describe("Extragere documente", () => {
 
     const d = await draftState(request, orderId);
     // DE PE RAND, ca valoare de sine statatoare. Aceasta este linia care pica
-    // fara migratia 0033 si fara poarta din ruta: campul nu exista pe ciorna.
+    // fara migratia 0032 si fara poarta din ruta: campul nu exista pe ciorna.
     expect(d.page_count).toBe(3);
     // Blocul de diagnostic este pastrat verbatim alaturi, nu inlocuit de coloana.
     expect(d.meta?.page_count).toBe(3);

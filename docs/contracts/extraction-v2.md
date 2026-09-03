@@ -211,7 +211,7 @@ page one, and every number on the screen looks right.
 | **type** | integer, or null |
 | **null means** | no page count was reported. **Not an error.** |
 | **minimum** | 1. A document has at least one page, so 0 is a broken report and not a smaller reading. |
-| **stored as** | a column, `extraction_drafts.page_count`, added by `0033_extraction_draft_page_count.sql` |
+| **stored as** | a column, `extraction_drafts.page_count`, added by `0032_extraction_draft_page_count.sql` |
 | **broken report** | 0, negative, fractional, a string, a boolean: all read as null, and none of them rejects the document |
 
 **A broken report is null, never a 400.** A diagnostic field that cannot be

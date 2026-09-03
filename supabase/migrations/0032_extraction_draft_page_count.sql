@@ -1,18 +1,33 @@
--- 0033_extraction_draft_page_count.sql
+-- 0032_extraction_draft_page_count.sql
 -- RC Inventory phase 3, card EXT-09. The model-reported page count becomes a
 -- column, and the contract's _meta stops promising a character count.
 --
 -- Contains no DROP, no TRUNCATE and no DELETE. One transaction.
 --
--- THE NUMBER TAKEN IS 0033 AND NOT 0032, AND THE GAP IS DELIBERATE.
+-- THIS FILE WAS NUMBERED 0033 FIRST, AND THE APPLIER REFUSED IT.
 --
--- 0032_extraction_document_source.sql is held by open pull request #177, card
--- EXT-15, which is green and merged into nothing yet. Two unmerged migrations
--- wearing one number is worse than a gap: the pending register, the applied
--- ledger and the applier all key on the number, and the collision would only
--- surface as a resolution somebody has to make by hand at merge time. CLAUDE.md
--- 8.1 asks for four digits, zero padded and monotonically increasing. It does
--- not ask for contiguous, and a hole is readable while a duplicate is not.
+-- The reasoning for the gap was written out and was WRONG, so it is recorded
+-- here rather than quietly replaced. It said: 0032 is held by open pull request
+-- #177, two unmerged migrations wearing one number is worse than a gap, and
+-- CLAUDE.md 8.1 asks for monotonically increasing rather than contiguous.
+--
+-- The first two sentences are true. The third is true ABOUT CLAUDE.md AND FALSE
+-- ABOUT THE THING THAT RUNS. `scripts/apply-pending-migrations.mjs` asserts
+-- `ledger-no-gaps-ends-at-highest`, in SQL, inside the transaction:
+--
+--     -- No gaps: every integer from 1 to the highest is present exactly once.
+--
+-- With 0001 to 0031 plus 0033 the ledger holds 32 rows and the assertion wants
+-- 33, so the whole batch rolls back and nothing applies. A NUMBERING GAP IS NOT
+-- A COSMETIC CHOICE HERE, IT IS A BATCH THAT CANNOT BE APPLIED AT ALL.
+--
+-- SO 0032 IS TAKEN, AND THE COLLISION WITH #177 IS REAL AND IS SAID OUT LOUD.
+-- That branch carries `0032_extraction_document_source.sql`. The two file NAMES
+-- differ, so **git will not report a conflict**: both files would simply land,
+-- both numbered 0032, and the duplicate is exactly the silent kind CLAUDE.md 8b
+-- was written about. Whichever of the two merges second renumbers to 0033, and
+-- `npm run check:migrations` and `npm run prove:applier` both fail loudly on it
+-- until that is done, so it cannot ship unnoticed.
 --
 -- WHY THE PAGE COUNT IS A COLUMN AND NOT A KEY IN meta.
 --

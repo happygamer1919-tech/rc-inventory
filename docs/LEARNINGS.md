@@ -3110,14 +3110,14 @@ it enumerates none.
 ### `add column if not exists` made a guard hunt for a column named `if`
 **Tag:** ci
 **ERROR:** the same check extracted pending column names with
-`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0033 writes
+`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0032 writes
 `add column if not exists page_count integer`, so the capture was the word `if`.
 The check then searched every file under `lib/`, `app/` and `components/` for the
 token `if` and reported **52 violations**, one per file, each saying
 `numeste coloana if`. Nothing was wrong with any of them.
 **SOLUTION:** the pattern now allows the optional `(?:if\s+not\s+exists\s+)?`
-before the column name. Migration 0032, on another branch, hit the identical
-defect independently, which is how a one-character-class omission cost two cards.
+before the column name. The document_source migration on another branch hit the
+identical defect independently, which is how a one-character-class omission cost two cards.
 **The rule:** a regex over SQL must accept every optional clause the grammar
 allows at that position, and the failure to do so is not a miss, it is a WRONG
 CAPTURE, which is worse. A miss reports nothing; a wrong capture reports a wall
@@ -3144,3 +3144,37 @@ the acceptance command itself rather than described in prose.
 not the card's, do not weaken the acceptance to fit the machine. Move it to a
 machine that can run it, and say in the pull request which obstacles were hit, so
 the next card does not rediscover all three.
+
+### A migration numbering GAP is refused by the applier, and CLAUDE.md does not say so
+**Tag:** data
+**ERROR:** EXT-09 took number **0033** and deliberately left 0032 free, because
+0032 was held by an open pull request on another branch and a duplicate number
+looked worse than a hole. The reasoning was written into the migration header
+and the pull request, and it cited CLAUDE.md 8.1, which asks for
+"four-digit zero-padded, monotonically increasing" and says nothing about gaps.
+**Everything applied fine.** `npm run check:migrations` passed, 32 files against
+a bare `postgres:16`, 15 assertion files. `npx tsc --noEmit` passed. The dry run
+of the applier passed. What failed was `npm run prove:applier`, at **9 of 16**,
+with the clean-pass proof rolling the whole batch back:
+
+    ASSERTION FAILED [ledger-no-gaps-ends-at-highest]:
+    ledger holds 32 rows, expected 33 with no gaps
+
+`scripts/apply-pending-migrations.mjs` asserts, in SQL, inside the transaction,
+that **every integer from 1 to the highest is present exactly once**. With 0001
+to 0031 plus 0033 the ledger holds 32 and the assertion wants 33, so the batch
+cannot be applied at all. Six further proofs then failed as downstream noise,
+which made the output look like six problems instead of one.
+**SOLUTION:** renumbered to 0032. `prove:applier` went to **16 of 16**. The
+collision with the other branch is real and is stated in the migration header
+instead of avoided, because **git will not report it**: the two file names differ,
+so both would simply land, both numbered 0032. `check:migrations` and
+`prove:applier` fail loudly on the duplicate, so it cannot ship unnoticed, but
+nothing warns at merge time.
+**The rule, and it has two halves.** First: **migration numbers are contiguous
+here, not merely increasing**, and CLAUDE.md 8.1 does not say so while the
+applier enforces it. When a document and a running check disagree about a rule,
+**the check is the rule** and the document is the thing that is out of date.
+Second: a number taken on another unmerged branch is not free, and the collision
+is invisible to git whenever the two files have different names. Say it out loud
+in the file, because the next reader's only other warning is a red proof.

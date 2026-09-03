@@ -1,5 +1,5 @@
--- assertions/0033_extraction_draft_page_count.sql
--- Card EXT-09. What 0033 must have left behind, checked against the finished
+-- assertions/0032_extraction_draft_page_count.sql
+-- Card EXT-09. What 0032 must have left behind, checked against the finished
 -- schema on a bare postgres:16.
 --
 -- FOUR PROPERTIES, AND THE THIRD IS THE ONE THAT MATTERS MOST.

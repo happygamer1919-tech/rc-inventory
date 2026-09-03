@@ -69,7 +69,7 @@ export async function hasPhase3Schema(): Promise<boolean> {
 // EXT-09. Exista coloana extraction_drafts.page_count?
 //
 // DE CE ARE NEVOIE DE O POARTA PROPRIE SI NU DE hasPhase3Schema. Aceea intreaba
-// daca TABELELE fazei 3 sunt aplicate, ceea ce este alta intrebare: 0033 este o
+// daca TABELELE fazei 3 sunt aplicate, ceea ce este alta intrebare: 0032 este o
 // migratie separata, aflata in registrul de asteptare, si poate fi aplicata
 // inainte sau dupa ele. O poarta care raspunde la intrebarea gresita este o
 // poarta care se deschide in ziua nepotrivita, si o poarta importata numai ca sa

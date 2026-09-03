@@ -65,7 +65,7 @@ function bool(v: unknown): boolean | null {
  *
  * ZERO NU ESTE UN NUMAR MAI MIC DE PAGINI. Un document are cel putin o pagina,
  * deci zero nu este o citire mai prudenta ci una imposibila, si ea nu are voie
- * sa fie stocata ca si cum ar fi o citire. Constrangerea din 0033 este a doua
+ * sa fie stocata ca si cum ar fi o citire. Constrangerea din 0032 este a doua
  * usa, pentru un scriitor care nu este ruta aceasta.
  *
  * FRACTIONARUL ESTE RESPINS EXPLICIT si nu rotunjit. 2.5 pagini nu este o
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
 
   // EXT-09. page_count intra in update NUMAI daca baza il are.
   //
-  // Migratia 0033 este in registrul de asteptare, deci pe productie coloana
+  // Migratia 0032 este in registrul de asteptare, deci pe productie coloana
   // poate sa nu existe inca. Un update care o numeste primeste 42703 de la
   // PostgREST, ruta raspunde 500, iar Make REINCEARCA pe 5xx: ar fi o bucla, nu
   // un esec singular. Mai rau, contractul spune in sectiunea 6 ca un 5xx
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
   // face cu existenta coloanei.
   //
   // CAT TIMP COLOANA LIPSESTE, VALOAREA NU SE PIERDE: _meta este stocat verbatim
-  // si o poarta pe el, exact ca pana acum. Ziua in care 0033 se aplica, ea incepe
+  // si o poarta pe el, exact ca pana acum. Ziua in care 0032 se aplica, ea incepe
   // sa fie scrisa si separat, fara alta livrare.
   const draftUpdate: Record<string, unknown> = {
     status,

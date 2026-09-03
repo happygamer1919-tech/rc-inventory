@@ -86,13 +86,13 @@ version's payload would be a loop rather than a single failure.
 
 | file | what changed |
 |---|---|
-| `supabase/migrations/0033_extraction_draft_page_count.sql` | the column, nullable, no default, `>= 1` check; the `meta` comment corrected |
-| `scripts/poc-free/local-db/assertions/0033_...sql` | four properties, asserted by writing rather than by reading definitions |
+| `supabase/migrations/0032_extraction_draft_page_count.sql` | the column, nullable, no default, `>= 1` check; the `meta` comment corrected |
+| `scripts/poc-free/local-db/assertions/0032_...sql` | four properties, asserted by writing rather than by reading definitions |
 | `lib/data/schema-capability.ts` | `hasExtractionPageCount`, probing on the caller's connection |
 | `app/api/extraction/callback/route.ts` | `pageCount()` normaliser; the column written only behind the gate |
 | `scripts/poc-free/check-pending-schema-reads.mjs` | two defects fixed, below |
 | `docs/contracts/extraction-v2.md` | section 4.3 rewritten, new 4.3a |
-| `docs/migrations/APPLY-LOG.md` | `0033` added to the pending register |
+| `docs/migrations/APPLY-LOG.md` | `0032` added to the pending register |
 | `tests/e2e/extraction.spec.ts` | cases 9, 10 and 11 |
 
 ### Three decisions taken on the card's defaults, logged per section 5
@@ -110,13 +110,40 @@ version's payload would be a loop rather than a single failure.
    1 would write a claim no model made onto every pre-existing row. That is the
    exact defect this column exists to catch, installed by the column itself.
 
-### `0033` and not `0032`
+### The number: `0033` was taken first, the applier refused it, and it is now `0032`
 
-`0032` is held by open pull request #177, green and merged into nothing. Two
-unmerged migrations wearing one number is worse than a gap: the pending register,
-the applied ledger and the applier all key on the number, and the collision would
-surface only as a hand resolution at merge time. CLAUDE.md 8.1 asks for four
-digits, zero padded, monotonically increasing. It does not ask for contiguous.
+**This is the one thing in the card that was decided wrong, and the machine
+caught it.** The reasoning was written into the migration header and the pull
+request before it was tested: `0032` is held by open pull request #177, a
+duplicate number is worse than a hole, and CLAUDE.md 8.1 asks for
+"monotonically increasing" and not for contiguous.
+
+The first two clauses are true. **The third is true about CLAUDE.md and false
+about the thing that runs.**
+
+Everything cheap passed: `tsc`, `check:migrations` with 32 files against a bare
+`postgres:16`, the applier's own dry run. `npm run prove:applier` came back
+**9 of 16**, and the clean-pass proof rolled the entire batch back:
+
+    ASSERTION FAILED [ledger-no-gaps-ends-at-highest]:
+    ledger holds 32 rows, expected 33 with no gaps
+
+The applier asserts in SQL, inside the transaction, that **every integer from 1
+to the highest is present exactly once**. A gap is not a cosmetic choice here, it
+is a batch that cannot be applied at all. Renumbered to `0032`, `prove:applier`
+is **16 of 16**.
+
+**The collision with #177 is real and is stated in the file rather than avoided.**
+That branch carries `0032_extraction_document_source.sql`. The two file NAMES
+differ, so **git reports no conflict**: both would land, both numbered 0032.
+`check:migrations` and `prove:applier` fail loudly on the duplicate so it cannot
+ship unnoticed, but nothing warns at merge time. Whichever merges second
+renumbers to 0033.
+
+**Six other proofs failed as downstream noise from the one rollback**, which made
+one problem look like six. Reading the artifact rather than the summary was what
+separated them: `docs/reports/p3-27a-proof-1-clean.txt` names the assertion once,
+in one line.
 
 ### Destructive-statement declaration, CLAUDE.md 8.6
 
@@ -136,7 +163,7 @@ replaced rather than edited. **The migration is NOT applied.**
 **1. The gate was named by a literal string.** `check-pending-schema-reads.mjs`
 held `const GUARD = 'hasPhase3Schema'` and asked only whether a file contains it.
 EXT-09 needs a DIFFERENT gate, because `hasPhase3Schema` answers whether the
-phase 3 tables are applied and `0033` adds a column to a phase 2 table that can
+phase 3 tables are applied and `0032` adds a column to a phase 2 table that can
 be applied before or after them. **The cheapest way to make the check green was
 to import the wrong gate**, which would have left the route writing a column
 production does not have while the check reported OK. The gate list is now
@@ -144,10 +171,10 @@ derived from `lib/data/schema-capability.ts`, and the check exits 2 rather than
 reporting when it finds zero gates.
 
 **2. `add column if not exists` made it hunt for a column named `if`.** The
-pattern was `add\s+column\s+(\w+)`, `0033` writes
+pattern was `add\s+column\s+(\w+)`, `0032` writes
 `add column if not exists page_count integer`, so the capture was the word `if`,
-and the check reported **52 violations across the whole source tree**. Migration
-`0032`, on another branch, hit the identical defect independently. A mass refusal
+and the check reported **52 violations across the whole source tree**. The `document_source` migration on another branch hit the identical defect
+independently. A mass refusal
 read as a discovery is the worst output a check can produce: either somebody
 spends an hour on it, or they stop believing the check, and the second is
 permanent.
@@ -161,7 +188,9 @@ Run locally, with exit codes, each also proven able to fail:
 | command | result | the failing half |
 |---|---|---|
 | `npx tsc --noEmit` | exit 0 | |
-| `npm run check:migrations` | exit 0, **32 files applied unmodified** to a bare `postgres:16`, **15 assertion files passed** | a mutant `0033` carrying `default 1` exits **1** with `EXT-09: page_count carries a default (1)` |
+| `npm run check:migrations` | exit 0, **32 files applied unmodified** to a bare `postgres:16`, **15 assertion files passed** | a mutant `0032` carrying `default 1` exits **1** with `EXT-09: page_count carries a default (1)` |
+| `npm run prove:applier` | **16 of 16**, exit 0 | it was **9 of 16** on the numbering gap, above |
+| `npm run prove:assertions` | exit 0, 11 assertions each hold and each raise when broken | |
 | `node scripts/poc-free/check-pending-schema-reads.mjs` | exit 0 | a mutant route with the gate removed exits **1** with `app/api/extraction/callback/route.ts numeste coloana page_count` |
 | `npm run check:conflict-residue` | exit 0 | |
 | `npm run check:removal-safety` | exit 0, 5 pending migrations checked | |
@@ -221,12 +250,28 @@ verbatim and reads back whatever was posted.
 
 ## Findings carried forward
 
-1. **#176 had no `quality` run** and two cards were behind it. Reopened, and a
-   run started. The cause of the missing run was not determined.
+1. **#176 had no `quality` run** and two cards were behind it. Reopened at
+   20:10Z, a run started on `678e31e`, and it concluded **success**. The cause of
+   the original missing run was not determined.
+
+   **It is now `BEHIND` rather than `CLEAN`, and that is this session's own
+   doing.** Merging the claim pull request #178 moved `main` to `b17f066` under
+   it, so `npm run checks:state 176` exits non-zero with
+   `The quality check reads SUCCESS while this pull request is BEHIND`. The
+   overlap is nil in fact: `b17f066` touches only `docs/poc/state.json` and #176
+   touches only board JSON. **That is an argument for updating the branch, not
+   for merging past the tool P3-11d built to stop exactly this**, so it is left
+   for whoever owns that pull request. What was fixed here was the mechanical
+   blocker, that no run existed at all; it now has a green one and needs a
+   refresh against current `main`.
+
+   **The chain is otherwise unchanged.** #177 is still based on
+   `board/andre-reconciliation`, EXT-15 is still `todo`, and EXT-16 therefore
+   still fails its `depends_on` condition.
 2. **Production's applied ledger is at 0031 while the repository's pending
    register lists 0028 to 0031 as unapplied**, with no `APPLY-LOG` entry for any
    of them on `main` or on any of the 48 remote branches. Full detail in
-   `docs/reports/STATE-2026-09-03.md` item 4. `0033` joins that register today,
+   `docs/reports/STATE-2026-09-03.md` item 4. `0032` joins that register today,
    so if the register is wrong it is wrong about five files now.
 3. **`_meta` has never been validated in any way.** This card reads one key out
    of it and validates that key. The rest of the block is still stored verbatim
