@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-59767-mtke9uf5)
+target                 shim (container rc-prove-applier-mut-31961-mtlzf8yg)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     16
-total statements       226
+pending file count     20
+total statements       247
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -28,16 +28,19 @@ every four-argument call site is behind the hasPhase3Schema() gate: OK
 ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 0015_status_entity_project.sql:  alter type public.status_entity add value if not exists 'project';   (idempotent, IF NOT EXISTS)
+0030_units_tonne_litre.sql:  alter type public.unit_code add value if not exists 't';   (idempotent, IF NOT EXISTS)
+0030_units_tonne_litre.sql:  alter type public.unit_code add value if not exists 'l';   (idempotent, IF NOT EXISTS)
 
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: OK, 1 pending migration(s) checked, no reader remains on main
+check-removal-safety: OK, 5 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           e28baa9d9cba80a8586f4006f6f85ed8361fe0086fcc1dd95e247aac8eb709bf
-script sha256          7853c29af4687ddf0bbffc20aec9f242b4cadd9ef68d261c0a94f8631d4de537
-assertions             13
+batch sha256           5c2047d0d0f94bd29c35173ab844e70d9bee2190f2bcb57f8f650fb9e88e7219
+script sha256          47f4ba9eb6a36d10ef14719934239a5c7dcd7f8d565375223576f2802404b1cf
+assertions             11
+notices                2 (report a number, cannot fail)
 ==============================================================================
 
 
@@ -49,6 +52,20 @@ assertions             13
  outbound_issue |             2
  project        |             3
 (3 rows)
+
+--- pre-phase: 0030_units_tonne_litre.sql ---
+ enumlabel | enumsortorder 
+-----------+---------------
+ m2        |             1
+ lm        |             2
+ pcs       |             3
+ bag       |             4
+ kg        |             5
+ roll      |             6
+ m3        |             7
+ t         |             8
+ l         |             9
+(9 rows)
 
 enum pre-phase committed
 ==============================================================================
@@ -66,11 +83,12 @@ PRE-CHECK GRID: the applied ledger BEFORE anything runs
  0008    | extraction_drafts
  0009    | revoke_anon_on_extraction_drafts
  0015    | status_entity_project
-(10 rows)
+ 0030    | units_tonne_litre
+(11 rows)
 
  ledger_rows_before 
 --------------------
-                 10
+                 11
 (1 row)
 
 
@@ -248,7 +266,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-02 17:53:19.010953+00
+ Furnizor Prove | 2026-09-03 20:33:08.330858+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -381,13 +399,71 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 --- applying 0028_applied_ledger_version.sql (10 statements) ---
  applied_ledger_version 
 ------------------------
- 0015
+ 0030
 (1 row)
 
         proname         | security_definer |           acl           
 ------------------------+------------------+-------------------------
  applied_ledger_version | t                | postgres=X/postgres    +
                         |                  | service_role=X/postgres
+(1 row)
+
+
+--- applying 0029_category_paints.sql (5 statements) ---
+ categories_after 
+------------------
+               20
+(1 row)
+
+            name             | sort_order 
+-----------------------------+------------
+ Prove                       |          1
+ Cimenturi și mortare        |          1
+ Zidărie și cărămidă         |          2
+ Betoane și agregate         |          3
+ Armături și oțel            |          4
+ Lemn și plăci               |          5
+ Izolații termice            |          6
+ Hidroizolații               |          7
+ Gips-carton și profile      |          8
+ Finisaje pereți             |          9
+ Placări ceramice și adezivi |         10
+ Instalații sanitare         |         11
+ Instalații electrice        |         12
+ Acoperișuri și tablă        |         13
+ Feronerie și fixări         |         14
+ Scule și consumabile        |         15
+ Uși și ferestre             |         16
+ Amenajări exterioare        |         17
+ Altele                      |         18
+ Vopsele, lacuri și solvenți |         19
+(20 rows)
+
+
+--- applying 0031_units_tonne_litre_rows.sql (4 statements) ---
+ code | sort_order 
+------+------------
+ m2   |          1
+ lm   |          2
+ pcs  |          3
+ bag  |          4
+ kg   |          5
+ roll |          6
+ m3   |          7
+ t    |          8
+ l    |          9
+(9 rows)
+
+
+--- applying 0032_extraction_draft_page_count.sql (9 statements) ---
+ column_name | data_type | is_nullable | column_default 
+-------------+-----------+-------------+----------------
+ page_count  | integer   | YES         | 
+(1 row)
+
+                conname                |                     definition                      
+---------------------------------------+-----------------------------------------------------
+ extraction_drafts_page_count_positive | CHECK (((page_count IS NULL) OR (page_count >= 1)))
 (1 row)
 
 
@@ -406,8 +482,6 @@ ASSERTIONS
   assert declared-function-drops-happened
   assert declared-column-drops-only
   assert zero-rows-deleted
-  assert outbound-destination-backfill
-  assert supplier-backfill
   assert declared-function-signatures-exist
   assert declared-function-versions-only
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -417,8 +491,7 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
-NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
-NOTICE:  P3-05 reconciliation: products with no supplier_id = 0
+NOTICE:  constraint "extraction_drafts_page_count_positive" of relation "extraction_drafts" does not exist, skipping
 ERROR:  ASSERTION FAILED [declared-function-versions-only]: create_outbound_issue has 2 version(s), this batch declared 1. A leftover overload makes every call to that name ambiguous.
 CONTEXT:  PL/pgSQL function inline_code_block line 14 at RAISE
 

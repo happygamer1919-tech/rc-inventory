@@ -43,6 +43,7 @@ The format is machine-read, so keep it exactly:
 - `0029_category_paints.sql`, card de aplicare P3-34
 - `0030_units_tonne_litre.sql`, card de aplicare P3-33
 - `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
+- `0032_extraction_draft_page_count.sql`, card de aplicare EXT-09
 
 ## Rules
 

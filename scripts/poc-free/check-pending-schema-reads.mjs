@@ -31,7 +31,41 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
-const GUARD = 'hasPhase3Schema';
+
+// EXT-09. FIECARE POARTA DE CAPABILITATE, NU UNA SINGURA NUMITA LITERAL.
+//
+// Constanta era sirul 'hasPhase3Schema', si cat timp exista o singura poarta
+// aceea era acelasi lucru. EXT-09 a adaugat a doua, hasExtractionPageCount,
+// pentru o migratie separata: hasPhase3Schema intreaba daca TABELELE fazei 3
+// sunt aplicate, iar 0033 adauga o coloana pe o tabela a fazei 2 si poate fi
+// aplicata inainte sau dupa ele. O poarta care raspunde la intrebarea gresita
+// este o poarta care se deschide in ziua nepotrivita.
+//
+// FARA GENERALIZAREA ACEASTA REGULA AR FI IMPINS SPRE POARTA GRESITA. Verificarea
+// cere numai ca fisierul sa CONTINA numele porti, deliberat grosolan, deci un
+// fisier care are nevoie de o poarta noua ar fi trecut importand-o pe cea veche.
+// Verificarea ar fi devenit verde si codul ar fi ramas exact la fel de expus,
+// ceea ce este mai rau decat un refuz.
+//
+// LISTA SE DERIVA DIN lib/data/schema-capability.ts, deci a treia poarta este
+// acoperita fara ca acest fisier sa fie editat, iar numarul citit este VERIFICAT:
+// zero porti ar insemna ca tiparul a incetat sa mai citeasca acel fisier, si
+// atunci FIECARE fisier aparat ar fi raportat ca neaparat. Un refuz in masa citit
+// ca descoperire este cea mai proasta iesire posibila pentru o verificare.
+const CAPABILITY_MODULE = 'lib/data/schema-capability.ts';
+const GUARDS = (() => {
+  const src = readFileSync(join(ROOT, CAPABILITY_MODULE), 'utf8');
+  const names = [...src.matchAll(/export\s+async\s+function\s+(has\w+)/g)].map((m) => m[1]);
+  if (names.length === 0) {
+    console.error(
+      `check-pending-schema-reads: zero porti de capabilitate gasite in ${CAPABILITY_MODULE}.`,
+    );
+    console.error('Fara ele fiecare fisier aparat ar fi raportat ca neaparat. Refuz sa raportez.');
+    process.exit(2);
+  }
+  return names;
+})();
+const GUARD = GUARDS.join(' sau ');
 
 // TESTABILITY OVERRIDES, so scripts/poc-free/prove-schema-direction.mjs can point
 // this check at a reconstruction of INC-05 and watch it fire. A guard that has
@@ -132,7 +166,20 @@ function objectsAddedBy(files) {
 
     for (const m of code.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?public\.(\w+)/gi))
       tables.add(m[1]);
-    for (const m of code.matchAll(/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi))
+    // `if not exists` ESTE OPTIONAL AICI, SI OMITEREA LUI A FOST UN DEFECT REAL.
+    //
+    // Tiparul era `add\s+column\s+(\w+)`, iar 0033 scrie
+    // `add column if not exists page_count integer`, deci captura a fost cuvantul
+    // `if`. Verificarea a cautat apoi o coloana numita `if` in TOT codul sursa,
+    // a gasit-o in cincizeci si doua de fisiere, si a raportat cincizeci si doua
+    // de incalcari.
+    //
+    // UN REFUZ IN MASA CITIT CA DESCOPERIRE ESTE CEA MAI PROASTA IESIRE POSIBILA
+    // pentru o verificare: fie cineva il crede si petrece o ora pe el, fie
+    // inceteaza sa mai creada verificarea, si a doua oara este permanenta.
+    for (const m of code.matchAll(
+      /alter\s+table\s+public\.(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)/gi,
+    ))
       columns.add(m[2]);
     for (const m of code.matchAll(/create\s+or\s+replace\s+function\s+public\.(\w+)/gi))
       functions.add(m[1]);
@@ -169,7 +216,7 @@ for (const file of sourceFiles()) {
   if (rel in EXEMPT) continue;
 
   const src = readFileSync(file, 'utf8');
-  const guarded = src.includes(GUARD);
+  const guarded = GUARDS.some((g) => src.includes(g));
   const hits = [];
 
   for (const t of tables) {
