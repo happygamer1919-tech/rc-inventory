@@ -3167,9 +3167,16 @@ all three. **It did it anyway, on three runs out of three.** Andre's Matnord sca
 7 lines, printed total **50,336.40** excluding VAT, produced three different line
 sums across three runs: **49035.40**, **39242.00**, **38429.40**. Every one of the
 three arrived with `status: extracted` and `reason: null`, which is the payload
-shape meaning "read cleanly, nothing to report". The spread between the runs is
-larger than the gap from any of them to the printed total, so the numbers are not
-a reading that drifted; they are three different fabrications of the same page.
+shape meaning "read cleanly, nothing to report".
+
+The tolerance for a 7-line document is `max(0.05, 0.01 * 7)` = **0.07**. The three
+miss it by **1300.93**, **11094.33** and **11906.93**.
+
+**The three runs disagree with EACH OTHER by up to 10606.00**, on one unchanged
+page, against a tolerance of 0.07. That is five orders of magnitude past the
+tolerance, and it is the part that matters: a reading that drifted would cluster.
+Three readings of the same page that disagree with each other by that much are
+not one reading with noise on it, they are three separate fabrications.
 
 **THIS IS THE SECOND CONTROL OF THIS SHAPE TO FAIL, AND THAT IS THE ENTRY.** The
 first was `confidence`, which returned **1.0** on a document with four invented
