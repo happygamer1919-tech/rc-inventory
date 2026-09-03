@@ -29,6 +29,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { supabaseUrl } from "@/lib/supabase/env";
 import {
   CALLBACK_CODES,
+  effectiveSource,
+  isDocumentSource,
   isExtractionErrorCode,
   isExtractionStatus,
 } from "@/lib/data/extraction-types";
@@ -106,10 +108,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "error_code interzis la extracted" }, { status: CALLBACK_CODES.rejected });
   }
 
+  // EXT-15. UNDE A GASIT EXTRACTORUL TEXTUL.
+  //
+  // Declarat de el, fiindca numai el stie: mime_type nu raspunde la intrebare,
+  // iar unul dintre documentele de proba este un PDF fara strat de text.
+  //
+  // O VALOARE PE CARE NU O CUNOASTEM ESTE REFUZATA, nu ignorata. Un `photo`
+  // scapat printre valori ar cadea prin effectiveSource in ramura sigura, ceea ce
+  // ar fi corect din intamplare astazi si tacut in ziua in care cineva adauga a
+  // treia valoare si uita o ramura.
+  if (body.document_source !== undefined && body.document_source !== null
+      && !isDocumentSource(body.document_source)) {
+    return NextResponse.json(
+      { error: "document_source in afara multimii" },
+      { status: CALLBACK_CODES.rejected },
+    );
+  }
+  const documentSource = effectiveSource(body.document_source);
+
   const rawLines = Array.isArray(body.lines) ? body.lines : null;
   if (rawLines === null) {
     return NextResponse.json({ error: "lines lipseste" }, { status: CALLBACK_CODES.rejected });
   }
+
+  // EXT-15. O SCANARE CARE A ESUAT NU PASTREAZA NICIO LINIE.
+  //
+  // Regula proprietarului, din rezultatul scanarii din 2026-09-02: calea de
+  // scanare a intors PATRU LINII GRESITE DIN SAPTE, fiecare consistenta aritmetic.
+  // O linie marcata este tot o linie: poarta o denumire, o cantitate si un pret,
+  // si sta intr-un camp de formular pe care cineva il poate accepta. Nu exista
+  // nimic PE linie pe care un om sa il observe, fiindca fiecare se inmultea
+  // corect. Singura randare sigura a unei linii care s-ar putea sa fie inventata
+  // este NICIO linie.
+  //
+  // DISTINCTIA ESTE SURSA, NU ESECUL. Un document digital care esueaza ramane
+  // partial cu liniile atasate, exact ca pana acum.
+  const dropLines = documentSource === "scan" && status === "failed";
   for (const l of rawLines) {
     if (!l || typeof l !== "object" || !str((l as Record<string, unknown>).product_name)) {
       return NextResponse.json({ error: "o linie nu are product_name" }, { status: CALLBACK_CODES.rejected });
@@ -190,6 +224,7 @@ export async function POST(request: Request) {
       vat_rate: num(body.vat_rate),
       currency: str(body.currency),
       currency_raw: str(body.currency_raw),
+      document_source: documentSource,
       confidence: num(body.confidence),
       meta: body._meta ?? null,
       callback_at: new Date().toISOString(),
@@ -211,7 +246,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: clearError.message }, { status: 500 });
   }
 
-  if (rawLines.length > 0) {
+  if (rawLines.length > 0 && !dropLines) {
     const rows = rawLines.map((raw, i) => {
       const l = raw as Record<string, unknown>;
       return {
@@ -240,7 +275,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(
-    { order_id: orderId, status, lines: rawLines.length },
+    { order_id: orderId, status, lines: dropLines ? 0 : rawLines.length },
     { status: isRepeat ? CALLBACK_CODES.duplicate : CALLBACK_CODES.accepted },
   );
 }

@@ -14,6 +14,7 @@ import "server-only";
 // mai e nimic de confirmat, si a o oferi spre confirmare ar produce un duplicat.
 
 import { createClient } from "@/lib/supabase/server";
+import { isDocumentSource } from "./extraction-types";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
 
 const DRAFT_COLUMNS =
@@ -67,6 +68,11 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     vatRate: num(row.vat_rate),
     currency: (row.currency as string | null) ?? null,
     currencyRaw: (row.currency_raw as string | null) ?? null,
+    // EXT-15. null aici inseamna "extractorul nu a spus" SI "randul este de
+    // dinaintea migratiei 0032". Amandoua se citesc ca `scan` de catre apelant,
+    // prin effectiveSource, si niciuna nu este rescrisa aici intr-o afirmatie pe
+    // care nimeni nu a facut-o.
+    documentSource: isDocumentSource(row.document_source) ? row.document_source : null,
     confidence: num(row.confidence),
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
