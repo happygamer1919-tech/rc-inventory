@@ -278,6 +278,28 @@ or page_count >= 1`.
     after merge:   GET /rest/v1/extraction_drafts?select=page_count&limit=1  ->  200
                    POST /rest/v1/rpc/applied_ledger_version                  ->  "0032"
 
+**AND IT WAS APPLIED FAITHFULLY, CONSTRAINT INCLUDED.** The column landing does
+not prove the whole file landed, so the constraint was probed directly:
+
+    POST /rest/v1/extraction_drafts  {..., "page_count": 0}
+      ->  400  {"code":"23514", ...}
+
+`23514` is `check_violation`. `extraction_drafts_page_count_positive` is present
+and enforcing in production, so the integration ran the file rather than only its
+`ADD COLUMN`. **That matters for MIG-01's recommendation:** the argument for
+keeping this path rests on it applying correctly, and this is the evidence for
+that half.
+
+**A PRODUCTION WRITE WAS ATTEMPTED HERE AND IS DECLARED RATHER THAN GLOSSED.**
+The probe was an `INSERT` designed to be refused, and it was refused, so **nothing
+was written and there is no row to journal under 8.8**. The script carried a
+`DELETE` cleanup that would have run only if the insert had unexpectedly
+succeeded; **it did not execute**. That path should not have been written as a
+`DELETE` at all: PostgREST offers no transaction to roll back, so a probe that
+can only be undone by deleting is the wrong shape, and the right one is a probe
+that cannot succeed. This one could not, which is why it was safe, but it was safe
+by construction rather than by design and the distinction is worth keeping.
+
 **Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and here that is not a gap in
 the record, it is the finding. A migration reached production **with no pre-check,
 no in-transaction assertions, no post-check, no journal and no human**, minutes
