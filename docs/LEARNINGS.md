@@ -3018,3 +3018,41 @@ disappear: `toHaveCount(0)` on `deviz-status-accepted`, plus the row chip readin
 is a synchronous statement wearing an await, and it makes the next assertion race
 the database.** Before waiting on a selector, ask what it looked like one step
 earlier; if the answer is "the same", it is the wrong selector.
+
+### An instruction that helps a model on a clean input is a recipe for a consistent wrong answer on one it cannot read
+**Tag:** data
+**ERROR:** Andre's extraction prompt told the model to verify that quantity times
+unit price equals the line total. On a digital document that is a useful
+self-check and it catches a misread digit. On a **scan the model could not read**,
+the same instruction became a rule for **fabricating a self-consistent triple**:
+pick a quantity, pick a price, multiply, and the line passes its own check.
+
+The scan path returned **four wrong lines in seven**. Every one multiplied out
+correctly. Status came back `extracted`, not `failed`, and `confidence` came back
+`1.0`. Nothing in the payload was internally inconsistent, so nothing downstream
+had anything to notice: the arithmetic agreed with itself, the status claimed
+success, and the reliability number claimed certainty.
+
+**It was caught only because the model read the TOTALS correctly and the LINES
+wrong**, so the line sum disagreed with the printed total. Had it invented lines
+that happened to sum to the total, every check in the chain would have passed.
+**SOLUTION:** three rules, and the first is the general one.
+
+**An instruction to a model is a specification of what its output must LOOK LIKE,
+never a guarantee of what its output MEANS.** Every consistency rule handed to a
+model is also a template for a plausible answer, and the more precisely the rule
+is stated the more convincingly the fabrication satisfies it. Before adding one,
+ask what it would produce on an input the model cannot read at all.
+
+**Reconciliation belongs on OUR side of the wire and not only in the extractor.**
+A control that lives inside the scenario is bypassed by a scenario rebuild, a
+second ingest path, or a manual upload. Card EXT-16.
+
+**A scan-sourced document never auto-accepts, reconciled or not.** Reconciliation
+is a test of arithmetic, not of reading. Card EXT-17.
+
+**Already in `docs/LEARNINGS.md` from a different direction, and this is the same
+wall approached from the other side:** any control that depends on a model
+noticing its own uncertainty is not a control. `confidence` returned `1.0` on the
+document with four invented lines, which is why card EXT-14 removes it rather
+than displaying it.
