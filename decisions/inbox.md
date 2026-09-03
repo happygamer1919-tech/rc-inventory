@@ -4660,3 +4660,53 @@ have produced exactly that, knowingly, rather than as the invisible race the
 counter was built to convert into a conflict. `R-096` is the first id no open
 branch has written. The counter advances to `R-097`. Nothing is renumbered.
 
+
+### R-097
+
+**The extraction contract gains `document_source` on the emitter side: two values,
+`scan` under any doubt, and absent read as `scan` as a second layer.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch,
+after Andre's report on the field.
+
+The contract is frozen, so it changes by ruling. Three amendments, and a note that
+is not an amendment because it changes nothing.
+
+**Amendment 1. The emitter side of the enum carries `scan` and `digital`, and
+nothing else.** No `unknown`, no `photo`, no `mixed`, no empty string. A third
+value on the emitter side is not a richer signal, it is a branch nobody wrote:
+every consumer of this field has exactly two arms, and a value that matches
+neither survives only as long as somebody remembers to look for it.
+
+**Amendment 2. The model declares `scan` whenever it is not certain. This is the
+FIRST layer and it lives in the prompt.** Uncertainty about the source is not
+reported as uncertainty, it is reported as `scan`. The asymmetry is the reason and
+it is not generic caution: calling a scanned document `digital` puts invented
+stock into a real warehouse, and calling a digital one `scan` costs somebody
+reading a document with their own eyes. Those two errors are not the same size, so
+the tie does not get broken in the middle.
+
+**This amendment is deliberately NOT of the same kind as `confidence`, removed by
+EXT-14.** `confidence` asked the model to know that it had misread something,
+which is knowledge it does not have. This asks it to break a tie in a stated
+direction when it cannot tell an image from a text layer. The first is
+introspection, the second is a default.
+
+**Amendment 3. Absent reads as `scan` on our side. This is the SECOND layer, not
+the first.** A payload that omits the field, or sends it null, is read as `scan`.
+Amendment 2 is not made redundant by this and the ordering matters: a prompt rule
+that is only enforced by our default is a prompt rule nobody can observe being
+broken, because every violation arrives looking exactly like a payload that did
+the right thing. The default catches the emitter that has not shipped the rule
+yet. It is not the rule.
+
+**THE NOTE, AND IT IS THE PART MOST LIKELY TO BE READ WRONG. Our validator's
+accepted set is NOT narrowed by any of the three amendments above.** Amendments 1
+through 3 bind what Andre's scenario EMITS. What we ACCEPT is a separate set, it
+is wider, and it stays wider on purpose. An acceptance set that tracks the
+emitter's set exactly turns every ordering of two deploys into an outage: he ships
+first and we reject valid payloads, or we ship first and reject the payloads he
+has not stopped sending. **Our acceptance may be wider than his emission and must
+never be narrower.** Nothing in this ruling removes a value our validator accepts
+today, and no future card may cite this ruling as authority to.
+
