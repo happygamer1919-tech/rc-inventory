@@ -3377,3 +3377,47 @@ repository and refusing to reconcile them by assumption. The register said
 pending, production said applied, and the temptation was to write four journal
 entries and move on. The entries would have been fiction, and the actual defect -
 an unaudited write path - would have stayed hidden behind them.
+
+### A proof script that copies the live board inherits today's board as an unstated precondition
+**Tag:** ci
+**ERROR:** `scripts/poc/test-ask-digest.sh` case 6 asserts the digest is **silent
+when nothing is outstanding**, and it builds its fixture by copying the **live**
+`docs/board/rc-board-phase2.json`. `digest.mjs` counts a card that is
+`status: blocked` with `blocked_on: "ivan"` as an outstanding question, and it is
+right to: that is an owner action nobody else can discharge.
+
+Card `MIG-01` was then authored `blocked_on: ivan`, **exactly as CLAUDE.md section
+4 requires** of a decision a terminal may not make, and **three assertions turned
+red**:
+
+    FAIL  the first run sent 1 digest(s) with nothing outstanding
+    FAIL  an unchanged board produced 3 digest(s)
+    FAIL  the digest kept nagging after the question was answered
+
+**The card was correct. The digest was correct. The fixture was wrong.** The
+assertion had held only while the live board happened to contain no card blocked
+on Ivan, and it contained none: checked against `origin/main`, the count was
+**zero**. The test had been passing by luck since it was written.
+
+**SOLUTION:** the fixture is neutralised after the copy. Every card that is
+blocked on Ivan has its `status`, `blocked_on` and `question` cleared, so the
+baseline is a genuinely quiet board rather than whatever the board looks like
+today. Cases 7a to 7d, which each introduce ONE of the four conditions into the
+same fixture and assert the digest speaks, need that quiet baseline too, so this
+makes them honest as well as case 6.
+
+**THE RULE, AND IT HAS TWO HALVES.**
+
+**A fixture copied from live data carries every property that data happens to
+have**, including the ones nobody chose and nobody wrote down. A test built that
+way does not fail when the code breaks; it fails when the data moves. Copy live
+data into a fixture only after neutralising the properties the assertion depends
+on, and say in the fixture which ones those are.
+
+**And the sharper half: A GATE THAT GOES RED WHEN THE DOCTRINE IS OBEYED IS WORSE
+THAN NO GATE.** Section 4 says a card a terminal cannot decide goes
+`blocked_on: ivan`. Doing that turned `quality` red. The next terminal to meet
+this learns that blocking a card correctly costs it a red build, and the cheap way
+out is to not block the card. **When a check punishes correct behaviour, fix the
+check immediately** - it is training every future run against the rule it was
+built to protect.
