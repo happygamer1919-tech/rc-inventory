@@ -3084,3 +3084,77 @@ wall approached from the other side:** any control that depends on a model
 noticing its own uncertainty is not a control. `confidence` returned `1.0` on the
 document with four invented lines, which is why card EXT-14 removes it rather
 than displaying it.
+
+### The pending migration list said pending, and production said applied
+**Tag:** data
+**ERROR:** `docs/migrations/APPLY-LOG.md` lists `0028_applied_ledger_version.sql`,
+`0029_category_paints.sql`, `0030_units_tonne_litre.sql` and
+`0031_units_tonne_litre_rows.sql` as pending, each with the card that will apply
+it. Production has all four. Read on 2026-09-03 against project
+`bwhzatwwjqmyfesfnisa`: `applied_ledger_version()` returns `"0031"`, `categories`
+holds nineteen active rows including `Vopsele, lacuri și solvenți` at
+`sort_order` 19, and `units` holds `t` and `l`.
+
+The cost was not theoretical. `/Users/ivan/rc-samples/ANDRE-STATUS.md`, written
+the same day, tells the extraction counterparty that the category and the two
+units "land when the pending migration batch is applied to production, which is a
+separate owner-run step". That sentence was true when it was written against the
+repository and false about the system. He was told to wait for something that had
+already happened.
+
+**SOLUTION:** the entries owed to `APPLY-LOG.md` are still owed, and they need
+the evidence of the apply that actually ran, which is not reconstructable after
+the fact by whoever notices the gap.
+
+**THE RULE. A REPOSITORY RECORDS WHAT SHOULD BE APPLIED AND ONLY THE DATABASE
+KNOWS WHAT IS.** Migration `0028` exists precisely to close that gap: it exposes
+`applied_ledger_version()` so the applied version can be read at run time rather
+than inferred from files. It was in the pending list while being the thing that
+answers the question the pending list was getting wrong. **Before telling anyone
+outside this repository that something is waiting on a migration, call that
+function.** One request, no credentials beyond the service key already in the
+environment, and it is the only authority on the answer.
+
+### A stale clone made a merged file look like it had never existed
+**Tag:** infra
+**ERROR:** `scripts/ext/serve-sample-documents.mjs` was reported as possibly
+absent and the working copy agreed: `ls` said no such directory, and
+`grep -r document_source` over the whole tree returned nothing at all. Both were
+artefacts of `/Users/ivan/rc-inventory` sitting on a `main` **sixteen commits
+behind `origin/main`**. The script had been merged in `#159`. On a check of
+history rather than of the tree, `git log --all -- '*serve-sample-documents*'`
+found it immediately.
+
+**SOLUTION:** the verification was run in a fresh worktree at `origin/main`, and
+`scripts/ext/serve-sample-documents.mjs` was there.
+
+**THE RULE, AND IT IS SHARPER THAN "PULL FIRST". A GREP THAT RETURNS NOTHING IS
+THE ONE RESULT A STALE CHECKOUT CAN FORGE.** A wrong line of code looks wrong; an
+absent file looks like a fact about the project. The instruction being followed
+was "the path is a claim, verify it", and the stale tree returned a confident,
+verifiable-looking **disproof** of a true claim. `git fetch` then
+`git rev-list --count HEAD..origin/main` costs one second and belongs **before**
+any conclusion of the form "this does not exist", never after.
+
+### Three open PRs and the committed counter all pointed at the same ruling id
+**Tag:** ci
+**ERROR:** `decisions/NEXT-RULING-ID` on `origin/main` held `R-087`. Section 8b
+says to take that id. `R-087` through `R-095` were each **already written as a
+different decision** on an open pull request: `#172` claims `R-087` to `R-091`,
+`#157` claims through `R-095`. Taking `R-087` as section 8b instructs would have
+produced exactly the collision section 8b exists to prevent, and produced it
+knowingly.
+
+**SOLUTION:** `R-096`, the first id no open branch had written, with the
+deviation stated in the ruling body and in the commit message rather than left
+for a reader to discover in a conflict. `check:unique-ids` is green because it
+only requires the counter to be ahead of the highest id written.
+
+**THE RULE. THE COUNTER CONVERTS AN INVISIBLE RACE INTO A CONFLICT, WHICH IS NOT
+THE SAME AS RESERVING AN ID.** A counter on `main` is only accurate about
+allocations that have merged. Where the mechanism has already failed visibly, the
+loud signal it was built to produce has nothing left to teach, and reproducing it
+on purpose just makes one number name two decisions. **Before taking the id the
+counter hands you, check the branches: `git show origin/<branch>:decisions/NEXT-RULING-ID`
+across the open PRs takes one loop and tells you whether the counter is describing
+the present.** Deviating is defensible. Deviating silently is not.
