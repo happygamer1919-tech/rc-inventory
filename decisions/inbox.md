@@ -4611,3 +4611,302 @@ wrongly in the direction that costs the most: a question asked by stopping parks
 the whole run, including work with no relation to the question. Section 4 already
 forbade halting for a question. This forbids halting for an answer nobody was
 waiting on.
+
+### R-087 - the ruling counter has a second allocator that never reads it, so the Telegram answer path issues an id the counter did not hand out and leaves the counter behind
+**Date:** 2026-09-03
+**Asked on:** RULE-02. Authors card RULE-03.
+**Answer, verbatim:**
+> from docs/reports/2026-09-02-executor-rule-02-id-allocation.md, section 2:
+>
+> `decisions/NEXT-RULING-ID` holds one id, `R-NNN`, and nothing else. You read it, you use it, and **you advance it in the same commit as the ruling.**
+>
+> It is one line, so two terminals allocating at the same time produce a **merge conflict on that line** - the loudest signal git has. Before it existed there was no conflict at all.
+
+**Ruling:** That sentence is true of every allocator that reads the counter, and this repository holds one that does not.
+
+`scripts/poc/inbox.mjs` is the code path by which Ivan's Telegram answer becomes a
+committed ruling. It allocates with `nextRulingId()` at line 244, which is
+`highest written + 1` - the exact "next free one" method RULE-02 replaced - and
+it writes the entry at line 431. It never reads `decisions/NEXT-RULING-ID` and it
+never advances it: line 456 stages `INBOX_PATH` and `BOARD_PATH` and nothing
+else. Verified on this branch, cut from `main` at 3642d79:
+`grep -rn NEXT-RULING-ID` over the tree returns `CLAUDE.md`, the RULE-02 report,
+`check-unique-ids.mjs` and `prove-unique-ids.mjs`, and no other caller.
+
+**Two consequences, and the second is live today.**
+
+1. **The conflict RULE-02 rests on cannot occur on that path.** A terminal
+   holding R-087 from the counter and the responder computing R-087 from the
+   inbox produce two different R-087s with no shared line to conflict on. That is
+   the #143 shape with the one new safeguard removed, and the report says in its
+   own words that within each side the ids were perfectly unique.
+2. **The counter assertion turns the answer channel red.**
+   `check-unique-ids.mjs` lines 259-263 refuse a counter that has not moved past
+   the highest ruling written. A responder run that appends a ruling and leaves
+   the counter behind makes `quality` fail on the pull request that carries it,
+   and that pull request is the one carrying the owner's answer. The channel
+   section 14 calls the thing that must never go quiet is the channel this
+   breaks.
+
+**THE FIX IS ONE ALLOCATOR, NOT TWO, AND IT IS NOT A SECOND COUNTER.** A
+responder that reads the counter, uses it and advances it in the same commit is
+the same three steps CLAUDE.md 8b already binds a human terminal to. Authored as
+**RULE-03**.
+
+**NOTHING IS RENUMBERED AND NOTHING ALREADY WRITTEN IS TOUCHED.** R-001 through
+R-086 were allocated under the old method and are correct as they stand. This is
+about the next allocation, not the last eighty-six.
+
+**Unblocks:** nothing. Authors RULE-03 on the phase 2 board.
+**Supersedes:** none.
+
+---
+
+### R-088 - DOCTRINE-TRIAGE section 2 still tells TRIAGE to allocate a ruling id the way RULE-02 abolished, and this run had to ignore its own rubric to be correct
+**Date:** 2026-09-03
+**Asked on:** RULE-02. Authors card AUT-19.
+**Answer, verbatim:**
+> from docs/reports/2026-09-02-executor-rule-02-id-allocation.md, section 1:
+>
+> "Namespaced by author" was doctrine and was enforced by nothing.
+
+**Ruling:** It was doctrine in exactly one place, and that place is the file this
+role is bound by. `docs/DOCTRINE-TRIAGE.md` section 2, requirement 1, reads on
+`main` today:
+
+> **The id is the next free one, and a collision is fixed by renumbering the NEW
+> entry, never by touching the old one.** Ids are namespaced by author, and the
+> shift is written into the renumbered entry so a reader is not left
+> reconstructing it.
+
+Three clauses, and RULE-02 contradicts each:
+
+| the clause | what binds now |
+|---|---|
+| "the id is the next free one" | the id is the value in `decisions/NEXT-RULING-ID`, advanced in the same commit. CLAUDE.md 8b. |
+| "ids are namespaced by author" | one flat namespace, and the report's own first line says the namespacing was enforced by nothing. |
+| "a collision is fixed by renumbering the NEW entry" | `check-unique-ids.mjs` prints "NO ID IS RENUMBERED TO MAKE THIS PASS. Allocate a fresh one from decisions/NEXT-RULING-ID and advance it in the same commit." |
+
+**THIS IS NOT A COSMETIC STALENESS AND THIS RUN IS THE PROOF.** DOCTRINE-TRIAGE
+opens by saying it is the whole of TRIAGE's rubric and that a session which has
+not read it has not booted. A session that read it and nothing else would have
+scanned the inbox, found R-086, written R-087 without touching the counter, and
+shipped a pull request that `quality` refuses on the counter assertion. This run
+allocated from `decisions/NEXT-RULING-ID` instead, which is correct and is
+against its own rubric's letter. A role whose rubric has to be disobeyed to
+produce a correct result is a rubric defect, and DOCTRINE-TRIAGE says naming one
+is a legitimate TRIAGE output.
+
+**TRIAGE DOES NOT EDIT THE FILE.** Its permitted set is rulings, card fields,
+gate flips, new cards and escalations. Governing documents are AUTHOR's, which is
+why AUT-15 is an authoring card and not a TRIAGE edit. Authored as **AUT-19**.
+
+**UNTIL THAT CARD LANDS, CLAUDE.md 8b GOVERNS AND THIS RULING IS THE POINTER.**
+Where section 8b and DOCTRINE-TRIAGE section 2 disagree about id allocation, 8b
+wins, because it is the newer of the two and it is the one the check enforces.
+
+**Unblocks:** nothing. Authors AUT-19 on the phase 2 board.
+**Supersedes:** none. It supersedes no ruling, because the stale text is in a
+doctrine file rather than in a ruling, and it corrects nothing anybody decided.
+
+---
+
+### R-089 - a merged migration's apply is orphaned: the pending register names an apply card that has already shipped, so nothing open carries the apply
+**Date:** 2026-09-03
+**Asked on:** the DOCTRINE-TRIAGE section 3 board sweep. Authors card P3-35.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT, AND SAID SO RATHER THAN ATTRIBUTED.
+> DOCTRINE-TRIAGE section 2 requires this field to quote the report. This finding
+> is not in the report: it came out of the section 3 sweep and the section 4 gate
+> audit, both of which that same document requires be run over committed
+> repository files every time. Attributing it to the report would make the entry
+> say something false about where it came from, so the verbatim text is the
+> committed artefact that decided it.
+>
+> from docs/migrations/APPLY-LOG.md line 42:
+>
+> - `0028_applied_ledger_version.sql`, card de aplicare P3-11e
+>
+> from docs/board/rc-board-phase3.json, card P3-11e, `status: shipped`, notes:
+>
+> 0028 IS AUTHORED AND MERGED, NOT APPLIED. Merging a migration file changes one
+> text file and changes nothing in any database. The apply is a separate act with
+> its own three phases and its own journal.
+
+**Ruling:** Both statements are true and together they leave an obligation with
+no owner. The register names P3-11e as the card that will apply 0028; P3-11e
+shipped, correctly, on its own acceptance, which is a health route and a deployed
+commit check and says nothing about applying anything. `grep -c 0028` over all
+three boards returns 2, both on P3-11e, so **no open card carries this apply.**
+
+**WHAT IS NOT WRONG HERE, STATED FIRST SO THE CARD IS NOT READ AS A REPRIMAND.**
+P3-11e shipping was right. R-062 split "merged" from "applied" precisely so a
+migration card need not wait on a database, and P3-11e's notes record the
+distinction in the correct words. `tests/e2e/headers.spec.ts` is satisfied
+because 0028 is in exactly one of the two places. Nothing lied.
+
+**WHAT IS WRONG IS THAT THE REGISTER'S `card de aplicare` FIELD HAS NO
+LIVENESS.** It names a card, and nothing anywhere asks whether that card is still
+open. P3-27 existed because thirteen files reached that state at once and were
+reachable by nobody; one night after P3-27 cleared the register, a fourteenth
+entered it and its named card closed.
+
+**THE FILE IS NOT DELETE-CLASS AND THAT IS ESTABLISHED, NOT ASSUMED.** `grep -inE
+"drop table|truncate|delete"` over `supabase/migrations/0028_applied_ledger_version.sql`
+matches nothing. It creates one SECURITY DEFINER function, revokes it from
+PUBLIC and grants it to `service_role`. It is therefore in scope for the R-082
+applier and does not go to Ivan under 8.6. **TRIAGE APPLIES NOTHING AND DECIDES
+NOTHING ABOUT A DESTRUCTIVE RUN**; it authors the card, and the applier's own
+assertions decide the outcome.
+
+Authored as **P3-35** on the phase 3 board, carrying both halves: the apply, and
+the check that would have caught this.
+
+**Unblocks:** nothing. Authors P3-35 on the phase 3 board.
+**Supersedes:** none.
+
+---
+
+### R-090 - the pick rule reads lexically and one lane was never zero padded, so two cards authored on 2026-08-28 sit behind three authored on 2026-08-31 in every run, permanently
+**Date:** 2026-09-03
+**Asked on:** the mandatory boot report of run 20260903-070005. Authors card BOARD-03.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT. It surfaced in CLAUDE.md section 1's mandatory
+> boot report, at the step that requires the next eligible card be named. The
+> verbatim text is the command output and the rule it contradicts.
+>
+> $ node scripts/poc/eligible.mjs --board docs/board/rc-board-phase2.json --ids
+> AUT-16,AUT-17,AUT-18,AUT-8,AUT-9,BOARD-01,BOARD-02,CLAIM-01,DIG-01,GATE-03,LEARN-01,P2-20,RST-02,RST-03
+>
+> from CLAUDE.md section 2:
+>
+> **Pick.** Take the **lowest-id eligible card**. Ids sort lexically
+> (`P2-01` before `P2-02` before `P2-10`), which is why they are zero-padded.
+
+**Ruling:** The rule is honest about its own precondition and the precondition
+does not hold. Lexical order equals work order only while every id in a lane is
+padded to the same width. The AUT lane runs AUT-1 to AUT-9 unpadded and AUT-15 to
+AUT-18 two-digit, so `AUT-16` sorts above `AUT-8` and the harness hands out
+AUT-16 first, every run, for ever. `scripts/poc/eligible.mjs` line 101 sorts with
+a bare `a.id.localeCompare(b.id)`, which is faithful to the rule as written.
+
+**THE COST IS NOT THEORETICAL AND IT IS NOT COSMETIC.** AUT-8 strips credentials
+the scheduled run does not need out of the model process. AUT-9 makes the wall
+clock cap actually stop a run, which is the defect that cost nine hours and three
+scheduled windows on 2026-08-27. Both were authored on 2026-08-28, both are
+eligible, and both are queued behind three cards authored three days later by an
+artefact of string comparison. Nobody decided that.
+
+**THE FIX IS THE SORT, NOT THE IDS.** Two paths were considered:
+
+| path | what it fixes | what it leaves |
+|---|---|---|
+| pad new ids and tolerate the old, as `check-unique-ids` tolerates collisions | future lanes | AUT-8 and AUT-9 behind AUT-16 for ever, because the existing ids cannot be renumbered |
+| sort on (prefix, number, suffix) instead of on the raw string | today and every future lane, with nothing renamed | nothing |
+
+The second is taken. **RENUMBERING IS NOT AVAILABLE AND WAS NOT WEIGHED AS IF IT
+WERE**: CLAUDE.md 8b forbids it, and an id that has appeared in a report, a
+ruling or a pull request is a citation somebody may follow.
+
+**IT PRESERVES THE PROPERTY THE CURRENT RULE WAS CHOSEN FOR.** P3-04b must sort
+between P3-04 and P3-05, and a (prefix, number, suffix) key gives exactly that,
+which a naive numeric parse would not. The phase 3 board's doctrine string
+depends on it by name.
+
+Authored as **BOARD-03**. The card carries the CLAUDE.md section 2 correction
+with it, because a rule that no longer describes the code is the same defect one
+layer up.
+
+**Unblocks:** nothing. Authors BOARD-03 on the phase 2 board. **No card's
+`depends_on` is edited by this ruling**: the ordering defect is in the selector,
+not in any edge, and adding edges to force an order would encode a workaround as
+a dependency.
+**Supersedes:** none.
+
+---
+
+### R-091 - the gate audit and the board sweep for run 20260903-070005: the phase 2 gate stays 6 of 9 with nothing flipped, four dependency checks over three boards resequence nothing, and the phase 3 gate is deliberately not audited because GATE-02 owns it
+**Date:** 2026-09-03
+**Asked on:** DOCTRINE-TRIAGE sections 3 and 4, which require both every time.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT. Sections 3 and 4 of DOCTRINE-TRIAGE require this
+> work on every run regardless of what the report contains, and
+> docs/reports/2026-09-02-executor-rule-02-id-allocation.md moves no gate and no
+> edge: it adds a check, a counter and a section of CLAUDE.md, and touches no
+> screen, no endpoint, no migration and no third party.
+
+**Ruling:**
+
+**SECTION 4, THE GATE AUDIT. Phase 2 stays at 6 of 9. Nothing flipped.**
+
+- **G4, AI extraction, stays `fail`.** Measured against the tree rather than
+  against the cards, as R-080 established. R-053's deciding clause is the ingest
+  endpoint asserted against a fixture plus four named failure cases.
+  `tests/e2e/extraction.spec.ts` carries **eight** cases today, numbered 1 to 8,
+  the same eight R-080 counted. The fixture document (case 2), auth rejection
+  (case 4) and malformed payload (case 5) are green. **Redirect and oversize are
+  still absent**: `grep -cn "redirect|maxBodySize|oversize|301|302"` returns 0 on
+  `tests/e2e/extraction.spec.ts`, 0 on `lib/data/extraction-fire.ts` and 0 on
+  `app/api/extraction/callback/route.ts`. Two clauses short, exactly as R-080
+  found. **It is backlog and it has a card**: P2-20, `todo`, eligible, dependency
+  P2-08a shipped.
+- **G7, reminders, stays `fail`, `blocked_on: ivan` retained.** Deciding clause
+  unchanged: one real email delivered from a real crossing on production. The
+  three things in front of it are the three named on 2026-08-27 and none has
+  moved: `RESEND_API_KEY` present in the production environment, `RESEND_FROM`
+  set, and a recipient not on `rc-inventory.local`. **No database read was
+  performed for this audit and none is claimed.** The first two are re-escalated
+  by this run; the third lands at P2-13.
+- **G9, Mihai's own cycle, stays `fail`.** Deciding clause unchanged: P2-14
+  recording Ivan reporting that Mihai completed a full cycle himself. No such
+  report exists, P2-14 is `blocked` on `client`. **This is DOCTRINE-TRIAGE
+  section 4's second unflippable kind**: it needs the client to act himself. It
+  is not backlog and no card can close it.
+
+**THE PHASE 3 GATE IS NOT AUDITED HERE, AND THAT IS A DECISION RATHER THAN AN
+OMISSION.** All nine of its conditions read `fail` and its `readiness_passed` is
+0, against a premise P3-27 discharged on 2026-08-31 when thirteen migrations were
+applied in one transaction. Re-running it is real and overdue work. It is also
+**already an open card**: GATE-02, `todo`, whose acceptance is a committed report
+re-running all nine conditions and rewriting every `evidence` field with a new
+timestamp. DOCTRINE-TRIAGE section 5 says do not author a card for something an
+open card already covers, and the same logic forbids doing that card's work in a
+ruling: an audit written here would land without the report GATE-02's acceptance
+requires, and the card would then be half-done by two hands. **The escalation
+that said all nine sit behind P3-27 is retired**: P3-27 shipped, and GATE-02 is
+the successor.
+
+**SECTION 3, THE BOARD SWEEP. Four checks, three boards, 134 cards. No edge
+changed.**
+
+1. **Dangling.** Zero. Every id in every `depends_on` on all three boards
+   resolves to a card that exists.
+2. **Satisfied but blocking.** One: **P2-08b**, whose only dependency P2-08a is
+   shipped and which is `blocked_on: andre`. The check asks whether that person
+   genuinely owes something now. **He does**, and the ask on the card is
+   unchanged and specific: confirm contract v2 and run one real document through
+   the real Make scenario. `blocked_on` is retained. It is escalated by this run
+   instead, because it is the whole of what stands between this board and its
+   own close-out.
+3. **A capability edge missing.** P2-13 is the card that removes capabilities,
+   and its edges are settled: R-037 keeps its dependency on P2-08b, R-072 ruled
+   the cross-board edge unauthorable and made it an acceptance clause instead,
+   and GATE-03 is the open card that puts R-082's grant into its checklist by id.
+   **Nothing authored since adds a capability edge.** RULE-02 added a counter and
+   a check; neither is a credential and neither is revoked by P2-13.
+4. **An edge on a split card.** No card split since the last sweep. P2-08a and
+   P2-08b remain the only split pair on this board and their edges were
+   re-derived under R-046.
+
+**THE THREE CARDS AUTHORED TODAY CARRY NO EDGES, AND THAT IS DERIVED RATHER THAN
+DEFAULTED.** RULE-03, AUT-19 and BOARD-03 each touch a file that exists on `main`
+now and none needs a capability another card grants or removes. P3-35 carries no
+edge for the same reason: 0028 is merged and the applier exists.
+
+**Unblocks:** nothing. Records the audit into the notes of G4, G7 and G9 per
+DOCTRINE-TRIAGE section 4 requirement 4, and confirms the sweep changed no edge.
+**Supersedes:** none. It confirms R-080's gate findings on re-measurement and
+retires the phase 3 migration escalation that R-080 carried, on the ground that
+P3-27 shipped.
+
+---
