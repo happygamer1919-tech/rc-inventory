@@ -5,7 +5,11 @@ import { FIRE_FIELDS, MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 
 // extraction.spec - linia de acceptanta a cardului P2-08a.
 //
-// Opt cazuri, unul per clauza, in ordinea in care cardul le enumera.
+// Opt cazuri, unul per clauza, in ordinea in care cardul le enumera, PLUS trei
+// adaugate de EXT-09 pentru numarul de pagini raportat de model. Cazurile 9 si
+// 10 sunt cele doua pe care le cere cardul; 11 este partea din defaults care
+// spune ca absenta nu este o eroare, si ea are nevoie de proba ei fiindca este o
+// afirmatie despre ce NU se intampla.
 //
 // MAKE ESTE MOCAT LA TRANSPORT, nu printr-o ramura in aplicatie: serverul fals
 // asculta pe 127.0.0.1 si aplicatia il vede prin MAKE_WEBHOOK_URL. Ea face
@@ -499,5 +503,145 @@ test.describe("Extragere documente", () => {
     expect(empty.status()).toBe(200);
     const after = await draftState(request, orderId);
     expect(after.supplier_name).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // EXT-09. _meta.characters_extracted iese din contract, page_count ii ia locul
+  // si devine o COLOANA, nu o cheie intr-un jsonb nevalidat.
+  //
+  // DE CE O COLOANA SI DE CE ACESTE CAZURI PICA INAINTE DE CARD. page_count era
+  // deja o cheie in _meta si _meta se stocheaza verbatim, deci valoarea ajungea
+  // si pana acum. Exact asta este problema: _meta este documentat ca "stocat si
+  // niciodata aratat", nu este validat, si nimic din platforma nu ii poate pune
+  // o intrebare. Cazul 9 cere valoarea de pe RAND, nu din bloc, si de aceea pica
+  // fara 0032: draft.page_count nu exista.
+  //
+  // SEMNALUL PENTRU CARE EXISTA CAMPUL: un model care raporteaza o pagina pe un
+  // document de trei a citit o treime din el si a intors un rezultat consistent
+  // cu sine. NIMIC ALTCEVA DIN LANT NU PRINDE ASTA, si nici verificarea de
+  // totaluri: totalurile primei pagini se potrivesc cu liniile primei pagini.
+  // Comparatia cu numarul real de pagini este alt card si nu se face aici.
+  // -------------------------------------------------------------------------
+
+  test("9. _meta.page_count fara characters_extracted este acceptat si se citeste de pe rand", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "pages");
+
+    // _META EXACT CUM IL DESCRIE CONTRACTUL DUPA EXT-09: patru chei, si
+    // characters_extracted NU este una dintre ele.
+    const r = await post(
+      request,
+      callbackBody(orderId, {
+        _meta: {
+          model: "gpt-4o-mini",
+          prompt_version: "v2.0",
+          page_count: 3,
+          duration_ms: 8140,
+        },
+      }),
+    );
+    // Codul de succes al contractului pentru un prim callback, sectiunea 6.
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    // DE PE RAND, ca valoare de sine statatoare. Aceasta este linia care pica
+    // fara migratia 0032 si fara poarta din ruta: campul nu exista pe ciorna.
+    expect(d.page_count).toBe(3);
+    // Blocul de diagnostic este pastrat verbatim alaturi, nu inlocuit de coloana.
+    expect(d.meta?.page_count).toBe(3);
+    expect(d.meta?.prompt_version).toBe("v2.0");
+    // Nu am trimis campul, deci nu are ce sa apara.
+    expect(d.meta?.characters_extracted).toBeUndefined();
+  });
+
+  test("10. un callback care inca poarta characters_extracted NU este respins pentru asta", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "legacy");
+
+    // callbackBody trimite _meta-ul VECHI, cu characters_extracted: 4820. Este
+    // payload-ul de dinainte de acest card, si el trebuie sa treaca neatins.
+    //
+    // DE CE ESTE O REGULA SI NU O POLITETE: partea lui Andre si a noastra nu se
+    // desfasoara in aceeasi secunda. O schimbare de contract care invalideaza
+    // payload-ul versiunii precedente este o pana programata pentru ziua in care
+    // el livreaza primul, si Make REINCEARCA, deci ar fi o bucla.
+    const r = await post(request, callbackBody(orderId));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("extracted");
+    // Campul este IGNORAT, nu interzis: nimic nu il citeste si nimic nu il cere.
+    // Ramane in blocul de diagnostic pentru ca acolo l-a pus expeditorul.
+    expect(d.meta?.characters_extracted).toBe(4820);
+    // Si numarul de pagini din acelasi _meta vechi este citit normal.
+    expect(d.page_count).toBe(2);
+  });
+
+  test("11. un numar de pagini absent sau stricat este null si NU respinge documentul", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "pagenull");
+
+    // ABSENT. Defaults, verbatim: page_count este nullable si absenta lui nu este
+    // o eroare. Este un semnal de siguranta, nu un camp obligatoriu, si un semnal
+    // lipsa nu are voie sa respinga un document citit corect.
+    const absent = await post(
+      request,
+      callbackBody(orderId, {
+        _meta: { model: "gpt-4o-mini", prompt_version: "v2.0", duration_ms: 8140 },
+      }),
+    );
+    expect(absent.status()).toBe(202);
+    expect((await draftState(request, orderId)).page_count).toBeNull();
+
+    // _meta LIPSA CU TOTUL, care este un caz diferit de "_meta fara cheia".
+    const noMeta = await post(request, callbackBody(orderId, { _meta: null }));
+    expect(noMeta.status()).toBe(200);
+    expect((await draftState(request, orderId)).page_count).toBeNull();
+
+    // RAPOARTELE STRICATE, fiecare separat, fiindca fiecare ar trece printr-o
+    // implementare care il rateaza pe celalalt: zero ar trece printr-un test
+    // `< 0`, fractionarul ar trece printr-un `typeof === "number"`, iar sirul ar
+    // trece printr-un `Number(...)` care il converteste in tacere.
+    //
+    // ZERO NU ESTE UN NUMAR MAI MIC DE PAGINI. Un document are cel putin o
+    // pagina, deci zero este o citire imposibila si nu una prudenta, iar
+    // stocarea lui ar arata mai tarziu exact ca o citire reala.
+    for (const broken of [0, -3, 2.5, "3", true, null]) {
+      const r = await post(
+        request,
+        callbackBody(orderId, {
+          _meta: { model: "gpt-4o-mini", prompt_version: "v2.0", page_count: broken },
+        }),
+      );
+      // NU 400. Un camp de diagnostic stricat nu arunca un document intreg.
+      expect(r.status(), `page_count ${JSON.stringify(broken)} nu are voie sa fie respins`).toBe(
+        200,
+      );
+      const d = await draftState(request, orderId);
+      expect(d.page_count, `page_count ${JSON.stringify(broken)} trebuie citit ca null`).toBeNull();
+    }
+
+    // Si dupa toate acestea un raport BUN se scrie in continuare, ca sa fie clar
+    // ca poarta nu s-a inchis pe drum.
+    const good = await post(
+      request,
+      callbackBody(orderId, {
+        _meta: { model: "gpt-4o-mini", prompt_version: "v2.0", page_count: 7, duration_ms: 10 },
+      }),
+    );
+    expect(good.status()).toBe(200);
+    expect((await draftState(request, orderId)).page_count).toBe(7);
   });
 });

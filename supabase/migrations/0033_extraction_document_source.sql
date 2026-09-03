@@ -1,4 +1,4 @@
--- 0032_extraction_document_source.sql
+-- 0033_extraction_document_source.sql
 -- RC Inventory phase 3, card EXT-15. Where the extraction got its text from.
 --
 -- WHY THE PLATFORM NEEDS THIS AT ALL.

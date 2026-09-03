@@ -4611,3 +4611,102 @@ wrongly in the direction that costs the most: a question asked by stopping parks
 the whole run, including work with no relation to the question. Section 4 already
 forbade halting for a question. This forbids halting for an answer nobody was
 waiting on.
+
+### R-096
+
+**The sample document signed URL TTL is raised from two hours to twenty-four,
+for the four permanent test documents only.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch.
+
+**Scope, and it is the whole ruling.** `scripts/ext/serve-sample-documents.mjs`
+signs at `TTL_SECONDS`, which becomes `24 * 60 * 60`. That script signs exactly
+the four PDFs under `_samples/andre` and its own throwaway probe object. Those
+are **test fixtures containing no client data**: they are supplier documents
+handed over as an extraction sample set, and nothing under that prefix is reached
+by any product surface.
+
+**NO OTHER SIGNING PATH CHANGES.** `lib/data/inbound-actions.ts` line 238 and
+`lib/data/extraction-fire.ts` line 23 both sign at fifteen minutes and are not
+touched by this ruling. A real supplier document carried to the extractor still
+expires in fifteen minutes. Anyone reading this ruling as a general TTL increase
+has read it wrong.
+
+**The reason line, verbatim from the dispatch:** a TTL shorter than the
+counterparty response cycle produces repeat handoffs through the owner.
+
+Two hours was chosen when the links were issued and checked inside one sitting.
+The counterparty is a person in another company working his own week: a link
+issued on our afternoon is opened on his morning. Every expiry between those two
+moments is not a security event, it is a message to the owner asking for a fresh
+link, and the owner is the one path in this project that does not scale.
+
+**What did NOT change and why it is safe.** The token is still a Supabase signed
+JWT over one object path, still single-scope `download`, still unguessable, and
+still verified by the same route. The failure contract in
+`docs/contracts/document-url.md` is untouched: expired is still `400`
+`EXPIRED_TOKEN`, tampered is still `401` `INVALID_TOKEN`, missing is still `404`
+`OBJECT_NOT_FOUND`, and no path returns `text/html`. Lengthening the window on a
+fixture set widens no blast radius, because the objects behind it are the four
+documents we deliberately gave away.
+
+**ON THE ID, AND IT IS A DEVIATION WORTH READING.** `decisions/NEXT-RULING-ID` on
+`origin/main` holds `R-087`, and by section 8b that is the id to take. It was not
+taken. `R-087` through `R-095` are each already written as a DIFFERENT decision on
+an open pull request: `triage/20260903-070005` (PR #172) claims `R-087` to
+`R-091`, `triage/20260902-070904` (PR #157) claims through `R-095`. Section 8b
+exists to stop one number naming two decisions, and taking `R-087` here would
+have produced exactly that, knowingly, rather than as the invisible race the
+counter was built to convert into a conflict. `R-096` is the first id no open
+branch has written. The counter advances to `R-097`. Nothing is renumbered.
+
+
+### R-097
+
+**The extraction contract gains `document_source` on the emitter side: two values,
+`scan` under any doubt, and absent read as `scan` as a second layer.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch,
+after Andre's report on the field.
+
+The contract is frozen, so it changes by ruling. Three amendments, and a note that
+is not an amendment because it changes nothing.
+
+**Amendment 1. The emitter side of the enum carries `scan` and `digital`, and
+nothing else.** No `unknown`, no `photo`, no `mixed`, no empty string. A third
+value on the emitter side is not a richer signal, it is a branch nobody wrote:
+every consumer of this field has exactly two arms, and a value that matches
+neither survives only as long as somebody remembers to look for it.
+
+**Amendment 2. The model declares `scan` whenever it is not certain. This is the
+FIRST layer and it lives in the prompt.** Uncertainty about the source is not
+reported as uncertainty, it is reported as `scan`. The asymmetry is the reason and
+it is not generic caution: calling a scanned document `digital` puts invented
+stock into a real warehouse, and calling a digital one `scan` costs somebody
+reading a document with their own eyes. Those two errors are not the same size, so
+the tie does not get broken in the middle.
+
+**This amendment is deliberately NOT of the same kind as `confidence`, removed by
+EXT-14.** `confidence` asked the model to know that it had misread something,
+which is knowledge it does not have. This asks it to break a tie in a stated
+direction when it cannot tell an image from a text layer. The first is
+introspection, the second is a default.
+
+**Amendment 3. Absent reads as `scan` on our side. This is the SECOND layer, not
+the first.** A payload that omits the field, or sends it null, is read as `scan`.
+Amendment 2 is not made redundant by this and the ordering matters: a prompt rule
+that is only enforced by our default is a prompt rule nobody can observe being
+broken, because every violation arrives looking exactly like a payload that did
+the right thing. The default catches the emitter that has not shipped the rule
+yet. It is not the rule.
+
+**THE NOTE, AND IT IS THE PART MOST LIKELY TO BE READ WRONG. Our validator's
+accepted set is NOT narrowed by any of the three amendments above.** Amendments 1
+through 3 bind what Andre's scenario EMITS. What we ACCEPT is a separate set, it
+is wider, and it stays wider on purpose. An acceptance set that tracks the
+emitter's set exactly turns every ordering of two deploys into an outage: he ships
+first and we reject valid payloads, or we ship first and reject the payloads he
+has not stopped sending. **Our acceptance may be wider than his emission and must
+never be narrower.** Nothing in this ruling removes a value our validator accepts
+today, and no future card may cite this ruling as authority to.
+

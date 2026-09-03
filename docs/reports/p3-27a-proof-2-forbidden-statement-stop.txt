@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-42360-mtlrimlt)
+target                 shim (container rc-prove-applier-mut-63186-mtm2iy7d)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     20
-total statements       248
+pending file count     21
+total statements       257
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM

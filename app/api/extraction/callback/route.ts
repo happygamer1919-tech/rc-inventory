@@ -27,7 +27,10 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { supabaseUrl } from "@/lib/supabase/env";
-import { hasExtractionDocumentSource } from "@/lib/data/schema-capability";
+import {
+  hasExtractionDocumentSource,
+  hasExtractionPageCount,
+} from "@/lib/data/schema-capability";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -54,6 +57,31 @@ function str(v: unknown): string | null {
 
 function bool(v: unknown): boolean | null {
   return typeof v === "boolean" ? v : null;
+}
+
+/**
+ * EXT-09. Numarul de pagini raportat DE MODEL, citit din _meta.
+ *
+ * UN RAPORT STRICAT DEVINE null SI NU UN REFUZ. Cardul spune ca absenta nu este
+ * o eroare si ca un semnal lipsa nu are voie sa respinga un document citit
+ * corect. Zero, negativ, fractionar sau un sir sunt toate rapoarte stricate, si
+ * un raport stricat spune exact cat spune si absenta: nu se stie. Un 400 aici ar
+ * arunca un document intreg din cauza unui camp de diagnostic.
+ *
+ * ZERO NU ESTE UN NUMAR MAI MIC DE PAGINI. Un document are cel putin o pagina,
+ * deci zero nu este o citire mai prudenta ci una imposibila, si ea nu are voie
+ * sa fie stocata ca si cum ar fi o citire. Constrangerea din 0032 este a doua
+ * usa, pentru un scriitor care nu este ruta aceasta.
+ *
+ * FRACTIONARUL ESTE RESPINS EXPLICIT si nu rotunjit. 2.5 pagini nu este o
+ * citire mai putin precisa, este un camp care nu inseamna ce credem noi ca
+ * inseamna, iar rotunjirea ar ascunde tocmai asta.
+ */
+function pageCount(meta: unknown): number | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const raw = (meta as Record<string, unknown>).page_count;
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1) return null;
+  return raw;
 }
 
 function serviceClient() {
@@ -129,7 +157,7 @@ export async function POST(request: Request) {
 
   // EXT-15. POATE BAZA SA STOCHEZE SURSA?
   //
-  // Migratia 0032 este autorata, fuzionata si NEAPLICATA. Codul acesta ajunge in
+  // Migratia 0033 este autorata, fuzionata si NEAPLICATA. Codul acesta ajunge in
   // productie inaintea coloanei, iar PostgREST intoarce 42703 pentru o coloana
   // necunoscuta: un update care o numeste ar raspunde 500 lui Make, care ar
   // reincerca la nesfarsit. Aceea este exact INC-05, si check:pending-schema-reads
@@ -177,7 +205,7 @@ export async function POST(request: Request) {
 
   // EXT-15. POATE BAZA SA STOCHEZE SURSA?
   //
-  // Migratia 0032 este autorata, fuzionata si NEAPLICATA, deci acest cod ajunge
+  // Migratia 0033 este autorata, fuzionata si NEAPLICATA, deci acest cod ajunge
   // in productie inaintea coloanei. PostgREST intoarce 42703 pentru o coloana
   // necunoscuta, iar un update care o numeste ar raspunde 500 lui Make, care
   // reincearca la 5xx. Aceea este INC-05, si check:pending-schema-reads a refuzat
@@ -246,26 +274,69 @@ export async function POST(request: Request) {
   // undefined: un camp absent din raspuns nu inseamna "a raspuns deja".
   const isRepeat = existing.callback_at != null;
 
+  // EXT-09. page_count intra in update NUMAI daca baza il are.
+  //
+  // Migratia 0032 este in registrul de asteptare, deci pe productie coloana
+  // poate sa nu existe inca. Un update care o numeste primeste 42703 de la
+  // PostgREST, ruta raspunde 500, iar Make REINCEARCA pe 5xx: ar fi o bucla, nu
+  // un esec singular. Mai rau, contractul spune in sectiunea 6 ca un 5xx
+  // inseamna ca nu s-a scris nimic, si aici nu ar fi adevarat, fiindca toate
+  // celelalte campuri sunt in acelasi update.
+  //
+  // POARTA INTREABA PE ACEEASI LEGATURA PE CARE SE SCRIE, adica pe clientul de
+  // service_role de mai sus. O sonda pe alta legatura ar raspunde la alta
+  // intrebare: politicile RLS de pe extraction_drafts sunt "to authenticated",
+  // deci un client de sesiune fara sesiune ar da o eroare care nu are nimic de a
+  // face cu existenta coloanei.
+  //
+  // CAT TIMP COLOANA LIPSESTE, VALOAREA NU SE PIERDE: _meta este stocat verbatim
+  // si o poarta pe el, exact ca pana acum. Ziua in care 0032 se aplica, ea incepe
+  // sa fie scrisa si separat, fara alta livrare.
+  const draftUpdate: Record<string, unknown> = {
+    status,
+    error_code: errorCodeRaw,
+    reason: str(body.reason),
+    supplier_name: str(body.supplier_name),
+    order_date: str(body.order_date),
+    subtotal: num(body.subtotal),
+    vat_amount: num(body.vat_amount),
+    document_total: num(body.document_total),
+    prices_include_vat: bool(body.prices_include_vat),
+    vat_rate: num(body.vat_rate),
+    currency: str(body.currency),
+    currency_raw: str(body.currency_raw),
+    confidence: num(body.confidence),
+    // _meta ESTE STOCAT VERBATIM, INCLUSIV characters_extracted CAND SOSESTE.
+    // EXT-09 scoate campul din CE ASTEPTAM, nu din ce toleram: partea lui Andre
+    // si a noastra nu se desfasoara in aceeasi secunda, iar o schimbare de
+    // contract care invalideaza payload-ul versiunii precedente este o pana
+    // programata pentru ziua in care el livreaza primul. Campul este ignorat,
+    // adica nimic nu il citeste si nimic nu il cere. Nu este si sters: _meta
+    // este blocul de diagnostic, si a arunca ce a ales expeditorul sa trimita
+    // pierde tocmai lucrul pentru care blocul exista.
+    meta: body._meta ?? null,
+    callback_at: new Date().toISOString(),
+  };
+
+  if (await hasExtractionPageCount(supabase)) {
+    draftUpdate.page_count = pageCount(body._meta);
+  }
+
+  // EXT-15, folosind aceeasi poarta ca EXT-09 si din acelasi motiv. canStoreSource
+  // este calculat mai sus prin hasExtractionDocumentSource, pe clientul de
+  // service_role, adica pe legatura care chiar scrie.
+  //
+  // DOUA MIGRATII, DOUA PORTI, SI ELE NU SE INLOCUIESC UNA PE ALTA. Coloanele
+  // sosesc in productie separat, fiindca sunt fisiere separate, deci fiecare
+  // scriere isi intreaba propria coloana. O poarta comuna ar lega soarta lor
+  // impreuna si ar ascunde exact cazul in care una este aplicata si cealalta nu.
+  if (canStoreSource) {
+    draftUpdate.document_source = documentSource;
+  }
+
   const { error: updateError } = await supabase
     .from("extraction_drafts")
-    .update({
-      status,
-      error_code: errorCodeRaw,
-      reason: str(body.reason),
-      supplier_name: str(body.supplier_name),
-      order_date: str(body.order_date),
-      subtotal: num(body.subtotal),
-      vat_amount: num(body.vat_amount),
-      document_total: num(body.document_total),
-      prices_include_vat: bool(body.prices_include_vat),
-      vat_rate: num(body.vat_rate),
-      currency: str(body.currency),
-      currency_raw: str(body.currency_raw),
-      ...(canStoreSource ? { document_source: documentSource } : {}),
-      confidence: num(body.confidence),
-      meta: body._meta ?? null,
-      callback_at: new Date().toISOString(),
-    })
+    .update(draftUpdate)
     .eq("order_id", orderId);
 
   if (updateError) {

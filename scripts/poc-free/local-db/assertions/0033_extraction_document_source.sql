@@ -1,4 +1,4 @@
--- assertions/0032_extraction_document_source.sql
+-- assertions/0033_extraction_document_source.sql
 -- Card EXT-15. The document_source column, asserted against the finished schema.
 --
 -- THE CONSTRAINT IS THE POINT, NOT THE COLUMN. A nullable text column that
