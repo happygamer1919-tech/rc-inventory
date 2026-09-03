@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-mut-17302-mtlpzxq3)
+target                 shim (container rc-prove-applier-mut-42360-mtlrizj8)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     19
-total statements       242
+pending file count     20
+total statements       250
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -39,10 +39,10 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: OK, 4 pending migration(s) checked, no reader remains on main
+check-removal-safety: OK, 5 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           72614a67ef4019520241a75469f58199364b0039638c89dd9b1301c1f0b86a57
+batch sha256           7f18c0f05e558ed237b54a29ca3f5baf39d4c4519adedcd4db5885ed05911cc4
 script sha256          47f4ba9eb6a36d10ef14719934239a5c7dcd7f8d565375223576f2802404b1cf
 assertions             11
 notices                2 (report a number, cannot fail)
@@ -270,7 +270,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-03 16:09:18.171161+00
+ Furnizor Prove | 2026-09-03 16:52:08.260319+00
 (1 row)
 
  total_products | with_supplier | still_null 
@@ -459,6 +459,18 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 (9 rows)
 
 
+--- applying 0032_extraction_document_source.sql (8 statements) ---
+   column_name   | data_type | is_nullable 
+-----------------+-----------+-------------
+ document_source | text      | YES
+(1 row)
+
+                 conname                 |                                         pg_get_constraintdef                                          
+-----------------------------------------+-------------------------------------------------------------------------------------------------------
+ extraction_drafts_document_source_known | CHECK (((document_source IS NULL) OR (document_source = ANY (ARRAY['scan'::text, 'digital'::text]))))
+(1 row)
+
+
 --- ledger: the three rows the strategy record says were never written ---
 --- ledger: the thirteen rows for this batch ---
 
@@ -515,11 +527,12 @@ POST-CHECK GRID: the applied ledger AFTER the batch
  0029    | category_paints
  0030    | units_tonne_litre
  0031    | units_tonne_litre_rows
-(31 rows)
+ 0032    | extraction_document_source
+(32 rows)
 
  ledger_rows_after 
 -------------------
-                31
+                32
 (1 row)
 
 
@@ -568,12 +581,12 @@ RLS and policy count per new table
 
 COMMITTED
 
-applied and committed: 19 migrations, 11 assertions passed, 2 notices printed
+applied and committed: 20 migrations, 11 assertions passed, 2 notices printed
 
 target was the shim, so NOTHING was written to any journal and the pending register is untouched.
 
-started  2026-09-03T16:09:18.026Z
-finished 2026-09-03T16:09:18.238Z
+started  2026-09-03T16:52:08.127Z
+finished 2026-09-03T16:52:08.429Z
 NOTICE:  schema "supabase_migrations" already exists, skipping
 NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  schema "supabase_migrations" already exists, skipping
@@ -581,5 +594,6 @@ NOTICE:  relation "schema_migrations" already exists, skipping
 NOTICE:  0018 gate: dependent objects on the four-argument function = 0
 NOTICE:  P3-05 backfill: 1 new supplier(s) to create: Furnizor Prove
 NOTICE:  P3-05 backfill: 1 product(s) linked
+NOTICE:  constraint "extraction_drafts_document_source_known" of relation "extraction_drafts" does not exist, skipping
 NOTICE:  P3-04 reconciliation: outbound_issues with no project_id = 0
 NOTICE:  P3-05 reconciliation: products with no supplier_id = 0

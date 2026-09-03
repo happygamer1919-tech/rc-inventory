@@ -1,10 +1,10 @@
 ==============================================================================
 APPLY PENDING MIGRATIONS
 ==============================================================================
-target                 shim (container rc-prove-applier-unmatched-17302-mtlq00qg)
+target                 shim (container rc-prove-applier-unmatched-42360-mtlrj3yp)
 pending register       docs/migrations/APPLY-LOG.md
-pending file count     19
-total statements       239
+pending file count     20
+total statements       247
 
 ------------------------------------------------------------------------------
 DROP FUNCTION STATEMENTS IN THIS BATCH, QUOTED VERBATIM
@@ -36,10 +36,10 @@ ENUM PRE-PHASE: files that add an enum label, committed before the batch
 ------------------------------------------------------------------------------
 REMOVAL DIRECTION: this batch takes something away
 ------------------------------------------------------------------------------
-check-removal-safety: OK, 4 pending migration(s) checked, no reader remains on main
+check-removal-safety: OK, 5 pending migration(s) checked, no reader remains on main
 
 ==============================================================================
-batch sha256           fed5bb81a54f1b1d5316aeee6397f1b353babd30149b3fe6788bdc569e9b5587
+batch sha256           939b7d565cd8471be539d92e50d109318210b87e1fa12bb5dd4c1cc6676d375a
 script sha256          47f4ba9eb6a36d10ef14719934239a5c7dcd7f8d565375223576f2802404b1cf
 assertions             11
 notices                2 (report a number, cannot fail)
@@ -231,7 +231,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
  reference  | client_name  | project_name  |          issued_at           
 ------------+--------------+---------------+------------------------------
- IES-PRV-01 | Client Prove | Santier Prove | 2026-09-03 16:09:22.18268+00
+ IES-PRV-01 | Client Prove | Santier Prove | 2026-09-03 16:52:13.10105+00
 (1 row)
 
 
@@ -268,7 +268,7 @@ PRE-CHECK: every column in public, so a disappearance can be noticed
 
       name      |          created_at           
 ----------------+-------------------------------
- Furnizor Prove | 2026-09-03 16:09:22.556686+00
+ Furnizor Prove | 2026-09-03 16:52:13.813241+00
 (1 row)
 
  total_products | with_supplier | still_null 

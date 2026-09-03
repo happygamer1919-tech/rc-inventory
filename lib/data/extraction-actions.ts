@@ -23,6 +23,7 @@ import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
 import { effectiveSource } from "./extraction-types";
+import { hasExtractionDocumentSource } from "./schema-capability";
 import { safeFileName } from "./row";
 import { resolveSupplier } from "./suppliers";
 import {
@@ -222,7 +223,7 @@ export async function confirmExtractionDraft(
   //
   // SE CITESTE STAREA DIN BAZA, NU DIN CE A TRIMIS APELANTUL. Apelantul este
   // exact lucrul de care ne aparam aici.
-  {
+  if (await hasExtractionDocumentSource(supabase)) {
     const { data: source } = await supabase
       .from("extraction_drafts")
       .select("status, document_source")

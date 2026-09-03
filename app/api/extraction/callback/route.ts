@@ -27,6 +27,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { supabaseUrl } from "@/lib/supabase/env";
+import { hasExtractionDocumentSource } from "@/lib/data/schema-capability";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -126,6 +127,21 @@ export async function POST(request: Request) {
   }
   const documentSource = effectiveSource(body.document_source);
 
+  // EXT-15. POATE BAZA SA STOCHEZE SURSA?
+  //
+  // Migratia 0032 este autorata, fuzionata si NEAPLICATA. Codul acesta ajunge in
+  // productie inaintea coloanei, iar PostgREST intoarce 42703 pentru o coloana
+  // necunoscuta: un update care o numeste ar raspunde 500 lui Make, care ar
+  // reincerca la nesfarsit. Aceea este exact INC-05, si check:pending-schema-reads
+  // a refuzat prima varianta a acestui fisier pentru ea.
+  //
+  // PANA CAND COLOANA EXISTA, COMPORTAMENTUL ESTE CEL DE ASTAZI, nu cel nou. A nu
+  // putea sti sursa nu inseamna `scan`: inseamna ca regula EXT-15 nu se aplica
+  // inca, deci liniile se pastreaza ca pana acum. Implicitul `scan` din
+  // effectiveSource priveste un payload care NU A DECLARAT sursa pe o baza care
+  // POATE sa o pastreze, ceea ce este alta intrebare.
+
+
   const rawLines = Array.isArray(body.lines) ? body.lines : null;
   if (rawLines === null) {
     return NextResponse.json({ error: "lines lipseste" }, { status: CALLBACK_CODES.rejected });
@@ -143,7 +159,7 @@ export async function POST(request: Request) {
   //
   // DISTINCTIA ESTE SURSA, NU ESECUL. Un document digital care esueaza ramane
   // partial cu liniile atasate, exact ca pana acum.
-  const dropLines = documentSource === "scan" && status === "failed";
+
   for (const l of rawLines) {
     if (!l || typeof l !== "object" || !str((l as Record<string, unknown>).product_name)) {
       return NextResponse.json({ error: "o linie nu are product_name" }, { status: CALLBACK_CODES.rejected });
@@ -158,6 +174,27 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // EXT-15. POATE BAZA SA STOCHEZE SURSA?
+  //
+  // Migratia 0032 este autorata, fuzionata si NEAPLICATA, deci acest cod ajunge
+  // in productie inaintea coloanei. PostgREST intoarce 42703 pentru o coloana
+  // necunoscuta, iar un update care o numeste ar raspunde 500 lui Make, care
+  // reincearca la 5xx. Aceea este INC-05, si check:pending-schema-reads a refuzat
+  // prima varianta a acestui fisier exact pentru ea.
+  //
+  // SONDA FOLOSESTE CLIENTUL DE SERVICE_ROLE, adica acelasi cu care se scrie mai
+  // jos. O sonda pe alta legatura raspunde la alta intrebare: pe clientul de
+  // sesiune ar primi un refuz RLS pe un endpoint de masina fara sesiune si ar
+  // citi refuzul acela ca "coloana lipseste".
+  //
+  // PANA CAND COLOANA EXISTA, COMPORTAMENTUL ESTE CEL DE ASTAZI, nu cel nou. A nu
+  // putea sti sursa nu inseamna `scan`: inseamna ca regula EXT-15 nu se aplica
+  // inca, deci liniile se pastreaza. Implicitul `scan` din effectiveSource
+  // priveste un payload care NU A DECLARAT sursa pe o baza care POATE sa o
+  // pastreze, ceea ce este alta intrebare.
+  const canStoreSource = await hasExtractionDocumentSource(supabase);
+  const dropLines = canStoreSource && documentSource === "scan" && status === "failed";
 
   // --- exista deja o ciorna pentru acest order_id? -------------------------
   const { data: existing, error: readError } = await supabase
@@ -224,7 +261,7 @@ export async function POST(request: Request) {
       vat_rate: num(body.vat_rate),
       currency: str(body.currency),
       currency_raw: str(body.currency_raw),
-      document_source: documentSource,
+      ...(canStoreSource ? { document_source: documentSource } : {}),
       confidence: num(body.confidence),
       meta: body._meta ?? null,
       callback_at: new Date().toISOString(),
