@@ -1499,22 +1499,22 @@
       "id": "EXT-16",
       "title": "Reconciliation is enforced by our validator, not only inside Andre's scenario, because a control on one execution path is not a control.",
       "plain": "Check on our side that a scanned document's line values add up to the total printed on it. The same check already exists in the reading service, but a control that lives only there is skipped by any other way a document might arrive.",
-      "lane": "blocked_on_people",
+      "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "blocked",
+      "status": "todo",
       "priority": "high",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
       "depends_on": [
         "EXT-15"
       ],
-      "blocked_on": "andre",
-      "question": "DECISION NEEDED: the exact rounding tolerance for reconciling a scan-sourced payload's line sum against its printed total.\nCONTEXT: the owner's instruction is explicit that our validator must use ANDRE'S number and that we must not pick a second one, because two tolerances is two answers to one question and the looser one wins by accident. The mechanism, the source distinction and the contract text can all be built without it; the comparison cannot.\nOPTIONS: (a) Andre states his tolerance and we match it exactly, which is what the owner asked for. (b) Zero tolerance, reject on any difference at all. (c) A tolerance we choose, which the owner has forbidden.\nRECOMMENDATION: (a), and until it arrives, (b) as the interim, because zero tolerance can only be WRONGLY STRICT. It rejects a document that a looser tolerance would have accepted, which costs a manual entry, whereas a tolerance that is too loose accepts invented stock. If Andre's number turns out to be looser, widening a check is a one-line change with a card behind it; narrowing one after a bad batch is booked is not.\nIMPACT IF UNANSWERED: EXT-16 cannot ship its comparison. EXT-15 and EXT-17 are unaffected and can both proceed, so the scan path still stops auto-accepting and still refuses to show unread lines. What stays open is only the arithmetic check, and only on our side: Andre's scenario continues to enforce his own.",
-      "acceptance": "COMMAND: `npx playwright test tests/e2e/extraction.spec.ts` exits 0 with cases covering: a scan-sourced payload whose line sum matches the printed total within the agreed tolerance is accepted; one outside it is rejected as failed with no lines, per EXT-15; a DIGITAL-sourced payload outside the tolerance is unaffected by this card. Each must fail before the change and the PR must show both results. PLUS: the tolerance is a single named constant, read from one place, and docs/contracts/extraction-v2.md records it as the AGREED value with Andre named as its source. PLUS: the check runs on the callback route, which is the platform's ingest path, and NOT only in a test helper, proven by a case that posts directly to the route. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
-      "defaults": "ASK ANDRE FOR HIS EXACT TOLERANCE AND MATCH IT. DO NOT PICK A SECOND NUMBER. The owner's instruction, verbatim in intent: two tolerances for one question means the looser one wins by accident, and nobody knows which one is in force.\n\nWHICH TOTAL RECONCILES IS ALREADY DECIDED BY THE CONTRACT: prices_include_vat says whether the lines sum to subtotal or to document_total. This card does not re-open that; it uses it.\n\nSAME DOCTRINE THE REPOSITORY ALREADY HOLDS: a guard proven on one execution path is not a guard. That sentence is why this card exists at all rather than being satisfied by the scenario.\n\nA PAYLOAD WITH NO PRINTED TOTAL CANNOT BE RECONCILED AND IS NOT SILENTLY ACCEPTED. Under EXT-17 a scan never auto-accepts anyway, so the honest outcome is that it lands in review unreconciled and the screen says so, never that it passes a check it could not run.",
-      "last_checkpoint": "2026-09-03T08:00:00Z",
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "UNBLOCKED 2026-09-03: Andre's tolerance is given in the defaults and is implemented as stated.\n\nCOMMAND: `npx playwright test tests/e2e/extraction.spec.ts` exits 0 with cases, each failing before the change and both results shown in the PR: a scan-sourced payload INSIDE the tolerance is accepted; one OUTSIDE it is rejected as failed with no lines, per EXT-15; a DIGITAL-sourced payload outside the tolerance is unaffected by this card; and the three cannot-run conditions, each with its own case: target null REJECTS, any null line_total REJECTS, and prices_include_vat null reconciles against BOTH targets and is accepted only when one matches. PLUS COMMAND: a named check exits 0 over the tolerance arithmetic itself, including Andre's two fixture values: a 7-line document tolerates 0.07 and a 54-line document tolerates 0.54, plus a 3-line document tolerating 0.05 because the floor wins. PLUS: the tolerance is ONE named expression read from one place, and docs/contracts/extraction-v2.md records the formula, the rounding, the target selection, the three cannot-run rules, and Andre as its source. PLUS: the check runs on the callback route, proven by a case posting directly to the route rather than through a helper. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
+      "defaults": "THE TOLERANCE IS ANDRE'S, VERBATIM, IMPLEMENTED AS GIVEN AND NEVER RE-DERIVED:\n\n  pass when abs(sum_of_line_totals - target) <= max(0.05, 0.01 * line_count)\n  both sides rounded to two decimals BEFORE comparing\n  target selected by prices_include_vat: false -> subtotal, true -> document_total\n\nTWO CHECKS DISAGREEING ON THE INTERESTING CASES IS WORSE THAN ONE CHECK. That is the owner's reason for forbidding a second number, and it is why the formula is copied rather than reasoned about.\n\nTHE THREE CONDITIONS WHERE THE CHECK CANNOT RUN. NONE OF THEM IS A FREE PASS:\n\n  1. target is null, because the document does not print it  -> REJECT\n  2. prices_include_vat is null -> reconcile against BOTH subtotal and document_total,\n     and accept only if ONE of them matches\n  3. any line has a null line_total -> REJECT, the sum is incomplete by construction\n\nREADING NOTE, STATED BECAUSE THE DISPATCH CAN BE READ TWO WAYS. It heads these three with 'All three FAIL, none passes' and then gives rule 2 its own resolution. The reading implemented here is that NONE OF THE THREE IS AN AUTOMATIC PASS and that rule 2 carries the procedure deciding it. The alternative reading, that rule 2 also fails unconditionally, would make its own instruction unreachable text. If that reading is wrong the correction is one branch and one case.\n\nROUNDING HAPPENS BEFORE THE COMPARISON, ON BOTH SIDES, and that is not a detail: rounding after subtracting gives a different answer at the boundary, and the boundary is the only place a tolerance is ever consulted.\n\nWHICH TOTAL RECONCILES IS ALREADY THE CONTRACT'S ANSWER. prices_include_vat decides it. This card uses that field and does not re-open it.\n\nSAME DOCTRINE THE REPOSITORY ALREADY HOLDS: a guard proven on one execution path is not a guard. That is why this card exists rather than being satisfied by Andre's scenario.",
+      "last_checkpoint": "2026-09-03T16:15:00Z",
       "evidence": null,
-      "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH. His words: 'a control living only in Make is bypassed by a scenario rebuild, a second ingest path, or a manual upload, and it is now the only thing between a scan and invented stock.'\n\nBLOCKED ON ANDRE FOR ONE NUMBER AND NOTHING ELSE. Everything else in the card is buildable, and per CLAUDE.md section 4 the question carries a recommendation and a stated interim. It blocks THIS CARD and not the run: EXT-15 and EXT-17 are both claimable and neither needs the tolerance.\n\nTHE INGREDIENTS ARE ALREADY IN THE CONTRACT: subtotal, vat_amount, document_total, prices_include_vat and vat_rate are all document-level fields today. What is missing is the tolerance and the source, and the source is EXT-15's."
+      "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH. His words: 'a control living only in Make is bypassed by a scenario rebuild, a second ingest path, or a manual upload, and it is now the only thing between a scan and invented stock.'\n\nBLOCKED ON ANDRE FOR ONE NUMBER AND NOTHING ELSE. Everything else in the card is buildable, and per CLAUDE.md section 4 the question carries a recommendation and a stated interim. It blocks THIS CARD and not the run: EXT-15 and EXT-17 are both claimable and neither needs the tolerance.\n\nTHE INGREDIENTS ARE ALREADY IN THE CONTRACT: subtotal, vat_amount, document_total, prices_include_vat and vat_rate are all document-level fields today. What is missing is the tolerance and the source, and the source is EXT-15's.\n\nUNBLOCKED 2026-09-03 BY THE OWNER, WITH ANDRE'S TOLERANCE VERBATIM. The question this card carried is answered and removed.\n\nTHE TWO FIXTURE VALUES DISCLOSE TWO LINE COUNTS, AND THAT IS SAID OUT LOUD RATHER THAN SLID PAST. An earlier dispatch forbade committing expected line counts or totals for the four sample documents, so that Andre's extractor produces them unaided. These two numbers are tolerances, 0.07 and 0.54, and they imply line counts of 7 and 54. They are used because the owner supplied them for exactly this purpose, and because the earlier rule is about what is SENT TO ANDRE: a fixture in our own suite is not sent to him and does not help his extractor. Nothing derived from them goes into anything he receives."
     },
     {
       "id": "EXT-17",
@@ -1536,6 +1536,70 @@
       "last_checkpoint": "2026-09-03T08:00:00Z",
       "evidence": null,
       "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH, with the rationale recorded at his instruction.\n\nIT DOES NOT DEPEND ON EXT-16. Reconciliation passing or failing changes nothing about this rule, which is exactly why the rule exists: it is the answer to 'what if the arithmetic check is satisfied by a wrong document'.\n\nIT DEPENDS ON EXT-15 for the source field, because a rule about scan-sourced documents cannot be applied by a system that cannot tell which ones they are."
+    },
+    {
+      "id": "EXT-18",
+      "title": "Header self-consistency: subtotal plus VAT equals the total, and VAT equals subtotal times the rate, on the same tolerance.",
+      "plain": "Check that a document's own summary numbers agree with each other before trusting any of them. It does not prove the document was read correctly; it means a wrong reading has to be wrong consistently in more places to get through.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "EXT-16"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMAND: `npx playwright test tests/e2e/extraction.spec.ts` exits 0 with cases, each failing before the change and both results shown in the PR: a payload where subtotal + vat_amount is outside the tolerance of document_total is rejected; one where vat_amount is outside the tolerance of subtotal * vat_rate is rejected; one where both hold is unaffected. PLUS COMMAND: the named check from EXT-16 is extended and exits 0 over ALL FOUR sample documents' header figures, which held both checks, used as fixtures. PLUS: docs/contracts/extraction-v2.md records both checks, that they use the SAME tolerance formula as EXT-16, and what they do and do not prove. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
+      "defaults": "SAME TOLERANCE FORMULA AS EXT-16, read from the same one place. A second formula here would be the second number the owner forbade, one level up.\n\nline_count IN THE FORMULA IS THE DOCUMENT'S LINE COUNT, and on a header-only payload with no lines it is zero, so the floor of 0.05 wins. That is correct and not a special case: a header check does not become stricter because the lines are missing.\n\nA NULL FIGURE IS NOT A FAILURE OF THESE TWO CHECKS. subtotal, vat_amount, document_total and vat_rate are all nullable by the contract. A check whose inputs are absent DID NOT RUN and must not be reported as passed; it is recorded as not-run, and EXT-16's target-null rule is what rejects a document that cannot be reconciled at all.\n\nWHAT THIS CARD DOES NOT DO, AND IT MUST NOT BE WRITTEN AS THOUGH IT DOES: IT DOES NOT CLOSE THE FABRICATION GAP. It does not make EXT-17 unnecessary and does not reduce EXT-17's risk to zero. It raises the COST of a fabrication that survives, by forcing it to be coordinated across the header AND the line table rather than only inside the line table. That is a real gain and a different claim.",
+      "last_checkpoint": "2026-09-03T16:15:00Z",
+      "evidence": null,
+      "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH, accepting Andre's second guard.\n\nBOTH CHECKS HELD ON ALL FOUR SAMPLE DOCUMENTS, which is why all four are the fixtures: a guard that has only ever run against documents it rejects has not been shown to accept a correct one.\n\nTHE HONEST FRAMING IS THE OWNER'S INSTRUCTION AND IS REPEATED IN THE DEFAULTS. A header that agrees with itself is a header the model transcribed consistently. The observed failure had a CORRECTLY READ header and an invented line table, which is exactly the shape this check would have passed, and EXT-16 is what caught it. This card is a second lock on a door, not a reason to remove the first."
+    },
+    {
+      "id": "EXT-19",
+      "title": "reconciliation_failed is its own error code, distinct from unreadable_document, because the two send the owner to do different things.",
+      "plain": "When a document is rejected, say which kind of rejection it was. One means send a better scan. The other means the numbers do not add up and somebody should look at them. Telling a person the wrong one wastes their time.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "EXT-15"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "MIGRATION: a new numbered file adds reconciliation_failed to the extraction error code enum. `npm run check:migrations` exits 0 with an assertions file proving the label exists and that the existing codes did not move. PLUS COMMAND: `npx playwright test tests/e2e/extraction.spec.ts` exits 0 with a case posting a scan-sourced reconciliation failure and asserting the stored error_code is reconciliation_failed and NOT unreadable_document. PLUS COMMAND: `npx playwright test tests/e2e/review.spec.ts` exits 0 with a case asserting the two codes render DIFFERENT Romanian sentences and that neither contains the other's instruction. THAT CASE MUST FAIL AGAINST A VERSION THAT COLLAPSES THEM, shown in the PR. PLUS: docs/contracts/extraction-v2.md documents the new code beside the existing ones. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
+      "defaults": "DO NOT COLLAPSE THEM, in the owner's words. unreadable_document sends the owner to upload a better scan. reconciliation_failed sends the owner to check the numbers. A single code sends half of them to do the wrong thing.\n\nTHE COPY IS THE CARD, NOT THE ENUM LABEL. Adding a value nobody words differently on the screen changes nothing for the person reading it, so the review case asserts the two SENTENCES differ, not merely that the two codes differ.\n\nTHE EXISTING SEVEN CODES ARE NOT RENAMED OR REORDERED. review.spec already asserts each of the seven has its own Romanian sentence; that case keeps passing, extended to eight.",
+      "last_checkpoint": "2026-09-03T16:15:00Z",
+      "evidence": null,
+      "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH.\n\nIT DEPENDS ON EXT-15 because the code is only ever set on the path EXT-15 creates: a scan-sourced payload rejected with no lines. Until that path exists there is nothing to label."
+    },
+    {
+      "id": "EXT-20",
+      "title": "The scan-sourced failed payload carries the header fields and NO lines key at all, and our validator rejects one that carries a lines key, empty or not.",
+      "plain": "Fix exactly what a rejected scan sends back: the document's header, and nothing where the line items would be. Not an empty list, nothing at all, so there is no place for a screen to attach an accept button to.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "EXT-15",
+        "EXT-19"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "COMMAND: `npx playwright test tests/e2e/extraction.spec.ts` exits 0 with cases, each failing before the change and both results shown in the PR: a scan-sourced failed payload with the sixteen fields and NO lines key is accepted; the same payload carrying an EMPTY lines array is REJECTED; the same payload carrying one line is REJECTED; and a DIGITAL-sourced failed payload carrying a lines key is still accepted, because this rule is about the scan path only. PLUS: docs/contracts/extraction-v2.md records the exact sixteen-field shape and the rejection rule. PLUS COMMAND: `npx tsc --noEmit` exits 0.",
+      "defaults": "THE FINAL SHAPE, FROM THE OWNER, SIXTEEN FIELDS: order_id, status, error_code, reason, supplier, order_ref, client_ref, order_date, currency, currency_raw, prices_include_vat, vat_rate, subtotal, vat_amount, document_total, document_source.\n\nNO LINES KEY AT ALL, NOT AN EMPTY ARRAY, AND THE DIFFERENCE IS THE WHOLE CARD. Andre emits header-only with the key ABSENT, so there is nothing for an accept path to bind to. An empty array is a thing a screen can iterate, append to and grow a form around; an absent key is not.\n\nOUR VALIDATOR REJECTS A SCAN-SOURCED failed PAYLOAD THAT CARRIES A LINES KEY, EMPTY OR NOT. That is the platform-side half and it exists for the same reason EXT-16 does: a shape enforced only by the sender is enforced by nobody the day the sender is rebuilt.\n\nTHE CONTRACT SAYS `lines` IS NON-NULLABLE AND MAY BE EMPTY ON failed. This card NARROWS that for one case only, scan-sourced failures. Every other payload keeps the existing rule, and the contract must state both without leaving a reader to work out which applies.\n\norder_ref HERE IS THE SUPPLIER'S, and EXT-11 is what gives it a series. If EXT-11 has landed when this card is worked the series travels with it; if not, this card does not wait, because the field's SHAPE is EXT-11's problem and its PRESENCE is this card's.",
+      "last_checkpoint": "2026-09-03T16:15:00Z",
+      "evidence": null,
+      "notes": "AUTHORED 2026-09-03 FROM THE OWNER'S DISPATCH, which gives the final shape field by field.\n\nIT DEPENDS ON EXT-15 for the header-only screen and the document_source field, and on EXT-19 for the error code that shape carries.\n\nTHE REJECTION RULE WILL LOOK PEDANTIC IN SIX MONTHS AND IS NOT. Accepting an empty lines array costs nothing today and means that on the day somebody adds a line-rendering loop to that screen, the loop has something to iterate and renders nothing, which reads as 'this document had no lines' rather than 'this document was not read'."
     }
   ]
 }
