@@ -18,9 +18,21 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JSON_PATH = resolve(HERE, "../../docs/contracts/categories.json");
-const SQL_PATH = resolve(HERE, "../../supabase/migrations/0007_seed_categories.sql");
+// P3-34. THE VOCABULARY IS SEEDED BY MORE THAN ONE MIGRATION NOW.
+//
+// 0007 seeded the first eighteen. 0029 adds the nineteenth. The list is EXPLICIT
+// and in apply order rather than a glob over supabase/migrations: a migration
+// that touches public.categories should be a line in this diff, and a glob would
+// silently widen what this check accepts the day somebody adds one.
+const SQL_PATHS = [
+  resolve(HERE, "../../supabase/migrations/0007_seed_categories.sql"),
+  resolve(HERE, "../../supabase/migrations/0029_category_paints.sql"),
+];
 
-const EXPECTED_COUNT = 18;
+// EXPLICIT, AND IT CHANGES DELIBERATELY. Derived from the JSON it would agree
+// with itself whatever the JSON said, which is a check whose passing path is
+// reachable without the condition being true. docs/LEARNINGS.md names that class.
+const EXPECTED_COUNT = 19;
 /** Belongs to P2-15 and to the owner decision recorded there, never to the vocabulary. */
 const RESIDUE = "TEST-Categorie";
 
@@ -70,7 +82,7 @@ if (new Set(names).size !== names.length) {
 // --- 5 and 6. the migration and the export agree, both directions -----------
 // Read the VALUES list out of the committed migration rather than trusting a
 // second hand-maintained copy of the names.
-const sql = readFileSync(SQL_PATH, "utf8");
+const sql = SQL_PATHS.map((f) => readFileSync(f, "utf8")).join("\n");
 const fromSql = [...sql.matchAll(/^\s*\('([^']+)',\s*(\d+)\)/gm)].map((m) => ({
   name: m[1],
   sort_order: Number(m[2]),
