@@ -4710,3 +4710,522 @@ has not stopped sending. **Our acceptance may be wider than his emission and mus
 never be narrower.** Nothing in this ruling removes a value our validator accepts
 today, and no future card may cite this ruling as authority to.
 
+
+---
+
+### R-102 - this TRIAGE run was handed a report that run 20260903-220002 had already triaged in full, which is the SECOND live instance of AUT-17 and the first that produced two runs over one report three hours apart
+**Date:** 2026-09-04
+**Asked on:** AUT-17, and every future TRIAGE run
+**Answer, verbatim:**
+> from the harness dispatch this run received:
+>
+> "Your input is the newest report in docs/reports/, which is
+> docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md. Read it.
+> You get nothing else and you need nothing else."
+>
+> and from `docs/poc/triage-latest.json` on branch `triage/20260903-220002`,
+> open as pull request `#184`, written by the PREVIOUS TRIAGE run:
+>
+> "run_id": "20260903-220002",
+> "report": "docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md"
+
+**Ruling: the dispatch named a report that run `20260903-220002` had already
+triaged in full, as R-098 to R-101 with two cards and a gate audit, on pull
+request `#184`. This run did NOT re-triage it in the ordinary way.** It applied
+the rubric to what the previous run's output and the three hours since have
+changed, and its section 1 verdicts on the report's own deviations are R-104,
+written because the previous run recorded that there were none to give and that
+finding is wrong.
+
+**THIS IS THE SECOND INSTANCE AND IT IS WORSE THAN THE FIRST.** R-075 recorded
+the first on 2026-08-31, authored AUT-17, and named the exact clause that fired
+today: clause 2 of AUT-17's acceptance, "given a fixture
+`docs/poc/triage-latest.json` whose `report` field equals the path the selector
+would return, the harness does NOT invoke the review step on it a second time."
+
+The difference between the two instances is the one that matters. On 2026-08-31
+the already-triaged report's triage was **merged**, on `main`, in
+`docs/poc/triage-latest.json`, so the run that was handed it could see the
+collision in one read of a committed file. Today the previous triage is on an
+**open, unmerged pull request**, so `docs/poc/triage-latest.json` on `main` still
+names run `20260831-040003` and a report from four days ago. **A selector
+implementing AUT-17 clause 2 exactly as written, reading `main` only, would have
+missed this instance**, because the field it compares against had not moved.
+
+**THEREFORE AUT-17 GAINS A CLAUSE RATHER THAN A NEW CARD BEING AUTHORED**, per
+`docs/DOCTRINE-TRIAGE.md` section 5. The clause: the consumed-report check reads
+`docs/poc/triage-latest.json` **on every open pull request head as well as on
+`main`**, because the file's whole purpose is to record consumption and a triage
+run's own output is unmerged by construction at the moment the next run starts.
+AUT-17 clause 3 already establishes that the selector must look at unmerged
+branch heads for the report itself; this extends the same reach to the file that
+says whether it has been read. The finding is written into AUT-17's `notes` with
+this ruling id.
+
+**WHAT THIS RUN DID INSTEAD OF RE-TRIAGING.** It read the same report, then
+checked the previous run's output against the repository, which is what
+`docs/DOCTRINE-TRIAGE.md` calls ground truth. That check is R-103 and it did not
+come out the way a confirming read would have.
+
+**Unblocks:** nothing. AUT-17 is `todo` and eligible and was the lowest-id
+eligible card on `main` at this run's boot after AUT-16.
+**Also changes:** `AUT-17.notes` on `docs/board/rc-board-phase2.json`.
+**Supersedes:** none. It is the second application of R-075 and extends the card
+R-075 authored.
+
+---
+
+### R-103 - pull request #184's central finding is false: the AUT-15 merge reverted nothing on `main`, and the inventory behind R-099 and R-100 is a diff against the tip of a DIFFERENT open pull request
+**Date:** 2026-09-04
+**Asked on:** the disposition of pull request #184, and cards RESTORE-01 and GUARD-02 which exist only on it
+**Answer, verbatim:**
+> from `docs/reports/2026-09-04-triage-the-aut-15-merge-revert.md` section 1,
+> committed on branch `triage/20260903-220002`, open as pull request `#184`:
+>
+> "**Then commit `29afb21` deleted all of it.** That commit is
+> `AUT-15: merge origin/main into the card branch, no rewrite, no force push`.
+> It merged `origin/main` into `card/aut-15` and resolved every conflicted file
+> by keeping the branch side. `main` was `b25dc75` at that moment."
+>
+> and:
+>
+> "**The inventory. Every line verified with `git diff b25dc75 origin/main` on
+> this branch, nothing inferred:**"
+
+**Ruling: the premise is false and it is falsifiable by one command.
+`b25dc75` was never `main`.** It is the tip of branch
+`board/dispatch-20260903`, open as pull request `#181`, which is `DIRTY` and has
+never merged.
+
+**THE FOUR COMMANDS, RUN ON THIS BRANCH AT `origin/main` = `e15e928`:**
+
+```
+$ git merge-base --is-ancestor b25dc75 origin/main && echo YES || echo NO
+NO
+
+$ git branch -a --contains b25dc75
+  board/dispatch-20260903
+  remotes/origin/board/dispatch-20260903
+
+$ git diff --stat 29afb21^2 29afb21
+ docs/DOCTRINE-TRIAGE.md         | 18 +++++++++++++-----
+ docs/board/rc-board-phase2.json |  6 +++---
+ 2 files changed, 16 insertions(+), 8 deletions(-)
+
+$ git diff --stat e173fad^1 e173fad
+ 5 files changed, 271 insertions(+), 11 deletions(-)
+```
+
+**Read them in order.** The first says `b25dc75` is not in `main`'s history at
+all. The second says the only branch carrying it is the one belonging to an open
+pull request. The third is the decisive one: `29afb21^2` is the `origin/main`
+that commit merged in, and the merge result differs from it by **two files and
+eight deleted lines**, which are AUT-15's own doctrine paragraph rewrite and its
+own card's status flip. The fourth says the same about the merge into `main`:
+pull request `#183` added 271 lines and removed 11, and the 11 are the same
+paragraph.
+
+**WHAT THE INVENTORY ACTUALLY MEASURED.** `git diff b25dc75 origin/main` is the
+difference between an unmerged pull request's branch tip and `main`. In that
+direction, **everything the pull request ADDS appears as a deletion.** The 317
+`APPLY-LOG.md` lines, ruling `R-098`, cards `MIG-01` and `RULE-04`, the three
+learnings, the `extraction-v2.md` section and the `test-ask-digest.sh` fixture
+are not content that was removed from `main`. They are the content of `#181`,
+which has not landed. Nothing deleted them because nothing ever had them.
+
+**THE CONSEQUENCES, NAMED SO WHOEVER LANDS `#184` KNOWS WHICH PARTS TO DROP:**
+
+- **`R-099` is overturned as to its premise.** There was no revert. Its
+  generalisation, that every guard in `quality` checks that what is PRESENT is
+  correct and none checks that what WAS present is still there, is true, is
+  worth keeping, and is recorded here as true. It was reached from a false
+  instance and it has no live instance behind it.
+- **`RESTORE-01` restores nothing.** Its work, putting `R-098`, `MIG-01`,
+  `RULE-04`, the reconstructed apply entries, the contract section and the
+  learnings onto `main`, is real work that nobody owns. It is not a restore, it
+  is landing pull request `#181`. Card `RST-05`, authored by R-107, is that work
+  and it covers `#181` together with the three other stranded pull requests it
+  collides with.
+- **`GUARD-02` guards a real gap on a phantom instance.** A check that refuses a
+  change removing a ruling, a card or an apply entry that exists on `main` is
+  worth having on its own merits. Nothing in this repository's history has yet
+  needed it. It is kept as a card and its justification is corrected, not its
+  content.
+- **`R-100` is moot.** The counter did not go backwards. `decisions/NEXT-RULING-ID`
+  on `main` reads `R-098` and has read `R-098` since `a446655`, which is where
+  R-096 and R-097 advanced it. `R-098` was never on `main` to be deleted, so it
+  is not restored: it is **allocated**, on `#181`, and it is allocated a second
+  time and differently on `#184`. That is a live id collision between two open
+  pull requests and R-107 disposes of it.
+
+**WHY THIS RULING EXISTS RATHER THAN A CORRECTION TO `#184`.**
+`docs/DOCTRINE-TRIAGE.md` forbids TRIAGE overturning a ruling by editing it: a
+changed mind is a new dated ruling that supersedes the old one by id. R-099 and
+R-100 are untouched, on their branch, exactly as written. This is the superseding
+entry and it names them.
+
+**THE TRANSFERABLE PART, WHICH IS NOT ABOUT ANYONE'S CARE.** A diff between
+`main` and a branch tip is symmetric in appearance and asymmetric in meaning, and
+`git diff A B` never says whether `A` was ever reachable from `B`. The check that
+distinguishes a revert from an unmerged pull request is
+`git merge-base --is-ancestor`, it costs nothing, and no report in this
+repository has ever run it. **Any claim that `main` lost content names the
+commit it lost it in, and proves that commit is an ancestor of `main`.** That is
+recorded in `docs/LEARNINGS.md` by this run.
+
+**Unblocks:** nothing. It changes what `#184` should carry when somebody lands
+it, and `#184` is not this run's to merge.
+**Also changes:** nothing on `main`'s boards. `RESTORE-01` and `GUARD-02` do not
+exist on `main` and are not authored here.
+**Supersedes:** `R-099` as to its premise and its two cards' justification, and
+`R-100` entirely. Both remain on branch `triage/20260903-220002` unedited.
+
+---
+
+### R-104 - the six deviations in the sample-TTL report, ratified individually with the test that fired, because the previous triage of this same report recorded that it flagged none
+**Date:** 2026-09-04
+**Asked on:** the deviations taken by the run that produced docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md
+**Answer, verbatim:**
+> from `docs/reports/2026-09-04-triage-the-aut-15-merge-revert.md` section 2,
+> on branch `triage/20260903-220002`:
+>
+> "**Section 1 verdicts.** The input report flags no deviations for ratification
+> and its section 5 says so in terms: 'Nothing. No `ask.sh` was raised and no
+> step stopped.' **There was nothing to ratify or overturn**"
+
+**Ruling: that reading is wrong and the six deviations below are ratified
+individually.** The report's section 5 answers "what BLOCKED", which is a
+different question from "what was DEVIATED". A run that stopped for nothing can
+still have taken six decisions outside the written procedure, and this one did.
+`docs/DOCTRINE-TRIAGE.md` section 1 puts the deviations section of a report in as
+input; it does not say that a report without a section under that heading has no
+deviations, and treating the heading as the boundary means the only deviations
+ever examined are the ones the deviating role already thought to declare.
+
+**The four tests are applied in order and the first that fires decides. Each
+verdict names the test.**
+
+**D1. Ruling ids `R-096` and `R-097` taken while `decisions/NEXT-RULING-ID` read
+`R-087`. RATIFIED on test 4.**
+Test 1 does not fire: no row, no credential, no production write. Test 2 passes:
+pull request `#179` is merged, both ids are on `main`, the counter is advanced to
+`R-098` in the same commit `a446655`, and `check:unique-ids` is green. Test 3 is
+**apply, not widen**: section 8b's mechanism is one id naming one decision, and
+its counter is the instrument, not the goal. Test 4 names the alternative
+concretely: taking `R-087` would have put a **fifth** meaning on an id that
+`#172` had already written and that `#157` had written again as `R-090` and
+`R-091`, knowingly, at the moment of writing. That is worse than a gap in the
+sequence, and section 8b says in terms that no id is ever renumbered to make a
+check pass.
+
+**D2. `docs/contracts/extraction-v2.md` amended in three places by `R-097`,
+which binds what Andre's scenario emits. RATIFIED on test 3, by citation.**
+Test 1 does not fire. Test 2 passes: the contract file on `main` carries section
+8.4 and `#179` is merged. Test 3 fires as a **widening that a ruling already
+authorised**, and the ruling is cited: `R-097` itself records
+`**Decided by:** the owner on 2026-09-03, in his own dispatch`, which is escalation
+item 6 answered by the only person who may answer it, before the deviation was
+taken. The report adds the fact that makes it cost nothing either way: Andre had
+already dropped `unknown` from his emitter independently, and our acceptance set
+is wider than his emission in both the current and the pending state.
+**Recorded rather than passed over:** had `R-097` not carried an owner decision,
+this one was an escalation and not a ratification, because amendments 1 and 2
+change what is asked of the extraction vendor.
+
+**D3. `/Users/ivan/rc-samples/ANDRE-LINKS.md` rewritten to carry one live sample
+link where it previously carried four. RATIFIED on test 4, and its consequence
+is escalated.**
+Test 1 does not fire: the report proves the objects still exist and states that
+regenerating the other three is one command. Test 2 passes on the deviation as
+performed, though not on the file: the file is outside the repository and is not
+committed, and what a stranger can re-verify is the report's own section 4 table,
+three URLs with status, content type and body, plus the four repeat fetches whose
+`sha256` matches the local sample. Test 3 is apply. Test 4: the alternative was a
+handover file carrying four links at the old two hour TTL, which is the exact
+condition `R-096` was written to end.
+**The consequence is not TRIAGE's**: whether Andre needs the other three live is
+escalation item 6, and it is escalated with a recommended default rather than
+decided here.
+
+**D4. A read against the production project `bwhzatwwjqmyfesfnisa` to settle
+Andre's blank-category report. RATIFIED on test 4.**
+Test 1 does not fire and the reason is stated rather than assumed: the test names
+a row deleted, a credential rotated, or a production write outside a migration,
+and a read is none of the three. Test 2 passes: the report records
+`applied_ledger_version()` returning `"0031"`, nineteen active category rows with
+`Vopsele, lacuri si solventi` at `sort_order` 19, and the unit list, each
+re-runnable by anyone holding the grant. Test 3 is apply: `CLAUDE.md` 8.3 and 8.4
+under R-001, unwidened. Test 4: without the read the run would have relayed a
+third party's report of a live defect that does not exist, and the correct
+mechanism would have been described with the wrong conclusion attached.
+
+**D5. `origin/main` MERGED into the card branch rather than the branch rebased,
+before merging `#179`. RATIFIED on test 4, and it is an application of a rule
+rather than a deviation from one.**
+Test 3 is apply: `CLAUDE.md` section 3 forbids force pushes on every branch,
+`--force-with-lease` included, so a rebase was not available. Test 4: the
+alternative was merging on a `quality` run that tested a `main` which no longer
+existed, which section 3 also names.
+
+**D6. Both rulings and the whole seven-step dispatch worked with NO BOARD CARD.
+RATIFIED on test 4, and this is the one with a standing cost.**
+The report says so itself in its header: "Dispatch: direct from the owner, seven
+steps, no board card authored for it", and its section 3 says "Cards touched:
+None." Test 1 does not fire. Test 2 passes: `#179` is merged and the report is
+committed. Test 3 is apply, not widen: `CLAUDE.md` section 2 says nothing is
+worked that is not a card, and an owner dispatch is an explicit instruction,
+which section 5 says defaults fill silence around and never contradict. Test 4:
+the alternative was refusing an owner dispatch until a card existed for it, and
+the run would have shipped nothing.
+**THE COST IS RECORDED BECAUSE IT IS REAL AND RECURRING.** Work done off the
+board is invisible to the digest, to the eligibility sweep, and to every gate
+audit, and this dispatch produced two rulings, a contract amendment and three
+defects. No card is authored for it: a card authored after the work is a card
+nobody worked. It is written into `AUT-18`'s `notes`, which is the card that
+exists to make unfinished and unreported work impossible to miss.
+
+**Unblocks:** nothing. Six ratifications settle six deviations and none of them
+was blocking a card.
+**Also changes:** `AUT-18.notes` on `docs/board/rc-board-phase2.json`.
+**Supersedes:** the section 1 finding in
+`docs/reports/2026-09-04-triage-the-aut-15-merge-revert.md`, which is a report
+rather than a ruling, so nothing is superseded by id.
+
+---
+
+### R-105 - P2-13's acceptance names thirteen pending migrations that are applied, the six that are actually pending are elsewhere, and the card gains the capability edge on GATE-03 it has never had
+**Date:** 2026-09-04
+**Asked on:** P2-13, GATE-03
+**Answer, verbatim:**
+> from `docs/board/rc-board-phase2.json`, card `P2-13`, field `acceptance`, on
+> `origin/main` at `e15e928`:
+>
+> "THIRTEEN FILES ARE PENDING TODAY, 0013 to 0025, and P3-27 is the card that
+> applies them."
+>
+> and from `docs/migrations/APPLY-LOG.md` on the same commit, lines 42 to 47:
+>
+> "- `0028_applied_ledger_version.sql`, card de aplicare P3-11e
+>  - `0029_category_paints.sql`, card de aplicare P3-34
+>  - `0030_units_tonne_litre.sql`, card de aplicare P3-33
+>  - `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
+>  - `0032_extraction_draft_page_count.sql`, card de aplicare EXT-09
+>  - `0033_extraction_document_source.sql`, card de aplicare EXT-15"
+
+**Ruling: the sentence is corrected, the box it sits in is NOT converted into a
+statement of fact, and P2-13 gains `depends_on: GATE-03`.**
+
+**THE SENTENCE IS FALSE IN BOTH HALVES.** `0013` through `0025` are recorded
+APPLIED in `docs/migrations/APPLY-LOG.md` under the heading
+`WAVE 1 BATCH, 0013 to 0025 - APPLIED`, and `P3-27`, the card named as applying
+them, is `shipped` on the phase 3 board. The files that are pending today are
+`0028` to `0033`, six of them, and every card named as their applier
+(`P3-11e`, `P3-34`, `P3-33`, `EXT-09`, `EXT-15`) is **shipped**. The correction
+replaces the file numbers and the card name with what is true and re-derivable.
+
+**THE BOX STAYS A PRECONDITION AND THIS FOLLOWS GATE-03'S OWN DEFAULTS**, which
+already ruled on this exact line: "The box is not converted into a statement of
+fact: it is a precondition to be re-checked on rotation day against whatever the
+highest migration number is then. Rewording it to say 'no files are pending'
+would make it false the next time somebody authors a migration." The correction
+is a corrected count with its date attached, not a claim about rotation day.
+
+**AND THE COUNT IS ITSELF DISPUTED, WHICH IS WRITTEN IN RATHER THAN RESOLVED.**
+The input report records production returning `applied_ledger_version()` of
+`"0031"` and holding every object `0029`, `0030` and `0031` create, so at least
+four of the six lines say pending about a file production has applied. That is
+the report's own first defect and it is unfixed on `main`. It is not fixed here
+either, for the reason the report gives: `APPLY-LOG.md` entries are what a
+stranger reads instead of database access, and an entry reconstructed after the
+fact by whoever noticed the gap is a plausible journal of a run nobody made.
+Landing that reconstruction is `RST-05` under R-107.
+
+**THE CAPABILITY EDGE, WHICH IS SECTION 3 CHECK 3 AND IS THE ONE THAT COSTS.**
+`P2-13` REMOVES capabilities: it reverts `CLAUDE.md` section 8 to Ivan-only
+applies, deletes section 3.1, and rotates two credentials. The test the rubric
+names is to ask what the card takes away and make every card that needs it a
+dependency. `GATE-03` exists precisely because `P2-13`'s checklist names two
+grants by id and covers `R-082`'s applier grant only through the blanket phrase
+"reverting section 8 to Ivan-only applies". **If `P2-13` executes first, the
+checklist is ticked complete with `R-082`'s grant still standing**, and
+`CLAUDE.md` 8.7 already states the failure in its own words: a grant that
+outlives the condition it was granted under is how a temporary permission becomes
+a permanent one. `P2-13.depends_on` becomes `["P2-08b", "GATE-03"]`.
+
+**Nothing is unblocked by the edge and nothing is newly blocked by it.** `P2-13`
+is not eligible today, because `P2-08b` is `blocked` on Andre. `GATE-03` is
+`todo`, eligible, and unpicked. The edge changes only the order, and order is the
+whole of what it protects.
+
+**GATE-03 STILL OWNS ITS OWN WORK.** This ruling corrects a stale acceptance
+line, which `docs/DOCTRINE-TRIAGE.md` section 6 names as TRIAGE's. It does NOT
+add `R-082` to the checklist and it does NOT write the check that notices an
+unrevoked grant: both are `GATE-03`'s acceptance and TRIAGE writes no check.
+Whoever works `GATE-03` will edit the same field and should expect to.
+
+**Unblocks:** nothing.
+**Also changes:** `P2-13.acceptance`, `P2-13.depends_on` and `P2-13.notes` on
+`docs/board/rc-board-phase2.json`.
+**Supersedes:** none. It corrects a field, and the R-072 amendment that wrote the
+clause stands.
+
+---
+
+### R-106 - the launch gate audit for run 20260904-010000: phase 2 stays 6 of 9 with all three failures re-derived against the tree, and phase 3 is deliberately not audited because GATE-02 owns it
+**Date:** 2026-09-04
+**Asked on:** G4, G7 and G9 on the phase 2 board, and the nine phase 3 conditions
+**Answer, verbatim:**
+> from `docs/DOCTRINE-TRIAGE.md` section 4:
+>
+> "**Write the audit into `evidence.ref` whether or not it flips.** An audit that
+> flips nothing is still the most useful thing the next session can read, because
+> it says what is actually missing."
+
+**Ruling: nothing flips. Phase 2 stays 6 of 9 and phase 3 stays 0 of 9.** The
+three phase 2 failures are re-derived below against the tree at `e15e928`, not
+against the cards, and each audit is written into its condition's `evidence.ref`.
+
+**G4, extraction live end to end. STAYS `fail`. TWO CASES SHORT, AND BOTH WERE
+RE-CHECKED IN THE FILES RATHER THAN INHERITED FROM THE PREVIOUS AUDIT.**
+The deciding clause is R-053's: the ingest endpoint asserted against a fixture
+document plus four named failure cases.
+
+```
+$ grep -n "redirect" lib/data/extraction-fire.ts app/api/extraction/callback/route.ts
+(no output)
+
+$ grep -niE "content-length|maxsize|max_size|too large|413|oversize" \
+    app/api/extraction/callback/route.ts lib/data/extraction-fire.ts
+(no output)
+```
+
+`tests/e2e/extraction.spec.ts` now carries fourteen cases, up from eight at the
+2026-08-31 audit, and the four added since are EXT-15's document-source cases and
+EXT-09's page-count cases. **Neither of the two missing clauses is among them.**
+Fixture document, auth rejection and malformed payload are green as before, cases
+2, 4 and 5. Redirect and oversize are absent from the code and from the suite.
+The card is `P2-20`, it is `todo` and eligible, and it is the only card either
+gate condition has.
+
+**G7, the low-stock reminder email. STAYS `fail`, `blocked_on: ivan`,
+UNFLIPPABLE BY ANY TERMINAL.** Two of its three clauses are panel actions in the
+production hosting environment, `RESEND_API_KEY` and `RESEND_FROM`, which no
+terminal holds. This is escalation item 7 and it has now been put in front of the
+owner on 2026-08-31, 2026-09-02 and 2026-09-03 without an answer, and **every one
+of those three escalations is on a pull request that has not merged**, so the
+digest has never carried it from `main`. It is escalated again by this run. The
+third clause, a recipient address on a domain that exists, lands with the real
+staff accounts at `P2-13` and is not separately actionable.
+
+**G9, Mihai's full cycle. STAYS `fail`. UNFLIPPABLE BY ANY TERMINAL, AND IT IS
+NOT BACKLOG.** It needs the client to do something himself. `P2-14` is `blocked`
+on `client` and no such report exists. A reader counting three failing conditions
+as three units of remaining work is wrong about two of them: only `G4` has a card
+anybody can pick up.
+
+**PHASE 3 IS NOT AUDITED HERE AND THE REASON IS A CARD, NOT AN OMISSION.**
+All nine conditions are `fail` and `GATE-02` exists to re-run every one of them
+against the premise `P3-27` discharged, with an acceptance that requires each
+condition's `evidence` field rewritten with a new `at`. `GATE-02` is `todo` and
+eligible. Section 5 forbids authoring a second card for one problem, and writing
+a partial audit into the same nine fields that `GATE-02` must rewrite would
+collide with it. **What is recorded instead, because it is the cheapest thing on
+either board:** `GATE-01` carries phase 3 G1 clause 3, a read-only proof that an
+unauthorised write is refused by Postgres, it needs nothing from anyone, and it
+is unpicked.
+
+**NO DATABASE READ WAS PERFORMED FOR THIS AUDIT AND NONE IS CLAIMED.** Every
+finding above is from files at `e15e928`. Where the input report's production
+read is relied on, it is cited as the report's, in R-105.
+
+**Unblocks:** nothing. A gate is not work.
+**Also changes:** `evidence` on `G4`, `G7` and `G9` of
+`docs/board/rc-board-phase2.json`. `readiness_passed` stays 6.
+**Supersedes:** none. It confirms R-080 for `G4` and R-046 for `G7` and `G9`, on
+re-derived evidence rather than by inheritance.
+
+---
+
+### R-107 - four pull requests are stranded outside `main` carrying fifteen ruling ids, eleven cards and the fix for a false journal, three of them conflict, and their ids collide with each other: a ruling that has never been on `main` may be re-allocated before it lands
+**Date:** 2026-09-04
+**Asked on:** RST-05, and pull requests #157, #172, #181 and #184
+**Answer, verbatim:**
+> from `docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md`,
+> section 2:
+>
+> "**The pending migration list said pending and production said applied.**
+> `docs/migrations/APPLY-LOG.md` lists `0028`, `0029`, `0030` and `0031` as
+> pending with the card that will apply each. Production reports `0031` applied
+> and has every object the four files create. **This is the finding that matters
+> most and it is not fixed here.**"
+
+**Ruling: the fix exists, it is committed, and it is stranded. Card `RST-05` is
+authored to land all four pull requests as one reconciliation, and the id rule
+they need is settled here.**
+
+**THE CENSUS, TAKEN ON THIS BRANCH AT `origin/main` = `e15e928`:**
+
+| pull request | branch | merge state | what is on it and nowhere else |
+|---|---|---|---|
+| `#157` | `triage/20260902-070904` | `DIRTY` | `R-090` to `R-095`, cards `P3-35`, `P3-36`, `RST-04`, the phase 3 gate audit |
+| `#172` | `triage/20260903-070005` | `DIRTY` | `R-087` to `R-091`, cards `RULE-03`, `AUT-19`, `P3-37`, `BOARD-03` |
+| `#181` | `board/dispatch-20260903` | `DIRTY` | `R-098`, cards `MIG-01`, `RULE-04`, the `0028` to `0033` apply reconstruction, a contract section, three learnings |
+| `#184` | `triage/20260903-220002` | `BEHIND` | `R-098` to `R-101`, cards `RESTORE-01`, `GUARD-02` |
+
+**THREE OF THE FOUR CONFLICT WITH `main`, AND `CLAUDE.md` SECTION 3 SAYS WHAT
+THAT MEANS: a conflicting pull request triggers ZERO workflows.** Whatever
+`gh pr checks` reports on any of them belongs to a commit nobody is proposing to
+merge. `R-052` assigns the resolution to EXECUTOR, locally, against the full
+tree, with the validator run before the commit, and never in the web editor.
+
+**THE IDS COLLIDE WITH EACH OTHER, NOT WITH `main`.** `R-090` and `R-091` are
+written on `#157` and again, meaning something different, on `#172`. `R-098` is
+written on `#181` and again, meaning something different, on `#184`. Within each
+branch every id is unique, which is exactly the shape section 8b says
+`check:unique-ids` cannot see, and it is why that check compares headings against
+`origin/main`: on `main` none of these ids exists at all, so all four pull
+requests pass it today and any two of them landing turns green into a permanent
+ambiguity.
+
+**THE RULE, AND IT IS THE PART WORTH KEEPING.** Section 8b says NO ID IS EVER
+RENUMBERED TO MAKE IT PASS, and that rule protects `main`. **A ruling that has
+never been on `main` is not history and may be re-allocated a fresh id before it
+lands.** History is what is committed to the trunk; a branch is a proposal.
+Renumbering an id that has landed rewrites what a citation elsewhere already
+points at, and nothing points at these. The re-allocation is written into the
+renumbered entry, naming the id it was drafted under and the branch it was
+drafted on, so a reader arriving from the branch lands somewhere that tells them.
+
+**WHICH SIDE KEEPS THE ID IS DECIDED BY MERGE ORDER AND NOT BY MERIT**, so that
+the decision needs no judgement at the moment of resolution: the pull request
+that lands FIRST keeps the id it wrote, and every later one re-allocates from
+`decisions/NEXT-RULING-ID` as it then stands. Merge order is observable and merit
+is arguable, and the failure this is guarding against is a terminal choosing at
+2am.
+
+**`RST-05` IS ONE CARD FOR FOUR PULL REQUESTS AND SECTION 5 REQUIRES THAT
+ARGUED.** The four are not four independent problems. Two pairs of them collide
+on ids, so resolving one at a time means the second resolution has to be redone
+against the first, and `#184`'s content is partly invalidated by R-103 which can
+only be applied while looking at `#181`. The precedent is `RST-03`, which is the
+same shape for a single stranded pull request and is still `todo`, and `RST-02`
+and `AUT-18` remain the class fixes: the sweep that would have merged them and
+the census that would have named them. `RST-05` is the instance, as `RST-03` is,
+and it says so.
+
+**THE CARD ID IS `RST-05` AND NOT `RST-04`, DELIBERATELY.** `RST-04` is authored
+on `#157` and does not exist on `main`, so `check:unique-ids` would accept
+`RST-04` here and then fail the moment `#157` landed. Taking the next free id is
+one line of cost now against a manufactured collision later.
+
+**WHAT THIS RULING DOES NOT DECIDE.** It does not decide whether the automatic
+apply path that `#181` documents should be kept or switched off. That is a click
+in the Supabase console, escalation item 7, and it is escalated by this run with
+a recommended default rather than ruled.
+
+**Unblocks:** nothing today, and that is the point of writing it. It gives the
+four stranded pull requests one owner and one rule, where they currently have
+neither.
+**Also changes:** `docs/board/rc-board-phase2.json` gains `RST-05` in the
+`loose_ends` lane.
+**Supersedes:** none. It applies section 8b to a case section 8b does not name.
