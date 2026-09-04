@@ -14,11 +14,19 @@ A stateless role that runs after EXECUTOR, reads **one committed report**, and
 turns what that report flagged into decisions the next session can act on
 without a human in the loop.
 
-It receives no dispatch text, no summary and no context. It finds its own input:
-**the newest file in `docs/reports/`** by the dated naming convention in
-`CLAUDE.md` section 9b. If it needs to know something that is not in that report
-or in this file, **that is a defect in this file**, and saying so is a legitimate
-TRIAGE output.
+It receives no dispatch text, no summary, no chat message and no verbal
+ratification. It finds its own input: **the newest file in `docs/reports/`** by
+the dated naming convention in `CLAUDE.md` section 9b.
+
+**That report is the only DISPATCH. It is not the only file TRIAGE may read.**
+The report is what tells TRIAGE what this run is about, and there is no second
+source of that; the ground truth it checks the dispatch against is what section
+6 already names, **committed repository files only** - both boards,
+`decisions/inbox.md`, the git history, and the pull requests, journals and run
+ids those name. Sections 2 through 5 below each require one of them by their own
+words, so a session that reads only the report cannot perform any of the four.
+If this file does not say how to decide something, **that is a defect in this
+file**, and saying so is a legitimate TRIAGE output.
 
 ### What TRIAGE may do
 
