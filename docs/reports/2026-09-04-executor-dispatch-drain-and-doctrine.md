@@ -477,3 +477,63 @@ Choosing "ours" anywhere would silently revert EXT-15 and EXT-16.
 It is resolved **once, last**, when main has stopped moving. Doing it now would
 mean redoing it after each of the merges still ahead of it.
 
+---
+
+## Step 2 complete: zero open pull requests
+
+Thirteen open at the start, zero at the end. Eleven merged, two closed with the
+reason recorded.
+
+| PR | outcome |
+|---|---|
+| #195 EXT-16 | merged, 145 e2e passed |
+| #196 RULE-04 + EXT-21 | merged |
+| #197 R-124 doctrine | merged |
+| #194 POC state | merged |
+| #157 TRIAGE 0902 | merged, after repairing four files of stripped-marker residue |
+| #172 TRIAGE 0903-07 | merged, after renumbering R-090 and R-091 |
+| #184 TRIAGE 0903-22 | merged |
+| #187 TRIAGE 0904-01 | merged |
+| #190 TRIAGE 0904-04 | merged |
+| #189 POC report | merged |
+| #192 AUT-17 | merged, with the board flip the pull request omitted |
+| #175 EXT-14 | merged, 146 e2e passed |
+| #191 POC state | **closed**, superseded by #194 |
+| #182 EXT-16 claim | **closed**, superseded by the card shipping |
+
+**Every merge was verified with `npm run checks:state <pr>` against the exact head
+sha.** Not one was merged on the green GitHub was already displaying: all thirteen
+were between 3 and 31 commits behind `main`, and under
+`required_status_checks.strict` those checks belonged to a `main` that no longer
+existed.
+
+**`gh pr merge` refuses a behind branch outright**, which was confirmed rather
+than assumed:
+
+    X #194 is not mergeable: the head branch is not up to date with the base branch.
+
+`--admin` would have forced it. That merges on a check that ran against a
+different tree, which section 3 forbids in terms, so every branch was refreshed
+and re-run instead. **That is why this took hours rather than minutes**, and it is
+the cost of the setting that guarantees what is tested is what lands.
+
+### #157, the two-day-old red one
+
+Its boards did not parse. Merge `75cba39` had resolved a conflict by deleting the
+**marker characters** and leaving the tails behind as file content: ten lines
+across four files reading just ` triage/20260902-070904` or ` main`. A grep for
+`<<<<<<<` finds nothing, which is exactly why `check:conflict-residue` CHECK 2
+looks for bare ref tokens instead. Repaired by rebuilding from both parents, per
+R-052, not by patching around the markers.
+
+### Step 6: the harness is back
+
+`scripts/poc/install.sh` was re-run **before** the schedule was restored, because
+#192 changed `scripts/poc/run.sh` and that is one of the three deployed copies
+under `/Users/ivan/rc-poc-bin`. Verified afterwards: the deployed `run.sh` is now
+byte-identical to the repository's. Without that step the OLD harness would have
+started against the new board, which is the mismatch CLAUDE.md 15 exists to
+prevent.
+
+All three agents are loaded: `com.ai.rc-poc` at 22:00, 01:00, 04:00 and 07:00;
+`com.ai.rc-poc-chat` every 60 seconds; `com.ai.rc-poc-digest` at 08:00 and 19:00.
