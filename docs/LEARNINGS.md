@@ -3344,3 +3344,65 @@ before it ends.** An open pull request with no merge is loud: it appears in
 pull request is silent in all of them. Before taking a card, check
 `git ls-remote --heads origin card/<id>`; the answer costs one round trip and the
 alternative is redoing work that was already finished.
+
+### Three components, three copies of one path, and the owner's answer channel refusing his answers
+**Tag:** infra
+**ERROR:** `scripts/poc/run.sh`, `scripts/poc/inbox.mjs` and `scripts/poc/notify.mjs`
+each independently hardcoded `docs/board/rc-board-phase2.json`, while every
+unattended run since 2026-08-30 worked the phase 3 board. Three separate
+failures, all silent, all looking like normal operation:
+the Telegram reader answered `R P3-27 default` with `no card P3-27 on the board`,
+so the owner's own decision channel refused his decisions on the oldest
+unanswered question in the repository;
+the digest counted shipped cards and read the launch gate off a board nobody was
+working, so it reported one gate figure that silently meant the first board;
+and the eligible-card selector, the silence rule and the claim writer all
+computed against that same board, which is how a claim on `AUT-10` came to be
+written at the end of a run that spent its time on `P3-11`.
+**Nothing was red at any point.** A hardcoded path does not fail, it answers
+about the wrong thing, and every one of those three components produced
+plausible output the whole time.
+**SOLUTION:** `scripts/poc/boards.mjs` is now the only place a board file is
+named, and every component resolves against the set. **The rule: when a second
+instance of a kind of thing appears (a second board, a second environment, a
+second queue), the list of them becomes a module before the second consumer is
+written, not after the third one is found to be blind.** Repointing the old
+constant at the new board would have moved the blindness rather than removed it.
+The test that guards it greps the live components for a board filename, because
+the property being protected is that there is exactly one place, and a test that
+only checks behaviour cannot see a fourth copy arriving.
+
+### A deployed shell script and a worktree-read module do not upgrade together
+**Tag:** infra
+**ERROR:** `run.sh`, `responder.sh` and `digest.sh` are deployed copies under
+`/Users/ivan/rc-poc-bin`, while every `.mjs` beside them is read out of a
+worktree checked out at `origin/main`. So a change that alters how a shell script
+calls a module ships the two halves at different moments: for one merge window a
+NEW script calls an OLD parser. Passing the board set as one space separated
+`--board "a b"` argument made the old parser treat the whole string as a single
+path, and `test-install.sh` caught it as `the board did not parse`.
+**SOLUTION:** Repeated `--board` flags instead of one packed value. An old parser
+keeps the last flag and renders that board alone, which is exactly what it did
+before; a new parser collects them all. **The rule: when two halves of a system
+upgrade at different times, choose the argument shape whose OLD reading is the
+old behaviour rather than an error.** Both shell scripts also fall back to the
+phase boards present in the commit when `boards.mjs` is absent from it, and log
+that they did, so a main that predates the change costs a log line rather than
+every scheduled window until the merge lands.
+
+### Folding an id on the way in and not on the way out makes a lease that protects nothing
+**Tag:** infra
+**ERROR:** `scripts/poc/claim.sh` upper-cased the card id it was handed
+(`tr '[:lower:]' '[:upper:]'`) and wrote that into the claims map. `eligible.mjs`
+then looked the claim up by the board's own spelling, verbatim. For every card
+with a lower-case suffix (`P3-04b`, `P3-11a`, `P3-13c`) the two never met: the
+claim was written, reported as taken, and honoured by nobody. The command printed
+success. This is the fourth instance of one defect class in this repository, after
+the pending-register regex, `ask.mjs`, and the inbox reader's own card set.
+**SOLUTION:** The writer resolves the typed id against the board set and stores
+the board's spelling; the reader folds both sides so leases already in the file
+still match. **The rule, restated because it keeps being paid for: tooling that
+folds an id must fold BOTH SIDES of every comparison, and the place to do it is
+where the id is RESOLVED against a source of truth, once, rather than at each
+comparison.** An id that resolves to nothing is now refused and named, because a
+lease on a card that does not exist parks nothing and hides a typo.
