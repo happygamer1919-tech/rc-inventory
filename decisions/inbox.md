@@ -4710,3 +4710,82 @@ has not stopped sending. **Our acceptance may be wider than his emission and mus
 never be narrower.** Nothing in this ruling removes a value our validator accepts
 today, and no future card may cite this ruling as authority to.
 
+
+---
+
+### R-122
+
+**A probe run against production must be INCAPABLE OF WRITING, not merely undone
+if it writes. A probe whose undo is a DELETE is the wrong shape.**
+
+**Asked by:** EXECUTOR, 2026-09-04, on the owner's dispatch. **Decided by:** the
+owner in that dispatch.
+
+**THE INSTANCE IS THIS TERMINAL'S OWN PROBE, and it is cited rather than a
+hypothetical because the distinction the rule draws is exactly the one that probe
+sat on.**
+
+On 2026-09-03, verifying that the Supabase integration had applied migration 0032
+FAITHFULLY and not merely its `ADD COLUMN`, a probe posted a row to
+`extraction_drafts` carrying `page_count = 0`:
+
+    POST /rest/v1/extraction_drafts  {..., "page_count": 0}
+      ->  400  {"code":"23514", ...}
+
+`23514` is `check_violation`. The constraint refused it, **nothing was written**,
+and there was no row to journal under CLAUDE.md 8.8.
+
+**THE PROBE ALSO CARRIED A `DELETE` CLEANUP that would have run had the insert
+unexpectedly succeeded. It did not execute.** So the probe was safe. It was safe
+**BY CONSTRUCTION AND NOT BY DESIGN**, and that is the whole ruling: the thing
+that made it safe was a constraint the probe was testing for, not a property the
+probe had. Had the constraint been absent, which is the case the probe existed to
+detect, the insert would have succeeded and the `DELETE` would have run against
+production.
+
+**WHY A DELETE CLEANUP IS NOT A ROLLBACK.** PostgREST offers **no transaction**.
+There is nothing to roll back, so "undo it afterwards" means a second write, on a
+second request, which can fail on its own, and which leaves the row in place if
+the process dies in between. A transaction either happens or does not; a
+compensating delete is a promise.
+
+**AND IT COLLIDES WITH 8.6.** A `DELETE` against production is in the forbidden
+class. R-047 permits a DELETE-class SCRIPT only when it runs inside an explicit
+transaction, evaluates its own pass and fail conditions in SQL before the commit,
+and commits only on all-pass. A cleanup delete over PostgREST satisfies none of
+those three, so a probe that might run one is a probe that might execute an
+unauthorised destructive statement.
+
+**WHAT THE RULE REQUIRES, and it is one thing with three ordinary forms.**
+
+**A production probe must be structurally unable to write.** Not "unlikely to",
+not "cleaned up if it does".
+
+1. **Read.** A `GET` cannot write. Most questions are answerable this way and
+   this is the default: whether a column exists, what a function returns, how
+   many rows match.
+2. **A write that the schema must refuse.** Permitted, and it is what the 0032
+   probe should have been on purpose: choose a value the constraint under test
+   forbids, so success is impossible and the refusal IS the answer. **Then carry
+   no cleanup at all**, because there is nothing to clean, and the absence of the
+   cleanup is what proves the author knew it could not succeed.
+3. **A transaction, where one exists.** Through the applier or `psql`, `begin`
+   plus `rollback` is a real undo. Over PostgREST it is not available, so form 1
+   or form 2 applies.
+
+**WHAT IT FORBIDS:** a probe whose safety depends on a later request, on the
+process surviving, or on a condition the probe is itself trying to establish.
+
+**IT BINDS PROBES, NOT WORK.** A card that is authorised to write to production
+writes, journals it under 8.8, and is governed by 8.5, 8.6 and R-047 as before.
+This is about the reads-dressed-as-writes a terminal performs to answer a
+question, which have no card, no journal row and no ceremony, and which are
+therefore the ones most likely to be done casually.
+
+**Allocation note.** `R-122` was taken after reading `decisions/NEXT-RULING-ID`
+on `main` and on all thirteen open pull request branches, and grepping each for a
+written `R-122`. None had one. **That manual sweep found a live collision in the
+process:** pull requests #184 and #181 both write `R-098`, with different
+headings, and `check:unique-ids` is green on both because it compares each branch
+against `main` only. That is precisely the defect card `RULE-04` describes, and it
+is why this id is 122 rather than the 099 the counter would have handed out.
