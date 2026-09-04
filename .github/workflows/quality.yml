@@ -101,6 +101,16 @@ jobs:
       - name: Check the reconciliation tolerance
         run: npm run check:reconciliation
 
+      # MERGE IS APPLY ON THIS REPOSITORY, so the destructive-statement boundary
+      # is the pull request and not the applier. NOT PATH-FILTERED: it resolves
+      # its own file list from the diff, and a workflow-level filter would skip
+      # it on exactly the pull request that brings a migration into scope.
+      - name: Refuse a migration that removes rows
+        run: npm run check:no-destructive-migration
+
+      - name: Prove the destructive-migration check refuses
+        run: npm run prove:no-destructive-migration
+
       # RULE-02. A DUPLICATE RULING ID OR CARD ID FAILS THE BUILD.
       #
       # "Namespaced by author" was doctrine and was enforced by nothing. On
