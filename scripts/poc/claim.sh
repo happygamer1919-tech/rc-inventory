@@ -26,7 +26,13 @@ set -u -o pipefail
 POC_STATE=docs/poc/state.json
 POC_CLAIM_TTL_SECONDS=21600   # 6 hours, matches run.sh and eligible.mjs
 
-PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# launchd hands over a minimal PATH, so the machine's own tool paths are named
+# here. THE INHERITED PATH IS KEPT ON THE END rather than replaced: this script
+# is now invoked by scripts/poc/test-board-set.sh in the quality job, where node
+# lives somewhere else entirely and replacing PATH produced
+# `claim.sh: line 79: node: command not found`. Prepending keeps the launchd
+# case working and stops the script from being unrunnable anywhere else.
+PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}
 export PATH
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
