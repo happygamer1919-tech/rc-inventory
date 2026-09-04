@@ -126,3 +126,13 @@ an argument for their priority, not a new card.
 No launch gate condition changed. Phase 2 stays 6/9, phase 3 stays 0/9. One card
 moved, `todo` to `in_flight`, and `as_of` was bumped in the same commit as the
 code it describes.
+
+## 7. Addendum, written after committing this file
+
+Committing this report moved the head of `card/aut-17` from `659c672` to a new
+sha, so the `checks:state` block quoted in section 2 belongs to a commit nobody
+is now proposing to merge, and the `quality` run that had started on `659c672`
+was superseded by the push. That is AUT-16's finding applying to this run in
+turn: **the sha to merge on is the head after this commit, not the one printed
+above.** The next run reads `npm run checks:state 192` itself rather than
+trusting either sha written here.
