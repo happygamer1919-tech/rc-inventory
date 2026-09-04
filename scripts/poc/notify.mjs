@@ -20,11 +20,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyse, daysSince } from "./eligible.mjs";
 import { buildPlainDigest, assertPlain, jargonWarnings } from "./plain-digest.mjs";
+import { loadBoards } from "./boards.mjs";
 import { writeFileSync } from "node:fs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
-const BOARD_PATH = path.join(REPO_ROOT, "docs", "board", "rc-board-phase2.json");
+// AUT-16. The board SET, not one board. This constant used to be the phase 2
+// board alone, so the digest counted shipped cards and the launch gate off a
+// board nobody was working and could not see the twelve phase 3 cards shipped
+// since 2026-08-30. The set is defined once, in boards.mjs.
+function boardSet() {
+  try {
+    return loadBoards({ root: REPO_ROOT });
+  } catch {
+    return [];
+  }
+}
 const STATE_PATH = path.join(REPO_ROOT, "docs", "poc", "state.json");
 const REPO_SLUG = "happygamer1919-tech/rc-inventory";
 
@@ -167,30 +178,34 @@ function readTriage() {
 }
 
 function buildDigest() {
-  const board = readJson(BOARD_PATH, { cards: [] });
+  const set = boardSet();
   const state = readJson(STATE_PATH, {});
-  const cards = board.cards || [];
+  const cards = set.flatMap((entry) => entry.board.cards || []);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const runId = args["run-id"] || state.run_id || "manual";
   const now = Math.floor(Date.now() / 1000);
-  const view = analyse(board, state, "harness", now);
+  const view = analyse(set, state, "harness", now);
 
   const lines = [];
   lines.push("RC inventory, run " + runId);
   lines.push(new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC");
   lines.push("");
 
-  // Status of the board as a whole, so the message stands on its own.
-  const counts = {};
-  for (const c of cards) counts[c.status] = (counts[c.status] || 0) + 1;
-  const countLine = Object.keys(counts)
-    .sort()
-    .map((k) => k + " " + counts[k])
-    .join(", ");
-  lines.push("BOARD: " + countLine);
-  const gate = board.launch_gate || {};
-  if (gate.denominator !== undefined) {
-    lines.push("LAUNCH GATE: " + (gate.readiness_passed || 0) + "/" + gate.denominator);
+  // Status of each board, so the message stands on its own. ONE BLOCK PER
+  // BOARD: two launch gates are never summed, because 6 of 9 and 0 of 9 is not
+  // 6 of 18 and a merged figure is a number nobody can check.
+  for (const entry of set) {
+    const counts = {};
+    for (const c of entry.board.cards || []) counts[c.status] = (counts[c.status] || 0) + 1;
+    const countLine = Object.keys(counts)
+      .sort()
+      .map((k) => k + " " + counts[k])
+      .join(", ");
+    lines.push("BOARD " + entry.relative + ": " + countLine);
+    const gate = entry.board.launch_gate || {};
+    if (gate.denominator !== undefined) {
+      lines.push("LAUNCH GATE " + entry.relative + ": " + (gate.readiness_passed || 0) + "/" + gate.denominator);
+    }
   }
   lines.push("");
 
@@ -577,11 +592,11 @@ const FULL_DIGEST_DIR = "/Users/ivan/rc-poc-logs";
 // POC-BUILDER reading the logs, not for Ivan, and giving him a path to it would
 // put a file path back into the message the path was removed from.
 function renderBoth() {
-  const board = readJson(BOARD_PATH, { cards: [] });
+  const set = boardSet();
   const state = readJson(STATE_PATH, {});
   const runId = args["run-id"] || state.run_id || "manual";
 
-  const plain = buildPlainDigest(board, state, { cards: args.cards });
+  const plain = buildPlainDigest(set, state, { cards: args.cards });
   const full = buildDigest();
 
   try {

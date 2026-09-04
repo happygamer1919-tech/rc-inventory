@@ -405,6 +405,25 @@ jobs:
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
 
+      # AUT-16. THE BOARD SET, AND EVERY COMPONENT THAT RESOLVES AGAINST IT.
+      #
+      # Three components each held their own hardcoded path to the phase 2
+      # board while every run since 2026-08-30 worked the phase 3 board: the
+      # Telegram answer channel refused every phase 3 card id, the digest
+      # counted shipped cards and the launch gate off a board nobody was
+      # working, and the eligible-card selector, the silence rule and the claim
+      # writer all computed against that same board.
+      #
+      # Every half runs the REAL function, and every half carries a failing case
+      # built by handing that same function ONE board. A test that only proved
+      # the new behaviour could not notice a repoint back to a single board,
+      # which is the regression this step exists to catch.
+      #
+      # No network, no credentials, no database: two fixture boards in a
+      # temporary directory and the shell parsers.
+      - name: Prove the board set is the union of the boards  # AUT-16-BOARD-SET-PROOF
+        run: bash scripts/poc/test-board-set.sh
+
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |
           set -uo pipefail

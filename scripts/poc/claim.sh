@@ -26,7 +26,13 @@ set -u -o pipefail
 POC_STATE=docs/poc/state.json
 POC_CLAIM_TTL_SECONDS=21600   # 6 hours, matches run.sh and eligible.mjs
 
-PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# launchd hands over a minimal PATH, so the machine's own tool paths are named
+# here. THE INHERITED PATH IS KEPT ON THE END rather than replaced: this script
+# is now invoked by scripts/poc/test-board-set.sh in the quality job, where node
+# lives somewhere else entirely and replacing PATH produced
+# `claim.sh: line 79: node: command not found`. Prepending keeps the launchd
+# case working and stops the script from being unrunnable anywhere else.
+PATH=/Users/ivan/.local/bin:/Users/ivan/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}
 export PATH
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -34,7 +40,7 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 cd "$REPO_ROOT" || { echo "FATAL: cannot enter $REPO_ROOT"; exit 1; }
 
 ACTION=${1:-}
-CARD_ID=$(echo "${2:-}" | tr '[:lower:]' '[:upper:]')
+CARD_TYPED=${2:-}
 ACTOR=${3:-$(whoami)}
 
 usage() {
@@ -44,7 +50,42 @@ usage() {
 }
 
 [ -z "$ACTION" ] && usage
-if [ "$ACTION" != "list" ] && [ -z "$CARD_ID" ]; then usage; fi
+if [ "$ACTION" != "list" ] && [ -z "$CARD_TYPED" ]; then usage; fi
+
+# ---------------------------------------------------------------------------
+# AUT-16. THE CARD ID IS RESOLVED AGAINST THE BOARD SET, AND THE BOARD'S OWN
+# SPELLING IS WHAT GETS WRITTEN.
+#
+# This used to be `tr '[:lower:]' '[:upper:]'` and nothing else. Two defects came
+# out of that. A claim on a phase 3 card was accepted against a harness that
+# could not see phase 3 at all; and P3-04b was written into the claims map as
+# P3-04B, which eligible.mjs then looked up verbatim and never found, so the
+# lease silently protected nothing. Ids in this repository carry lower case
+# suffixes and the owner types from a phone: fold the input, resolve it, and
+# write back what the board says.
+#
+# An id on no board is REFUSED and named. A lease on a card that does not exist
+# parks nothing and hides a typo.
+# ---------------------------------------------------------------------------
+if [ "$ACTION" != "list" ]; then
+  CARD_ID=$(node -e '
+    const typed = String(process.argv[1] || "").toUpperCase();
+    import("./scripts/poc/boards.mjs").then((m) => {
+      const index = m.cardIndex(m.loadBoards({ root: process.cwd() }));
+      const hit = index.get(typed);
+      if (!hit) {
+        console.error("REFUSED: no card " + typed + " on any board in the set");
+        process.exit(4);
+      }
+      console.log(hit.card.id);
+    }).catch((err) => {
+      console.error("REFUSED: " + err.message);
+      process.exit(4);
+    });
+  ' "$CARD_TYPED") || exit 4
+else
+  CARD_ID=""
+fi
 
 # ---------------------------------------------------------------------------
 # All claim reading and writing goes through node, so the TTL arithmetic and the
