@@ -205,3 +205,26 @@ That also disposes of the red run on #191 without pretending the flake was
 diagnosed away: the flake was diagnosed, and separately the pull request turns out
 to have nothing left to contribute.
 
+### A correction to my own earlier note about #172
+
+Earlier in this run I recorded that #172 "needs a content review as well, since
+its `R-089` and card `P3-35` are superseded". **The `P3-35` half of that is
+wrong**, and it is corrected here rather than left in the file.
+
+Checked against the branches:
+
+    triage/20260903-070005  (#172)   P3-35 absent   P3-37 present
+    triage/20260902-070904  (#157)   P3-35 present  P3-36 present
+    main                             none of the three
+
+`P3-35` is **#157's**, not #172's, and it is about verifying the phase 3 schema on
+production read-only, which nothing in this session supersedes. #172's PR
+description names `P3-35` against `R-089`, which is why I misread it; the branch
+itself carries `P3-37`. **The description is stale relative to its own branch.**
+
+**The boards are therefore disjoint and there is no card-id collision between the
+two.** The only overlap is the ruling pair `R-090` and `R-091`. `R-089` itself is
+a finding recorded at a point in time and merges as history like any other ruling;
+the APPLY-LOG reconstruction and `MIG-01` answer the question it raised, which is
+what a later ruling is supposed to do.
+
