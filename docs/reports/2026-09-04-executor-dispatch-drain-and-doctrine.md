@@ -76,3 +76,48 @@ round: **#195 merges first, and this branch is refreshed on top of it.** Writing
 8.0 to reference a check that has not landed would put a promise in the file that
 a reader could not run, which is the class of defect this whole ruling is about.
 
+---
+
+## Step 2. The drain, and why it is serial
+
+**`required_status_checks.strict` is `true` on `main`.** Branch protection requires
+a pull request to be up to date with `main` before it merges. **Every merge
+therefore invalidates every other open pull request**, each one needs its branch
+refreshed, and each refresh triggers a fresh ~20 minute `quality` run.
+
+Thirteen pull requests, one at a time, is the shape of this queue and there is no
+way to batch it that does not change what the owner listed. What CAN be
+overlapped is the human half: while one branch's post-refresh run is going, the
+next branch's conflict resolution is done locally and held unpushed.
+
+**Order chosen, and the reasons:**
+
+| # | PR | why here |
+|---|---|---|
+| 1 | #195 EXT-16 | already running; carries `check:no-destructive-migration`, which section 8.0 references, so the doctrine branch cannot land before it |
+| 2 | #182 claim | already running; trivial, one file |
+| 3 | doctrine/merge-is-apply | R-124, depends on #195 for the check it names |
+| 4 | #194, #189 | POC state, one file each, newest first |
+| 5 | #192 AUT-17 | a real card, one behind |
+| 6 | #190, #193 | TRIAGE, one behind, ruling ids above the collision zone |
+| 7 | #187, #184 | TRIAGE, 11 and 12 behind, and #184 holds `R-098` |
+| 8 | #157 then #172 | the R-090/R-091 collision. #157 first because it is pure ruling text; #172 needs a content review as well, since its `R-089` and card `P3-35` are superseded by the APPLY-LOG reconstruction and `MIG-01` |
+| 9 | #175 EXT-14 | six conflicts against the extraction files, resolved once at the end when `main` has stopped moving under it |
+| — | #191 | red. See below. |
+
+### #191, the red one
+
+**It is not #191's fault.** The pull request changes `docs/poc/state.json` and
+nothing else, seven insertions and eleven deletions. The failure is
+`client-detail.spec.ts:50`, on `page.goBack()` followed by
+`expect(getByTestId("panel-documente")).toBeVisible()`.
+
+**The same test also failed run 33876665219, which is #195's**, a branch whose
+content has nothing to do with client screens either. A test that fails on two
+unrelated branches and passes elsewhere is flaky, not broken by either of them.
+
+The shape is a classic client-side navigation race: `goBack()` returns before the
+panel has re-rendered, and a 15 second timeout is enough on a fast runner and not
+on a slow one. **Re-run rather than closed**, because the content is a legitimate
+harness state update and there is nothing in it to fix.
+
