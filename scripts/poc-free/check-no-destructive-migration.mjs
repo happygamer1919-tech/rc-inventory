@@ -143,17 +143,25 @@ const explicit = args.filter((a) => !a.startsWith('-'));
 function changedFiles() {
   if (explicit.length > 0) return { files: explicit, how: 'named on the command line' };
   const base = process.env.RC_DESTRUCTIVE_BASE || 'origin/main';
+  // TESTABILITY OVERRIDE, the same pattern check-pending-schema-reads uses for
+  // its own inputs, so prove-no-destructive-migration.mjs can point the DIFF
+  // SELECTION at a throwaway repository and watch it pick up both an added file
+  // and a MODIFIED one. Without it the selection is the one part of this check
+  // nothing exercises, and "adds or modifies" would be a claim rather than a
+  // proof.
+  const gitRoot = process.env.RC_DESTRUCTIVE_GITROOT || ROOT;
+  const head = process.env.RC_DESTRUCTIVE_HEAD || 'HEAD';
   try {
-    const mergeBase = execFileSync('git', ['merge-base', base, 'HEAD'], {
-      cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    const mergeBase = execFileSync('git', ['merge-base', base, head], {
+      cwd: gitRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
     const out = execFileSync(
       'git',
-      ['diff', '--name-only', '--diff-filter=AM', `${mergeBase}...HEAD`, '--', 'supabase/migrations'],
-      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      ['diff', '--name-only', '--diff-filter=AM', `${mergeBase}...${head}`, '--', 'supabase/migrations'],
+      { cwd: gitRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const files = out.split('\n').map((l) => l.trim()).filter((l) => l.endsWith('.sql'))
-      .map((l) => join(ROOT, l));
+      .map((l) => join(gitRoot, l));
     return { files, how: `added or modified against ${base} (${mergeBase.slice(0, 7)})` };
   } catch {
     // FAILS OPEN INTO CHECKING EVERYTHING, never into checking nothing. When the

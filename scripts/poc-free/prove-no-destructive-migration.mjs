@@ -111,6 +111,47 @@ console.log('\n7. the input count is asserted against the parse count');
   record('a named file that is not on disk is refused, not skipped', missing.status === 1 && missing.out.includes('MISSING'), `exit ${missing.status}`);
 }
 
+console.log('\n8. the DIFF SELECTION picks up a MODIFIED migration, not only an added one');
+{
+  // "adds or modifies" is the requirement, and the selection is the one part of
+  // the check that passing explicit filenames never exercises. This builds a
+  // throwaway repository where one migration is EDITED and another is ADDED, and
+  // requires the check to find the destructive statement in the EDITED one.
+  const dir = mkdtempSync(join(tmpdir(), 'rc-destructive-git-'));
+  const git = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    mkdirSync(join(dir, 'supabase/migrations'), { recursive: true });
+    git('init', '-q', '.');
+    git('config', 'user.email', 'proof@example.invalid');
+    git('config', 'user.name', 'proof');
+    writeFileSync(join(dir, 'supabase/migrations/0001_a.sql'), 'select 1;\n');
+    git('add', '-A'); git('commit', '-qm', 'base');
+    git('branch', '-q', 'base-ref');
+    git('checkout', '-qb', 'feat');
+    // 0001 is MODIFIED, and the modification is the destructive one.
+    writeFileSync(join(dir, 'supabase/migrations/0001_a.sql'), 'select 1;\ntruncate public.t;\n');
+    // 0002 is ADDED and is clean, so a check that only looked at additions would
+    // report OK and miss the truncate entirely.
+    writeFileSync(join(dir, 'supabase/migrations/0002_b.sql'), 'select 2;\n');
+    git('add', '-A'); git('commit', '-qm', 'change');
+
+    let r;
+    try {
+      const out = execFileSync(process.execPath, [CHECK], {
+        cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, RC_DESTRUCTIVE_GITROOT: dir, RC_DESTRUCTIVE_BASE: 'base-ref', RC_DESTRUCTIVE_HEAD: 'feat' },
+      });
+      r = { status: 0, out };
+    } catch (e) {
+      r = { status: e.status ?? 1, out: (e.stdout || '') + (e.stderr || '') };
+    }
+    record('both files are selected by the diff', /2 file\(s\)/.test(r.out), r.out.slice(0, 300));
+    record('the TRUNCATE in the MODIFIED file is refused', r.status === 1 && r.out.includes('TRUNCATE'), `exit ${r.status}: ${r.out.slice(0, 300)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 const failed = results.filter((r) => !r.pass).length;
 console.log(`\n${results.length - failed} of ${results.length} proofs passed`);
 if (failed > 0) process.exit(1);
