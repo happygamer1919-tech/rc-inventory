@@ -3314,3 +3314,27 @@ one whose *failing* path is. **The mirror is worse**, because a false green is
 ignored once and a false red is ignored forever. Any extractor that produces a
 NAME which is then used to search should validate that the name is plausible
 before trusting it.
+
+### A card branch pushed with no pull request is work that the board reports as never started
+**Tag:** ci
+**ERROR:** Run `20260903-220002` booted, read `docs/board/rc-board-phase2.json`,
+and was handed `AUT-15` as the lowest-id eligible card because its status on
+`main` was `todo`. The card was in fact **finished**: branch `card/aut-15` existed
+on `origin` at `f5c5066`, carrying the corrected `docs/DOCTRINE-TRIAGE.md`
+paragraph, the board flip to `in_flight`, and a commit message quoting the failing
+acceptance run. No pull request had ever been opened for it, so nothing on `main`
+knew. `gh pr list --head card/aut-15` returned `[]`. The board said `todo`, the
+digest would have said not started, and the next run would have redone the work
+from scratch and produced a second branch for one card.
+**SOLUTION:** This run added no new commit to the doctrine file: it read the
+existing branch, confirmed the acceptance passed on it, merged `origin/main` INTO
+the branch (a merge, never a rebase, because section 3 forbids rewriting a card
+branch's history), and finished the card from there. **The durable half is the
+detection rule: a card branch is only visible to the board through its pull
+request, so a run's leftover-work sweep must look at BRANCHES, not only at open
+pull requests.** An open pull request with no merge is loud, it appears in
+`gh pr list` and in every status query. A pushed branch with no pull request is
+silent in exactly the same places, and the board's `todo` actively asserts the
+opposite of the truth. Before taking a card, check `git ls-remote --heads origin
+card/<id>`; the answer costs one round trip and the alternative is duplicated work
+on a card that was already done.
