@@ -31,12 +31,20 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { archiveRuling, pendingRulings, RULING_DIR } from "./ruling-spool.mjs";
+import { loadBoards, cardIndex, CLOSED_BOARDS } from "./boards.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
-const BOARD_PATH = path.join(REPO_ROOT, "docs", "board", "rc-board-phase2.json");
+// AUT-16. THE ANSWER CHANNEL RESOLVES AGAINST THE WHOLE BOARD SET.
+//
+// There was a BOARD_PATH constant here, one hardcoded path to the phase 2
+// board, so `R P3-27 default` came back as "no card P3-27 on the board" and the
+// owner's own decision channel refused his decisions. P3-27 was the oldest
+// unanswered question in this repository at the time; he could not have
+// answered it from his phone if he had tried. The set now lives in boards.mjs
+// and is not repeated here, so a fourth board is a one-line change there.
 const INBOX_PATH = path.join(REPO_ROOT, "decisions", "inbox.md");
 const SECRETS_PATH = "/Users/ivan/rc-secrets/phase2.env";
 const LOG_DIR = "/Users/ivan/rc-poc-logs";
@@ -333,7 +341,7 @@ async function main() {
   log("read " + updates.length + " spooled ruling(s) from " + rulingDir);
   if (updates.length === 0) return 0;
 
-  const board = JSON.parse(readFileSync(BOARD_PATH, "utf8"));
+  const boardSet = loadBoards({ root: REPO_ROOT });
   // FOLDED ON BOTH SIDES. The ruling form is upper-cased on the way in, because
   // the owner types `R P3-27 default` and should not have to match a card's
   // capitalisation from his phone. The BOARD is not upper-case: ids carry
@@ -346,11 +354,16 @@ async function main() {
   // [A-Z0-9-]+ and silently reported zero pending migrations for P3-04b;
   // ask.mjs folded the id and then failed to find the card it had just messaged
   // about. Tooling that folds an id must fold BOTH SIDES of every comparison.
-  const knownCardIds = new Set((board.cards || []).map((c) => String(c.id).toUpperCase()));
+  //
+  // AUT-16: the index spans every board in the set, and REFUSES to build when
+  // one id appears on two boards. Picking one of two cards wearing one id is
+  // how a ruling lands on the wrong card.
+  const index = cardIndex(boardSet);
+  const knownCardIds = new Set(index.keys());
   // The board's own spelling, so a verdict is written onto the card with the id
   // the board actually uses rather than the folded one.
   const cardIdBySpelling = new Map(
-    (board.cards || []).map((c) => [String(c.id).toUpperCase(), c.id]),
+    [...index.entries()].map(([folded, hit]) => [folded, hit.card.id]),
   );
 
   const accepted = [];
@@ -415,17 +428,22 @@ async function main() {
   git(["checkout", "-b", branch, "origin/main", "--quiet"]);
 
   let inboxText = readFileSync(INBOX_PATH, "utf8");
-  const boardText = readFileSync(BOARD_PATH, "utf8");
-  const boardJson = JSON.parse(boardText);
+  // AUT-16. The ruling is written back onto the board that actually holds the
+  // card. Reading one board and writing one board meant an accepted phase 3
+  // ruling would have found no card and silently done nothing, which is a worse
+  // failure than the refusal it replaced.
+  const writeSet = loadBoards({ root: REPO_ROOT });
+  const writeIndex = cardIndex(writeSet);
+  const touchedBoards = new Set();
   const today = new Date().toISOString().slice(0, 10);
   const rulingIds = [];
   const cardIds = [];
 
   for (const a of accepted) {
-    const card = (boardJson.cards || []).find(
-      (c) => String(c.id).toUpperCase() === String(a.verdict.cardId).toUpperCase(),
-    );
-    if (!card) continue;
+    const hit = writeIndex.get(String(a.verdict.cardId).toUpperCase());
+    if (!hit) continue;
+    const card = hit.card;
+    touchedBoards.add(hit.board);
 
     const rulingId = nextRulingId(inboxText);
     inboxText = inboxText.trimEnd() + "\n\n" + renderRuling(rulingId, card, a.verdict, a.text, today);
@@ -442,19 +460,23 @@ async function main() {
     card.last_checkpoint = today;
   }
 
-  boardJson.as_of = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-
+  const stamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
   writeFileSync(INBOX_PATH, inboxText.trimEnd() + "\n");
-  writeFileSync(BOARD_PATH, JSON.stringify(boardJson, null, 2) + "\n");
+  for (const entry of touchedBoards) {
+    entry.board.as_of = stamp;
+    writeFileSync(entry.path, JSON.stringify(entry.board, null, 2) + "\n");
+  }
 
-  // The validator gate, before the commit and not before the PR.
+  // The validator gate, before the commit and not before the PR. Every board in
+  // the set is validated, plus the closed phase 1 board, whatever this run
+  // wrote: a board left unvalidated is a board nobody is checking.
   execFileSync("node", [
     path.join(REPO_ROOT, "docs", "board", "validate-board.mjs"),
-    path.join(REPO_ROOT, "docs", "board", "rc-board.json"),
-    BOARD_PATH,
+    ...CLOSED_BOARDS.map((b) => path.join(REPO_ROOT, b.path)),
+    ...writeSet.map((entry) => entry.path),
   ], { cwd: REPO_ROOT, stdio: "inherit" });
 
-  git(["add", INBOX_PATH, BOARD_PATH]);
+  git(["add", INBOX_PATH, ...[...touchedBoards].map((entry) => entry.path)]);
 
   const staged = execFileSync("git", ["diff", "--cached"], { cwd: REPO_ROOT, encoding: "utf8" });
   if (/eyJ[A-Za-z0-9]|gho_[A-Za-z0-9]|sk-[A-Za-z0-9]|re_[A-Za-z0-9]|bot[0-9]{8}:/.test(staged)) {
@@ -617,7 +639,42 @@ function selfTest() {
 }
 
 // ---------------------------------------------------------------------------
-if (args["self-test"] === "true") {
+// AUT-16. A read-only seam so a test can ask the REAL classifier, resolving
+// against the REAL board set, what it makes of one message. It writes nothing,
+// sends nothing, touches no spool and reads no secret: the board set and the
+// classifier, and then it prints JSON and exits.
+//
+// The alternative was a test that rebuilt knownCardIds itself, which would have
+// proved the copy rather than the classifier. That is the mistake AUT-17's
+// defaults name about the report selector, and it is the same mistake here.
+function classifyOnce() {
+  // --classify-boards names the set explicitly, and exists so a test can build
+  // the WORLD BEFORE THIS CARD, one board, and watch the real classifier refuse
+  // a real phase 3 card id. Without it the failing half could only be described
+  // in prose. Absent, the live set is used, which is what every caller does.
+  const explicit = typeof args["classify-boards"] === "string" && args["classify-boards"] !== "true"
+    ? args["classify-boards"].split(/\s+/).filter(Boolean)
+    : null;
+  const boardSet = loadBoards({ root: REPO_ROOT, paths: explicit });
+  let known;
+  try {
+    known = new Set(cardIndex(boardSet).keys());
+  } catch (err) {
+    console.log(JSON.stringify({ accepted: false, reason: err.message }));
+    return 1;
+  }
+  const verdict = classify(
+    { from: { id: args["classify-from"] }, text: args.classify },
+    args["classify-owner"],
+    known,
+  );
+  console.log(JSON.stringify(verdict));
+  return 0;
+}
+
+if (typeof args.classify === "string" && args.classify !== "true") {
+  process.exit(classifyOnce());
+} else if (args["self-test"] === "true") {
   process.exit(selfTest());
 } else if (args["resolve-owner"] === "true") {
   process.exit(await resolveOwner());

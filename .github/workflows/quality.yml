@@ -93,6 +93,24 @@ jobs:
       - name: Prove the document URL failure contract
         run: npm run check:document-url
 
+      # EXT-16. The tolerance arithmetic, on its own, with no database and no
+      # browser. NOT PATH-FILTERED: the end-to-end cases prove the rule is wired
+      # in, this proves the arithmetic is right, and they fail for different
+      # reasons. A filter would skip it on the pull request that edits the
+      # formula from somewhere it did not expect.
+      - name: Check the reconciliation tolerance
+        run: npm run check:reconciliation
+
+      # MERGE IS APPLY ON THIS REPOSITORY, so the destructive-statement boundary
+      # is the pull request and not the applier. NOT PATH-FILTERED: it resolves
+      # its own file list from the diff, and a workflow-level filter would skip
+      # it on exactly the pull request that brings a migration into scope.
+      - name: Refuse a migration that removes rows
+        run: npm run check:no-destructive-migration
+
+      - name: Prove the destructive-migration check refuses
+        run: npm run prove:no-destructive-migration
+
       # RULE-02. A DUPLICATE RULING ID OR CARD ID FAILS THE BUILD.
       #
       # "Namespaced by author" was doctrine and was enforced by nothing. On
@@ -113,6 +131,26 @@ jobs:
       # the NEXT author collides.
       - name: Refuse a duplicate ruling id or card id
         run: npm run check:unique-ids
+
+      # RULE-04. check:unique-ids compares this branch against MAIN. It cannot
+      # see an id claimed on ANOTHER OPEN BRANCH, which is how R-096, R-098 and
+      # the R-090/R-091 pair each got allocated twice with nothing going red.
+      #
+      # A SWEEP IS ONLY TRUE AT THE MOMENT IT RUNS, which is why this is a check
+      # and not a procedure. required_status_checks.strict means a branch must be
+      # up to date with main before it merges, so this check's LAST run is the
+      # one immediately before the merge. That is as close to merge time as a
+      # pull request check can get.
+      #
+      # NOT PATH-FILTERED, and it needs the token to list open pull requests. It
+      # REFUSES rather than skipping when it cannot get that list.
+      - name: Refuse an id claimed on another open branch
+        run: npm run check:open-branch-ids
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prove the cross-branch id check refuses
+        run: npm run prove:open-branch-ids
 
       # And the proof that it refuses. A duplicate check that parses zero ids
       # also reports OK, so each of its refusals is driven against a throwaway
@@ -404,6 +442,25 @@ jobs:
 
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
+
+      # AUT-16. THE BOARD SET, AND EVERY COMPONENT THAT RESOLVES AGAINST IT.
+      #
+      # Three components each held their own hardcoded path to the phase 2
+      # board while every run since 2026-08-30 worked the phase 3 board: the
+      # Telegram answer channel refused every phase 3 card id, the digest
+      # counted shipped cards and the launch gate off a board nobody was
+      # working, and the eligible-card selector, the silence rule and the claim
+      # writer all computed against that same board.
+      #
+      # Every half runs the REAL function, and every half carries a failing case
+      # built by handing that same function ONE board. A test that only proved
+      # the new behaviour could not notice a repoint back to a single board,
+      # which is the regression this step exists to catch.
+      #
+      # No network, no credentials, no database: two fixture boards in a
+      # temporary directory and the shell parsers.
+      - name: Prove the board set is the union of the boards  # AUT-16-BOARD-SET-PROOF
+        run: bash scripts/poc/test-board-set.sh
 
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |

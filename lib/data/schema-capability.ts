@@ -176,3 +176,57 @@ export async function hasExtractionPageCount(client: ColumnProbe): Promise<boole
   }
   return cachedPageCount.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// EXT-16. Cunoaste baza eticheta reconciliation_failed?
+//
+// DE CE ARE NEVOIE DE O POARTA, SI DE CE NIMIC NU AR FI CERUT-O. Migratia 0034
+// adauga o ETICHETA DE ENUM, iar check:pending-schema-reads nu vede asa ceva:
+// objectsAddedBy cauta `create table`, `alter table ... add column` si
+// `create function`, si nimic altceva. O adaugare de enum ii este INVIZIBILA.
+//
+// Deci nicio verificare nu ar fi refuzat un cod care scrie eticheta inaintea
+// aplicarii, iar PostgreSQL ar fi raspuns 22P02, invalid input value for enum,
+// pe calea de callback. Make reincearca pe 5xx si nu pe 4xx, dar un 22P02
+// nemanevrat iese ca 500, deci ar fi fost o bucla. Poarta este aici FIINDCA
+// LIPSA EI NU AR FI FOST PRINSA, nu fiindca o verificare a cerut-o. Golul din
+// check:pending-schema-reads are cardul lui.
+//
+// SONDA NU POATE CITI pg_enum PRIN PostgREST, deci intreaba altfel: cere randuri
+// FILTRATE pe eticheta. O eticheta necunoscuta face PostgREST sa respinga
+// filtrul, ceea ce este exact intrebarea pusa, si un set gol fara eroare
+// inseamna ca eticheta exista si nu o poarta niciun rand.
+
+// SONDA ESTE UN THUNK, NU UN CLIENT, SI MOTIVUL ESTE TIPUL. Celelalte doua porti
+// primesc clientul si il descriu structural, fiindca `.from().select().limit()`
+// se potriveste usor. Lantul de aici are un `.eq()` in plus, iar constructorul de
+// filtre din supabase-js este recursiv: TypeScript raspunde TS2589, "type
+// instantiation is excessively deep", si REFUZA SA COMPILEZE. Un `any` ar fi
+// ascuns exact intrebarea pe care poarta o pune.
+//
+// Asa, decizia despre ce inseamna "baza cunoaste eticheta" ramane in acest
+// fisier, iar interogarea sta la apelant, unde tipurile clientului functioneaza
+// deja.
+type LabelProbe = () => PromiseLike<{ error: unknown }>;
+
+let cachedReconciliationCode: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA SCRIE APELANTUL, din acelasi motiv ca la
+ *   celelalte doua porti: politicile RLS de pe extraction_drafts sunt
+ *   "to authenticated", iar ruta de callback scrie cu cheia de service_role.
+ */
+export async function hasReconciliationFailedCode(probe: LabelProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedReconciliationCode && now - cachedReconciliationCode.at < TTL_MS) {
+    return cachedReconciliationCode.value;
+  }
+  try {
+    const { error } = await probe();
+    cachedReconciliationCode = { value: !error, at: now };
+  } catch {
+    cachedReconciliationCode = { value: false, at: now };
+  }
+  return cachedReconciliationCode.value;
+}
