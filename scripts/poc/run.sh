@@ -20,7 +20,18 @@ POC_RUN_WORKTREE=/Users/ivan/rc-inventory-poc-run
 POC_LOG_DIR=/Users/ivan/rc-poc-logs
 POC_LOCK_FILE=/Users/ivan/rc-poc-logs/run.lock
 POC_SECRETS_FILE=/Users/ivan/rc-secrets/phase2.env
-POC_BOARD=docs/board/rc-board-phase2.json
+# AUT-16. THE BOARD SET, READ FROM THE ONE PLACE THAT DEFINES IT.
+#
+# This was a single path to the phase 2 board while every run since 2026-08-30
+# worked the phase 3 board. The eligible-card line, the CLAIM_SKIPPED set put in
+# the prompt, the claim written at the end of a run and the silence rule were
+# all computed against a board nobody was working: docs/poc/state.json carries a
+# claim on AUT-10 written at the end of a run that spent its time on P3-11.
+#
+# POC_BOARDS is a space separated list, phase 3 first. It is filled after the
+# worktree is prepared, from scripts/poc/boards.mjs, because that file is the
+# single definition and a fourth board must be a one-line change there.
+POC_BOARDS=""
 POC_STATE=docs/poc/state.json
 
 POC_MAX_CARDS=2
@@ -366,6 +377,32 @@ git reset --hard origin/main --quiet
 git clean -fd --quiet
 log "run worktree at $(git rev-parse --short HEAD) detached from origin/main"
 
+# AUT-16. Fill the board set now that the worktree holds the commit this run
+# works from, so the list comes from that commit's boards.mjs rather than from a
+# constant written here. A set that cannot be read is fatal: working a subset of
+# the boards in silence is the exact defect this card removed.
+POC_BOARDS=$(node "$POC_RUN_WORKTREE/scripts/poc/boards.mjs" --paths 2>/dev/null | tr '\n' ' ')
+POC_BOARDS=${POC_BOARDS% }
+
+# BOOTSTRAP, AND ONLY BOOTSTRAP. This file is a deployed copy under
+# /Users/ivan/rc-poc-bin and the worktree is checked out at origin/main, so for
+# one merge window a new run.sh meets a main that has no boards.mjs. Dying there
+# would cost every scheduled window until the merge landed. It falls back to the
+# phase boards present in that commit, newest phase first, and SAYS SO. The path
+# stops firing the moment boards.mjs is on main.
+if [ -z "$POC_BOARDS" ]; then
+  log "the checked out commit predates scripts/poc/boards.mjs, falling back to the phase boards present in it"
+  POC_BOARDS=$(cd "$POC_RUN_WORKTREE" && ls -1 docs/board/rc-board-phase*.json 2>/dev/null | sort -r | tr '\n' ' ')
+  POC_BOARDS=${POC_BOARDS% }
+fi
+
+if [ -z "$POC_BOARDS" ]; then
+  log "FATAL: no board set and no board file, refusing to run against nothing"
+  EXIT_CODE=1
+  exit 1
+fi
+log "board set: $POC_BOARDS"
+
 # ---------------------------------------------------------------------------
 # Merge helper. Waits, bounded, for the quality check on a head sha, then
 # merges. Never merges on a check that is pending, failed, skipped or absent.
@@ -549,16 +586,27 @@ fi
 # --ids-all returns every eligible card. The difference between them is exactly
 # the set that was skipped because somebody else holds it.
 # ---------------------------------------------------------------------------
+# One --board flag PER BOARD. Not one packed argument: run.sh is a deployed copy
+# and eligible.mjs is read out of the worktree at origin/main, so for one merge
+# window a new run.sh meets an old eligible.mjs. An old flag parser keeps the
+# LAST --board and computes against that board alone, which is what it did
+# before; a packed string would have made it read a path that does not exist and
+# report nothing eligible, which looks exactly like a finished board.
+POC_BOARD_FLAGS=()
+for POC_ONE_BOARD in $POC_BOARDS; do
+  POC_BOARD_FLAGS+=(--board "$POC_ONE_BOARD")
+done
+
 ELIGIBLE_AT_START=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
+  "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
 ELIGIBLE_ALL=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
+  "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
 log "eligible at start: ${ELIGIBLE_AT_START:-none}"
 
 CLAIM_SKIPPED=""
 if [ "$ELIGIBLE_ALL" != "$ELIGIBLE_AT_START" ]; then
   CLAIM_SKIPPED=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-    --board "$POC_BOARD" --state "$POC_STATE" --actor harness --json 2>/dev/null \
+    "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --json 2>/dev/null \
     | node -e '
       let s = "";
       process.stdin.on("data", (d) => (s += d)).on("end", () => {
@@ -637,8 +685,19 @@ PROMPT_EOF
 
 # Snapshot the board before the run touches it, so what moved can be worked out
 # by comparison rather than inferred from a timestamp.
+# One snapshot holding EVERY board in the set, keyed by path, so a card that
+# moved on the second board is seen exactly as one that moved on the first.
 BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
-cp "$POC_BOARD" "$BOARD_BEFORE"
+# shellcheck disable=SC2086
+node -e '
+  const fs = require("fs");
+  const [target, ...paths] = process.argv.slice(1);
+  const out = {};
+  for (const p of paths) {
+    try { out[p] = JSON.parse(fs.readFileSync(p, "utf8")); } catch { out[p] = { cards: [] }; }
+  }
+  fs.writeFileSync(target, JSON.stringify(out));
+' "$BOARD_BEFORE" $POC_BOARDS
 
 # A prompt that failed to render must never reach claude -p. An unbound variable
 # inside the heredoc above truncates the file silently under set -u, and the run
@@ -883,19 +942,27 @@ git reset --hard origin/main --quiet
 # unmerged branch and main never moved. A run that wrote code must never look
 # identical to a run that idled. Card branches are read too, and work that is on
 # a branch is reported as such rather than dropped.
+# shellcheck disable=SC2086
 CARDS_TOUCHED=$(node -e '
   const fs = require("fs");
-  const before = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-  const after = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-  const was = new Map((before.cards || []).map((c) => [c.id, c.status]));
+  const [snapshotPath, ...paths] = process.argv.slice(1);
+  const before = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
+  const was = new Map();
+  for (const board of Object.values(before)) {
+    for (const c of board.cards || []) was.set(c.id, c.status);
+  }
   const moved = [];
-  for (const card of after.cards || []) {
-    const previous = was.get(card.id);
-    if (previous === undefined) moved.push(card.id + ":new:" + card.status);
-    else if (previous !== card.status) moved.push(card.id + ":" + card.status);
+  for (const p of paths) {
+    let after;
+    try { after = JSON.parse(fs.readFileSync(p, "utf8")); } catch { continue; }
+    for (const card of after.cards || []) {
+      const previous = was.get(card.id);
+      if (previous === undefined) moved.push(card.id + ":new:" + card.status);
+      else if (previous !== card.status) moved.push(card.id + ":" + card.status);
+    }
   }
   console.log(moved.join(","));
-' "$BOARD_BEFORE" "$POC_BOARD" 2>/dev/null)
+' "$BOARD_BEFORE" $POC_BOARDS 2>/dev/null)
 
 # Branch-side work: any card/* branch that is ahead of main and moved during
 # this run. Reported as <id>:branch:<status> so the digest can say "worked, not
@@ -910,16 +977,28 @@ for CARD_REF in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/ori
   CARD_LAST=$(git log -1 --format=%ct "$CARD_REF" 2>/dev/null)
   [ -z "$CARD_LAST" ] && continue
   [ "$CARD_LAST" -lt "$RUN_STARTED_AT" ] && continue
-  CARD_STATUS=$(git show "$CARD_REF:$POC_BOARD" 2>/dev/null | node -e '
-    let s = "";
-    process.stdin.on("data", (d) => (s += d)).on("end", () => {
-      try {
-        const b = JSON.parse(s);
-        const c = (b.cards || []).find((x) => x.id === process.argv[1]);
-        console.log(c ? c.status : "unknown");
-      } catch { console.log("unknown"); }
-    });
-  ' "$CARD_ID")
+  # The card can be on any board in the set, so every board on that branch is
+  # read until one names it. Reading a single board reported "unknown" for every
+  # phase 3 card worked on a branch, which is silence wearing a status.
+  CARD_STATUS=unknown
+  for CARD_BOARD in $POC_BOARDS; do
+    CARD_FOUND=$(git show "$CARD_REF:$CARD_BOARD" 2>/dev/null | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try {
+          const b = JSON.parse(s);
+          const c = (b.cards || []).find(
+            (x) => String(x.id).toUpperCase() === String(process.argv[1]).toUpperCase(),
+          );
+          console.log(c ? c.status : "");
+        } catch { console.log(""); }
+      });
+    ' "$CARD_ID")
+    if [ -n "$CARD_FOUND" ]; then
+      CARD_STATUS=$CARD_FOUND
+      break
+    fi
+  done
   CARDS_ON_BRANCH="$CARDS_ON_BRANCH,$CARD_ID:branch:${CARD_STATUS:-unknown}"
   log "branch work: $CARD_BRANCH is $CARD_AHEAD commits ahead of main, card $CARD_ID is ${CARD_STATUS:-unknown}"
 done

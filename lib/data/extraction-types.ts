@@ -20,6 +20,13 @@ export const EXTRACTION_ERROR_CODES = [
   "extraction_failed",
   "invalid_output",
   "timeout",
+  // EXT-16, ruling R-098. THE FIRST MEMBER OF THE THIRD SURFACE, and it is OURS
+  // to emit rather than Make's. The other seven describe a download that failed
+  // or an extraction that failed; this one describes a payload that ARRIVED
+  // WELL-FORMED and that our own arithmetic refused. Contract section 5.2a names
+  // the three groups so the ninth code joins a stated set rather than a guessed
+  // one.
+  "reconciliation_failed",
 ] as const;
 export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 
@@ -34,6 +41,11 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   extraction_failed: "Extragerea a rulat și nu a produs nimic utilizabil.",
   invalid_output: "Serviciul a răspuns cu date care nu respectă contractul.",
   timeout: "Extragerea a depășit timpul maxim al serviciului.",
+  // Fara jargon si fara numere: operatorul vede ce nu se potriveste si ce are de
+  // facut, nu formula. Sectiunea 11 din CLAUDE.md cere romana cu diacritice pe
+  // fiecare sir care ajunge pe ecran.
+  reconciliation_failed:
+    "Suma liniilor citite nu se potrivește cu totalul tipărit pe document. Documentul trebuie introdus manual.",
 };
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
