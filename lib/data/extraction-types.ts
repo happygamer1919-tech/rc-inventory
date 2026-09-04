@@ -20,6 +20,13 @@ export const EXTRACTION_ERROR_CODES = [
   "extraction_failed",
   "invalid_output",
   "timeout",
+  // EXT-16, ruling R-098. THE FIRST MEMBER OF THE THIRD SURFACE, and it is OURS
+  // to emit rather than Make's. The other seven describe a download that failed
+  // or an extraction that failed; this one describes a payload that ARRIVED
+  // WELL-FORMED and that our own arithmetic refused. Contract section 5.2a names
+  // the three groups so the ninth code joins a stated set rather than a guessed
+  // one.
+  "reconciliation_failed",
 ] as const;
 export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 
@@ -34,6 +41,11 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   extraction_failed: "Extragerea a rulat și nu a produs nimic utilizabil.",
   invalid_output: "Serviciul a răspuns cu date care nu respectă contractul.",
   timeout: "Extragerea a depășit timpul maxim al serviciului.",
+  // Fara jargon si fara numere: operatorul vede ce nu se potriveste si ce are de
+  // facut, nu formula. Sectiunea 11 din CLAUDE.md cere romana cu diacritice pe
+  // fiecare sir care ajunge pe ecran.
+  reconciliation_failed:
+    "Suma liniilor citite nu se potrivește cu totalul tipărit pe document. Documentul trebuie introdus manual.",
 };
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
@@ -61,6 +73,32 @@ export type ExtractionLine = {
   confidence: number | null;
 };
 
+/** EXT-15. Unde a gasit extractorul textul: pe pagina, sau intr-o imagine.
+ *
+ *  DECLARAT DE EXTRACTOR, fiindca numai el stie. mime_type nu raspunde la
+ *  intrebare: unul dintre cele patru documente de proba este un PDF fara strat
+ *  de text, deci application/pdf acopera amandoua cazurile.
+ *
+ *  null INSEAMNA "nu a spus", si se citeste ca `scan`. Vezi SAFE_DOCUMENT_SOURCE. */
+export const DOCUMENT_SOURCES = ["scan", "digital"] as const;
+export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];
+
+/** Ce se presupune cand payload-ul nu declara sursa.
+ *
+ *  `scan`, SI ASTA NU ESTE PRUDENTA GENERICA, ESTE ASIMETRIA COSTURILOR. A ghici
+ *  `digital` pe un document scanat inseamna stoc inventat intr-un depozit real.
+ *  A ghici `scan` pe unul digital inseamna ca cineva bate un document de mana. */
+export const SAFE_DOCUMENT_SOURCE: DocumentSource = "scan";
+
+export function isDocumentSource(v: unknown): v is DocumentSource {
+  return typeof v === "string" && (DOCUMENT_SOURCES as readonly string[]).includes(v);
+}
+
+/** Sursa efectiva a unei ciorne: ce a declarat, sau valoarea sigura. */
+export function effectiveSource(v: unknown): DocumentSource {
+  return isDocumentSource(v) ? v : SAFE_DOCUMENT_SOURCE;
+}
+
 export type ExtractionDraft = {
   orderId: string;
   documentPath: string;
@@ -80,6 +118,8 @@ export type ExtractionDraft = {
   vatRate: number | null;
   currency: string | null;
   currencyRaw: string | null;
+  /** EXT-15. null inseamna "extractorul nu a spus", citit ca `scan`. */
+  documentSource: DocumentSource | null;
   confidence: number | null;
   firedAt: string | null;
   callbackAt: string | null;

@@ -113,6 +113,31 @@ function callbackBody(orderId: string, over: Record<string, unknown> = {}) {
     error_code: null,
     reason: null,
     supplier_name: "Bilka Steel SRL",
+    // EXT-16. THIS SHARED FIXTURE DECLARES ITSELF DIGITAL, AND THAT IS A
+    // DELIBERATE NARROWING RATHER THAN A CONVENIENCE.
+    //
+    // Its numbers do not reconcile and never did: subtotal is 18450.00 while the
+    // single line carries line_total 18452.36, a difference of 2.36 against a
+    // one-line tolerance of 0.05. Nobody noticed because until EXT-16 nothing
+    // compared them. EXT-15 then made an ABSENT document_source read as `scan`,
+    // so every test built on this body became a scan-sourced payload that
+    // EXT-16 correctly refuses.
+    //
+    // The tests built on it are about STORAGE, IDEMPOTENCY, NULL HANDLING and
+    // the review screen. Declaring `digital` keeps them about those things
+    // instead of quietly turning each one into a second, weaker reconciliation
+    // test that would fail for a reason it never meant to exercise.
+    //
+    // THE SCAN PATH IS NOT LOSING COVERAGE. It has its own cases: EXT-15's three
+    // source cases, and EXT-16's cases 12 to 15 built on Andre's real Matnord
+    // numbers. Those are the ones that should break when reconciliation breaks.
+    //
+    // Cases 3 and 8 could not have been rescued by fixing the arithmetic anyway:
+    // 3 replaces the lines with ones carrying NO line_total, and 8 nulls every
+    // document field. Under EXT-16 a scan-sourced payload in either state is
+    // refused, correctly, so the only honest way to keep them testing what they
+    // test is to say they are not scans.
+    document_source: "digital",
     order_date: "2026-08-14",
     subtotal: 18450.0,
     vat_amount: 3690.0,
@@ -704,6 +729,71 @@ test.describe("Verificare si confirmare extragere", () => {
     const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
     await expect(product).toHaveCount(1, { timeout: 20_000 });
     await expect(product).toContainText("t");
+  });
+
+  test("11. EXT-15: o scanare necitita arata antetul, spune ca nu a fost citita, si nu ofera nicio cale de acceptare", async ({
+    page,
+    request,
+  }) => {
+    // EXT-15. Cerinta tare a proprietarului: nicio cale de acceptare, niciun
+    // camp de linie precompletat, si ecranul trebuie sa SPUNA ca continutul nu a
+    // fost citit.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "unread");
+
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            status: "failed",
+            error_code: "unreadable_document",
+            reason: "Scanarea nu a putut fi citita.",
+            document_source: "scan",
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    const card = draftCard(page, orderId);
+    await page.goto(UPLOAD);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+
+    // NU EXISTA BUTON DE VERIFICARE PE O SCANARE NECITITA, si acela este primul
+    // lucru afirmat: calea catre formular nu este ascunsa, ea nu exista.
+    await expect(card.getByTestId("draft-review")).toHaveCount(0);
+    await card.getByTestId("draft-header").click();
+
+    // NU EXISTA FORMULAR. openReview() asteapta review-form, deci nu se poate
+    // folosi aici, si aceea este exact afirmatia.
+    await expect(page.getByTestId("review-unread-scan")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("review-form")).toHaveCount(0);
+
+    // SPUNE CE S-A INTAMPLAT, ROMANESTE.
+    await expect(page.getByTestId("review-unread-notice")).toContainText("nu a fost citit");
+
+    // ANTETUL ESTE ACOLO, si el este rostul ecranului.
+    const header = page.getByTestId("review-unread-header");
+    await expect(header).toContainText("Bilka Steel SRL");
+    await expect(header).toContainText("Furnizor");
+    await expect(header).toContainText("Total document");
+
+    // NICIUN CAMP DE LINIE, NICIUN BUTON DE ACCEPTARE. Fiecare enumerat separat:
+    // o singura afirmatie pe un container ar trece daca oricare dintre ele ar
+    // reaparea sub alt nume.
+    for (const t of [
+      "review-line",
+      "review-confirm",
+      "review-supplier",
+      "review-currency",
+      "review-ordered-at",
+      "review-expected-at",
+      "review-line-product-0",
+      "review-line-quantity-0",
+      "review-line-price-0",
+    ]) {
+      await expect(page.getByTestId(t), `EXT-15: ${t} nu are voie sa existe`).toHaveCount(0);
+    }
   });
 
   test("9. catalogul nu ii ofera operatorului nicio cale directa, iar administratorul creeaza in continuare nemarcat", async ({

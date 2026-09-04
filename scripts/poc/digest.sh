@@ -144,21 +144,59 @@ git -C "$DIGEST_WORKTREE" fetch origin --prune --quiet 2>/dev/null
 git -C "$DIGEST_WORKTREE" checkout --detach --force origin/main --quiet 2>/dev/null
 git -C "$DIGEST_WORKTREE" reset --hard origin/main --quiet 2>/dev/null
 
-DIGEST_BOARD=$DIGEST_WORKTREE/docs/board/rc-board-phase2.json
+# AUT-16. The board set, read from the one place that defines it, rather than a
+# path written here. A fourth board is a one-line change in boards.mjs.
+#
+# It is read out of the WORKTREE, because the worktree is the commit being
+# rendered and the set is a property of that commit rather than of whatever
+# happens to be deployed.
+DIGEST_BOARD=$(node "$DIGEST_WORKTREE/scripts/poc/boards.mjs" --paths 2>/dev/null \
+  | sed "s#^#$DIGEST_WORKTREE/#" | tr '\n' ' ')
+DIGEST_BOARD=${DIGEST_BOARD% }
+
+# BOOTSTRAP, AND ONLY BOOTSTRAP. A commit on main from before boards.mjs existed
+# has no set to read, and the digest must still render rather than go silent on
+# the day this card merges. It falls back to every phase board present in that
+# commit, newest phase first, and SAYS SO in the log. This path stops firing the
+# moment boards.mjs is on main, and it is not a second definition of the set:
+# there is nothing to define when the file is absent.
+if [ -z "$DIGEST_BOARD" ]; then
+  dlog "the rendered commit predates scripts/poc/boards.mjs, falling back to the phase boards present in it"
+  DIGEST_BOARD=$(ls -1 "$DIGEST_WORKTREE"/docs/board/rc-board-phase*.json 2>/dev/null | sort -r | tr '\n' ' ')
+  DIGEST_BOARD=${DIGEST_BOARD% }
+fi
 DIGEST_RUN_STATE=$DIGEST_WORKTREE/docs/poc/state.json
 
-if [ ! -f "$DIGEST_BOARD" ]; then
-  dlog "FATAL: no board at $DIGEST_BOARD"
+if [ -z "$DIGEST_BOARD" ]; then
+  dlog "FATAL: the board set could not be read from scripts/poc/boards.mjs"
   exit 1
 fi
+for DIGEST_ONE_BOARD in $DIGEST_BOARD; do
+  if [ ! -f "$DIGEST_ONE_BOARD" ]; then
+    dlog "FATAL: no board at $DIGEST_ONE_BOARD"
+    exit 1
+  fi
+done
 
-DIGEST_ARGS="run --board $DIGEST_BOARD --state $DIGEST_RUN_STATE --digest-state $DIGEST_STATE"
-[ "$DIGEST_FORCE" = yes ] && DIGEST_ARGS="$DIGEST_ARGS --force"
+# The board set is ONE argument holding a space separated list, never several
+# arguments: a bare $DIGEST_BOARD would split into --board path1 path2 and the
+# flag parser would keep the first path and silently drop the rest, which is the
+# single-board blindness this card removed wearing different clothes.
+# One --board flag PER BOARD, in set order. Not one packed argument: for the one
+# merge window in which a new deployed digest.sh meets an origin/main digest.mjs
+# that predates this card, the old flag parser keeps the last --board and
+# renders that board alone. That is the behaviour it had. A packed string would
+# have made it treat the whole list as one path and render nothing.
+DIGEST_ARGS=(run)
+for DIGEST_ONE_BOARD in $DIGEST_BOARD; do
+  DIGEST_ARGS+=(--board "$DIGEST_ONE_BOARD")
+done
+DIGEST_ARGS+=(--state "$DIGEST_RUN_STATE" --digest-state "$DIGEST_STATE")
+[ "$DIGEST_FORCE" = yes ] && DIGEST_ARGS+=(--force)
 
 dlog "rendering from $(git -C "$DIGEST_WORKTREE" rev-parse --short HEAD)"
 
-# shellcheck disable=SC2086
-node "$DIGEST_WORKTREE/scripts/poc/digest.mjs" $DIGEST_ARGS >> "$DIGEST_LOG" 2>&1
+node "$DIGEST_WORKTREE/scripts/poc/digest.mjs" "${DIGEST_ARGS[@]}" >> "$DIGEST_LOG" 2>&1
 DIGEST_RC=$?
 dlog "digest.mjs exit $DIGEST_RC"
 exit "$DIGEST_RC"

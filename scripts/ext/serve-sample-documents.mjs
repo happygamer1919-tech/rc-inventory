@@ -5,7 +5,8 @@
 //
 //   1. urca cele patru documente din /Users/ivan/rc-samples in bucket-ul rc-docs
 //   2. le semneaza prin acelasi createSignedUrl pe care il foloseste aplicatia,
-//      cu TTL 7200 de secunde (doua ore), si le rescrie in forma rutei noastre
+//      cu TTL 86400 de secunde (douazeci si patru de ore, ruling R-096), si le
+//      rescrie in forma rutei noastre
 //   3. captureaza VERBATIM statusul, antetele si corpul celor trei cai de esec,
 //      pe amandoua nivelele: direct pe Supabase Storage, si prin ruta noastra
 //
@@ -31,7 +32,11 @@ import { join } from "node:path";
 const SAMPLES_DIR = process.env.RC_SAMPLES_DIR ?? "/Users/ivan/rc-samples";
 const BUCKET = "rc-docs";
 const PREFIX = "_samples/andre";
-const TTL_SECONDS = 2 * 60 * 60;
+// R-096, 2026-09-03. Ridicat de la doua ore la douazeci si patru. Domeniul este
+// EXCLUSIV setul de proba de sub _samples/andre, care nu contine date de client.
+// Caile de semnare ale aplicatiei (lib/data/inbound-actions.ts si
+// lib/data/extraction-fire.ts, amandoua 15 minute) NU se schimba.
+const TTL_SECONDS = 24 * 60 * 60;
 
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -130,7 +135,7 @@ if (!CAPTURE_ONLY) {
   say();
 }
 
-say("## 2. Legaturile, TTL 2 ore, prin calea reala de semnare");
+say("## 2. Legaturile, TTL 24 de ore, prin calea reala de semnare");
 say();
 const issuedAt = new Date();
 const expiresAt = new Date(issuedAt.getTime() + TTL_SECONDS * 1000);

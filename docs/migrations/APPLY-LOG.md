@@ -39,10 +39,319 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
-- `0028_applied_ledger_version.sql`, card de aplicare P3-11e
-- `0029_category_paints.sql`, card de aplicare P3-34
-- `0030_units_tonne_litre.sql`, card de aplicare P3-33
-- `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
+- `0034_error_code_reconciliation_failed.sql`, card de aplicare EXT-16
+
+
+# RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
+
+**The four entries below are RECONSTRUCTED, NOT JOURNALLED, and each one says so
+in its own heading.** Every other entry in this file was written by whoever ran
+the apply, in the same pull request, with the three phases of CLAUDE.md 8.5.
+These four were written afterwards by a terminal that did not run them and cannot
+find anyone who did. They must never be read as carrying the same weight.
+
+## What was searched for first, and does not exist
+
+The evidence of the applies AS EVENTS was looked for before a word was written
+here, because inventing four journal entries would be far worse than recording
+that there are none.
+
+- **`git log --all -S"0031_units_tonne_litre_rows.sql - APPLIED"` over this file
+  returns no commit.** The same for `0029`. No branch, merged or open, has ever
+  carried an APPLIED heading for any of the four.
+- **`docs/PRODUCTION-WRITES.md` has no row.** Its only two rows are the
+  2026-08-28 reset runs, and it says in its own text that neither is a migration.
+- **Every card report asserts the opposite of applied.** P3-34's report says
+  `0029_category_paints.sql`, "authored and merged, NOT applied". P3-33's says the
+  same of `0030` and `0031` and adds that "until they are applied, tonne and litre
+  are live in the code and the validator, and not in the database". P3-11e's says
+  `0028` was "AUTHORED AND MERGED, NOT APPLIED".
+- **No pre-check, no post-check, no assertion count, no statement list, no
+  actor.** There is nothing to transcribe. A journal entry under 8.5 needs those
+  and they were never produced.
+
+**So: the applies have no record of having run, and nothing below invents one.**
+
+## What DOES exist: production, queried directly
+
+Read 2026-09-03, against project ref `bwhzatwwjqmyfesfnisa`, through PostgREST
+with the service role, by EXECUTOR. Variable names only, per section 7. The
+queries and their output, verbatim:
+
+    POST /rest/v1/rpc/applied_ledger_version   ->  "0031"
+
+    GET  /rest/v1/categories?select=name,sort_order,active&order=sort_order
+      ->  19 rows, 19 active, including
+          {"name":"Vopsele, lacuri si solventi","sort_order":19,"active":true}
+          (stored with diacritics; transcribed here without them)
+
+    GET  /rest/v1/units?select=*
+      ->  9 rows; columns code,sort_order,active,created_at,updated_at
+      ->  codes: m2,lm,pcs,bag,kg,roll,m3,t,l
+
+    GET  /rest/v1/extraction_drafts?select=document_source&limit=1  ->  42703
+    GET  /rest/v1/extraction_drafts?select=page_count&limit=1       ->  42703
+
+## The two NEGATIVE reads are load-bearing and are here on purpose
+
+`document_source` and `page_count` both return **42703, undefined column**. Those
+are the two migrations numbered `0032` on open pull requests #177 and #180, and
+both are **unmerged**. Production having everything that has merged and nothing
+that has not is the strongest available evidence about **WHEN** these applies
+happen: **on merge to `main`, and not on a pull request.**
+
+## THE MECHANISM WAS PROBABLE WHEN THIS WAS WRITTEN AND IS NOW OBSERVED
+
+**This section was written as circumstantial and was then confirmed by a
+PREDICTION, with a control, half an hour later.** The upgrade is recorded rather
+than the original wording quietly replaced, because how a claim was established
+matters as much as the claim.
+
+**The prediction.** If the mechanism is the Supabase GitHub app applying on merge
+to `main`, then merging a migration should make it appear in production within
+minutes, and a migration on an unmerged branch should stay absent.
+
+**The test.** `0032_extraction_draft_page_count.sql` was merged as PR #180 at
+`71dd97a`. Before the merge, read at 21:2xZ:
+
+    applied_ledger_version()                 ->  "0031"
+    extraction_drafts.page_count             ->  42703, absent
+    extraction_drafts.document_source        ->  42703, absent
+
+After the merge, with the `Supabase Preview` check on `71dd97a` completing at
+**2026-09-03T21:33:39Z**:
+
+    applied_ledger_version()                 ->  "0032"
+    extraction_drafts.page_count             ->  PRESENT
+    extraction_drafts.document_source        ->  still absent
+
+**`document_source` is the control and it is what makes this a test rather than a
+coincidence.** It is the OTHER migration numbered 0032, on PR #177, which is still
+open. Both were written the same day, both sat in the same pending register, and
+only the merged one appeared. Nothing else about the two differs in a way that
+could explain it.
+
+**So the four entries below are reconstructions of an event whose MECHANISM is now
+directly established**, even though their own actor and timestamp remain
+unrecorded. That is the strongest form the reconstruction can take and it is still
+not a journal.
+
+## The original circumstantial argument, kept because it was the basis at the time
+
+A **`Supabase Preview` check, from the GitHub app `supabase`**, runs on every push
+to `main` and points at
+`https://supabase.com/dashboard/project/bwhzatwwjqmyfesfnisa`, the production
+project. It concluded `success` on exactly the merges that carried these files,
+within seconds of each:
+
+| merge | carried | Supabase check |
+|---|---|---|
+| `9862111` (#163, P3-11e) | `0028` | 2026-09-02T17:41:09Z to 17:41:13Z, success |
+| `1f7d3ab` (#169, P3-34) | `0029` | 2026-09-03T16:08:52Z to 16:08:56Z, success |
+| `c9c1c14` (#170, P3-33) | `0030`, `0031` | 2026-09-03T16:47:26Z to 16:47:31Z, success |
+
+**The check carries no title and no summary, so it does not state what it
+applied.** Timing, app identity and project ref line up on every merge that
+carried a migration. That is circumstantial. It is recorded as the probable
+mechanism because a reader deserves the best available explanation, and it is
+labelled probable because nothing observed actually says so.
+
+## What this means, and it is not small
+
+**There is a path that writes production and journals nothing.** CLAUDE.md 8.8
+says a write with no row in one of the two journals is a violation. That section
+is written for terminals; this path is not a terminal, so the rule has been broken
+without anybody breaking it, which is the harder kind to notice.
+
+**The stale register reached a third party.** `/Users/ivan/rc-samples/ANDRE-STATUS.md`
+told the extraction counterparty that the category and the two units "land when
+the pending migration batch is applied to production, which is a separate
+owner-run step". That was already false when it was written, and it was written
+from this file.
+
+**Nothing here is a licence to stop journalling.** The next apply a terminal
+performs is journalled in full under 8.5, like every entry that is not one of
+these four.
+
+## 0028_applied_ledger_version.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-02T17:41:09Z`, when the merge `9862111` (#163) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-02T17:41:13Z`, which is the probable
+moment inside that window.
+
+**What it creates:** `public.applied_ledger_version()`, a SECURITY DEFINER function granted to `service_role` only.
+
+**Proof that it is applied:** the RPC **answered with `"0031"`**. A missing function returns an error, not a string, so the function exists. This is a direct observation.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0029_category_paints.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:08:52Z`, when the merge `1f7d3ab` (#169) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:08:56Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the nineteenth category row, `Vopsele, lacuri si solventi`.
+
+**Proof that it is applied:** the row is present, `sort_order` 19, `active` true, in a table of 19 rows. **Direct observation.**
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0030_units_tonne_litre.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:47:26Z`, when the merge `c9c1c14` (#170) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:47:31Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the enum labels `t` and `l` on `public.unit_code`.
+
+**Proof that it is applied:** **INDIRECT, AND FLAGGED AS INDIRECT.** Enum labels are not rows and PostgREST cannot list them. `public.units.code` IS of type `public.unit_code` (`0001_phase2_schema.sql`, line 126), and rows keyed `t` and `l` are present, so the labels must exist because the insert could not otherwise have succeeded. Sound, but an inference rather than an observation.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0031_units_tonne_litre_rows.sql - APPLIED (RECONSTRUCTED, NOT JOURNALLED)
+
+**Actor:** **NOT RECORDED, AND NOT GUESSED AT HERE.** No terminal ran this and no
+journal names one. The probable mechanism is the `Supabase Preview` GitHub app on
+the merge to `main`, for the reasons in the reconstruction preamble above, and
+that is circumstantial rather than observed.
+
+**Applied at:** **NOT RECORDED. BOUNDED, not claimed:** after
+`2026-09-03T16:47:26Z`, when the merge `c9c1c14` (#170) put the file on `main`, and
+before 2026-09-03T21:25Z, when the read below observed the object in production.
+The Supabase check on that merge completed at `2026-09-03T16:47:31Z`, which is the probable
+moment inside that window.
+
+**What it creates:** the `t` and `l` rows in `public.units`.
+
+**Proof that it is applied:** both rows present among the 9 returned: `m2,lm,pcs,bag,kg,roll,m3,t,l`. **Direct observation.**
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5:** none exist. No pre-check, no in-transaction
+assertion count, no post-check grid. That is the whole reason this entry is marked
+reconstructed.
+
+## 0032_extraction_draft_page_count.sql - APPLIED, OBSERVED PROSPECTIVELY
+
+**Actor:** **the Supabase GitHub app, on the merge of PR #180 to `main`.** This is
+the one entry in this group where the actor is stated rather than left unrecorded,
+because this apply was PREDICTED BEFORE IT HAPPENED and then observed, with a
+control. See the mechanism section above. **No terminal ran it. EXECUTOR authored
+the file and did not apply it, and the card's own evidence says "NOT APPLIED",
+which was true when written and is false now.**
+
+**Applied at:** between `2026-09-03T21:31Z`, when PR #180 merged as `71dd97a`, and
+`2026-09-03T21:33:39Z`, when the `Supabase Preview` check on that commit completed
+`success`. Read as present immediately after.
+
+**What it creates:** `public.extraction_drafts.page_count`, integer, nullable, no
+default, with `extraction_drafts_page_count_positive` checking `page_count is null
+or page_count >= 1`.
+
+**Proof that it is applied:**
+
+    before merge:  GET /rest/v1/extraction_drafts?select=page_count&limit=1  ->  42703
+    after merge:   GET /rest/v1/extraction_drafts?select=page_count&limit=1  ->  200
+                   POST /rest/v1/rpc/applied_ledger_version                  ->  "0032"
+
+**AND IT WAS APPLIED FAITHFULLY, CONSTRAINT INCLUDED.** The column landing does
+not prove the whole file landed, so the constraint was probed directly:
+
+    POST /rest/v1/extraction_drafts  {..., "page_count": 0}
+      ->  400  {"code":"23514", ...}
+
+`23514` is `check_violation`. `extraction_drafts_page_count_positive` is present
+and enforcing in production, so the integration ran the file rather than only its
+`ADD COLUMN`. **That matters for MIG-01's recommendation:** the argument for
+keeping this path rests on it applying correctly, and this is the evidence for
+that half.
+
+**A PRODUCTION WRITE WAS ATTEMPTED HERE AND IS DECLARED RATHER THAN GLOSSED.**
+The probe was an `INSERT` designed to be refused, and it was refused, so **nothing
+was written and there is no row to journal under 8.8**. The script carried a
+`DELETE` cleanup that would have run only if the insert had unexpectedly
+succeeded; **it did not execute**. That path should not have been written as a
+`DELETE` at all: PostgREST offers no transaction to roll back, so a probe that
+can only be undone by deleting is the wrong shape, and the right one is a probe
+that cannot succeed. This one could not, which is why it was safe, but it was safe
+by construction rather than by design and the distinction is worth keeping.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and here that is not a gap in
+the record, it is the finding. A migration reached production **with no pre-check,
+no in-transaction assertions, no post-check, no journal and no human**, minutes
+after a pull request merged. `scripts/apply-pending-migrations.mjs` and the whole
+of R-082 were bypassed, not by anybody deciding to bypass them, but because this
+path does not go through them at all.
+
+**THIS IS NOT A LICENCE AND IT IS NOT A CONVENIENCE.** It means the destructive
+statement stop in 8.6 protects nothing on this path: a merged migration containing
+`DROP TABLE` would apply on merge, and the rule that says it "is never
+auto-applied" would have been obeyed by every terminal and broken anyway.
+
+**That is card `MIG-01`**, on the phase 2 board, `blocked_on: ivan` for the vendor
+decision only. Its `defaults` say the pre-merge check that refuses a row-destroying
+statement is NOT blocked on his answer and should be built first, because it is
+what makes the permissive answer safe to choose.
+
+## 0033_extraction_document_source.sql - APPLIED, OBSERVED PROSPECTIVELY, THIRD CONFIRMATION
+
+**Actor:** **the Supabase GitHub app, on the merge of PR #177 to `main`.** Stated
+rather than left unrecorded, for the same reason as `0032` and with the same kind
+of evidence: this apply was **predicted before it happened** and then observed.
+**No terminal ran it.**
+
+**Applied at:** between `2026-09-03T22:22Z`, when PR #177 merged as `c3f5bb3`, and
+`2026-09-03T22:24:24Z`, when the `Supabase Preview` check on that commit completed
+`success`. Read as present immediately after.
+
+**What it creates:** `public.extraction_drafts.document_source`, text, with a
+check constraining it to the declared set, no default.
+
+**Proof that it is applied:** this column was **the control in the `0032` test.**
+While PR #177 sat open it was read three separate times and returned `42703,
+undefined column` every time, in exactly the same query that showed `page_count`
+appearing the moment #180 merged. Merging #177 was therefore a second, independent
+prediction:
+
+    while #177 was OPEN:   GET ...?select=document_source  ->  42703  (three reads)
+    after #177 merged:     GET ...?select=document_source  ->  200
+                           POST /rest/v1/rpc/applied_ledger_version  ->  "0033"
+
+**THREE MIGRATIONS, THREE MERGES, THREE APPLIES, AND TWO OF THEM PREDICTED.** The
+first four entries in this group were reconstructed after the fact from
+circumstantial evidence. `0032` was predicted and observed with `0033` as the
+control. `0033` was then predicted and observed in its turn. There is no longer
+any reasonable doubt about the mechanism, and the sentence in CLAUDE.md 3.1 that
+merging a migration "changes nothing in any database" is simply false here.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist.** Card `MIG-01` carries the
+decision.
 
 ## Rules
 
