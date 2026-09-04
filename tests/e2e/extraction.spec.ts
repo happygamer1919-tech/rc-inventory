@@ -644,4 +644,181 @@ test.describe("Extragere documente", () => {
     expect(good.status()).toBe(200);
     expect((await draftState(request, orderId)).page_count).toBe(7);
   });
+
+  // -------------------------------------------------------------------------
+  // EXT-16. RECONCILIEREA PE PARTEA NOASTRA.
+  //
+  // ANDRE'S OWN RESULT IS THE FIXTURE, OBSERVED AND NOT ROUNDED. Documentul
+  // Matnord, 7 linii, total tiparit 50336.40 fara TVA. Trei rulari au intors
+  // trei sume: 49035.40, 39242.00 si 38429.40, TOATE cu status extracted si
+  // reason null. Nu se adauga o a patra suma inventata: ar face setul sa arate
+  // mai ingrijit si nu ar fi dovada pentru nimic.
+  //
+  // Toleranta pentru 7 linii este max(0.05, 0.07) = 0.07. Cele trei rateaza cu
+  // 1301.00, 11094.40 si 11907.00.
+  // -------------------------------------------------------------------------
+
+  /** Un payload de scanare cu liniile insumand `sum`, pe 7 linii, si totalul
+   *  tiparit al documentului Matnord. Liniile sunt egale intre ele; ce conteaza
+   *  este SUMA, fiindca ea este ce se compara. */
+  function matnord(orderId: string, sum: number, over: Record<string, unknown> = {}) {
+    const per = Math.round((sum / 7) * 100) / 100;
+    const lines = Array.from({ length: 7 }, (_, i) => ({
+      product_name: `Linie Matnord ${i + 1}`,
+      quantity: 1,
+      unit: "pcs",
+      unit_raw: "buc",
+      unit_price: per,
+      // Ultima linie poarta restul, ca suma sa fie EXACT cea observata si nu
+      // una apropiata: o fixtura care se rotunjeste catre valoarea dorita nu
+      // mai testeaza aritmetica pe care o pretinde.
+      line_total: i === 6 ? Math.round((sum - per * 6) * 100) / 100 : per,
+      currency: "MDL",
+      currency_raw: "lei",
+      category: null,
+      category_raw: null,
+    }));
+    return callbackBody(orderId, {
+      status: "extracted",
+      error_code: null,
+      reason: null,
+      document_source: "scan",
+      prices_include_vat: false,
+      subtotal: 50336.4,
+      vat_amount: 10067.28,
+      document_total: 60403.68,
+      lines,
+      ...over,
+    });
+  }
+
+  test("12. cele trei sume observate ale lui Andre CAD toate la reconciliere, si forma refuzului este cea a EXT-15", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    for (const sum of [49035.4, 39242.0, 38429.4]) {
+      const { orderId } = await orderWithDocument(page, `rec${String(sum).replace(".", "")}`);
+      const r = await post(request, matnord(orderId, sum));
+      // NU 400. Payload-ul respecta contractul; ce nu se potriveste este
+      // aritmetica lui, si asta este o ciorna respinsa, nu un payload invalid.
+      expect(r.status(), `suma ${sum} trebuie ACCEPTATA ca payload`).toBe(202);
+
+      const d = await draftState(request, orderId);
+      // FORMA REFUZULUI, exact cum o cere cardul.
+      expect(d.status, `suma ${sum}`).toBe("failed");
+      expect(d.error_code, `suma ${sum}`).toBe("reconciliation_failed");
+      expect(d.document_source, `suma ${sum}`).toBe("scan");
+      // ZERO LINII. Liniile care nu se aduna la totalul tiparit sunt exact
+      // liniile care nu au voie sa ajunga pe un ecran de confirmare.
+      expect(d.lines, `suma ${sum}`).toHaveLength(0);
+      // ANTETUL RAMANE. Documentul se introduce manual, iar cine il introduce
+      // are nevoie de furnizor, data si totaluri.
+      expect(d.supplier_name, `suma ${sum}`).not.toBeNull();
+      expect(Number(d.subtotal), `suma ${sum}`).toBe(50336.4);
+      expect(Number(d.document_total), `suma ${sum}`).toBe(60403.68);
+    }
+  });
+
+  test("13. o scanare INAUNTRUL tolerantei este acceptata si isi pastreaza liniile", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "recok");
+
+    // Exact totalul tiparit. Fara acest caz, o implementare care refuza TOT ar
+    // trece cazul 12 in intregime.
+    const r = await post(request, matnord(orderId, 50336.4));
+    expect(r.status()).toBe(202);
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("extracted");
+    expect(d.error_code).toBeNull();
+    expect(d.lines).toHaveLength(7);
+  });
+
+  test("14. un document DIGITAL in afara tolerantei este neatins de acest card", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "recdig");
+
+    // Aceeasi aritmetica gresita, alta sursa. Acolo cifrele vin din text, nu
+    // dintr-o citire, si o nepotrivire inseamna altceva. Cardul spune in terms
+    // ca este neatins, deci trebuie sa ramana extracted CU liniile lui.
+    const r = await post(request, matnord(orderId, 38429.4, { document_source: "digital" }));
+    expect(r.status()).toBe(202);
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("extracted");
+    expect(d.error_code).toBeNull();
+    expect(d.document_source).toBe("digital");
+    expect(d.lines).toHaveLength(7);
+  });
+
+  test("15. cele trei conditii in care verificarea nu poate rula, fiecare cu cazul ei", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // 1. TINTA ESTE null -> REFUZ. Documentul nu tipareste totalul fata de care
+    //    s-ar reconcilia, deci nu se stie nimic, si a nu sti nu este o trecere.
+    {
+      const { orderId } = await orderWithDocument(page, "rectgt");
+      const r = await post(request, matnord(orderId, 50336.4, { subtotal: null }));
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "tinta null trebuie sa REFUZE").toBe("failed");
+      expect(d.error_code).toBe("reconciliation_failed");
+      expect(d.lines).toHaveLength(0);
+    }
+
+    // 2. UN line_total ESTE null -> REFUZ. Suma este incompleta prin
+    //    constructie, deci comparatia ar fi intre un numar si o parte dintr-un
+    //    numar.
+    {
+      const { orderId } = await orderWithDocument(page, "reclt");
+      const body = matnord(orderId, 50336.4) as Record<string, unknown>;
+      (body.lines as Record<string, unknown>[])[3]!.line_total = null;
+      const r = await post(request, body);
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "un line_total null trebuie sa REFUZE").toBe("failed");
+      expect(d.error_code).toBe("reconciliation_failed");
+      expect(d.lines).toHaveLength(0);
+    }
+
+    // 3. prices_include_vat ESTE null -> se reconciliaza fata de AMANDOUA si se
+    //    accepta numai daca UNA se potriveste. Doua sub-cazuri, fiindca o
+    //    implementare care accepta mereu ar trece primul si ar cadea la al
+    //    doilea.
+    {
+      const { orderId } = await orderWithDocument(page, "recvatok");
+      // Suma se potriveste cu document_total, nu cu subtotal. UNA ajunge.
+      const r = await post(
+        request,
+        matnord(orderId, 60403.68, { prices_include_vat: null }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "prices_include_vat null, una dintre tinte se potriveste").toBe("extracted");
+      expect(d.lines).toHaveLength(7);
+    }
+    {
+      const { orderId } = await orderWithDocument(page, "recvatno");
+      // Nu se potriveste cu niciuna dintre cele doua.
+      const r = await post(request, matnord(orderId, 38429.4, { prices_include_vat: null }));
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "prices_include_vat null si niciuna nu se potriveste").toBe("failed");
+      expect(d.error_code).toBe("reconciliation_failed");
+      expect(d.lines).toHaveLength(0);
+    }
+  });
 });
