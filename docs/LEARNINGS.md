@@ -3423,3 +3423,29 @@ same trap CLAUDE.md section 3 names from the other side. There the danger is
 reading a green that belongs to an earlier sha; here it is destroying a green
 that was about to belong to this one. Both are the same fact: a check result
 belongs to a sha, and pushing makes a new one.
+
+### A stale green does not need a conflict: BEHIND reads exactly the same
+**Tag:** ci
+**ERROR:** Run `20260904-040001` booted onto PR #186, inherited from the run
+three hours earlier, and `gh pr checks` reported `quality pass`. It was not a
+merge that could be made. `npm run checks:state 186` printed `head 80d4128 /
+mergeStateStatus BEHIND / quality SUCCESS / STALE, NOT GREEN`. The pull request
+did not conflict with `main` at any point and never had. `main` had simply moved
+under it, and branch protection on `main` sets `required_status_checks.strict`,
+so the recorded run was not the run that would decide the merge. Every prior
+instance of this trap in this repository, including the six-screen outage the
+rule in CLAUDE.md section 3 was written from, was a CONFLICTING pull request,
+where the tell is that zero workflows were triggered. `BEHIND` triggers nothing
+either, produces the identical `quality pass`, and arrives by a completely
+different route: nobody has to touch the branch for it to happen, because it is
+caused by somebody else's merge.
+**SOLUTION:** `mergeStateStatus` is read for its VALUE, not for whether it says
+`DIRTY`. `npm run checks:state <pr>` already had this right and refuses `BEHIND`
+and `DIRTY` alike, which is why it caught this one. **The rule: a green is
+trusted only when the check's head sha is the sha that will merge, and the only
+thing that proves that is `mergeStateStatus CLEAN`.** The fix in both cases is
+the same and it is the one in R-052: merge `origin/main` into the branch
+LOCALLY, run the board validator and the conflict-residue check before the
+commit, push, and wait for a run on the new sha. Here it resolved with no
+conflict at all, ten insertions in one file, and the pull request went from
+STALE to `CLEAN` and merged as `d4915a8`.
