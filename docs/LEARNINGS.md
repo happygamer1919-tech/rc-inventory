@@ -3561,6 +3561,13 @@ Card `MIG-01` was then authored `blocked_on: ivan`, **exactly as CLAUDE.md secti
 4 requires** of a decision a terminal may not make, and **three assertions turned
 red**:
 
+### A gate that goes red when the doctrine is obeyed trains terminals out of obeying it
+**Tag:** ci
+**ERROR:** Card `MIG-01` was authored `blocked_on: ivan` with a structured
+decision-needed question, which is **exactly what CLAUDE.md section 4 requires**
+of a decision a terminal may not make. Three assertions in
+`scripts/poc/test-ask-digest.sh` turned red:
+
     FAIL  the first run sent 1 digest(s) with nothing outstanding
     FAIL  an unchanged board produced 3 digest(s)
     FAIL  the digest kept nagging after the question was answered
@@ -3592,3 +3599,38 @@ this learns that blocking a card correctly costs it a red build, and the cheap w
 out is to not block the card. **When a check punishes correct behaviour, fix the
 check immediately** - it is training every future run against the rule it was
 built to protect.
+
+`digest.mjs` counts a card that is `status: blocked` with `blocked_on: "ivan"` as
+an outstanding question, and **it is right to**: that is an owner action nobody
+else can discharge. Case 6 builds its "nothing outstanding" fixture by copying the
+**live** board, and the number of cards blocked on Ivan on `origin/main` was
+**zero**, so the assertion had been passing on that and nothing else.
+
+**The card was correct. The digest was correct. The fixture was wrong.** Proven
+rather than assumed: `digest.mjs decide` returned `send: true` with reason
+`"a question is outstanding"` against the branch board, and `send: false` against
+the same board with `MIG-01` removed.
+
+**SOLUTION: THE FIXTURE WAS FIXED AND THE CARD WAS NOT, and the direction is the
+entire lesson.** The fixture now clears `status`, `blocked_on` and `question` on
+any card blocked on Ivan, and **reports what it did** — a silent fixture edit
+would be the same defect one layer down.
+
+**THE CHEAP EXIT WAS TO DROP `MIG-01`'s `blocked_on`.** It would have gone green
+in seconds, cost nothing visible, and left a card that a terminal may not decide
+sitting in `todo` as though it could. **That is the outcome this entry exists to
+make unthinkable.**
+
+**The rule.** **A check that punishes correct behaviour is not a strict check, it
+is a broken one, and it must be fixed the moment it is found.** Every hour it
+stands, it teaches the next terminal that following the rule costs a red build
+and that the way out is to stop following the rule. A gate is supposed to make the
+correct path the cheap path; when it inverts that, it is actively training against
+the doctrine it was built to protect.
+
+**How to tell this case from an ordinary failure**, because "the check is wrong"
+is also what every terminal with a real bug wants to believe: ask whether the
+thing that turned it red is **required** by a rule written down somewhere. Section
+4 requires `blocked_on` on an undecidable card. If obeying a written rule is what
+made the gate red, the gate is wrong. If it is your code that made it red, it is
+not.

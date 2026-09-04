@@ -352,3 +352,28 @@ digital path still accepts a `lines` key. Note this is the INBOUND validation ru
 which is the mirror of the reading EXT-16 took for its own stored shape: EXT-16
 stores zero lines, EXT-20 refuses a payload that even sends the key.
 
+---
+
+## R-124 confirmed a fourth time, this one predicted in the file itself
+
+#195 merged as `53df12c` at ~14:5xZ. Immediately before and after:
+
+    before:  applied_ledger_version()                 "0033"
+             ?error_code=eq.reconciliation_failed     400, absent
+    after:   applied_ledger_version()                 "0034"
+             ?error_code=eq.reconciliation_failed     200, PRESENT
+
+**The difference from the first three is that this one was written down in
+advance.** `0034`'s own header says "MERGING THIS FILE APPLIES IT", and it does.
+That is section 8.0 working as intended rather than being discovered again.
+
+**And the probe is READ-ONLY, which is R-122 applied to its own author.** The
+`0032` probe attempted an INSERT designed to be refused, and R-122 exists because
+that was safe by construction rather than by design. This one asks the same
+question with a `GET` and a filter on the label: an unknown enum label makes
+PostgREST reject the filter, so the refusal IS the answer and **no write is
+attempted at all**. Form 1 of the three shapes R-122 permits.
+
+`0034`'s pending line is removed and it gets a normal APPLIED entry, so the
+register is once again empty and agrees with production.
+
