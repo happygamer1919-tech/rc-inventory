@@ -3423,3 +3423,214 @@ same trap CLAUDE.md section 3 names from the other side. There the danger is
 reading a green that belongs to an earlier sha; here it is destroying a green
 that was about to belong to this one. Both are the same fact: a check result
 belongs to a sha, and pushing makes a new one.
+
+### Second instance: an instruction not to invent a self-consistent total was ignored three runs of three
+**Tag:** data
+**ERROR:** The prompt forbade the model from constructing a quantity, a unit
+price and a line total that agree with each other when it cannot actually read
+all three. **It did it anyway, on three runs out of three.** Andre's Matnord scan,
+7 lines, printed total **50,336.40** excluding VAT, produced three different line
+sums across three runs: **49035.40**, **39242.00**, **38429.40**. Every one of the
+three arrived with `status: extracted` and `reason: null`, which is the payload
+shape meaning "read cleanly, nothing to report".
+
+The tolerance for a 7-line document is `max(0.05, 0.01 * 7)` = **0.07**. The three
+miss it by **1300.93**, **11094.33** and **11906.93**.
+
+**The three runs disagree with EACH OTHER by up to 10606.00**, on one unchanged
+page, against a tolerance of 0.07. That is five orders of magnitude past the
+tolerance, and it is the part that matters: a reading that drifted would cluster.
+Three readings of the same page that disagree with each other by that much are
+not one reading with noise on it, they are three separate fabrications.
+
+**THIS IS THE SECOND CONTROL OF THIS SHAPE TO FAIL, AND THAT IS THE ENTRY.** The
+first was `confidence`, which returned **1.0** on a document with four invented
+lines, and which card EXT-14 removes rather than displays. The two failures are
+the same failure wearing different clothes:
+
+| the control | what it asks the model to do | what it returned |
+|---|---|---|
+| `confidence` | report how sure it is | `1.0`, on four invented lines |
+| "do not construct a self-consistent total you cannot read" | notice it is about to invent, and stop | three fabrications, three runs, all `extracted`, all `reason: null` |
+
+**SOLUTION, and it is a generalisation rather than a fix to either instance.**
+
+**A CONTROL THAT DEPENDS ON THE MODEL NOTICING IT HAS MISREAD IS NOT A LAYER, AND
+IT MUST NOT BE COUNTED AS ONE IN ANY CARD, CONTRACT, GATE OR REPORT.**
+
+Not "is a weak layer". **Not a layer.** It contributes zero to a defence-in-depth
+argument and it must be worth zero when the layers are counted, because a
+protection that reads as present and is absent is worse than an acknowledged gap:
+the gap gets a card and the phantom gets a tick.
+
+**The test to apply before writing any such instruction or field**, and it is one
+question: **would obeying this correctly require the model to know something it
+does not know?** Noticing that you misread a digit requires knowing the digit. If
+the answer is yes, it is `confidence` with a new name, however procedural the
+wording looks.
+
+**An instruction to a model specifies what its output must LOOK LIKE, never what
+its output MEANS.** Already in this file from the first instance, and the reason
+this one was predictable: **the more precisely a consistency rule is stated, the
+more convincingly a fabrication satisfies it.** "Make the lines sum to the total"
+is also a template for inventing lines that sum to the total.
+
+**Where the real control goes: on our side of the wire, in arithmetic we perform.**
+Card EXT-16 reconciles the line sum against the printed total in our validator,
+against a number we read, and it is not asking the model anything. That is a
+layer. The three fixtures above are its test cases, and they are committed as
+observed rather than rounded, with no fourth invented sum added to make the set
+look tidier.
+
+### A migration reaches production on merge, with no applier, no journal and no human
+**Tag:** infra
+**ERROR:** `docs/migrations/APPLY-LOG.md` listed `0028` to `0031` as pending while
+production reported them applied. Every card report said "authored and merged,
+**NOT applied**". No commit, no journal row, no actor. The obvious reading was
+that somebody applied them and failed to write it down.
+
+**Nobody did.** A **`Supabase Preview` check, from the GitHub app `supabase`,
+runs on every push to `main`** and points at the production project. It applies
+merged migrations. Its check output carries no title and no summary, so it says
+nothing about what it did.
+
+**IT WAS CONFIRMED BY PREDICTION, WITH A CONTROL, AND THAT IS WHY THIS ENTRY IS
+NOT SPECULATION.** Two migrations both numbered `0032` existed on the same day:
+`0032_extraction_draft_page_count.sql` on PR #180 and
+`0032_extraction_document_source.sql` on PR #177. Before merging either:
+
+    applied_ledger_version()           "0031"
+    extraction_drafts.page_count       42703, absent
+    extraction_drafts.document_source  42703, absent
+
+PR #180 was merged. PR #177 was left open. Within two minutes:
+
+    applied_ledger_version()           "0032"
+    extraction_drafts.page_count       PRESENT
+    extraction_drafts.document_source  still absent
+
+**The unmerged twin is the control.** Same day, same register, same shape, and
+only the merged one landed.
+
+**SOLUTION, and it is not a fix, it is a correction to what everyone believed.**
+
+**"Merging a migration file changes one text file in a git repository and changes
+nothing in any database" IS FALSE IN THIS REPOSITORY.** That sentence is in
+CLAUDE.md 3.1, it is the entire basis of the self-merge grant separating merge
+from apply, and it was true when written. It is not true now. **On this repo, on
+this integration, MERGE IS APPLY.**
+
+Everything downstream of that sentence needs re-reading:
+
+- **R-082's applier is not the only path to production, it is the path a terminal
+  takes.** `scripts/apply-pending-migrations.mjs` runs one transaction, records
+  the register, asserts in SQL and commits only on all-pass. **The integration
+  does none of that** and needs no permission from anyone.
+- **8.6's destructive-statement stop protects nothing here.** A merged migration
+  containing `DROP TABLE` applies on merge. Every terminal would have obeyed the
+  rule and the table would be gone anyway.
+- **8.8 is broken by a party it does not describe.** It says a production write
+  with no row in one of the two journals is a violation. It is written for
+  terminals. This writer is not one.
+- **The pending register cannot be trusted as a statement about production.** It
+  is a statement about what a terminal has applied, which is a different and much
+  smaller set.
+
+**The rule.** **A repository's doctrine describes the actors it knows about. Before
+relying on a control, ask what ELSE can perform the action it controls** - an
+integration, a bot, a scheduled job, a console someone can click. A control that
+binds every actor you thought of, and there is a writer you did not, is not a
+weaker control; it is an inventory error, and the gap is invisible precisely
+because every actor you audit is compliant.
+
+**How it was found, which is the reusable part:** by reading production and the
+repository and refusing to reconcile them by assumption. The register said
+pending, production said applied, and the temptation was to write four journal
+entries and move on. The entries would have been fiction, and the actual defect -
+an unaudited write path - would have stayed hidden behind them.
+
+### A proof script that copies the live board inherits today's board as an unstated precondition
+**Tag:** ci
+**ERROR:** `scripts/poc/test-ask-digest.sh` case 6 asserts the digest is **silent
+when nothing is outstanding**, and it builds its fixture by copying the **live**
+`docs/board/rc-board-phase2.json`. `digest.mjs` counts a card that is
+`status: blocked` with `blocked_on: "ivan"` as an outstanding question, and it is
+right to: that is an owner action nobody else can discharge.
+
+Card `MIG-01` was then authored `blocked_on: ivan`, **exactly as CLAUDE.md section
+4 requires** of a decision a terminal may not make, and **three assertions turned
+red**:
+
+### A gate that goes red when the doctrine is obeyed trains terminals out of obeying it
+**Tag:** ci
+**ERROR:** Card `MIG-01` was authored `blocked_on: ivan` with a structured
+decision-needed question, which is **exactly what CLAUDE.md section 4 requires**
+of a decision a terminal may not make. Three assertions in
+`scripts/poc/test-ask-digest.sh` turned red:
+
+    FAIL  the first run sent 1 digest(s) with nothing outstanding
+    FAIL  an unchanged board produced 3 digest(s)
+    FAIL  the digest kept nagging after the question was answered
+
+**The card was correct. The digest was correct. The fixture was wrong.** The
+assertion had held only while the live board happened to contain no card blocked
+on Ivan, and it contained none: checked against `origin/main`, the count was
+**zero**. The test had been passing by luck since it was written.
+
+**SOLUTION:** the fixture is neutralised after the copy. Every card that is
+blocked on Ivan has its `status`, `blocked_on` and `question` cleared, so the
+baseline is a genuinely quiet board rather than whatever the board looks like
+today. Cases 7a to 7d, which each introduce ONE of the four conditions into the
+same fixture and assert the digest speaks, need that quiet baseline too, so this
+makes them honest as well as case 6.
+
+**THE RULE, AND IT HAS TWO HALVES.**
+
+**A fixture copied from live data carries every property that data happens to
+have**, including the ones nobody chose and nobody wrote down. A test built that
+way does not fail when the code breaks; it fails when the data moves. Copy live
+data into a fixture only after neutralising the properties the assertion depends
+on, and say in the fixture which ones those are.
+
+**And the sharper half: A GATE THAT GOES RED WHEN THE DOCTRINE IS OBEYED IS WORSE
+THAN NO GATE.** Section 4 says a card a terminal cannot decide goes
+`blocked_on: ivan`. Doing that turned `quality` red. The next terminal to meet
+this learns that blocking a card correctly costs it a red build, and the cheap way
+out is to not block the card. **When a check punishes correct behaviour, fix the
+check immediately** - it is training every future run against the rule it was
+built to protect.
+
+`digest.mjs` counts a card that is `status: blocked` with `blocked_on: "ivan"` as
+an outstanding question, and **it is right to**: that is an owner action nobody
+else can discharge. Case 6 builds its "nothing outstanding" fixture by copying the
+**live** board, and the number of cards blocked on Ivan on `origin/main` was
+**zero**, so the assertion had been passing on that and nothing else.
+
+**The card was correct. The digest was correct. The fixture was wrong.** Proven
+rather than assumed: `digest.mjs decide` returned `send: true` with reason
+`"a question is outstanding"` against the branch board, and `send: false` against
+the same board with `MIG-01` removed.
+
+**SOLUTION: THE FIXTURE WAS FIXED AND THE CARD WAS NOT, and the direction is the
+entire lesson.** The fixture now clears `status`, `blocked_on` and `question` on
+any card blocked on Ivan, and **reports what it did** — a silent fixture edit
+would be the same defect one layer down.
+
+**THE CHEAP EXIT WAS TO DROP `MIG-01`'s `blocked_on`.** It would have gone green
+in seconds, cost nothing visible, and left a card that a terminal may not decide
+sitting in `todo` as though it could. **That is the outcome this entry exists to
+make unthinkable.**
+
+**The rule.** **A check that punishes correct behaviour is not a strict check, it
+is a broken one, and it must be fixed the moment it is found.** Every hour it
+stands, it teaches the next terminal that following the rule costs a red build
+and that the way out is to stop following the rule. A gate is supposed to make the
+correct path the cheap path; when it inverts that, it is actively training against
+the doctrine it was built to protect.
+
+**How to tell this case from an ordinary failure**, because "the check is wrong"
+is also what every terminal with a real bug wants to believe: ask whether the
+thing that turned it red is **required** by a rule written down somewhere. Section
+4 requires `blocked_on` on an undecidable card. If obeying a written rule is what
+made the gate red, the gate is wrong. If it is your code that made it red, it is
+not.
