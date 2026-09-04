@@ -76,6 +76,41 @@ jobs:
       - name: Refuse a commit whose card id resolves to no card
         run: npm run check:card-ids
 
+      # RULE-06. THE PULL REQUEST THAT CARRIES A CARD'S CODE CARRIES THAT CARD'S
+      # BOARD EDIT.
+      #
+      # CLAUDE.md 2 has required this since it was written and it was broken twice
+      # on 2026-09-04, by terminals that each believed they were obeying it. #192
+      # left AUT-17 `in_flight` with no evidence, caught on the branch and fixed
+      # before the merge. #195 merged EXT-16's application code to main with the
+      # card still `todo`, an hour after the same terminal had flagged #192 for
+      # the same rule. A rule obeyed by everyone who believed they were obeying it
+      # needs a mechanism.
+      #
+      # IT ASKS PER CARD ID, NOT PER FILE, AND #195 IS WHY. That pull request DID
+      # modify docs/board/rc-board-phase3.json. It modified two lines and they
+      # were a different card's notes. A check keyed on "was a board file touched"
+      # reports #195 green.
+      #
+      # NOT PATH-FILTERED. It resolves its own file list from the diff, and a
+      # workflow-level filter would skip it on exactly the pull request that
+      # brings code into scope. It short-circuits on the push-to-main run, where
+      # there is no branch and no card to ask about, and says so in the log rather
+      # than reporting a clean check.
+      #
+      # IT FAILS CLOSED. A path it cannot classify, a card id it cannot resolve, a
+      # board it cannot read and code under no card at all are all refusals, never
+      # passes.
+      - name: Refuse a code pull request whose board edit is missing
+        run: npm run check:board-edit
+
+      # And the proof that it refuses. Forty-five assertions over twenty-three
+      # throwaway repositories, each refusing case paired with a control that must
+      # pass on the same harness, because a check that refuses everything
+      # satisfies every negative assertion while proving nothing.
+      - name: Prove the board-edit check refuses
+        run: npm run prove:board-edit
+
       # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
       #
       # tests/e2e/document-url.spec.ts proves the three failure paths end to end,

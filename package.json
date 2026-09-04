@@ -33,7 +33,9 @@
     "prove:open-branch-ids": "node scripts/poc-free/prove-open-branch-ids.mjs",
     "prove:unique-ids": "node scripts/poc-free/prove-unique-ids.mjs",
     "prove:assertions": "node scripts/poc-free/prove-assertions-can-fail.mjs",
-    "check:assertion-register": "node scripts/poc-free/check-assertion-register.mjs"
+    "check:assertion-register": "node scripts/poc-free/check-assertion-register.mjs",
+    "check:board-edit": "node scripts/poc-free/check-board-edit.mjs",
+    "prove:board-edit": "node scripts/poc-free/prove-board-edit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
