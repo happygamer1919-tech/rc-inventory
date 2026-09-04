@@ -1,65 +1,27 @@
 {
-  "run_id": "20260904-040001",
-  "report": "docs/reports/2026-09-04-executor-aut-16-board-set.md",
+  "run_id": "20260904-071258",
+  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
   "rulings_written": [
-    "R-108",
-    "R-109",
-    "R-110",
-    "R-111",
-    "R-112",
-    "R-113",
-    "R-114",
-    "R-115",
-    "R-116",
-    "R-117"
+    "R-118",
+    "R-119",
+    "R-120",
+    "R-121"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-13",
-      "change": "the credential lockdown now waits on the small item that makes its own checklist complete, because worked in the other order the lockdown finishes with every box ticked and one of the three permissions it exists to remove still alive. A second thing it must wait for cannot be written down at all: the list it lives on cannot refer to an item on the other list, so that one is recorded in words at the top of its notes and has been given its own item to fix."
-    },
-    {
-      "card_id": "AUT-17",
-      "change": "notes only, no dependency changed, and no second item authored because one already exists. The nightly reviewing step was pointed at the wrong write-up for the third night running, and a second version of the same fault has now happened twice: two consecutive reviews were handed the identical write-up and both reviewed it in full, hours apart, with nothing anywhere going red. The item gains that evidence, the constraint it implies for how the fix must be built, and a correction to two stale line references."
-    },
-    {
-      "card_id": "APPLY-02",
-      "change": "authored. Six finished pieces of database work have been built and approved and never switched on in the live system, and no item on either list turns them on. Every one of the nine readiness conditions on the second list is waiting behind exactly this and has been reading zero since that list opened."
-    },
-    {
-      "card_id": "BOARD-03",
-      "change": "authored. The two work lists cannot refer to each other, so the single most consequential ordering constraint this review found had to be written in prose instead of being recorded where the system reads it."
-    },
-    {
-      "card_id": "AUT-19",
-      "change": "authored. A whole family of items cannot be answered from the phone at all: the reply is discarded and the answer comes back saying the item does not exist, which is indistinguishable from a typo. It is the family that splits off a bigger item, which is exactly the kind most likely to be waiting on a person."
-    },
-    {
-      "card_id": "AUT-20",
-      "change": "authored. One of the safety checks on the automatic chat replies has been failing and nothing runs it, so nobody would find out if the assistant started treating a stray message as an instruction."
-    },
-    {
-      "card_id": "AUT-21",
-      "change": "authored. The nightly automation runs from copies installed on the machine and nothing notices when those copies fall behind what was actually built. A session can be following last week's instructions and its report would look normal."
-    },
-    {
-      "card_id": "AUT-22",
-      "change": "authored. The automatic checks cost between eighteen and twenty five minutes of a forty five minute session, so a session that builds something new cannot also publish it. Three consecutive nights hit this. Each session should finish what the last one left before starting anything new."
-    },
-    {
-      "card_id": "RULE-05",
-      "change": "authored. The standing rulebook still describes how the next job was chosen before last night's change, so a fresh session that reads it and follows it picks the wrong job, and nothing anywhere goes red."
+      "card_id": "AUT-6",
+      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is waiting on the extraction supplier and has been since 2026-08-27. As long as he does not answer, permissions that were granted as temporary stay live.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and it is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF, STATED SO YOU ARE NOT SURPRISED: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. Waiting means the temporary permissions stay live indefinitely on somebody else's schedule. There is a third option if you prefer: chase him for a date, and if he does not give one within a week, the lockdown goes ahead anyway. IF UNANSWERED: nothing breaks and nothing gets worse, which is precisely the problem. The permissions stay live, the lockdown stays unscheduled, and the client acceptance walk stays behind it, exactly as it has for eight days."
+      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
+      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded inside a readiness condition since 2026-08-26 and are still not confirmed set. This is the third time it has been raised.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, REPEATED BECAUSE IT IS THE PART THAT GETS LOST: this does NOT make the condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
     }
   ]
 }
