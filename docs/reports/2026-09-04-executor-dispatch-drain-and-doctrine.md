@@ -405,3 +405,28 @@ Three things were wrong and all three are fixed rather than tidied away:
 **The card's notes carry the omission**, not just this report, because the board
 is what the next reader opens.
 
+### Conflict survey of the remaining ten, taken once
+
+    #194  poc/state-20260904-071258    conflicts 0   behind 0    already refreshed
+    #189  poc/report-20260904-040001   conflicts 1   behind 2    LEARNINGS only
+    #192  card/aut-17                  conflicts 2   behind 2    + board flip owed
+    #193  triage/20260904-071258       conflicts 3   behind 2
+    #190  triage/20260904-040001       conflicts 4   behind 2
+    #184  triage/20260903-220002       conflicts 3   behind 13
+    #187  triage/20260904-010000       conflicts 4   behind 12
+    #157  triage/20260902-070904       conflicts 4   behind 24
+    #172  triage/20260903-070005       conflicts 4   behind 24   + renumber R-090, R-091
+    #175  card/ext-14                  conflicts 6   behind 24   the heaviest
+
+Every TRIAGE conflict is the same three or four files: `decisions/inbox.md`,
+`decisions/NEXT-RULING-ID`, both boards, and `docs/poc/triage-latest.json`. All of
+them are **additive on both sides** except the counter, which takes the higher
+value, and the boards, which are rebuilt by card identity. That is the same
+resolution shape five times over.
+
+**#175 is the outlier at six conflicts** and it is the only one whose conflicts are
+in application code: it removes `confidence` from the payload, the types, the
+contract and the spec, and every one of those files has been rewritten twice today
+by EXT-15 and EXT-16. It is deliberately last, so it is resolved once against a
+`main` that has stopped moving.
+
