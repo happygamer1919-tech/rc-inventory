@@ -4890,3 +4890,82 @@ process:** pull requests #184 and #181 both write `R-098`, with different
 headings, and `check:unique-ids` is green on both because it compares each branch
 against `main` only. That is precisely the defect card `RULE-04` describes, and it
 is why this id is 122 rather than the 099 the counter would have handed out.
+
+
+---
+
+### R-124
+
+**THE SUPABASE GIT INTEGRATION KEEPS APPLYING MIGRATIONS ON MERGE. CLAUDE.md
+SECTION 8 IS REWRITTEN TO DESCRIBE WHAT HAPPENS RATHER THAN WHAT WAS INTENDED,
+AND THE MERGE BECOMES THE DESTRUCTIVE-STATEMENT BOUNDARY.**
+
+**Asked by:** EXECUTOR, 2026-09-04, carrying card `MIG-01`. **Decided by:** the
+owner in his dispatch of the same day.
+
+**WHAT WAS BELIEVED, AND FOR HOW LONG.** CLAUDE.md 3.1 said, in terms, that a
+pull request adding `supabase/migrations/0013_something.sql` *"changes one text
+file in a git repository and changes nothing in any database"*. That sentence was
+the entire basis of the grant separating merging from applying. R-082's whole
+preamble rests on it. It was written in good faith and it was false.
+
+**WHAT IS TRUE.** A Supabase GitHub integration watches `main` and applies merged
+migrations to the production project within about two minutes. It runs on every
+push. Nothing in this repository configured it as doctrine and nothing in this
+repository governs it.
+
+**THE EVIDENCE, AND IT IS A PREDICTION WITH A CONTROL RATHER THAN A CORRELATION.**
+Two migrations both numbered `0032` existed on 2026-09-03 on two open pull
+requests, `page_count` on #180 and `document_source` on #177. Before merging
+either, production reported `applied_ledger_version()` of `"0031"` and both
+columns absent with `42703`. **#180 was merged and #177 was deliberately left
+open.** Within two minutes the ledger read `"0032"`, `page_count` was present, and
+`document_source` was still absent. #177 was later merged and `document_source`
+appeared in its turn: the same prediction, made again, held again.
+
+**The unmerged twin is what makes it a test.** Same day, same register, same
+shape, and only the merged one landed.
+
+**IT APPLIES THE FILE FAITHFULLY, WHICH IS THE HALF THE DECISION TURNS ON.** The
+column landing does not prove the whole file ran, so the constraint was probed:
+an insert violating `0032`'s CHECK was refused with `23514`. The integration ran
+the file, not merely its `ADD COLUMN`.
+
+**THE DECISION: IT STAYS, AND THE DOCTRINE MOVES TO MEET IT.** The alternative
+was disabling it and returning every apply to `scripts/apply-pending-migrations.mjs`.
+That was refused: it has applied at least six migrations correctly, the friction
+it removes is real, and the danger is concentrated entirely in the class of
+statements that remove rows, which a pre-merge check covers completely.
+
+**WHAT THE RULING REQUIRES:**
+
+1. **CLAUDE.md gains section 8.0**, which states that merging applies, names the
+   four consequences, and is placed before everything else in section 8 so no
+   reader reaches 8.5 or 8.6 believing the old model.
+2. **The false sentence in 3.1 is corrected in place, not deleted.** It is quoted,
+   marked disproved, and the evidence sits underneath it. Deleting it would leave
+   every reader who remembers it with no way to learn they were wrong. The same
+   clause inside R-082's preamble is corrected the same way.
+3. **The destructive-statement boundary is the MERGE.**
+   `npm run check:no-destructive-migration` is the control: it parses with
+   `pgsql-parser`, refuses `DROP TABLE`, `TRUNCATE` and `DELETE` with the
+   statement quoted, fails closed on any statement kind it has not been taught,
+   and treats an unparseable file as a failure rather than a pass. It is not
+   path-filtered and `prove:no-destructive-migration` proves it refuses.
+4. **8.5, 8.6 and 8.8 keep binding the applier path**, which still exists and is
+   still the only path a TERMINAL may take. What changed is that it stopped being
+   the only path.
+5. **8.8 names the third writer.** The integration journals nothing. Recording
+   that is not an admission of a gap, it is the correction of a count that was
+   wrong.
+
+**WHAT THIS RULING DOES NOT DO.** It grants no terminal anything. It does not
+touch R-047 or R-082, whose conditions on a terminal-run apply are unchanged. It
+does not make a merged `DROP TABLE` acceptable; it moves the refusal earlier, to
+the only place left that precedes production.
+
+**THE GENERAL LESSON, RECORDED BECAUSE IT WILL RECUR.** A repository's doctrine
+describes the actors it knows about. Before relying on a control, ask what ELSE
+can perform the action it controls: an integration, a bot, a scheduled job, a
+console someone can click. The gap here was invisible for weeks precisely because
+every actor anybody audited was compliant.
