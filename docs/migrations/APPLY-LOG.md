@@ -39,7 +39,6 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
-- `0034_error_code_reconciliation_failed.sql`, card de aplicare EXT-16
 
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
@@ -352,6 +351,42 @@ merging a migration "changes nothing in any database" is simply false here.
 
 **Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist.** Card `MIG-01` carries the
 decision.
+
+## 0034_error_code_reconciliation_failed.sql - APPLIED, PREDICTED IN ITS OWN HEADER
+
+**Actor:** **the Supabase GitHub app, on the merge of PR #195 to `main`.** No
+terminal ran it. This is the fourth apply in this group and the third that was
+**predicted before it happened**; unlike `0032` and `0033`, the prediction was
+written into the migration file's own header before the file was merged, which is
+what ruling R-124 now requires of section 8.
+
+**Applied at:** between `2026-09-04T14:5xZ`, when PR #195 merged as `53df12c`, and
+the completion of the `Supabase Preview` check on that commit. Read as present
+immediately after.
+
+**What it creates:** the label `reconciliation_failed` on
+`public.extraction_error_code`, taking it from seven values to eight.
+
+**Proof that it is applied:**
+
+    before the merge:  applied_ledger_version()                     "0033"
+                       ?error_code=eq.reconciliation_failed         400, absent
+    after the merge:   applied_ledger_version()                     "0034"
+                       ?error_code=eq.reconciliation_failed         200, PRESENT
+
+**THE PROBE IS READ-ONLY, WHICH IS RULING R-122 APPLIED TO ITS OWN AUTHOR.** The
+`0032` entry above records a probe that attempted an INSERT designed to be
+refused, and R-122 was written because that probe was safe by construction rather
+than by design. This one asks the same question with a `GET` and a filter: an
+unknown enum label makes PostgREST reject the filter, so the refusal IS the
+answer and **no write is attempted at all**. That is form 1 of the three shapes
+R-122 permits.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and under 8.0 that is now the
+documented behaviour of this path rather than a gap in the record. The control
+that preceded this apply is `npm run check:no-destructive-migration`, which ran
+in `quality` on #195 and passed: the file contains one `AlterEnumStmt` and one
+`SelectStmt`, and removes no row.
 
 ## Rules
 
