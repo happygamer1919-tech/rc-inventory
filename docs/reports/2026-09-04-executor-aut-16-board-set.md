@@ -3,7 +3,8 @@
 **Role:** EXECUTOR
 **Run:** 20260904-010000, unattended, scheduled, worktree `/Users/ivan/rc-inventory-poc-run`
 **Date:** 2026-09-04
-**Cap:** 45 minutes of wall clock, 2 cards.
+**Cap:** 45 minutes of wall clock, 2 cards. **The cap arrived with PR #186 open
+and its `quality` check still running.** One card was worked, none was merged.
 
 ---
 
@@ -31,7 +32,25 @@ other claim existed and no card was skipped for one.
 
 ## 2. Cards touched
 
-### AUT-16, `todo` to `shipped`. PR #186, merged.
+### AUT-16, `todo` to `shipped` ON THE BRANCH. PR #186, OPEN AND NOT MERGED AT THE CAP.
+
+**READ THIS FIRST.** The acceptance passed and the `quality` check was still
+running its End to end step when the 45 minute wall clock cap arrived. **Nothing
+was merged by this run.** The board edit in this pull request says `shipped`,
+which is the normal pattern (the board flip rides in the same pull request as the
+code), but `main` is untouched and AUT-16 is still `todo` there. The next run
+merges PR #186 on green `quality` for head sha `1d2dd22`, or picks the card up
+where it stands.
+
+The first run for this branch FAILED on the new step with
+`scripts/poc/claim.sh: line 79: node: command not found`. `claim.sh` replaced
+`PATH` outright with this machine's tool paths, which is right for launchd and
+makes the script unrunnable anywhere else; it had never been invoked outside this
+machine until `test-board-set.sh` started calling it, so the defect had nowhere
+to show. Fixed by appending the inherited `PATH` rather than replacing it. Every
+step of the second run passed up to and including
+`Prove the board set is the union of the boards`; only End to end was still
+running at the cap.
 
 **The card:** the harness resolves a card id against every open board, so the
 owner can answer a phase 3 question from Telegram and the digest can see the work
@@ -163,8 +182,11 @@ Three entries appended to `docs/LEARNINGS.md`:
 
 ## 6. What the next run should pick up first
 
-**AUT-17**, which is now the lowest-id eligible card on the phase 2 board, and
-then AUT-18.
+**PR #186, this run's own card.** Check `npm run checks:state 186` and merge it
+on green `quality` for head sha `1d2dd22`. Everything before End to end had
+already passed. Only then is AUT-16 shipped on `main`.
+
+After that, **AUT-17**, then AUT-18.
 
 **But read this first: the eligible-card selector now returns phase 3 cards
 ahead of phase 2 ones**, because that is what AUT-16's `defaults` require and
