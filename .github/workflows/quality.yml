@@ -132,6 +132,26 @@ jobs:
       - name: Refuse a duplicate ruling id or card id
         run: npm run check:unique-ids
 
+      # RULE-04. check:unique-ids compares this branch against MAIN. It cannot
+      # see an id claimed on ANOTHER OPEN BRANCH, which is how R-096, R-098 and
+      # the R-090/R-091 pair each got allocated twice with nothing going red.
+      #
+      # A SWEEP IS ONLY TRUE AT THE MOMENT IT RUNS, which is why this is a check
+      # and not a procedure. required_status_checks.strict means a branch must be
+      # up to date with main before it merges, so this check's LAST run is the
+      # one immediately before the merge. That is as close to merge time as a
+      # pull request check can get.
+      #
+      # NOT PATH-FILTERED, and it needs the token to list open pull requests. It
+      # REFUSES rather than skipping when it cannot get that list.
+      - name: Refuse an id claimed on another open branch
+        run: npm run check:open-branch-ids
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prove the cross-branch id check refuses
+        run: npm run prove:open-branch-ids
+
       # And the proof that it refuses. A duplicate check that parses zero ids
       # also reports OK, so each of its refusals is driven against a throwaway
       # git repository with its own origin/main, and each is paired with a
