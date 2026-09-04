@@ -70,7 +70,6 @@ export type ExtractionLine = {
   currencyRaw: string | null;
   category: string | null;
   categoryRaw: string | null;
-  confidence: number | null;
 };
 
 /** EXT-15. Unde a gasit extractorul textul: pe pagina, sau intr-o imagine.
@@ -120,7 +119,6 @@ export type ExtractionDraft = {
   currencyRaw: string | null;
   /** EXT-15. null inseamna "extractorul nu a spus", citit ca `scan`. */
   documentSource: DocumentSource | null;
-  confidence: number | null;
   firedAt: string | null;
   callbackAt: string | null;
   lines: ExtractionLine[];

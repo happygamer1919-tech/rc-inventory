@@ -24,13 +24,13 @@ import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./e
  *  optional: o coloana necunoscuta intr-un select este 42703 si citirea arunca.
  *  Care dintre ele se foloseste o decide hasExtractionDocumentSource(). */
 const DRAFT_COLUMNS_WITH_SOURCE =
-  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, confidence, document_source, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
+  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, document_source, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
 
 const DRAFT_COLUMNS =
-  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, confidence, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
+  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
 
 const LINE_COLUMNS =
-  "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw, confidence";
+  "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw";
 
 /** numeric() peste PostgREST vine ca sir. null ramane null, mereu: contract 2.1. */
 function num(v: unknown): number | null {
@@ -54,7 +54,6 @@ function mapLine(row: LineRow) {
     currencyRaw: (row.currency_raw as string | null) ?? null,
     category: (row.category as string | null) ?? null,
     categoryRaw: (row.category_raw as string | null) ?? null,
-    confidence: num(row.confidence),
   };
 }
 
@@ -82,7 +81,6 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // prin effectiveSource, si niciuna nu este rescrisa aici intr-o afirmatie pe
     // care nimeni nu a facut-o.
     documentSource: isDocumentSource(row.document_source) ? row.document_source : null,
-    confidence: num(row.confidence),
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),

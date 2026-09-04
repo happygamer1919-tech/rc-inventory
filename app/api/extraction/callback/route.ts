@@ -351,7 +351,6 @@ export async function POST(request: Request) {
     vat_rate: num(body.vat_rate),
     currency: str(body.currency),
     currency_raw: str(body.currency_raw),
-    confidence: num(body.confidence),
     // _meta ESTE STOCAT VERBATIM, INCLUSIV characters_extracted CAND SOSESTE.
     // EXT-09 scoate campul din CE ASTEPTAM, nu din ce toleram: partea lui Andre
     // si a noastra nu se desfasoara in aceeasi secunda, iar o schimbare de
@@ -419,7 +418,6 @@ export async function POST(request: Request) {
           return mapped !== null && knownCategories.has(mapped) ? mapped : null;
         })(),
         category_raw: str(l.category_raw),
-        confidence: num(l.confidence),
       };
     });
     const { error: insertError } = await supabase.from("extraction_draft_lines").insert(rows);
