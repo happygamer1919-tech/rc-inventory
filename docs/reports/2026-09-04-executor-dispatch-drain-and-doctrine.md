@@ -299,3 +299,17 @@ installer would start the OLD `run.sh` on the new board, which is the exact
 mismatch section 15 exists to prevent. So step 6 is: re-run `install.sh` first,
 then `launchctl load`.
 
+### #191, closed
+
+The re-run passed with **no change to its content**, which confirms the flake
+diagnosis rather than resting on it. It was then closed as **superseded** by #194,
+not merged: `state.json` is a snapshot, #194's is a strict superset three hours
+later, and merging both would cost a full serialised cycle to reach the same file
+contents.
+
+The flake itself is real and is recorded here. **No card was opened for it**, on
+the grounds that it belongs with `CI-01`, which already covers CI reliability,
+rather than becoming a second card about the same subject.
+
+Queue: **13 open**, one disposed of without a merge.
+
