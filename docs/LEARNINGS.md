@@ -3423,3 +3423,38 @@ same trap CLAUDE.md section 3 names from the other side. There the danger is
 reading a green that belongs to an earlier sha; here it is destroying a green
 that was about to belong to this one. Both are the same fact: a check result
 belongs to a sha, and pushing makes a new one.
+
+### A selector that sorts filenames is not a selector that sorts by time
+**Tag:** infra
+**ERROR:** The scheduled run chose the report for its review step with
+`git ls-tree -r --name-only origin/main -- docs/reports/ | sort | tail -1`. Three
+things were wrong in two lines and none of them could be seen from the output,
+because the output is always a plausible path. It sorted FILENAMES, so two
+reports carrying the same date were ordered by their slug and the one committed
+second could sort first. It read `origin/main` only, so a report riding in an
+unmerged pull request was invisible, which is the exact state a card whose
+acceptance failed leaves behind. And it never asked what the previous review had
+already consumed, so on 2026-08-31 the run re-reviewed a report that had been
+triaged in full the run before and merged as PR #131, producing a second set of
+ids about one file on a green pull request with nothing erroring.
+**SOLUTION:** Order by commit, not by name: `git log --format=%H <range> -- <dir>`
+then `git show --name-only` per commit. Read the branch as well as the remote, by
+selecting over `origin/main..HEAD` before `origin/main`. Compare the result
+against the state file the review step already writes. The rule: when a pipeline
+picks "the newest" of anything, the sort key must be the thing that makes it
+newest. A filename is a label, and a label is only ordered by time as long as
+nobody names two things on the same day.
+
+### A test that copies the pipe under test proves the copy
+**Tag:** ci
+**ERROR:** `scripts/poc/run.sh` takes a lock, sources a secrets file and invokes
+a model, so it cannot run in CI, and the selection logic was three commands
+inline in the middle of it. A test written against a copy of that pipe would have
+passed forever while the real pipe drifted.
+**SOLUTION:** The block is fenced with `# EXTRACT-BEGIN triage-selector` and
+`# EXTRACT-END triage-selector`, and `scripts/poc/test-harness-caps.sh` lifts it
+verbatim with its existing `extract` helper, which treats a missing fence as a
+hard failure rather than an empty extraction that would pass every assertion.
+The rule that makes this work: fence the logic and extract it, and separately run
+the OLD implementation on the same fixture and REQUIRE IT TO FAIL. A guard nobody
+has watched fail is a guard nobody has tested.
