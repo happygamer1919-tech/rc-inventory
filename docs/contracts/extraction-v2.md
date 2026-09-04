@@ -348,8 +348,127 @@ is a rejected payload, `400`.
 | `invalid_output` | The model produced output that does not satisfy this schema. |
 | `timeout` | The extraction exceeded Make's own limit. |
 
+| `reconciliation_failed` | **Ours, not Make's.** The payload arrived well-formed and OUR arithmetic refused it: the line sum does not reconcile against the total printed on the document. Section 5.3. |
+
 `reason` stays free text alongside the code. The code is what we branch on; the
 reason is what the operator reads.
+
+### 5.2a The set is named in two halves, and a new code is announced before it exists
+
+**Ruling R-123, amendment 1. Added 2026-09-03, renumbered from R-098 on 2026-09-04 before merging, because #184 held that id.**
+
+**A FAILURE CODE THAT IS NEW ON ANY SURFACE IS COMMUNICATED TO THE COUNTERPARTY
+BEFORE IT CAN BE EMITTED OR RECEIVED, IN BOTH DIRECTIONS.**
+
+The seven codes above are one enum spanning **two surfaces**, and they are named
+here as two groups so that the eighth code is added to a **stated** set rather
+than to an assumed one.
+
+| group | what the code is about | members |
+|---|---|---|
+| **download path** | failures BEFORE the model runs. The subject is our signed URL and our storage. | `download_failed`, `url_expired` |
+| **payload path** | failures OF the extraction. The subject is the document and the model. | `unsupported_format`, `unreadable_document`, `extraction_failed`, `invalid_output`, `timeout` |
+
+**A THIRD SURFACE EXISTS AND HAS NO MEMBERS YET, AND IT IS DECLARED HERE SO IT IS
+NOT DISCOVERED LATER.** Our own validator can refuse a payload that is
+well-formed. That is neither a download failure nor an extraction failure: the
+download succeeded and the model returned. **`reconciliation_failed` will be the
+first member of that group**, emitted by US and not by Make, and it does not
+exist in the enum on the day this paragraph is written.
+
+**Why the rule, in the two ways it goes wrong.** Section 5.2 says any value
+outside the set is a rejected payload, `400`. So:
+
+- **He emits a new code first and we reject it.** Our `400` reads
+  `error_code in afara multimii`, **Make does not retry a `4xx`**, and a document
+  is dropped once and quietly.
+- **We emit or accept one first and he has not been told.** Whatever his side
+  does with it, it was not designed for this one.
+
+Neither is a bug in anybody's code. Both are the two sides holding different
+copies of a set this section calls **fixed**.
+
+**What adding a code requires, all four:**
+
+1. **Both directions.** His new code reaches us before he emits it; ours reaches
+   him before we emit **or accept** it. The asymmetry to guard against is
+   thinking of his codes as "the contract" and ours as "our behaviour". They are
+   one set.
+2. **Before it can be emitted OR RECEIVED.** Accepting an unknown code is as much
+   a change as sending one, because acceptance is exactly what the `400` decides.
+3. **Named group.** The pull request adding a code says which group it joins, or
+   declares a new group as this amendment declares the third.
+4. **This file is the record, not the message.** Telling him is not enough. The
+   code and its group land here in the same pull request that makes it
+   emittable.
+
+**It does not require his agreement, only his knowledge before the fact.** A
+control on our side is ours; waiting on a counterparty to approve our own
+refusals would put a third party in front of them. What it forbids is surprising
+him.
+
+### 5.3 Reconciliation, and the tolerance is Andre's
+
+**Card EXT-16. The tolerance in this section is ANDRE'S, given by him, copied
+here verbatim and never re-derived.**
+
+**A SCAN-SOURCED PAYLOAD IS RECONCILED ON OUR SIDE BEFORE IT IS ACCEPTED.** The
+same check exists inside the extraction scenario. A control that lives only there
+is bypassed by a scenario rebuild, a second ingest path, or a manual upload, and
+it is the only thing standing between a scan and invented stock.
+
+#### The formula
+
+    pass when abs(sum_of_line_totals - target) <= max(0.05, 0.01 * line_count)
+
+| | |
+|---|---|
+| **rounding** | **both sides to two decimals BEFORE the comparison.** Rounding after subtracting gives a different answer exactly at the boundary, and the boundary is the only place a tolerance is ever consulted. |
+| **target** | selected by `prices_include_vat`: `false` -> `subtotal`, `true` -> `document_total` |
+| **floor** | `0.05`. It binds below 5 lines: a 3-line document tolerates `0.05`, a 7-line one `0.07`, a 54-line one `0.54`. |
+| **source** | **Andre.** Two checks that disagree on the interesting cases are worse than one check, and at the boundary the looser one wins by accident. |
+
+#### The three conditions where the check cannot run. NONE is a free pass.
+
+| condition | answer |
+|---|---|
+| `target` is null, because the document does not print it | **REJECT** |
+| `prices_include_vat` is null | reconcile against **BOTH** `subtotal` and `document_total`, and accept only if **ONE** matches |
+| any line has a null `line_total` | **REJECT.** The sum is incomplete by construction. |
+
+#### What a failure looks like on the wire
+
+The payload is **accepted** with the contract's success code: it satisfies this
+contract, and what failed is its arithmetic. The stored draft becomes:
+
+    status        failed
+    error_code    reconciliation_failed
+    lines         none stored
+    header        supplier, dates and printed totals all KEPT
+
+The lines are dropped under EXT-15's rule, because line values that do not add up
+to the printed total are exactly the values that must not reach a confirmation
+screen. The header is kept because the document now has to be entered by hand and
+whoever enters it needs it.
+
+**A DIGITAL-SOURCED PAYLOAD IS NOT TOUCHED BY THIS SECTION.** There the numbers
+come from text rather than from a reading, and a mismatch means something else.
+
+**WHY IT IS ARITHMETIC AND NOT AN INSTRUCTION TO THE MODEL.** One 7-line document
+with a printed total of `50336.40` excluding VAT returned three different line
+sums across three runs: `49035.40`, `39242.00`, `38429.40`, every one of them with
+`status: extracted` and `reason: null`. They disagree with **each other** by
+`10606.00`, against a tolerance of `0.07`. A control that depends on the model
+noticing it has misread is not a layer.
+
+**`reconciliation_failed` IS NEW AND ANDRE IS TOLD BEFORE IT IS EMITTED**, which
+is ruling **R-123** and not a courtesy: section 5.2 makes any value outside the
+set a rejected payload, `400`, and Make does not retry a `4xx`.
+
+**IT IS THE FIRST MEMBER OF THE THIRD GROUP DECLARED IN 5.2a**, which landed
+separately and is now directly above this section. That group is our own
+validator refusing a well-formed payload: the download succeeded and the model
+returned, so it belongs to neither of the other two.
 
 ---
 
