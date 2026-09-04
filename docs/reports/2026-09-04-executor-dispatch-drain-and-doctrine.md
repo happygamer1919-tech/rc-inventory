@@ -228,3 +228,34 @@ a finding recorded at a point in time and merges as history like any other rulin
 the APPLY-LOG reconstruction and `MIG-01` answer the question it raised, which is
 what a later ruling is supposed to do.
 
+### The full ruling-id map, so the renumbering is decided once rather than per merge
+
+    main                     ... R-086, then R-096, R-097, R-123, R-124   counter R-124
+    #195 card/ext-16         R-122                                        counter R-124
+    #184 triage 220002       R-098 R-099 R-100 R-101                      counter R-102
+    #187 triage 010000       R-102 ... R-107                              counter R-108
+    #190 triage 040001       R-108 ... R-117                              counter R-118
+    #193 triage 071258       R-118 R-119 R-120 R-121                      counter R-122
+    #157 triage 070904       R-090 R-091 R-092 R-093 R-094 R-095          counter R-096
+    #172 triage 070005       R-087 R-088 R-089 R-090 R-091                counter R-092
+    #192 card/aut-17         none                                         counter R-098
+
+**The four overnight TRIAGE runs form a perfect chain and do not collide with each
+other at all**, because each read the previous run's counter on the same worktree.
+`R-098` through `R-121` is one unbroken sequence across #184, #187, #190 and #193.
+
+**#193 reserves `R-122` and #195 has written it.** That is a reservation against a
+written id, not two written ids, so whichever merges second simply re-reads the
+counter. It is not a renumbering.
+
+**THE ONLY REAL COLLISION IS #157 AND #172 ON `R-090` AND `R-091`.** Both write
+them, with different headings, and main has neither: main jumps from `R-086`
+straight to `R-096`. **#157 merges first** and keeps `R-090` to `R-095`; **#172
+then renumbers `R-090` and `R-091`** to the next free ids and keeps `R-087` to
+`R-089`. Per the dispatch, the one merging second renumbers, never the one on
+main.
+
+**Every one of these branches also needs its counter raised.** All of them point
+below main's `R-124`, so after merging main the counter assertion in
+`check:unique-ids` fails on each until it is set above the highest written.
+
