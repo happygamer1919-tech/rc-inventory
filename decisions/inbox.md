@@ -4710,3 +4710,335 @@ has not stopped sending. **Our acceptance may be wider than his emission and mus
 never be narrower.** Nothing in this ruling removes a value our validator accepts
 today, and no future card may cite this ruling as authority to.
 
+
+### R-118 - this run was handed a report another TRIAGE run had already triaged in full four hours earlier, so nothing in it is ruled twice; AUT-17's defect fires for a fourth time and this is its first duplicate-TRIAGE instance
+**Date:** 2026-09-04
+**Asked on:** AUT-17
+**Answer, verbatim:**
+> from the dispatch that started TRIAGE run 20260904-071258:
+>
+> "Your input is the newest report in docs/reports/, which is
+> docs/reports/2026-09-04-executor-aut-16-board-set.md. Read it. You get nothing
+> else and you need nothing else."
+
+**Ruling: the premise is false in both halves, and it is verifiable from committed
+files alone.**
+
+**HALF ONE: IT IS NOT THE NEWEST REPORT.** `docs/reports/2026-09-04-executor-aut-17-triage-selector.md`
+is newer by commit order, it was written by THIS RUN's own executor step
+(run id `20260904-071258`), and it rides on `card/aut-17`, PR #192, unmerged.
+The old selector sorted filenames off `origin/main` only, so a report on an open
+card pull request is invisible to it. That is defect 2 of the three AUT-17 names.
+
+**HALF TWO, AND IT IS THE EXPENSIVE ONE: THE REPORT HAD ALREADY BEEN TRIAGED IN
+FULL.** TRIAGE run `20260904-040001` consumed exactly this file and wrote ten
+rulings against it. The evidence is committed and a stranger can re-check it
+without asking anyone:
+
+```
+$ git show origin/triage/20260904-040001:docs/poc/triage-latest.json
+  "run_id": "20260904-040001",
+  "report": "docs/reports/2026-09-04-executor-aut-16-board-set.md",
+  "rulings_written": ["R-108" ... "R-117"]
+```
+
+PR **#190**, open, `mergeStateStatus CLEAN`.
+
+**NOTHING FROM THAT REPORT IS RE-RULED HERE, AND THE COVERAGE IS NAMED CARD BY
+CARD SO THE REFUSAL CAN BE CHECKED RATHER THAN TAKEN ON TRUST.** Every finding
+this run derived independently from that report already has an id:
+
+| the finding | already ruled |
+|---|---|
+| the three off-card fixes in the AUT-16 run (`claim.sh` PATH, `claim.sh` id folding, `run.sh` single-board branch reporting) | R-108, ratified individually |
+| the selector handing a run the wrong report | R-109 |
+| the eligible-card order now crossing two boards while CLAUDE.md describes one | R-110, card RULE-05 |
+| `R p3-04b default` refused by the accepted-form regex | R-111, card AUT-19 |
+| `test-chat-classify.sh` red on `main` and in no required check | R-112, card AUT-20 |
+| `install.sh` not re-run, deployed copies drifting | R-113, card AUT-21 |
+| the required check outlasting half the run cap | R-114, card AUT-22 |
+| the board sweep and the eighteen gate conditions | R-117 |
+
+**A SECOND BLOCK OF IDS SAYING THE SAME THINGS IS THE FAILURE RULE-02 EXISTS TO
+STOP, ARRIVING FROM THE OTHER DIRECTION.** Section 8b of `CLAUDE.md` forbids one
+id naming two decisions. This is two ids naming one decision, and it is worse in
+one specific way: a collision conflicts on the counter line and gets caught,
+while a duplicate under a fresh id merges cleanly and leaves two entries that
+disagree only in their wording, for every future reader to reconcile.
+
+**WHAT THIS RUN DID INSTEAD.** It re-aimed at the report that is genuinely
+newest and genuinely untriaged, `docs/reports/2026-09-04-executor-aut-17-triage-selector.md`,
+and R-119 through R-121 are its output. DOCTRINE-TRIAGE permits this in terms:
+the report is the dispatch, ground truth is committed repository files, and "a
+TRIAGE run that finds a premise it cannot verify in the repository says so and
+rules on what is there".
+
+**THE FOURTH FIRING, AND WHY THIS ONE IS A NEW SHAPE.** R-075 recorded the first
+(a report already triaged and merged as PR #131). R-109 recorded the third. Every
+earlier instance cost one run reading something stale. **This one had two TRIAGE
+runs, four hours apart on the same morning, working the same report at the same
+priority.** The 04:00 run's ten rulings and this run's would both have been
+correct and both have been paid for.
+
+**Unblocks:** nothing. It parks a duplicate rather than releasing a card. AUT-17
+is the card that ends this class and it is `in_flight` on PR #192; R-120 and
+R-121 are what that card still needs before it can.
+
+---
+
+### R-119 - AUT-20's cause is neither side of the fork R-112 posed: the test has no isolation, it reads and WRITES the machine's live answer spool, and running it fabricates an owner instruction
+**Date:** 2026-09-04
+**Asked on:** AUT-20
+**Answer, verbatim:**
+> from docs/reports/2026-09-04-executor-aut-16-board-set.md, section 4, finding 2,
+> as carried forward by R-112:
+>
+> "`scripts/poc/test-chat-classify.sh` fails on `main`, before this branch.
+> [...] It is **not wired into `quality`**, which is why nobody has seen it."
+
+**Ruling: upheld and NARROWED to a cause, which R-112 could not name because it
+required running the file rather than reading it.**
+
+R-112 posed a fork and told AUT-20 to take whichever side the evidence supported:
+either a ruling changed the classifier and the test was never updated, or the
+classifier widened without a ruling and is wrong. **It is neither. Both the
+classifier and the test are correct in isolation, and the test has no isolation.**
+
+**THE MECHANISM, IN THREE COMMITTED LINES.**
+
+1. `scripts/poc/ask.mjs` line 49: `export const ASK_DIR = process.env.POC_ASK_DIR || "/Users/ivan/rc-poc-logs/asks";`
+2. `scripts/poc/chat-classify.mjs` imports `openQuestions` from it and decides
+   `answer` before `question`, which is correct and is ASK-01's design, stated in
+   that file's own header.
+3. `scripts/poc/test-chat-classify.sh` writes its fixture to `mktemp -d` and
+   **never sets `POC_ASK_DIR`.** Its own header claims it "writes nothing to the
+   repo", which is true and is not the property that matters.
+
+So the classifier, run by the test, reads the REAL spool. There is a real
+outstanding question in it, `/Users/ivan/rc-poc-logs/asks/open/P3-11C.json`,
+asked 2026-09-01, never answered. The fifth fixture message is therefore routed
+to it as an ANSWER, which is exactly the failure line: expected `question`, got
+`answer`.
+
+**AND THE WRITE IS THE PART NOBODY HAS SEEN, BECAUSE THE RED LINE HIDES IT.**
+Running AUT-6's acceptance does not merely read that spool. It WRITES to it.
+This run ran the test once, at 2026-09-04T11:38:30Z, and it created:
+
+```
+/Users/ivan/rc-poc-logs/asks/answers/P3-11C.json
+  {"card_id":"P3-11C","verdict":"instruction",
+   "text":"what is left to do before launch",
+   "route":"only_open","from_id":999,"update_id":5,
+   "at":"2026-09-04T11:38:30.102Z"}
+```
+
+**THAT FILE IS A FORGED OWNER INSTRUCTION AND IVAN DID NOT WRITE IT.** `from_id`
+999 is the fixture's invented owner id, not `TELEGRAM_OWNER_ID`. Per `CLAUDE.md`
+section 14, a role calling `ask.sh` on card P3-11c would consume it and exit 11,
+`instruction`, meaning "do what stdout says, from line 2, verbatim". The
+instruction it would be handed is the sentence "what is left to do before
+launch".
+
+**THE STANDING RISK IS BOUNDED AND IS STATED RATHER THAN MINIMISED.** The
+question's deadline passed on 2026-09-01 and no process is waiting on it today,
+so nothing consumes the file until some future `ask.sh` call names card P3-11c.
+It is not an active incident. It is a loaded one, and the load was placed there
+by running a test that is on a shipped card's acceptance line.
+
+**WHAT AUT-20 MUST NOW DO, AND THIS REPLACES R-112'S FORK RATHER THAN ADDING TO
+IT.** R-112's other two requirements stand unchanged and are not restated to be
+weakened: deleting the test is still not an option, and wiring it into `quality`
+is still half the card and still ships in the same pull request.
+
+1. **The test sets `POC_ASK_DIR` to its own temp directory**, alongside the
+   fixture it already writes there. One line.
+2. **The test asserts it wrote nothing outside that directory.** The property is
+   "this file cannot touch live state", and a behavioural pass does not see a
+   write to somewhere else.
+3. **Neither `chat-classify.mjs` nor the `answer`-before-`question` order is
+   changed.** They are correct. A card that "fixes" the classifier here would be
+   narrowing a live decision path to satisfy a test that was pointed at the wrong
+   directory, which is the more expensive of the two available mistakes.
+4. **The same audit is applied to the four sibling test files** that ARE wired
+   into `quality`. `test-ask-digest.sh` exercises the same spool. If any of them
+   also defaults to the live directory, it is fixed in this card and named in the
+   report; if none does, the report says so. One instance is a card and two is a
+   check, per R-112's own closing line.
+
+**THE FORGED FILE IS REMOVED, AND NOT BY TRIAGE.** `rm /Users/ivan/rc-poc-logs/asks/answers/P3-11C.json`
+is the whole of it. TRIAGE writes text into this repository and does not touch
+live machine state, so it is recorded here with the exact path and the exact
+command rather than executed. Whoever works AUT-20 does it first, before the
+test is run again, and says so in the report. Running the test again before
+fixing it re-creates the file.
+
+**THIS DOES NOT MAKE AUT-6 UNSHIPPED, AND THE REASON IS ON THE RECORD RATHER THAN
+ASSUMED.** `CLAUDE.md` section 6 says no acceptance, no ship, and AUT-6's
+acceptance is red today. It is red because of the harness the acceptance runs in
+and not because of the behaviour the acceptance describes: the classifier still
+checks identity before it reads text, still accepts the two exact ruling forms,
+still refuses an unset `TELEGRAM_OWNER_ID`, and four of the six assertions pass
+untouched. Flipping AUT-6 to `todo` would put a shipped, deployed, working
+responder back in the queue on the strength of a directory default. **The audit
+goes onto the card instead**, which is a board edit TRIAGE may make, and AUT-20
+is the card that turns it green.
+
+**Unblocks:** nothing. AUT-20 is `todo` on PR #190 with no dependency; this
+ruling changes what it must do, not whether it may start.
+
+---
+
+### R-120 - merging PR #192 does not fix the selector, because run.sh is a deployed copy, and this run's own dispatch is the proof
+**Date:** 2026-09-04
+**Asked on:** AUT-17
+**Answer, verbatim:**
+> from docs/reports/2026-09-04-executor-aut-17-triage-selector.md, section 2:
+>
+> "The dispatch sentence was **corrected, not deleted**: R-050's substance (no
+> chat, no summary, no human context, no verbal ratification) survives, and the
+> claim that reading a committed repository file is a defect is gone. [...]
+> `grep -c 'you need nothing else' scripts/poc/run.sh` prints 0, and printed 1
+> before this branch."
+
+**Ruling: upheld, and the report's own acceptance command is the measurement that
+makes this ruling checkable from one line.**
+
+**THE DISPATCH THAT STARTED THIS TRIAGE RUN CONTAINS THE DELETED SENTENCE.**
+Verbatim, as received: "You get nothing else and you need nothing else; if you
+do, that is a defect in `docs/DOCTRINE-TRIAGE.md`". The branch prints 0 for that
+grep. The run that dispatched me printed the sentence. Therefore the `run.sh`
+that dispatched me is not the branch copy, which is the expected and correct
+state, because PR #192 is unmerged.
+
+**THE PART THAT IS NOT OBVIOUS, AND IS THE WHOLE RULING: MERGING IT WILL NOT
+CHANGE THAT EITHER.** `CLAUDE.md` section 15 says `run.sh`, `responder.sh` and
+`digest.sh` are deployed copies under `/Users/ivan/rc-poc-bin`, that the
+repository is the source of truth and the deployed copy is never edited in
+place, and that **`scripts/poc/install.sh` must be re-run after any change to
+those three**. AUT-17 changes `run.sh`. So the sequence that actually ends this
+class of defect is two steps and the board records one of them:
+
+```
+merge PR #192          ->  the repository is fixed, the harness is unchanged
+bash scripts/poc/install.sh  ->  the harness is fixed
+```
+
+**A CARD THAT SHIPS ON A GREEN CHECK AND CHANGES NOTHING UNTIL SOMEBODY RUNS A
+COMMAND NOBODY OWNS IS A CARD THAT REPORTS DONE AND IS NOT.** This is the second
+card in two days with that shape: AUT-16 changed `run.sh` and `digest.sh`, its
+own report section 4 finding 3 named the reinstall as unowned, and R-113 ruled
+that the one-off reinstall is not a card and the missing check is, authoring
+AUT-21. **R-113 is not overturned and AUT-21 is not duplicated.** What is added
+is the ordering it did not have to consider, because AUT-16's fix degraded
+gracefully when stale and AUT-17's does not: a stale `run.sh` keeps handing
+TRIAGE runs the wrong report, at four runs a day, for as long as it stays stale.
+
+**THE OBLIGATION, WRITTEN WHERE IT CAN BE CITED.** Whoever merges PR #192 runs
+`bash scripts/poc/install.sh` in the same session and records in the merge
+report that they did, with the deployed and repository copies compared:
+
+```
+shasum -a 256 /Users/ivan/rc-poc-bin/run.sh scripts/poc/run.sh
+```
+
+Two identical digests is the evidence. This is a terminal action, not an owner
+action and not a panel action under section 6 item 7, so it is nobody's
+escalation and it does not go to Ivan.
+
+**AUT-17's CARD FIELDS ARE DELIBERATELY NOT EDITED, AND THIS IS A DEFECT IN
+DOCTRINE-TRIAGE RATHER THAN A LIBERTY TAKEN.** Section 5 says a finding about an
+existing card goes into that card's `notes`. AUT-17 is `in_flight` with its own
+pull request open, and that pull request edits the same card object in the same
+JSON file. A `notes` edit from this branch would put a conflict between a rulings
+pull request and the card pull request it is trying to help, and under R-052 that
+conflict is resolved by EXECUTOR against the full tree, which is a cost far
+larger than the sentence being delivered. **DOCTRINE-TRIAGE section 5 gives no
+guidance for a card whose pull request is open**, and it should: the answer is
+that the ruling IS the delivery and the card is left alone. Recorded here as the
+finding it is.
+
+**Unblocks:** nothing. It adds a step to AUT-17's completion, it does not gate it.
+
+---
+
+### R-121 - AUT-17's fix remembers exactly one consumed report, from a file that has not reached main since 2026-08-31, and six TRIAGE runs' consumption records are stranded on unmerged branches
+**Date:** 2026-09-04
+**Asked on:** AUT-17
+**Answer, verbatim:**
+> from docs/reports/2026-09-04-executor-aut-17-triage-selector.md, section 2,
+> defect 3 of the three the card fixes:
+>
+> "it never compared its answer against `docs/poc/triage-latest.json`, which
+> records what the last review consumed. On 2026-08-31 that handed a run a report
+> the previous run had already triaged in full and merged as PR #131."
+
+**Ruling: the fix is upheld as far as it goes and is INCOMPLETE, and the gap is
+AUT-17's own defect 2 applied to the record instead of to the reports.**
+
+The card fixed the report side of that asymmetry and left the record side. Read
+the two together, from the branch:
+
+```
+$ git show origin/card/aut-17:scripts/poc/run.sh
+  triage_reports_in()         git log ... "$1"   # any ref or range: branch AND origin/main
+  triage_consumed_report()    [ ! -f "$1" ]      # ONE FILE, in the working tree
+```
+
+**TWO PROPERTIES FOLLOW, AND BOTH ARE DEFECTS.**
+
+**ONE: THE RECORD IS FOUR DAYS STALE ON `main`, AND WILL STAY STALE.** The copy
+the selector reads names run `20260831-040003` and the report
+`docs/reports/2026-08-31-executor-p3-13b-deviz-editor.md`. **Six TRIAGE runs have
+completed since**, and not one of their `triage-latest.json` files has merged:
+PR #157, #172, #184, #187, #190 and this one. Five of those are open right now
+and several are `DIRTY`. The consumption record is the one file in this
+repository that is written by a role whose pull requests reliably do not land,
+which makes "read the working tree copy" the least reliable available source for
+it.
+
+**TWO: A ONE-VALUE MEMORY SKIPS ONE CANDIDATE AND THEN TAKES AN OLDER CONSUMED
+ONE.** `select_triage_report` walks candidates newest first and `continue`s past
+exactly the single path in `report`. When the newest candidate IS that path, the
+loop does not stop; it takes the second newest, which is the report consumed one
+run earlier. The selector cannot express "these have been reviewed", only "this
+one has", so its failure mode is not "no report" but "a different already-reviewed
+report", which is the same wrong answer the card was written to stop, one step
+further back.
+
+**WHAT AUT-17 SHOULD DO, AS A RECOMMENDATION AND NOT AS A REWRITE. The card is
+in flight, its twelve assertions are green, and this is one function.**
+
+1. `triage_consumed_report` becomes plural. It collects the `report` field from
+   every commit of `docs/poc/triage-latest.json` reachable from `origin/main`
+   **and from every `refs/remotes/origin/triage/*` branch**, because those are
+   exactly the two places the record lives while a TRIAGE pull request is open:
+
+   ```
+   git log --format='%H' origin/main $(git for-each-ref --format='%(refname)' 'refs/remotes/origin/triage/*') \
+     -- docs/poc/triage-latest.json
+   git show <sha>:docs/poc/triage-latest.json
+   ```
+
+2. `select_triage_report` skips any candidate in that SET, not the one path.
+3. **Fail-open is kept exactly as the card argues it.** An unreadable or absent
+   record still treats nothing as consumed. Nothing here asks the selector to
+   refuse to pick.
+4. **The failing half is the one this run is:** a fixture with two TRIAGE runs
+   whose `triage-latest.json` name the same report on two branches and neither
+   merged, against which the one-value version picks a report that has been
+   reviewed and the set version does not.
+
+**WHY THIS IS A RULING AND NOT AN ESCALATION.** It is a correction to a card's
+implementation on committed evidence, which DOCTRINE-TRIAGE's closing line puts
+squarely inside "everything else, TRIAGE decides". It touches no credential, no
+money, no third party and no panel.
+
+**THE SIMPLER FIX IS NAMED AND REJECTED, SO NOBODY RE-DERIVES IT.** "Merge the
+TRIAGE pull requests promptly and the record stops being stale" is true and is
+not a fix: it makes a correctness property depend on a merge cadence that has
+failed six times in four days, and RST-02 and AUT-18 exist precisely because that
+cadence is the thing that does not hold here.
+
+**Unblocks:** nothing. AUT-17 stays `in_flight` on PR #192.
+
+---

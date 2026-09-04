@@ -1,58 +1,27 @@
 {
-  "run_id": "20260831-040003",
-  "report": "docs/reports/2026-08-31-executor-p3-13b-deviz-editor.md",
+  "run_id": "20260904-071258",
+  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
   "rulings_written": [
-    "R-075",
-    "R-076",
-    "R-077",
-    "R-078",
-    "R-079",
-    "R-080",
-    "R-081"
+    "R-118",
+    "R-119",
+    "R-120",
+    "R-121"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-20",
-      "change": "authored by TRIAGE under R-080, and it is the first card the AI reading readiness condition has ever had. That condition was rewritten on 2026-08-28 so it no longer waits on the outside supplier, and the two pieces of work that rewrite created were never written onto the list. Three of its five checks turn out to already be built and passing, and nobody had recorded it. This card is the two that are missing: an address that has been mis-set and silently swallows every document while reporting success, and a file too big to accept."
-    },
-    {
-      "card_id": "AUT-17",
-      "change": "authored by TRIAGE under R-075, from the instruction this reviewing session itself received. The nightly review step was handed a write-up that had already been reviewed three hours earlier, while the one its own session had just produced sat unread in an unpublished change. Left alone, a future session repeats a finished review and nothing anywhere notices."
-    },
-    {
-      "card_id": "AUT-18",
-      "change": "authored by TRIAGE under R-078. Two pieces of finished work are sitting in unpublished changes that cannot be published as they stand, and nothing in the nightly run mentions either. Each run will list what is still open and flag anything stuck, the same night, instead of it being found by hand days later. It publishes nothing itself."
-    },
-    {
-      "card_id": "P2-08b",
-      "change": "the line on the card saying the readiness condition stays failed until the outside supplier answers has been false since 2026-08-28 and is corrected underneath rather than rewritten, under R-080. Nothing new is asked of him and the wording of the ask is untouched. What changed is that no readiness condition waits on him any more."
-    },
-    {
-      "card_id": "P3-21",
-      "change": "the finish line gains a second half under R-079. The Romanian sweep already promised to fix words missing their accents, and nothing checked it, so one shipped last night and was caught by luck. The check must now refuse a known word spelled without its accent, seeded with the one that already cost a run."
-    },
-    {
-      "card_id": "RST-03",
-      "change": "its finish line is met in full on published evidence, recorded under R-077 and deliberately NOT marked done: the reviewing role may not mark work complete, because that needs the checks actually run and this role runs none. Four read-only commands and one field remain, which makes it the cheapest item on either list."
-    },
-    {
-      "card_id": "RST-02 and AUT-16",
-      "change": "notes only, no dependency changed. RST-02 gains the boundary with the new AUT-18 so the two are not half-done twice. AUT-16 gains today's instance of a consequence its finish line already covers."
-    },
-    {
-      "card_id": "P3-13b",
-      "change": "NOT edited, deliberately, and this is the same call the previous review made. The unpublished change that carries this item already records its failed checks and the cause in the exact fields this role would write to. Writing a second copy would collide with it and most likely delete the builder's own account of its night."
+      "card_id": "AUT-6",
+      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Thirteen finished pieces of database work have still never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the third night it has been raised and the fifth run that has named it.",
-      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. PRACTICAL NOTE, UNCHANGED FROM LAST NIGHT: the Telegram answer channel still cannot resolve a phase 3 item, so `R P3-27 default` will be refused as an unknown item until card AUT-16 ships. Answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped items stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and two further items stay parked behind it. Nothing breaks and nothing gets worse, which is why this has now gone unanswered longer than anything else."
+      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
+      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded inside a readiness condition since 2026-08-26 and have never once been put in front of you. Setting them is two clicks and it does not, on its own, close that condition.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential rotation checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED SO YOU ARE NOT SURPRISED LATER: this does NOT make the readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at P2-13. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on rotation day instead."
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
     }
   ]
 }
