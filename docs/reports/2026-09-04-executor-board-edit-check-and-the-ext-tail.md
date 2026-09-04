@@ -196,4 +196,74 @@ merge history before quoting them anywhere the number matters.
 
 ---
 
+## 6. EXT-19 as reduced: one code says re-scan, the other says type it out
+
+**Card:** `EXT-19`, phase 3, worked **as reduced**. **Files:**
+`lib/data/extraction-types.ts`, `docs/contracts/extraction-v2.md`, plus two new
+e2e cases.
+
+### What the reduction is
+
+The card's acceptance opens with *"MIGRATION: a new numbered file adds
+`reconciliation_failed` to the extraction error code enum"*. **EXT-16 already did
+that**, as `0034`, with its assertions file, the TypeScript constant, the
+Romanian label and a capability gate, because the owner's dispatch required
+EXT-16 to assert the failing shape including that code. The overlap was recorded
+in EXT-19's notes on `main` before this session started. That half was **not
+rebuilt**.
+
+### The remainder was a real gap, not a formality
+
+`unreadable_document`'s sentence carried **no instruction at all**:
+
+    "Documentul este într-un format acceptat, dar conținutul nu este lizibil."
+
+It said what had happened and left the operator to work out what to do.
+`reconciliation_failed`'s already ended with *"Documentul trebuie introdus
+manual."* So the two did **not** send the owner to do different things: one sent
+him somewhere and the other sent him nowhere.
+
+    unreadable_document      the content could not be read        -> upload a better scan
+    reconciliation_failed    it was read and the figures disagree -> enter it by hand
+
+Both instructions are now **named strings** (`ACTION_RESCAN`,
+`ACTION_ENTER_BY_HAND`), composed into the labels rather than copied, and read by
+the proof, so the sentence on the screen and the sentence the test checks cannot
+drift apart. Same doctrine as EXT-17's `SCAN_LINE_NOTICE`.
+
+### The two cases, and all three failure proofs
+
+| Case | Driven against | Result |
+|---|---|---|
+| review 14 | the **pre-card label text** | **FAILED** — `Expected substring: "Încarcă o scanare mai bună."` |
+| review 14 | a **collapsed** version, `reconciliation_failed` given `unreadable_document`'s sentence | **FAILED** — this is the case the card requires by name |
+| extraction 21 | a **mutant** callback writing `unreadable_document` for a reconciliation failure | **FAILED** — `Expected: "reconciliation_failed"  Received: "unreadable_document"` |
+
+Review 14 asserts at the **source** and again on the **rendered screen** that each
+code's sentence contains its own instruction and not the other's, that the two
+rendered sentences differ, and that the two instructions are themselves distinct.
+The screen half is kept even though the source half fails first under the
+collapse, because a label that is correct in the module and never rendered would
+satisfy the first and fail the operator.
+
+### A defect fixed inside the acceptance, not beside it
+
+The `reconciliation_failed` row in contract section 5.2 was separated from the
+other seven by a **blank line**, so markdown rendered it as its own headerless
+one-row table underneath them. The acceptance says the code is documented
+**beside** the existing ones; it was documented *below* them, in a different
+table. The blank line is gone and the reason is recorded in the contract itself.
+
+**Nothing was renamed or reordered.** The eight enum members are untouched, in
+order, and `review.spec` case 7 still iterates all eight and still passes.
+
+### Commands
+
+    npx tsc --noEmit                                                exit 0
+    node docs/board/validate-board.mjs <all three>                   exit 0, 0 violations
+    npx playwright test extraction.spec.ts review.spec.ts           exit 0, 32 of 32
+    npm run check:board-edit                                         exit 0, EXT-19 todo -> shipped
+
+---
+
 ## (narrative continues; this file is written as the work proceeds)

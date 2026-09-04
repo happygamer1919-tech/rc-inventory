@@ -880,4 +880,26 @@ test.describe("Extragere documente", () => {
       expect(d.lines).toHaveLength(0);
     }
   });
+
+  test("21. EXT-19: un esec de reconciliere se stocheaza ca reconciliation_failed si NU ca unreadable_document", async ({
+    page,
+    request,
+  }) => {
+    // EXT-19. Codul stocat este pe ce se ramifica ecranul, deci cele doua nu au
+    // voie sa se amestece la scriere. Un document perfect lizibil ale carui
+    // numere nu se aduna NU este un document ilizibil, iar a-l eticheta asa il
+    // trimite pe operator sa incarce inca o data aceeasi scanare buna.
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e19code");
+
+    const r = await post(request, matnord(orderId, 49035.4));
+    expect(r.status()).toBe(202);
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("failed");
+    expect(d.error_code).toBe("reconciliation_failed");
+    expect(d.error_code, "un esec de aritmetica nu este un document ilizibil").not.toBe(
+      "unreadable_document",
+    );
+  });
 });
