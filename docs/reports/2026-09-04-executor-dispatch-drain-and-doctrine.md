@@ -313,3 +313,42 @@ rather than becoming a second card about the same subject.
 
 Queue: **13 open**, one disposed of without a merge.
 
+---
+
+## Step 5, read ahead: what EXT-17 to EXT-20 actually require
+
+Read from the cards before starting, because two of them interact with what EXT-16
+already shipped.
+
+**EXT-17** — a scan that RECONCILES still lands in review and is not booked, and
+its lines are marked in Romanian as machine-read from an image, **on the line and
+not only in a page banner**. It also wants a **grep-proof enumerating every path
+from a draft to a booked inbound order**, each requiring the operator's confirm.
+That last clause is the real work: it is an argument about completeness, not a
+test.
+
+**EXT-18** — header self-consistency on the SAME tolerance: `subtotal + vat_amount`
+against `document_total`, and `vat_amount` against `subtotal * vat_rate`. It says
+in terms that the **EXT-16 check is EXTENDED**, not duplicated, which is the
+"one named expression, one place" rule applied across cards. All four sample
+documents' header figures become fixtures.
+
+**EXT-19 is the one to re-read before working it.** Its acceptance opens with
+*"MIGRATION: a new numbered file adds reconciliation_failed to the extraction error
+code enum"* — **EXT-16 already did that**, as `0034`, because the dispatch required
+EXT-16 to assert `error_code reconciliation_failed` and that code could not exist
+without the label. The overlap is already recorded in EXT-19's notes on main.
+
+What remains for EXT-19 is the half its title names and EXT-16 did not touch: that
+`reconciliation_failed` is **distinct from `unreadable_document` because the two
+send the owner to do different things**. Concretely: the two Romanian sentences
+must differ, **neither may contain the other's instruction**, and the case must
+fail against a version that collapses them. That is a review-screen card, not a
+migration card.
+
+**EXT-20** — the failed scan payload carries the sixteen header fields and **no
+`lines` key at all**; an EMPTY array is rejected, one line is rejected, and the
+digital path still accepts a `lines` key. Note this is the INBOUND validation rule,
+which is the mirror of the reading EXT-16 took for its own stored shape: EXT-16
+stores zero lines, EXT-20 refuses a payload that even sends the key.
+
