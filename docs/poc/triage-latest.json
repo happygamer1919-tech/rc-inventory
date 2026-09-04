@@ -1,58 +1,43 @@
 {
-  "run_id": "20260831-040003",
-  "report": "docs/reports/2026-08-31-executor-p3-13b-deviz-editor.md",
+  "run_id": "20260903-220002",
+  "report": "docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md",
   "rulings_written": [
-    "R-075",
-    "R-076",
-    "R-077",
-    "R-078",
-    "R-079",
-    "R-080",
-    "R-081"
+    "R-098",
+    "R-099",
+    "R-100",
+    "R-101"
   ],
   "cards_resequenced": [
     {
-      "card_id": "P2-20",
-      "change": "authored by TRIAGE under R-080, and it is the first card the AI reading readiness condition has ever had. That condition was rewritten on 2026-08-28 so it no longer waits on the outside supplier, and the two pieces of work that rewrite created were never written onto the list. Three of its five checks turn out to already be built and passing, and nobody had recorded it. This card is the two that are missing: an address that has been mis-set and silently swallows every document while reporting success, and a file too big to accept."
+      "card_id": "RESTORE-01",
+      "change": "authored by TRIAGE under R-099. A merge four hours ago quietly deleted finished, approved work from the main copy of the project: the record of six database changes that are already live, one decision waiting on you, two pieces of planned work and three lessons learned. Nothing we run noticed, because every check we have asks whether what is present is correct and none of them asks whether something that was there has gone. This card puts every piece back exactly as it was, in one change."
     },
     {
-      "card_id": "AUT-17",
-      "change": "authored by TRIAGE under R-075, from the instruction this reviewing session itself received. The nightly review step was handed a write-up that had already been reviewed three hours earlier, while the one its own session had just produced sat unread in an unpublished change. Left alone, a future session repeats a finished review and nothing anywhere notices."
+      "card_id": "GUARD-02",
+      "change": "authored by TRIAGE under R-099, and it cannot be started until the restore above lands. A check that refuses any change which removes a decision, a piece of planned work, or a record of a live database change that already exists on the main copy. We already have a check for the messy version of this mistake; this is for the tidy version, which leaves no trace at all."
     },
     {
-      "card_id": "AUT-18",
-      "change": "authored by TRIAGE under R-078. Two pieces of finished work are sitting in unpublished changes that cannot be published as they stand, and nothing in the nightly run mentions either. Each run will list what is still open and flag anything stuck, the same night, instead of it being found by hand days later. It publishes nothing itself."
+      "card_id": "P2-13",
+      "change": "the credential shutdown gains a second thing it must wait for, ruled under R-101 and landed by the restore card rather than here. That shutdown promises to switch off every way a terminal can write to the live database, and it carries a box confirming every database change is recorded as having been applied. Neither is true while a second, automatic path writes the live database and records nothing, so the shutdown would take away the controlled path and leave the uncontrolled one running."
     },
     {
       "card_id": "P2-08b",
-      "change": "the line on the card saying the readiness condition stays failed until the outside supplier answers has been false since 2026-08-28 and is corrected underneath rather than rewritten, under R-080. Nothing new is asked of him and the wording of the ask is untouched. What changed is that no readiness condition waits on him any more."
-    },
-    {
-      "card_id": "P3-21",
-      "change": "the finish line gains a second half under R-079. The Romanian sweep already promised to fix words missing their accents, and nothing checked it, so one shipped last night and was caught by luck. The check must now refuse a known word spelled without its accent, seeded with the one that already cost a run."
-    },
-    {
-      "card_id": "RST-03",
-      "change": "its finish line is met in full on published evidence, recorded under R-077 and deliberately NOT marked done: the reviewing role may not mark work complete, because that needs the checks actually run and this role runs none. Four read-only commands and one field remain, which makes it the cheapest item on either list."
-    },
-    {
-      "card_id": "RST-02 and AUT-16",
-      "change": "notes only, no dependency changed. RST-02 gains the boundary with the new AUT-18 so the two are not half-done twice. AUT-16 gains today's instance of a consequence its finish line already covers."
-    },
-    {
-      "card_id": "P3-13b",
-      "change": "NOT edited, deliberately, and this is the same call the previous review made. The unpublished change that carries this item already records its failed checks and the cause in the exact fields this role would write to. Writing a second copy would collide with it and most likely delete the builder's own account of its night."
+      "change": "checked and deliberately NOT changed. Everything it waits for is finished except the outside supplier's own live run, so it stays parked on him. Nothing was cleared, because he genuinely still owes it."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Thirteen finished pieces of database work have still never been switched on in the live system, and all nine phase 3 readiness conditions sit behind that one action. This is the third night it has been raised and the fifth run that has named it.",
-      "recommendation": "Answer P3-27 with option (b): let the overnight builder apply all thirteen files in order, in one sitting, under the existing three-phase procedure, with every phase written into the log. The reason to wait has already been met, the permission exists and has never been revoked, and not one of the thirteen files deletes anything, so the rule that stops destructive work does not stop any of them. If you would rather run them yourself in the Supabase editor, that is option (a) and it closes the same gap. PRACTICAL NOTE, UNCHANGED FROM LAST NIGHT: the Telegram answer channel still cannot resolve a phase 3 item, so `R P3-27 default` will be refused as an unknown item until card AUT-16 ships. Answer in whatever channel reaches a terminal that can commit the ruling. IF UNANSWERED: twelve shipped items stay invisible on the live site, the phase 3 readiness score stays at 0 of 9 whatever ships next, and two further items stay parked behind it. Nothing breaks and nothing gets worse, which is why this has now gone unanswered longer than anything else."
+      "title": "The moment a database change is approved and merged, it goes straight into the live database on its own, with nobody running it and nothing checking it first. Every safety rule we wrote assumes a person or a script does that step. This was proved twice on 2026-09-03, then the card carrying the question was deleted by a merge the same night, so it has never actually reached you.",
+      "recommendation": "KEEP the automatic path, and rewrite the rules to describe what actually happens, but only after we add a check that refuses any database change containing a row-deleting instruction before it can be merged. That check is small, it is the same parse we already do elsewhere, and it restores the one protection the automatic path removes. Why keep it rather than switch it off: it has already applied at least six changes correctly and the friction it saves is real, while the whole danger sits in the row-deleting class, which the check covers completely. IF UNANSWERED: every database change merged from now on reaches the live database with no pre-check, no assertion, no after-check and no record, and the rule saying row-deleting changes are never applied automatically protects nothing. Nothing else is blocked by this."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded inside a readiness condition since 2026-08-26 and have never once been put in front of you. Setting them is two clicks and it does not, on its own, close that condition.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential rotation checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED SO YOU ARE NOT SURPRISED LATER: this does NOT make the readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at P2-13. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on rotation day instead."
+      "title": "The extraction supplier has been told in writing that four database changes are still waiting to be switched on. They were switched on days ago. That paragraph is in the handover file we send him and it is false today.",
+      "recommendation": "Correct the paragraph before the next message to him: the nineteenth paint category and the tonne and litre units are live now, not pending. Nothing is asked of him and nothing he has already built changes, so this is a factual correction rather than a request. WHILE YOU ARE THERE, ONE TIME-BOXED FACT: the sample document link he is using expires 2026-09-04 at 19:58 UTC, and regenerating it is one command on our side. IF UNANSWERED: he keeps planning around a switch-on date that has already passed, and the next thing he asks us about will be built on it. Low cost, but it is the second time our own stale record has reached someone outside the company."
+    },
+    {
+      "title": "Two settings for the low-stock warning email in the live hosting environment were put in front of you on 2026-08-31 and never answered. They are still the first two of three things standing between us and a warning email that actually arrives.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment and reply that they are set. Both are already required items on the credential shutdown list, so doing them now removes two items from that day rather than adding any. THE SAME HONEST CAVEAT AS LAST TIME: this does not make the readiness condition pass on its own. A third thing is needed, a recipient address on a domain that exists, and that one lands with the real staff accounts. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on shutdown day."
     }
   ]
 }
