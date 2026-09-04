@@ -1,7 +1,7 @@
 # TRIAGE, run 20260903-220002. The merge that deleted the fix, four rulings, two cards, and a gate audit that flips nothing
 
 **Role:** TRIAGE. **Date:** 2026-09-04 UTC. **Run id:** `20260903-220002`.
-**Branch:** `triage/20260903-220002`.
+**Branch:** `triage/20260903-220002`. **Pull request:** `#184`.
 **Input report, the only dispatch:**
 `docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md`.
 **Rubric applied:** `docs/DOCTRINE-TRIAGE.md`, in force with R-050, R-057.
