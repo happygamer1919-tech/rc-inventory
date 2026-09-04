@@ -259,3 +259,23 @@ main.
 below main's `R-124`, so after merging main the counter assertion in
 `check:unique-ids` fails on each until it is set above the highest written.
 
+### The RULE-04 check works on the runner, which was not a given
+
+`check-open-branch-ids` is the **first step in `quality` to depend on `gh` and a
+token**. `pr-check-state.mjs` uses `gh` but is an operator tool and is not wired
+into the workflow, so there was no precedent to copy. Confirmed on the runner:
+
+    success  Refuse an id claimed on another open branch
+    success  Prove the cross-branch id check refuses
+
+`gh` is preinstalled on GitHub-hosted runners and `secrets.GITHUB_TOKEN` is
+sufficient to list open pull requests in the same repository.
+
+**One design detail that mattered here.** In CI a `pull_request` build is on a
+detached HEAD, so `git rev-parse --abbrev-ref HEAD` returns `HEAD` rather than the
+branch name. The check falls back to `GITHUB_HEAD_REF`. **Even if that fallback
+had failed**, the check compares heading TEXT and skips identical headings, so a
+branch compared against itself finds no collision. It degrades to a false negative
+rather than a false positive, which is the correct direction for a check that
+gates merges.
+
