@@ -1,50 +1,48 @@
 {
-  "run_id": "20260902-070904",
-  "report": "docs/reports/2026-09-01-executor-p3-11d-stale-checks.md",
-  "rulings_written": ["R-090", "R-091", "R-092", "R-093", "R-094", "R-095"],
+  "run_id": "20260903-070005",
+  "report": "docs/reports/2026-09-02-executor-rule-02-id-allocation.md",
+  "rulings_written": [
+    "R-087",
+    "R-088",
+    "R-089",
+    "R-125",
+    "R-126"
+  ],
   "cards_resequenced": [
     {
-      "card_id": "AUT-18",
-      "change": "the nightly report gains a fourth thing it must name: a branch of work that was pushed but never turned into a proposed change, so nothing tested it and nothing mentioned it. That happened on 2026-09-01 and you were the one who spotted it, not the machine. No new item was created for it, because this one already exists to make unfinished work impossible to miss and the gap was one query wide."
+      "card_id": "RULE-03",
+      "change": "authored by TRIAGE under R-087. When you answer a question from your phone, the system files that answer under a number it works out for itself instead of taking the next one from the shared list that everything else now uses. Two decisions can end up with the same number, and worse, the published change carrying your own answer fails its own checks and cannot go out. This makes the phone answers use the same list as everybody else."
     },
     {
-      "card_id": "P2-13",
-      "change": "the handover checklist gains two boxes and loses a sentence that has gone false. The sentence claimed thirteen pieces of database work were still waiting to be switched on; all of them are now on. The two new boxes: switch off the third access grant, which the checklist only covered by implication and would therefore have left switched on, and confirm the live verification below has been done first, because after this day nobody can do it."
+      "card_id": "AUT-19",
+      "change": "authored by TRIAGE under R-088. The rulebook the reviewing role follows still describes the old way of numbering decisions, which was replaced yesterday. A session that follows its own rulebook now produces work that fails the automatic checks. This run had to ignore its own rulebook to be correct, which is how the gap was found."
     },
     {
-      "card_id": "P3-35",
-      "change": "NEW. The database work for customers, projects and suppliers is switched on in the live system and nobody has yet opened the live site to confirm it works there. This is that check, read-only, writing nothing: confirm the access rules really refuse what they should, count the material releases not yet tied to a job, walk the links between screens, and look at the four new screens. It is the only thing standing between four of the nine phase 3 readiness lines and being answered."
+      "card_id": "P3-37",
+      "change": "authored by TRIAGE under R-089. One finished piece of database work has been published but never switched on in the live system, and the job that was supposed to switch it on has already been closed, so nobody owns it. This switches it on and adds a check so the next unowned one cannot sit there quietly."
     },
     {
-      "card_id": "P3-36",
-      "change": "NEW. The safety check that guards changes to the live database has one rule frozen to how things looked in August, and any future change to how material is issued out would be refused by it, taking unrelated work down with it. Unfreezing that one rule, without weakening any other."
+      "card_id": "BOARD-03",
+      "change": "authored by TRIAGE under R-125. The overnight system picks the next job by sorting job numbers as text, so job 16 comes out ahead of job 8. Two jobs from last week are stuck behind three newer ones and will stay there for ever. One of the two stuck jobs is the fix for the night that ran nine hours instead of forty-five minutes."
     },
     {
-      "card_id": "RST-04",
-      "change": "NEW. A whole night of review work from 2026-09-01 was written up but never published, because it clashes with the current version of the project and, separately, names a new item using a number that had already been given to something else. Everything still worth keeping from it has been rewritten into this batch, so the old one gets closed off with a note saying where each piece went. This is the second time this has happened and the first one is still open."
+      "card_id": "AUT-16",
+      "change": "notes only, nothing changed and no dependency touched. Two more copies of the same hardcoded list of work boards were found outside the area this job already covers, recorded on it so the job is done once rather than twice."
     },
     {
-      "card_id": "the nine phase 3 readiness lines",
-      "change": "all nine re-checked. The score is still 0 of 9 and the reason changed on every single one: the one thing that was failing all nine at once, the database work not being switched on, is done. Four of them now need nothing but a look at the live site. Five still wait on features that have not been built, or on real customer data."
-    },
-    {
-      "card_id": "the nine phase 2 readiness lines",
-      "change": "6 of 9, unchanged, nothing flipped. The three that fail were each re-checked and their findings were moved into the field the rulebook actually names, which is where the next reader will look for them. The AI extraction line is two test cases short and has an item for them. The warning email line waits on two settings only you can make. The client acceptance line waits on Mihai and always will."
+      "card_id": "P2-08b, P2-13, P2-14",
+      "change": "NOT edited, deliberately. Every dependency between them was re-derived and each is correct as it stands. The chain waits on one person outside the project and that is escalated below rather than worked around by deleting an edge somebody put there on purpose."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Two settings for the low-stock warning email have now been put in front of you three nights running and never answered. They are two clicks in the hosting environment and they are the only part of that readiness line anybody but you can move.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already items on the handover checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, REPEATED SO YOU ARE NOT SURPRISED: this does NOT make that readiness line pass on its own. A third thing is needed, a recipient address on a domain that actually exists, and that one lands with the real staff accounts at handover. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on handover day instead."
+      "title": "The whole remaining tail of the current phase waits on one person outside the project, and nothing has moved for a week. Andre owes two things: confirmation that the document-reading contract is final, and one real supplier document run through his side of it. Everything after that is ours and is already built.",
+      "recommendation": "Send Andre the two-line ask this week and set a date by which you will decide without him. RECOMMENDED BECAUSE THE WAIT IS NOW THE LONGEST THING ON THE BOARD AND THE COST IS INVISIBLE: the credential lock-down waits on his round trip, the client sign-off waits on the lock-down, and the last readiness condition waits on the sign-off. Three items and one readiness condition are parked behind one email. THE ALTERNATIVE, IF HE STAYS SILENT: rule that the credential lock-down may go ahead without his live round trip, and let the round trip land afterwards as its own job. That is your call and not a terminal's, because it changes what is asked of him. NOTHING WAS EDITED ON YOUR BEHALF: the ordering that makes the lock-down wait for him was put there deliberately, so that real client passwords are not rotated before the reading path has been proved once against the real supplier. IF UNANSWERED: nothing breaks and nothing gets worse. The system stays exactly as it is, with the automatic document reading proved against our own test documents and never once against his, and the phase cannot be closed."
     },
     {
-      "title": "The live document test with Andre has been waiting on him for six days, and the whole handover now sits behind it: changing the build passwords waits on it, and Mihai's acceptance waits on that. Nothing on either readiness list waits on Andre any more. Only the handover does.",
-      "recommendation": "CHASE HIM WITH A DATE, and if he does not answer by it, cut the handover loose from him. Two paths. (a) Ask Andre this week to confirm the agreed format and run one real supplier document through, and if nothing comes back by then, take path (b). (b) Detach the handover from the Andre test entirely, so passwords can be changed and Mihai can be given the system without waiting for him. THE TRADEOFF, STATED PLAINLY: the reason the two were tied together is that a first real document usually finds something that needs a database change, and after the handover no builder can make one without you. That risk is smaller now than when it was written, because every database change so far is switched on and proven, and the extraction path itself is covered by automated checks that run on every change. RECOMMENDED: (a) with a hard date of one week, then (b) automatically. IF UNANSWERED: the handover stays parked behind a third party who has been silent for six days, and Mihai cannot be given the system at all."
-    },
-    {
-      "title": "The nine things that define phase 3 as ready were written as a proposal on 2026-08-28 and say on their face that you have not approved them. They have now been formally checked against four times by four different sessions, against wording nobody signed off.",
-      "recommendation": "APPROVE THE NINE AS WRITTEN, in one reply. RECOMMENDED BECAUSE RE-WORDING THEM NOW THROWS AWAY THE CHECKING HISTORY: four audits have been recorded against these exact sentences, and changing one invalidates its own record. They cover: customers and suppliers as real records, jobs with stages, the two new sections being live, everything linking to everything, material cost per job, budget against actual, estimates compared to what was used, documents and follow-up notes, and the language and layout tidy-up. IF UNANSWERED: they keep being treated as binding in practice, which is what has been happening, and the note saying they are unapproved stays on the board where it will confuse the next reader as it confused this one."
+      "title": "Two settings in the live hosting environment for the low-stock warning email were first recorded on 2026-08-26, were put in front of you on 2026-08-31, and are still not set. Setting them is two clicks and it does not, on its own, make the warning email work.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lock-down list, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, REPEATED SO YOU ARE NOT SURPRISED LATER: this does NOT make that readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at the lock-down. THIS IS THE SECOND TIME OF ASKING AND IT WILL KEEP APPEARING: an unanswered question is the one thing here that must never go quiet. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lock-down day instead."
     }
   ]
 }
