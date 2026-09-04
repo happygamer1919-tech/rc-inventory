@@ -174,10 +174,6 @@
   ],
   "digest_last_sent": "2026-09-04T11:54:47Z",
   "claims": {
-    "AUT-16": {
-      "claimed_by": "harness",
-      "claimed_at": "2026-09-04T06:00:54Z"
-    },
     "AUT-17": {
       "claimed_by": "harness",
       "claimed_at": "2026-09-04T11:54:48Z"
