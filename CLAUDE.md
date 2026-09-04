@@ -172,14 +172,40 @@ database is not covered by this grant and never was.** It is gated by section
 8.6 and by ruling R-047, both unchanged, and it is gated whether or not a
 `quality` check is green, because a green check says nothing about a database.
 
-**MERGING THE FILE IS NOT APPLYING IT.** A pull request that ADDS
-`supabase/migrations/0013_something.sql` changes one text file in a git
-repository and changes nothing in any database. It merges under this grant like
-any other pull request. The apply is a separate act with its own three phases in
-8.5, its own journal in 8.8, and its own stop in 8.6. Those two things were run
-together in the old wording, which is why a migration card used to be
-un-mergeable until the owner was available to run something the pull request
-never asked him to run.
+**MERGING THE FILE IS APPLYING IT. THIS PARAGRAPH SAID THE OPPOSITE UNTIL
+2026-09-04 AND IT WAS FALSE.** Ruling R-124.
+
+It used to read: *"A pull request that ADDS `supabase/migrations/0013_something.sql`
+changes one text file in a git repository and changes nothing in any database."*
+**That sentence is disproved.** A Supabase GitHub integration applies merged
+migrations to the production project on every push to `main`, within about two
+minutes, and it is recorded here rather than removed because the whole of section
+8 was written on top of it.
+
+**THE EVIDENCE, BECAUSE A CLAIM THIS LOAD-BEARING SHOULD NOT REST ON A STORY.**
+Two migrations both numbered `0032` existed on 2026-09-03, on two open pull
+requests. Before merging either:
+
+    applied_ledger_version()            "0031"
+    extraction_drafts.page_count        42703, absent
+    extraction_drafts.document_source   42703, absent
+
+**PR #180 was merged. PR #177 was left open.** Within two minutes:
+
+    applied_ledger_version()            "0032"
+    extraction_drafts.page_count        PRESENT
+    extraction_drafts.document_source   still absent
+
+**The unmerged twin is the control.** Same day, same register, same shape, and
+only the merged one landed. #177 was then merged in its turn and
+`document_source` appeared, which is the same prediction made a second time and
+held. The integration also applies the file FAITHFULLY, constraint included: an
+insert violating `0032`'s CHECK was refused with `23514` immediately afterwards.
+
+**SO THE EXCLUSION BELOW IS NOT ABOUT A LATER STEP. THERE IS NO LATER STEP.**
+Merging a migration is the act that reaches production, and section 8 now
+describes that. The applier in 8.5 is the path a TERMINAL takes; it is not the
+only path, and it is not on this one.
 
 That is the whole exclusion. There is no second one.
 
@@ -510,6 +536,53 @@ failure this project has no recovery path for.
 no database connection from any terminal. The grant below is temporary, narrow,
 and expires at P2-13.**
 
+### 8.0 MERGE IS APPLY. READ THIS BEFORE ANYTHING ELSE IN SECTION 8.
+
+**Added 2026-09-04 by owner ruling R-124, which is the ruling that describes what
+this repository ACTUALLY DOES rather than what it intended.**
+
+**MERGING A MIGRATION FILE APPLIES IT TO THE PRODUCTION DATABASE, WITHIN ABOUT
+TWO MINUTES, WITH NO TERMINAL INVOLVED.** A Supabase GitHub integration watches
+`main` and applies merged migrations to the production project. Nobody
+configured this as part of the doctrine; it was discovered on 2026-09-03 and
+proven twice by prediction with an unmerged control. The evidence is quoted in
+section 3.1 and journalled in `docs/migrations/APPLY-LOG.md`.
+
+**THE FOUR CONSEQUENCES, AND EVERY ONE OF THEM CHANGES HOW A CARD IS WORKED:**
+
+1. **THE DESTRUCTIVE-STATEMENT BOUNDARY IS THE MERGE, NOT THE APPLY.** 8.6 says a
+   migration containing `DROP TABLE`, `TRUNCATE` or `DELETE` is never
+   auto-applied, and the applier enforces that at apply time. **The applier is
+   not on this path.** A merged migration carrying one of those executes against
+   production while every terminal obeys 8.6 perfectly.
+2. **THE CONTROL IS THE PRE-MERGE CHECK**, `npm run check:no-destructive-migration`.
+   It parses every migration a pull request adds or modifies with `pgsql-parser`,
+   refuses `DROP TABLE`, `TRUNCATE` and `DELETE` with the statement quoted,
+   **fails closed on any statement kind it has not been taught**, and treats an
+   unparseable file as a failure rather than a pass. It runs in `quality`, is not
+   path-filtered, and `npm run prove:no-destructive-migration` proves it refuses.
+   **A pull request that adds a migration and shows that check skipped has not
+   met this section.**
+3. **THE PENDING REGISTER IS NOT A STATEMENT ABOUT PRODUCTION.** It says what a
+   TERMINAL has applied. A file can be listed pending and be live. That is
+   exactly what happened to `0028` through `0031`, and the reconstruction in
+   `APPLY-LOG.md` records it.
+4. **REVIEW HAPPENS BEFORE THE MERGE OR IT DOES NOT HAPPEN.** There is no window
+   between merging and applying in which somebody can look. Whatever a reader
+   needs to catch, the pull request is the last place they can catch it.
+
+**WHAT IS UNCHANGED.** 8.5's three phases, 8.6's absolute exclusion and 8.8's
+journals all still bind **a terminal that applies a migration itself**, through
+`scripts/apply-pending-migrations.mjs`. That path still exists, is still the only
+one a terminal may take, and is still governed exactly as written below. What
+changed is that it stopped being the only way a migration reaches production.
+
+**THE INTEGRATION IS NOT A TERMINAL AND OBEYS NOTHING IN THIS FILE.** It reads no
+register, runs no assertion, writes no journal row and asks nobody. Rules written
+for terminals do not reach it, which is why the control had to move to the merge,
+where this repository's own checks still apply. Card `MIG-01` carried the decision
+to keep it; this ruling records the owner keeping it.
+
 ### 8.1 Authoring, unchanged
 
 - Migrations are **authored as files**: `supabase/migrations/NNNN_name.sql`,
@@ -576,6 +649,12 @@ Every apply is three phases, and all three are journalled:
 stranger can read what was actually applied without database access.
 
 ### 8.6 The destructive-statement stop
+
+**READ 8.0 FIRST. This section governs a terminal that APPLIES a migration. Since
+2026-09-04 it is not the only way one reaches production, and the boundary that
+now precedes production is the MERGE, enforced by
+`npm run check:no-destructive-migration`. Everything below still binds the applier
+path exactly as written.**
 
 **Widened by ruling R-031 on 2026-08-27.** The line is now drawn where it was
 always meant to be: at operations that DESTROY ROWS.
@@ -647,9 +726,12 @@ them.** Read the absolute exclusion below before reading the grant.
 
 **WHY IT WAS NEEDED.** Thirteen migrations were merged and unapplied, and no
 ruling let any terminal apply them. R-047 excluded migrations by name. R-049,
-R-056 and R-059 widened the SELF-MERGE grant and touched none of this, because
-merging a migration file changes one text file and changes nothing in any
-database. The apply was reachable by nobody.
+R-056 and R-059 widened the SELF-MERGE grant and touched none of this, **on the
+belief that merging a migration file changed one text file and changed nothing in
+any database. THAT BELIEF WAS FALSE, and R-124 records the evidence.** The apply
+was reachable by no TERMINAL, which is a smaller claim than the one this
+paragraph used to make: the integration was reaching it all along, which is
+exactly why those thirteen turned out to be applied when somebody finally looked.
 
 **A TERMINAL MAY APPLY MERGED MIGRATIONS TO PRODUCTION ONLY THROUGH AN APPLIER
 THAT:**
@@ -746,8 +828,17 @@ permanent one.
 
 **Added 2026-08-28 by ruling R-055.**
 
-There are now two ways to write to the production database, so there are two
-logs, and **a write with no row in one of them is a violation**:
+There are now two ways for a TERMINAL to write to the production database, so
+there are two logs, and **a terminal write with no row in one of them is a
+violation**:
+
+**AND THERE IS A THIRD WRITER THAT JOURNALS NOTHING, NAMED HERE SO THE COUNT IS
+HONEST.** The Supabase integration applies merged migrations and writes no row
+anywhere, because it is not a terminal and this file does not reach it. See 8.0.
+Its applies are reconstructed in `APPLY-LOG.md`, marked as reconstructions rather
+than journals, and that is the best record obtainable after the fact. **A rule
+that describes only the actors you know about is not weaker, it is wrong about
+its own coverage.**
 
 | the write | the journal |
 |---|---|
