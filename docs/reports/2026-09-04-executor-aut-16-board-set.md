@@ -39,8 +39,14 @@ running its End to end step when the 45 minute wall clock cap arrived. **Nothing
 was merged by this run.** The board edit in this pull request says `shipped`,
 which is the normal pattern (the board flip rides in the same pull request as the
 code), but `main` is untouched and AUT-16 is still `todo` there. The next run
-merges PR #186 on green `quality` for head sha `1d2dd22`, or picks the card up
-where it stands.
+merges PR #186 on green `quality` FOR WHATEVER ITS HEAD SHA IS THEN, read with
+`npm run checks:state 186`, never on an inherited result.
+
+**AND THIS COMMIT IS ITSELF THE REASON THAT SENTENCE IS WRITTEN THAT WAY.** The
+green run described below belongs to sha `1d2dd22`. Correcting this report pushed
+a new commit, so that result is now attached to a sha nobody is proposing to
+merge, which is exactly the trap CLAUDE.md section 3 names. Read
+`mergeStateStatus` beside the check result, always.
 
 The first run for this branch FAILED on the new step with
 `scripts/poc/claim.sh: line 79: node: command not found`. `claim.sh` replaced
@@ -182,9 +188,11 @@ Three entries appended to `docs/LEARNINGS.md`:
 
 ## 6. What the next run should pick up first
 
-**PR #186, this run's own card.** Check `npm run checks:state 186` and merge it
-on green `quality` for head sha `1d2dd22`. Everything before End to end had
-already passed. Only then is AUT-16 shipped on `main`.
+**PR #186, this run's own card.** Run `npm run checks:state 186`, and merge on a
+green `quality` that exists FOR THE CURRENT HEAD SHA. Do not trust the run that
+was in flight when this report was written: committing this report moved the
+head, so that result belongs to an earlier sha. Every step before End to end had
+passed on it. Only after the merge is AUT-16 shipped on `main`.
 
 After that, **AUT-17**, then AUT-18.
 
