@@ -77,6 +77,31 @@ function callbackBody(orderId: string, over: Record<string, unknown> = {}) {
   return {
     order_id: orderId,
     status: "extracted",
+    // EXT-16. THIS SHARED FIXTURE DECLARES ITSELF DIGITAL, AND THAT IS A
+    // DELIBERATE NARROWING RATHER THAN A CONVENIENCE.
+    //
+    // Its numbers do not reconcile and never did: subtotal is 18450.00 while the
+    // single line carries line_total 18452.36, a difference of 2.36 against a
+    // one-line tolerance of 0.05. Nobody noticed because until EXT-16 nothing
+    // compared them. EXT-15 then made an ABSENT document_source read as `scan`,
+    // so every test built on this body became a scan-sourced payload that
+    // EXT-16 correctly refuses.
+    //
+    // The tests built on it are about STORAGE, IDEMPOTENCY, NULL HANDLING and
+    // the review screen. Declaring `digital` keeps them about those things
+    // instead of quietly turning each one into a second, weaker reconciliation
+    // test that would fail for a reason it never meant to exercise.
+    //
+    // THE SCAN PATH IS NOT LOSING COVERAGE. It has its own cases: EXT-15's three
+    // source cases, and EXT-16's cases 12 to 15 built on Andre's real Matnord
+    // numbers. Those are the ones that should break when reconciliation breaks.
+    //
+    // Cases 3 and 8 could not have been rescued by fixing the arithmetic anyway:
+    // 3 replaces the lines with ones carrying NO line_total, and 8 nulls every
+    // document field. Under EXT-16 a scan-sourced payload in either state is
+    // refused, correctly, so the only honest way to keep them testing what they
+    // test is to say they are not scans.
+    document_source: "digital",
     error_code: null,
     reason: null,
     supplier_name: "Bilka Steel SRL",
