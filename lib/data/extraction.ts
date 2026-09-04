@@ -14,7 +14,17 @@ import "server-only";
 // mai e nimic de confirmat, si a o oferi spre confirmare ar produce un duplicat.
 
 import { createClient } from "@/lib/supabase/server";
+import { isDocumentSource } from "./extraction-types";
+import { hasExtractionDocumentSource } from "./schema-capability";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
+
+/** EXT-15. Aceeasi lista, plus coloana pe care 0032 o adauga.
+ *
+ *  DOUA LISTE SI NU UNA CU UN CAMP OPTIONAL, fiindca PostgREST nu are camp
+ *  optional: o coloana necunoscuta intr-un select este 42703 si citirea arunca.
+ *  Care dintre ele se foloseste o decide hasExtractionDocumentSource(). */
+const DRAFT_COLUMNS_WITH_SOURCE =
+  "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, document_source, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
 
 const DRAFT_COLUMNS =
   "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
@@ -66,6 +76,11 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     vatRate: num(row.vat_rate),
     currency: (row.currency as string | null) ?? null,
     currencyRaw: (row.currency_raw as string | null) ?? null,
+    // EXT-15. null aici inseamna "extractorul nu a spus" SI "randul este de
+    // dinaintea migratiei 0032". Amandoua se citesc ca `scan` de catre apelant,
+    // prin effectiveSource, si niciuna nu este rescrisa aici intr-o afirmatie pe
+    // care nimeni nu a facut-o.
+    documentSource: isDocumentSource(row.document_source) ? row.document_source : null,
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),
@@ -82,9 +97,20 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
 export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   const supabase = await createClient();
 
+  // EXT-15. Lista se alege inainte si se tine intr-un `string` simplu.
+  //
+  // Tipurile lui supabase-js parseaza sirul de select ca literal ca sa infereze
+  // forma randului; o expresie conditionala le da o uniune de doua literale si
+  // parserul renunta cu o eroare de tip in loc sa produca forma. Un `string`
+  // larg il face sa intoarca forma generica, care este exact ce vrea mapDraft:
+  // el citeste campurile pe nume dintr-un Record si nu depinde de inferenta.
+  const draftColumns: string = (await hasExtractionDocumentSource(supabase))
+    ? DRAFT_COLUMNS_WITH_SOURCE
+    : DRAFT_COLUMNS;
+
   const { data: drafts } = await supabase
     .from("extraction_drafts")
-    .select(DRAFT_COLUMNS)
+    .select(draftColumns)
     // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
     // catre comanda poarta on delete set null, deci poate redeveni null, iar o
     // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
@@ -92,7 +118,7 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
     .is("confirmed_at", null)
     .order("fired_at", { ascending: false, nullsFirst: false });
 
-  const rows = (drafts ?? []) as Record<string, unknown>[];
+  const rows = (drafts ?? []) as unknown as Record<string, unknown>[];
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => String(r.order_id));

@@ -20,7 +20,18 @@ POC_RUN_WORKTREE=/Users/ivan/rc-inventory-poc-run
 POC_LOG_DIR=/Users/ivan/rc-poc-logs
 POC_LOCK_FILE=/Users/ivan/rc-poc-logs/run.lock
 POC_SECRETS_FILE=/Users/ivan/rc-secrets/phase2.env
-POC_BOARD=docs/board/rc-board-phase2.json
+# AUT-16. THE BOARD SET, READ FROM THE ONE PLACE THAT DEFINES IT.
+#
+# This was a single path to the phase 2 board while every run since 2026-08-30
+# worked the phase 3 board. The eligible-card line, the CLAIM_SKIPPED set put in
+# the prompt, the claim written at the end of a run and the silence rule were
+# all computed against a board nobody was working: docs/poc/state.json carries a
+# claim on AUT-10 written at the end of a run that spent its time on P3-11.
+#
+# POC_BOARDS is a space separated list, phase 3 first. It is filled after the
+# worktree is prepared, from scripts/poc/boards.mjs, because that file is the
+# single definition and a fourth board must be a one-line change there.
+POC_BOARDS=""
 POC_STATE=docs/poc/state.json
 
 POC_MAX_CARDS=2
@@ -366,6 +377,32 @@ git reset --hard origin/main --quiet
 git clean -fd --quiet
 log "run worktree at $(git rev-parse --short HEAD) detached from origin/main"
 
+# AUT-16. Fill the board set now that the worktree holds the commit this run
+# works from, so the list comes from that commit's boards.mjs rather than from a
+# constant written here. A set that cannot be read is fatal: working a subset of
+# the boards in silence is the exact defect this card removed.
+POC_BOARDS=$(node "$POC_RUN_WORKTREE/scripts/poc/boards.mjs" --paths 2>/dev/null | tr '\n' ' ')
+POC_BOARDS=${POC_BOARDS% }
+
+# BOOTSTRAP, AND ONLY BOOTSTRAP. This file is a deployed copy under
+# /Users/ivan/rc-poc-bin and the worktree is checked out at origin/main, so for
+# one merge window a new run.sh meets a main that has no boards.mjs. Dying there
+# would cost every scheduled window until the merge landed. It falls back to the
+# phase boards present in that commit, newest phase first, and SAYS SO. The path
+# stops firing the moment boards.mjs is on main.
+if [ -z "$POC_BOARDS" ]; then
+  log "the checked out commit predates scripts/poc/boards.mjs, falling back to the phase boards present in it"
+  POC_BOARDS=$(cd "$POC_RUN_WORKTREE" && ls -1 docs/board/rc-board-phase*.json 2>/dev/null | sort -r | tr '\n' ' ')
+  POC_BOARDS=${POC_BOARDS% }
+fi
+
+if [ -z "$POC_BOARDS" ]; then
+  log "FATAL: no board set and no board file, refusing to run against nothing"
+  EXIT_CODE=1
+  exit 1
+fi
+log "board set: $POC_BOARDS"
+
 # ---------------------------------------------------------------------------
 # Merge helper. Waits, bounded, for the quality check on a head sha, then
 # merges. Never merges on a check that is pending, failed, skipped or absent.
@@ -426,6 +463,90 @@ checkpoint_pr() {
   fi
 }
 # EXTRACT-END checkpoint
+
+# ---------------------------------------------------------------------------
+# WHICH REPORT THE REVIEW STEP IS HANDED. Card AUT-17.
+#
+# The old selection was `git ls-tree ... | sort | tail -1` and had three defects
+# in two lines. It sorted FILENAMES, so two reports written on the same day were
+# ordered by their slug and the one committed SECOND could sort first. It read
+# origin/main only, so the report riding in an unmerged card pull request was
+# invisible, which is exactly the shape a card whose acceptance failed leaves
+# behind. And it never asked what the last review had already consumed, so the
+# same report could be reviewed twice, producing two sets of ids saying the same
+# thing about one file, on a green pull request, with nothing erroring.
+#
+# NOTHING HERE WEAKENS `NO REPORT MEANS NO TRIAGE`. When every candidate is
+# already recorded as consumed the selector returns nothing and the step is
+# skipped. A run with nothing to review is a normal outcome; a run that reviews
+# the same report twice is not.
+# ---------------------------------------------------------------------------
+# EXTRACT-BEGIN triage-selector
+# Every executor report reachable from a ref, NEWEST FIRST BY COMMIT ORDER.
+# $1 is a git revision range or a single ref.
+triage_reports_in() {
+  git log --format='%H' "$1" -- docs/reports/ 2>/dev/null \
+    | while IFS= read -r TRI_SHA; do
+        git show --pretty=format: --name-only "$TRI_SHA" -- docs/reports/ 2>/dev/null
+      done \
+    | grep -E '^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$' \
+    | awk 'NF && !seen[$0]++'
+}
+
+# The report field and the run id of docs/poc/triage-latest.json, on two lines.
+#
+# IT FAILS OPEN, DELIBERATELY. An absent or unparseable file means nothing is
+# treated as consumed. That costs one duplicate review; failing closed would
+# cost every review from then on.
+triage_consumed_report() {
+  if [ ! -f "$1" ]; then
+    log "triage: no $1, treating nothing as already reviewed" >&2
+    return 0
+  fi
+  node -e '
+    const fs = require("fs");
+    try {
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      process.stdout.write(String(j.report || "") + "\n" + String(j.run_id || "") + "\n");
+    } catch (e) {
+      process.stderr.write("unparseable\n");
+    }
+  ' "$1" 2>/dev/null || true
+}
+
+# The whole selection.
+#   $1  path of docs/poc/triage-latest.json
+#   $2  the ref this run's own executor left its work on, usually HEAD
+#
+# PREFERENCE ORDER: the report this run's own executor committed wins over the
+# newest on origin/main, always, even when the branch report is older by commit
+# time. The review step exists to read what THIS run produced.
+select_triage_report() {
+  STR_LATEST=$1
+  STR_REF=${2:-HEAD}
+  STR_PAIR=$(triage_consumed_report "$STR_LATEST")
+  STR_CONSUMED=$(printf '%s\n' "$STR_PAIR" | sed -n 1p)
+  STR_CONSUMED_RUN=$(printf '%s\n' "$STR_PAIR" | sed -n 2p)
+  STR_PICK=""
+
+  STR_CANDIDATES=$( { triage_reports_in "origin/main..$STR_REF"; \
+                      triage_reports_in origin/main; } | awk 'NF && !seen[$0]++' )
+
+  while IFS= read -r STR_C; do
+    [ -n "$STR_C" ] || continue
+    if [ -n "$STR_CONSUMED" ] && [ "$STR_C" = "$STR_CONSUMED" ]; then
+      log "triage: $STR_C was already reviewed by run ${STR_CONSUMED_RUN:-unknown}, refusing to review it twice" >&2
+      continue
+    fi
+    STR_PICK=$STR_C
+    break
+  done <<STR_EOF
+$STR_CANDIDATES
+STR_EOF
+
+  printf '%s\n' "$STR_PICK"
+}
+# EXTRACT-END triage-selector
 
 merge_when_green() {
   MWG_PR=$1
@@ -549,16 +670,27 @@ fi
 # --ids-all returns every eligible card. The difference between them is exactly
 # the set that was skipped because somebody else holds it.
 # ---------------------------------------------------------------------------
+# One --board flag PER BOARD. Not one packed argument: run.sh is a deployed copy
+# and eligible.mjs is read out of the worktree at origin/main, so for one merge
+# window a new run.sh meets an old eligible.mjs. An old flag parser keeps the
+# LAST --board and computes against that board alone, which is what it did
+# before; a packed string would have made it read a path that does not exist and
+# report nothing eligible, which looks exactly like a finished board.
+POC_BOARD_FLAGS=()
+for POC_ONE_BOARD in $POC_BOARDS; do
+  POC_BOARD_FLAGS+=(--board "$POC_ONE_BOARD")
+done
+
 ELIGIBLE_AT_START=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
+  "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --ids 2>/dev/null)
 ELIGIBLE_ALL=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-  --board "$POC_BOARD" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
+  "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --ids-all 2>/dev/null)
 log "eligible at start: ${ELIGIBLE_AT_START:-none}"
 
 CLAIM_SKIPPED=""
 if [ "$ELIGIBLE_ALL" != "$ELIGIBLE_AT_START" ]; then
   CLAIM_SKIPPED=$(node "$POC_RUN_WORKTREE/scripts/poc/eligible.mjs" \
-    --board "$POC_BOARD" --state "$POC_STATE" --actor harness --json 2>/dev/null \
+    "${POC_BOARD_FLAGS[@]}" --state "$POC_STATE" --actor harness --json 2>/dev/null \
     | node -e '
       let s = "";
       process.stdin.on("data", (d) => (s += d)).on("end", () => {
@@ -637,8 +769,19 @@ PROMPT_EOF
 
 # Snapshot the board before the run touches it, so what moved can be worked out
 # by comparison rather than inferred from a timestamp.
+# One snapshot holding EVERY board in the set, keyed by path, so a card that
+# moved on the second board is seen exactly as one that moved on the first.
 BOARD_BEFORE=$POC_LOG_DIR/$RUN_ID.board-before.json
-cp "$POC_BOARD" "$BOARD_BEFORE"
+# shellcheck disable=SC2086
+node -e '
+  const fs = require("fs");
+  const [target, ...paths] = process.argv.slice(1);
+  const out = {};
+  for (const p of paths) {
+    try { out[p] = JSON.parse(fs.readFileSync(p, "utf8")); } catch { out[p] = { cards: [] }; }
+  }
+  fs.writeFileSync(target, JSON.stringify(out));
+' "$BOARD_BEFORE" $POC_BOARDS
 
 # A prompt that failed to render must never reach claude -p. An unbound variable
 # inside the heredoc above truncates the file silently under set -u, and the run
@@ -731,8 +874,21 @@ TRIAGE_ELAPSED=0
 TRIAGE_BRANCH=triage/$RUN_ID
 
 git fetch origin main --quiet 2>/dev/null || true
-TRIAGE_REPORT=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
-  | grep -E "^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$" | sort | tail -1)
+
+# The report THIS run's executor committed, checkpointed the moment it exists so
+# a kill of this script does not lose it. The branch is whatever the executor
+# left the worktree on; unlike TRIAGE's, it cannot be mandated, because the
+# branch name belongs to the card.
+EXECUTOR_CHECKPOINT_FILE=$POC_LOG_DIR/$RUN_ID.checkpoint
+EXECUTOR_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+EXECUTOR_OWN_REPORT=$(triage_reports_in "origin/main..HEAD" | head -1)
+if [ -n "$EXECUTOR_OWN_REPORT" ]; then
+  EXECUTOR_PR=$(pr_for_branch "$EXECUTOR_BRANCH")
+  checkpoint_pr "$RUN_ID" executor "${EXECUTOR_PR:-none}" "$EXECUTOR_BRANCH" \
+    "$EXECUTOR_OWN_REPORT" "$EXECUTOR_CHECKPOINT_FILE"
+fi
+
+TRIAGE_REPORT=$(select_triage_report "$POC_RUN_WORKTREE/docs/poc/triage-latest.json" HEAD)
 
 if [ -z "$TRIAGE_REPORT" ]; then
   log "no executor report on origin/main, skipping TRIAGE"
@@ -746,9 +902,12 @@ it. That file is the whole of your rubric and it binds you the way CLAUDE.md
 binds every role.
 
 Your input is the newest report in docs/reports/, which is
-$TRIAGE_REPORT. Read it. You get nothing else and you need nothing else; if you
-do, that is a defect in docs/DOCTRINE-TRIAGE.md and saying so in your report is a
-legitimate output.
+$TRIAGE_REPORT. Read it. You get no chat, no summary, no human context and no
+verbal ratification: everything you act on is a committed file in this
+repository, and this dispatch is not one of them. Reading another committed file
+is not a defect, it is how you check what you are told. If the rubric itself is
+missing something you need, that is a defect in docs/DOCTRINE-TRIAGE.md and
+saying so in your report is a legitimate output.
 
 WHAT YOU MAY DO: write rulings into decisions/inbox.md, edit cards, flip a launch
 gate that is fully met on committed evidence, author cards, and write
@@ -883,19 +1042,27 @@ git reset --hard origin/main --quiet
 # unmerged branch and main never moved. A run that wrote code must never look
 # identical to a run that idled. Card branches are read too, and work that is on
 # a branch is reported as such rather than dropped.
+# shellcheck disable=SC2086
 CARDS_TOUCHED=$(node -e '
   const fs = require("fs");
-  const before = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-  const after = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-  const was = new Map((before.cards || []).map((c) => [c.id, c.status]));
+  const [snapshotPath, ...paths] = process.argv.slice(1);
+  const before = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
+  const was = new Map();
+  for (const board of Object.values(before)) {
+    for (const c of board.cards || []) was.set(c.id, c.status);
+  }
   const moved = [];
-  for (const card of after.cards || []) {
-    const previous = was.get(card.id);
-    if (previous === undefined) moved.push(card.id + ":new:" + card.status);
-    else if (previous !== card.status) moved.push(card.id + ":" + card.status);
+  for (const p of paths) {
+    let after;
+    try { after = JSON.parse(fs.readFileSync(p, "utf8")); } catch { continue; }
+    for (const card of after.cards || []) {
+      const previous = was.get(card.id);
+      if (previous === undefined) moved.push(card.id + ":new:" + card.status);
+      else if (previous !== card.status) moved.push(card.id + ":" + card.status);
+    }
   }
   console.log(moved.join(","));
-' "$BOARD_BEFORE" "$POC_BOARD" 2>/dev/null)
+' "$BOARD_BEFORE" $POC_BOARDS 2>/dev/null)
 
 # Branch-side work: any card/* branch that is ahead of main and moved during
 # this run. Reported as <id>:branch:<status> so the digest can say "worked, not
@@ -910,16 +1077,28 @@ for CARD_REF in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/ori
   CARD_LAST=$(git log -1 --format=%ct "$CARD_REF" 2>/dev/null)
   [ -z "$CARD_LAST" ] && continue
   [ "$CARD_LAST" -lt "$RUN_STARTED_AT" ] && continue
-  CARD_STATUS=$(git show "$CARD_REF:$POC_BOARD" 2>/dev/null | node -e '
-    let s = "";
-    process.stdin.on("data", (d) => (s += d)).on("end", () => {
-      try {
-        const b = JSON.parse(s);
-        const c = (b.cards || []).find((x) => x.id === process.argv[1]);
-        console.log(c ? c.status : "unknown");
-      } catch { console.log("unknown"); }
-    });
-  ' "$CARD_ID")
+  # The card can be on any board in the set, so every board on that branch is
+  # read until one names it. Reading a single board reported "unknown" for every
+  # phase 3 card worked on a branch, which is silence wearing a status.
+  CARD_STATUS=unknown
+  for CARD_BOARD in $POC_BOARDS; do
+    CARD_FOUND=$(git show "$CARD_REF:$CARD_BOARD" 2>/dev/null | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try {
+          const b = JSON.parse(s);
+          const c = (b.cards || []).find(
+            (x) => String(x.id).toUpperCase() === String(process.argv[1]).toUpperCase(),
+          );
+          console.log(c ? c.status : "");
+        } catch { console.log(""); }
+      });
+    ' "$CARD_ID")
+    if [ -n "$CARD_FOUND" ]; then
+      CARD_STATUS=$CARD_FOUND
+      break
+    fi
+  done
   CARDS_ON_BRANCH="$CARDS_ON_BRANCH,$CARD_ID:branch:${CARD_STATUS:-unknown}"
   log "branch work: $CARD_BRANCH is $CARD_AHEAD commits ahead of main, card $CARD_ID is ${CARD_STATUS:-unknown}"
 done
