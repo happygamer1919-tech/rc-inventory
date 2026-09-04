@@ -39,6 +39,8 @@ naming a file that does not exist all fail the suite.
 
 The format is machine-read, so keep it exactly:
 
+- `0034_error_code_reconciliation_failed.sql`, card de aplicare EXT-16
+
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
 
