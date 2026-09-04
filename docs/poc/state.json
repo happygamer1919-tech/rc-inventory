@@ -156,6 +156,13 @@
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260903-070005.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-09-03T12:15:44Z",
       "run_id": "20260903-070005"
+    },
+    {
+      "card_id": "AUT-16",
+      "question": "AUT-16 is the lowest-id eligible card after AUT-15 and run 20260903-220002 did not start it. It is not a skip for convenience and it is not blocked. It does not fit a 45 minute cap: its acceptance is a new quality check with three halves, each proved failing first, and it changes the single hardcoded board path in six places (scripts/poc/run.sh line 23, inbox.mjs line 39 for reads AND lines 418 to 457 for the write-back that must target whichever board holds the card, notify.mjs line 27, digest.sh line 147, eligible.mjs and claim.sh). Starting it inside the remaining 30 minutes would have produced a stranded in_flight card on a half-finished branch, which is the failure this same run just wrote a learnings entry about.",
+      "recommendation": "Give AUT-16 a dedicated run, or a foreground EXECUTOR session, as the first card of that run. Do not let a capped run pick it up. Nothing else on the board is blocked behind it, and until it lands the daily digest and the Telegram answer channel stay blind to every phase 3 card id.",
+      "raised_at": "2026-09-03T22:10:00Z",
+      "run_id": "20260903-220002"
     }
   ],
   "digest_last_sent": "2026-09-03T12:15:43Z",

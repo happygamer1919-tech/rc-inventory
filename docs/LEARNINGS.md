@@ -3326,15 +3326,21 @@ acceptance run. No pull request had ever been opened for it, so nothing on `main
 knew. `gh pr list --head card/aut-15` returned `[]`. The board said `todo`, the
 digest would have said not started, and the next run would have redone the work
 from scratch and produced a second branch for one card.
+**The silence rule fired and it was not enough, which is the part worth keeping.**
+Run `20260903-070005` wrote the escalation `AUT-15:branch:in_flight`, so the
+harness knew. That escalation sits in `docs/poc/state.json`, and the two things a
+later run actually reads to decide what to work, the board's `status` field and
+`gh pr list`, both still said the card had never been started. A correct record in
+a third place did not stop the wrong record in the first two from being acted on.
 **SOLUTION:** This run added no new commit to the doctrine file: it read the
 existing branch, confirmed the acceptance passed on it, merged `origin/main` INTO
 the branch (a merge, never a rebase, because section 3 forbids rewriting a card
 branch's history), and finished the card from there. **The durable half is the
 detection rule: a card branch is only visible to the board through its pull
-request, so a run's leftover-work sweep must look at BRANCHES, not only at open
-pull requests.** An open pull request with no merge is loud, it appears in
-`gh pr list` and in every status query. A pushed branch with no pull request is
-silent in exactly the same places, and the board's `todo` actively asserts the
-opposite of the truth. Before taking a card, check `git ls-remote --heads origin
-card/<id>`; the answer costs one round trip and the alternative is duplicated work
-on a card that was already done.
+request, so a leftover-work sweep must look at BRANCHES, not only at open pull
+requests, and the run that leaves work on a branch must open the pull request
+before it ends.** An open pull request with no merge is loud: it appears in
+`gh pr list`, in `gh pr status` and in every review queue. A pushed branch with no
+pull request is silent in all of them. Before taking a card, check
+`git ls-remote --heads origin card/<id>`; the answer costs one round trip and the
+alternative is redoing work that was already finished.
