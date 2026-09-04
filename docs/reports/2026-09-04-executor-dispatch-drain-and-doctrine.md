@@ -279,3 +279,23 @@ branch compared against itself finds no collision. It degrades to a false negati
 rather than a false positive, which is the correct direction for a check that
 gates merges.
 
+### Two things found while scoping #192, both of which bite at merge time
+
+**1. Its card is left `in_flight` with no evidence.** `AUT-17` on
+`card/aut-17` is `status: in_flight`, `evidence: none`, while the branch carries
+`scripts/poc/run.sh` changes, a new `scripts/poc/test-harness-caps.sh` and a
+138-line report. The authoring session did the work and did not close the card.
+Merging it as-is leaves a card that never ships. **The board flip belongs in that
+merge**, not in a later sweep, because CLAUDE.md 2 says the pull request carrying
+the code carries the board edit.
+
+**2. It changes `scripts/poc/run.sh`, which is a DEPLOYED file.** CLAUDE.md 15:
+`scripts/poc/install.sh` must be re-run after any change to `run.sh`,
+`responder.sh` or `digest.sh`, because those three are deployed copies under
+`/Users/ivan/rc-poc-bin` and the repository is the source of truth.
+
+**That lands on step 6.** Re-enabling the schedule without re-running the
+installer would start the OLD `run.sh` on the new board, which is the exact
+mismatch section 15 exists to prevent. So step 6 is: re-run `install.sh` first,
+then `launchctl load`.
+
