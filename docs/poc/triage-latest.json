@@ -1,48 +1,43 @@
 {
-  "run_id": "20260903-070005",
-  "report": "docs/reports/2026-09-02-executor-rule-02-id-allocation.md",
+  "run_id": "20260903-220002",
+  "report": "docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md",
   "rulings_written": [
-    "R-087",
-    "R-088",
-    "R-089",
-    "R-125",
-    "R-126"
+    "R-098",
+    "R-099",
+    "R-100",
+    "R-101"
   ],
   "cards_resequenced": [
     {
-      "card_id": "RULE-03",
-      "change": "authored by TRIAGE under R-087. When you answer a question from your phone, the system files that answer under a number it works out for itself instead of taking the next one from the shared list that everything else now uses. Two decisions can end up with the same number, and worse, the published change carrying your own answer fails its own checks and cannot go out. This makes the phone answers use the same list as everybody else."
+      "card_id": "RESTORE-01",
+      "change": "authored by TRIAGE under R-099. A merge four hours ago quietly deleted finished, approved work from the main copy of the project: the record of six database changes that are already live, one decision waiting on you, two pieces of planned work and three lessons learned. Nothing we run noticed, because every check we have asks whether what is present is correct and none of them asks whether something that was there has gone. This card puts every piece back exactly as it was, in one change."
     },
     {
-      "card_id": "AUT-19",
-      "change": "authored by TRIAGE under R-088. The rulebook the reviewing role follows still describes the old way of numbering decisions, which was replaced yesterday. A session that follows its own rulebook now produces work that fails the automatic checks. This run had to ignore its own rulebook to be correct, which is how the gap was found."
+      "card_id": "GUARD-02",
+      "change": "authored by TRIAGE under R-099, and it cannot be started until the restore above lands. A check that refuses any change which removes a decision, a piece of planned work, or a record of a live database change that already exists on the main copy. We already have a check for the messy version of this mistake; this is for the tidy version, which leaves no trace at all."
     },
     {
-      "card_id": "P3-37",
-      "change": "authored by TRIAGE under R-089. One finished piece of database work has been published but never switched on in the live system, and the job that was supposed to switch it on has already been closed, so nobody owns it. This switches it on and adds a check so the next unowned one cannot sit there quietly."
+      "card_id": "P2-13",
+      "change": "the credential shutdown gains a second thing it must wait for, ruled under R-101 and landed by the restore card rather than here. That shutdown promises to switch off every way a terminal can write to the live database, and it carries a box confirming every database change is recorded as having been applied. Neither is true while a second, automatic path writes the live database and records nothing, so the shutdown would take away the controlled path and leave the uncontrolled one running."
     },
     {
-      "card_id": "BOARD-03",
-      "change": "authored by TRIAGE under R-125. The overnight system picks the next job by sorting job numbers as text, so job 16 comes out ahead of job 8. Two jobs from last week are stuck behind three newer ones and will stay there for ever. One of the two stuck jobs is the fix for the night that ran nine hours instead of forty-five minutes."
-    },
-    {
-      "card_id": "AUT-16",
-      "change": "notes only, nothing changed and no dependency touched. Two more copies of the same hardcoded list of work boards were found outside the area this job already covers, recorded on it so the job is done once rather than twice."
-    },
-    {
-      "card_id": "P2-08b, P2-13, P2-14",
-      "change": "NOT edited, deliberately. Every dependency between them was re-derived and each is correct as it stands. The chain waits on one person outside the project and that is escalated below rather than worked around by deleting an edge somebody put there on purpose."
+      "card_id": "P2-08b",
+      "change": "checked and deliberately NOT changed. Everything it waits for is finished except the outside supplier's own live run, so it stays parked on him. Nothing was cleared, because he genuinely still owes it."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The whole remaining tail of the current phase waits on one person outside the project, and nothing has moved for a week. Andre owes two things: confirmation that the document-reading contract is final, and one real supplier document run through his side of it. Everything after that is ours and is already built.",
-      "recommendation": "Send Andre the two-line ask this week and set a date by which you will decide without him. RECOMMENDED BECAUSE THE WAIT IS NOW THE LONGEST THING ON THE BOARD AND THE COST IS INVISIBLE: the credential lock-down waits on his round trip, the client sign-off waits on the lock-down, and the last readiness condition waits on the sign-off. Three items and one readiness condition are parked behind one email. THE ALTERNATIVE, IF HE STAYS SILENT: rule that the credential lock-down may go ahead without his live round trip, and let the round trip land afterwards as its own job. That is your call and not a terminal's, because it changes what is asked of him. NOTHING WAS EDITED ON YOUR BEHALF: the ordering that makes the lock-down wait for him was put there deliberately, so that real client passwords are not rotated before the reading path has been proved once against the real supplier. IF UNANSWERED: nothing breaks and nothing gets worse. The system stays exactly as it is, with the automatic document reading proved against our own test documents and never once against his, and the phase cannot be closed."
+      "title": "The moment a database change is approved and merged, it goes straight into the live database on its own, with nobody running it and nothing checking it first. Every safety rule we wrote assumes a person or a script does that step. This was proved twice on 2026-09-03, then the card carrying the question was deleted by a merge the same night, so it has never actually reached you.",
+      "recommendation": "KEEP the automatic path, and rewrite the rules to describe what actually happens, but only after we add a check that refuses any database change containing a row-deleting instruction before it can be merged. That check is small, it is the same parse we already do elsewhere, and it restores the one protection the automatic path removes. Why keep it rather than switch it off: it has already applied at least six changes correctly and the friction it saves is real, while the whole danger sits in the row-deleting class, which the check covers completely. IF UNANSWERED: every database change merged from now on reaches the live database with no pre-check, no assertion, no after-check and no record, and the rule saying row-deleting changes are never applied automatically protects nothing. Nothing else is blocked by this."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email were first recorded on 2026-08-26, were put in front of you on 2026-08-31, and are still not set. Setting them is two clicks and it does not, on its own, make the warning email work.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment now, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND THEY ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lock-down list, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, REPEATED SO YOU ARE NOT SURPRISED LATER: this does NOT make that readiness condition pass. A third thing is needed, a recipient address that is not on a domain that does not exist, and that one lands with the real staff accounts at the lock-down. THIS IS THE SECOND TIME OF ASKING AND IT WILL KEEP APPEARING: an unanswered question is the one thing here that must never go quiet. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lock-down day instead."
+      "title": "The extraction supplier has been told in writing that four database changes are still waiting to be switched on. They were switched on days ago. That paragraph is in the handover file we send him and it is false today.",
+      "recommendation": "Correct the paragraph before the next message to him: the nineteenth paint category and the tonne and litre units are live now, not pending. Nothing is asked of him and nothing he has already built changes, so this is a factual correction rather than a request. WHILE YOU ARE THERE, ONE TIME-BOXED FACT: the sample document link he is using expires 2026-09-04 at 19:58 UTC, and regenerating it is one command on our side. IF UNANSWERED: he keeps planning around a switch-on date that has already passed, and the next thing he asks us about will be built on it. Low cost, but it is the second time our own stale record has reached someone outside the company."
+    },
+    {
+      "title": "Two settings for the low-stock warning email in the live hosting environment were put in front of you on 2026-08-31 and never answered. They are still the first two of three things standing between us and a warning email that actually arrives.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment and reply that they are set. Both are already required items on the credential shutdown list, so doing them now removes two items from that day rather than adding any. THE SAME HONEST CAVEAT AS LAST TIME: this does not make the readiness condition pass on its own. A third thing is needed, a recipient address on a domain that exists, and that one lands with the real staff accounts. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on shutdown day."
     }
   ]
 }

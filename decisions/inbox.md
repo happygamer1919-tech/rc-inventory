@@ -4728,6 +4728,8 @@ must not lose. This id had never landed anywhere, so nothing points at it.
 `R-098` is left to #184, which claims `R-098` through `R-101`, and this ruling
 takes the next id verified free across `main` and all thirteen open branches.
 
+### R-098
+
 **A failure code that is new on ANY surface is communicated to the counterparty
 BEFORE it can be emitted or received, in BOTH directions, and it is added to a
 NAMED set rather than to an assumed one.**
@@ -5678,3 +5680,232 @@ retires the phase 3 migration escalation that R-080 carried, on the ground that
 P3-27 shipped.
 
 ---
+
+was taken after reading `decisions/NEXT-RULING-ID` on `main` AND on all six open
+pull request branches, and after grepping each for a written `R-098`. None had
+one. That manual check is exactly the procedure RULE-04 asks to be automated,
+and it was performed by hand here because the automation does not exist yet.
+
+---
+
+### R-099 - the AUT-15 merge reverted committed content on `main`, and no check in `quality` can see it: two cards, one ruling, the four-migration reconstruction, three learnings, a contract section and a test fixture, deleted by a conflict resolution that kept its own side
+**Date:** 2026-09-04
+**Asked on:** the input report's section 2 finding 1 and section 6 item 1, `docs/migrations/APPLY-LOG.md`, `docs/board/rc-board-phase2.json`, `decisions/inbox.md`, `docs/LEARNINGS.md`, `docs/contracts/extraction-v2.md`, `scripts/poc/test-ask-digest.sh`
+**Answer, verbatim:**
+> from docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md, section 2:
+>
+> "**The pending migration list said pending and production said applied.**
+> `docs/migrations/APPLY-LOG.md` lists `0028`, `0029`, `0030` and `0031` as
+> pending with the card that will apply each. Production reports `0031` applied
+> and has every object the four files create. **This is the finding that matters
+> most and it is not fixed here.**"
+
+**Ruling:** **THE FINDING WAS FIXED ON `main` AND THEN UN-FIXED BY THE PULL
+REQUEST THAT CARRIES THE REPORT.** It is restored by card `RESTORE-01`, authored
+here, and the mechanism that hid it is carded as `GUARD-02`.
+
+**WHAT THIS RUN CHECKED, AND WHY IT DID NOT STOP AT THE REPORT.** DOCTRINE-TRIAGE
+says the report is the only dispatch and committed repository files are the ground
+truth. Read against the tree, the report's finding 1 is no longer a description of
+`main`: between the report being written and this run, commits `8b09bde`,
+`a02e964` and `b25dc75` wrote the whole reconstruction of `0028` to `0033` into
+`docs/migrations/APPLY-LOG.md`, established the mechanism by prediction with a
+control, and authored card `MIG-01` to carry the vendor decision. That work is
+gone from `main` today.
+
+**THE INSTRUMENT, NAMED, BECAUSE IT IS ONE COMMIT.** `29afb21`, "AUT-15: merge
+origin/main into the card branch, no rewrite, no force push", merged
+`origin/main` into `card/aut-15` and resolved every conflicted file by keeping the
+branch side. `main` was `b25dc75` at that moment. Pull request `#183` merged the
+result as `e173fad`, so `origin/main` now carries less than it did four hours
+earlier.
+
+**THE INVENTORY, EACH ITEM VERIFIED BY `git diff b25dc75 origin/main` ON THIS
+BRANCH, NOT INFERRED:**
+
+    docs/migrations/APPLY-LOG.md      -317 lines. The whole RECONSTRUCTION OF
+                                      0028 TO 0031 header, the six APPLIED
+                                      entries, the observed-mechanism section
+                                      with its prediction and its control. The
+                                      six stale `pending` lines are re-added in
+                                      their place, so the file states again the
+                                      exact falsehood the report flagged.
+    docs/board/rc-board-phase2.json   cards MIG-01 and RULE-04 deleted. 64 cards
+                                      became 62.
+    decisions/inbox.md                ruling R-098 deleted, 81 lines.
+    decisions/NEXT-RULING-ID          R-099 rolled back to R-098.
+    docs/LEARNINGS.md                 three entries deleted: "Second instance: an
+                                      instruction not to invent a self-consistent
+                                      total was ignored three runs of three", "A
+                                      migration reaches production on merge, with
+                                      no applier, no journal and no human", "A
+                                      proof script that copies the live board
+                                      inherits today's board as an unstated
+                                      precondition".
+    docs/contracts/extraction-v2.md   section 5.2a deleted, the half of R-098
+                                      that lives in the contract.
+    scripts/poc/test-ask-digest.sh    the fixture neutralisation deleted, 36
+                                      lines.
+
+**THE TEST THAT PRODUCED THIS VERDICT IS DOCTRINE-TRIAGE SECTION 1 TEST 2, RUN
+AGAINST THE REVERT RATHER THAN AGAINST THE REPORT.** Is there committed evidence a
+stranger can re-verify? Yes, and it is unusually strong: two shas, a card id, a
+ruling id and a line count, all readable with one `git diff`. Test 1 does not fire:
+nothing here touched data that cannot be recovered, because every deleted line is
+still in git. Test 4 answers itself: the alternative to restoring is a repository
+that tells its next reader six migrations are pending which production applied
+weeks of work ago.
+
+**WHY NO CHECK CAUGHT IT, WHICH IS THE PART WORTH KEEPING.** `quality` ran and was
+green. Every guard in it is built for a DIFFERENT failure of the same file set:
+
+- `check:conflict-residue` looks for the marker tails a bad resolution leaves
+  behind. This resolution left none, because it deleted whole hunks cleanly rather
+  than half-merging them. CLAUDE.md's conflict section already says a grep for the
+  markers is not the check; it does not yet say that a clean resolution can delete
+  a card.
+- `check:unique-ids` compares ruling headings against `origin/main` and requires
+  the counter to be AHEAD of the highest written. `R-098` on the counter over
+  `R-097` written satisfies it. **The check has no concept of an id that USED to
+  exist**, so deleting a merged ruling is invisible to it by construction.
+- `tests/e2e/headers.spec.ts` requires every migration file to be in EXACTLY ONE
+  of applied or pending. Moving all six files from applied back to pending keeps
+  them in exactly one. The invariant held while its meaning inverted.
+- `validate-board.mjs` validates the cards that are present. A deleted card is not
+  an invalid card.
+
+**Unblocks:** nothing today. **It re-opens `MIG-01`,** which is the largest open
+decision in this repository and which vanished from the board it was authored on.
+Because the board is what the digest reads, that decision has been invisible to
+the owner since `e173fad`, and this run carries it in its escalations instead.
+**Also changes:** `docs/board/rc-board-phase2.json` gains `RESTORE-01` and
+`GUARD-02`.
+**Supersedes:** nothing. It does not amend `R-098`, which is restored verbatim by
+`R-100`, and it does not amend `MIG-01`, which is restored verbatim by
+`RESTORE-01`.
+
+---
+
+### R-100 - the ruling counter went backwards, `R-098` is restored verbatim in this pull request, and it is not reallocated
+**Date:** 2026-09-04
+**Asked on:** `decisions/inbox.md`, `decisions/NEXT-RULING-ID`, card `RULE-04`, and CLAUDE.md section 8b
+**Answer, verbatim:**
+> from docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md, section 1, step 3:
+>
+> "**The id is `R-096` and the committed counter said `R-087`.** `R-087` through
+> `R-095` are each already written as a **different** decision on an open PR
+> [...] Section 8b exists to stop one number naming two decisions; taking
+> `R-087` would have produced that knowingly rather than as the invisible race
+> the counter converts into a conflict."
+
+**Ruling:** **`R-098` IS RESTORED HERE, WORD FOR WORD, FROM `b25dc75`, AND IT IS
+NOT REWRITTEN, RENUMBERED OR SUMMARISED. THIS RUN ALLOCATES `R-099` ONWARDS AND
+THE COUNTER GOES TO `R-102`.**
+
+**WHY THIS HALF IS DONE HERE AND THE REST IS A CARD.** `decisions/inbox.md` and
+`decisions/NEXT-RULING-ID` are TRIAGE's own write surface, the restoration is a
+verbatim copy of a merged ruling rather than an edit of one, and the hazard is
+IMMINENT in a way none of the other losses are: **the counter currently hands
+`R-098` to the next terminal that allocates**, which on this schedule is a run a
+few hours away. That terminal would write a second, different `R-098`, and
+`check:unique-ids` would pass it, because on `main` there is no `R-098` to
+collide with. The repository would then hold two merged decisions wearing one
+number, which is precisely the outcome CLAUDE.md 8b was written to make
+impossible.
+
+**THE HOLE ON `main` IS NOW LARGER AND IS DELIBERATELY NOT FILLED.** `R-087` to
+`R-095` are reserved on open branches, `R-096` and `R-097` are written, `R-098` is
+restored here, and this run writes `R-099`, `R-100` and `R-101`. **No id is
+renumbered to make anything tidy**, per CLAUDE.md 8b. Whoever merges `#172` or
+`#157` gets their ids as written.
+
+**THE CARD FOR THE GENERAL CASE ALREADY EXISTED AND WAS ITSELF DELETED.**
+`RULE-04` carded exactly this defect, was authored on `main` at `8b09bde`, and is
+one of the two cards `29afb21` removed. It is restored by `RESTORE-01` rather than
+re-authored, because re-authoring it would produce a second card for one problem,
+which DOCTRINE-TRIAGE section 5 forbids.
+
+**Unblocks:** nothing. It prevents a collision rather than releasing work.
+**Also changes:** `decisions/inbox.md` gains `R-098` back; `decisions/NEXT-RULING-ID`
+becomes `R-102`. Both files are explicitly OUT of `RESTORE-01`'s scope so the two
+pull requests cannot collide on them.
+
+---
+
+### R-101 - the gate audit and the board sweep: phase 2 stays 6 of 9, nothing flips, and P2-13 gains the capability edge on MIG-01 that RESTORE-01 lands
+**Date:** 2026-09-04
+**Asked on:** G4, G7, G9, the phase 3 launch gate, P2-08b, P2-13
+**Answer, verbatim:**
+> from docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md, section 1, step 7:
+>
+> "Read against production (`bwhzatwwjqmyfesfnisa`) on 2026-09-03:
+> `applied_ledger_version()` -> `"0031"`"
+
+**Ruling:** **PHASE 2 STAYS AT 6 OF 9. PHASE 3 STAYS AT 0 OF 9. NOTHING FLIPS,
+AND ONE DEPENDENCY EDGE IS ADDED.**
+
+**G4, RE-AUDITED AGAINST THE TREE, STAYS `fail`.** R-053's deciding clause is the
+ingest endpoint asserted against a fixture plus four named failure cases. Measured
+today, not carried over: `tests/e2e/extraction.spec.ts` now carries fourteen
+cases, four more than at the R-080 audit, and the four are EXT-09's page-count
+trio and EXT-15's document-source trio. **Neither of the two missing cases moved.**
+`grep -n redirect lib/data/extraction-fire.ts app/api/extraction/callback/route.ts`
+returns nothing, and nothing in the callback route bounds a body size. Redirect
+ABSENT, oversize ABSENT, exactly as R-080 found. **P2-20 is still the card and it
+is still `todo` and eligible.**
+
+**G7 STAYS `fail`, `blocked_on: ivan` RETAINED.** The three items in front of it
+are unchanged since the 2026-08-27 audit: `RESEND_API_KEY` present in the
+production environment, `RESEND_FROM` set, and a recipient that is not on
+`rc-inventory.local`. **NO DATABASE READ WAS PERFORMED FOR THIS AUDIT AND NONE IS
+CLAIMED.** Two of the three are panel actions, item 7 of the closed list, escalated
+on 2026-08-31 by run `20260831-040003` and never answered. They are escalated again
+by this run, because an unanswered escalation that goes quiet is an escalation that
+was never made.
+
+**G9 STAYS `fail`.** P2-14 is `blocked_on: client` and no report exists of Mihai
+completing a cycle himself. This is the one gate no terminal can close.
+
+**THE PHASE 3 GATE IS NOT RE-AUDITED HERE AND THE REASON IS STATED RATHER THAN
+OMITTED.** All nine conditions are `fail` and every one of them says "on
+production". Card `GATE-02` on the phase 3 board exists to re-run that audit and is
+`todo`. Nothing in the input report touches a phase 3 screen, and a second audit
+written by a role that ran no check would be a copy of R-065's with a newer date.
+
+**THE BOARD SWEEP, DOCTRINE-TRIAGE SECTION 3, ALL FOUR CHECKS, ALL THREE BOARDS,
+140 CARDS.**
+
+- **Dangling: none.** Every id in every `depends_on` resolves to a card.
+- **Satisfied but blocking: one, and it is CORRECT.** `P2-08b`'s only dependency
+  `P2-08a` is shipped and it is `blocked_on: andre`. Andre genuinely owes the live
+  scenario run, so the block stands. R-053 degated it, R-080 recorded that, and
+  neither made him owe less.
+- **An edge on a split card: none outstanding.** The P2-08 split was re-derived by
+  R-046 and R-080 and holds.
+- **A CAPABILITY EDGE MISSING: ONE, AND IT IS THE EXPENSIVE KIND.** `P2-13`
+  `depends_on` is `["P2-08b"]`. **It must become `["P2-08b", "MIG-01"]`.**
+
+**WHY THAT EDGE, DERIVED BY THE SECTION 3 CHECK 3 TEST RATHER THAN BY FEEL.** Ask
+what the card TAKES AWAY, then list every card that needs it. P2-13 revokes every
+terminal grant that writes production: section 8's apply grant, R-047's script
+grant, R-082's applier grant, and section 3.1's self-merge grant. Its acceptance
+carries a box, added by R-072, that must be ticked BEFORE any credential is
+rotated, confirming **every migration file under `supabase/migrations/` is recorded
+as applied in `docs/migrations/APPLY-LOG.md`**. `MIG-01` establishes that a path
+exists which applies migrations to production and journals nothing. **While that
+path is undescribed, P2-13's precondition box cannot be honestly ticked and P2-13
+revokes the controlled path while leaving the uncontrolled one running.** That is
+check 3's failure mode with the sign flipped: not a grant revoked before its
+dependants are built, but a control removed while the thing it controls keeps
+writing.
+
+**THE EDGE IS RULED HERE AND LANDED BY `RESTORE-01`, NOT BY THIS PULL REQUEST.**
+`MIG-01` is not on the board today, so writing the edge now would produce a
+dangling `depends_on` and a red `validate-board.mjs`, and CLAUDE.md forbids a
+commit made while the validator is red. `RESTORE-01`'s acceptance carries the edge
+as a named artefact condition.
+
+**Unblocks:** nothing. **Also changes:** G4, G7 and G9 `notes` on
+`docs/board/rc-board-phase2.json`; `P2-13.depends_on` by way of `RESTORE-01`.
+**Supersedes:** nothing. R-080's G4 audit stands and is confirmed on newer
+evidence.
