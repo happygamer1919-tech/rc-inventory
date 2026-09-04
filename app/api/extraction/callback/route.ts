@@ -30,7 +30,9 @@ import { supabaseUrl } from "@/lib/supabase/env";
 import {
   hasExtractionDocumentSource,
   hasExtractionPageCount,
+  hasReconciliationFailedCode,
 } from "@/lib/data/schema-capability";
+import { reconcile } from "@/lib/data/reconciliation";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -222,7 +224,51 @@ export async function POST(request: Request) {
   // priveste un payload care NU A DECLARAT sursa pe o baza care POATE sa o
   // pastreze, ceea ce este alta intrebare.
   const canStoreSource = await hasExtractionDocumentSource(supabase);
-  const dropLines = canStoreSource && documentSource === "scan" && status === "failed";
+
+  // --- EXT-16. RECONCILIEREA, PE PARTEA NOASTRA ---------------------------
+  //
+  // ORDINEA NU ESTE O PREFERINTA. dropLines de mai jos citeste `status`, iar
+  // treaba acestui card este exact sa transforme un payload `extracted` intr-unul
+  // `failed`. Daca reconcilierea ar rula dupa, EXT-15 ar decide pe statusul vechi
+  // si liniile inventate ar fi pastrate.
+  //
+  // SE APLICA NUMAI PE SCANARI. Un document digital in afara tolerantei este
+  // neatins de acest card: acolo cifrele vin din text, nu dintr-o citire, si o
+  // nepotrivire inseamna altceva. Cardul o spune si cazul o dovedeste.
+  //
+  // VALORI NOI IN LOC DE REATRIBUIRE, ca nimic de deasupra acestei linii sa nu
+  // poata vedea suprascrierea si ca payload-ul ORIGINAL sa ramana citibil.
+  const canFlagReconciliation = await hasReconciliationFailedCode(() =>
+    supabase
+      .from("extraction_drafts")
+      .select("order_id")
+      .eq("error_code", "reconciliation_failed")
+      .limit(1),
+  );
+  const verdict =
+    documentSource === "scan" && status === "extracted"
+      ? reconcile({
+          lineTotals: (rawLines as unknown[]).map(
+            (l): number | null => num((l as Record<string, unknown>).line_total),
+          ),
+          subtotal: num(body.subtotal),
+          documentTotal: num(body.document_total),
+          pricesIncludeVat: bool(body.prices_include_vat),
+        })
+      : null;
+
+  // POARTA, SI FARA EA NIMIC NU AR FI CERUT-O. 0034 adauga o ETICHETA DE ENUM, si
+  // check:pending-schema-reads nu vede `alter type ... add value`. Scrierea
+  // etichetei inaintea aplicarii da 22P02 si ruta ar raspunde 500. Cat timp baza
+  // nu o cunoaste, comportamentul este cel de astazi: payload-ul se pastreaza asa
+  // cum a sosit, fiindca a refuza fara a putea spune DE CE ar fi mai rau decat a
+  // nu refuza.
+  const reconciliationFailed = verdict !== null && !verdict.ok && canFlagReconciliation;
+  const effectiveStatus = reconciliationFailed ? "failed" : status;
+  const effectiveErrorCode = reconciliationFailed ? "reconciliation_failed" : errorCodeRaw;
+
+  const dropLines =
+    canStoreSource && documentSource === "scan" && effectiveStatus === "failed";
 
   // --- exista deja o ciorna pentru acest order_id? -------------------------
   const { data: existing, error: readError } = await supabase
@@ -293,8 +339,8 @@ export async function POST(request: Request) {
   // si o poarta pe el, exact ca pana acum. Ziua in care 0032 se aplica, ea incepe
   // sa fie scrisa si separat, fara alta livrare.
   const draftUpdate: Record<string, unknown> = {
-    status,
-    error_code: errorCodeRaw,
+    status: effectiveStatus,
+    error_code: effectiveErrorCode,
     reason: str(body.reason),
     supplier_name: str(body.supplier_name),
     order_date: str(body.order_date),
@@ -383,7 +429,11 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(
-    { order_id: orderId, status, lines: dropLines ? 0 : rawLines.length },
+    // CE S-A SCRIS, NU CE A SOSIT. Cand EXT-16 respinge o scanare, statusul
+    // stocat este `failed` iar raspunsul trebuie sa spuna acelasi lucru: un 202
+    // care raporteaza `extracted` peste un rand scris `failed` este exact
+    // genul de raspuns care face ca partea cealalta sa creada ca liniile exista.
+    { order_id: orderId, status: effectiveStatus, lines: dropLines ? 0 : rawLines.length },
     { status: isRepeat ? CALLBACK_CODES.duplicate : CALLBACK_CODES.accepted },
   );
 }
