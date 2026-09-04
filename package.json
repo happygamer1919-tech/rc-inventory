@@ -29,6 +29,8 @@
     "prove:deployed-commit": "node scripts/poc-free/prove-deployed-commit.mjs",
     "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs",
     "check:unique-ids": "node scripts/poc-free/check-unique-ids.mjs",
+    "check:open-branch-ids": "node scripts/poc-free/check-open-branch-ids.mjs",
+    "prove:open-branch-ids": "node scripts/poc-free/prove-open-branch-ids.mjs",
     "prove:unique-ids": "node scripts/poc-free/prove-unique-ids.mjs",
     "prove:assertions": "node scripts/poc-free/prove-assertions-can-fail.mjs",
     "check:assertion-register": "node scripts/poc-free/check-assertion-register.mjs"
