@@ -460,3 +460,20 @@ looks like it means.
 precisely because main was still moving, and that habit is what made the mistake
 free.
 
+### #175's resolution is one sentence, once its shape is seen
+
+Its six conflicts look heavy and are not. Every one has the same structure: the
+branch's side is the file **before** EXT-15 and EXT-16, and main's side is the file
+after, with `confidence` still present.
+
+    route.ts              ours: the inline .update({...})   main: .update(draftUpdate)
+    extraction-types.ts   ours: confidence removed          main: documentSource + confidence
+    extraction.ts         ours: confidence removed          main: the EXT-15 source comment + confidence
+
+**EXT-14 is a DELETION card.** So the resolution is not a choice between two
+versions: **take main's version of every file, then re-apply the deletion on top.**
+Choosing "ours" anywhere would silently revert EXT-15 and EXT-16.
+
+It is resolved **once, last**, when main has stopped moving. Doing it now would
+mean redoing it after each of the merges still ahead of it.
+
