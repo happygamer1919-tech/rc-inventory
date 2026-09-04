@@ -1,43 +1,49 @@
 {
-  "run_id": "20260903-220002",
+  "run_id": "20260904-010000",
   "report": "docs/reports/2026-09-03-executor-sample-ttl-and-document-source.md",
   "rulings_written": [
-    "R-098",
-    "R-099",
-    "R-100",
-    "R-101"
+    "R-102",
+    "R-103",
+    "R-104",
+    "R-105",
+    "R-106",
+    "R-107"
   ],
   "cards_resequenced": [
     {
-      "card_id": "RESTORE-01",
-      "change": "authored by TRIAGE under R-099. A merge four hours ago quietly deleted finished, approved work from the main copy of the project: the record of six database changes that are already live, one decision waiting on you, two pieces of planned work and three lessons learned. Nothing we run noticed, because every check we have asks whether what is present is correct and none of them asks whether something that was there has gone. This card puts every piece back exactly as it was, in one change."
-    },
-    {
-      "card_id": "GUARD-02",
-      "change": "authored by TRIAGE under R-099, and it cannot be started until the restore above lands. A check that refuses any change which removes a decision, a piece of planned work, or a record of a live database change that already exists on the main copy. We already have a check for the messy version of this mistake; this is for the tidy version, which leaves no trace at all."
+      "card_id": "RST-05",
+      "change": "NEW. Four finished pieces of work are sitting unpublished because the files underneath them have moved, and two pairs of them were given the same reference numbers by mistake. One of the four corrects a record that currently says six database changes are still waiting when at least four of them are already live. This publishes all four together and settles the numbering, because fixing them one at a time makes each next one worse. It is the largest single piece of finished-but-invisible work on either list."
     },
     {
       "card_id": "P2-13",
-      "change": "the credential shutdown gains a second thing it must wait for, ruled under R-101 and landed by the restore card rather than here. That shutdown promises to switch off every way a terminal can write to the live database, and it carries a box confirming every database change is recorded as having been applied. Neither is true while a second, automatic path writes the live database and records nothing, so the shutdown would take away the controlled path and leave the uncontrolled one running."
+      "change": "the credential shutdown must now wait for the small job that corrects its own checklist, and one sentence on it that had gone false is corrected. The shutdown promises to switch off every permission the build was given. One of those permissions was created after the checklist was written and is covered only by a vague phrase, so the shutdown would tick every box and leave it switched on. The sentence that was corrected claimed thirteen database changes were still waiting; those thirteen are live, and six different ones are waiting instead."
     },
     {
-      "card_id": "P2-08b",
-      "change": "checked and deliberately NOT changed. Everything it waits for is finished except the outside supplier's own live run, so it stays parked on him. Nothing was cleared, because he genuinely still owes it."
+      "card_id": "AUT-17",
+      "change": "gains a clause, and no new job was created for it. This run was handed a write-up that had already been reviewed three hours earlier, which is the second time this has happened. The fix already planned would have missed this one: it checks a file on the published copy to see whether a write-up was already reviewed, and the earlier review was itself still unpublished, so the file said nothing. The check must look at unpublished work too."
+    },
+    {
+      "card_id": "AUT-18",
+      "change": "gains a fourth thing the nightly report must name, and four live examples of the second. The fourth: work done with no entry on the list at all, which happened on 2026-09-03 and produced two decisions, three changes to a supplier agreement and three defects, none of it visible to the daily summary. The four examples are the four unpublished pieces of work above, none of which any run has ever mentioned."
+    },
+    {
+      "card_id": "P2-08b and P2-14",
+      "change": "checked and deliberately NOT changed. Each waits on a person who genuinely still owes something: the extraction supplier for his own live run, and the client for his acceptance. Nothing was cleared to make the list look better."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The moment a database change is approved and merged, it goes straight into the live database on its own, with nobody running it and nothing checking it first. Every safety rule we wrote assumes a person or a script does that step. This was proved twice on 2026-09-03, then the card carrying the question was deleted by a merge the same night, so it has never actually reached you.",
-      "recommendation": "KEEP the automatic path, and rewrite the rules to describe what actually happens, but only after we add a check that refuses any database change containing a row-deleting instruction before it can be merged. That check is small, it is the same parse we already do elsewhere, and it restores the one protection the automatic path removes. Why keep it rather than switch it off: it has already applied at least six changes correctly and the friction it saves is real, while the whole danger sits in the row-deleting class, which the check covers completely. IF UNANSWERED: every database change merged from now on reaches the live database with no pre-check, no assertion, no after-check and no record, and the rule saying row-deleting changes are never applied automatically protects nothing. Nothing else is blocked by this."
+      "title": "Six database changes are recorded as still waiting to be switched on, and the live system has at least four of them already. Nobody ran them and nothing recorded that they ran. Every safety rule we wrote assumes a person or a script performs that step, and on the evidence something else is doing it automatically the moment a change is approved.",
+      "recommendation": "RECOMMENDED DEFAULT, AND IT IS TWO ACTIONS IN ORDER. FIRST, open the database provider's console and check whether it is connected to our code repository with automatic publishing switched on. That is the only mechanism that fits what we can see, and it is a setting only you can look at because no terminal has an account there. SECOND, whatever the answer, let the overnight builder publish the four unfinished pieces of work described above, because one of them contains the correction to the record and until it lands our own files tell us the opposite of what is true. IF YOU FIND IT IS SWITCHED ON, THE RECOMMENDATION IS TO KEEP IT AND ADD A GUARD RATHER THAN SWITCH IT OFF: it has applied several changes correctly and the friction it saves is real, and the entire danger sits in the one class of change that deletes rows, which a small pre-approval check covers completely. WHAT WAS AND WAS NOT VERIFIED, SO YOU ARE NOT SURPRISED: this run confirmed there is nothing in our own automation that publishes a database change, and it did not and cannot look inside the provider's console. IF UNANSWERED: our written record keeps saying six changes are waiting while the live system has them, the supplier keeps being told the same thing, and the rule that says row-deleting changes are never applied without a human is protecting nothing. Nothing breaks today, which is why this has already gone a night without being seen."
     },
     {
-      "title": "The extraction supplier has been told in writing that four database changes are still waiting to be switched on. They were switched on days ago. That paragraph is in the handover file we send him and it is false today.",
-      "recommendation": "Correct the paragraph before the next message to him: the nineteenth paint category and the tonne and litre units are live now, not pending. Nothing is asked of him and nothing he has already built changes, so this is a factual correction rather than a request. WHILE YOU ARE THERE, ONE TIME-BOXED FACT: the sample document link he is using expires 2026-09-04 at 19:58 UTC, and regenerating it is one command on our side. IF UNANSWERED: he keeps planning around a switch-on date that has already passed, and the next thing he asks us about will be built on it. Low cost, but it is the second time our own stale record has reached someone outside the company."
+      "title": "The extraction supplier has been told in writing that four database changes are still waiting to be switched on. They went live days ago. That paragraph is in the handover file we send him and it is false today. Separately, the handover file now carries one live sample document link where it used to carry four.",
+      "recommendation": "RECOMMENDED DEFAULT: correct the paragraph before the next message to him, and send the other three sample links with it. The correction is factual, nothing is asked of him, and nothing he has already built changes: the nineteenth paint category and the tonne and litre units are live now, not pending. On the links, regenerating the other three is one command on our side and they now last a full day each instead of two hours, so there is no cost to sending all four and a real cost to him working from one. THE TIME-BOXED FACT: the link he holds today expires on 2026-09-04 at 19:58 UTC. IF UNANSWERED: he keeps planning around a switch-on date that has already passed, and he has one document to test against instead of four. This is the second time our own stale record has reached somebody outside the company, which is the reason it is here rather than in the notes."
     },
     {
-      "title": "Two settings for the low-stock warning email in the live hosting environment were put in front of you on 2026-08-31 and never answered. They are still the first two of three things standing between us and a warning email that actually arrives.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the PRODUCTION environment and reply that they are set. Both are already required items on the credential shutdown list, so doing them now removes two items from that day rather than adding any. THE SAME HONEST CAVEAT AS LAST TIME: this does not make the readiness condition pass on its own. A third thing is needed, a recipient address on a domain that exists, and that one lands with the real staff accounts. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on shutdown day."
+      "title": "Two settings for the low-stock warning email have now been put in front of you on four separate nights and never answered. This run found out why: every one of those requests was written into a change that was never published, so the daily summary has been rendering a four-day-old outcome and none of them ever reached you.",
+      "recommendation": "RECOMMENDED DEFAULT: set RESEND_API_KEY and RESEND_FROM in the PRODUCTION hosting environment and reply that they are set. Two clicks, no cost, and both are already required items on the credential shutdown list, so doing them now removes two items from that day rather than adding any. THE SAME HONEST CAVEAT AS THE PREVIOUS THREE TIMES: this does not make the warning-email readiness line pass on its own. A third thing is needed, a recipient address on a domain that actually exists, and that one lands with the real staff accounts at handover. THE PART THAT IS NEW AND MATTERS MORE THAN THE SETTINGS: the delivery failure is the finding. A request that is written into unpublished work is a request nobody sees, and the job that would publish unpublished work is described in the first escalation above. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings wait for shutdown day."
     }
   ]
 }
