@@ -188,3 +188,20 @@ believed it was.
 Out of scope, deliberately: the error-code set, which R-123 already covers with a
 stronger guarantee than polling.
 
+### #191 and #194 are the same snapshot, three hours apart
+
+Both change `docs/poc/state.json` and nothing else. Read side by side:
+
+    main   run_id 20260904-010000   claims AUT-15, AUT-16
+    #191   run_id 20260904-040001   claims AUT-16          escalations 22
+    #194   run_id 20260904-071258   claims AUT-16, AUT-17  escalations 23
+
+**#194 is strictly newer and its content is a superset of #191's.** The file is a
+snapshot of harness state, not an append-only log, so merging #191 and then #194
+would simply have #194 overwrite it. **#191 is closed as superseded rather than
+merged**, which reaches the same file contents in one cycle instead of two.
+
+That also disposes of the red run on #191 without pretending the flake was
+diagnosed away: the flake was diagnosed, and separately the pull request turns out
+to have nothing left to contribute.
+
