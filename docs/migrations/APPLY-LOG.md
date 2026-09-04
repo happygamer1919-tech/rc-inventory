@@ -45,6 +45,7 @@ The format is machine-read, so keep it exactly:
 - `0031_units_tonne_litre_rows.sql`, card de aplicare P3-33
 - `0032_extraction_draft_page_count.sql`, card de aplicare EXT-09
 - `0033_extraction_document_source.sql`, card de aplicare EXT-15
+- `0034_error_code_reconciliation_failed.sql`, card de aplicare EXT-16
 
 ## Rules
 
