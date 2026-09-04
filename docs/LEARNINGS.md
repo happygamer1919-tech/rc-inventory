@@ -3634,3 +3634,123 @@ thing that turned it red is **required** by a rule written down somewhere. Secti
 4 requires `blocked_on` on an undecidable card. If obeying a written rule is what
 made the gate red, the gate is wrong. If it is your code that made it red, it is
 not.
+
+### A diff against an unmerged branch tip was read as a revert, and it produced four rulings and two cards
+**Tag:** ci
+**ERROR:** TRIAGE run `20260903-220002` reported, as the central finding of its
+run, that pull request `#183` had reverted committed content from `main`: 317
+lines of `docs/migrations/APPLY-LOG.md`, ruling `R-098`, two cards, three
+learnings, a contract section and a test fixture. The inventory was stated as
+"every line verified with `git diff b25dc75 origin/main`, nothing inferred", and
+the report asserted "`main` was `b25dc75` at that moment". None of it had
+happened. `b25dc75` is the tip of `board/dispatch-20260903`, open as pull request
+`#181`, and it has never merged. The diff was between an unmerged branch tip and
+`main`, and **in that direction everything the pull request ADDS appears as a
+deletion**. On the strength of it the run wrote `R-099` and `R-100`, authored
+`RESTORE-01` to restore content that was never removed, and authored `GUARD-02`
+against a class of failure with no live instance. Every command in the report ran
+and printed what the report says it printed. The reasoning on top of them was the
+part that failed.
+**SOLUTION:** `git diff A B` is symmetric in appearance and asymmetric in
+meaning, and it never says whether `A` was ever reachable from `B`. **Any claim
+that `main` lost content names the commit it lost it in and proves that commit is
+an ancestor of `main` before the claim is written:**
+
+```
+git merge-base --is-ancestor <sha> origin/main && echo YES || echo NO
+git branch -a --contains <sha>
+```
+
+The first returned `NO` and the second returned only the open pull request's own
+branch. Both cost one round trip and neither had ever been run in this
+repository. The second confirming step, when the accused commit is a merge, is to
+diff the merge against the parent it is accused of discarding, not against some
+other tree: `git diff --stat 29afb21^2 29afb21` returned two files and eight
+deleted lines, which were the branch's own intended edits. Ruled as `R-103`.
+
+### Four pull requests sat outside `main` for days and the ids on them had already collided
+**Tag:** ci
+**ERROR:** On 2026-09-04 four pull requests were open and unlanded: `#157`,
+`#172`, `#181` and `#184`. Three conflicted with `main`, which per `CLAUDE.md`
+section 3 means they triggered zero workflows, so every check result attached to
+them belonged to a commit nobody was proposing to merge. Between them they held
+fifteen ruling ids, eleven cards, and the fix for a journal that currently tells
+a reader six migrations are pending when production has applied at least four of
+them. **The ids had already collided with each other and no check could see it:**
+`R-090` and `R-091` mean different things on `#157` and `#172`, and `R-098` means
+different things on `#181` and `#184`. `check:unique-ids` compares each branch's
+headings against `origin/main`, where none of those ids exists, so all four
+passed, and any two of them landing makes the ambiguity permanent.
+**SOLUTION:** Two halves, and the second is the durable one. The instance is card
+`RST-05`, which lands all four as one reconciliation, because two pairs collide
+and resolving one at a time means redoing the next against it. The rule is
+`R-107`: **a ruling that has never been on `main` is not history and may be
+re-allocated a fresh id before it lands, and which side keeps the id is decided
+by MERGE ORDER, never by merit.** Section 8b's "no id is ever renumbered" protects
+what is committed to the trunk, and a branch is a proposal rather than history.
+Merge order is observable; merit is arguable, and the failure being guarded
+against is a terminal weighing two texts at 2am. The class fixes already exist and
+are still unworked: `RST-02` is the sweep that never selected a triage branch, and
+`AUT-18` is the census that would have named all four the same night.
+
+
+### A stale green does not need a conflict: BEHIND reads exactly the same
+**Tag:** ci
+**ERROR:** Run `20260904-040001` booted onto PR #186, inherited from the run
+three hours earlier, and `gh pr checks` reported `quality pass`. It was not a
+merge that could be made. `npm run checks:state 186` printed `head 80d4128 /
+mergeStateStatus BEHIND / quality SUCCESS / STALE, NOT GREEN`. The pull request
+did not conflict with `main` at any point and never had. `main` had simply moved
+under it, and branch protection on `main` sets `required_status_checks.strict`,
+so the recorded run was not the run that would decide the merge. Every prior
+instance of this trap in this repository, including the six-screen outage the
+rule in CLAUDE.md section 3 was written from, was a CONFLICTING pull request,
+where the tell is that zero workflows were triggered. `BEHIND` triggers nothing
+either, produces the identical `quality pass`, and arrives by a completely
+different route: nobody has to touch the branch for it to happen, because it is
+caused by somebody else's merge.
+**SOLUTION:** `mergeStateStatus` is read for its VALUE, not for whether it says
+`DIRTY`. `npm run checks:state <pr>` already had this right and refuses `BEHIND`
+and `DIRTY` alike, which is why it caught this one. **The rule: a green is
+trusted only when the check's head sha is the sha that will merge, and the only
+thing that proves that is `mergeStateStatus CLEAN`.** The fix in both cases is
+the same and it is the one in R-052: merge `origin/main` into the branch
+LOCALLY, run the board validator and the conflict-residue check before the
+commit, push, and wait for a run on the new sha. Here it resolved with no
+conflict at all, ten insertions in one file, and the pull request went from
+STALE to `CLEAN` and merged as `d4915a8`.
+
+### A selector that sorts filenames is not a selector that sorts by time
+**Tag:** infra
+**ERROR:** The scheduled run chose the report for its review step with
+`git ls-tree -r --name-only origin/main -- docs/reports/ | sort | tail -1`. Three
+things were wrong in two lines and none of them could be seen from the output,
+because the output is always a plausible path. It sorted FILENAMES, so two
+reports carrying the same date were ordered by their slug and the one committed
+second could sort first. It read `origin/main` only, so a report riding in an
+unmerged pull request was invisible, which is the exact state a card whose
+acceptance failed leaves behind. And it never asked what the previous review had
+already consumed, so on 2026-08-31 the run re-reviewed a report that had been
+triaged in full the run before and merged as PR #131, producing a second set of
+ids about one file on a green pull request with nothing erroring.
+**SOLUTION:** Order by commit, not by name: `git log --format=%H <range> -- <dir>`
+then `git show --name-only` per commit. Read the branch as well as the remote, by
+selecting over `origin/main..HEAD` before `origin/main`. Compare the result
+against the state file the review step already writes. The rule: when a pipeline
+picks "the newest" of anything, the sort key must be the thing that makes it
+newest. A filename is a label, and a label is only ordered by time as long as
+nobody names two things on the same day.
+
+### A test that copies the pipe under test proves the copy
+**Tag:** ci
+**ERROR:** `scripts/poc/run.sh` takes a lock, sources a secrets file and invokes
+a model, so it cannot run in CI, and the selection logic was three commands
+inline in the middle of it. A test written against a copy of that pipe would have
+passed forever while the real pipe drifted.
+**SOLUTION:** The block is fenced with `# EXTRACT-BEGIN triage-selector` and
+`# EXTRACT-END triage-selector`, and `scripts/poc/test-harness-caps.sh` lifts it
+verbatim with its existing `extract` helper, which treats a missing fence as a
+hard failure rather than an empty extraction that would pass every assertion.
+The rule that makes this work: fence the logic and extract it, and separately run
+the OLD implementation on the same fixture and REQUIRE IT TO FAIL. A guard nobody
+has watched fail is a guard nobody has tested.

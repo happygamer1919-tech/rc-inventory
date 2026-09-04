@@ -370,6 +370,208 @@ for ANSWER in "" "null" "not-a-number"; do
   fi
 done
 
+# ---------------------------------------------------------------------------
+# 5. The review step is handed the right report. Card AUT-17.
+#
+# The fixture is CONSTRUCTED and that is the point. No same-day slug inversion
+# has occurred in this repository's history yet, which is exactly why the defect
+# has never fired and why this test may not be built by replaying real history.
+#
+# THE OLD SELECTOR IS RUN BESIDE THE NEW ONE ON EVERY CASE AND IS REQUIRED TO
+# FAIL, for the same reason case 1 runs the sleep-counting watchdog: a guard
+# nobody has watched fail is a guard nobody has tested.
+# ---------------------------------------------------------------------------
+echo
+echo "5. the review step is handed the report its own run just wrote"
+
+SELECTOR_BLOCK=$(extract triage-selector)
+
+# The selector as it stood before AUT-17: filenames sorted, origin/main only,
+# nothing asked about what was already reviewed.
+old_selector() {
+  git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
+    | grep -E "^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$" \
+    | sort | tail -1
+}
+
+# A throwaway repository with an origin/main ref and no remote. $1 is the
+# directory. Commits are made in the order given so commit order and filename
+# order can be made to disagree on purpose.
+fixture_repo() {
+  FR_DIR=$1
+  mkdir -p "$FR_DIR/docs/reports" "$FR_DIR/docs/poc"
+  git -C "$FR_DIR" init --quiet -b main
+  git -C "$FR_DIR" config user.email t@example.com
+  git -C "$FR_DIR" config user.name t
+  : > "$FR_DIR/.keep"
+  git -C "$FR_DIR" add .keep
+  git -C "$FR_DIR" commit --quiet -m base
+}
+
+fixture_report() {
+  echo "report" > "$1/$2"
+  git -C "$1" add "$2"
+  git -C "$1" commit --quiet -m "$2"
+}
+
+# Runs both selectors inside the fixture. Prints "new=<path>" then "old=<path>".
+run_selectors() {
+  RS_DIR=$1
+  RS_LATEST=$2
+  bash -c '
+    set -u -o pipefail
+    cd "$1" || exit 1
+    log() { echo "[log] $*"; }
+    . "$2"
+    '"$(declare -f old_selector)"'
+    echo "new=$(select_triage_report "$3" HEAD 2>"$4")"
+    echo "old=$(old_selector)"
+  ' _ "$RS_DIR" "$SELECTOR_BLOCK" "$RS_LATEST" "$WORK/selector.stderr"
+}
+
+# -- 5a. Ordering is by commit, not by name. -------------------------------
+# 2026-09-01-executor-zzz.md is committed FIRST. 2026-09-01-executor-aaa.md is
+# committed SECOND and sorts FIRST. The newest report is aaa; `sort | tail -1`
+# says zzz.
+FX=$WORK/fx-order
+fixture_repo "$FX"
+fixture_report "$FX" docs/reports/2026-09-01-executor-zzz.md
+fixture_report "$FX" docs/reports/2026-09-01-executor-aaa.md
+git -C "$FX" update-ref refs/remotes/origin/main HEAD
+
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX" "$WORK/no-such-latest.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "docs/reports/2026-09-01-executor-aaa.md" ]; then
+  pass "ordering is by commit: the report committed second is selected"
+else
+  fail "ordering by commit: got $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+if [ "$(echo "$OUT" | sed -n 's/^old=//p')" = "docs/reports/2026-09-01-executor-zzz.md" ]; then
+  pass "the old filename-sorting selector fails this case, as it must"
+else
+  fail "the old selector did not fail: $(echo "$OUT" | sed -n 's/^old=//p')"
+fi
+
+# -- 5b. An already reviewed report is never reviewed twice. ---------------
+# triage-latest.json names exactly the path the selector would otherwise
+# return. The legal outcomes are two: select the next unconsumed report, or
+# skip. This asserts WHICH happened, and that the refusal named the path and
+# the run that consumed it.
+cat > "$WORK/latest-consumed.json" <<JSON
+{"run_id": "20260901-040003", "report": "docs/reports/2026-09-01-executor-aaa.md"}
+JSON
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX" "$WORK/latest-consumed.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "docs/reports/2026-09-01-executor-zzz.md" ]; then
+  pass "a consumed report is skipped and the next unconsumed one is selected"
+else
+  fail "consumed report: got $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+if grep -q "2026-09-01-executor-aaa.md was already reviewed by run 20260901-040003" "$WORK/selector.stderr"; then
+  pass "the refusal names the report path and the run id that consumed it"
+else
+  fail "no refusal line naming path and run id: $(cat "$WORK/selector.stderr")"
+fi
+
+# Every candidate consumed means nothing is selected. NO REPORT MEANS NO TRIAGE
+# survives this card; inventing an input is worse than skipping.
+FX1=$WORK/fx-one
+fixture_repo "$FX1"
+fixture_report "$FX1" docs/reports/2026-09-01-executor-only.md
+git -C "$FX1" update-ref refs/remotes/origin/main HEAD
+cat > "$WORK/latest-only.json" <<JSON
+{"run_id": "20260901-040003", "report": "docs/reports/2026-09-01-executor-only.md"}
+JSON
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX1" "$WORK/latest-only.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "" ]; then
+  pass "every candidate consumed selects nothing, so the step is skipped"
+else
+  fail "expected no selection, got $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+if [ "$(echo "$OUT" | sed -n 's/^old=//p')" = "docs/reports/2026-09-01-executor-only.md" ]; then
+  pass "the old selector re-selects the consumed report, as it must"
+else
+  fail "the old selector did not re-select the consumed report"
+fi
+
+# A missing or unparseable triage-latest.json fails OPEN: nothing consumed.
+echo 'not json {' > "$WORK/latest-broken.json"
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX1" "$WORK/latest-broken.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "docs/reports/2026-09-01-executor-only.md" ]; then
+  pass "an unparseable triage-latest.json fails open, treating nothing as consumed"
+else
+  fail "unparseable latest did not fail open: $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+
+# -- 5c. The report this run just wrote, on an unmerged branch. ------------
+# origin/main's newest executor report is the OLDER file. The branch carries the
+# newer one and is not merged. A card whose acceptance failed leaves its report
+# in exactly this state, and it is the run whose report most needs reviewing.
+FX2=$WORK/fx-branch
+fixture_repo "$FX2"
+fixture_report "$FX2" docs/reports/2026-08-31-executor-old.md
+git -C "$FX2" update-ref refs/remotes/origin/main HEAD
+git -C "$FX2" checkout --quiet -b card/p3-13b
+fixture_report "$FX2" docs/reports/2026-09-01-executor-branch.md
+
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX2" "$WORK/no-such-latest.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "docs/reports/2026-09-01-executor-branch.md" ]; then
+  pass "the report on this run's unmerged branch wins over the newest on main"
+else
+  fail "branch report: got $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+if [ "$(echo "$OUT" | sed -n 's/^old=//p')" = "docs/reports/2026-08-31-executor-old.md" ]; then
+  pass "the old origin/main-only selector cannot see the branch report, as it must not"
+else
+  fail "the old selector saw the branch report"
+fi
+
+# The branch report wins even when it is OLDER by commit time than main's
+# newest. The review step exists to read what THIS run produced.
+FX3=$WORK/fx-prefer
+fixture_repo "$FX3"
+fixture_report "$FX3" docs/reports/2026-08-31-executor-base.md
+BASE_SHA=$(git -C "$FX3" rev-parse HEAD)
+git -C "$FX3" checkout --quiet -b card/aut-x
+fixture_report "$FX3" docs/reports/2026-09-01-executor-mine.md
+git -C "$FX3" checkout --quiet "$BASE_SHA"
+git -C "$FX3" checkout --quiet -b mainline
+fixture_report "$FX3" docs/reports/2026-09-02-executor-newer-on-main.md
+git -C "$FX3" update-ref refs/remotes/origin/main HEAD
+git -C "$FX3" checkout --quiet card/aut-x
+
+: > "$WORK/selector.stderr"
+OUT=$(run_selectors "$FX3" "$WORK/no-such-latest.json")
+if [ "$(echo "$OUT" | sed -n 's/^new=//p')" = "docs/reports/2026-09-01-executor-mine.md" ]; then
+  pass "this run's own report wins even when main carries a newer one"
+else
+  fail "preference order: got $(echo "$OUT" | sed -n 's/^new=//p')"
+fi
+
+# -- 5d. The dispatch sentence. --------------------------------------------
+# The phrase was on one line of run.sh and the grep printed 1 before AUT-17.
+# What must survive is that the review step takes no chat, no summary, no human
+# context and no verbal ratification. What had to go is the claim that reading a
+# committed repository file is a defect.
+if [ "$(grep -c 'you need nothing else' "$RUN_SH")" -eq 0 ]; then
+  pass "the dispatch no longer tells the review step it needs nothing else"
+else
+  fail "'you need nothing else' is still in run.sh"
+fi
+if grep -q 'verbal ratification' "$RUN_SH"; then
+  pass "the R-050 clause survives: no chat, no summary, no verbal ratification"
+else
+  fail "the R-050 clause was deleted rather than corrected"
+fi
+if bash -n "$RUN_SH"; then
+  pass "bash -n run.sh exits 0"
+else
+  fail "bash -n run.sh is non-zero"
+fi
+
 echo
 if [ "$FAILURES" -eq 0 ]; then
   echo "all harness cap assertions passed"

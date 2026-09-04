@@ -464,6 +464,90 @@ checkpoint_pr() {
 }
 # EXTRACT-END checkpoint
 
+# ---------------------------------------------------------------------------
+# WHICH REPORT THE REVIEW STEP IS HANDED. Card AUT-17.
+#
+# The old selection was `git ls-tree ... | sort | tail -1` and had three defects
+# in two lines. It sorted FILENAMES, so two reports written on the same day were
+# ordered by their slug and the one committed SECOND could sort first. It read
+# origin/main only, so the report riding in an unmerged card pull request was
+# invisible, which is exactly the shape a card whose acceptance failed leaves
+# behind. And it never asked what the last review had already consumed, so the
+# same report could be reviewed twice, producing two sets of ids saying the same
+# thing about one file, on a green pull request, with nothing erroring.
+#
+# NOTHING HERE WEAKENS `NO REPORT MEANS NO TRIAGE`. When every candidate is
+# already recorded as consumed the selector returns nothing and the step is
+# skipped. A run with nothing to review is a normal outcome; a run that reviews
+# the same report twice is not.
+# ---------------------------------------------------------------------------
+# EXTRACT-BEGIN triage-selector
+# Every executor report reachable from a ref, NEWEST FIRST BY COMMIT ORDER.
+# $1 is a git revision range or a single ref.
+triage_reports_in() {
+  git log --format='%H' "$1" -- docs/reports/ 2>/dev/null \
+    | while IFS= read -r TRI_SHA; do
+        git show --pretty=format: --name-only "$TRI_SHA" -- docs/reports/ 2>/dev/null
+      done \
+    | grep -E '^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$' \
+    | awk 'NF && !seen[$0]++'
+}
+
+# The report field and the run id of docs/poc/triage-latest.json, on two lines.
+#
+# IT FAILS OPEN, DELIBERATELY. An absent or unparseable file means nothing is
+# treated as consumed. That costs one duplicate review; failing closed would
+# cost every review from then on.
+triage_consumed_report() {
+  if [ ! -f "$1" ]; then
+    log "triage: no $1, treating nothing as already reviewed" >&2
+    return 0
+  fi
+  node -e '
+    const fs = require("fs");
+    try {
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      process.stdout.write(String(j.report || "") + "\n" + String(j.run_id || "") + "\n");
+    } catch (e) {
+      process.stderr.write("unparseable\n");
+    }
+  ' "$1" 2>/dev/null || true
+}
+
+# The whole selection.
+#   $1  path of docs/poc/triage-latest.json
+#   $2  the ref this run's own executor left its work on, usually HEAD
+#
+# PREFERENCE ORDER: the report this run's own executor committed wins over the
+# newest on origin/main, always, even when the branch report is older by commit
+# time. The review step exists to read what THIS run produced.
+select_triage_report() {
+  STR_LATEST=$1
+  STR_REF=${2:-HEAD}
+  STR_PAIR=$(triage_consumed_report "$STR_LATEST")
+  STR_CONSUMED=$(printf '%s\n' "$STR_PAIR" | sed -n 1p)
+  STR_CONSUMED_RUN=$(printf '%s\n' "$STR_PAIR" | sed -n 2p)
+  STR_PICK=""
+
+  STR_CANDIDATES=$( { triage_reports_in "origin/main..$STR_REF"; \
+                      triage_reports_in origin/main; } | awk 'NF && !seen[$0]++' )
+
+  while IFS= read -r STR_C; do
+    [ -n "$STR_C" ] || continue
+    if [ -n "$STR_CONSUMED" ] && [ "$STR_C" = "$STR_CONSUMED" ]; then
+      log "triage: $STR_C was already reviewed by run ${STR_CONSUMED_RUN:-unknown}, refusing to review it twice" >&2
+      continue
+    fi
+    STR_PICK=$STR_C
+    break
+  done <<STR_EOF
+$STR_CANDIDATES
+STR_EOF
+
+  printf '%s\n' "$STR_PICK"
+}
+# EXTRACT-END triage-selector
+
 merge_when_green() {
   MWG_PR=$1
   MWG_BRANCH=$2
@@ -790,8 +874,21 @@ TRIAGE_ELAPSED=0
 TRIAGE_BRANCH=triage/$RUN_ID
 
 git fetch origin main --quiet 2>/dev/null || true
-TRIAGE_REPORT=$(git ls-tree -r --name-only origin/main -- docs/reports/ 2>/dev/null \
-  | grep -E "^docs/reports/[0-9]{4}-[0-9]{2}-[0-9]{2}-executor-[a-z0-9-]+\.md$" | sort | tail -1)
+
+# The report THIS run's executor committed, checkpointed the moment it exists so
+# a kill of this script does not lose it. The branch is whatever the executor
+# left the worktree on; unlike TRIAGE's, it cannot be mandated, because the
+# branch name belongs to the card.
+EXECUTOR_CHECKPOINT_FILE=$POC_LOG_DIR/$RUN_ID.checkpoint
+EXECUTOR_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+EXECUTOR_OWN_REPORT=$(triage_reports_in "origin/main..HEAD" | head -1)
+if [ -n "$EXECUTOR_OWN_REPORT" ]; then
+  EXECUTOR_PR=$(pr_for_branch "$EXECUTOR_BRANCH")
+  checkpoint_pr "$RUN_ID" executor "${EXECUTOR_PR:-none}" "$EXECUTOR_BRANCH" \
+    "$EXECUTOR_OWN_REPORT" "$EXECUTOR_CHECKPOINT_FILE"
+fi
+
+TRIAGE_REPORT=$(select_triage_report "$POC_RUN_WORKTREE/docs/poc/triage-latest.json" HEAD)
 
 if [ -z "$TRIAGE_REPORT" ]; then
   log "no executor report on origin/main, skipping TRIAGE"
@@ -805,9 +902,12 @@ it. That file is the whole of your rubric and it binds you the way CLAUDE.md
 binds every role.
 
 Your input is the newest report in docs/reports/, which is
-$TRIAGE_REPORT. Read it. You get nothing else and you need nothing else; if you
-do, that is a defect in docs/DOCTRINE-TRIAGE.md and saying so in your report is a
-legitimate output.
+$TRIAGE_REPORT. Read it. You get no chat, no summary, no human context and no
+verbal ratification: everything you act on is a committed file in this
+repository, and this dispatch is not one of them. Reading another committed file
+is not a defect, it is how you check what you are told. If the rubric itself is
+missing something you need, that is a defect in docs/DOCTRINE-TRIAGE.md and
+saying so in your report is a legitimate output.
 
 WHAT YOU MAY DO: write rulings into decisions/inbox.md, edit cards, flip a launch
 gate that is fully met on committed evidence, author cards, and write
