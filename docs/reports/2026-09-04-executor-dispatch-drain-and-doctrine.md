@@ -430,3 +430,33 @@ contract and the spec, and every one of those files has been rewritten twice tod
 by EXT-15 and EXT-16. It is deliberately last, so it is resolved once against a
 `main` that has stopped moving.
 
+### I resolved two branches against stale local refs, and caught it by checking
+
+Pre-resolving #157 and #172 while waiting on CI, I created the worktrees with
+`git worktree add <path> triage/...`, which resolves to a **local** branch of that
+name if one exists. Both did, from an earlier fetch, and both were behind:
+
+    triage/20260902-070904   local 8c87b6c   origin e7b663b
+    triage/20260903-070005   local 790cfbf   origin a62f0ea
+
+**Both resolutions were therefore against the wrong tree**, and the tell was a
+contradiction: the resolver reported #172 adding `P3-35`, while a direct read of
+`origin/triage/20260903-070005` showed `P3-37` and no `P3-35`. Two readings of
+"the same" branch disagreed, so one of them was not that branch.
+
+Redone with `worktree add -b <branch> origin/<branch>` after deleting the stale
+locals. The correct picture, which matches the earlier direct read: **#157 adds
+`P3-35` and `P3-36`; #172 adds `P3-37`.** No card-id collision. The only overlap
+remains `R-090` and `R-091`.
+
+**This is already in `docs/LEARNINGS.md`** as "a stale clone made a merged file
+look like it had never existed", and it caught me anyway, one day later, in a
+different form. The reusable lesson is narrower than the entry: **`git worktree
+add <path> <name>` silently prefers a local branch over the remote of the same
+name.** Naming `origin/<name>` explicitly is the only form that means what it
+looks like it means.
+
+**Nothing was pushed from either bad resolution.** They were held unpushed
+precisely because main was still moving, and that habit is what made the mistake
+free.
+
