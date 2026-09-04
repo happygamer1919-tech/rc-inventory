@@ -319,3 +319,32 @@ line rather than dying, so this is a correctness gap and not an outage.
 2. **`APPLY-02` is the only card on either board that moves the phase 3 gate off 0**, and it is eligible with no dependency.
 3. **`P2-20` is the only card that moves the phase 2 gate off 6**, and it is eligible with no dependency.
 4. **Eight pull requests are open**, seven of them not this run's: #187, #184, #182, #181, #175, #172, #157, and #189. Four of them carry rulings that are not on `main`, which is why section 8 exists.
+
+---
+
+## 12. Learnings, per CLAUDE.md section 9
+
+**Nothing is appended to `docs/LEARNINGS.md` by this session, and this is the
+line that says so** rather than the omission being read as a session that forgot.
+
+One ERROR/SOLUTION pair was hit while working: the board validator refused a
+cross-board `depends_on` with `cards (P2-13).depends_on: "APPLY-02" is not a card
+id on this board.` It is **not** written to `docs/LEARNINGS.md`, because
+DOCTRINE-TRIAGE section 2 gives every finding exactly ONE home and this one has
+two already: ruling R-116 and card BOARD-03, with the refusal quoted verbatim in
+both plus in P2-13's own notes. A third copy in a file whose purpose is to stop
+the same bug being paid for twice would be the same fact in three places, which
+is the shape R-071 and AUT-16 spent a card removing.
+
+No other defect was encountered. Every validator and check named in section 11 of
+the pull request passed on the first run.
+
+## 13. What this session did not do
+
+It shipped no card, merged no pull request, applied no migration, wrote no
+application code and no test, and edited no existing ruling. It did not merge its
+own rulings pull request either: `quality` costs 18 to 25 minutes against a 30
+minute TRIAGE cap, which is R-114's finding applied to the session that wrote it.
+**PR #190 is open and is for the next run to merge**, on a green `quality` for
+whatever its head sha is then, read with `npm run checks:state 190` and never on
+an inherited result.
