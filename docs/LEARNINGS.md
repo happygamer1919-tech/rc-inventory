@@ -3406,3 +3406,20 @@ folds an id must fold BOTH SIDES of every comparison, and the place to do it is
 where the id is RESOLVED against a source of truth, once, rather than at each
 comparison.** An id that resolves to nothing is now refused and named, because a
 lease on a card that does not exist parks nothing and hides a typo.
+
+### A push cancels the check that is running, so a green is never inherited across a correction
+**Tag:** ci
+**ERROR:** PR #186's `quality` run reached its last step, End to end, with all
+twenty one preceding steps green. Two commits were then pushed to correct a
+factual error in the run's report. The workflow's concurrency group cancelled the
+run in flight, so its conclusion is `cancelled`: not a failure, not a success, and
+attached to a sha nobody would merge anyway. The branch went from one step short
+of a green to no concluded run at all, and the second push cost a second one.
+**SOLUTION:** Nothing here argues against correcting a report, which is
+mandatory. **The rule is to know the price: a push to a branch kills the check
+running on it, so batch every edit you know you need into ONE push, and make it
+before the check is nearly done rather than while it is finishing.** This is the
+same trap CLAUDE.md section 3 names from the other side. There the danger is
+reading a green that belongs to an earlier sha; here it is destroying a green
+that was about to belong to this one. Both are the same fact: a check result
+belongs to a sha, and pushing makes a new one.
