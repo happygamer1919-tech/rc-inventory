@@ -656,6 +656,121 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(product).toHaveAttribute("data-needs-review", "true");
   });
 
+  test("10. P3-33: tona si litrul sunt oferite pe linie si se salveaza pe produsul nou", async ({
+    page,
+    request,
+  }) => {
+    // P3-33. UN FURNIZOR CARE FACTUREAZA IN TONE NU AVEA O UNITATE.
+    //
+    // Fara `t`, cantitatea ateriza sub kg si numarul se inmultea in tacere cu o
+    // mie. Acest caz dovedeste ca unitatea EXISTA pe ecran si ca AJUNGE pe
+    // produs, care sunt doua lucruri diferite: un select care o ofera si o
+    // scriere care o refuza ar arata identic pana la prima receptie.
+    //
+    // NU SE VERIFICA NICIO CONVERSIE, fiindca nu exista niciuna si nu trebuie sa
+    // existe. Cardul adauga unitati; a invata sistemul ca o tona este o mie de
+    // kilograme ar inlocui o inmultire invizibila cu alta.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "tone");
+
+    const unknown = `Produs in tone ${RUN}`;
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, { lines: [extractedLine(unknown, { category: MAPPED_CATEGORY })] }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    // AMANDOUA sunt in lista, nu doar cea folosita mai jos. O lista care ofera
+    // `t` si nu `l` ar trece un test care alege numai `t`.
+    const unitSelect = page.getByTestId("review-line-unit-0");
+    await expect(unitSelect.locator('option[value="t"]')).toHaveCount(1);
+    await expect(unitSelect.locator('option[value="l"]')).toHaveCount(1);
+
+    await unitSelect.selectOption("t");
+    await page.getByTestId("review-expected-at").fill("2026-12-05");
+    await page.getByTestId("review-confirm").click();
+    await expect(page.getByTestId("review-created")).toBeVisible({ timeout: 30_000 });
+
+    // Si a ajuns pe produs. Eticheta romaneasca este `t`, care este si tokenul:
+    // asa se scrie pe documentul furnizorului, si acolo o citeste operatorul
+    // intai.
+    await page.goto("/inventar");
+    const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
+    await expect(product).toHaveCount(1, { timeout: 20_000 });
+    await expect(product).toContainText("t");
+  });
+
+  test("11. EXT-15: o scanare necitita arata antetul, spune ca nu a fost citita, si nu ofera nicio cale de acceptare", async ({
+    page,
+    request,
+  }) => {
+    // EXT-15. Cerinta tare a proprietarului: nicio cale de acceptare, niciun
+    // camp de linie precompletat, si ecranul trebuie sa SPUNA ca continutul nu a
+    // fost citit.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "unread");
+
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            status: "failed",
+            error_code: "unreadable_document",
+            reason: "Scanarea nu a putut fi citita.",
+            document_source: "scan",
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    const card = draftCard(page, orderId);
+    await page.goto(UPLOAD);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+
+    // NU EXISTA BUTON DE VERIFICARE PE O SCANARE NECITITA, si acela este primul
+    // lucru afirmat: calea catre formular nu este ascunsa, ea nu exista.
+    await expect(card.getByTestId("draft-review")).toHaveCount(0);
+    await card.getByTestId("draft-header").click();
+
+    // NU EXISTA FORMULAR. openReview() asteapta review-form, deci nu se poate
+    // folosi aici, si aceea este exact afirmatia.
+    await expect(page.getByTestId("review-unread-scan")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("review-form")).toHaveCount(0);
+
+    // SPUNE CE S-A INTAMPLAT, ROMANESTE.
+    await expect(page.getByTestId("review-unread-notice")).toContainText("nu a fost citit");
+
+    // ANTETUL ESTE ACOLO, si el este rostul ecranului.
+    const header = page.getByTestId("review-unread-header");
+    await expect(header).toContainText("Bilka Steel SRL");
+    await expect(header).toContainText("Furnizor");
+    await expect(header).toContainText("Total document");
+
+    // NICIUN CAMP DE LINIE, NICIUN BUTON DE ACCEPTARE. Fiecare enumerat separat:
+    // o singura afirmatie pe un container ar trece daca oricare dintre ele ar
+    // reaparea sub alt nume.
+    for (const t of [
+      "review-line",
+      "review-confirm",
+      "review-supplier",
+      "review-currency",
+      "review-ordered-at",
+      "review-expected-at",
+      "review-line-product-0",
+      "review-line-quantity-0",
+      "review-line-price-0",
+    ]) {
+      await expect(page.getByTestId(t), `EXT-15: ${t} nu are voie sa existe`).toHaveCount(0);
+    }
+  });
+
   test("9. catalogul nu ii ofera operatorului nicio cale directa, iar administratorul creeaza in continuare nemarcat", async ({
     page,
   }) => {

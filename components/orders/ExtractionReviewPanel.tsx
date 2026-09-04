@@ -28,7 +28,17 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
-import { EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
+import { EXTRACTION_ERROR_LABEL, effectiveSource } from "@/lib/data/extraction-types";
+import { formatMoney } from "@/lib/data/format";
+
+/** EXT-15. O scanare al carei continut nu a fost citit.
+ *
+ *  O SINGURA DEFINITIE, FOLOSITA SI DE LISTA SI DE PANOU. Doua copii ale acestei
+ *  conditii ar putea sa nu fie de acord, iar dezacordul care conteaza este cel in
+ *  care lista ofera un buton catre un panou care randeaza formularul. */
+function unreadScanDraft(d: { documentSource: unknown; status: unknown }): boolean {
+  return effectiveSource(d.documentSource) === "scan" && d.status === "failed";
+}
 import { ALL_UNITS, unitLabel } from "@/lib/data/units";
 import type { ExtractionDraft } from "@/lib/data/extraction-types";
 import type { CatalogProduct, Category } from "@/lib/data/products";
@@ -110,6 +120,67 @@ function ReviewForm({
     // reusita se randeaza in afara acestui component. Vezi antetul.
     onCreated({ reference: result.value.reference, flagged: result.value.flagged });
     router.refresh();
+  }
+
+  // EXT-15. O SCANARE AL CAREI CONTINUT NU A FOST CITIT NU PRIMESTE UN FORMULAR.
+  //
+  // Regula proprietarului, din rezultatul scanarii din 2026-09-02: nicio cale de
+  // acceptare, niciun camp de linie precompletat, si ecranul trebuie sa SPUNA ca
+  // continutul nu a fost citit.
+  //
+  // ANTETUL SE ARATA SI ESTE ROSTUL ECRANULUI. Furnizorul, numarul documentului,
+  // data, moneda, cota si totalurile tiparite s-au citit corect pe scanarea
+  // observata, si ele sunt ce ii permite proprietarului sa identifice documentul
+  // si sa bata liniile de mana contra unui total cunoscut.
+  //
+  // SE RANDEAZA CA TEXT, NU CA INTRARI. Un camp de formular precompletat este o
+  // invitatie de a apasa Salveaza, iar aici nu exista nimic de salvat.
+  const unreadScan = unreadScanDraft(draft);
+
+  if (unreadScan) {
+    return (
+      <div className="px-5 py-5" data-testid="review-unread-scan">
+        <p
+          className="rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[13px] text-rc-black max-w-[80ch]"
+          data-testid="review-unread-notice"
+        >
+          Conținutul acestui document nu a fost citit. Este o scanare, iar liniile
+          nu au putut fi verificate, deci nu se afișează niciuna. Datele de mai jos
+          sunt antetul documentului, ca să îl poți identifica.
+        </p>
+
+        <dl className="mt-4 grid grid-cols-3 gap-x-6 gap-y-2.5" data-testid="review-unread-header">
+          {[
+            ["Furnizor", draft.supplierName],
+            ["Data documentului", draft.orderDate],
+            ["Monedă", draft.currencyRaw ?? draft.currency],
+            ["Cotă TVA", draft.vatRate === null ? null : `${draft.vatRate}%`],
+            ["Subtotal", draft.subtotal === null ? null : formatMoney(draft.subtotal)],
+            ["TVA", draft.vatAmount === null ? null : formatMoney(draft.vatAmount)],
+            ["Total document", draft.documentTotal === null ? null : formatMoney(draft.documentTotal)],
+          ].map(([label, value]) => (
+            <div key={String(label)}>
+              <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-rc-muted">
+                {label}
+              </dt>
+              <dd className="text-[13.5px] text-rc-black">
+                {value === null || value === "" ? (
+                  <span className="text-rc-muted">Nu s-a citit</span>
+                ) : (
+                  value
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        {draft.reason ? (
+          <p className="mt-4 text-[12.5px] text-rc-muted max-w-[80ch]" data-testid="review-unread-reason">
+            {draft.reason}
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -465,6 +536,26 @@ export function ExtractionReviewPanel({
                         onClick={() => setOpenId(isOpen ? null : draft.orderId)}
                       >
                         {isOpen ? "Închide" : "Verifică"}
+                      </Button>
+                    ) : null}
+                    {/* EXT-15. O SCANARE NECITITA NU AVEA NICIO CALE CATRE ANTETUL EI.
+                        Un document `failed` arata pana acum eroarea si un buton de
+                        retrimitere, si nimic altceva: furnizorul, numarul, data si
+                        totalurile tiparite, care S-AU CITIT CORECT pe scanarea
+                        observata, nu erau vizibile nicaieri.
+
+                        Butonul se numeste "Vezi antetul" si NU "Verifica", fiindca
+                        nu exista nimic de verificat si niciun formular in spatele
+                        lui. Un buton numit ca celalalt ar promite o cale de
+                        acceptare care nu exista si nu are voie sa existe. */}
+                    {unreadScanDraft(draft) ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        data-testid="draft-header"
+                        onClick={() => setOpenId(isOpen ? null : draft.orderId)}
+                      >
+                        {isOpen ? "Închide" : "Vezi antetul"}
                       </Button>
                     ) : null}
                     {draft.status === "failed" || draft.status === "partial" ? (

@@ -3018,3 +3018,299 @@ disappear: `toHaveCount(0)` on `deviz-status-accepted`, plus the row chip readin
 is a synchronous statement wearing an await, and it makes the next assertion race
 the database.** Before waiting on a selector, ask what it looked like one step
 earlier; if the answer is "the same", it is the wrong selector.
+
+### The same migration file passes psql and fails `supabase db reset`
+**Tag:** data
+**ERROR:** `0030_units_tonne_litre.sql` added two `unit_code` enum labels and then
+inserted the matching `public.units` rows, with an explicit `commit;` between the
+two halves, because **a newly added enum label cannot be used in the transaction
+that added it** (PostgreSQL `55P04`). It applied cleanly through
+`scripts/apply-pending-migrations.mjs` and through the Docker shim
+(`npm run check:migrations`), because both feed the file to `psql`, which honours
+that commit. It **failed** under `supabase db reset`:
+
+```
+ERROR: unsafe use of new value "t" of enum type unit_code (SQLSTATE 55P04)
+At statement: 3   insert into public.units (code, sort_order) values ('t', 8),
+```
+
+`supabase db reset` wraps **each migration file in one transaction of its own**
+and swallows the explicit commit. The file worked in both places it had been
+tested and broke in the one place it had not - and that place is the runner CI
+uses to build the end-to-end stack.
+**SOLUTION:** Split it. `0030` adds the labels, `0031` adds the rows. **Two files
+are two transactions under all three runners**, with no special case anywhere.
+The rule: **a migration is not proven until it has been applied by every runner
+that will ever apply it**, and this repository has three - the applier, the shim,
+and `supabase db reset`. They disagree about transaction boundaries, which is
+exactly the property an enum addition is sensitive to. When a file needs a
+statement to be committed before the next one, the boundary is a **file
+boundary**, because that is the only one all three agree on.
+
+### An instruction that helps a model on a clean input is a recipe for a consistent wrong answer on one it cannot read
+**Tag:** data
+**ERROR:** Andre's extraction prompt told the model to verify that quantity times
+unit price equals the line total. On a digital document that is a useful
+self-check and it catches a misread digit. On a **scan the model could not read**,
+the same instruction became a rule for **fabricating a self-consistent triple**:
+pick a quantity, pick a price, multiply, and the line passes its own check.
+
+The scan path returned **four wrong lines in seven**. Every one multiplied out
+correctly. Status came back `extracted`, not `failed`, and `confidence` came back
+`1.0`. Nothing in the payload was internally inconsistent, so nothing downstream
+had anything to notice: the arithmetic agreed with itself, the status claimed
+success, and the reliability number claimed certainty.
+
+**It was caught only because the model read the TOTALS correctly and the LINES
+wrong**, so the line sum disagreed with the printed total. Had it invented lines
+that happened to sum to the total, every check in the chain would have passed.
+**SOLUTION:** three rules, and the first is the general one.
+
+**An instruction to a model is a specification of what its output must LOOK LIKE,
+never a guarantee of what its output MEANS.** Every consistency rule handed to a
+model is also a template for a plausible answer, and the more precisely the rule
+is stated the more convincingly the fabrication satisfies it. Before adding one,
+ask what it would produce on an input the model cannot read at all.
+
+**Reconciliation belongs on OUR side of the wire and not only in the extractor.**
+A control that lives inside the scenario is bypassed by a scenario rebuild, a
+second ingest path, or a manual upload. Card EXT-16.
+
+**A scan-sourced document never auto-accepts, reconciled or not.** Reconciliation
+is a test of arithmetic, not of reading. Card EXT-17.
+
+**Already in `docs/LEARNINGS.md` from a different direction, and this is the same
+wall approached from the other side:** any control that depends on a model
+noticing its own uncertainty is not a control. `confidence` returned `1.0` on the
+document with four invented lines, which is why card EXT-14 removes it rather
+than displaying it.
+
+### The pending migration list said pending, and production said applied
+**Tag:** data
+**ERROR:** `docs/migrations/APPLY-LOG.md` lists `0028_applied_ledger_version.sql`,
+`0029_category_paints.sql`, `0030_units_tonne_litre.sql` and
+`0031_units_tonne_litre_rows.sql` as pending, each with the card that will apply
+it. Production has all four. Read on 2026-09-03 against project
+`bwhzatwwjqmyfesfnisa`: `applied_ledger_version()` returns `"0031"`, `categories`
+holds nineteen active rows including `Vopsele, lacuri și solvenți` at
+`sort_order` 19, and `units` holds `t` and `l`.
+
+The cost was not theoretical. `/Users/ivan/rc-samples/ANDRE-STATUS.md`, written
+the same day, tells the extraction counterparty that the category and the two
+units "land when the pending migration batch is applied to production, which is a
+separate owner-run step". That sentence was true when it was written against the
+repository and false about the system. He was told to wait for something that had
+already happened.
+
+**SOLUTION:** the entries owed to `APPLY-LOG.md` are still owed, and they need
+the evidence of the apply that actually ran, which is not reconstructable after
+the fact by whoever notices the gap.
+
+**THE RULE. A REPOSITORY RECORDS WHAT SHOULD BE APPLIED AND ONLY THE DATABASE
+KNOWS WHAT IS.** Migration `0028` exists precisely to close that gap: it exposes
+`applied_ledger_version()` so the applied version can be read at run time rather
+than inferred from files. It was in the pending list while being the thing that
+answers the question the pending list was getting wrong. **Before telling anyone
+outside this repository that something is waiting on a migration, call that
+function.** One request, no credentials beyond the service key already in the
+environment, and it is the only authority on the answer.
+
+### A stale clone made a merged file look like it had never existed
+**Tag:** infra
+**ERROR:** `scripts/ext/serve-sample-documents.mjs` was reported as possibly
+absent and the working copy agreed: `ls` said no such directory, and
+`grep -r document_source` over the whole tree returned nothing at all. Both were
+artefacts of `/Users/ivan/rc-inventory` sitting on a `main` **sixteen commits
+behind `origin/main`**. The script had been merged in `#159`. On a check of
+history rather than of the tree, `git log --all -- '*serve-sample-documents*'`
+found it immediately.
+
+**SOLUTION:** the verification was run in a fresh worktree at `origin/main`, and
+`scripts/ext/serve-sample-documents.mjs` was there.
+
+**THE RULE, AND IT IS SHARPER THAN "PULL FIRST". A GREP THAT RETURNS NOTHING IS
+THE ONE RESULT A STALE CHECKOUT CAN FORGE.** A wrong line of code looks wrong; an
+absent file looks like a fact about the project. The instruction being followed
+was "the path is a claim, verify it", and the stale tree returned a confident,
+verifiable-looking **disproof** of a true claim. `git fetch` then
+`git rev-list --count HEAD..origin/main` costs one second and belongs **before**
+any conclusion of the form "this does not exist", never after.
+
+### Three open PRs and the committed counter all pointed at the same ruling id
+**Tag:** ci
+**ERROR:** `decisions/NEXT-RULING-ID` on `origin/main` held `R-087`. Section 8b
+says to take that id. `R-087` through `R-095` were each **already written as a
+different decision** on an open pull request: `#172` claims `R-087` to `R-091`,
+`#157` claims through `R-095`. Taking `R-087` as section 8b instructs would have
+produced exactly the collision section 8b exists to prevent, and produced it
+knowingly.
+
+**SOLUTION:** `R-096`, the first id no open branch had written, with the
+deviation stated in the ruling body and in the commit message rather than left
+for a reader to discover in a conflict. `check:unique-ids` is green because it
+only requires the counter to be ahead of the highest id written.
+
+**THE RULE. THE COUNTER CONVERTS AN INVISIBLE RACE INTO A CONFLICT, WHICH IS NOT
+THE SAME AS RESERVING AN ID.** A counter on `main` is only accurate about
+allocations that have merged. Where the mechanism has already failed visibly, the
+loud signal it was built to produce has nothing left to teach, and reproducing it
+on purpose just makes one number name two decisions. **Before taking the id the
+counter hands you, check the branches: `git show origin/<branch>:decisions/NEXT-RULING-ID`
+across the open PRs takes one loop and tells you whether the counter is describing
+the present.** Deviating is defensible. Deviating silently is not.
+
+### A capability gate named by a literal string sends the next card to the wrong gate
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-pending-schema-reads.mjs` held
+`const GUARD = 'hasPhase3Schema'` and asked only whether a source file CONTAINS
+that string. The rule is deliberately crude, which is fine, but the crudeness was
+attached to ONE gate's name. EXT-09 added a column on an existing phase 2 table,
+`extraction_drafts.page_count`, which `hasPhase3Schema` says nothing about: that
+gate answers whether the phase 3 TABLES are applied, and 0033 can be applied
+before or after them. The cheapest way to make the check green was therefore to
+import the WRONG gate. The check would have passed, the callback route would
+still have written a column production did not have, PostgREST would have
+returned 42703, and Make retries on 5xx, so it would have been a loop rather than
+one failure.
+**SOLUTION:** the gate list is derived from `lib/data/schema-capability.ts` by
+pattern, so a third gate is covered without editing the check, and the count is
+VERIFIED: zero gates found means the pattern stopped matching, and the check
+exits 2 rather than reporting every guarded file as unguarded.
+**The rule:** a check that names one implementation of a concept tests that
+implementation, not the concept. When the concept can have a second instance,
+the check enumerates instances instead of naming one, and refuses to report when
+it enumerates none.
+
+### `add column if not exists` made a guard hunt for a column named `if`
+**Tag:** ci
+**ERROR:** the same check extracted pending column names with
+`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0032 writes
+`add column if not exists page_count integer`, so the capture was the word `if`.
+The check then searched every file under `lib/`, `app/` and `components/` for the
+token `if` and reported **52 violations**, one per file, each saying
+`numeste coloana if`. Nothing was wrong with any of them.
+**SOLUTION:** the pattern now allows the optional `(?:if\s+not\s+exists\s+)?`
+before the column name. The document_source migration on another branch hit the
+identical defect independently, which is how a one-character-class omission cost two cards.
+**The rule:** a regex over SQL must accept every optional clause the grammar
+allows at that position, and the failure to do so is not a miss, it is a WRONG
+CAPTURE, which is worse. A miss reports nothing; a wrong capture reports a wall
+of findings, and a mass refusal read as a discovery is the worst output a check
+can produce: either somebody spends an hour on it, or they stop believing the
+check, and the second one is permanent.
+
+### A local e2e suite can be blocked by another project's Supabase stack
+**Tag:** infra
+**ERROR:** `supabase db reset` for rc-inventory failed with
+`Bind for 0.0.0.0:54322 failed: port is already allocated`. The OsteoJP stack
+holds 54322 on this machine. Two further mismatches sat behind it:
+`supabase/config.toml` on main names 54321 and 54322 while the working
+`.env.local` names 54421, so the rc-inventory stack that was up was half up, kong
+on 54421 with no database container at all; and `.env.local` carries eight
+variables of which `SUPABASE_SERVICE_ROLE_KEY` is not one, so the extraction
+callback route would have returned 500 and every case in the spec would have
+failed for a reason unrelated to the card.
+**SOLUTION:** the before-and-after proof was moved onto the runner, by splitting
+the branch so the tests land in one commit and the implementation in the next.
+The two `quality` runs on the pull request are then the two results, produced by
+the acceptance command itself rather than described in prose.
+**The rule:** when a card's acceptance cannot run locally for reasons that are
+not the card's, do not weaken the acceptance to fit the machine. Move it to a
+machine that can run it, and say in the pull request which obstacles were hit, so
+the next card does not rediscover all three.
+
+### A migration numbering GAP is refused by the applier, and CLAUDE.md does not say so
+**Tag:** data
+**ERROR:** EXT-09 took number **0033** and deliberately left 0032 free, because
+0032 was held by an open pull request on another branch and a duplicate number
+looked worse than a hole. The reasoning was written into the migration header
+and the pull request, and it cited CLAUDE.md 8.1, which asks for
+"four-digit zero-padded, monotonically increasing" and says nothing about gaps.
+**Everything applied fine.** `npm run check:migrations` passed, 32 files against
+a bare `postgres:16`, 15 assertion files. `npx tsc --noEmit` passed. The dry run
+of the applier passed. What failed was `npm run prove:applier`, at **9 of 16**,
+with the clean-pass proof rolling the whole batch back:
+
+    ASSERTION FAILED [ledger-no-gaps-ends-at-highest]:
+    ledger holds 32 rows, expected 33 with no gaps
+
+`scripts/apply-pending-migrations.mjs` asserts, in SQL, inside the transaction,
+that **every integer from 1 to the highest is present exactly once**. With 0001
+to 0031 plus 0033 the ledger holds 32 and the assertion wants 33, so the batch
+cannot be applied at all. Six further proofs then failed as downstream noise,
+which made the output look like six problems instead of one.
+**SOLUTION:** renumbered to 0032. `prove:applier` went to **16 of 16**. The
+collision with the other branch is real and is stated in the migration header
+instead of avoided, because **git will not report it**: the two file names differ,
+so both would simply land, both numbered 0032. `check:migrations` and
+`prove:applier` fail loudly on the duplicate, so it cannot ship unnoticed, but
+nothing warns at merge time.
+**The rule, and it has two halves.** First: **migration numbers are contiguous
+here, not merely increasing**, and CLAUDE.md 8.1 does not say so while the
+applier enforces it. When a document and a running check disagree about a rule,
+**the check is the rule** and the document is the thing that is out of date.
+Second: a number taken on another unmerged branch is not free, and the collision
+is invisible to git whenever the two files have different names. Say it out loud
+in the file, because the next reader's only other warning is a red proof.
+
+### A branch whose migration is numbered above an unmerged one goes red until the lower number lands
+**Tag:** ci
+**ERROR:** `P3-33` numbered its migrations `0030` and `0031` on the assumption
+that `P3-34`'s `0029` would land first, which the board's `depends_on` edge
+required. Until it did, the applier saw a pending batch ending at `0031` with
+`0029` absent, and `ledger-no-gaps-ends-at-highest` rolled **every** case back.
+`prove:applier` reported `0 of 16`, including the clean pass, so the failure
+looked total and unrelated to the change. `EXT-15` hit the identical shape a day
+later with `0032` above an unmerged `0030`/`0031`.
+**SOLUTION:** **This is the assertion working, not a flake, and no re-run will
+ever clear it.** The ledger genuinely has a gap; the only thing that closes it is
+merging the lower number. Two rules follow:
+
+**Migration-carrying pull requests merge in migration-number order**, which the
+board's `depends_on` edges already encode where the cards are ordered. When a
+branch is cut, merge `main` into it *before* choosing a number, so the number is
+chosen against what has actually landed.
+
+**Do not re-run CI on a red `prove:applier` hoping it turns green.** An hour was
+lost that way on a conflicting pull request that was triggering zero workflows,
+and this failure reads the same from the outside: total, sudden, and nothing to
+do with the diff. Read which assertion raised. `ledger-no-gaps-ends-at-highest`
+naming a number your branch does not contain is a merge-order problem, not a
+test problem.
+
+### A capability probe on a different connection answers a different question
+**Tag:** backend
+**ERROR:** `hasExtractionDocumentSource` built its own **session** client to
+probe whether `extraction_drafts.document_source` exists. The extraction callback
+is a **machine endpoint** authenticated by a shared secret, with no session, and
+the RLS policies on that table are `to authenticated`. The probe got a permission
+refusal, which has nothing to do with whether the column exists, read it as
+"absent", and the gate answered **no forever on the one path that mattered** -
+silently disabling the whole feature on the endpoint it was written for. The
+end-to-end cases failed with `document_source: null` on a database that had the
+column.
+**SOLUTION:** The probe takes the caller's client as a parameter, so it asks on
+**the same connection that will do the read**. The rule: **a capability probe is
+only meaningful on the connection whose capability is in question.** Anon,
+authenticated and `service_role` see different schemas through PostgREST, so
+"does this column exist" is not one question - it is one question per role, and
+an error from the wrong role is indistinguishable from an absent column.
+
+### An extractor that captures the wrong token invents an object and searches for it everywhere
+**Tag:** ci
+**ERROR:** `check-pending-schema-reads` matched added columns with
+`alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)`. Migration `0032` writes
+`add column if not exists document_source text`, so the capture was the word
+**`if`**. The check then looked for a column named `if` in every source file,
+found it in nearly all of them, and reported the entire application as reading
+unapplied schema: *"lib/data/dashboard.ts numeste coloana if"*. Confident,
+specific, and about nothing. The `create table` pattern three lines above already
+handled `if not exists`; this one did not.
+**SOLUTION:** The pattern accepts the clause, and - the durable half - **a
+captured object name that is a SQL keyword now stops the run instead of being
+searched for.** This is the mirror of the class `docs/LEARNINGS.md` already
+names: not a check whose *passing* path is reachable without the condition, but
+one whose *failing* path is. **The mirror is worse**, because a false green is
+ignored once and a false red is ignored forever. Any extractor that produces a
+NAME which is then used to search should validate that the name is plausible
+before trusting it.
