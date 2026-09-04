@@ -4710,3 +4710,106 @@ has not stopped sending. **Our acceptance may be wider than his emission and mus
 never be narrower.** Nothing in this ruling removes a value our validator accepts
 today, and no future card may cite this ruling as authority to.
 
+
+---
+
+### R-123
+
+**RENUMBERED FROM `R-098` ON 2026-09-04, BEFORE MERGING, AND THE REASON IS THIS
+RULING'S OWN SUBJECT MATTER.** Pull request #184 also writes `R-098`, with a
+different heading, and neither pull request had merged. `npm run check:unique-ids`
+was green on both, because it compares each branch against `main` and within each
+side the ids are perfectly unique. That is exactly the defect card `RULE-04`
+describes, met in the wild while allocating this very id.
+
+**RENUMBERING HERE IS NOT THE RENUMBERING CLAUDE.md 8b FORBIDS.** That rule
+protects an id already on `main`, which has been cited and read and which history
+must not lose. This id had never landed anywhere, so nothing points at it.
+`R-098` is left to #184, which claims `R-098` through `R-101`, and this ruling
+takes the next id verified free across `main` and all thirteen open branches.
+
+**A failure code that is new on ANY surface is communicated to the counterparty
+BEFORE it can be emitted or received, in BOTH directions, and it is added to a
+NAMED set rather than to an assumed one.**
+
+**Asked by:** EXECUTOR, 2026-09-03, on the owner's dispatch. **Decided by:** the
+owner in that dispatch.
+
+**Why now.** EXT-16 needs `reconciliation_failed`, which is **not in the set**.
+Section 5.2 fixes seven codes and says anything outside them is a rejected
+payload, `400`. So the moment our validator emits or accepts that code without
+Andre having been told, one of two things happens and both are outages:
+
+- **He emits it first and we reject it.** Our `400` says "error_code in afara
+  multimii", Make does not retry a `4xx`, and a document is dropped once, quietly.
+- **We emit it first and he does not know it.** Whatever his side does with an
+  unknown code, it was not designed for this one.
+
+Neither is a bug in anybody's code. Both are the two sides holding different
+copies of a set that section 5.2 calls fixed.
+
+**THE SETS, NAMED, so a future code is added to a stated set rather than an
+assumed one.** There is ONE `error_code` enum and it spans two surfaces. Both are
+named here because "add it to the error codes" is ambiguous today and a reader
+adding the eighth code needs to know which half they are touching and who else
+holds a copy.
+
+**The download path**, meaning failures that occur before the model runs, where
+the subject is our signed URL and our storage:
+
+    download_failed        the signed URL could not be fetched
+    url_expired            the signed URL had expired by the time Make used it
+
+**The payload path**, meaning failures of the extraction itself, where the
+subject is the document and the model:
+
+    unsupported_format     the file is not a format the extractor can read
+    unreadable_document    the format is supported and the content is not legible
+    extraction_failed      the model ran and produced nothing usable
+    invalid_output         the model produced output that does not satisfy the schema
+    timeout                the extraction exceeded Make's own limit
+
+**A third surface exists and has no codes yet, and that is stated so it is not
+discovered later.** Our own validator can now REFUSE a payload that is
+well-formed, which is what EXT-16 does when the arithmetic does not reconcile.
+That is neither a download failure nor an extraction failure: the download
+succeeded and the model returned. `reconciliation_failed` is the first member of
+that third group and it is **OURS to emit, not his**, which is precisely why it
+still has to reach him before it exists.
+
+**WHAT THE RULE REQUIRES, and it is four things.**
+
+1. **Both directions.** A code he adds reaches us before he emits it. A code we
+   add reaches him before we emit OR accept it. The asymmetry that would
+   otherwise creep in is that we think of his codes as "the contract" and ours as
+   "our behaviour"; they are the same set.
+2. **Before it can be emitted OR RECEIVED.** Accepting an unknown code is as much
+   a change as sending one, because acceptance is what section 5.2's `400` is
+   deciding.
+3. **Added to a named set.** The pull request that adds a code names which of the
+   groups above it joins, or declares a new group as this ruling declares the
+   third. A code appended to a table with no group named is how the two halves
+   drift.
+4. **The contract file is the record, not the message.** Telling him is not
+   enough; `docs/contracts/extraction-v2.md` carries the code and the group in the
+   same pull request that makes it emittable.
+
+**WHAT THIS DOES NOT DO.** It does not require his agreement, only his knowledge
+before the fact. Waiting for a counterparty to approve every code would put a
+third party in front of our own refusals, and the owner has ruled repeatedly that
+a control on our side is ours. It requires that he is never surprised.
+
+**Allocation note, and it is an instance of the thing RULE-04 cards.** `R-098`
+was taken on 2026-09-03 after reading `decisions/NEXT-RULING-ID` on `main` AND on
+all six open pull request branches then existing, and after grepping each for a
+written `R-098`. None had one.
+
+**AND IT COLLIDED ANYWAY, WHICH IS THE POINT.** By 2026-09-04 pull request #184
+had been opened and had also taken `R-098`. A sweep is only true at the moment it
+runs, and neither branch had merged, so nothing went red: `check:unique-ids`
+compares each branch against `main` only. This ruling was renumbered to `R-123`
+rather than argued about, and the heading above records it.
+
+**A MANUAL SWEEP IS NOT THE FIX, IT IS THE EVIDENCE THAT ONE IS NEEDED.** RULE-04
+asks for the check that refuses at allocation time, which is what would have
+caught this.

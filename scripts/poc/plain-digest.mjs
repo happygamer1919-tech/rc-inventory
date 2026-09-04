@@ -27,7 +27,8 @@
 //
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { analyse, daysSince } from "./eligible.mjs";
+import { WORKING_BOARDS } from "./boards.mjs";
+import { analyseAll, daysSince } from "./eligible.mjs";
 
 // Card ids (P2-15, AUT-1, CRIT-14), ruling ids (R-026), PR numbers (#45).
 const CARD_ID = /\b[A-Z][A-Z0-9]{0,5}-\d{1,3}[a-z]?\b/g;
@@ -111,10 +112,20 @@ function wordCount(text) {
 // ---------------------------------------------------------------------------
 // The digest
 // ---------------------------------------------------------------------------
-export function buildPlainDigest(board, state, opts = {}) {
+// AUT-16. `boards` is the board SET, as loaded by boards.mjs: a list of
+// { relative, label, board }. A single board object is still accepted, because
+// every test and every caller that genuinely means one board should keep
+// working, and the digest of one board must not change shape.
+function normaliseBoards(boards) {
+  if (Array.isArray(boards)) return boards;
+  return [{ relative: "", label: "", board: boards || { cards: [] } }];
+}
+
+export function buildPlainDigest(boards, state, opts = {}) {
   const now = Math.floor((opts.nowMs || Date.now()) / 1000);
-  const view = analyse(board, state, "harness", now);
-  const cards = board.cards || [];
+  const set = normaliseBoards(boards);
+  const view = analyseAll(set, state, "harness", now);
+  const cards = set.flatMap((entry) => entry.board.cards || []);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const gaps = [];
   const noWhy = [];
@@ -217,14 +228,26 @@ export function buildPlainDigest(board, state, opts = {}) {
     }
   }
 
-  // 5. Progress.
-  const total = cards.length;
-  const done = cards.filter((c) => c.status === "shipped").length;
-  const gate = board.launch_gate || {};
-  const gatePassed = gate.readiness_passed || 0;
-  const gateTotal = gate.denominator || 9;
+  // 5. Progress, ONE LINE PER BOARD.
+  //
+  // AUT-16. Two launch gates are never summed. 6 of 9 and 0 of 9 is not 6 of
+  // 18, and a merged figure is a number the owner would be right to distrust.
+  // One board keeps the exact sentence it had, because that is the digest he
+  // already reads and there is nothing to disambiguate when there is one of
+  // something.
   lines.push("");
-  lines.push(done + " of " + total + " tasks done. " + gatePassed + " of " + gateTotal + " launch conditions met.");
+  for (const entry of set) {
+    const entryCards = entry.board.cards || [];
+    const total = entryCards.length;
+    const done = entryCards.filter((c) => c.status === "shipped").length;
+    const gate = entry.board.launch_gate || {};
+    const gatePassed = gate.readiness_passed || 0;
+    const gateTotal = gate.denominator || 9;
+    const progress =
+      done + " of " + total + " tasks done. " + gatePassed + " of " + gateTotal + " launch conditions met.";
+    if (set.length === 1) lines.push(progress);
+    else lines.push(sentence(sanitize(entry.label) || "another list of work") + " " + progress);
+  }
 
   const text = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   return { text, gaps, noWhy, needsYou: needsYou.length > 0, words: wordCount(text) };
@@ -263,6 +286,14 @@ export function assertPlain(text) {
   return violations;
 }
 
+// The label a board carries in the digest, in plain words. Read from the board
+// set rather than invented here, so a fourth board is named in one place.
+function labelOf(p) {
+  const base = p.split("/").pop();
+  const hit = WORKING_BOARDS.find((b) => b.path.split("/").pop() === base);
+  return hit ? hit.label : "";
+}
+
 // ---------------------------------------------------------------------------
 const args = (() => {
   const a = {};
@@ -285,9 +316,14 @@ const RUN_DIRECTLY =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (RUN_DIRECTLY && args.board) {
-  const board = JSON.parse(readFileSync(args.board, "utf8"));
+  // --board takes one path or a space separated list, so the CLI can be handed
+  // `node scripts/poc/boards.mjs --paths` directly.
+  const set = String(args.board)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => ({ relative: p, label: labelOf(p), board: JSON.parse(readFileSync(p, "utf8")) }));
   const state = args.state ? JSON.parse(readFileSync(args.state, "utf8")) : {};
-  const result = buildPlainDigest(board, state, { cards: args.cards });
+  const result = buildPlainDigest(set.length === 1 ? set[0].board : set, state, { cards: args.cards });
   console.log(result.text);
   if (args.assert === "true") {
     const violations = assertPlain(result.text);

@@ -34,6 +34,14 @@ import { appendFileSync, readFileSync, realpathSync, writeFileSync } from "node:
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildPlainDigest, assertPlain, sanitize } from "./plain-digest.mjs";
+import { WORKING_BOARDS } from "./boards.mjs";
+
+// The plain label a board carries in the digest, read from the board set.
+function labelOf(p) {
+  const base = String(p).split("/").pop();
+  const hit = WORKING_BOARDS.find((b) => b.path.split("/").pop() === base);
+  return hit ? hit.label : "";
+}
 import { openQuestions, ASK_DIR } from "./ask.mjs";
 
 const DEFAULT_DIGEST_STATE =
@@ -49,11 +57,20 @@ function parseArgs(argv) {
     if (!argv[i].startsWith("--")) continue;
     const key = argv[i].slice(2);
     const next = argv[i + 1];
-    if (next === undefined || next.startsWith("--")) args[key] = "true";
-    else {
-      args[key] = next;
+    let value = "true";
+    if (next !== undefined && !next.startsWith("--")) {
+      value = next;
       i += 1;
     }
+    // AUT-16. --board is REPEATABLE, and repeated flags rather than one space
+    // separated value is deliberate. digest.sh is a deployed copy while this
+    // file is read out of a worktree at origin/main, so for one merge window a
+    // NEW digest.sh hands its arguments to an OLD digest.mjs. An old parser
+    // keeps the LAST --board and renders that board alone, which is exactly
+    // what it did before; one packed string would have made it fail to parse a
+    // path and render nothing at all.
+    if (key === "board") args.board = (args.board || []).concat(value.split(/\s+/).filter(Boolean));
+    else args[key] = value;
   }
   return args;
 }
@@ -70,8 +87,16 @@ function readJson(file, fallback) {
 // The signals. Everything the send decision turns on, and nothing else, so the
 // decision can be tested without a board, a chat or a clock.
 // ---------------------------------------------------------------------------
+// AUT-16. `board` is either one board or the board SET as loaded by boards.mjs.
+// The signals are the union: a card shipped on the second board is a reason to
+// send a digest exactly as much as one shipped on the first.
+function cardsOf(board) {
+  if (Array.isArray(board)) return board.flatMap((entry) => (entry.board && entry.board.cards) || []);
+  return (board && board.cards) || [];
+}
+
 export function signalsOf(board, runState, openQs) {
-  const cards = board.cards || [];
+  const cards = cardsOf(board);
   const outstanding = new Set(openQs.map((q) => String(q.card_id).toUpperCase()));
   // A card the board says is blocked on Ivan is an outstanding question too,
   // whether or not it came through ask.sh. He owes an answer either way.
@@ -238,16 +263,25 @@ async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
 
-  const boardPath = args.board;
-  if (!boardPath) {
+  // --board takes one path or a space separated list, so digest.sh can hand it
+  // `node scripts/poc/boards.mjs --paths` and never name a board itself.
+  const boardPaths = args.board || [];
+  if (boardPaths.length === 0) {
     log("FATAL: --board is required");
     return 2;
   }
-  const board = readJson(boardPath, null);
-  if (!board) {
-    log("FATAL: the board did not parse: " + boardPath);
-    return 2;
+  const set = [];
+  for (const boardPath of boardPaths) {
+    const parsed = readJson(boardPath, null);
+    if (!parsed) {
+      log("FATAL: the board did not parse: " + boardPath);
+      return 2;
+    }
+    set.push({ relative: boardPath, label: labelOf(boardPath), board: parsed });
   }
+  // One board keeps the exact single-board shape it had, so nothing about the
+  // digest of one board changes.
+  const board = set.length === 1 ? set[0].board : set;
   const runState = args.state ? readJson(args.state, {}) : {};
   const askDir = args.asks || ASK_DIR;
   const digestStatePath = args["digest-state"] || DEFAULT_DIGEST_STATE;
