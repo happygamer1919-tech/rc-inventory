@@ -377,3 +377,31 @@ attempted at all**. Form 1 of the three shapes R-122 permits.
 `0034`'s pending line is removed and it gets a normal APPLIED entry, so the
 register is once again empty and agrees with production.
 
+---
+
+## A defect I flagged on somebody else's pull request and then committed myself
+
+An hour into this run I recorded that **#192 leaves `AUT-17` `in_flight` with no
+evidence**, and that merging it as-is would leave a card that never ships, because
+CLAUDE.md 2 says the pull request carrying the code carries the board edit.
+
+**#195 then merged EXT-16's code, migration, contract section and tests, and left
+`EXT-16` `todo`.** I noticed only when I asserted in a closing comment on #182
+that EXT-16 "is now SHIPPED", checked afterwards, and found it was not.
+
+Three things were wrong and all three are fixed rather than tidied away:
+
+1. **The board.** `EXT-16` is flipped to `shipped` here, with the full evidence:
+   the 145-passed run, the four cases and what each stops, the three mutants that
+   turn `check:reconciliation` red, the migration and its apply-on-merge, and the
+   gate nothing would have required.
+2. **The false statement.** A correction is posted on #182 saying plainly that
+   the code merged and the card did not, and that the substantive reason for
+   closing that pull request does not depend on the word I got wrong.
+3. **The order I did it in.** I asserted a state and then checked it. That is
+   backwards, and it is the same order that produced the ANDRE-STATUS paragraph
+   this dispatch is correcting in step 6.
+
+**The card's notes carry the omission**, not just this report, because the board
+is what the next reader opens.
+
