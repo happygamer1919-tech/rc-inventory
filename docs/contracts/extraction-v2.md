@@ -348,6 +348,8 @@ is a rejected payload, `400`.
 | `invalid_output` | The model produced output that does not satisfy this schema. |
 | `timeout` | The extraction exceeded Make's own limit. |
 
+| `reconciliation_failed` | **Ours, not Make's.** The payload arrived well-formed and OUR arithmetic refused it: the line sum does not reconcile against the total printed on the document. Section 5.3. |
+
 `reason` stays free text alongside the code. The code is what we branch on; the
 reason is what the operator reads.
 
@@ -404,6 +406,69 @@ copies of a set this section calls **fixed**.
 control on our side is ours; waiting on a counterparty to approve our own
 refusals would put a third party in front of them. What it forbids is surprising
 him.
+
+### 5.3 Reconciliation, and the tolerance is Andre's
+
+**Card EXT-16. The tolerance in this section is ANDRE'S, given by him, copied
+here verbatim and never re-derived.**
+
+**A SCAN-SOURCED PAYLOAD IS RECONCILED ON OUR SIDE BEFORE IT IS ACCEPTED.** The
+same check exists inside the extraction scenario. A control that lives only there
+is bypassed by a scenario rebuild, a second ingest path, or a manual upload, and
+it is the only thing standing between a scan and invented stock.
+
+#### The formula
+
+    pass when abs(sum_of_line_totals - target) <= max(0.05, 0.01 * line_count)
+
+| | |
+|---|---|
+| **rounding** | **both sides to two decimals BEFORE the comparison.** Rounding after subtracting gives a different answer exactly at the boundary, and the boundary is the only place a tolerance is ever consulted. |
+| **target** | selected by `prices_include_vat`: `false` -> `subtotal`, `true` -> `document_total` |
+| **floor** | `0.05`. It binds below 5 lines: a 3-line document tolerates `0.05`, a 7-line one `0.07`, a 54-line one `0.54`. |
+| **source** | **Andre.** Two checks that disagree on the interesting cases are worse than one check, and at the boundary the looser one wins by accident. |
+
+#### The three conditions where the check cannot run. NONE is a free pass.
+
+| condition | answer |
+|---|---|
+| `target` is null, because the document does not print it | **REJECT** |
+| `prices_include_vat` is null | reconcile against **BOTH** `subtotal` and `document_total`, and accept only if **ONE** matches |
+| any line has a null `line_total` | **REJECT.** The sum is incomplete by construction. |
+
+#### What a failure looks like on the wire
+
+The payload is **accepted** with the contract's success code: it satisfies this
+contract, and what failed is its arithmetic. The stored draft becomes:
+
+    status        failed
+    error_code    reconciliation_failed
+    lines         none stored
+    header        supplier, dates and printed totals all KEPT
+
+The lines are dropped under EXT-15's rule, because line values that do not add up
+to the printed total are exactly the values that must not reach a confirmation
+screen. The header is kept because the document now has to be entered by hand and
+whoever enters it needs it.
+
+**A DIGITAL-SOURCED PAYLOAD IS NOT TOUCHED BY THIS SECTION.** There the numbers
+come from text rather than from a reading, and a mismatch means something else.
+
+**WHY IT IS ARITHMETIC AND NOT AN INSTRUCTION TO THE MODEL.** One 7-line document
+with a printed total of `50336.40` excluding VAT returned three different line
+sums across three runs: `49035.40`, `39242.00`, `38429.40`, every one of them with
+`status: extracted` and `reason: null`. They disagree with **each other** by
+`10606.00`, against a tolerance of `0.07`. A control that depends on the model
+noticing it has misread is not a layer.
+
+**`reconciliation_failed` IS NEW AND ANDRE IS TOLD BEFORE IT IS EMITTED**, which
+is ruling **R-123** and not a courtesy: section 5.2 makes any value outside the
+set a rejected payload, `400`, and Make does not retry a `4xx`.
+
+**IT IS THE FIRST MEMBER OF THE THIRD GROUP DECLARED IN 5.2a**, which landed
+separately and is now directly above this section. That group is our own
+validator refusing a well-formed payload: the download succeeded and the model
+returned, so it belongs to neither of the other two.
 
 ---
 
