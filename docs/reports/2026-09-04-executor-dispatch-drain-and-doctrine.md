@@ -121,3 +121,70 @@ panel has re-rendered, and a 15 second timeout is enough on a fast runner and no
 on a slow one. **Re-run rather than closed**, because the content is a legitimate
 harness state update and there is nothing in it to fix.
 
+---
+
+## Step 3. RULE-04, built
+
+`check:unique-ids` compares each branch against **main**, and within each side the
+ids are unique, so a collision between two OPEN branches is invisible until the
+second merges. It has bitten three times, and the third happened while the card
+sat open:
+
+| id | what happened |
+|---|---|
+| `R-096` | #179 took it from main's counter and merged, while #157 had already advanced its own counter to it |
+| `R-098` | allocated after a **manual sweep** of main and six open branches found it free. By the next morning #184 existed and had also taken it |
+| `R-090`, `R-091` | written by **both** #172 and #157, different headings, neither merged, both green |
+
+**`R-098` settles the design.** The sweep was correct and collided anyway, because
+branches are opened while you work. A human sweep cannot be the mechanism.
+
+`scripts/poc-free/check-open-branch-ids.mjs`, run in `quality`, not path-filtered.
+It reads every open pull request branch, compares the ids THIS branch adds beyond
+main against the ids each other branch adds beyond main, and refuses when one id
+carries different heading text on two branches.
+
+**It runs at merge time.** `required_status_checks.strict` is true, so a branch is
+refreshed immediately before merging, and this check's last run is that one.
+
+**It fails closed**: without the open-PR list it exits 2. Its subject is ids on
+branches it cannot see, so "I could not look" and "nothing is claimed" must never
+render as the same result. The input count is asserted against the comparison
+count.
+
+**It stays out of `check:unique-ids`' way.** A control case asserts it is silent
+on an id redefined against main, so the two never both report one finding.
+
+`prove:open-branch-ids`: **8 of 8**, each on a throwaway repository, two refusing
+cases and four controls.
+
+### A scope slip, caught and reversed
+
+The check was drafted in the `card/ext-16` worktree while waiting on CI and was
+swept into #195 by a `git add -A`. **It was removed from #195 in its own commit**
+and moved to `card/rule-04`. CLAUDE.md 3 says the pull request does what the card
+says and nothing else; a file nobody reading #195's description would expect to
+find there is exactly that, however useful the file is.
+
+---
+
+## Step 4. EXT-21, authored
+
+A read-only state endpoint Andre can poll: active categories, the unit enum, a
+version string, no credential and no client data.
+
+**The gap is a direction the ordering doctrine does not cover.** That rule is
+entirely about our validator accepting before he emits, values travelling from
+him to us. It has no coverage of **our own record saying pending while production
+is live**, which is what happened on 2026-09-03 and cost him a day of holding back
+three values that were already safe.
+
+**Why a mechanism and not a rule:** the failure is invisible while it happens.
+Nothing went red, no check failed, and both sides behaved correctly against the
+information they had. A rule saying "keep the status document accurate" would have
+been obeyed by everyone and changed nothing, because the person writing it
+believed it was.
+
+Out of scope, deliberately: the error-code set, which R-123 already covers with a
+stronger guarantee than polling.
+
