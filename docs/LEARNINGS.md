@@ -3084,3 +3084,553 @@ wall approached from the other side:** any control that depends on a model
 noticing its own uncertainty is not a control. `confidence` returned `1.0` on the
 document with four invented lines, which is why card EXT-14 removes it rather
 than displaying it.
+
+### The pending migration list said pending, and production said applied
+**Tag:** data
+**ERROR:** `docs/migrations/APPLY-LOG.md` lists `0028_applied_ledger_version.sql`,
+`0029_category_paints.sql`, `0030_units_tonne_litre.sql` and
+`0031_units_tonne_litre_rows.sql` as pending, each with the card that will apply
+it. Production has all four. Read on 2026-09-03 against project
+`bwhzatwwjqmyfesfnisa`: `applied_ledger_version()` returns `"0031"`, `categories`
+holds nineteen active rows including `Vopsele, lacuri și solvenți` at
+`sort_order` 19, and `units` holds `t` and `l`.
+
+The cost was not theoretical. `/Users/ivan/rc-samples/ANDRE-STATUS.md`, written
+the same day, tells the extraction counterparty that the category and the two
+units "land when the pending migration batch is applied to production, which is a
+separate owner-run step". That sentence was true when it was written against the
+repository and false about the system. He was told to wait for something that had
+already happened.
+
+**SOLUTION:** the entries owed to `APPLY-LOG.md` are still owed, and they need
+the evidence of the apply that actually ran, which is not reconstructable after
+the fact by whoever notices the gap.
+
+**THE RULE. A REPOSITORY RECORDS WHAT SHOULD BE APPLIED AND ONLY THE DATABASE
+KNOWS WHAT IS.** Migration `0028` exists precisely to close that gap: it exposes
+`applied_ledger_version()` so the applied version can be read at run time rather
+than inferred from files. It was in the pending list while being the thing that
+answers the question the pending list was getting wrong. **Before telling anyone
+outside this repository that something is waiting on a migration, call that
+function.** One request, no credentials beyond the service key already in the
+environment, and it is the only authority on the answer.
+
+### A stale clone made a merged file look like it had never existed
+**Tag:** infra
+**ERROR:** `scripts/ext/serve-sample-documents.mjs` was reported as possibly
+absent and the working copy agreed: `ls` said no such directory, and
+`grep -r document_source` over the whole tree returned nothing at all. Both were
+artefacts of `/Users/ivan/rc-inventory` sitting on a `main` **sixteen commits
+behind `origin/main`**. The script had been merged in `#159`. On a check of
+history rather than of the tree, `git log --all -- '*serve-sample-documents*'`
+found it immediately.
+
+**SOLUTION:** the verification was run in a fresh worktree at `origin/main`, and
+`scripts/ext/serve-sample-documents.mjs` was there.
+
+**THE RULE, AND IT IS SHARPER THAN "PULL FIRST". A GREP THAT RETURNS NOTHING IS
+THE ONE RESULT A STALE CHECKOUT CAN FORGE.** A wrong line of code looks wrong; an
+absent file looks like a fact about the project. The instruction being followed
+was "the path is a claim, verify it", and the stale tree returned a confident,
+verifiable-looking **disproof** of a true claim. `git fetch` then
+`git rev-list --count HEAD..origin/main` costs one second and belongs **before**
+any conclusion of the form "this does not exist", never after.
+
+### Three open PRs and the committed counter all pointed at the same ruling id
+**Tag:** ci
+**ERROR:** `decisions/NEXT-RULING-ID` on `origin/main` held `R-087`. Section 8b
+says to take that id. `R-087` through `R-095` were each **already written as a
+different decision** on an open pull request: `#172` claims `R-087` to `R-091`,
+`#157` claims through `R-095`. Taking `R-087` as section 8b instructs would have
+produced exactly the collision section 8b exists to prevent, and produced it
+knowingly.
+
+**SOLUTION:** `R-096`, the first id no open branch had written, with the
+deviation stated in the ruling body and in the commit message rather than left
+for a reader to discover in a conflict. `check:unique-ids` is green because it
+only requires the counter to be ahead of the highest id written.
+
+**THE RULE. THE COUNTER CONVERTS AN INVISIBLE RACE INTO A CONFLICT, WHICH IS NOT
+THE SAME AS RESERVING AN ID.** A counter on `main` is only accurate about
+allocations that have merged. Where the mechanism has already failed visibly, the
+loud signal it was built to produce has nothing left to teach, and reproducing it
+on purpose just makes one number name two decisions. **Before taking the id the
+counter hands you, check the branches: `git show origin/<branch>:decisions/NEXT-RULING-ID`
+across the open PRs takes one loop and tells you whether the counter is describing
+the present.** Deviating is defensible. Deviating silently is not.
+
+### A capability gate named by a literal string sends the next card to the wrong gate
+**Tag:** ci
+**ERROR:** `scripts/poc-free/check-pending-schema-reads.mjs` held
+`const GUARD = 'hasPhase3Schema'` and asked only whether a source file CONTAINS
+that string. The rule is deliberately crude, which is fine, but the crudeness was
+attached to ONE gate's name. EXT-09 added a column on an existing phase 2 table,
+`extraction_drafts.page_count`, which `hasPhase3Schema` says nothing about: that
+gate answers whether the phase 3 TABLES are applied, and 0033 can be applied
+before or after them. The cheapest way to make the check green was therefore to
+import the WRONG gate. The check would have passed, the callback route would
+still have written a column production did not have, PostgREST would have
+returned 42703, and Make retries on 5xx, so it would have been a loop rather than
+one failure.
+**SOLUTION:** the gate list is derived from `lib/data/schema-capability.ts` by
+pattern, so a third gate is covered without editing the check, and the count is
+VERIFIED: zero gates found means the pattern stopped matching, and the check
+exits 2 rather than reporting every guarded file as unguarded.
+**The rule:** a check that names one implementation of a concept tests that
+implementation, not the concept. When the concept can have a second instance,
+the check enumerates instances instead of naming one, and refuses to report when
+it enumerates none.
+
+### `add column if not exists` made a guard hunt for a column named `if`
+**Tag:** ci
+**ERROR:** the same check extracted pending column names with
+`/alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)/gi`. Migration 0032 writes
+`add column if not exists page_count integer`, so the capture was the word `if`.
+The check then searched every file under `lib/`, `app/` and `components/` for the
+token `if` and reported **52 violations**, one per file, each saying
+`numeste coloana if`. Nothing was wrong with any of them.
+**SOLUTION:** the pattern now allows the optional `(?:if\s+not\s+exists\s+)?`
+before the column name. The document_source migration on another branch hit the
+identical defect independently, which is how a one-character-class omission cost two cards.
+**The rule:** a regex over SQL must accept every optional clause the grammar
+allows at that position, and the failure to do so is not a miss, it is a WRONG
+CAPTURE, which is worse. A miss reports nothing; a wrong capture reports a wall
+of findings, and a mass refusal read as a discovery is the worst output a check
+can produce: either somebody spends an hour on it, or they stop believing the
+check, and the second one is permanent.
+
+### A local e2e suite can be blocked by another project's Supabase stack
+**Tag:** infra
+**ERROR:** `supabase db reset` for rc-inventory failed with
+`Bind for 0.0.0.0:54322 failed: port is already allocated`. The OsteoJP stack
+holds 54322 on this machine. Two further mismatches sat behind it:
+`supabase/config.toml` on main names 54321 and 54322 while the working
+`.env.local` names 54421, so the rc-inventory stack that was up was half up, kong
+on 54421 with no database container at all; and `.env.local` carries eight
+variables of which `SUPABASE_SERVICE_ROLE_KEY` is not one, so the extraction
+callback route would have returned 500 and every case in the spec would have
+failed for a reason unrelated to the card.
+**SOLUTION:** the before-and-after proof was moved onto the runner, by splitting
+the branch so the tests land in one commit and the implementation in the next.
+The two `quality` runs on the pull request are then the two results, produced by
+the acceptance command itself rather than described in prose.
+**The rule:** when a card's acceptance cannot run locally for reasons that are
+not the card's, do not weaken the acceptance to fit the machine. Move it to a
+machine that can run it, and say in the pull request which obstacles were hit, so
+the next card does not rediscover all three.
+
+### A migration numbering GAP is refused by the applier, and CLAUDE.md does not say so
+**Tag:** data
+**ERROR:** EXT-09 took number **0033** and deliberately left 0032 free, because
+0032 was held by an open pull request on another branch and a duplicate number
+looked worse than a hole. The reasoning was written into the migration header
+and the pull request, and it cited CLAUDE.md 8.1, which asks for
+"four-digit zero-padded, monotonically increasing" and says nothing about gaps.
+**Everything applied fine.** `npm run check:migrations` passed, 32 files against
+a bare `postgres:16`, 15 assertion files. `npx tsc --noEmit` passed. The dry run
+of the applier passed. What failed was `npm run prove:applier`, at **9 of 16**,
+with the clean-pass proof rolling the whole batch back:
+
+    ASSERTION FAILED [ledger-no-gaps-ends-at-highest]:
+    ledger holds 32 rows, expected 33 with no gaps
+
+`scripts/apply-pending-migrations.mjs` asserts, in SQL, inside the transaction,
+that **every integer from 1 to the highest is present exactly once**. With 0001
+to 0031 plus 0033 the ledger holds 32 and the assertion wants 33, so the batch
+cannot be applied at all. Six further proofs then failed as downstream noise,
+which made the output look like six problems instead of one.
+**SOLUTION:** renumbered to 0032. `prove:applier` went to **16 of 16**. The
+collision with the other branch is real and is stated in the migration header
+instead of avoided, because **git will not report it**: the two file names differ,
+so both would simply land, both numbered 0032. `check:migrations` and
+`prove:applier` fail loudly on the duplicate, so it cannot ship unnoticed, but
+nothing warns at merge time.
+**The rule, and it has two halves.** First: **migration numbers are contiguous
+here, not merely increasing**, and CLAUDE.md 8.1 does not say so while the
+applier enforces it. When a document and a running check disagree about a rule,
+**the check is the rule** and the document is the thing that is out of date.
+Second: a number taken on another unmerged branch is not free, and the collision
+is invisible to git whenever the two files have different names. Say it out loud
+in the file, because the next reader's only other warning is a red proof.
+
+### A branch whose migration is numbered above an unmerged one goes red until the lower number lands
+**Tag:** ci
+**ERROR:** `P3-33` numbered its migrations `0030` and `0031` on the assumption
+that `P3-34`'s `0029` would land first, which the board's `depends_on` edge
+required. Until it did, the applier saw a pending batch ending at `0031` with
+`0029` absent, and `ledger-no-gaps-ends-at-highest` rolled **every** case back.
+`prove:applier` reported `0 of 16`, including the clean pass, so the failure
+looked total and unrelated to the change. `EXT-15` hit the identical shape a day
+later with `0032` above an unmerged `0030`/`0031`.
+**SOLUTION:** **This is the assertion working, not a flake, and no re-run will
+ever clear it.** The ledger genuinely has a gap; the only thing that closes it is
+merging the lower number. Two rules follow:
+
+**Migration-carrying pull requests merge in migration-number order**, which the
+board's `depends_on` edges already encode where the cards are ordered. When a
+branch is cut, merge `main` into it *before* choosing a number, so the number is
+chosen against what has actually landed.
+
+**Do not re-run CI on a red `prove:applier` hoping it turns green.** An hour was
+lost that way on a conflicting pull request that was triggering zero workflows,
+and this failure reads the same from the outside: total, sudden, and nothing to
+do with the diff. Read which assertion raised. `ledger-no-gaps-ends-at-highest`
+naming a number your branch does not contain is a merge-order problem, not a
+test problem.
+
+### A capability probe on a different connection answers a different question
+**Tag:** backend
+**ERROR:** `hasExtractionDocumentSource` built its own **session** client to
+probe whether `extraction_drafts.document_source` exists. The extraction callback
+is a **machine endpoint** authenticated by a shared secret, with no session, and
+the RLS policies on that table are `to authenticated`. The probe got a permission
+refusal, which has nothing to do with whether the column exists, read it as
+"absent", and the gate answered **no forever on the one path that mattered** -
+silently disabling the whole feature on the endpoint it was written for. The
+end-to-end cases failed with `document_source: null` on a database that had the
+column.
+**SOLUTION:** The probe takes the caller's client as a parameter, so it asks on
+**the same connection that will do the read**. The rule: **a capability probe is
+only meaningful on the connection whose capability is in question.** Anon,
+authenticated and `service_role` see different schemas through PostgREST, so
+"does this column exist" is not one question - it is one question per role, and
+an error from the wrong role is indistinguishable from an absent column.
+
+### An extractor that captures the wrong token invents an object and searches for it everywhere
+**Tag:** ci
+**ERROR:** `check-pending-schema-reads` matched added columns with
+`alter\s+table\s+public\.(\w+)\s+add\s+column\s+(\w+)`. Migration `0032` writes
+`add column if not exists document_source text`, so the capture was the word
+**`if`**. The check then looked for a column named `if` in every source file,
+found it in nearly all of them, and reported the entire application as reading
+unapplied schema: *"lib/data/dashboard.ts numeste coloana if"*. Confident,
+specific, and about nothing. The `create table` pattern three lines above already
+handled `if not exists`; this one did not.
+**SOLUTION:** The pattern accepts the clause, and - the durable half - **a
+captured object name that is a SQL keyword now stops the run instead of being
+searched for.** This is the mirror of the class `docs/LEARNINGS.md` already
+names: not a check whose *passing* path is reachable without the condition, but
+one whose *failing* path is. **The mirror is worse**, because a false green is
+ignored once and a false red is ignored forever. Any extractor that produces a
+NAME which is then used to search should validate that the name is plausible
+before trusting it.
+
+### A card branch pushed with no pull request is work that the board reports as never started
+**Tag:** ci
+**ERROR:** Run `20260903-220002` booted, read `docs/board/rc-board-phase2.json`,
+and was handed `AUT-15` as the lowest-id eligible card because its status on
+`main` was `todo`. The card was in fact **finished**: branch `card/aut-15` existed
+on `origin` at `f5c5066`, carrying the corrected `docs/DOCTRINE-TRIAGE.md`
+paragraph, the board flip to `in_flight`, and a commit message quoting the failing
+acceptance run. No pull request had ever been opened for it, so nothing on `main`
+knew. `gh pr list --head card/aut-15` returned `[]`. The board said `todo`, the
+digest would have said not started, and the next run would have redone the work
+from scratch and produced a second branch for one card.
+**The silence rule fired and it was not enough, which is the part worth keeping.**
+Run `20260903-070005` wrote the escalation `AUT-15:branch:in_flight`, so the
+harness knew. That escalation sits in `docs/poc/state.json`, and the two things a
+later run actually reads to decide what to work, the board's `status` field and
+`gh pr list`, both still said the card had never been started. A correct record in
+a third place did not stop the wrong record in the first two from being acted on.
+**SOLUTION:** This run added no new commit to the doctrine file: it read the
+existing branch, confirmed the acceptance passed on it, merged `origin/main` INTO
+the branch (a merge, never a rebase, because section 3 forbids rewriting a card
+branch's history), and finished the card from there. **The durable half is the
+detection rule: a card branch is only visible to the board through its pull
+request, so a leftover-work sweep must look at BRANCHES, not only at open pull
+requests, and the run that leaves work on a branch must open the pull request
+before it ends.** An open pull request with no merge is loud: it appears in
+`gh pr list`, in `gh pr status` and in every review queue. A pushed branch with no
+pull request is silent in all of them. Before taking a card, check
+`git ls-remote --heads origin card/<id>`; the answer costs one round trip and the
+alternative is redoing work that was already finished.
+
+### Three components, three copies of one path, and the owner's answer channel refusing his answers
+**Tag:** infra
+**ERROR:** `scripts/poc/run.sh`, `scripts/poc/inbox.mjs` and `scripts/poc/notify.mjs`
+each independently hardcoded `docs/board/rc-board-phase2.json`, while every
+unattended run since 2026-08-30 worked the phase 3 board. Three separate
+failures, all silent, all looking like normal operation:
+the Telegram reader answered `R P3-27 default` with `no card P3-27 on the board`,
+so the owner's own decision channel refused his decisions on the oldest
+unanswered question in the repository;
+the digest counted shipped cards and read the launch gate off a board nobody was
+working, so it reported one gate figure that silently meant the first board;
+and the eligible-card selector, the silence rule and the claim writer all
+computed against that same board, which is how a claim on `AUT-10` came to be
+written at the end of a run that spent its time on `P3-11`.
+**Nothing was red at any point.** A hardcoded path does not fail, it answers
+about the wrong thing, and every one of those three components produced
+plausible output the whole time.
+**SOLUTION:** `scripts/poc/boards.mjs` is now the only place a board file is
+named, and every component resolves against the set. **The rule: when a second
+instance of a kind of thing appears (a second board, a second environment, a
+second queue), the list of them becomes a module before the second consumer is
+written, not after the third one is found to be blind.** Repointing the old
+constant at the new board would have moved the blindness rather than removed it.
+The test that guards it greps the live components for a board filename, because
+the property being protected is that there is exactly one place, and a test that
+only checks behaviour cannot see a fourth copy arriving.
+
+### A deployed shell script and a worktree-read module do not upgrade together
+**Tag:** infra
+**ERROR:** `run.sh`, `responder.sh` and `digest.sh` are deployed copies under
+`/Users/ivan/rc-poc-bin`, while every `.mjs` beside them is read out of a
+worktree checked out at `origin/main`. So a change that alters how a shell script
+calls a module ships the two halves at different moments: for one merge window a
+NEW script calls an OLD parser. Passing the board set as one space separated
+`--board "a b"` argument made the old parser treat the whole string as a single
+path, and `test-install.sh` caught it as `the board did not parse`.
+**SOLUTION:** Repeated `--board` flags instead of one packed value. An old parser
+keeps the last flag and renders that board alone, which is exactly what it did
+before; a new parser collects them all. **The rule: when two halves of a system
+upgrade at different times, choose the argument shape whose OLD reading is the
+old behaviour rather than an error.** Both shell scripts also fall back to the
+phase boards present in the commit when `boards.mjs` is absent from it, and log
+that they did, so a main that predates the change costs a log line rather than
+every scheduled window until the merge lands.
+
+### Folding an id on the way in and not on the way out makes a lease that protects nothing
+**Tag:** infra
+**ERROR:** `scripts/poc/claim.sh` upper-cased the card id it was handed
+(`tr '[:lower:]' '[:upper:]'`) and wrote that into the claims map. `eligible.mjs`
+then looked the claim up by the board's own spelling, verbatim. For every card
+with a lower-case suffix (`P3-04b`, `P3-11a`, `P3-13c`) the two never met: the
+claim was written, reported as taken, and honoured by nobody. The command printed
+success. This is the fourth instance of one defect class in this repository, after
+the pending-register regex, `ask.mjs`, and the inbox reader's own card set.
+**SOLUTION:** The writer resolves the typed id against the board set and stores
+the board's spelling; the reader folds both sides so leases already in the file
+still match. **The rule, restated because it keeps being paid for: tooling that
+folds an id must fold BOTH SIDES of every comparison, and the place to do it is
+where the id is RESOLVED against a source of truth, once, rather than at each
+comparison.** An id that resolves to nothing is now refused and named, because a
+lease on a card that does not exist parks nothing and hides a typo.
+
+### A push cancels the check that is running, so a green is never inherited across a correction
+**Tag:** ci
+**ERROR:** PR #186's `quality` run reached its last step, End to end, with all
+twenty one preceding steps green. Two commits were then pushed to correct a
+factual error in the run's report. The workflow's concurrency group cancelled the
+run in flight, so its conclusion is `cancelled`: not a failure, not a success, and
+attached to a sha nobody would merge anyway. The branch went from one step short
+of a green to no concluded run at all, and the second push cost a second one.
+**SOLUTION:** Nothing here argues against correcting a report, which is
+mandatory. **The rule is to know the price: a push to a branch kills the check
+running on it, so batch every edit you know you need into ONE push, and make it
+before the check is nearly done rather than while it is finishing.** This is the
+same trap CLAUDE.md section 3 names from the other side. There the danger is
+reading a green that belongs to an earlier sha; here it is destroying a green
+that was about to belong to this one. Both are the same fact: a check result
+belongs to a sha, and pushing makes a new one.
+
+### Second instance: an instruction not to invent a self-consistent total was ignored three runs of three
+**Tag:** data
+**ERROR:** The prompt forbade the model from constructing a quantity, a unit
+price and a line total that agree with each other when it cannot actually read
+all three. **It did it anyway, on three runs out of three.** Andre's Matnord scan,
+7 lines, printed total **50,336.40** excluding VAT, produced three different line
+sums across three runs: **49035.40**, **39242.00**, **38429.40**. Every one of the
+three arrived with `status: extracted` and `reason: null`, which is the payload
+shape meaning "read cleanly, nothing to report".
+
+The tolerance for a 7-line document is `max(0.05, 0.01 * 7)` = **0.07**. The three
+miss it by **1300.93**, **11094.33** and **11906.93**.
+
+**The three runs disagree with EACH OTHER by up to 10606.00**, on one unchanged
+page, against a tolerance of 0.07. That is five orders of magnitude past the
+tolerance, and it is the part that matters: a reading that drifted would cluster.
+Three readings of the same page that disagree with each other by that much are
+not one reading with noise on it, they are three separate fabrications.
+
+**THIS IS THE SECOND CONTROL OF THIS SHAPE TO FAIL, AND THAT IS THE ENTRY.** The
+first was `confidence`, which returned **1.0** on a document with four invented
+lines, and which card EXT-14 removes rather than displays. The two failures are
+the same failure wearing different clothes:
+
+| the control | what it asks the model to do | what it returned |
+|---|---|---|
+| `confidence` | report how sure it is | `1.0`, on four invented lines |
+| "do not construct a self-consistent total you cannot read" | notice it is about to invent, and stop | three fabrications, three runs, all `extracted`, all `reason: null` |
+
+**SOLUTION, and it is a generalisation rather than a fix to either instance.**
+
+**A CONTROL THAT DEPENDS ON THE MODEL NOTICING IT HAS MISREAD IS NOT A LAYER, AND
+IT MUST NOT BE COUNTED AS ONE IN ANY CARD, CONTRACT, GATE OR REPORT.**
+
+Not "is a weak layer". **Not a layer.** It contributes zero to a defence-in-depth
+argument and it must be worth zero when the layers are counted, because a
+protection that reads as present and is absent is worse than an acknowledged gap:
+the gap gets a card and the phantom gets a tick.
+
+**The test to apply before writing any such instruction or field**, and it is one
+question: **would obeying this correctly require the model to know something it
+does not know?** Noticing that you misread a digit requires knowing the digit. If
+the answer is yes, it is `confidence` with a new name, however procedural the
+wording looks.
+
+**An instruction to a model specifies what its output must LOOK LIKE, never what
+its output MEANS.** Already in this file from the first instance, and the reason
+this one was predictable: **the more precisely a consistency rule is stated, the
+more convincingly a fabrication satisfies it.** "Make the lines sum to the total"
+is also a template for inventing lines that sum to the total.
+
+**Where the real control goes: on our side of the wire, in arithmetic we perform.**
+Card EXT-16 reconciles the line sum against the printed total in our validator,
+against a number we read, and it is not asking the model anything. That is a
+layer. The three fixtures above are its test cases, and they are committed as
+observed rather than rounded, with no fourth invented sum added to make the set
+look tidier.
+
+### A migration reaches production on merge, with no applier, no journal and no human
+**Tag:** infra
+**ERROR:** `docs/migrations/APPLY-LOG.md` listed `0028` to `0031` as pending while
+production reported them applied. Every card report said "authored and merged,
+**NOT applied**". No commit, no journal row, no actor. The obvious reading was
+that somebody applied them and failed to write it down.
+
+**Nobody did.** A **`Supabase Preview` check, from the GitHub app `supabase`,
+runs on every push to `main`** and points at the production project. It applies
+merged migrations. Its check output carries no title and no summary, so it says
+nothing about what it did.
+
+**IT WAS CONFIRMED BY PREDICTION, WITH A CONTROL, AND THAT IS WHY THIS ENTRY IS
+NOT SPECULATION.** Two migrations both numbered `0032` existed on the same day:
+`0032_extraction_draft_page_count.sql` on PR #180 and
+`0032_extraction_document_source.sql` on PR #177. Before merging either:
+
+    applied_ledger_version()           "0031"
+    extraction_drafts.page_count       42703, absent
+    extraction_drafts.document_source  42703, absent
+
+PR #180 was merged. PR #177 was left open. Within two minutes:
+
+    applied_ledger_version()           "0032"
+    extraction_drafts.page_count       PRESENT
+    extraction_drafts.document_source  still absent
+
+**The unmerged twin is the control.** Same day, same register, same shape, and
+only the merged one landed.
+
+**SOLUTION, and it is not a fix, it is a correction to what everyone believed.**
+
+**"Merging a migration file changes one text file in a git repository and changes
+nothing in any database" IS FALSE IN THIS REPOSITORY.** That sentence is in
+CLAUDE.md 3.1, it is the entire basis of the self-merge grant separating merge
+from apply, and it was true when written. It is not true now. **On this repo, on
+this integration, MERGE IS APPLY.**
+
+Everything downstream of that sentence needs re-reading:
+
+- **R-082's applier is not the only path to production, it is the path a terminal
+  takes.** `scripts/apply-pending-migrations.mjs` runs one transaction, records
+  the register, asserts in SQL and commits only on all-pass. **The integration
+  does none of that** and needs no permission from anyone.
+- **8.6's destructive-statement stop protects nothing here.** A merged migration
+  containing `DROP TABLE` applies on merge. Every terminal would have obeyed the
+  rule and the table would be gone anyway.
+- **8.8 is broken by a party it does not describe.** It says a production write
+  with no row in one of the two journals is a violation. It is written for
+  terminals. This writer is not one.
+- **The pending register cannot be trusted as a statement about production.** It
+  is a statement about what a terminal has applied, which is a different and much
+  smaller set.
+
+**The rule.** **A repository's doctrine describes the actors it knows about. Before
+relying on a control, ask what ELSE can perform the action it controls** - an
+integration, a bot, a scheduled job, a console someone can click. A control that
+binds every actor you thought of, and there is a writer you did not, is not a
+weaker control; it is an inventory error, and the gap is invisible precisely
+because every actor you audit is compliant.
+
+**How it was found, which is the reusable part:** by reading production and the
+repository and refusing to reconcile them by assumption. The register said
+pending, production said applied, and the temptation was to write four journal
+entries and move on. The entries would have been fiction, and the actual defect -
+an unaudited write path - would have stayed hidden behind them.
+
+### A proof script that copies the live board inherits today's board as an unstated precondition
+**Tag:** ci
+**ERROR:** `scripts/poc/test-ask-digest.sh` case 6 asserts the digest is **silent
+when nothing is outstanding**, and it builds its fixture by copying the **live**
+`docs/board/rc-board-phase2.json`. `digest.mjs` counts a card that is
+`status: blocked` with `blocked_on: "ivan"` as an outstanding question, and it is
+right to: that is an owner action nobody else can discharge.
+
+Card `MIG-01` was then authored `blocked_on: ivan`, **exactly as CLAUDE.md section
+4 requires** of a decision a terminal may not make, and **three assertions turned
+red**:
+
+### A gate that goes red when the doctrine is obeyed trains terminals out of obeying it
+**Tag:** ci
+**ERROR:** Card `MIG-01` was authored `blocked_on: ivan` with a structured
+decision-needed question, which is **exactly what CLAUDE.md section 4 requires**
+of a decision a terminal may not make. Three assertions in
+`scripts/poc/test-ask-digest.sh` turned red:
+
+    FAIL  the first run sent 1 digest(s) with nothing outstanding
+    FAIL  an unchanged board produced 3 digest(s)
+    FAIL  the digest kept nagging after the question was answered
+
+**The card was correct. The digest was correct. The fixture was wrong.** The
+assertion had held only while the live board happened to contain no card blocked
+on Ivan, and it contained none: checked against `origin/main`, the count was
+**zero**. The test had been passing by luck since it was written.
+
+**SOLUTION:** the fixture is neutralised after the copy. Every card that is
+blocked on Ivan has its `status`, `blocked_on` and `question` cleared, so the
+baseline is a genuinely quiet board rather than whatever the board looks like
+today. Cases 7a to 7d, which each introduce ONE of the four conditions into the
+same fixture and assert the digest speaks, need that quiet baseline too, so this
+makes them honest as well as case 6.
+
+**THE RULE, AND IT HAS TWO HALVES.**
+
+**A fixture copied from live data carries every property that data happens to
+have**, including the ones nobody chose and nobody wrote down. A test built that
+way does not fail when the code breaks; it fails when the data moves. Copy live
+data into a fixture only after neutralising the properties the assertion depends
+on, and say in the fixture which ones those are.
+
+**And the sharper half: A GATE THAT GOES RED WHEN THE DOCTRINE IS OBEYED IS WORSE
+THAN NO GATE.** Section 4 says a card a terminal cannot decide goes
+`blocked_on: ivan`. Doing that turned `quality` red. The next terminal to meet
+this learns that blocking a card correctly costs it a red build, and the cheap way
+out is to not block the card. **When a check punishes correct behaviour, fix the
+check immediately** - it is training every future run against the rule it was
+built to protect.
+
+`digest.mjs` counts a card that is `status: blocked` with `blocked_on: "ivan"` as
+an outstanding question, and **it is right to**: that is an owner action nobody
+else can discharge. Case 6 builds its "nothing outstanding" fixture by copying the
+**live** board, and the number of cards blocked on Ivan on `origin/main` was
+**zero**, so the assertion had been passing on that and nothing else.
+
+**The card was correct. The digest was correct. The fixture was wrong.** Proven
+rather than assumed: `digest.mjs decide` returned `send: true` with reason
+`"a question is outstanding"` against the branch board, and `send: false` against
+the same board with `MIG-01` removed.
+
+**SOLUTION: THE FIXTURE WAS FIXED AND THE CARD WAS NOT, and the direction is the
+entire lesson.** The fixture now clears `status`, `blocked_on` and `question` on
+any card blocked on Ivan, and **reports what it did** — a silent fixture edit
+would be the same defect one layer down.
+
+**THE CHEAP EXIT WAS TO DROP `MIG-01`'s `blocked_on`.** It would have gone green
+in seconds, cost nothing visible, and left a card that a terminal may not decide
+sitting in `todo` as though it could. **That is the outcome this entry exists to
+make unthinkable.**
+
+**The rule.** **A check that punishes correct behaviour is not a strict check, it
+is a broken one, and it must be fixed the moment it is found.** Every hour it
+stands, it teaches the next terminal that following the rule costs a red build
+and that the way out is to stop following the rule. A gate is supposed to make the
+correct path the cheap path; when it inverts that, it is actively training against
+the doctrine it was built to protect.
+
+**How to tell this case from an ordinary failure**, because "the check is wrong"
+is also what every terminal with a real bug wants to believe: ask whether the
+thing that turned it red is **required** by a rule written down somewhere. Section
+4 requires `blocked_on` on an undecidable card. If obeying a written rule is what
+made the gate red, the gate is wrong. If it is your code that made it red, it is
+not.

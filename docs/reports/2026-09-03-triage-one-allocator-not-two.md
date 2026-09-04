@@ -1,3 +1,5 @@
+> **Note added 2026-09-04:** the rulings written by this run as `R-090` and `R-091` were renumbered to `R-125` and `R-126` before merging, because #157 had also written those two numbers on an open branch. See the renumber note on each ruling in `decisions/inbox.md`.
+
 # TRIAGE, 2026-09-03: one allocator and not two, plus an apply nobody owns
 
 Run `20260903-070005`. Branch `triage/20260903-070005`, cut from `main` at `3642d79`.
@@ -140,7 +142,7 @@ fixes future lanes and leaves AUT-8 and AUT-9 stuck for ever, because
 A `(prefix, number, suffix)` key fixes today and every future lane, and it
 preserves the property P3-04b depends on by name.
 
-Ruled **R-090**. Card **BOARD-03** authored. **No `depends_on` was edited**:
+Ruled **R-125**. Card **BOARD-03** authored. **No `depends_on` was edited**:
 adding edges to force an order would encode a workaround as a dependency.
 
 ---
@@ -175,7 +177,7 @@ nothing and decided nothing about a destructive run.** Ruled **R-089**, card
 
 ## 6. Gate audit, DOCTRINE-TRIAGE section 4. Phase 2 stays 6 of 9, nothing flipped
 
-Ruled as **R-091**. The full audit is written into each gate's `notes`.
+Ruled as **R-126**. The full audit is written into each gate's `notes`.
 
 | gate | verdict | the clause that decides it |
 |---|---|---|
@@ -218,7 +220,7 @@ fourth board is a one-line change and not a fourth hardcoded path". Two more
 copies exist outside `scripts/poc/`: `check-unique-ids.mjs` `BOARDS` at line 57,
 and `check-card-ids.mjs` `DEFAULT_BOARDS` at line 63. Both correctly exclude
 `BOARD-TEMPLATE.json`, whose placeholder id `CARD-ID` a naive glob would count as
-real. Recorded in AUT-16's `notes` under R-091. **No new card**, per section 5.
+real. Recorded in AUT-16's `notes` under R-126. **No new card**, per section 5.
 
 ---
 
@@ -247,7 +249,7 @@ Both are in `docs/poc/triage-latest.json`.
   still met on committed evidence and still not shipped, for the reason R-077 gave.
 - **Read no database and claims no database fact.** Every G7 and G9 statement above
   is derived from committed files and previous audits, and says so.
-- **Edited no existing ruling.** R-088 and R-090 correct doctrine and code, not
+- **Edited no existing ruling.** R-088 and R-125 correct doctrine and code, not
   decisions, and neither supersedes anything.
 - **Did not audit the phase 3 gate.** GATE-02 owns it. Section 6 says why.
 

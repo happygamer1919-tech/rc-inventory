@@ -5,8 +5,8 @@
     "R-087",
     "R-088",
     "R-089",
-    "R-090",
-    "R-091"
+    "R-125",
+    "R-126"
   ],
   "cards_resequenced": [
     {
@@ -23,7 +23,7 @@
     },
     {
       "card_id": "BOARD-03",
-      "change": "authored by TRIAGE under R-090. The overnight system picks the next job by sorting job numbers as text, so job 16 comes out ahead of job 8. Two jobs from last week are stuck behind three newer ones and will stay there for ever. One of the two stuck jobs is the fix for the night that ran nine hours instead of forty-five minutes."
+      "change": "authored by TRIAGE under R-125. The overnight system picks the next job by sorting job numbers as text, so job 16 comes out ahead of job 8. Two jobs from last week are stuck behind three newer ones and will stay there for ever. One of the two stuck jobs is the fix for the night that ran nine hours instead of forty-five minutes."
     },
     {
       "card_id": "AUT-16",

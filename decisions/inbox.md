@@ -4612,6 +4612,285 @@ the whole run, including work with no relation to the question. Section 4 alread
 forbade halting for a question. This forbids halting for an answer nobody was
 waiting on.
 
+### R-096
+
+**The sample document signed URL TTL is raised from two hours to twenty-four,
+for the four permanent test documents only.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch.
+
+**Scope, and it is the whole ruling.** `scripts/ext/serve-sample-documents.mjs`
+signs at `TTL_SECONDS`, which becomes `24 * 60 * 60`. That script signs exactly
+the four PDFs under `_samples/andre` and its own throwaway probe object. Those
+are **test fixtures containing no client data**: they are supplier documents
+handed over as an extraction sample set, and nothing under that prefix is reached
+by any product surface.
+
+**NO OTHER SIGNING PATH CHANGES.** `lib/data/inbound-actions.ts` line 238 and
+`lib/data/extraction-fire.ts` line 23 both sign at fifteen minutes and are not
+touched by this ruling. A real supplier document carried to the extractor still
+expires in fifteen minutes. Anyone reading this ruling as a general TTL increase
+has read it wrong.
+
+**The reason line, verbatim from the dispatch:** a TTL shorter than the
+counterparty response cycle produces repeat handoffs through the owner.
+
+Two hours was chosen when the links were issued and checked inside one sitting.
+The counterparty is a person in another company working his own week: a link
+issued on our afternoon is opened on his morning. Every expiry between those two
+moments is not a security event, it is a message to the owner asking for a fresh
+link, and the owner is the one path in this project that does not scale.
+
+**What did NOT change and why it is safe.** The token is still a Supabase signed
+JWT over one object path, still single-scope `download`, still unguessable, and
+still verified by the same route. The failure contract in
+`docs/contracts/document-url.md` is untouched: expired is still `400`
+`EXPIRED_TOKEN`, tampered is still `401` `INVALID_TOKEN`, missing is still `404`
+`OBJECT_NOT_FOUND`, and no path returns `text/html`. Lengthening the window on a
+fixture set widens no blast radius, because the objects behind it are the four
+documents we deliberately gave away.
+
+**ON THE ID, AND IT IS A DEVIATION WORTH READING.** `decisions/NEXT-RULING-ID` on
+`origin/main` holds `R-087`, and by section 8b that is the id to take. It was not
+taken. `R-087` through `R-095` are each already written as a DIFFERENT decision on
+an open pull request: `triage/20260903-070005` (PR #172) claims `R-087` to
+`R-091`, `triage/20260902-070904` (PR #157) claims through `R-095`. Section 8b
+exists to stop one number naming two decisions, and taking `R-087` here would
+have produced exactly that, knowingly, rather than as the invisible race the
+counter was built to convert into a conflict. `R-096` is the first id no open
+branch has written. The counter advances to `R-097`. Nothing is renumbered.
+
+
+### R-097
+
+**The extraction contract gains `document_source` on the emitter side: two values,
+`scan` under any doubt, and absent read as `scan` as a second layer.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-03, in his own dispatch,
+after Andre's report on the field.
+
+The contract is frozen, so it changes by ruling. Three amendments, and a note that
+is not an amendment because it changes nothing.
+
+**Amendment 1. The emitter side of the enum carries `scan` and `digital`, and
+nothing else.** No `unknown`, no `photo`, no `mixed`, no empty string. A third
+value on the emitter side is not a richer signal, it is a branch nobody wrote:
+every consumer of this field has exactly two arms, and a value that matches
+neither survives only as long as somebody remembers to look for it.
+
+**Amendment 2. The model declares `scan` whenever it is not certain. This is the
+FIRST layer and it lives in the prompt.** Uncertainty about the source is not
+reported as uncertainty, it is reported as `scan`. The asymmetry is the reason and
+it is not generic caution: calling a scanned document `digital` puts invented
+stock into a real warehouse, and calling a digital one `scan` costs somebody
+reading a document with their own eyes. Those two errors are not the same size, so
+the tie does not get broken in the middle.
+
+**This amendment is deliberately NOT of the same kind as `confidence`, removed by
+EXT-14.** `confidence` asked the model to know that it had misread something,
+which is knowledge it does not have. This asks it to break a tie in a stated
+direction when it cannot tell an image from a text layer. The first is
+introspection, the second is a default.
+
+**Amendment 3. Absent reads as `scan` on our side. This is the SECOND layer, not
+the first.** A payload that omits the field, or sends it null, is read as `scan`.
+Amendment 2 is not made redundant by this and the ordering matters: a prompt rule
+that is only enforced by our default is a prompt rule nobody can observe being
+broken, because every violation arrives looking exactly like a payload that did
+the right thing. The default catches the emitter that has not shipped the rule
+yet. It is not the rule.
+
+**THE NOTE, AND IT IS THE PART MOST LIKELY TO BE READ WRONG. Our validator's
+accepted set is NOT narrowed by any of the three amendments above.** Amendments 1
+through 3 bind what Andre's scenario EMITS. What we ACCEPT is a separate set, it
+is wider, and it stays wider on purpose. An acceptance set that tracks the
+emitter's set exactly turns every ordering of two deploys into an outage: he ships
+first and we reject valid payloads, or we ship first and reject the payloads he
+has not stopped sending. **Our acceptance may be wider than his emission and must
+never be narrower.** Nothing in this ruling removes a value our validator accepts
+today, and no future card may cite this ruling as authority to.
+
+
+---
+
+### R-123
+
+**RENUMBERED FROM `R-098` ON 2026-09-04, BEFORE MERGING, AND THE REASON IS THIS
+RULING'S OWN SUBJECT MATTER.** Pull request #184 also writes `R-098`, with a
+different heading, and neither pull request had merged. `npm run check:unique-ids`
+was green on both, because it compares each branch against `main` and within each
+side the ids are perfectly unique. That is exactly the defect card `RULE-04`
+describes, met in the wild while allocating this very id.
+
+**RENUMBERING HERE IS NOT THE RENUMBERING CLAUDE.md 8b FORBIDS.** That rule
+protects an id already on `main`, which has been cited and read and which history
+must not lose. This id had never landed anywhere, so nothing points at it.
+`R-098` is left to #184, which claims `R-098` through `R-101`, and this ruling
+takes the next id verified free across `main` and all thirteen open branches.
+
+**A failure code that is new on ANY surface is communicated to the counterparty
+BEFORE it can be emitted or received, in BOTH directions, and it is added to a
+NAMED set rather than to an assumed one.**
+
+**Asked by:** EXECUTOR, 2026-09-03, on the owner's dispatch. **Decided by:** the
+owner in that dispatch.
+
+**Why now.** EXT-16 needs `reconciliation_failed`, which is **not in the set**.
+Section 5.2 fixes seven codes and says anything outside them is a rejected
+payload, `400`. So the moment our validator emits or accepts that code without
+Andre having been told, one of two things happens and both are outages:
+
+- **He emits it first and we reject it.** Our `400` says "error_code in afara
+  multimii", Make does not retry a `4xx`, and a document is dropped once, quietly.
+- **We emit it first and he does not know it.** Whatever his side does with an
+  unknown code, it was not designed for this one.
+
+Neither is a bug in anybody's code. Both are the two sides holding different
+copies of a set that section 5.2 calls fixed.
+
+**THE SETS, NAMED, so a future code is added to a stated set rather than an
+assumed one.** There is ONE `error_code` enum and it spans two surfaces. Both are
+named here because "add it to the error codes" is ambiguous today and a reader
+adding the eighth code needs to know which half they are touching and who else
+holds a copy.
+
+**The download path**, meaning failures that occur before the model runs, where
+the subject is our signed URL and our storage:
+
+    download_failed        the signed URL could not be fetched
+    url_expired            the signed URL had expired by the time Make used it
+
+**The payload path**, meaning failures of the extraction itself, where the
+subject is the document and the model:
+
+    unsupported_format     the file is not a format the extractor can read
+    unreadable_document    the format is supported and the content is not legible
+    extraction_failed      the model ran and produced nothing usable
+    invalid_output         the model produced output that does not satisfy the schema
+    timeout                the extraction exceeded Make's own limit
+
+**A third surface exists and has no codes yet, and that is stated so it is not
+discovered later.** Our own validator can now REFUSE a payload that is
+well-formed, which is what EXT-16 does when the arithmetic does not reconcile.
+That is neither a download failure nor an extraction failure: the download
+succeeded and the model returned. `reconciliation_failed` is the first member of
+that third group and it is **OURS to emit, not his**, which is precisely why it
+still has to reach him before it exists.
+
+**WHAT THE RULE REQUIRES, and it is four things.**
+
+1. **Both directions.** A code he adds reaches us before he emits it. A code we
+   add reaches him before we emit OR accept it. The asymmetry that would
+   otherwise creep in is that we think of his codes as "the contract" and ours as
+   "our behaviour"; they are the same set.
+2. **Before it can be emitted OR RECEIVED.** Accepting an unknown code is as much
+   a change as sending one, because acceptance is what section 5.2's `400` is
+   deciding.
+3. **Added to a named set.** The pull request that adds a code names which of the
+   groups above it joins, or declares a new group as this ruling declares the
+   third. A code appended to a table with no group named is how the two halves
+   drift.
+4. **The contract file is the record, not the message.** Telling him is not
+   enough; `docs/contracts/extraction-v2.md` carries the code and the group in the
+   same pull request that makes it emittable.
+
+**WHAT THIS DOES NOT DO.** It does not require his agreement, only his knowledge
+before the fact. Waiting for a counterparty to approve every code would put a
+third party in front of our own refusals, and the owner has ruled repeatedly that
+a control on our side is ours. It requires that he is never surprised.
+
+**Allocation note, and it is an instance of the thing RULE-04 cards.** `R-098`
+was taken on 2026-09-03 after reading `decisions/NEXT-RULING-ID` on `main` AND on
+all six open pull request branches then existing, and after grepping each for a
+written `R-098`. None had one.
+
+**AND IT COLLIDED ANYWAY, WHICH IS THE POINT.** By 2026-09-04 pull request #184
+had been opened and had also taken `R-098`. A sweep is only true at the moment it
+runs, and neither branch had merged, so nothing went red: `check:unique-ids`
+compares each branch against `main` only. This ruling was renumbered to `R-123`
+rather than argued about, and the heading above records it.
+
+**A MANUAL SWEEP IS NOT THE FIX, IT IS THE EVIDENCE THAT ONE IS NEEDED.** RULE-04
+asks for the check that refuses at allocation time, which is what would have
+caught this.
+
+### R-122
+
+**A probe run against production must be INCAPABLE OF WRITING, not merely undone
+if it writes. A probe whose undo is a DELETE is the wrong shape.**
+
+**Asked by:** EXECUTOR, 2026-09-04, on the owner's dispatch. **Decided by:** the
+owner in that dispatch.
+
+**THE INSTANCE IS THIS TERMINAL'S OWN PROBE, and it is cited rather than a
+hypothetical because the distinction the rule draws is exactly the one that probe
+sat on.**
+
+On 2026-09-03, verifying that the Supabase integration had applied migration 0032
+FAITHFULLY and not merely its `ADD COLUMN`, a probe posted a row to
+`extraction_drafts` carrying `page_count = 0`:
+
+    POST /rest/v1/extraction_drafts  {..., "page_count": 0}
+      ->  400  {"code":"23514", ...}
+
+`23514` is `check_violation`. The constraint refused it, **nothing was written**,
+and there was no row to journal under CLAUDE.md 8.8.
+
+**THE PROBE ALSO CARRIED A `DELETE` CLEANUP that would have run had the insert
+unexpectedly succeeded. It did not execute.** So the probe was safe. It was safe
+**BY CONSTRUCTION AND NOT BY DESIGN**, and that is the whole ruling: the thing
+that made it safe was a constraint the probe was testing for, not a property the
+probe had. Had the constraint been absent, which is the case the probe existed to
+detect, the insert would have succeeded and the `DELETE` would have run against
+production.
+
+**WHY A DELETE CLEANUP IS NOT A ROLLBACK.** PostgREST offers **no transaction**.
+There is nothing to roll back, so "undo it afterwards" means a second write, on a
+second request, which can fail on its own, and which leaves the row in place if
+the process dies in between. A transaction either happens or does not; a
+compensating delete is a promise.
+
+**AND IT COLLIDES WITH 8.6.** A `DELETE` against production is in the forbidden
+class. R-047 permits a DELETE-class SCRIPT only when it runs inside an explicit
+transaction, evaluates its own pass and fail conditions in SQL before the commit,
+and commits only on all-pass. A cleanup delete over PostgREST satisfies none of
+those three, so a probe that might run one is a probe that might execute an
+unauthorised destructive statement.
+
+**WHAT THE RULE REQUIRES, and it is one thing with three ordinary forms.**
+
+**A production probe must be structurally unable to write.** Not "unlikely to",
+not "cleaned up if it does".
+
+1. **Read.** A `GET` cannot write. Most questions are answerable this way and
+   this is the default: whether a column exists, what a function returns, how
+   many rows match.
+2. **A write that the schema must refuse.** Permitted, and it is what the 0032
+   probe should have been on purpose: choose a value the constraint under test
+   forbids, so success is impossible and the refusal IS the answer. **Then carry
+   no cleanup at all**, because there is nothing to clean, and the absence of the
+   cleanup is what proves the author knew it could not succeed.
+3. **A transaction, where one exists.** Through the applier or `psql`, `begin`
+   plus `rollback` is a real undo. Over PostgREST it is not available, so form 1
+   or form 2 applies.
+
+**WHAT IT FORBIDS:** a probe whose safety depends on a later request, on the
+process surviving, or on a condition the probe is itself trying to establish.
+
+**IT BINDS PROBES, NOT WORK.** A card that is authorised to write to production
+writes, journals it under 8.8, and is governed by 8.5, 8.6 and R-047 as before.
+This is about the reads-dressed-as-writes a terminal performs to answer a
+question, which have no card, no journal row and no ceremony, and which are
+therefore the ones most likely to be done casually.
+
+**Allocation note.** `R-122` was taken after reading `decisions/NEXT-RULING-ID`
+on `main` and on all thirteen open pull request branches, and grepping each for a
+written `R-122`. None had one. **That manual sweep found a live collision in the
+process:** pull requests #184 and #181 both write `R-098`, with different
+headings, and `check:unique-ids` is green on both because it compares each branch
+against `main` only. That is precisely the defect card `RULE-04` describes, and it
+is why this id is 122 rather than the 099 the counter would have handed out.
+
 ### R-087 - the ruling counter has a second allocator that never reads it, so the Telegram answer path issues an id the counter did not hand out and leaves the counter behind
 **Date:** 2026-09-03
 **Asked on:** RULE-02. Authors card RULE-03.
@@ -4767,7 +5046,10 @@ the check that would have caught this.
 
 ---
 
-### R-090 - the pick rule reads lexically and one lane was never zero padded, so two cards authored on 2026-08-28 sit behind three authored on 2026-08-31 in every run, permanently
+### R-125 - the pick rule reads lexically and one lane was never zero padded, so two cards authored on 2026-08-28 sit behind three authored on 2026-08-31 in every run, permanently
+
+
+**RENUMBERED 2026-09-04, BEFORE MERGING.** This ruling was written as `R-090`. Pull request #157 also wrote `R-090`, with different content, and neither had merged. `npm run check:open-branch-ids`, built the same day as card RULE-04, REFUSED BOTH BRANCHES and named the other one, which is the first time that collision has been caught by a machine rather than by a person reading two files. #157 merges first and keeps its number; this one moves, per the rule that the pull request merging SECOND renumbers and the one already on main never does. CLAUDE.md 8b forbids renumbering an id that has LANDED; this one had never left its branch.
 **Date:** 2026-09-03
 **Asked on:** the mandatory boot report of run 20260903-070005. Authors card BOARD-03.
 **Answer, verbatim:**
@@ -4825,7 +5107,10 @@ a dependency.
 
 ---
 
-### R-091 - the gate audit and the board sweep for run 20260903-070005: the phase 2 gate stays 6 of 9 with nothing flipped, four dependency checks over three boards resequence nothing, and the phase 3 gate is deliberately not audited because GATE-02 owns it
+### R-126 - the gate audit and the board sweep for run 20260903-070005: the phase 2 gate stays 6 of 9 with nothing flipped, four dependency checks over three boards resequence nothing, and the phase 3 gate is deliberately not audited because GATE-02 owns it
+
+
+**RENUMBERED 2026-09-04, BEFORE MERGING.** This ruling was written as `R-091`. Pull request #157 also wrote `R-091`, with different content, and neither had merged. `npm run check:open-branch-ids`, built the same day as card RULE-04, REFUSED BOTH BRANCHES and named the other one, which is the first time that collision has been caught by a machine rather than by a person reading two files. #157 merges first and keeps its number; this one moves, per the rule that the pull request merging SECOND renumbers and the one already on main never does. CLAUDE.md 8b forbids renumbering an id that has LANDED; this one had never left its branch.
 **Date:** 2026-09-03
 **Asked on:** DOCTRINE-TRIAGE sections 3 and 4, which require both every time.
 **Answer, verbatim:**

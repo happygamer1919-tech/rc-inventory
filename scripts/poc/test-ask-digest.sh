@@ -775,6 +775,42 @@ echo "6. the digest is silent when nothing changed"
 
 spool "$WORK/asks-6"
 cp "$REPO_ROOT/docs/board/rc-board-phase2.json" "$WORK/board-6.json"
+
+# THE FIXTURE IS NEUTRALISED, AND UNTIL 2026-09-03 IT ONLY LOOKED LIKE IT WAS.
+#
+# This case asserts the digest is SILENT with nothing outstanding, and it builds
+# its fixture by copying the LIVE phase 2 board. digest.mjs counts a card that is
+# `status: blocked` and `blocked_on: "ivan"` as an outstanding question, and it is
+# right to: that is an owner action nobody else can discharge.
+#
+# So the assertion held only while the live board happened to contain no such
+# card, which was an ACCIDENTAL PRECONDITION and not a property of anything. On
+# 2026-09-03 card MIG-01 was authored blocked on Ivan, exactly as CLAUDE.md
+# section 4 requires of a decision a terminal may not make, and three assertions
+# in this file turned red. The card was correct and the digest was correct; the
+# fixture was wrong.
+#
+# A GATE THAT GOES RED WHEN SKIP-NOT-HALT IS OBEYED IS A GATE THAT TEACHES
+# TERMINALS NOT TO OBEY IT. Neutralising here costs nothing that this case was
+# ever measuring: cases 7a to 7d each introduce ONE of the four conditions into
+# this same fixture and assert the digest speaks, so a genuinely quiet baseline is
+# what those need too.
+node -e '
+const fs = require("fs");
+const p = process.argv[1];
+const b = JSON.parse(fs.readFileSync(p, "utf8"));
+let n = 0;
+for (const c of b.cards) {
+  if (c.status === "blocked" && c.blocked_on === "ivan") {
+    c.status = "todo";
+    c.blocked_on = null;
+    c.question = null;
+    n += 1;
+  }
+}
+fs.writeFileSync(p, JSON.stringify(b, null, 2) + "\n");
+if (n > 0) process.stderr.write("  (neutralised " + n + " card(s) blocked on ivan for the quiet baseline)\n");
+' "$WORK/board-6.json"
 echo '{"escalations":[]}' > "$WORK/runstate-6.json"
 DSTATE=$WORK/digest-state-6.json
 rm -f "$DSTATE"
