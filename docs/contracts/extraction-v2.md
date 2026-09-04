@@ -353,7 +353,7 @@ reason is what the operator reads.
 
 ### 5.2a The set is named in two halves, and a new code is announced before it exists
 
-**Ruling R-098, amendment 1. Added 2026-09-03.**
+**Ruling R-123, amendment 1. Added 2026-09-03, renumbered from R-098 on 2026-09-04 before merging, because #184 held that id.**
 
 **A FAILURE CODE THAT IS NEW ON ANY SURFACE IS COMMUNICATED TO THE COUNTERPARTY
 BEFORE IT CAN BE EMITTED OR RECEIVED, IN BOTH DIRECTIONS.**

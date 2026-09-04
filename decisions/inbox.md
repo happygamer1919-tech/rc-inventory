@@ -4713,7 +4713,20 @@ today, and no future card may cite this ruling as authority to.
 
 ---
 
-### R-098
+### R-123
+
+**RENUMBERED FROM `R-098` ON 2026-09-04, BEFORE MERGING, AND THE REASON IS THIS
+RULING'S OWN SUBJECT MATTER.** Pull request #184 also writes `R-098`, with a
+different heading, and neither pull request had merged. `npm run check:unique-ids`
+was green on both, because it compares each branch against `main` and within each
+side the ids are perfectly unique. That is exactly the defect card `RULE-04`
+describes, met in the wild while allocating this very id.
+
+**RENUMBERING HERE IS NOT THE RENUMBERING CLAUDE.md 8b FORBIDS.** That rule
+protects an id already on `main`, which has been cited and read and which history
+must not lose. This id had never landed anywhere, so nothing points at it.
+`R-098` is left to #184, which claims `R-098` through `R-101`, and this ruling
+takes the next id verified free across `main` and all thirteen open branches.
 
 **A failure code that is new on ANY surface is communicated to the counterparty
 BEFORE it can be emitted or received, in BOTH directions, and it is added to a
@@ -4787,7 +4800,16 @@ third party in front of our own refusals, and the owner has ruled repeatedly tha
 a control on our side is ours. It requires that he is never surprised.
 
 **Allocation note, and it is an instance of the thing RULE-04 cards.** `R-098`
-was taken after reading `decisions/NEXT-RULING-ID` on `main` AND on all six open
-pull request branches, and after grepping each for a written `R-098`. None had
-one. That manual check is exactly the procedure RULE-04 asks to be automated,
-and it was performed by hand here because the automation does not exist yet.
+was taken on 2026-09-03 after reading `decisions/NEXT-RULING-ID` on `main` AND on
+all six open pull request branches then existing, and after grepping each for a
+written `R-098`. None had one.
+
+**AND IT COLLIDED ANYWAY, WHICH IS THE POINT.** By 2026-09-04 pull request #184
+had been opened and had also taken `R-098`. A sweep is only true at the moment it
+runs, and neither branch had merged, so nothing went red: `check:unique-ids`
+compares each branch against `main` only. This ruling was renumbered to `R-123`
+rather than argued about, and the heading above records it.
+
+**A MANUAL SWEEP IS NOT THE FIX, IT IS THE EVIDENCE THAT ONE IS NEEDED.** RULE-04
+asks for the check that refuses at allocation time, which is what would have
+caught this.
