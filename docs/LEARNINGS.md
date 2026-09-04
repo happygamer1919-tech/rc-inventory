@@ -3635,6 +3635,65 @@ thing that turned it red is **required** by a rule written down somewhere. Secti
 made the gate red, the gate is wrong. If it is your code that made it red, it is
 not.
 
+### A diff against an unmerged branch tip was read as a revert, and it produced four rulings and two cards
+**Tag:** ci
+**ERROR:** TRIAGE run `20260903-220002` reported, as the central finding of its
+run, that pull request `#183` had reverted committed content from `main`: 317
+lines of `docs/migrations/APPLY-LOG.md`, ruling `R-098`, two cards, three
+learnings, a contract section and a test fixture. The inventory was stated as
+"every line verified with `git diff b25dc75 origin/main`, nothing inferred", and
+the report asserted "`main` was `b25dc75` at that moment". None of it had
+happened. `b25dc75` is the tip of `board/dispatch-20260903`, open as pull request
+`#181`, and it has never merged. The diff was between an unmerged branch tip and
+`main`, and **in that direction everything the pull request ADDS appears as a
+deletion**. On the strength of it the run wrote `R-099` and `R-100`, authored
+`RESTORE-01` to restore content that was never removed, and authored `GUARD-02`
+against a class of failure with no live instance. Every command in the report ran
+and printed what the report says it printed. The reasoning on top of them was the
+part that failed.
+**SOLUTION:** `git diff A B` is symmetric in appearance and asymmetric in
+meaning, and it never says whether `A` was ever reachable from `B`. **Any claim
+that `main` lost content names the commit it lost it in and proves that commit is
+an ancestor of `main` before the claim is written:**
+
+```
+git merge-base --is-ancestor <sha> origin/main && echo YES || echo NO
+git branch -a --contains <sha>
+```
+
+The first returned `NO` and the second returned only the open pull request's own
+branch. Both cost one round trip and neither had ever been run in this
+repository. The second confirming step, when the accused commit is a merge, is to
+diff the merge against the parent it is accused of discarding, not against some
+other tree: `git diff --stat 29afb21^2 29afb21` returned two files and eight
+deleted lines, which were the branch's own intended edits. Ruled as `R-103`.
+
+### Four pull requests sat outside `main` for days and the ids on them had already collided
+**Tag:** ci
+**ERROR:** On 2026-09-04 four pull requests were open and unlanded: `#157`,
+`#172`, `#181` and `#184`. Three conflicted with `main`, which per `CLAUDE.md`
+section 3 means they triggered zero workflows, so every check result attached to
+them belonged to a commit nobody was proposing to merge. Between them they held
+fifteen ruling ids, eleven cards, and the fix for a journal that currently tells
+a reader six migrations are pending when production has applied at least four of
+them. **The ids had already collided with each other and no check could see it:**
+`R-090` and `R-091` mean different things on `#157` and `#172`, and `R-098` means
+different things on `#181` and `#184`. `check:unique-ids` compares each branch's
+headings against `origin/main`, where none of those ids exists, so all four
+passed, and any two of them landing makes the ambiguity permanent.
+**SOLUTION:** Two halves, and the second is the durable one. The instance is card
+`RST-05`, which lands all four as one reconciliation, because two pairs collide
+and resolving one at a time means redoing the next against it. The rule is
+`R-107`: **a ruling that has never been on `main` is not history and may be
+re-allocated a fresh id before it lands, and which side keeps the id is decided
+by MERGE ORDER, never by merit.** Section 8b's "no id is ever renumbered" protects
+what is committed to the trunk, and a branch is a proposal rather than history.
+Merge order is observable; merit is arguable, and the failure being guarded
+against is a terminal weighing two texts at 2am. The class fixes already exist and
+are still unworked: `RST-02` is the sweep that never selected a triage branch, and
+`AUT-18` is the census that would have named all four the same night.
+
+
 ### A stale green does not need a conflict: BEHIND reads exactly the same
 **Tag:** ci
 **ERROR:** Run `20260904-040001` booted onto PR #186, inherited from the run
