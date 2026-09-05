@@ -39,6 +39,97 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+// ===========================================================================
+// EXT-18. AUTOCONSISTENTA ANTETULUI, PE ACEEASI TOLERANTA.
+//
+// DOUA INTREBARI DESPRE CIFRELE PE CARE DOCUMENTUL LE TIPARESTE DESPRE SINE:
+//
+//   A.  subtotal + vat_amount  fata de  document_total
+//   B.  subtotal * vat_rate    fata de  vat_amount
+//
+// CE NU FACE, SI ESTE SCRIS AICI FIINDCA VA FI CITAT GRESIT. NU INCHIDE GAURA
+// FABRICATIEI. Andre a confirmat asimetria cu dovada: pe scanarea Matnord CU
+// PATRU LINII FABRICATE, subtotal plus TVA da document_total la banut si TVA da
+// subtotal ori cota la banut, amandoua aterizand la EXACT ZERO. Documentul cu
+// linii inventate TRECE amandoua verificarile de aici.
+//
+// CE FACE. Ridica PRETUL unei fabricatii care supravietuieste, obligand-o sa fie
+// coordonata intre antet SI tabelul de linii in loc sa fie doar in tabel. Este un
+// castig real si este alta afirmatie.
+//
+// ULTIMUL CONTROL RAMANE MIHAI UITANDU-SE LA SCANARE. Nici acest card, nici
+// EXT-16, nici EXT-17 nu il inlocuiesc, si niciunul nu reduce riscul la zero.
+// ===========================================================================
+
+/** Ce s-a intamplat cu una dintre cele doua verificari de antet.
+ *
+ *  `not_run` NU ESTE `passed`, si distinctia este toata grija de aici. Cele
+ *  patru cifre sunt nullable prin contract, iar o verificare careia ii lipseste
+ *  intrarea NU A RULAT. A o raporta ca trecuta ar fi exact forma de tacere pe
+ *  care o interzice EXT-16: "nu am putut sa ma uit" si "nu este nimic in
+ *  neregula" nu au voie sa se randeze la fel. */
+export type HeaderCheckOutcome = "passed" | "failed" | "not_run";
+
+export type HeaderInput = {
+  subtotal: number | null;
+  vatAmount: number | null;
+  documentTotal: number | null;
+  /** Cota, in procente, exact cum o poarta contractul: 20 inseamna 20%. */
+  vatRate: number | null;
+  /** Numarul de linii AL DOCUMENTULUI, fiindca el intra in toleranta.
+   *
+   *  Pe un payload numai-antet este zero si castiga pragul de 0.05. Nu este un
+   *  caz special: o verificare de antet nu devine mai stricta fiindca liniile
+   *  lipsesc. */
+  lineCount: number;
+};
+
+export type HeaderVerdict = {
+  /** false EXACT cand una dintre cele doua a esuat. `not_run` nu respinge. */
+  ok: boolean;
+  tolerance: number;
+  sum: { outcome: HeaderCheckOutcome; diff: number | null };
+  vat: { outcome: HeaderCheckOutcome; diff: number | null };
+};
+
+/**
+ * Se potrivesc cifrele antetului INTRE ELE?
+ *
+ * TOLERANTA ESTE toleranceFor, CHEMATA, NU RESCRISA. Cardul o spune in terms:
+ * expresia EXT-16 se EXTINDE, nu se dubleaza. Doua formule care nu sunt de acord
+ * la granita sunt mai rele decat una singura, iar granita este singurul loc unde
+ * o toleranta este vreodata consultata.
+ *
+ * ROTUNJIREA SE FACE INAINTE DE SCADERE, la fel ca la reconcile(), si din
+ * acelasi motiv: a rotunji dupa da alt raspuns exact la granita.
+ */
+export function headerConsistency(input: HeaderInput): HeaderVerdict {
+  const tolerance = toleranceFor(input.lineCount);
+  const has = (v: number | null): v is number => v !== null && Number.isFinite(v);
+
+  const sum =
+    has(input.subtotal) && has(input.vatAmount) && has(input.documentTotal)
+      ? (() => {
+          const diff = round2(
+            Math.abs(round2(input.subtotal! + input.vatAmount!) - round2(input.documentTotal!)),
+          );
+          return { outcome: (diff <= tolerance ? "passed" : "failed") as HeaderCheckOutcome, diff };
+        })()
+      : { outcome: "not_run" as HeaderCheckOutcome, diff: null };
+
+  const vat =
+    has(input.subtotal) && has(input.vatAmount) && has(input.vatRate)
+      ? (() => {
+          const diff = round2(
+            Math.abs(round2((input.subtotal! * input.vatRate!) / 100) - round2(input.vatAmount!)),
+          );
+          return { outcome: (diff <= tolerance ? "passed" : "failed") as HeaderCheckOutcome, diff };
+        })()
+      : { outcome: "not_run" as HeaderCheckOutcome, diff: null };
+
+  return { ok: sum.outcome !== "failed" && vat.outcome !== "failed", tolerance, sum, vat };
+}
+
 export type ReconcileInput = {
   lineTotals: readonly (number | null)[];
   subtotal: number | null;

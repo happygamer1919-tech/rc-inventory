@@ -347,4 +347,207 @@ would have removed the operator's own path, which is the opposite of the card.
 
 ---
 
+## 5. EXT-18: header self-consistency, on the same tolerance, claiming no more than it does
+
+**Card:** `EXT-18`, phase 3. **Files:** `lib/data/reconciliation.ts`,
+`app/api/extraction/callback/route.ts`, `scripts/poc-free/check-reconciliation.mjs`,
+`docs/contracts/extraction-v2.md`, plus three new e2e cases.
+
+### The expression is extended, never duplicated
+
+`headerConsistency()` **calls** `toleranceFor(input.lineCount)` and `round2()`.
+It does not restate either. The check asserts that in a way a regex on the first
+occurrence would have missed:
+
+    Math.max(0.05, ...) appears EXACTLY ONCE in the source
+
+Both checks round to two decimals **before** subtracting, and both are inclusive
+at the boundary, exactly as `reconcile()` is.
+
+### The two checks and the third outcome
+
+| | check |
+|---|---|
+| A | `subtotal + vat_amount` against `document_total` |
+| B | `subtotal * vat_rate` against `vat_amount` |
+
+A missing figure is `not_run`, never `passed`. `ok` is false **exactly when one
+of the two FAILED**, so a check that could not run does not reject on its own.
+What still rejects a document with no totals at all is EXT-16's `target_missing`,
+unchanged.
+
+### The three cases, each breaking one figure only
+
+Breaking one figure at a time is deliberate: a case that broke both would pass on
+a build that shipped only one of the two checks.
+
+| Case | Before | After |
+|---|---|---|
+| 18: `document_total` moved to 60410.00, 6.32 over the 0.07 tolerance | **FAILED** — `Expected: "failed"  Received: "extracted"` | pass, refused |
+| 19: `vat_rate` moved to 25, putting VAT 2516.82 out, **check A still exact** | **FAILED** — same shape | pass, refused |
+| 20: untouched payload unaffected; null `vat_rate` neither passes nor refuses; digital path unchanged | **passed** | pass |
+
+Case 20 passing before is what a control is for.
+
+### All four sample documents hold both checks
+
+Their header figures were **not recorded anywhere in the repository**, so they
+were read from the documents themselves with `pdftotext -layout` on 2026-09-04
+rather than transcribed from anybody's summary. The Matnord file is the one
+exception and the reason is the card's own subject: it is a scan with no text
+layer, `pdftotext` returns one byte, so its header comes from the record, where
+`50336.40` has been the printed subtotal since EXT-16.
+
+| document | lines | tolerance | A misses by | B misses by |
+|---|---|---|---|---|
+| `aviz-scan-matnord-0021884` | 7 | 0.07 | 0.00 | 0.00 |
+| `confirmare-comanda-mpc-8842` | 6 | 0.06 | 0.00 | 0.00 |
+| `factura-betonmix-4417` | 5 | 0.05 | 0.00 | **0.01** |
+| `factura-tehnocom-0009312` | 54 | 0.54 | 0.00 | 0.00 |
+
+**Betonmix's 0.01 is the one that matters**: `89609.38 * 0.20` is `17921.876` and
+the document prints `17921.87`. Four documents all landing at exactly zero would
+not have shown the tolerance is reachable at all, and the check asserts that at
+least one is.
+
+**A note on where those figures now live.** The EXT-08 report says, deliberately,
+that no total for any sample document appears in the repository, in the board or
+in anything sent to Andre, because an expected value sent alongside the file
+cannot be taken back. EXT-18's acceptance requires all four header figures as
+fixtures, so they are now in `check-reconciliation.mjs`. **The two are not in
+conflict**: the EXT-08 concern is about contaminating Andre's extraction test by
+telling him the answer, and nothing here goes to him. Line counts and line sums
+are still absent.
+
+### The claim, corrected as the dispatch required
+
+The card must not say header self-consistency closes the fabrication gap, and
+Andre has now confirmed the asymmetry with evidence.
+
+**On the Matnord scan whose line table contained four fabricated lines, both
+header checks land at exactly zero.** The document passes them. What refused that
+run was EXT-16's line sum, missing by `1301.00` against a `0.07` tolerance.
+
+So: **the check forces a fabrication to be coordinated across the header and the
+line table to survive. It does not detect one. Mihai looking at the scan stays
+the last control.** That sentence is now in three places somebody would read
+before quoting the card: the contract's 5.3a, the source header of
+`reconciliation.ts`, and the card's notes.
+
+**And it is a check case, not only a sentence.** `check:reconciliation` section 8
+runs the fabricated-line header through both checks and **requires** the answer
+to be zero on both, then requires the same run's line sum to miss by more than
+the tolerance. If somebody later "improves" the header checks into something that
+would have caught that document, that case goes red and the claim gets
+re-examined rather than drifting.
+
+### Three defaults taken, each recorded
+
+1. **Scope is the scan path**, the same gate as EXT-16. The card names no source.
+   Extending to digital would silently change the behaviour of documents Andre
+   delivers today, on a path EXT-16 deliberately left alone and case 14 asserts,
+   and R-098 requires a new failure on a surface to be announced first. Case 20's
+   third block asserts the digital path is untouched.
+2. **A failure carries `reconciliation_failed`, not a new code**, from the same
+   ruling: a ninth code would have to be communicated to Andre in both directions
+   before it could be emitted or received, and it has not been.
+3. **`line_count` is the payload's own line count**, so the header check and the
+   line check use one number on one document.
+
+### The fourth Matnord sum, and which card it rode with
+
+`48060.40`, which is the printed `50336.40` less the `2276.00` Andre's fourth run
+came in short. The check asserts that arithmetic rather than storing the number
+bare, so a transcription slip in either figure fails here.
+
+**It is EXT-16 scope absorbed by the owner's dispatch, and that is recorded
+rather than dressed up.** EXT-16 is shipped, and CLAUDE.md 2 says follow-up work
+on a shipped card is a new card. The dispatch put this fixture in the same step
+as EXT-18, and EXT-18 is the card whose acceptance already extends
+`check-reconciliation.mjs`, so a separate pull request for one fixture would have
+cost a full serialised drain cycle to touch the same file. The precedent is
+EXT-19's notes, where EXT-16 absorbing EXT-19's migration was recorded the same
+way and accepted.
+
+**The file's own sentence forbidding a fourth sum was about fabricating one, and
+it still binds.** It read: *"a fabricated fourth value would make the set look
+tidier and would be evidence of nothing."* Andre's fourth run **happened**, so it
+is evidence. The comment is rewritten to say which of the two it forbids rather
+than deleted. The check now also asserts the four readings are distinct from each
+other and that none equals the printed total: **five distinct numbers on one
+unchanged file**, spread across `10606.00` against a tolerance of `0.07`.
+
+### Commands
+
+    npx tsc --noEmit                                                exit 0
+    node docs/board/validate-board.mjs <all three>                   exit 0, 0 violations
+    npm run check:reconciliation                                     exit 0
+    npx playwright test extraction.spec.ts review.spec.ts           exit 0, 33 of 33
+    npm run check:board-edit                                         exit 0, EXT-18 todo -> shipped
+
+---
+
+## 5b. A production defect the lane found, verified, and carded: P3-38
+
+**Not part of the dispatch. Found while running EXT-18's acceptance, confirmed by
+a probe with a control, authored as a card and NOT built**, per CLAUDE.md 3: a
+defect noticed in passing becomes a card, not a quiet extra commit.
+
+### How it surfaced
+
+After eight full runs of `extraction.spec` and `review.spec` against **one
+persistent local stack**, `review.spec` case 1 went red:
+
+    Locator: getByTestId('review-line-name-0')
+    Error: element(s) not found
+
+The review **form** rendered. It had **no line inputs**. The database then held
+**252 unconfirmed drafts and 451 lines**.
+
+### The cause, probed rather than guessed
+
+`lib/data/extraction.ts` asks PostgREST for the lines of every pending draft in
+one request: `.in("order_id", pending.map(...))`. Three requests to the local
+PostgREST, same endpoint, same key, only the id-list length changing:
+
+| ids | response |
+|---|---|
+| 50 | `200` |
+| 150 | `200` |
+| 252 | **`414 URI Too Long`** |
+
+Bisected: **208 returns `200`, 209 returns `414`.** About 7.7 KB of request line,
+the shape of an 8 KB limit in the gateway in front of PostgREST.
+
+### The url length is the trigger. The discarded error is the defect.
+
+    const { data: lines } = await supabase.from("extraction_draft_lines")...
+
+`error` is never read. The `414` produces `lines === undefined`, an empty
+per-order map, and **every draft on the review screen renders with zero line
+items**. Nothing is red. The operator sees a screen saying, in effect, that none
+of these documents had anything written on them.
+
+**A screen that cannot tell "no lines" from "I could not read the lines" will
+find another way to say the wrong one.** Fixing the batching alone would leave
+the next unread error just as quiet, which is why `P3-38`'s acceptance requires
+both halves and why its defaults refuse the obvious wrong fix, capping the draft
+list.
+
+**The sibling is on the same function.** `.in("id", ids)` against `inbound_orders`
+a few lines above has the same unbounded shape. Less exposed today, because a
+`414` there would show *more* drafts rather than fewer, but the card names it so
+a fix cannot land half of it.
+
+### It is invisible in CI by construction
+
+Every CI run starts from `supabase db reset`, so the pending-draft count never
+leaves single digits. This needs an installation that has been running for a
+while, which is the only kind the client will ever have. A `docs/LEARNINGS.md`
+entry records that, and records the other half: the failure looked at first like
+a regression in this session's diff, and it was not.
+
+---
+
 ## (narrative continues; this file is written as the work proceeds)
+

@@ -13,11 +13,19 @@
 // 3-line document tolerates 0.05 BECAUSE THE FLOOR WINS. The third is the one
 // worth having: it is the only one where max() does anything.
 //
-// THE MATNORD RESULT IS COMMITTED AS OBSERVED AND NOT ROUNDED, AND THERE IS NO
-// FOURTH INVENTED SUM. Three runs of one 7-line page with a printed total of
-// 50336.40 excluding VAT returned 49035.40, 39242.00 and 38429.40, every one of
-// them with status extracted and reason null. A fabricated fourth value would
-// make the set look tidier and would be evidence of nothing.
+// THE MATNORD RESULT IS COMMITTED AS OBSERVED AND NOT ROUNDED. Runs of one
+// 7-line page with a printed total of 50336.40 excluding VAT returned 49035.40,
+// 39242.00 and 38429.40, every one of them with status extracted and reason null.
+//
+// A FOURTH SUM WAS ADDED ON 2026-09-04 AND IT IS OBSERVED, NOT INVENTED. Andre's
+// fourth run came in 2276.00 short of the printed total, which is 48060.40. The
+// sentence this file used to carry, "there is no fourth invented sum", was about
+// FABRICATING one to make the set look tidier, and it still binds. A run that
+// actually happened is evidence; a number chosen to round the set out is not.
+//
+// FIVE DISTINCT NUMBERS NOW SIT ON ONE UNCHANGED FILE: the printed 50336.40 and
+// four model readings of it, none equal to another, spread across 10606.00
+// against a tolerance of 0.07.
 
 import { readFileSync } from 'node:fs';
 
@@ -127,7 +135,7 @@ console.log('\n4. the Matnord scan, observed and not rounded, three runs of thre
   const target = 50336.40, lineCount = 7;
   const tol = toleranceFor(lineCount);
   if (tol !== 0.07) bad(`the Matnord tolerance is ${tol}, expected 0.07`);
-  const observed = [49035.40, 39242.00, 38429.40];
+  const observed = [49035.40, 48060.40, 39242.00, 38429.40];
   for (const sum of observed) {
     const diff = round2(Math.abs(round2(sum) - round2(target)));
     if (diff <= tol) bad(`sum ${sum.toFixed(2)} passed reconciliation, and every observed run must FAIL`);
@@ -136,8 +144,16 @@ console.log('\n4. the Matnord scan, observed and not rounded, three runs of thre
   const spread = round2(Math.max(...observed) - Math.min(...observed));
   if (spread > tol * 1000) ok(`the three runs disagree with EACH OTHER by ${spread.toFixed(2)}, on one unchanged page`);
   else bad(`the observed spread is ${spread}, which is not the result this fixture records`);
-  if (observed.length === 3) ok('exactly three observed sums, and no fourth invented one');
-  else bad(`${observed.length} sums, and the dispatch forbids adding one`);
+  if (observed.length === 4) ok('four observed sums, every one of them a run that happened');
+  else bad(`${observed.length} sums, and only OBSERVED runs may be added`);
+  if (new Set(observed).size === 4) ok('the four readings are DISTINCT from each other');
+  else bad('two of the four readings are the same number, which is not the record');
+  if (!observed.includes(target)) ok(`and none of them is the printed ${target.toFixed(2)}: five distinct numbers on one file`);
+  else bad('a reading equals the printed total, which is not what was observed');
+  // THE FOURTH, BY THE ARITHMETIC THE DISPATCH GAVE IT, so a transcription slip
+  // in either number fails here rather than being carried forward silently.
+  if (round2(target - 2276.00) === 48060.40) ok('the fourth run is the printed total less 2276.00, which is 48060.40');
+  else bad(`50336.40 less 2276.00 is ${round2(target - 2276.00)}, not the 48060.40 recorded`);
 }
 
 console.log('\n5. a document that DOES reconcile is accepted, so this is not a check that only refuses');
@@ -148,6 +164,92 @@ console.log('\n5. a document that DOES reconcile is accepted, so this is not a c
   const diff = round2(Math.abs(sum - round2(target)));
   if (diff <= tol) ok(`sum ${sum.toFixed(2)} against ${target.toFixed(2)} is inside ${tol.toFixed(2)}`);
   else bad(`a document inside the tolerance was refused: ${diff} > ${tol}`);
+}
+
+console.log('\n6. EXT-18: the header checks are the SAME expression, extended and not duplicated');
+{
+  // THE COUPLING IS BY SOURCE TEXT, exactly as section 1's is, and for the same
+  // reason: this check is not compiled and cannot import the implementation.
+  const shape = [
+    [/export function headerConsistency\(/, 'headerConsistency is exported from lib/data/reconciliation.ts'],
+    [/const tolerance = toleranceFor\(input\.lineCount\)/, "the header tolerance CALLS toleranceFor rather than restating it"],
+    [/round2\(input\.subtotal! \+ input\.vatAmount!\) - round2\(input\.documentTotal!\)/, 'check A is subtotal + vat against document_total, rounded before subtracting'],
+    [/round2\(\(input\.subtotal! \* input\.vatRate!\) \/ 100\) - round2\(input\.vatAmount!\)/, 'check B is subtotal * rate against vat_amount, rounded before subtracting'],
+    [/diff <= tolerance \? "passed" : "failed"/, 'the comparison is <= tolerance, inclusive, on both checks'],
+    [/outcome: "not_run" as HeaderCheckOutcome, diff: null/, 'a missing figure is NOT_RUN and carries no diff'],
+    [/sum\.outcome !== "failed" && vat\.outcome !== "failed"/, 'ok is false EXACTLY when one of the two FAILED, so not_run does not reject'],
+  ];
+  for (const [re, what] of shape) {
+    if (re.test(SOURCE)) ok(what);
+    else bad(`the header implementation no longer shows: ${what}`);
+  }
+
+  // ONE FORMULA, COUNTED. A second Math.max(0.05, ...) anywhere in this file is
+  // the duplication the card forbids in terms, and a regex that only asserts the
+  // first one would not see it.
+  const formulas = (SOURCE.match(/Math\.max\(0\.05,/g) || []).length;
+  if (formulas === 1) ok('Math.max(0.05, ...) appears EXACTLY ONCE in the source');
+  else bad(`the tolerance formula appears ${formulas} times; the card requires one named expression read from one place`);
+}
+
+console.log('\n7. EXT-18: both header checks hold on ALL FOUR sample documents');
+{
+  // A GUARD THAT HAS ONLY EVER RUN AGAINST DOCUMENTS IT REJECTS HAS NOT BEEN
+  // SHOWN TO ACCEPT A CORRECT ONE. These are the four documents Andre was sent,
+  // read from the files themselves on 2026-09-04 with `pdftotext -layout`, not
+  // transcribed from anybody's summary.
+  //
+  // THE MATNORD FIGURES ARE THE ONE EXCEPTION AND THE REASON IS THE CARD'S OWN
+  // SUBJECT: that file is a scan with NO TEXT LAYER, `pdftotext` returns one
+  // byte, so its header comes from the record instead, where 50336.40 has been
+  // the printed subtotal since EXT-16.
+  const samples = [
+    // name, lines, subtotal, vat_amount, document_total, vat_rate
+    ['aviz-scan-matnord-0021884', 7, 50336.40, 10067.28, 60403.68, 20],
+    ['confirmare-comanda-mpc-8842', 6, 23199.50, 4407.91, 27607.41, 19],
+    ['factura-betonmix-4417', 5, 89609.38, 17921.87, 107531.25, 20],
+    ['factura-tehnocom-0009312', 54, 1077347.00, 215469.40, 1292816.40, 20],
+  ];
+  for (const [name, lines, sub, vat, total, rate] of samples) {
+    const t = toleranceFor(lines);
+    const a = round2(Math.abs(round2(sub + vat) - round2(total)));
+    const b = round2(Math.abs(round2((sub * rate) / 100) - round2(vat)));
+    if (a <= t) ok(`${name.padEnd(28)} A: sub+vat vs total misses by ${a.toFixed(2)}, inside ${t.toFixed(2)}`);
+    else bad(`${name}: sub+vat vs total misses by ${a.toFixed(2)}, over ${t.toFixed(2)}`);
+    if (b <= t) ok(`${name.padEnd(28)} B: sub*rate vs vat misses by ${b.toFixed(2)}, inside ${t.toFixed(2)}`);
+    else bad(`${name}: sub*rate vs vat misses by ${b.toFixed(2)}, over ${t.toFixed(2)}`);
+  }
+
+  // AND THE TOLERANCE IS DOING WORK ON AT LEAST ONE OF THEM. Betonmix's check B
+  // misses by a cent, because 89609.38 * 0.20 is 17921.876 and the document
+  // prints 17921.87. Four documents that all landed at exactly zero would not
+  // show that the tolerance is reachable at all.
+  const bx = round2(Math.abs(round2((89609.38 * 20) / 100) - round2(17921.87)));
+  if (bx > 0) ok(`Betonmix check B misses by ${bx.toFixed(2)}, so the tolerance is load-bearing here and not decoration`);
+  else bad('Betonmix check B now lands at zero, and no sample exercises the tolerance');
+}
+
+console.log('\n8. EXT-18: what the header checks do NOT do');
+{
+  // THE FABRICATION THE OWNER CONFIRMED, RUN THROUGH BOTH CHECKS. Andre's Matnord
+  // scan carried FOUR FABRICATED LINES and a correctly read header. Both checks
+  // land at EXACTLY ZERO on it. This case exists so that nobody can read the
+  // section above as "the header check catches invented lines".
+  const t = toleranceFor(7);
+  const a = round2(Math.abs(round2(50336.40 + 10067.28) - round2(60403.68)));
+  const b = round2(Math.abs(round2((50336.40 * 20) / 100) - round2(10067.28)));
+  if (a === 0 && b === 0) {
+    ok('the scan with four fabricated lines passes BOTH header checks at exactly zero');
+  } else {
+    bad(`the fabricated-line scan no longer lands at zero: A=${a} B=${b}`);
+  }
+  // AND EXT-16 IS WHAT CAUGHT IT, on the same document, which is the whole
+  // asymmetry: the header agreed with itself and the line table did not agree
+  // with the header.
+  const lineSum = 49035.40;
+  const missed = round2(Math.abs(round2(lineSum) - round2(50336.40)));
+  if (missed > t) ok(`while the LINE sum on the same run misses by ${missed.toFixed(2)}, over ${t.toFixed(2)}, which is what refused it`);
+  else bad('the line sum no longer refuses that run, and the asymmetry this case records is gone');
 }
 
 console.log('');

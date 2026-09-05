@@ -1007,4 +1007,113 @@ test.describe("Extragere documente", () => {
     await expect(card).toHaveAttribute("data-status", "extracted");
     await expect(card.getByTestId("draft-review")).toHaveCount(1);
   });
+
+  // -------------------------------------------------------------------------
+  // EXT-18. AUTOCONSISTENTA ANTETULUI, PE ACEEASI TOLERANTA.
+  //
+  //   A.  subtotal + vat_amount  fata de  document_total
+  //   B.  subtotal * vat_rate    fata de  vat_amount
+  //
+  // Payload-ul matnord de baza le TRECE pe amandoua exact, deci fiecare caz de
+  // mai jos strica O SINGURA cifra. Un caz care le-ar strica pe amandoua ar trece
+  // si pe o implementare care are numai una dintre cele doua verificari.
+  // -------------------------------------------------------------------------
+
+  test("18. EXT-18: subtotal plus TVA care nu da totalul documentului este RESPINS", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "hdrsum");
+
+    // NUMAI document_total se misca. prices_include_vat este false, deci
+    // reconcilierea EXT-16 tinteste subtotalul si trece mai departe: singurul
+    // lucru care poate respinge acest payload este verificarea A.
+    //
+    // 50336.40 + 10067.28 = 60403.68, si documentul pretinde 60410.00, adica
+    // 6.32 peste o toleranta de 0.07.
+    const r = await post(request, matnord(orderId, 50336.4, { document_total: 60410.0 }));
+    expect(r.status()).toBe(202);
+    const d = await draftState(request, orderId);
+    expect(d.status, "un antet care nu se aduna trebuie sa REFUZE").toBe("failed");
+    expect(d.error_code).toBe("reconciliation_failed");
+    expect(d.lines, "o scanare refuzata nu pastreaza nicio linie").toHaveLength(0);
+  });
+
+  test("19. EXT-18: TVA care nu este subtotalul ori cota este RESPINS", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "hdrvat");
+
+    // NUMAI vat_rate se misca, si acesta este tot rostul cazului: verificarea A
+    // ramane satisfacuta, fiindca 50336.40 + 10067.28 este exact 60403.68, deci
+    // numai verificarea B poate respinge.
+    //
+    // 50336.40 * 25% = 12584.10, si documentul pretinde 10067.28, adica 2516.82
+    // peste o toleranta de 0.07.
+    const r = await post(request, matnord(orderId, 50336.4, { vat_rate: 25.0 }));
+    expect(r.status()).toBe(202);
+    const d = await draftState(request, orderId);
+    expect(d.status, "un TVA care nu iese din cota trebuie sa REFUZE").toBe("failed");
+    expect(d.error_code).toBe("reconciliation_failed");
+    expect(d.lines).toHaveLength(0);
+  });
+
+  test("20. EXT-18: un antet care se aduna este NEATINS, si o cifra absenta nu este nici trecere nici refuz", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // 1. AMANDOUA SE POTRIVESC -> NEATINS. Fara acest caz, o implementare care
+    //    respinge TOT ar trece cazurile 18 si 19 in intregime.
+    {
+      const { orderId } = await orderWithDocument(page, "hdrok");
+      const r = await post(request, matnord(orderId, 50336.4));
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "un antet consistent nu are voie sa fie atins").toBe("extracted");
+      expect(d.error_code).toBeNull();
+      expect(d.lines).toHaveLength(7);
+    }
+
+    // 2. O CIFRA ABSENTA: verificarea NU A RULAT, si asta nu este un refuz.
+    //    vat_rate null face verificarea B imposibila; A ramane satisfacuta si
+    //    reconcilierea liniilor la fel, deci documentul trece. Defaults-ul
+    //    cardului o cere in terms: o verificare careia ii lipseste intrarea nu
+    //    se raporteaza ca trecuta, si nici nu respinge de una singura.
+    {
+      const { orderId } = await orderWithDocument(page, "hdrnull");
+      const r = await post(request, matnord(orderId, 50336.4, { vat_rate: null }));
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "o cifra absenta nu respinge singura").toBe("extracted");
+      expect(d.lines).toHaveLength(7);
+    }
+
+    // 3. CALEA DIGITALA ESTE NEATINSA, si aceasta este o DECIZIE, nu o scapare.
+    //    Acelasi antet stricat ca la cazul 18, declarat digital, trece exact ca
+    //    pana acum. EXT-16 a lasat calea digitala neatinsa in mod deliberat si
+    //    cazul 14 o afirma; un refuz nou acolo ar schimba in tacere un
+    //    comportament pe care Andre il livreaza astazi, iar hotararea R-098 cere
+    //    ca un esec nou pe o suprafata sa fie comunicat INAINTE sa poata aparea.
+    {
+      const { orderId } = await orderWithDocument(page, "hdrdig");
+      const r = await post(
+        request,
+        matnord(orderId, 50336.4, { document_total: 60410.0, document_source: "digital" }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "calea digitala ramane neatinsa de acest card").toBe("extracted");
+      expect(d.error_code).toBeNull();
+      expect(d.document_source).toBe("digital");
+      expect(d.lines).toHaveLength(7);
+    }
+  });
 });
