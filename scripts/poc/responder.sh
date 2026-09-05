@@ -285,6 +285,20 @@ echo "$CLASSIFIED" | while IFS= read -r ROW; do
 
   log "question $UPDATE_ID: $(head -c 200 "$QUESTION_FILE")"
 
+  # AUT-8. The strip list, from the one place that defines it, read out of the
+  # worktree the same way chat-prompt.md is. A missing list is FATAL rather than a
+  # fallback: a fallback would be the second copy this file just stopped carrying.
+  if [ ! -r "$POC_CHAT_WORKTREE/scripts/poc/secret-names.sh" ]; then
+    log "FATAL: $POC_CHAT_WORKTREE/scripts/poc/secret-names.sh is missing, refusing to invoke a model with an environment nothing has vetted"
+    exit 1
+  fi
+  # shellcheck disable=SC1091
+  . "$POC_CHAT_WORKTREE/scripts/poc/secret-names.sh"
+  POC_STRIP_ARGS=()
+  while IFS= read -r POC_STRIP_LINE; do
+    POC_STRIP_ARGS+=("$POC_STRIP_LINE")
+  done < <(poc_secret_strip_args)
+
   ANSWER_FILE=$POC_CHAT_LOG_DIR/$RUN_ID-$UPDATE_ID.answer.txt
 
   # The worktree is clamped read-only for the duration of the answer, and the
@@ -295,10 +309,15 @@ echo "$CLASSIFIED" | while IFS= read -r ROW; do
 
   (
     cd "$POC_CHAT_WORKTREE" || exit 1
-    env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID \
-        -u SUPABASE_SERVICE_ROLE_KEY -u SUPABASE_DB_PASSWORD -u SUPABASE_DB_URL \
-        -u RESEND_API_KEY -u MAKE_WEBHOOK_URL -u MAKE_CALLBACK_SECRET \
-        -u VERCEL_TOKEN -u NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    # AUT-8. THE LIST MOVED TO scripts/poc/secret-names.sh AND IS NOT REPEATED HERE.
+    #
+    # It used to be written out at this call site. run.sh needed the same list at
+    # its own invocation, and two lists that agree today drift apart tomorrow: the
+    # failure mode is a credential quietly surviving in one process while the
+    # other is clean, and nobody notices because both look right in isolation.
+    # The list is now sourced above, from the worktree, and this call site reads
+    # it rather than restating it.
+    env "${POC_STRIP_ARGS[@]}" \
       claude -p "$(cat "$POC_CHAT_WORKTREE/scripts/poc/chat-prompt.md")
 
 THE QUESTION:

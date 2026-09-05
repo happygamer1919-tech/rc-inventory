@@ -466,6 +466,25 @@ jobs:
       - name: Prove the producer gate  # AUT-23-PRODUCER-GATE-PROOF
         run: bash scripts/poc/test-producer-gate.sh
 
+      # AUT-8. THE MODEL PROCESS CARRIES NO CREDENTIAL IT DOES NOT NEED.
+      #
+      # It does not read the strip list and compare it to another list, which
+      # would be two lists agreeing. It SETS every name on the list to a dummy
+      # value, spawns a child through the same env -u arguments run.sh spawns the
+      # executor with, and reads back what the model would have carried.
+      #
+      # It also proves its own assertions are load bearing: with one name removed
+      # from the list, that name reaches the child and the check goes red.
+      #
+      # NAMES ONLY, NEVER VALUES, per CLAUDE.md section 7. The dummy values are
+      # generated in the check, are not secrets, and are still never printed.
+      #
+      # NOT PATH FILTERED. It needs no container and no network, and the failure
+      # it catches is a credential quietly surviving, which is the class a skipped
+      # step hides best.
+      - name: Refuse a model child that carries a credential  # AUT-8-EXECUTOR-ENV-PROOF
+        run: npm run check:executor-env
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
