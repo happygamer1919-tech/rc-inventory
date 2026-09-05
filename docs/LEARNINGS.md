@@ -3848,3 +3848,27 @@ reader arriving with the old wording in hand. RULE: when a card's acceptance
 greps for the ABSENCE of a phrase, section 9c's quote-the-false-sentence style
 is unavailable for that phrase, and the supersession is written as description
 rather than as quotation. 9c's purpose survives, its literal form does not.
+
+### A strict required check plus a 45 minute cap means one merge per run, whatever the backlog
+**Tag:** ci
+**ERROR:** unattended run `20260905-010004` booted onto three open pull requests
+(#205 AUT-19, #206 the previous run's report, #207 the TRIAGE rulings). All three
+read `quality SUCCESS` and all three were `mergeStateStatus BEHIND`, so all three
+were stale under CLAUDE.md section 3. `quality` costs about 20.5 minutes on this
+repository, measured across the four most recent completed runs, and `main`
+requires branches to be up to date. Updating all three at once is free and their
+runs go green in parallel, but the FIRST merge puts the other two back to
+`BEHIND`, and a second round of 20.5 minutes does not fit inside what is left of
+a 45 minute cap. The arithmetic is structural, not incidental: a scheduled run
+can land exactly ONE pull request per run no matter how many are ready, so a
+backlog of N stale pull requests needs N runs to drain and grows faster than it
+drains as soon as more than one run per day opens one.
+**SOLUTION:** this run updated all three branches first, so their runs went green
+concurrently rather than serially, then spent its single merge window on the card
+pull request. RULE: a scheduled run treats its merge window as a budget of ONE and
+spends it on the highest-value pull request already open, before it considers
+opening another. `gh pr update-branch` on every stale pull request is still worth
+doing on the way past, because it costs seconds and leaves the next run a green
+head sha instead of a stale one. AUT-23 covers the half of this that is about not
+opening a fourth pull request; the half that is about only ever being able to
+close one is this entry.
