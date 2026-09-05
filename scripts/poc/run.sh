@@ -869,6 +869,217 @@ RPC_BR_EOF
 # EXTRACT-END pr-census
 
 # ---------------------------------------------------------------------------
+# THE PRODUCER GATE. Card AUT-23.
+#
+# WHAT IT IS FOR. This harness opens a pull request four times a day whether or
+# not the previous batch has been accepted, and the queue drains SERIALLY. The
+# drain is serial by construction and correctly so: branch protection carries
+# `required_status_checks.strict`, so a branch must be up to date with main
+# before it can merge, and every pull request behind main at merge time costs a
+# rebase and a full check run. THAT SETTING IS CORRECT AND DOES NOT CHANGE. The
+# owner said so in the dispatch that authored this card, in those words.
+#
+# THE OBSERVED COST, which is why the card exists: thirteen pull requests merged
+# one at a time, taking hours rather than minutes, with ELEVEN OF THIRTEEN behind
+# main at merge time. Two independent rates with no feedback between them is the
+# shape of it, and a producer gate is the smallest thing that couples them.
+#
+# PARK, NEVER DISCARD. The work is committed and the branch is PUSHED. Only the
+# pull request is withheld. A harness that threw the work away to keep the queue
+# short would have traded a slow queue for lost work, which is a worse trade than
+# the one it was asked to make.
+#
+# IT FAILS OPEN INTO OPENING. When the open count cannot be obtained the gate
+# opens exactly as it did before this card. An unopened pull request is invisible
+# work; a queue that is one too long is merely slow. The dispatch names this
+# direction explicitly and the fail-open case is asserted in the test rather than
+# left to be read off the code.
+#
+# WHAT IT IS NOT. It is not AUT-22, which stops a run STARTING a card it cannot
+# finish, and it is not AUT-18, which makes a run REPORT the open pull requests
+# it did not merge. This is the third question, whether to add to the queue at
+# all, and all three hold at once without subsuming one another.
+#
+# HOW IT IS TESTED. The three `gate_*` seams below are the only place gh or git
+# is touched. scripts/poc/test-producer-gate.sh lifts this block verbatim by its
+# fences, replaces the seams with fixtures, and asserts each of the card's four
+# clauses with a case that fails against the pre-change run.sh.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN producer-gate
+
+# THE THRESHOLD. ONE NAMED CONSTANT, IN ONE FILE, READ FROM ONE PLACE.
+#
+# Three, recommended on the card rather than left open, and ratified by the owner
+# in the dispatch that ordered this build. Three is roughly one drain cycle at
+# the observed check cost, so a run that finds three already open is a run whose
+# output would land behind three rebases. It is a constant and changing it is a
+# one line diff; what must not happen is a SECOND copy of it at another call
+# site, which is why every reader below goes through this name.
+POC_PR_DEPTH_THRESHOLD=${POC_PR_DEPTH_THRESHOLD:-3}
+
+# The parked spool. OUTSIDE THE REPOSITORY, and that is the whole reason it is a
+# directory of files rather than a field in docs/poc/state.json.
+#
+# A park withholds the pull request that carries state.json. A record of the park
+# written INTO state.json would therefore ride on the branch that was parked, and
+# would reach main only when the park ended. The one fact that must survive a
+# park is the one that would have been sealed inside it.
+POC_PARK_DIR=${POC_PARK_DIR:-${POC_LOG_DIR:-/Users/ivan/rc-poc-logs}/parked}
+
+# Seam 1. HOW MANY PULL REQUESTS ARE OPEN, ASKED AT THE MOMENT OF THE DECISION.
+#
+# Never a cached number and never one carried over from the census: a closed or
+# merged pull request costs the queue nothing, and the census ran earlier in this
+# run. Prints a non-negative integer, or NOTHING when it cannot tell, and the
+# difference between those two is what the fail-open rule turns on.
+gate_open_pr_count() {
+  GOPC=$(gh_bounded pr list --state open --limit 100 --json number -q 'length' | tr -d '[:space:]')
+  case "$GOPC" in
+    ''|*[!0-9]*) echo "" ;;
+    *) echo "$GOPC" ;;
+  esac
+}
+
+# Seam 2. Open a pull request for a branch that is ALREADY PUSHED. Prints the
+# number, or nothing. It never pushes and never commits: by the time the gate
+# runs, the work is on the remote either way.
+gate_open_pr() {
+  gh pr create --base main --head "$1" --title "$2" --body "$3" 2>/dev/null \
+    | tail -1 | grep -oE '[0-9]+$'
+}
+
+# Seam 3. Does this branch still exist on the remote? A parked branch whose
+# remote copy is gone was merged or deleted by somebody else, and opening a pull
+# request for it would fail every run forever.
+gate_branch_exists() {
+  [ -n "$(git ls-remote --heads origin "$1" 2>/dev/null)" ]
+}
+
+# Write the park record. One file per parked branch, named after the branch with
+# the slashes flattened, carrying the branch, the count that caused the park, the
+# threshold in force and the run that parked it.
+gate_park() {
+  GP_BRANCH=$1
+  GP_COUNT=$2
+  GP_RUN=$3
+  GP_TITLE=$4
+  GP_BODY=$5
+  mkdir -p "$POC_PARK_DIR" 2>/dev/null
+  GP_FILE=$POC_PARK_DIR/$(echo "$GP_BRANCH" | tr '/' '_').park
+  {
+    echo "branch=$GP_BRANCH"
+    echo "open_count=$GP_COUNT"
+    echo "threshold=$POC_PR_DEPTH_THRESHOLD"
+    echo "run_id=$GP_RUN"
+    echo "parked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "title=$GP_TITLE"
+    echo "body_first_line=$(echo "$GP_BODY" | head -1)"
+  } > "$GP_FILE"
+  log "producer gate: PARKED branch=$GP_BRANCH open=$GP_COUNT threshold=$POC_PR_DEPTH_THRESHOLD record=$GP_FILE"
+  log "producer gate: the work is committed and pushed. Only the pull request is withheld."
+}
+
+# THE DECISION, AND IT IS THE ONLY PLACE THE THRESHOLD IS COMPARED.
+#
+# SETS TWO GLOBALS RATHER THAN PRINTING, and that is not a style preference.
+# log() in this file writes to stdout, because the run's stdout IS the run log.
+# A decision function that printed its verdict would therefore have its verdict
+# and its own log lines captured together by `$(...)`, and the fail-open branch,
+# which is the branch that logs, would parse as a timestamp. The caller reads:
+#
+#   GATE_VERDICT   open | park
+#   GATE_COUNT     the number of open pull requests, or ? when it could not be read
+gate_decision() {
+  GATE_COUNT=$(gate_open_pr_count)
+  if [ -z "$GATE_COUNT" ]; then
+    log "producer gate: the open pull request count could not be obtained, FAILING OPEN"
+    GATE_VERDICT=open
+    GATE_COUNT="?"
+    return 0
+  fi
+  if [ "$GATE_COUNT" -ge "$POC_PR_DEPTH_THRESHOLD" ]; then
+    GATE_VERDICT=park
+  else
+    GATE_VERDICT=open
+  fi
+  return 0
+}
+
+# RELEASE WHAT AN EARLIER RUN PARKED, BEFORE THIS RUN ASKS ABOUT ITS OWN OUTPUT.
+#
+# Oldest record first, so the queue drains in the order the work was done rather
+# than in the order the runs happen to wake up.
+#
+# WITHOUT REDOING THE WORK. The branch is already pushed with its commit on it,
+# so releasing is one `gh pr create` against a ref that already exists. Nothing
+# is rebuilt, recommitted or regenerated, and a record whose branch has since
+# been merged or deleted is dropped rather than retried forever.
+#
+# Each release is decided on a FRESH count, because each release it performs
+# makes the next one less likely to be allowed. Stopping at the first refusal
+# leaves the rest parked, in order, for the next tick.
+gate_release_parked() {
+  GRP_RELEASED=0
+  GRP_KEPT=0
+  [ -d "$POC_PARK_DIR" ] || { log "producer gate: no parked branches"; return 0; }
+
+  for GRP_FILE in $(ls -1 "$POC_PARK_DIR"/*.park 2>/dev/null | sort); do
+    GRP_BRANCH=$(grep '^branch=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    GRP_TITLE=$(grep '^title=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    GRP_WHEN=$(grep '^parked_at=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    if [ -z "$GRP_BRANCH" ]; then
+      log "producer gate: park record $GRP_FILE names no branch, dropping it"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    if ! gate_branch_exists "$GRP_BRANCH"; then
+      log "producer gate: parked branch $GRP_BRANCH is gone from the remote, dropping the record"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    if [ -n "$(pr_for_branch "$GRP_BRANCH")" ]; then
+      log "producer gate: parked branch $GRP_BRANCH already has a pull request, dropping the record"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    gate_decision
+    if [ "$GATE_VERDICT" = park ]; then
+      log "producer gate: $GRP_BRANCH stays parked, $GATE_COUNT open at or above the threshold of $POC_PR_DEPTH_THRESHOLD"
+      GRP_KEPT=$(( GRP_KEPT + 1 ))
+      break
+    fi
+
+    GRP_PR=$(gate_open_pr "$GRP_BRANCH" "$GRP_TITLE" \
+      "Parked by the producer gate at $GRP_WHEN and released now that the queue has room.
+
+The work was committed and pushed when it was parked. Nothing was rebuilt.
+
+Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,
+no application code, no migration.
+
+Acceptance: the file parses and keeps its five fields.
+Migration files added: none.")
+    if [ -n "$GRP_PR" ]; then
+      log "producer gate: RELEASED $GRP_BRANCH as pull request #$GRP_PR, $GATE_COUNT open before it"
+      rm -f "$GRP_FILE"
+      GRP_RELEASED=$(( GRP_RELEASED + 1 ))
+    else
+      log "WARNING: producer gate could not open a pull request for parked branch $GRP_BRANCH, leaving it parked"
+      GRP_KEPT=$(( GRP_KEPT + 1 ))
+      break
+    fi
+  done
+
+  log "producer gate: released $GRP_RELEASED parked branch(es), $GRP_KEPT still parked"
+  return 0
+}
+# EXTRACT-END producer-gate
+
+# ---------------------------------------------------------------------------
 # WHICH REPORT THE REVIEW STEP IS HANDED. Card AUT-17.
 #
 # The old selection was `git ls-tree ... | sort | tail -1` and had three defects
@@ -1751,9 +1962,19 @@ Log: $LOG_FILE
 
 Harness bookkeeping only. No board file and no application code is touched."
     git push -q -u origin "$STATE_BRANCH"
-    STATE_PR=$(gh pr create --base main --head "$STATE_BRANCH" \
-      --title "POC: run $RUN_ID state" \
-      --body "Unattended run $RUN_ID.
+
+    # AUT-23. THE WORK IS COMMITTED AND PUSHED ABOVE, BEFORE THE GATE IS ASKED
+    # ANYTHING. That order is the "park, never discard" rule expressed as code:
+    # whatever the gate decides, the branch is on the remote with its commit on
+    # it, and the only thing the decision can change is whether a pull request
+    # points at it today or on the next tick.
+    #
+    # Earlier parks are released FIRST, so the queue drains oldest work first
+    # rather than letting this run jump the branch it parked last night.
+    gate_release_parked
+
+    STATE_PR_TITLE="POC: run $RUN_ID state"
+    STATE_PR_BODY="Unattended run $RUN_ID.
 
 Cards touched: ${CARDS_TOUCHED:-none}
 Executor: exit $EXECUTOR_EXIT, ${EXECUTOR_ELAPSED}s of ${POC_MAX_SECONDS}s, capped $CAPPED
@@ -1765,14 +1986,24 @@ Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,
 no application code, no migration.
 
 Acceptance: the file parses and keeps its five fields.
-Migration files added: none." 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+Migration files added: none."
 
-    if [ -n "$STATE_PR" ]; then
-      log "state PR #$STATE_PR opened"
-      merge_when_green "$STATE_PR" "$STATE_BRANCH" || \
-        log "state PR #$STATE_PR left open, the next run will merge it"
+    gate_decision
+
+    if [ "$GATE_VERDICT" = park ]; then
+      gate_park "$STATE_BRANCH" "$GATE_COUNT" "$RUN_ID" "$STATE_PR_TITLE" "$STATE_PR_BODY"
+      STATE_PR=""
     else
-      log "WARNING: state PR was not created"
+      log "producer gate: opening, $GATE_COUNT open pull request(s) against a threshold of $POC_PR_DEPTH_THRESHOLD"
+      STATE_PR=$(gate_open_pr "$STATE_BRANCH" "$STATE_PR_TITLE" "$STATE_PR_BODY")
+
+      if [ -n "$STATE_PR" ]; then
+        log "state PR #$STATE_PR opened"
+        merge_when_green "$STATE_PR" "$STATE_BRANCH" || \
+          log "state PR #$STATE_PR left open, the next run will merge it"
+      else
+        log "WARNING: state PR was not created"
+      fi
     fi
   fi
   git checkout --detach --force origin/main --quiet 2>/dev/null

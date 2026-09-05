@@ -152,6 +152,60 @@ function newestReport() {
 }
 
 /**
+ * The branches an earlier run PARKED instead of opening a pull request for.
+ * Card AUT-23.
+ *
+ * READ FROM THE SPOOL ON DISK, NOT FROM state.json, and the reason is the whole
+ * shape of a park. A park withholds the pull request that CARRIES state.json, so
+ * a record written into that file would ride on the branch that was parked and
+ * would reach main only once the park ended. The one fact that must survive a
+ * park is the one a state field would seal inside it.
+ *
+ * A CONSEQUENCE THAT IS STATED RATHER THAN HIDDEN: this digest is sent at step 4
+ * and the park decision is taken at step 5, so a run never reports its OWN park
+ * here. It reports every park still outstanding, which repeats until the queue
+ * clears, and that repetition is the point: a held pull request that went quiet
+ * would look exactly like one that was never held.
+ *
+ * READ DEFENSIVELY, like every other reader in this file. A digest that throws
+ * is a digest nobody gets, and the run it was reporting on then looks silent.
+ */
+const PARK_DIR = process.env.POC_PARK_DIR || "/Users/ivan/rc-poc-logs/parked";
+
+function readParked() {
+  let names;
+  try {
+    names = readdirSync(PARK_DIR);
+  } catch (error) {
+    if (error && error.code === "ENOENT") return [];
+    throw error;
+  }
+  const out = [];
+  for (const name of names.filter((n) => n.endsWith(".park")).sort()) {
+    let text;
+    try {
+      text = readFileSync(path.join(PARK_DIR, name), "utf8");
+    } catch {
+      continue;
+    }
+    const field = (key) => {
+      const line = text.split("\n").find((l) => l.startsWith(key + "="));
+      return line ? line.slice(key.length + 1) : null;
+    };
+    const branch = field("branch");
+    if (!branch) continue;
+    out.push({
+      branch,
+      openCount: field("open_count"),
+      threshold: field("threshold"),
+      runId: field("run_id"),
+      parkedAt: field("parked_at"),
+    });
+  }
+  return out;
+}
+
+/**
  * The triage outcome of the newest run. Card AUT-4.
  *
  * TRIAGE writes docs/poc/triage-latest.json in its own rulings PR (card AUT-3),
@@ -290,6 +344,30 @@ function buildDigest() {
       const days = entry.days_outstanding === null ? "?" : entry.days_outstanding;
       lines.push("- " + entry.id + ": " + entry.owed_by + " owes this, " + days + "d outstanding");
       lines.push("  " + firstLine(entry.title, 90));
+    }
+    lines.push("");
+  }
+
+  // AUT-23. THE PARKED BRANCHES, BY NAME, WITH THE COUNT THAT CAUSED THE PARK.
+  //
+  // THIS IS THE DIGEST THAT CARRIES THE BRANCH NAME, and the plain one is not.
+  // CLAUDE.md 15 forbids branch names, pull request numbers and claim mechanics
+  // in the message Ivan receives; this full digest is written for POC-BUILDER
+  // reading the logs and is exactly where that vocabulary belongs. The plain
+  // digest says the same fact in the owner's terms, with no branch in it.
+  const parked = readParked();
+  if (parked.length > 0) {
+    lines.push("PARKED, NOT OPENED (producer gate, card AUT-23)");
+    for (const entry of parked) {
+      lines.push(
+        "- " + entry.branch + ": parked at " + (entry.parkedAt || "?") +
+          " by run " + (entry.runId || "?")
+      );
+      lines.push(
+        "  " + (entry.openCount || "?") + " pull request(s) were open against a threshold of " +
+          (entry.threshold || "?")
+      );
+      lines.push("  the work is committed and pushed; only the pull request is withheld");
     }
     lines.push("");
   }
@@ -596,7 +674,12 @@ function renderBoth() {
   const state = readJson(STATE_PATH, {});
   const runId = args["run-id"] || state.run_id || "manual";
 
-  const plain = buildPlainDigest(set, state, { cards: args.cards });
+  // AUT-23. The COUNT and not the branch names. See the note above readParked
+  // and CLAUDE.md 15: the plain digest carries no branch, no number, no path.
+  const plain = buildPlainDigest(set, state, {
+    cards: args.cards,
+    parkedCount: readParked().length,
+  });
   const full = buildDigest();
 
   try {
