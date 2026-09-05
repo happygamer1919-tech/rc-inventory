@@ -794,6 +794,15 @@ RULE: a shared append-only file needs a per-author key or it needs a lock, and
 a lock across sessions that cannot see each other is not available. Namespacing
 is the cheap fix, and "renumber the new one, never edit the old one" is the rule
 that keeps the history readable when it happens anyway.
+**SUPERSEDED 2026-09-02 BY CARD RULE-02, and the entry is kept because a deleted
+lesson looks like a lesson nobody learned.** The namespacing half is gone: there
+is one flat namespace and one allocator, `decisions/NEXT-RULING-ID`, read and
+advanced in the same commit as the ruling, per CLAUDE.md section 8b. A prefix
+would have made collisions structurally impossible and would have forked a
+namespace that ninety rulings and every cross reference already used. What
+survives unchanged is the second half: an old ruling is never edited, and no id
+is ever renumbered to make a check pass. Card AUT-19 carried the same correction
+into `docs/DOCTRINE-TRIAGE.md` section 2.
 
 ### A guard that covers only one execution path is not a guard
 **Tag:** ci
@@ -3794,3 +3803,20 @@ against one persistent local stack is closer to a real installation than any
 single CI run is, and the failure it produced looked at first like a regression
 in the diff. It was not. Baseline against the unchanged tree before blaming the
 diff, and when a "flaky" failure appears only after several runs, count the rows.
+
+### A card acceptance that greps for an absent phrase forbids quoting it, even when the doctrine style says quote it
+**Tag:** ci
+**ERROR:** AUT-19's replacement text for `docs/DOCTRINE-TRIAGE.md` section 2 was
+first written in the style CLAUDE.md section 9c prescribes for a superseded
+doctrine sentence: the old wording quoted verbatim, marked false, left in place.
+That made `grep -c 'namespaced by author' docs/DOCTRINE-TRIAGE.md` print 1, and
+the card's own acceptance clause 1 requires 0. The two instructions pull in
+opposite directions on the same paragraph.
+**SOLUTION:** the acceptance wins, because it is the machine-checkable half and
+a card does not ship on a clause it fails. The supersession is stated in full
+without reproducing either forbidden string: what the old rule told a session to
+do, why it is gone, the ruling that recorded it, and a sentence addressed to a
+reader arriving with the old wording in hand. RULE: when a card's acceptance
+greps for the ABSENCE of a phrase, section 9c's quote-the-false-sentence style
+is unavailable for that phrase, and the supersession is written as description
+rather than as quotation. 9c's purpose survives, its literal form does not.
