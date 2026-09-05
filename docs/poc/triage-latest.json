@@ -1,27 +1,54 @@
 {
-  "run_id": "20260904-071258",
-  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
+  "run_id": "20260905-010004",
+  "report": "docs/reports/2026-09-05-executor-stale-pr-backlog.md",
   "rulings_written": [
-    "R-118",
-    "R-119",
-    "R-120",
-    "R-121"
+    "R-135",
+    "R-136",
+    "R-137",
+    "R-138",
+    "R-139",
+    "R-140",
+    "R-141"
   ],
   "cards_resequenced": [
     {
-      "card_id": "AUT-6",
-      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
+      "card_id": "phase 3 readiness list",
+      "change": "All nine readiness conditions for the client and project work were re-checked and rewritten. Still none of nine, but the reason recorded against every one of them had been dead since 31 August: it named database changes that were already switched on. Four of the nine now wait on one checking job."
+    },
+    {
+      "card_id": "P3-35",
+      "change": "The job that checks the live system is now the single thing five of the nine readiness conditions wait on, which makes it the most valuable job on that list today."
+    },
+    {
+      "card_id": "GATE-01",
+      "change": "A small security proof job turns out to be contained in the bigger checking job. Neither is cancelled: whoever does either first produces the proof for both and says so, and the second cites it instead of repeating it."
+    },
+    {
+      "card_id": "GATE-02",
+      "change": "The job asking for the readiness list to be re-checked has had that work done for it by this review. It stays open because a reviewer may not close a job, so someone verifies and closes it. It should be quick."
+    },
+    {
+      "card_id": "RULE-05",
+      "change": "A job fixing an out-of-date instruction now fixes a second one in the same file: the start-up checklist asks for one readiness score when there are two lists with a score each, and that already put a wrong number in a written report."
+    },
+    {
+      "card_id": "AUT-25",
+      "change": "NEW JOB. The overnight reviewer will be told which finished work is waiting to be folded in. Two reviews in a row wrote the same decisions twice because neither could see the other's work sitting in the queue."
+    },
+    {
+      "card_id": "GUARD-04",
+      "change": "NEW JOB. Twelve finished items record their proof as a placeholder instead of a real reference. This fills them in and adds a check so the next one cannot be filed that way."
+    },
+    {
+      "card_id": "RULE-08",
+      "change": "NEW JOB. The guard against two overnight sessions inventing the same decision number is extended to work item numbers, which have had the identical clash and were fixed by hand."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
-    },
-    {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
+      "title": "The one live document test with the extraction supplier has been waiting on him since 27 August. Ten days. The credential lockdown, the client's own acceptance walk and two of the nine launch conditions all sit behind it.",
+      "recommendation": "Set a date for the credential lockdown and do it on that date rather than waiting for him. RECOMMENDED BECAUSE HIS ANSWER BUYS EXACTLY ONE THING: a single real supplier document travelling the whole path is the only item that genuinely needs the temporary overnight permissions still being in place. Nothing else the lockdown switches off has anything to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is about half an hour of setup and not a rebuild. IF UNANSWERED: nothing breaks and nothing improves. The temporary overnight permissions stay live indefinitely on somebody else's schedule and the client's acceptance walk stays behind them, exactly as it has for ten days."
     }
   ]
 }
