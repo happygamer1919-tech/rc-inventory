@@ -882,6 +882,133 @@ test.describe("Extragere documente", () => {
   });
 
   // -------------------------------------------------------------------------
+  // EXT-17. RECONCILIAT NU INSEAMNA CITIT CORECT.
+  //
+  // Reconcilierea a prins esecul observat NUMAI fiindca modelul citise corect
+  // totalurile si gresit liniile. Un set de linii fabricate care se intampla sa
+  // dea totalul tiparit trece de aritmetica. Improbabil, nu imposibil, iar
+  // costul este stoc inventat intr-un depozit real.
+  //
+  // CE MASOARA "NU SE INREGISTREAZA SINGURA". Numarul de comenzi de intrare,
+  // citit de pe ecran INAINTE si DUPA callback. O inregistrare ar crea o comanda,
+  // deci un numar neschimbat este afirmatia, nu o descriere a ei.
+  // -------------------------------------------------------------------------
+
+  /** Cate comenzi de intrare sunt pe ecran acum. */
+  async function inboundCount(page: Page): Promise<number> {
+    await page.goto("/comenzi");
+    await expect(page.getByTestId("inbound-list")).toBeVisible({ timeout: 20_000 });
+    return await page.locator('[data-testid="inbound-item"]').count();
+  }
+
+  /**
+   * Incarca un document PE BANDA DE EXTRAGERE si intoarce order_id-ul mintit.
+   *
+   * NU ESTE orderWithDocument, SI DIFERENTA ESTE TOT ROSTUL ACESTOR DOUA CAZURI.
+   * orderWithDocument ataseaza documentul unei comenzi care EXISTA DEJA, iar
+   * listReviewDrafts exclude anume o astfel de ciorna: acolo comanda a fost deja
+   * creata de om, pe cealalta banda. O ciorna de pe banda de extragere nu are
+   * inca nicio comanda, deci "nu s-a inregistrat" se poate masura: o inregistrare
+   * ar crea una.
+   *
+   * Aceasta greseala a fost facuta si prinsa de cazul insusi: prima varianta a
+   * folosit orderWithDocument si a cautat ciorna in lista de verificare, unde
+   * nu putea sa fie niciodata.
+   */
+  async function uploadForExtraction(
+    page: Page,
+    request: APIRequestContext,
+    tag: string,
+  ): Promise<string> {
+    const filename = `TEST-EXT17-${tag}-${RUN}.pdf`;
+    await page.goto("/incarca-comanda");
+    await page.getByTestId("extraction-input").setInputFiles({
+      name: filename,
+      mimeType: "application/pdf",
+      buffer: Buffer.from(
+        `%PDF-1.4\n% RC test ${tag}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`,
+        "utf8",
+      ),
+    });
+    const card = page.locator('[data-testid="draft-card"]').filter({ hasText: filename });
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    const orderId = (await card.getAttribute("data-order-id")) ?? "";
+    expect(orderId).toMatch(/^[0-9a-f-]{36}$/i);
+    // Trimiterea chiar a plecat catre transport cu acest order_id.
+    expect(await firedFor(request, orderId)).toHaveLength(1);
+    return orderId;
+  }
+
+  test("16. EXT-17: o scanare care SE ADUNA CORECT ajunge tot la verificare si NU se inregistreaza singura", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const orderId = await uploadForExtraction(page, request, "scanok");
+
+    const before = await inboundCount(page);
+
+    // EXACT totalul tiparit, deci reconcilierea TRECE. Acesta este cazul pentru
+    // care cardul exista: aritmetica este multumita si documentul este tot o
+    // fotografie.
+    const r = await post(request, matnord(orderId, 50336.4));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status, "o scanare reconciliata ramane extracted").toBe("extracted");
+    expect(d.error_code).toBeNull();
+    expect(d.document_source, "sursa ramane scanarea, si ea este ce decide marcajul").toBe("scan");
+    expect(d.lines, "liniile se pastreaza: exista ceva de verificat").toHaveLength(7);
+
+    // NU S-A INREGISTRAT. Doua masuri, fiindca una singura se poate satisface din
+    // intamplare: ciorna nu poarta confirmarea, si nu a aparut nicio comanda.
+    expect(d.confirmed_at, "callback-ul nu are voie sa confirme ciorna").toBeNull();
+    expect(d.confirmed_inbound_order_id).toBeNull();
+    expect(await inboundCount(page), "callback-ul nu are voie sa creeze o comanda").toBe(before);
+
+    // SI A AJUNS LA VERIFICARE. Ciorna este in lista, cu starea ei, si poarta
+    // butonul care duce la fisa: calea catre om exista si este singura.
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${orderId}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-status", "extracted");
+    await expect(card.getByTestId("draft-review")).toHaveCount(1);
+  });
+
+  test("17. EXT-17: acelasi payload marcat DIGITAL parcurge acelasi drum, neschimbat", async ({
+    page,
+    request,
+  }) => {
+    // CONTROLUL. Fara el, cazul 16 ar trece si pe o implementare care refuza sa
+    // inregistreze ORICE, si nu ar spune nimic despre calea digitala.
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const orderId = await uploadForExtraction(page, request, "digok");
+
+    const before = await inboundCount(page);
+
+    const r = await post(request, matnord(orderId, 50336.4, { document_source: "digital" }));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("extracted");
+    expect(d.error_code).toBeNull();
+    expect(d.document_source).toBe("digital");
+    expect(d.lines).toHaveLength(7);
+
+    expect(d.confirmed_at, "nici calea digitala nu se confirma singura").toBeNull();
+    expect(d.confirmed_inbound_order_id).toBeNull();
+    expect(await inboundCount(page), "nici calea digitala nu creeaza o comanda").toBe(before);
+
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${orderId}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-status", "extracted");
+    await expect(card.getByTestId("draft-review")).toHaveCount(1);
+  });
+
+  // -------------------------------------------------------------------------
   // EXT-18. AUTOCONSISTENTA ANTETULUI, PE ACEEASI TOLERANTA.
   //
   //   A.  subtotal + vat_amount  fata de  document_total

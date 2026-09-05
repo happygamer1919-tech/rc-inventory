@@ -28,7 +28,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
-import { EXTRACTION_ERROR_LABEL, effectiveSource } from "@/lib/data/extraction-types";
+import {
+  EXTRACTION_ERROR_LABEL,
+  SCAN_LINE_NOTICE,
+  effectiveSource,
+  scanReadLines,
+} from "@/lib/data/extraction-types";
 import { formatMoney } from "@/lib/data/format";
 
 /** EXT-15. O scanare al carei continut nu a fost citit.
@@ -137,6 +142,10 @@ function ReviewForm({
   // invitatie de a apasa Salveaza, iar aici nu exista nimic de salvat.
   const unreadScan = unreadScanDraft(draft);
 
+  // EXT-17. O CIORNA DINTR-O IMAGINE, INDIFERENT DACA CIFRELE EI SE ADUNA.
+  // Se calculeaza aici, o data, si se trece pe fiecare linie mai jos.
+  const scanRead = scanReadLines(draft);
+
   if (unreadScan) {
     return (
       <div className="px-5 py-5" data-testid="review-unread-scan">
@@ -241,8 +250,28 @@ function ReviewForm({
             key={index}
             data-testid="review-line"
             data-index={String(index)}
+            data-scan-read={scanRead ? "true" : "false"}
             className="grid grid-cols-[1fr_1fr_110px_110px] gap-2.5 items-end border-t border-rc-line pt-2.5"
           >
+            {/* EXT-17. MARCAJUL STA PE LINIE, NU NUMAI PE PAGINA.
+                Un banner in capul ecranului se citeste o data si apoi se
+                deruleaza pe langa el. Linia este ce se uita cineva cand decide,
+                deci aici sta propozitia.
+
+                SE ARATA SI CAND DOCUMENTUL SE ADUNA CORECT, si acela este tot
+                rostul cardului: reconcilierea a prins esecul observat NUMAI
+                fiindca modelul citise corect totalurile si gresit liniile. Un set
+                de linii fabricate care se intampla sa dea totalul tiparit trece
+                de aritmetica. Nu trece de un om care stie ca se uita la o
+                fotografie. */}
+            {scanRead ? (
+              <p
+                className="col-span-4 text-[11.5px] text-rc-muted-2"
+                data-testid={`review-line-scan-${index}`}
+              >
+                {SCAN_LINE_NOTICE}
+              </p>
+            ) : null}
             <label className="text-[12px] text-rc-muted">
               Nume pe document
               <input
