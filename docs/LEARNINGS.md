@@ -3901,6 +3901,61 @@ indistinguishable in every report from a proof that passes. If a third instance
 of this class appears, the fix is a check that compares the `scripts/poc/test-*`
 listing against the step list rather than a third manual wiring.
 
+### A PostgREST `.in()` filter is a URL, so an id list that grows with the client's data eventually gets a 414 nobody reads
+**Tag:** backend
+**ERROR:** `listReviewDrafts` asked for every pending draft's lines in one
+request, `extraction_draft_lines?select=...&order_id=in.(<one uuid per pending
+draft>)`. A uuid plus its comma costs 37 bytes of URL, so the request line grew
+with the number of documents the client had waiting. Measured twice on a local
+stack: 128 ids returned 200 at 4819 bytes and 256 returned 414 at 9555 bytes,
+and an earlier bisection put the boundary at 208 accepted, 209 refused. The code
+destructured `const { data: lines }` and never looked at `error`, so a 414 left
+`lines` undefined, the per-order map empty, and EVERY draft rendered with zero
+line items. The review screen is where Mihai checks a scan against the paper, so
+the failure mode was the last control in the extraction chain quietly showing
+nothing. **It is invisible in CI by construction**: every run starts from
+`supabase db reset`, so the pending count never leaves single digits. It needs an
+installation that has been running, which is the installation the client has.
+**SOLUTION:** the lines now arrive as a PostgREST embedded resource in the same
+request as the drafts, so there is no id list to grow: `extraction_draft_lines`
+carries a real foreign key to `extraction_drafts.order_id` (migration 0008) and
+PostgREST expresses the join itself. The sibling read against `inbound_orders`
+cannot be embedded, because `extraction_drafts.order_id` deliberately carries no
+foreign key to it, so that one batches through `ID_LIST_BATCH_SIZE` in
+`lib/data/id-list.ts`, one named constant with both measurements beside it. All
+three reads now read `error` and throw. RULE, and it is two rules: **a filter
+whose value list grows with the data is a URL that grows with the data**, so
+prefer the embedded join and batch only where no relationship exists; and **an
+unread `error` on a list read is the same defect class as a matcher whose empty
+result means nothing to do** - the screen could not tell "this document has no
+lines" from "I could not read the lines", and neither could the operator.
+
+**AND THE EMBED IS NOT ONLY ABOUT THE URL, WHICH WAS MEASURED RATHER THAN
+ASSUMED.** `max_rows = 1000` in `supabase/config.toml` caps a flat list across
+the WHOLE result: two drafts of 600 lines each, asked for as one flat query,
+returned 1000 rows and lost 200 without saying so. The same two drafts asked for
+as an embedded resource returned 600 and 600. **The cap applies per parent on an
+embed and to the whole set on a flat list**, so batching the id list would have
+traded a loud 414 for a silent truncation spread across drafts, which is the same
+defect one level quieter.
+
+### A test that seeds an ADDITIONAL number of rows breaks on run two of a persistent lane
+**Tag:** ci
+**ERROR:** the P3-38 acceptance needs more pending drafts than the request
+refusal threshold, which is a few hundred. Seeding "add 288 rows" would have put
+576 there on the second run and 864 on the third, and the drafts query is capped
+at `max_rows = 1000` by `supabase/config.toml`: past that the case's own draft
+falls outside the response and the test goes red for a reason that is not its
+own. CI never sees this because CI resets, but the local lane this defect was
+found on does not.
+**SOLUTION:** the helper tops up to a TARGET rather than adding a quantity: it
+counts what is already pending through `Prefer: count=exact` and inserts only the
+difference. RULE: a seeding helper on a shared or persistent database states the
+end state it wants, never the amount it adds. The same rule is why the refusal
+threshold is MEASURED at test time by probing the same PostgREST the application
+uses, rather than written into the test: 208 was measured on one stack on one
+day, and a number copied into a test is a fact about a machine that has since
+changed.
 ### JavaScript string replace eats `$'`, and it silently mangled a shell script it was inserting
 **Tag:** ci
 **ERROR:** inserting a block into `scripts/poc/run.sh` with

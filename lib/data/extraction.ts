@@ -14,6 +14,7 @@ import "server-only";
 // mai e nimic de confirmat, si a o oferi spre confirmare ar produce un duplicat.
 
 import { createClient } from "@/lib/supabase/server";
+import { inBatches } from "./id-list";
 import { isDocumentSource } from "./extraction-types";
 import { hasExtractionDocumentSource } from "./schema-capability";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
@@ -108,9 +109,25 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
     ? DRAFT_COLUMNS_WITH_SOURCE
     : DRAFT_COLUMNS;
 
-  const { data: drafts } = await supabase
+  // P3-38. LINIILE VIN IMBRICATE, INTR-O SINGURA CERERE, FARA NICIO LISTA DE
+  // ID-URI.
+  //
+  // Pana la 2026-09-05 liniile se cereau separat, cu `.in("order_id", ids)`
+  // peste TOATE ciornele in asteptare. Filtrul acela ajunge in adresa cererii,
+  // deci lungimea ei crestea cu numarul de documente ale clientului, si peste
+  // circa doua sute portarul din fata lui PostgREST raspundea 414. Codul nu
+  // citea eroarea, harta pe comanda ramanea goala, si FIECARE ciorna se randa
+  // cu zero linii. Ecranul nu putea deosebi "nu are linii" de "nu am putut citi
+  // liniile", si nici operatorul.
+  //
+  // DE CE IMBRICAREA SI NU UN LOT. `extraction_draft_lines.order_id` are cheie
+  // straina catre `extraction_drafts.order_id` (migratia 0008), deci PostgREST
+  // exprima jonctiunea singur. Un lot ar fi fost o marime aleasa, iar o marime
+  // aleasa este un prag pe care cineva il intalneste din nou. Aici nu mai exista
+  // niciun prag de intalnit.
+  const { data: drafts, error: draftsError } = await supabase
     .from("extraction_drafts")
-    .select(draftColumns)
+    .select(`${draftColumns}, extraction_draft_lines(${LINE_COLUMNS})`)
     // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
     // catre comanda poarta on delete set null, deci poate redeveni null, iar o
     // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
@@ -118,34 +135,77 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
     .is("confirmed_at", null)
     .order("fired_at", { ascending: false, nullsFirst: false });
 
+  // P3-38. EROAREA SE CITESTE. O citire cazuta este un ESEC VIZIBIL, nu o lista
+  // goala: acesta este defectul, iar lungimea adresei a fost doar declansatorul.
+  if (draftsError) {
+    throw new Error(`Nu s-au putut citi ciornele de extragere: ${draftsError.message}`);
+  }
+
   const rows = (drafts ?? []) as unknown as Record<string, unknown>[];
   if (rows.length === 0) return [];
 
-  const ids = rows.map((r) => String(r.order_id));
-
   // Ciornele din cealalta lane, unde comanda exista deja. Vezi antetul.
-  const { data: existingOrders } = await supabase
-    .from("inbound_orders")
-    .select("id")
-    .in("id", ids);
-  const taken = new Set((existingOrders ?? []).map((o) => String((o as { id: string }).id)));
+  const taken = await existingOrderIds(
+    supabase,
+    rows.map((r) => String(r.order_id)),
+  );
 
   const pending = rows.filter((r) => !taken.has(String(r.order_id)));
   if (pending.length === 0) return [];
 
-  const { data: lines } = await supabase
-    .from("extraction_draft_lines")
-    .select(LINE_COLUMNS)
-    .in("order_id", pending.map((r) => String(r.order_id)));
-
-  const byOrder = new Map<string, LineRow[]>();
-  for (const l of (lines ?? []) as LineRow[]) {
-    const key = String(l.order_id);
-    const bucket = byOrder.get(key);
-    if (bucket) bucket.push(l);
-    else byOrder.set(key, [l]);
-  }
-
-  return pending.map((r) => mapDraft(r, byOrder.get(String(r.order_id)) ?? []));
+  return pending.map((r) => mapDraft(r, linesOf(r)));
 }
 
+/**
+ * Liniile imbricate ale unei ciorne.
+ *
+ * P3-38. UN VECTOR GOL SI O CHEIE LIPSA NU SUNT ACELASI LUCRU, si diferenta
+ * este chiar defectul pe care cardul il inchide. Vector gol inseamna "documentul
+ * nu are linii", ceea ce se intampla si este corect. Cheie lipsa inseamna ca
+ * selectul nu a cerut resursa imbricata, adica un defect de cod, si el nu are
+ * voie sa ajunga pe ecran ca un document fara linii.
+ */
+function linesOf(row: Record<string, unknown>): LineRow[] {
+  const embedded = row.extraction_draft_lines;
+  if (!Array.isArray(embedded)) {
+    throw new Error(
+      "Ciorna a venit fara resursa imbricata extraction_draft_lines. " +
+        "Selectul nu a cerut-o, deci lipsa liniilor nu poate fi citita ca document fara linii.",
+    );
+  }
+  return embedded as LineRow[];
+}
+
+/**
+ * Care dintre id-urile date numesc o comanda de intrare care exista deja.
+ *
+ * P3-38. AICI LOTUL ESTE RASPUNSUL SI IMBRICAREA NU ESTE, fiindca
+ * `extraction_drafts.order_id` NU are cheie straina catre `inbound_orders`, si
+ * asta este deliberat: antetul migratiei 0008 spune ca daca id-ul numeste sau nu
+ * o comanda existenta este decizia lui P2-09, nu a migratiei. Fara cheie straina
+ * PostgREST nu poate exprima jonctiunea, deci lista se taie in loturi.
+ *
+ * ERA ACELASI DEFECT CU AL LINIILOR, MAI PUTIN EXPUS. La 414 `data` ramanea
+ * nedefinit, multimea iesea goala, si ecranul arata MAI MULTE ciorne, nu mai
+ * putine: un document deja preluat pe cealalta lane se oferea a doua oara spre
+ * confirmare. Se repara aici, in aceeasi trecere, fiindca este aceeasi citire
+ * nelimitata a carei eroare nu era citita.
+ */
+async function existingOrderIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  const taken = new Set<string>();
+
+  for (const batch of inBatches(ids)) {
+    const { data, error } = await supabase.from("inbound_orders").select("id").in("id", batch);
+    if (error) {
+      throw new Error(`Nu s-au putut citi comenzile de intrare existente: ${error.message}`);
+    }
+    for (const order of data ?? []) {
+      taken.add(String((order as { id: string }).id));
+    }
+  }
+
+  return taken;
+}
