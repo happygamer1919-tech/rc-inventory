@@ -34,6 +34,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { byCardId } from "./card-order.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(HERE, "..", "..");
@@ -95,7 +96,9 @@ function labelFor(p) {
 export function allCards(boards) {
   const out = [];
   for (const entry of boards) {
-    const cards = (entry.board.cards || []).slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    // BOARD-03. The same comparator eligible.mjs uses, imported rather than
+    // restated: one sort, one place.
+    const cards = (entry.board.cards || []).slice().sort(byCardId);
     for (const card of cards) out.push({ card, board: entry });
   }
   return out;

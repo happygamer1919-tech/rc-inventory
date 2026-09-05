@@ -4159,3 +4159,38 @@ and `20:30:00Z` are not clock readings. If a value ends in `:00:00Z` and was not
 copied from something, it was invented. The second rule is the one the correction
 notes enforce: **a corrected value that presents itself as always having been
 right teaches the next reader nothing.**
+
+### An id that is not zero-padded sorts by its characters, and a lane only ever grows
+**Tag:** infra
+**ERROR:** `scripts/poc/eligible.mjs` sorted card ids with
+`String(a.id).localeCompare(String(b.id))`, so `AUT-16` came before `AUT-8`: it was
+comparing the characters `1` and `8`. The next-card pick takes the head of that
+list, so `AUT-8` and `AUT-9` queued behind every `AUT-1x` card authored days later
+**and would never have come out**, because a lane only ever grows and nothing
+removes the newer ids from in front of them. On 2026-09-05 the eligible list began
+`AUT-21,AUT-22,AUT-23,AUT-8,AUT-9` and the session reading it worked AUT-21,
+AUT-22 and AUT-23 first, in that order, following the documented rule exactly.
+**SOLUTION:** one comparator, `scripts/poc/card-order.mjs`, sorting on a tuple of
+`(prefix, number, suffix)`, imported by `eligible.mjs` and `boards.mjs`, with the
+raw string as a fallback for an id the key cannot parse so nothing is ever
+dropped. `npm run check:card-order` drives the **selector as a process** and greps
+`scripts/poc/` for any second id comparator, requiring zero. RULE: **padding is a
+convention and a convention is not a sort.** Any ordering that depends on every
+author having padded a number will eventually meet one who did not, and the
+failure is silent, permanent, and looks like a queue.
+
+### The rule described the code accurately and still hid the defect
+**Tag:** infra
+**ERROR:** CLAUDE.md section 2 said "Ids sort lexically (`P2-01` before `P2-02`
+before `P2-10`), which is why they are zero-padded." **That sentence was true about
+the code.** It named the sort correctly and its example was correct. What it did
+not draw was the consequence: an id that is *not* padded sorts by its characters,
+and this repository has `AUT-8` and `AUT-9` on the same board as `AUT-16`. Every
+session read the rule, saw it matched the behaviour, and worked the list.
+**SOLUTION:** the paragraph now describes the tuple sort the code performs, and the
+old sentence is **kept in quotes** under CLAUDE.md 9c with the consequence written
+out beneath it, because deleting it would make the record say the project always
+knew. RULE: **a rule that describes the mechanism is not the same as a rule that
+states the guarantee.** "Ids sort lexically" describes; "AUT-8 comes before AUT-16"
+guarantees. Only the second one is falsifiable by reading the board, which is why
+only the second one would have been noticed.

@@ -28,6 +28,7 @@
 //
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { byCardId } from "./card-order.mjs";
 
 const CLAIM_TTL_SECONDS = 21600; // 6 hours, matches POC_CLAIM_TTL_SECONDS in run.sh
 
@@ -136,7 +137,10 @@ export function analyseAll(boards, state, actor, nowSeconds) {
   for (const entry of boards) {
     const boardCards = (entry.board.cards || [])
       .slice()
-      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      // BOARD-03. THE NUMBER IS A NUMBER. localeCompare on the raw id put
+      // AUT-16 before AUT-8, so the next-card pick queued AUT-8 and AUT-9
+      // behind every AUT-1x card authored days later, for ever.
+      .sort(byCardId);
     for (const card of boardCards) cards.push(Object.assign({ __board: entry }, card));
   }
 

@@ -522,6 +522,23 @@ jobs:
       - name: Refuse a board timestamp from the future  # BOARD-02-BOARD-CLOCK-PROOF
         run: npm run check:board-clock
 
+      # BOARD-03. THE NEXT-CARD PICK COUNTS NUMBERS AS NUMBERS.
+      #
+      # localeCompare on the raw id put AUT-16 before AUT-8, so two cards authored
+      # days earlier queued behind every AUT-1x card and would have stayed there
+      # for ever: a lane only ever grows, so nothing removes the newer ids from in
+      # front of them. On 2026-09-05 the eligible list began
+      # AUT-21,AUT-22,AUT-23,AUT-8,AUT-9 and the session reading it worked them in
+      # that order.
+      #
+      # It drives scripts/poc/eligible.mjs AS A PROCESS, because the defect was
+      # never in a comparator: it was in what the selector returned, and the
+      # selector is what the harness reads.
+      #
+      # NOT PATH FILTERED. Three fixtures and a grep, no container and no network.
+      - name: Refuse a card pick that sorts numbers as text  # BOARD-03-CARD-ORDER-PROOF
+        run: npm run check:card-order
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
