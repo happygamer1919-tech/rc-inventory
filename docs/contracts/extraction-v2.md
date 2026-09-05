@@ -143,8 +143,52 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
 | `document_source` | enum or null | yes | `scan` or `digital`. **Declared by the extractor.** Null is accepted and read as `scan`. See section 4.2c. |
-| `lines` | array | no | May be empty on `failed`. Never null. |
+| `lines` | array | no | May be empty on `failed`. Never null. **One exception, and only one: a scan-sourced `failed` payload must not carry this key at all. Section 4.1a.** |
 | `_meta` | object | no | Section 4.3. |
+
+### 4.1a A scan-sourced `failed` payload: the header, and NO `lines` key. Card EXT-20, 2026-09-04.
+
+When `document_source` is `scan` (or absent, which reads as `scan`) **and**
+`status` is `failed`, the payload is these **sixteen fields** and nothing else:
+
+    order_id      status        error_code    reason
+    supplier      order_ref     client_ref    order_date
+    currency      currency_raw  prices_include_vat   vat_rate
+    subtotal      vat_amount    document_total       document_source
+
+**There is no `lines` key. Not an empty array. The key is absent.**
+
+#### The rejection rule is ours, not only Andre's
+
+**Our validator answers `400` to a scan-sourced `failed` payload that carries a
+`lines` key, empty or not.** A shape enforced only by the sender is enforced by
+nobody the day the sender is rebuilt, which is the same reason section 5.3 exists.
+
+#### Why an empty array is not good enough, said plainly because it will look pedantic
+
+An empty array is a thing a screen can iterate, append to, and grow a form
+around. An absent key is not. Accepting `[]` costs nothing today and means that
+on the day somebody adds a line-rendering loop to the header-only review screen,
+the loop **has something to iterate and renders nothing**, which reads as *"this
+document had no lines"* rather than *"this document was not read"*.
+
+#### This narrows ONE case. Everywhere else the 4.1 rule is unchanged.
+
+A **digital** `failed` payload still carries `lines`, empty or not, and is
+accepted. A scan-sourced **`partial`** still carries its read lines and keeps
+them. Only `scan` + `failed` is narrowed.
+
+#### Three of the sixteen names, reconciled against this document
+
+| in the shape above | in this contract | note |
+|---|---|---|
+| `supplier` | `supplier_name` | same field, section 4.1's name is the one we read |
+| `order_ref` | **not in 4.1** | accepted and **ignored**, per the global rule in section 2 that a field not in this document is never guessed. `EXT-11` and `P3-31` are the cards that give it a shape. |
+| `client_ref` | **not in 4.1** | same: accepted and ignored today. No card claims it yet. |
+
+Sending them is harmless and is what happens in production. **We do not store
+them**, and this table exists so that nobody reads the sixteen-field list as a
+promise that we do.
 
 ### 4.2 Line level
 

@@ -974,6 +974,43 @@ each file follows.
 
 ---
 
+## 9c. Correcting doctrine: quote the false sentence, never delete it. Added 2026-09-04 by ruling R-127.
+
+**A SENTENCE IN THIS FILE THAT TURNS OUT TO BE FALSE IS QUOTED, MARKED FALSE IN
+THE SAME BREATH, AND LEFT WHERE IT WAS.** The true statement goes first. The
+false one stays underneath it, in quotes, with the ruling id that disproved it
+and the evidence beside it.
+
+**The instance this comes from.** Section 3.1 said, and the whole separation
+between merging and applying rested on it:
+
+> *"A pull request that ADDS `supabase/migrations/0013_something.sql` changes one
+> text file in a git repository and changes nothing in any database."*
+
+Ruling **R-124** disproved it, with a prediction and an unmerged control. Section
+3.1 now leads with the true sentence and keeps the false one quoted below it.
+
+**Three reasons, and the third decides it.**
+
+1. **Everything built on top of it stays readable.** R-082's whole preamble rests
+   on that sentence. A reader arriving from R-082 lands on a paragraph that
+   explains why R-082 says what it says, rather than on one that silently
+   contradicts it.
+2. **Citations from outside this file keep resolving.** Reports, rulings and pull
+   request bodies quote doctrine by its words.
+3. **A DELETED FALSE SENTENCE LOOKS EXACTLY LIKE A SENTENCE THAT WAS NEVER
+   THERE.** The record then says the project always knew the true thing, which is
+   a second false statement replacing the first, and a worse one: the first was
+   an honest mistake and the second is a tidied history.
+
+**WHAT THIS DOES NOT COVER.** A typo, a stale path, a renamed command: corrected
+in place, no ceremony. This binds a sentence somebody could have **relied on**,
+meaning one that other doctrine, a ruling or a decision was built on top of. The
+test is whether removing it would leave something else in the repository
+unexplained.
+
+---
+
 ## 10. Failure ceiling
 
 After **three distinct failed fix attempts** on the same card, stop working it.

@@ -172,7 +172,41 @@ export async function POST(request: Request) {
   // POATE sa o pastreze, ceea ce este alta intrebare.
 
 
-  const rawLines = Array.isArray(body.lines) ? body.lines : null;
+  // --- EXT-20. O SCANARE ESUATA NU ARE VOIE SA POARTE CHEIA `lines` -----------
+  //
+  // NICIO CHEIE, NU UN TABLOU GOL, SI DIFERENTA ESTE TOT CARDUL. Un tablou gol
+  // este un lucru pe care un ecran il poate parcurge, la care poate adauga si in
+  // jurul caruia poate creste un formular. O cheie absenta nu este. Ziua in care
+  // cineva adauga o bucla de randare pe ecranul acela, bucla are ce parcurge si
+  // nu randeaza nimic, ceea ce se citeste ca "documentul nu avea linii" in loc de
+  // "documentul nu a fost citit".
+  //
+  // REGULA ESTE A NOASTRA, NU NUMAI A LUI ANDRE, din acelasi motiv ca EXT-16: o
+  // forma impusa numai de expeditor nu este impusa de nimeni in ziua in care
+  // expeditorul este reconstruit.
+  //
+  // SE INGUSTEAZA UN SINGUR CAZ. Sectiunea 4.1 din contract spune ca `lines` este
+  // non-nullable si poate fi gol pe `failed`; regula aceea ramane pentru ORICE
+  // alt payload, inclusiv un esec DIGITAL, si cazul 25 o afirma.
+  //
+  // hasOwnProperty SI NU `!== undefined`: JSON nu poate exprima o cheie prezenta
+  // cu valoarea undefined, deci intrebarea "a trimis cheia?" se pune o singura
+  // data si exact.
+  const scanFailure = documentSource === "scan" && status === "failed";
+  const carriesLinesKey = Object.prototype.hasOwnProperty.call(body, "lines");
+
+  if (scanFailure && carriesLinesKey) {
+    return NextResponse.json(
+      { error: "lines interzis pe o scanare esuata: cheia nu are voie sa fie trimisa deloc" },
+      { status: CALLBACK_CODES.rejected },
+    );
+  }
+
+  const rawLines: unknown[] | null = scanFailure
+    ? []
+    : Array.isArray(body.lines)
+      ? (body.lines as unknown[])
+      : null;
   if (rawLines === null) {
     return NextResponse.json({ error: "lines lipseste" }, { status: CALLBACK_CODES.rejected });
   }

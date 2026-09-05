@@ -383,8 +383,8 @@ a build that shipped only one of the two checks.
 
 | Case | Before | After |
 |---|---|---|
-| 18: `document_total` moved to 60410.00, 6.32 over the 0.07 tolerance | **FAILED** — `Expected: "failed"  Received: "extracted"` | pass, refused |
-| 19: `vat_rate` moved to 25, putting VAT 2516.82 out, **check A still exact** | **FAILED** — same shape | pass, refused |
+| 18: `document_total` moved to 60410.00, 6.32 over the 0.07 tolerance | **FAILED**, `Expected: "failed"  Received: "extracted"` | pass, refused |
+| 19: `vat_rate` moved to 25, putting VAT 2516.82 out, **check A still exact** | **FAILED**, same shape | pass, refused |
 | 20: untouched payload unaffected; null `vat_rate` neither passes nor refuses; digital path unchanged | **passed** | pass |
 
 Case 20 passing before is what a control is for.
@@ -588,9 +588,9 @@ drift apart. Same doctrine as EXT-17's `SCAN_LINE_NOTICE`.
 
 | Case | Driven against | Result |
 |---|---|---|
-| review 14 | the **pre-card label text** | **FAILED** — `Expected substring: "Încarcă o scanare mai bună."` |
-| review 14 | a **collapsed** version, `reconciliation_failed` given `unreadable_document`'s sentence | **FAILED** — this is the case the card requires by name |
-| extraction 21 | a **mutant** callback writing `unreadable_document` for a reconciliation failure | **FAILED** — `Expected: "reconciliation_failed"  Received: "unreadable_document"` |
+| review 14 | the **pre-card label text** | **FAILED**, `Expected substring: "Încarcă o scanare mai bună."` |
+| review 14 | a **collapsed** version, `reconciliation_failed` given `unreadable_document`'s sentence | **FAILED**, this is the case the card requires by name |
+| extraction 21 | a **mutant** callback writing `unreadable_document` for a reconciliation failure | **FAILED**, `Expected: "reconciliation_failed"  Received: "unreadable_document"` |
 
 Review 14 asserts at the **source** and again on the **rendered screen** that each
 code's sentence contains its own instruction and not the other's, that the two
@@ -619,6 +619,156 @@ order, and `review.spec` case 7 still iterates all eight and still passes.
 
 ---
 
-## (narrative continues; this file is written as the work proceeds)
+## 7. EXT-20: the header, and no `lines` key at all
+
+**Card:** `EXT-20`, phase 3. **Files:** `app/api/extraction/callback/route.ts`,
+`docs/contracts/extraction-v2.md`, plus four new e2e cases and three existing
+ones moved.
+
+### The rule
+
+When `document_source` resolves to `scan` **and** `status` is `failed`, a payload
+carrying the `lines` key is answered `400` and **nothing is written**. Everywhere
+else section 4.1's rule is untouched.
+
+The key's presence is asked with `Object.prototype.hasOwnProperty`, once and
+exactly, because JSON cannot express a present key holding `undefined`.
+
+### The four cases
+
+| Case | Before | After |
+|---|---|---|
+| 22: the sixteen-field header, **no** `lines` key, accepted | **FAILED**, `Expected: 202  Received: 400`, the shape was rejected outright | pass, 202, every header figure read back |
+| 23: the same header with an **empty array**, rejected | **FAILED**, `Expected: 400  Received: 202` | pass, 400, draft still unwritten |
+| 24: the same header with **one line**, rejected | **FAILED**, same | pass, 400, unwritten |
+| 25: control, a **digital** failure with a `lines` key still accepted; a scan-sourced **`partial`** still keeps its read lines | **passed** | pass |
+
+The fixture enumerates the sixteen fields **explicitly** rather than deleting a
+key from a larger object, so a reader can see the shape Andre sends instead of
+inferring it from a mutation.
+
+### Three shipped tests were narrowed out of their own shape, and moved rather than deleted
+
+`extraction.spec` 1c and 1e and `review.spec` 11 each posted a scan-sourced
+`failed` payload **with** a `lines` key and expected `202`. Under this card that
+is `400`. All three now delete the key; the screens and stored rows they assert
+are unchanged.
+
+**EXT-15's other half did not go with them.** Case 1c used to prove that lines
+which *arrive* are dropped at write time. That is now proved on the EXT-16 path
+instead, by case 12: a scan-sourced `extracted` payload with seven lines that
+fails reconciliation is stored `failed` with **zero** lines. Nothing about EXT-15
+stopped being tested; the case that tested it moved to the only shape that still
+reaches the writer.
+
+### Three of the owner's sixteen names are not this contract's
+
+Recorded rather than quietly resolved:
+
+| in the owner's shape | in the contract | what happens today |
+|---|---|---|
+| `supplier` | `supplier_name` | same field |
+| `order_ref` | **not in 4.1** | arrives, is **ignored**, is not stored. `EXT-11` and `P3-31` own its shape |
+| `client_ref` | **not in 4.1** | arrives, is ignored, is not stored. **No card claims it** |
+
+The card's defaults anticipated this for `order_ref` and said not to wait,
+because the field's *shape* is EXT-11's problem and its *presence* is this card's.
+The fixture sends both, which is what production does, and the contract's new
+table says in terms that sending them is not a promise that we store them.
+
+### OPEN ITEM FOR THE OWNER: Andre must be told before his next delivery
+
+**A payload shape Andre may be emitting today now receives a `400`, and Make does
+not retry a `4xx`: a document would be dropped once, quietly.**
+
+The failure is not a new `error_code`, so ruling R-098's letter does not bind, but
+its reasoning applies exactly. This is flagged rather than assumed handled, and it
+is the one thing in this session's work that needs a message to a person rather
+than a commit. The change is small to state: *on a scanned document that failed,
+send the header and omit `lines` entirely; do not send an empty array.*
+
+### Commands
+
+    npx tsc --noEmit                                                exit 0
+    node docs/board/validate-board.mjs <all three>                   exit 0, 0 violations
+    npx playwright test extraction.spec.ts review.spec.ts           exit 0, 34 of 34
+    npm run check:board-edit                                         exit 0, EXT-20 todo -> shipped
+---
+
+## 8. Ratifications, quoted
+
+The dispatch names four and asks that they be quoted. They are recorded here
+verbatim, and the one that is a standing practice is also written into
+`decisions/inbox.md` as a ruling, because a practice that lives only in a report
+is a practice the next session cannot cite.
+
+> **"#191 and #182 closed rather than merged, both accepted."**
+
+> **"#195 ahead of the doctrine branch, accepted."**
+
+> **"The false sentence quoted rather than deleted, accepted and now standing
+> practice."**
+
+**Only the third creates a rule**, and it is the one that needed a home. The
+first two ratify decisions already taken and already recorded: #191's closure is
+in the 2026-09-04 drain report, and #195's ordering is in the same file. The
+third says a practice is now standing, and a standing practice belongs where it
+can be cited by id.
+
+**What it ratifies, concretely.** CLAUDE.md 3.1 used to contain this sentence,
+and it was false:
+
+> *"A pull request that ADDS `supabase/migrations/0013_something.sql` changes one
+> text file in a git repository and changes nothing in any database."*
+
+R-124 disproved it. The section now **quotes it, marks it false, and keeps it**,
+rather than deleting it. That is what is ratified, and `R-127` makes it the rule
+for the next one.
+
+---
+
+## 9. What was done, what was not, and what the owner has to decide
+
+### Shipped
+
+| card | what it does |
+|---|---|
+| `RULE-06` | CI refuses a pull request carrying a card's code while that card's board status does not move. Replayed against 60 merge commits: **3 refusals, all three real**, including `#195`, the incident it was written for. |
+| `EXT-17` | A scan never auto-accepts, and every line of its review sheet says it was machine-read from an image. The no-auto-accept path is proved by a grep enumeration, not assumed. |
+| `EXT-18` | The header must agree with itself, on EXT-16's tolerance, extended and not duplicated. It does **not** close the fabrication gap, and that limit is now a check case. |
+| `EXT-19` | One rejection says re-scan, the other says type it out, and neither carries the other's instruction. |
+| `EXT-20` | A failed scan sends the header and **no** `lines` key, and our validator refuses one that carries it. |
+
+### Authored, not built
+
+| card | why |
+|---|---|
+| `AUT-23` | The queue-throughput producer gate. The dispatch says author, do not build. |
+| `P3-38` | A production defect this session found and probed. Outside the dispatch, so it is a card rather than a quiet extra commit. |
+| `R-127` | Ratifies the quote-don't-delete practice and gives it CLAUDE.md section 9c. |
+
+### The one thing that needs a person
+
+**`EXT-20` changes a payload shape Andre may be emitting today.** A scan-sourced
+`failed` payload carrying a `lines` key now receives `400`, and Make does not
+retry a `4xx`, so a document would be dropped once and quietly. The sentence he
+needs is one line: *on a scanned document that failed, send the header and omit
+`lines` entirely; do not send an empty array.* Nothing in this session can send
+that message.
+
+### The cost of the drain, measured on this session rather than quoted
+
+Five pull requests, merged one at a time under `required_status_checks.strict`.
+Each `quality` run took **18 to 20 minutes**, and each of the four after the
+first needed `main` merged in and a **fresh full run** before it could go, plus a
+local re-run of the acceptance suite to prove the merge had not broken anything.
+Four of the five conflicted on the same two files, because five cards appending
+cases to one spec file is five edits at one line.
+
+That is the shape `AUT-23` describes, observed from the consumer side this time.
+It is recorded here because the card's own figures are the owner's, and this is
+an independent measurement of the same thing.
+
+
 
 

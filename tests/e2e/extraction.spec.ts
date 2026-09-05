@@ -201,18 +201,28 @@ test.describe("Extragere documente", () => {
     await signIn(page, ownerAccount());
     const { orderId } = await orderWithDocument(page, "scanfail");
 
+    // EXT-20 A INGUSTAT FORMA PE CARE ACEST CAZ O TRIMITEA. Pana la 2026-09-04
+    // payload-ul de aici purta o linie si o vedea aruncata la scriere. De la
+    // EXT-20 o scanare esuata care poarta CHEIA `lines`, goala sau nu, este
+    // respinsa cu 400, deci forma aceea nu mai ajunge sa fie stocata.
+    //
+    // AFIRMATIA CARDULUI EXT-15 NU S-A PIERDUT, S-A MUTAT. Ca liniile TRIMISE
+    // sunt aruncate se dovedeste acum pe calea EXT-16, cazul 12: o scanare
+    // `extracted` cu sapte linii care nu se reconciliaza este stocata `failed`
+    // cu ZERO linii. Ce ramane aici este cealalta jumatate a lui EXT-15, si ea
+    // este intacta: o scanare esuata are zero linii si isi pastreaza antetul.
     const body = callbackBody(orderId, {
       status: "failed",
       error_code: "unreadable_document",
       reason: "Scanarea nu a putut fi cititaa.",
       document_source: "scan",
     });
+    delete (body as Record<string, unknown>).lines;
     expect((await post(request, body)).status()).toBe(202);
 
     const d = await draftState(request, orderId);
     expect(d.status).toBe("failed");
     expect(d.document_source).toBe("scan");
-    // ZERO LINII, desi payload-ul a trimis una.
     expect(d.lines).toHaveLength(0);
     // ANTETUL RAMANE, si acela este rostul ecranului: proprietarul identifica
     // documentul si bate liniile de mana contra unui total cunoscut.
@@ -262,6 +272,11 @@ test.describe("Extragere documente", () => {
       reason: "fara sursa declarata",
     });
     delete (body as Record<string, unknown>).document_source;
+    // EXT-20 SE APLICA SI CAND SURSA ESTE ABSENTA, fiindca absenta SE CITESTE ca
+    // scanare. Cheia `lines` pleaca odata cu sursa, si asta este a doua
+    // afirmatie a acestui caz: implicitul nu este o eticheta pe rand, este
+    // regula pe care o aplica validatorul.
+    delete (body as Record<string, unknown>).lines;
     expect((await post(request, body)).status()).toBe(202);
 
     const d = await draftState(request, orderId);
@@ -1137,5 +1152,168 @@ test.describe("Extragere documente", () => {
     expect(d.error_code, "un esec de aritmetica nu este un document ilizibil").not.toBe(
       "unreadable_document",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // EXT-20. FORMA EXACTA A UNEI SCANARI ESUATE: ANTETUL, SI NICIO CHEIE `lines`.
+  //
+  // NICIO CHEIE, NU UN TABLOU GOL. Un tablou gol este un lucru pe care un ecran
+  // il poate parcurge, la care poate adauga si in jurul caruia poate creste un
+  // formular. O cheie absenta nu este. Regula va parea pedanta peste sase luni si
+  // nu este: in ziua in care cineva adauga o bucla de randare pe ecranul acela,
+  // bucla are ce parcurge si nu randeaza nimic, ceea ce se citeste ca "documentul
+  // nu avea linii" in loc de "documentul nu a fost citit".
+  // -------------------------------------------------------------------------
+
+  /** Antetul unei scanari esuate, in forma pe care o da proprietarul, si FARA
+   *  cheia `lines`. Cele saisprezece campuri sunt enumerate explicit in loc sa
+   *  fie derivate din callbackBody, fiindca forma insasi este ce dovedeste cazul:
+   *  o fixtura care sterge o cheie dintr-un obiect mai mare nu arata unui cititor
+   *  CE anume trimite Andre. */
+  function scanFailureHeader(orderId: string, over: Record<string, unknown> = {}) {
+    return {
+      order_id: orderId,
+      status: "failed",
+      error_code: "unreadable_document",
+      reason: "Scanarea nu a putut fi citita.",
+      supplier_name: "Matnord SRL",
+      // order_ref SI client_ref SUNT IN FORMA PROPRIETARULUI SI NU SUNT CITITE
+      // DE NOI ASTAZI. Sectiunea 2 din contract spune ca un camp care soseste si
+      // nu este in contract este IGNORAT, niciodata ghicit, deci prezenta lor
+      // aici este exact ce se intampla in productie. EXT-11 si P3-31 sunt
+      // cardurile care le dau o forma.
+      order_ref: "AV-0021884",
+      client_ref: "RC-2026-0042",
+      order_date: "2026-08-30",
+      currency: "MDL",
+      currency_raw: "lei",
+      prices_include_vat: false,
+      vat_rate: 20.0,
+      subtotal: 50336.4,
+      vat_amount: 10067.28,
+      document_total: 60403.68,
+      document_source: "scan",
+      ...over,
+    };
+  }
+
+  test("22. EXT-20: antetul cu cele saisprezece campuri si FARA cheia lines este acceptat", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e20ok");
+
+    const body = scanFailureHeader(orderId);
+    expect(Object.prototype.hasOwnProperty.call(body, "lines"), "fixtura nu are voie sa poarte cheia").toBe(false);
+
+    const r = await post(request, body);
+    expect(r.status(), "un antet fara cheia lines este acceptat").toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("failed");
+    expect(d.error_code).toBe("unreadable_document");
+    expect(d.document_source).toBe("scan");
+    expect(d.lines).toHaveLength(0);
+    // ANTETUL SE PASTREAZA, si acela este rostul formei: proprietarul identifica
+    // documentul si il bate de mana contra unui total cunoscut.
+    expect(d.supplier_name).toBe("Matnord SRL");
+    expect(Number(d.subtotal)).toBe(50336.4);
+    expect(Number(d.vat_amount)).toBe(10067.28);
+    expect(Number(d.document_total)).toBe(60403.68);
+    expect(Number(d.vat_rate)).toBe(20);
+    expect(d.currency).toBe("MDL");
+    expect(d.order_date).toBe("2026-08-30");
+  });
+
+  test("23. EXT-20: acelasi antet cu un tablou GOL de linii este RESPINS", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e20empty");
+
+    const r = await post(request, scanFailureHeader(orderId, { lines: [] }));
+    expect(r.status(), "un tablou gol este tot o cheie").toBe(400);
+
+    // SI NU S-A SCRIS NIMIC. Un 400 care ar fi scris pe jumatate ar fi mai rau
+    // decat unul care accepta, fiindca ar minti in amandoua directiile.
+    const d = await draftState(request, orderId);
+    expect(d.status, "un payload respins nu are voie sa scrie").toBeNull();
+  });
+
+  test("24. EXT-20: acelasi antet cu O SINGURA linie este RESPINS", async ({ page, request }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e20one");
+
+    const r = await post(
+      request,
+      scanFailureHeader(orderId, {
+        lines: [{ product_name: "Linie care nu are voie sa fie aici", quantity: 1, line_total: 1 }],
+      }),
+    );
+    expect(r.status()).toBe(400);
+    const d = await draftState(request, orderId);
+    expect(d.status).toBeNull();
+  });
+
+  test("25. EXT-20: un esec DIGITAL care poarta cheia lines este in continuare acceptat", async ({
+    page,
+    request,
+  }) => {
+    // MARTORUL, SI FARA EL CELE DOUA DE MAI SUS NU DOVEDESC NIMIC. O
+    // implementare care ar respinge cheia `lines` pe ORICE esec ar trece 23 si 24
+    // si ar rupe calea digitala. Regula ingusteaza UN SINGUR caz: sectiunea 4.1
+    // spune ca `lines` este non-nullable si poate fi gol pe `failed`, si asta
+    // ramane adevarat peste tot altundeva.
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    {
+      const { orderId } = await orderWithDocument(page, "e20dig");
+      const r = await post(
+        request,
+        scanFailureHeader(orderId, { document_source: "digital", lines: [] }),
+      );
+      expect(r.status(), "un esec digital cu tablou gol ramane acceptat").toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status).toBe("failed");
+      expect(d.document_source).toBe("digital");
+      expect(d.lines).toHaveLength(0);
+    }
+
+    // SI UN `partial` DE SCANARE NU ESTE ATINS. Regula numeste `failed`, si un
+    // partial de scanare isi pastreaza liniile citite exact ca pana acum.
+    {
+      const { orderId } = await orderWithDocument(page, "e20part");
+      const r = await post(
+        request,
+        scanFailureHeader(orderId, {
+          status: "partial",
+          error_code: "extraction_failed",
+          lines: [
+            {
+              product_name: "Linie citita dintr-un partial de scanare",
+              quantity: 2,
+              unit: "pcs",
+              unit_raw: "buc",
+              unit_price: 10,
+              line_total: 20,
+              currency: "MDL",
+              currency_raw: "lei",
+              category: null,
+              category_raw: null,
+            },
+          ],
+        }),
+      );
+      expect(r.status(), "un partial de scanare nu este atins de aceasta regula").toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status).toBe("partial");
+      expect(d.lines).toHaveLength(1);
+    }
   });
 });
