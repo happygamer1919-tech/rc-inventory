@@ -196,4 +196,81 @@ merge history before quoting them anywhere the number matters.
 
 ---
 
+## 7. EXT-20: the header, and no `lines` key at all
+
+**Card:** `EXT-20`, phase 3. **Files:** `app/api/extraction/callback/route.ts`,
+`docs/contracts/extraction-v2.md`, plus four new e2e cases and three existing
+ones moved.
+
+### The rule
+
+When `document_source` resolves to `scan` **and** `status` is `failed`, a payload
+carrying the `lines` key is answered `400` and **nothing is written**. Everywhere
+else section 4.1's rule is untouched.
+
+The key's presence is asked with `Object.prototype.hasOwnProperty`, once and
+exactly, because JSON cannot express a present key holding `undefined`.
+
+### The four cases
+
+| Case | Before | After |
+|---|---|---|
+| 22: the sixteen-field header, **no** `lines` key, accepted | **FAILED** — `Expected: 202  Received: 400`, the shape was rejected outright | pass, 202, every header figure read back |
+| 23: the same header with an **empty array**, rejected | **FAILED** — `Expected: 400  Received: 202` | pass, 400, draft still unwritten |
+| 24: the same header with **one line**, rejected | **FAILED** — same | pass, 400, unwritten |
+| 25: control, a **digital** failure with a `lines` key still accepted; a scan-sourced **`partial`** still keeps its read lines | **passed** | pass |
+
+The fixture enumerates the sixteen fields **explicitly** rather than deleting a
+key from a larger object, so a reader can see the shape Andre sends instead of
+inferring it from a mutation.
+
+### Three shipped tests were narrowed out of their own shape, and moved rather than deleted
+
+`extraction.spec` 1c and 1e and `review.spec` 11 each posted a scan-sourced
+`failed` payload **with** a `lines` key and expected `202`. Under this card that
+is `400`. All three now delete the key; the screens and stored rows they assert
+are unchanged.
+
+**EXT-15's other half did not go with them.** Case 1c used to prove that lines
+which *arrive* are dropped at write time. That is now proved on the EXT-16 path
+instead, by case 12: a scan-sourced `extracted` payload with seven lines that
+fails reconciliation is stored `failed` with **zero** lines. Nothing about EXT-15
+stopped being tested; the case that tested it moved to the only shape that still
+reaches the writer.
+
+### Three of the owner's sixteen names are not this contract's
+
+Recorded rather than quietly resolved:
+
+| in the owner's shape | in the contract | what happens today |
+|---|---|---|
+| `supplier` | `supplier_name` | same field |
+| `order_ref` | **not in 4.1** | arrives, is **ignored**, is not stored. `EXT-11` and `P3-31` own its shape |
+| `client_ref` | **not in 4.1** | arrives, is ignored, is not stored. **No card claims it** |
+
+The card's defaults anticipated this for `order_ref` and said not to wait,
+because the field's *shape* is EXT-11's problem and its *presence* is this card's.
+The fixture sends both, which is what production does, and the contract's new
+table says in terms that sending them is not a promise that we store them.
+
+### OPEN ITEM FOR THE OWNER: Andre must be told before his next delivery
+
+**A payload shape Andre may be emitting today now receives a `400`, and Make does
+not retry a `4xx`: a document would be dropped once, quietly.**
+
+The failure is not a new `error_code`, so ruling R-098's letter does not bind, but
+its reasoning applies exactly. This is flagged rather than assumed handled, and it
+is the one thing in this session's work that needs a message to a person rather
+than a commit. The change is small to state: *on a scanned document that failed,
+send the header and omit `lines` entirely; do not send an empty array.*
+
+### Commands
+
+    npx tsc --noEmit                                                exit 0
+    node docs/board/validate-board.mjs <all three>                   exit 0, 0 violations
+    npx playwright test extraction.spec.ts review.spec.ts           exit 0, 34 of 34
+    npm run check:board-edit                                         exit 0, EXT-20 todo -> shipped
+
+---
+
 ## (narrative continues; this file is written as the work proceeds)

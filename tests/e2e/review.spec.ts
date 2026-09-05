@@ -741,19 +741,17 @@ test.describe("Verificare si confirmare extragere", () => {
     await signIn(page, ownerAccount());
     const orderId = await uploadForExtraction(page, request, "unread");
 
-    expect(
-      (
-        await post(
-          request,
-          callbackBody(orderId, {
-            status: "failed",
-            error_code: "unreadable_document",
-            reason: "Scanarea nu a putut fi citita.",
-            document_source: "scan",
-          }),
-        )
-      ).status(),
-    ).toBe(202);
+    // EXT-20: o scanare esuata nu are voie sa poarte cheia `lines` deloc, nici
+    // goala. Payload-ul de aici o trimitea; acum pleaca, si ecranul verificat
+    // mai jos este exact acelasi.
+    const unread = callbackBody(orderId, {
+      status: "failed",
+      error_code: "unreadable_document",
+      reason: "Scanarea nu a putut fi citita.",
+      document_source: "scan",
+    }) as Record<string, unknown>;
+    delete unread.lines;
+    expect((await post(request, unread)).status()).toBe(202);
 
     const card = draftCard(page, orderId);
     await page.goto(UPLOAD);
