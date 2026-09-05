@@ -7346,3 +7346,62 @@ cadence is the thing that does not hold here.
 **Unblocks:** nothing. AUT-17 stays `in_flight` on PR #192.
 
 ---
+---
+
+### R-127
+
+**A FALSE SENTENCE IN DOCTRINE IS QUOTED AND MARKED FALSE IN PLACE. IT IS NEVER
+DELETED.**
+
+**Asked by:** nobody. **Decided by:** the owner on 2026-09-04, ratifying a
+practice this repository had already used once and naming it standing.
+
+**The instance, in his words:** *"The false sentence quoted rather than deleted,
+accepted and now standing practice."*
+
+**WHAT WAS DONE, AND IS NOW THE RULE.** CLAUDE.md 3.1 contained this sentence,
+load-bearing for the whole separation between merging and applying:
+
+> *"A pull request that ADDS `supabase/migrations/0013_something.sql` changes one
+> text file in a git repository and changes nothing in any database."*
+
+R-124 disproved it with a prediction and a control. The correction **quoted the
+sentence, said it was false, and left it there** under the true one, rather than
+replacing the paragraph and moving on.
+
+**WHY THE QUOTE AND NOT THE DELETION.** Three reasons, and the third is the one
+that decides it.
+
+1. **Everything built on top of it stays readable.** R-082's whole preamble rests
+   on that sentence. A reader arriving from R-082 lands on a paragraph that
+   explains why R-082 says what it says, instead of on a paragraph that silently
+   contradicts it.
+2. **A citation from outside the file keeps resolving.** Reports, rulings and
+   pull request bodies quote doctrine by its words. Deleting the words makes
+   every one of those citations point at nothing.
+3. **A DELETED FALSE SENTENCE LOOKS EXACTLY LIKE A SENTENCE THAT WAS NEVER
+   THERE.** The record then says the project always knew the true thing, which is
+   a second false statement replacing the first, and a worse one: the first was
+   an honest mistake and the second is a tidied history. This repository's whole
+   method is that a claim carries how it was established, and a claim cannot
+   carry that if the wrong version of it has been removed.
+
+**THE SHAPE, so the next one is done the same way.** Keep the false sentence,
+quoted, marked false in the same breath, with the ruling id that disproved it and
+the evidence beside it. Put the true statement first, because a reader who stops
+after one paragraph must stop on the true one.
+
+**WHAT THIS DOES NOT COVER.** A typo, a stale file path, a renamed command: those
+are corrected in place with no ceremony. This binds a sentence somebody could
+have RELIED ON, meaning one that other doctrine, a ruling or a decision was built
+on top of. The test is whether removing it would leave something else in the
+repository unexplained.
+
+**CLAUDE.md GAINS SECTION 9c, AND THAT IS WHERE THE RULE LIVES.** This file's own
+rules say a ruling that unblocks no card belongs in CLAUDE.md as a standing rule
+instead. It is written in both places for the same reason R-086 was: the standing
+rule goes where terminals read it, and the ratification stays here because it has
+a date and an author and a future reader needs to know when the practice started
+and who decided it.
+
+**Unblocks:** no card. It binds every role from the moment it is written.
