@@ -160,6 +160,174 @@ watchdog() {
 # EXTRACT-END deadline-helpers
 
 # ---------------------------------------------------------------------------
+# THE DEPLOYED-COPY DRIFT CHECK. Card AUT-21.
+#
+# WHAT IT IS FOR. Three scripts run from copies under /Users/ivan/rc-poc-bin,
+# installed by scripts/poc/install.sh. The .mjs modules beside them are read out
+# of a worktree pinned at origin/main and upgrade with every merge; the three
+# deployed copies upgrade only when a human re-runs the installer. So the two
+# halves of this harness do not move together, and NOTHING NOTICED.
+#
+# R-120 is the instance. Merging a fix to the selector did not fix the selector,
+# because run.sh is a deployed copy, and the run that discovered it discovered it
+# from its own dispatch rather than from anything in its log.
+#
+# IT REPORTS, IT NEVER RE-INSTALLS. A run that reinstalled its own harness would
+# be rewriting the script it is currently executing, and bash reads a script
+# incrementally from disk by byte offset, so the failure mode is a run that
+# changes behaviour halfway through with nothing in the log to say so.
+# install.sh stays a human-invoked command and CLAUDE.md 15 stays as written.
+#
+# A DRIFT IS AN ESCALATION, NOT A REFUSAL. The run continues. A stale run that
+# says it is stale is strictly better than no run, and refusing to start would
+# turn a reporting gap into an outage the first time somebody edited a script and
+# forgot the reinstall, which is the exact situation this card was written about.
+#
+# THE LIST IS DERIVED, NOT TYPED. `install.sh --manifest` prints the pairs with
+# absolute paths already resolved. A fourth agent added to that manifest joins
+# this check with no second edit. AUT-16 removed three copies of a path list for
+# this reason and a hardcoded list here would re-create the same defect smaller.
+#
+# BYTES, NOT MTIMES. install.sh gives every file it copies a new mtime and
+# identical content, and a file that was edited and copied has both, so mtime
+# answers a different question than the one being asked.
+#
+# HOW IT IS TESTED. The four `drift_*` seams below are the only place the
+# manifest, the hasher or the clock is reached. scripts/poc/test-install.sh lifts
+# this block verbatim by its fences and drives it against a CONSTRUCTED install
+# root, never /Users/ivan/rc-poc-bin.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN drift-check
+
+# Seam 1. The manifest, from install.sh itself. One row per deployed artefact,
+# `LABEL|SOURCE|DESTINATION|MODE|DESCRIPTION`, absolute paths, nothing written.
+drift_manifest() {
+  bash "$1" --manifest 2>/dev/null
+}
+
+# Seam 2. The sha256 of a file, or nothing when it cannot be read.
+#
+# TWO BINARIES BECAUSE TWO OPERATING SYSTEMS. macOS ships `shasum` and no
+# `sha256sum`; ubuntu-latest ships both. Picked once, per call, rather than
+# assumed, because a missing hasher must read as "cannot tell" and not as "the
+# files match".
+drift_sha256() {
+  [ -f "$1" ] || return 1
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" 2>/dev/null | awk '{print $1}'
+  else
+    return 1
+  fi
+}
+
+drift_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# THE COMPARISON.
+#
+# Sets DRIFT_REPORT to one line per drifted file, empty when nothing drifted, and
+# DRIFT_COUNT to the number of files compared. Both are read by drift_escalate.
+#
+# ONLY THE SCRIPTS ARE COMPARED, WHICH IS THE CARD'S OWN LIST OF THREE, and the
+# manifest's 644 rows are the plists. They are selected by MODE rather than by
+# name so a fourth script joins automatically. The plists are deployed copies too
+# and can drift in exactly the same way; that is recorded on the card as a finding
+# rather than built here, because the card names three files.
+#
+# A FILE THAT CANNOT BE HASHED IS REPORTED, NOT SKIPPED. A missing deployed copy
+# means the installer never ran for it, which is a louder version of the same
+# fault, and docs/LEARNINGS.md already names the class: a matcher whose empty
+# result means "nothing to do" has to assert its input count against its match
+# count. This one does, below.
+drift_detect() {
+  DD_INSTALL_SH=$1
+  DRIFT_REPORT=""
+  DRIFT_COUNT=0
+  DD_ROWS=0
+
+  DD_MANIFEST=$(drift_manifest "$DD_INSTALL_SH")
+  if [ -z "$DD_MANIFEST" ]; then
+    log "drift check: install.sh printed no manifest, so nothing could be compared"
+    return 0
+  fi
+
+  while IFS='|' read -r DD_LABEL DD_SRC DD_DEST DD_MODE DD_DESC; do
+    [ -z "${DD_MODE:-}" ] && continue
+    DD_ROWS=$(( DD_ROWS + 1 ))
+    [ "$DD_MODE" = 755 ] || continue
+
+    DD_A=$(drift_sha256 "$DD_SRC" || true)
+    DD_B=$(drift_sha256 "$DD_DEST" || true)
+    DRIFT_COUNT=$(( DRIFT_COUNT + 1 ))
+
+    if [ -z "$DD_A" ]; then
+      log "drift check: DRIFT $DD_DEST repo=unreadable deployed=${DD_B:0:12}"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=unreadable deployed=${DD_B:0:12}; "
+      continue
+    fi
+    if [ -z "$DD_B" ]; then
+      log "drift check: DRIFT $DD_DEST repo=${DD_A:0:12} deployed=absent"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=${DD_A:0:12} deployed=absent; "
+      continue
+    fi
+    if [ "$DD_A" != "$DD_B" ]; then
+      log "drift check: DRIFT $DD_DEST repo=${DD_A:0:12} deployed=${DD_B:0:12}"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=${DD_A:0:12} deployed=${DD_B:0:12}; "
+    fi
+  done <<< "$DD_MANIFEST"
+
+  # THE COUNT ASSERTION. A manifest that parsed to zero comparable rows would
+  # report "no drift" about work it never did, which is indistinguishable in
+  # every log from a clean installation.
+  if [ "$DRIFT_COUNT" -eq 0 ]; then
+    log "drift check: the manifest has $DD_ROWS row(s) and NONE were comparable, so nothing was checked"
+    return 0
+  fi
+
+  if [ -z "$DRIFT_REPORT" ]; then
+    log "drift check: $DRIFT_COUNT deployed script(s) match the repository byte for byte"
+  else
+    log "drift check: the deployed harness DIFFERS from the repository. Re-run scripts/poc/install.sh."
+  fi
+  return 0
+}
+
+# THE ESCALATION, WRITTEN INTO state.json.
+#
+# SEPARATE FROM THE DETECTION, AND THE REASON IS THE RUN ORDER. The comparison has
+# to happen while the worktree is at origin/main, early, so the run log carries it
+# even if the run is killed later. state.json is edited much later, on the state
+# branch, and step 3 hard resets the worktree in between: an escalation written
+# early would be discarded by that reset without a word.
+drift_escalate() {
+  DE_STATE=$1
+  [ -n "${DRIFT_REPORT:-}" ] || return 0
+  [ -f "$DE_STATE" ] || { log "drift check: $DE_STATE is not there, escalation not written"; return 0; }
+
+  node -e '
+    const fs = require("fs");
+    const [path, report, runId, at] = process.argv.slice(1);
+    const state = JSON.parse(fs.readFileSync(path, "utf8"));
+    state.escalations = (state.escalations || []).concat([{
+      card_id: "AUT-21",
+      question: "The harness copies installed on this machine differ from the ones in the repository: "
+        + report.replace(/;\s*$/, "") + ". This run followed the installed copies.",
+      recommendation: "Re-run scripts/poc/install.sh on the machine. Nothing here re-installs itself, "
+        + "on purpose: a run that rewrote the script it is executing would change behaviour halfway through.",
+      raised_at: at,
+      run_id: runId,
+    }]);
+    fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
+  ' "$DE_STATE" "$DRIFT_REPORT" "${RUN_ID:-unknown}" "$(drift_now)"
+
+  log "drift check: escalation appended to $DE_STATE"
+  return 0
+}
+# EXTRACT-END drift-check
+
+# ---------------------------------------------------------------------------
 # The lock. A run never starts while another holds it, unless the lock is stale.
 # CLAUDE.md section 13.
 # ---------------------------------------------------------------------------
@@ -376,6 +544,22 @@ git reset --hard origin/main --quiet
 # so the run does not pay for a reinstall it does not need.
 git clean -fd --quiet
 log "run worktree at $(git rev-parse --short HEAD) detached from origin/main"
+
+# AUT-21. THE DRIFT CHECK RUNS HERE, AS EARLY AS IT CAN.
+#
+# The worktree is at origin/main and nothing else has happened yet, so the log
+# carries the comparison even if this run is killed before it reaches the state
+# pull request. The escalation is appended much later, at step 5, because step 3
+# hard resets this worktree and would discard anything written to state.json now.
+#
+# THE BLOCK ITSELF IS DEFINED ABOVE, WITH THE DEADLINE HELPERS, and not next to
+# this call. bash resolves a function from what it has already read, so a block
+# defined further down the file is a command not found here.
+if [ -f "$POC_RUN_WORKTREE/scripts/poc/install.sh" ]; then
+  drift_detect "$POC_RUN_WORKTREE/scripts/poc/install.sh"
+else
+  log "drift check: the checked out commit has no scripts/poc/install.sh, nothing compared"
+fi
 
 # AUT-16. Fill the board set now that the worktree holds the commit this run
 # works from, so the list comes from that commit's boards.mjs rather than from a
@@ -1429,6 +1613,12 @@ fi
 log "writing $POC_STATE on $STATE_BRANCH"
 
 git checkout -b "$STATE_BRANCH" origin/main --quiet
+
+# AUT-21. The escalation lands HERE, on the state branch, so it rides to main in
+# the state pull request like every other escalation. drift_detect ran at the top
+# of this run and already put the comparison in the log; this writes it where the
+# digest and the owner will see it.
+drift_escalate "$POC_STATE"
 
 # ---------------------------------------------------------------------------
 # The pull request census, card AUT-18. It runs HERE, after every merge this run

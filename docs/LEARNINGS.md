@@ -3956,3 +3956,34 @@ threshold is MEASURED at test time by probing the same PostgREST the application
 uses, rather than written into the test: 208 was measured on one stack on one
 day, and a number copied into a test is a fact about a machine that has since
 changed.
+
+### A bash function called before its definition is a command not found, and the run had already logged three normal lines by then
+**Tag:** infra
+**ERROR:** the AUT-21 drift block was first inserted into `scripts/poc/run.sh`
+after the `EXTRACT-END checkpoint` fence, at line 465, while its call site sat at
+line 387. `bash -n` passed, because parsing a script does not resolve function
+names. The failure would only have appeared at 22:00, in a scheduled run, as
+`drift_detect: command not found` on a line that had already logged three
+ordinary-looking lines above it.
+**SOLUTION:** the block moved up beside the deadline helpers, before every call
+site, with a comment at the call site saying why the definition is not next to it.
+RULE: in a long shell script, `bash -n` proves syntax and proves nothing about
+order. A block that defines functions goes above its first caller, and the check
+that catches a violation is running the thing, not parsing it.
+
+### The one permitted secrets read answered the question the card was asking, and the answer was that the card was wrong
+**Tag:** data
+**ERROR:** APPLY-02 said six merged migrations, 0028 to 0033, had never been
+applied to production, and named itself the single deciding cause for all nine
+phase 3 launch conditions reading 0 of 9. Building it would have meant running an
+applier against production. `applied_ledger_version()` over PostgREST, read-only,
+answered `"0034"`, and the health route answered `"0034"` independently. All six
+were live, applied by the Supabase GitHub integration that R-124 documents, and
+the pending register was already empty. The card was authored the same day R-124
+landed and its notes quote the sentence R-124 disproved.
+**SOLUTION:** two read-only calls, before any write path was opened, turned a
+production-touching card into a blocked one with the evidence on it. RULE, and it
+is the second time this file records it: **before acting on a card that says
+something about production, ask production.** The repository says what should be
+applied; only the database says what is. The read costs one HTTP request and the
+permitted secrets read that CLAUDE.md 8.3 already grants for exactly this work.
