@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn, signOut } from "./support/auth";
@@ -226,6 +227,122 @@ async function openReview(page: Page, orderId: string) {
   await expect(card).toHaveCount(1, { timeout: 30_000 });
   await card.getByTestId("draft-review").click();
   await expect(page.getByTestId("review-form")).toBeVisible({ timeout: 15_000 });
+}
+
+
+// ---------------------------------------------------------------------------
+// P3-38. UNELTELE CAZULUI 15.
+//
+// Se scrie prin HTTP cu cheia de service_role, nu prin supabase-js: acelasi
+// motiv ca in document-url.spec, unde clientul cere un WebSocket global pe care
+// node 20, versiunea fixata de workflow, nu il are.
+//
+// DACA CHEIA LIPSESTE, CAZUL CADE. Nu sare. Un caz care sare cand nu isi
+// gaseste conditia raporteaza "nu era nimic de facut", ceea ce arata identic cu
+// "totul este in regula".
+// ---------------------------------------------------------------------------
+
+/** Plafonul sondei, si el este legat de `max_rows = 1000` din
+ *  supabase/config.toml. Tinta semanata este plafonul plus marja; daca ea ar
+ *  trece de max_rows, lista de ciorne ar fi taiata de server si cazul ar cadea
+ *  din alt motiv decat al lui. */
+const ID_LIST_PROBE_CEILING = 400;
+
+/** Cat se semaneaza PESTE pragul masurat. Sonda cere un `select` mai scurt
+ *  decat cel al aplicatiei, deci pentru acelasi numar de id-uri adresa ei este
+ *  mai scurta si refuzul ii vine la un numar mai MARE. Masurarea greseste, prin
+ *  constructie, in partea sigura, iar marja acopera si diferenta dintre jetonul
+ *  de service_role si cel al operatorului. */
+const PENDING_TARGET_MARGIN = 32;
+
+function restAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "cazul 15 are nevoie de NEXT_PUBLIC_SUPABASE_URL si SUPABASE_SERVICE_ROLE_KEY. " +
+        "In CI sunt exportate de pasul 'Export local Supabase credentials'. Local: supabase status -o env.",
+    );
+  }
+  return {
+    origin: new URL(url).origin,
+    auth: { Authorization: `Bearer ${key}`, apikey: key } as Record<string, string>,
+  };
+}
+
+type Rest = ReturnType<typeof restAdmin>;
+
+/**
+ * Cate id-uri incap intr-o adresa inainte ca portarul din fata lui PostgREST sa
+ * refuze cererea, MASURAT pe mediul acesta si niciodata scris in test.
+ *
+ * 209 de id-uri au primit 414 pe stiva locala din 2026-09-04, la circa 7.7 KB
+ * de linie de cerere, dar proiectul gazduit sta in spatele altei infrastructuri
+ * si limita lui poate fi alta. Se intreaba acelasi PostgREST pe care il
+ * foloseste aplicatia, cu aceeasi forma de parametru.
+ */
+async function measureIdListRefusal(rest: Rest): Promise<{ refusedAt: number | null; status: number }> {
+  let status = 0;
+  for (let n = 32; n <= ID_LIST_PROBE_CEILING; n *= 2) {
+    const ids = Array.from({ length: n }, () => randomUUID()).join(",");
+    const response = await fetch(
+      `${rest.origin}/rest/v1/extraction_draft_lines?select=order_id&order_id=in.(${ids})`,
+      { headers: rest.auth },
+    );
+    status = response.status;
+    await response.arrayBuffer();
+    if (status !== 200) return { refusedAt: n, status };
+  }
+  return { refusedAt: null, status };
+}
+
+async function pendingDraftCount(rest: Rest): Promise<number> {
+  const response = await fetch(
+    `${rest.origin}/rest/v1/extraction_drafts?select=order_id&confirmed_at=is.null&limit=1`,
+    { headers: { ...rest.auth, Prefer: "count=exact" } },
+  );
+  if (!response.ok) {
+    throw new Error(`numararea ciornelor a raspuns ${response.status}`);
+  }
+  await response.arrayBuffer();
+  const range = response.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]);
+  if (!Number.isFinite(total)) {
+    throw new Error(`content-range nu poarta un total: "${range}"`);
+  }
+  return total;
+}
+
+/**
+ * Completeaza pana la o TINTA, nu adauga o cantitate.
+ *
+ * O stiva persistenta pe care suita ruleaza de opt ori ar ajunge altfel la mia
+ * de randuri unde `max_rows` taie lista, si cazul ar cadea fiindca ciorna lui
+ * nu mai incape in raspuns, nu fiindca ecranul ar fi rupt.
+ */
+async function topUpPendingDrafts(rest: Rest, target: number): Promise<number> {
+  const have = await pendingDraftCount(rest);
+  if (have >= target) return have;
+
+  const rows = Array.from({ length: target - have }, (_, i) => ({
+    order_id: randomUUID(),
+    document_path: `test-p3-38/${RUN}-${i}.pdf`,
+    document_filename: `TEST-P3-38-${RUN}-${i}.pdf`,
+    mime_type: "application/pdf",
+    size_bytes: 1024,
+  }));
+
+  const response = await fetch(`${rest.origin}/rest/v1/extraction_drafts`, {
+    method: "POST",
+    headers: { ...rest.auth, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify(rows),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `semanatul ciornelor a raspuns ${response.status}: ${(await response.text()).slice(0, 200)}`,
+    );
+  }
+  return await pendingDraftCount(rest);
 }
 
 test.describe("Verificare si confirmare extragere", () => {
@@ -992,4 +1109,64 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(row).toHaveCount(1);
     await expect(row).toHaveAttribute("data-needs-review", "false");
   });
+
+  // -------------------------------------------------------------------------
+  // P3-38. ECRANUL DE VERIFICARE PESTE PRAGUL LA CARE LISTA DE ID-URI ESTE
+  // REFUZATA.
+  //
+  // DE CE NU S-A VAZUT NICIODATA IN CI. Fiecare rulare porneste cu `supabase db
+  // reset`, deci numarul de ciorne neconfirmate nu trece niciodata de cateva
+  // unitati. Defectul cere o instalare care a mers o vreme, adica exact
+  // instalarea pe care o are clientul.
+  //
+  // PRAGUL SE MASOARA, NU SE SCRIE IN TEST. 209 de id-uri au primit 414 pe
+  // stiva locala din 2026-09-04, dar proiectul gazduit sta in spatele altei
+  // infrastructuri si limita lui poate fi alta. Testul intreaba PostgREST-ul pe
+  // care il foloseste chiar aplicatia, cu aceeasi forma de adresa, si abia apoi
+  // seamana peste raspunsul primit.
+  //
+  // NUMARUL DE CIORNE ESTE O TINTA, NU O ADAUGARE. Se citeste cate sunt deja si
+  // se completeaza pana la tinta. O stiva persistenta pe care suita ruleaza de
+  // opt ori nu ajunge astfel la mia de randuri unde `max_rows` ar taia lista si
+  // testul ar cadea din alt motiv decat al lui.
+  test("15. P3-38: liniile se vad si cand numarul de ciorne in asteptare trece de pragul cererii", async ({
+    page,
+    request,
+  }) => {
+    const rest = restAdmin();
+
+    // 1. Pragul, masurat pe mediul acesta. Dublare de la 32 pana la plafon.
+    const refusal = await measureIdListRefusal(rest);
+
+    // 2. Ciorna care poarta liniile, prin banda reala: incarcare plus callback.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "depth");
+    expect((await post(request, callbackBody(orderId))).status()).toBe(202);
+
+    // 3. Umplutura, pana la tinta, printr-o singura scriere.
+    const target = refusal.refusedAt ?? ID_LIST_PROBE_CEILING;
+    const seeded = await topUpPendingDrafts(rest, target + PENDING_TARGET_MARGIN);
+
+    // Ce s-a masurat si ce s-a semanat intra in raportul rularii: un caz care
+    // trece fiindca nu a semanat nimic arata identic cu unul care trece fiindca
+    // ecranul este reparat.
+    test.info().annotations.push({
+      type: "P3-38",
+      description:
+        `prag masurat: ${refusal.refusedAt ?? "niciun refuz pana la " + ID_LIST_PROBE_CEILING}` +
+        ` (status ${refusal.status}); ciorne in asteptare dupa semanat: ${seeded}`,
+    });
+    expect(seeded).toBeGreaterThan(target);
+
+    // 4. Ecranul. Aceeasi fisa, aceleasi linii, la aceeasi adresa.
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    await expect(page.getByTestId("review-line-name-0")).toHaveValue(
+      `Tigla metalica Bilka Classic 0.45mm visiniu ${RUN}`,
+    );
+    await expect(page.getByTestId("review-line-quantity-0")).toHaveValue("240.5");
+    await expect(page.getByTestId("review-line-price-0")).toHaveValue("76.72");
+  });
+
 });
