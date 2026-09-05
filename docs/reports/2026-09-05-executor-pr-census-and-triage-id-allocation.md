@@ -154,15 +154,62 @@ second card was authored, per the defaults.
 
 | PR | card | branch | state at the time of writing |
 |---|---|---|---|
-| #204 | AUT-18 | `card/aut-18` | opened this run, `quality` running on head `c1eb5cd` |
-| #205 | AUT-19 | `card/aut-19` | opened this run, `quality` running |
-| this one | the report | `poc/report-20260904-220003` | opened this run |
+| #204 | AUT-18 | `card/aut-18` | **MERGED** this run at 02:32:58Z on green `quality` for head `c1eb5cd` |
+| #205 | AUT-19 | `card/aut-19` | green, conflict resolved locally after #204 merged, **left open** for the next run |
+| this one | the report | `poc/report-20260904-220003` | brought up to date, **left open** for the next run |
 
 **Every merge this run makes rests on a `quality` run that exists for the head
 sha and concluded success, read beside `mergeStateStatus`.** Where the cap
 arrives before a check does, the pull request is left open and named here rather
 than merged on a result that belongs to another commit. Whatever this file says
 about a merge, the pull request itself is the record.
+
+### 3a. What actually happened at merge time, written after the fact
+
+All three went green on their own head shas, verified by comparing each
+`quality` run's `headSha` against the pull request's `headRefOid` rather than by
+reading a `gh pr checks` summary:
+
+```
+c1eb5cda3e9a  completed success   #204
+aca4f8fc9082  completed success   #205
+57418a77d335  completed success   #206
+```
+
+**#204 merged at 02:32:58Z.** `mergeStateStatus CLEAN`, run present for
+`c1eb5cd`, concluded success.
+
+**#205 AND #206 DID NOT MERGE THIS RUN, AND THE REASON IS WORTH THE PARAGRAPH.**
+The instant #204 merged, #205 went `DIRTY / CONFLICTING`: both pull requests edit
+`docs/board/rc-board-phase2.json`, and the `as_of` line collides by construction
+because every card edit bumps it. #206 went `BEHIND`, and `main` has
+`required_status_checks.strict`, so a merge was refused with *"the head branch is
+not up to date with the base branch"*.
+
+Both were repaired in this run, neither was merged on a stale result:
+
+- **#205's conflict was resolved LOCALLY, against the full tree, per R-052.** Two
+  files conflicted, `docs/board/rc-board-phase2.json` on `as_of` alone and
+  `docs/LEARNINGS.md` where both branches appended. Both resolutions keep BOTH
+  sides; nothing was dropped. `git merge origin/main` into the card branch, no
+  rebase and no force push. Before the commit: the three board validators exit 0,
+  `npm run check:conflict-residue` exits 0, the board parses, and both cards read
+  `shipped` with evidence. New head `efefb6b`.
+- **#206 was brought up to date with `gh pr update-branch`.**
+
+**Both then had a `quality` run start on a NEW head sha, and that run cannot
+conclude inside this run's 45 minute cap.** Merging either would mean merging on
+a check that has not run for the commit being merged, which CLAUDE.md section 3
+forbids in the same words whether the stale result is red or green. So both are
+left open, deliberately, and are the first item in section 6.
+
+**THIS IS THE CENSUS SHIPPED TONIGHT DESCRIBING ITS OWN AUTHOR.** Two pull
+requests, green, correct, and sitting open past the end of the run that wrote
+them. Under AUT-18 the next scheduled run will name both in its log with their
+head sha and what `quality` concluded on it, and will escalate either one whose
+head commit predates that run and is not green. That is precisely the class of
+loss the card was written against, and it occurred within an hour of the card
+shipping.
 
 ---
 
@@ -198,9 +245,13 @@ Three entries in `docs/LEARNINGS.md`:
 
 ## 6. What the next run should pick up first
 
-1. **Confirm #204, #205 and this report's pull request all merged.** If any is
-   open, read `mergeStateStatus` beside the check result before touching it, per
-   CLAUDE.md section 3. `npm run checks:state <pr>` prints both.
+1. **MERGE #205 AND #206. Both are green, both are up to date, both are open,
+   and this is the first thing the next run should do.** #204 is already merged.
+   Section 3a records exactly why the other two did not make it: the cap arrived
+   before the fresh `quality` runs on their new head shas. Read
+   `mergeStateStatus` beside the check result before touching either, per
+   CLAUDE.md section 3, and confirm a run EXISTS for the head sha rather than
+   trusting a `gh pr checks` summary. `npm run checks:state <pr>` prints both.
 2. **AUT-20**, the next eligible card by the harness's own ordering:
    `scripts/poc/test-chat-classify.sh` is red on `main` and is in no required
    check, so the responder classifier has been unproven for as long as anyone can
@@ -219,4 +270,5 @@ Three entries in `docs/LEARNINGS.md`:
    list.
 
 Board after this run: **50 shipped, 26 todo, 3 blocked, 1 in flight**, launch
-gate unchanged at **6/9**.
+gate unchanged at **6/9**. AUT-18's half of that is on `main`; AUT-19's is on
+#205 and lands when #205 does.
