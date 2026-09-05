@@ -451,6 +451,21 @@ jobs:
       - name: Prove the pull request census  # AUT-18-CENSUS-PROOF
         run: bash scripts/poc/test-pr-census.sh
 
+      # AUT-23. THE PRODUCER GATE. The harness withholds its own pull request
+      # when the queue is already at the threshold, and every clause of that
+      # fails SILENTLY when it breaks: a gate stuck open looks like a queue that
+      # happens to be short, a gate stuck shut looks like a harness that did no
+      # work, and a park nobody releases looks exactly like a branch nobody
+      # pushed. It lifts the fenced block out of run.sh and drives it against
+      # fixtures, with a tripwire on git and gh so "without redoing the work" is
+      # an assertion rather than a claim.
+      #
+      # NOT PATH FILTERED, deliberately, for the same reason as the census proof
+      # above: no container, no database, and the defect class it catches is a
+      # report going quiet.
+      - name: Prove the producer gate  # AUT-23-PRODUCER-GATE-PROOF
+        run: bash scripts/poc/test-producer-gate.sh
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
