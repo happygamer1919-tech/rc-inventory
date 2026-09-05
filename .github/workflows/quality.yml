@@ -493,6 +493,26 @@ jobs:
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
 
+      # AUT-20. THE RESPONDER CLASSIFIER, WHICH HAD A TEST AND NO RUNNER.
+      #
+      # scripts/poc/test-chat-classify.sh is AUT-6's acceptance and it decides
+      # what an incoming Telegram message IS. CLAUDE.md section 13 makes the
+      # narrowness of that decision the whole security model of the channel:
+      # identity is checked before the text is read, two exact forms are
+      # accepted, everything else is logged and never acted on.
+      #
+      # It was red on main and named in no step of this workflow, so nothing
+      # measured it and nothing would have said so. Its four siblings above were
+      # each wired in on the day they were written; this one was not, and the gap
+      # is not detectable from a green run log, only from reading the file.
+      #
+      # IT IS NOT PATH-FILTERED AND MUST NOT BECOME SO. CLAUDE.md section 3.1
+      # permits exactly two filtered steps, names both, and says a third is a
+      # change to that section rather than an application of it. This step needs
+      # no container, no database and no network, so there is nothing to trade.
+      - name: Prove the responder classifier  # AUT-6-AUT-20-CLASSIFY-PROOF
+        run: bash scripts/poc/test-chat-classify.sh
+
       # AUT-16. THE BOARD SET, AND EVERY COMPONENT THAT RESOLVES AGAINST IT.
       #
       # Three components each held their own hardcoded path to the phase 2
