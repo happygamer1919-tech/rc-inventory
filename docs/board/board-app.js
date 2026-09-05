@@ -194,6 +194,31 @@
     }
     return home;
   }
+  /**
+   * BOARD-01. THE NEXT CARD IS THE OLD CARD WITH THE EDITED KEYS OVERWRITTEN.
+   *
+   * The save path used to build a fresh object listing the eleven fields the
+   * modal edits, which SILENTLY DELETED every field the portal was never taught
+   * about: plain, depends_on, acceptance, defaults and question. Saving one card
+   * in the portal and pasting the export back produced a board the repository
+   * validator rejects, and the in-app validator reported it clean because it did
+   * not check those fields either.
+   *
+   * MERGING RATHER THAN LISTING MORE FIELDS IS THE WHOLE POINT. Enumerating the
+   * five that are missing today fixes today and breaks again the next time a
+   * field is added to the card contract, which is exactly how this happened. A
+   * merge is correct for every field that will ever exist.
+   *
+   * The lane is derived last, from the merged card, because it is the one field
+   * no human sets and it must agree with the status that just changed.
+   */
+  function nextCardFrom(existing, edits) {
+    var next = clone(existing || {});
+    Object.keys(edits).forEach(function (k) { next[k] = edits[k]; });
+    next.lane = laneOf(next);
+    return next;
+  }
+
   function normalize(b) {
     (b.cards || []).forEach(function (c) {
       if (!c.priority) c.priority = "medium";
@@ -314,7 +339,10 @@
     if (ui.fPrio.length && ui.fPrio.indexOf(c.priority || "medium") < 0) return false;
     var q = ui.q.trim().toLowerCase();
     if (!q) return true;
-    return [c.id, c.title, c.notes, c.owner_terminal, (c.evidence || {}).ref]
+    // BOARD-01. `plain` is in the index. Searching the board for an ordinary
+    // word used to match nothing, because the index read the build vocabulary
+    // only, and the owner searches in the words he reads.
+    return [c.id, c.title, c.plain, c.notes, c.owner_terminal, (c.evidence || {}).ref]
       .filter(Boolean).join(" ").toLowerCase().indexOf(q) >= 0;
   }
   function visibleCards() { return (board.cards || []).filter(matches); }
@@ -338,7 +366,7 @@
     // Do not stutter: many refs already begin with their own kind word
     // ("PR #704 - ...", "journal migration 0049 ...").
     if (k && ref.toLowerCase().indexOf(k.trim().toLowerCase()) === 0) k = "";
-    var short = ref.length > 34 ? ref.slice(0, 34).replace(/[\s\-–—]+$/, "") + "…" : ref;
+    var short = ref.length > 34 ? ref.slice(0, 34).replace(/[\s\-]+$/, "") + "…" : ref;
     return '<span class="ev" title="' + esc(ref) + '"><b>' + esc(k + short) + "</b>" + (ev.at ? " · " + esc(dateOnly(ev.at)) : "") + "</span>";
   }
   function staleBit(c) {
@@ -358,6 +386,9 @@
         staleBit(c) +
       "</div>" +
       '<div class="ttl">' + esc(c.title) + "</div>" +
+      // BOARD-01. `plain` as SECONDARY text on the tile. The title wins here,
+      // where space forbids both, and `plain` wins in the drawer.
+      (c.plain ? '<div class="plain">' + esc(c.plain) + "</div>" : "") +
       '<div class="row2">' + gateTag(c.gate) + whoTag(c.blocked_on) + evidenceBit(c.evidence) +
         '<span class="qa">' +
           (c.status === "shipped"
@@ -556,10 +587,12 @@
     var rows = sortCards(visibleCards()).map(function (c) {
       return '<tr data-act="open" data-id="' + esc(c.id) + '">' +
         '<td><span class="cid">' + esc(c.id) + "</span></td>" +
-        '<td class="t">' + esc(c.title) + "</td>" +
+        // BOARD-01. `plain` under the title, secondary, in the same cell.
+        '<td class="t">' + esc(c.title) +
+          (c.plain ? '<div class="plain">' + esc(c.plain) + "</div>" : "") + "</td>" +
         "<td>" + tag("st-" + c.status, STATUS_LABEL[c.status]) + "</td>" +
         "<td>" + esc(LANE_LABEL[laneOf(c)]) + "</td>" +
-        "<td>" + (c.blocked_on ? whoTag(c.blocked_on) : '<span class="ev none">—</span>') + "</td>" +
+        "<td>" + (c.blocked_on ? whoTag(c.blocked_on) : '<span class="ev none">-</span>') + "</td>" +
         "<td>" + gateTag(c.gate) + "</td>" +
         '<td class="mono">' + esc(dateOnly(c.last_checkpoint)) + "</td>" +
         "<td>" + evidenceBit(c.evidence) + "</td></tr>";
@@ -650,7 +683,7 @@
       ? "snapshot " + esc(SEED.as_of) + ", republished since you loaded it"
       : "snapshot " + esc(SEED.as_of) + ", yours is " + esc(board.as_of || "?");
     return '<div class="notice"><span class="dot"></span>' +
-      "<span>A newer board was published — <b>" + when + "</b>." +
+      "<span>A newer board was published, <b>" + when + "</b>." +
       (d.total ? " Taking it discards " + d.total + " local change" + (d.total === 1 ? "" : "s") + "." : "") + "</span>" +
       '<button class="btn btn-sm primary" data-act="take-seed">Load the new board</button>' +
       '<button class="btn btn-sm ghost" data-act="dismiss-notice">Keep mine</button></div>';
@@ -723,7 +756,7 @@
         '<select id="' + pfx + 'k" style="flex:none;min-width:130px">' + options([null].concat(EV_KIND), ev.kind, function (k) { return k === null ? "(none)" : k; }) + "</select>" +
         '<input id="' + pfx + 'r" type="text" placeholder="PR number, sha256, path…" value="' + esc(ev.ref || "") + '" style="flex:1;min-width:160px" />' +
         '<input id="' + pfx + 'a" type="date" value="' + esc(dateOnly(ev.at) || today()) + '" style="flex:none;width:150px" />' +
-      '</div><span class="hint">A shipped card and a passed condition MUST carry evidence — the one rule the repo validator will not bend.</span></div>';
+      '</div><span class="hint">A shipped card and a passed condition MUST carry evidence, the one rule the repo validator will not bend.</span></div>';
   }
   function readEvidence(scrim, pfx, original) {
     var k = scrim.querySelector("#" + pfx + "k").value;
@@ -744,7 +777,7 @@
     var scrim = openModal({
       title: "Mark " + id + " as done", subtitle: "evidence required",
       body: '<div class="modal-body"><div class="field full"><p style="margin:0;font-size:13px;color:var(--ink-2);line-height:1.6">' +
-        "A card cannot be shipped without proof — a PR number, a journal entry, a hash, a passing test run or a screenshot. " +
+        "A card cannot be shipped without proof: a PR number, a journal entry, a hash, a passing test run or a screenshot. " +
         "The repo validator rejects a shipped card with no evidence, so the board asks for it here rather than letting you record something it will refuse." +
         "</p></div>" + evidenceFields("s-", { kind: "pr", at: today() }) + "</div>",
       foot: '<button class="btn" data-act="modal-close">Cancel</button><span class="spacer"></span><button class="btn primary" id="s-go">Mark done</button>',
@@ -764,14 +797,34 @@
     while (seen[CFG.newIdPrefix + n]) n++;
     return CFG.newIdPrefix + n;
   }
+  /**
+   * BOARD-01. The card a New card button starts from.
+   *
+   * A NAMED FUNCTION AND NOT AN INLINE LITERAL, so a check can ask what the
+   * button emits without opening a modal. What it emits has to be COMMITTABLE:
+   * before this card the gate was "owner_merge", retired by ruling R-002 and a
+   * hard failure in docs/board/validate-board.mjs, so the button produced a card
+   * the repository would refuse.
+   *
+   * THE FIVE CONTRACT FIELDS ARE PRESENT AND EMPTY RATHER THAN ABSENT. Empty is
+   * what the validator flags and tells the author to fill. Absent is what
+   * nothing notices. None of them becomes a required field in the modal, because
+   * a half written card must still be savable.
+   */
+  function newCardLiteral(defaults) {
+    defaults = defaults || {};
+    return {
+      id: suggestId(), title: "", home_lane: defaults.home || "in_flight", status: "todo",
+      owner_terminal: CFG.ownerTerminalDefault, gate: "green_self_merge", evidence: null,
+      blocked_on: defaults.who || null, last_checkpoint: today(), notes: "", priority: "medium",
+      plain: "", depends_on: [], acceptance: "", defaults: "", question: null,
+    };
+  }
+
   function openCardModal(card, defaults) {
     defaults = defaults || {};
     var isNew = !card;
-    var c = card ? clone(card) : {
-      id: suggestId(), title: "", home_lane: defaults.home || "in_flight", status: "todo",
-      owner_terminal: CFG.ownerTerminalDefault, gate: "owner_merge", evidence: null, blocked_on: defaults.who || null,
-      last_checkpoint: today(), notes: "", priority: "medium",
-    };
+    var c = card ? clone(card) : newCardLiteral(defaults);
     var body = '<div class="modal-body">' +
       field("", "ID", '<input id="f-id" type="text" value="' + esc(c.id) + '" />') +
       field("", "Kind", '<select id="f-home">' + options(KIND_LANES, homeOf(c), function (l) { return KIND_LABEL[l]; }) + "</select>", "Where it lives when it is neither blocked nor shipped") +
@@ -799,12 +852,11 @@
       var status = v("f-status"), ev = readEvidence(scrim, "f-", c.evidence), who = v("f-who") || null;
       if (status === "shipped" && (!ev || !ev.ref)) { modalNote(scrim, "A shipped card needs evidence. Add the reference, or set the status back."); return; }
       if (status === "blocked" && !who) { modalNote(scrim, "A blocked card must name who or what it waits on."); return; }
-      var next = {
+      var next = nextCardFrom(c, {
         id: id, title: title, home_lane: v("f-home"), status: status, owner_terminal: v("f-owner").trim(),
         gate: v("f-gate"), evidence: ev, blocked_on: who, last_checkpoint: v("f-cp") || today(),
         notes: v("f-notes"), priority: v("f-prio"),
-      };
-      next.lane = laneOf(next);
+      });
       closeModal();
       mutate(isNew ? "Added " + id : "Saved " + id, function () {
         if (card) board.cards[board.cards.indexOf(card)] = next;
@@ -838,7 +890,7 @@
         ev: readEvidence(scrim, "g-", g.evidence),
       };
       if (next.state === "pass" && (!next.ev || !next.ev.ref)) {
-        modalNote(scrim, "A passed condition needs evidence — that is what makes readiness counted rather than claimed.");
+        modalNote(scrim, "A passed condition needs evidence, and that is what makes readiness counted rather than claimed.");
         return;
       }
       closeModal();
@@ -876,8 +928,8 @@
     if (!c) return;
     var scrim = openModal({
       title: "Delete " + id + "?", subtitle: "local only",
-      body: '<div class="modal-body"><div class="field full"><p style="margin:0;font-size:13px;line-height:1.6">Remove <b>' + esc(id) + "</b> — “" + esc(c.title) +
-        "” — from your copy of the board. The repo JSON is untouched until you export and paste the change back. Undo restores it.</p></div></div>",
+      body: '<div class="modal-body"><div class="field full"><p style="margin:0;font-size:13px;line-height:1.6">Remove <b>' + esc(id) + "</b>, \u201c" + esc(c.title) +
+        "\u201d, from your copy of the board. The repo JSON is untouched until you export and paste the change back. Undo restores it.</p></div></div>",
       foot: '<button class="btn" data-act="modal-close">Cancel</button><span class="spacer"></span><button class="btn danger" id="d-go">Delete</button>',
     });
     scrim.querySelector("#d-go").addEventListener("click", function () {
@@ -905,16 +957,32 @@
       host.addEventListener("mousedown", function (e) { if (e.target === host) closeDrawer(); });
       document.body.appendChild(host);
     }
-    host.innerHTML = '<aside class="drawer" role="dialog" aria-modal="true" aria-label="Card ' + esc(c.id) + '">' +
+    host.innerHTML = drawerHTML(c);
+  }
+
+  /**
+   * BOARD-01. The drawer's markup, as a value rather than as a side effect.
+   *
+   * Split out of renderDrawer so a check can assert what the surface SAYS
+   * without a DOM to say it into. renderDrawer keeps the host handling, which is
+   * the part that genuinely needs a document.
+   */
+  function drawerHTML(c) {
+    return '<aside class="drawer" role="dialog" aria-modal="true" aria-label="Card ' + esc(c.id) + '">' +
       '<div class="drawer-head"><div><div class="sub">' + esc(c.id) + " · " + esc(KIND_LABEL[homeOf(c)]) + "</div>" +
-        "<h3>" + esc(c.title) + "</h3></div>" +
+        // BOARD-01. `plain` is the PRIMARY line here and the title is the
+        // secondary one. The owner reads the board; the title is written for
+        // whoever builds the card.
+        (c.plain
+          ? '<h3 class="plain-lead">' + esc(c.plain) + "</h3><div class=\"sub build\">" + esc(c.title) + "</div>"
+          : "<h3>" + esc(c.title) + "</h3>") + "</div>" +
         '<button class="xbtn" data-act="drawer-close" aria-label="Close">×</button></div>' +
       '<div class="drawer-body">' +
-        '<div class="seg"><span class="lbl">Status — this moves the card by itself</span>' +
+        '<div class="seg"><span class="lbl">Status, and this moves the card by itself</span>' +
           '<div class="segrow status">' + STATUS_ORDER.map(function (s) {
             return '<button data-act="set-status" data-id="' + esc(c.id) + '" data-v="' + s + '" aria-pressed="' + (c.status === s ? "true" : "false") + '">' + esc(STATUS_LABEL[s]) + "</button>";
           }).join("") + "</div>" +
-          '<span class="hint" style="font-size:11px;color:var(--ink-3)">Now in <b>' + esc(LANE_LABEL[laneOf(c)]) + "</b> — " + esc(LANE_HINT[laneOf(c)]) + ".</span></div>" +
+          '<span class="hint" style="font-size:11px;color:var(--ink-3)">Now in <b>' + esc(LANE_LABEL[laneOf(c)]) + "</b>, " + esc(LANE_HINT[laneOf(c)]) + ".</span></div>" +
         '<div class="seg"><span class="lbl">Waiting on</span><div class="segrow">' +
           WHO_ORDER.map(function (w) {
             return '<button data-act="set-who" data-id="' + esc(c.id) + '" data-v="' + esc(w || "") + '" aria-pressed="' + ((c.blocked_on || null) === w ? "true" : "false") + '">' + esc(w === null ? "Nobody" : WHO[w]) + "</button>";
@@ -930,7 +998,7 @@
         '<dl class="kv">' +
           "<dt>Evidence</dt><dd>" + evidenceBit(c.evidence) + "</dd>" +
           "<dt>Merge gate</dt><dd>" + gateTag(c.gate) + "</dd>" +
-          "<dt>Terminal</dt><dd>" + esc(c.owner_terminal || "—") + "</dd>" +
+          "<dt>Terminal</dt><dd>" + esc(c.owner_terminal || "-") + "</dd>" +
           '<dt>Checkpoint</dt><dd class="mono">' + esc(dateOnly(c.last_checkpoint)) + " · " + esc(relDay(c.last_checkpoint)) + "</dd>" +
         "</dl>" +
         (c.notes ? '<div class="seg"><span class="lbl">Notes</span><div class="notesblock">' + esc(c.notes) + "</div></div>" : "") +
@@ -990,6 +1058,21 @@
       if (c.status === "shipped" && !has) push(id, "shipped with no evidence");
       if (c.status === "blocked" && (c.blocked_on || null) === null) push(id, "blocked but nobody is named");
       if (c.lane === "blocked_on_people" && PEOPLE.indexOf(c.blocked_on) < 0) push(id, "in the people lane without a person");
+      // BOARD-01. THE FIVE FIELDS THE CARD CONTRACT REQUIRES, MIRRORED FROM
+      // docs/board/validate-board.mjs. This validator exists so Export can tell
+      // you whether a paste-back would pass the repository validator, and it
+      // could not: a save that deleted these five reported the board as clean.
+      // Checking them here is what makes the export honest.
+      if (typeof c.plain !== "string" || !c.plain.trim())
+        push(id, "plain is empty. One or two sentences of ordinary business English, for whoever paid for the card rather than whoever builds it.");
+      if (typeof c.acceptance !== "string" || !c.acceptance.trim())
+        push(id, "acceptance is empty. A command with an expected exit code, a URL with expected content, or a named test.");
+      if (typeof c.defaults !== "string" || !c.defaults.trim())
+        push(id, "defaults is empty. A card with no defaults halts on its first ambiguity.");
+      if (!Array.isArray(c.depends_on))
+        push(id, "depends_on must be an array, empty when the card depends on nothing.");
+      if (!(c.question === null || (typeof c.question === "string" && c.question.trim())))
+        push(id, "question must be null or a non-empty structured decision-needed text.");
     });
     return out;
   }
@@ -1001,7 +1084,7 @@
   }
   function handoffBrief() {
     var d = diffVsSeed();
-    var lines = ["# Board changes — " + today(), ""];
+    var lines = ["# Board changes, " + today(), ""];
     if (!d.total) {
       lines.push("No local changes: the board matches the committed JSON.");
       return lines.join("\n");
@@ -1024,7 +1107,7 @@
       lines.push("## Added");
       d.added.forEach(function (id) {
         var c = byId(id);
-        lines.push("- **" + id + "**: " + c.title + " — " + STATUS_LABEL[c.status] + ", " + KIND_LABEL[homeOf(c)] +
+        lines.push("- **" + id + "**: " + c.title + ", " + STATUS_LABEL[c.status] + ", " + KIND_LABEL[homeOf(c)] +
           (c.blocked_on ? ", waiting on " + WHO[c.blocked_on] : ""));
         if (c.notes) lines.push("  - " + String(c.notes).replace(/\s+/g, " "));
       });
@@ -1060,7 +1143,7 @@
           var code = err && err.code;
           if (code === "declined") return;
           copyText(text, btn);
-          toast(code === "unavailable" ? "Download unavailable here — copied instead" : "Download failed — copied instead", false);
+          toast(code === "unavailable" ? "Download unavailable here, copied instead" : "Download failed, copied instead", false);
         },
       );
       return;
@@ -1079,7 +1162,7 @@
     var d = diffVsSeed();
     var vlist = problems.length
       ? problems.map(function (p) { return '<li class="warn"><b>' + esc(p.id) + "</b><span>" + esc(p.msg) + "</span></li>"; }).join("")
-      : '<li class="ok"><b>VALID</b><span>Passes every rule the repo validator enforces — safe to paste back.</span></li>';
+      : '<li class="ok"><b>VALID</b><span>Passes every rule the repo validator enforces, safe to paste back.</span></li>';
     var changes = d.total
       ? '<ul class="checklist">' +
           d.changed.map(function (ch) { return '<li class="info"><b>' + esc(ch.id) + "</b><span>" + esc(ch.fields.join(", ")) + "</span></li>"; }).join("") +
@@ -1087,7 +1170,7 @@
           d.removed.map(function (id) { return '<li class="info"><b>' + esc(id) + "</b><span>removed</span></li>"; }).join("") +
           d.gates.map(function (g) { return '<li class="info"><b>' + esc(g.id) + "</b><span>" + esc(g.from + " → " + g.to) + "</span></li>"; }).join("") +
         "</ul>"
-      : '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">Nothing has been changed in this browser — the board still matches the committed JSON.</p>';
+      : '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">Nothing has been changed in this browser, the board still matches the committed JSON.</p>';
 
     var scrim = openModal({
       title: "Export", subtitle: d.total + " local change" + (d.total === 1 ? "" : "s"), wide: true,
@@ -1295,7 +1378,37 @@
   });
 
   /* ---------------------------------------------------------------- boot -- */
-  loadUi();
-  board = load();
-  render();
+  //
+  // BOARD-01. THE BOOT RUNS IN A BROWSER AND THE EXPORTS RUN UNDER NODE.
+  //
+  // scripts/poc-free/check-board-app.mjs loads THIS FILE and drives its real
+  // functions against fixtures. A check that re-stated the save path would prove
+  // only that the check agrees with itself, and this file is inlined verbatim
+  // into the rendered HTML, so the thing the check loads is the thing that ships.
+  //
+  // `module` does not exist in a browser, so the rendered page takes the else
+  // branch and boots exactly as it always has.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      nextCardFrom: nextCardFrom,
+      cardHTML: cardHTML,
+      listHTML: listHTML,
+      drawerHTML: drawerHTML,
+      validate: validate,
+      laneOf: laneOf,
+      newCardTemplate: function (defaults) {
+        // The New card literal, reachable without opening a modal. It lives
+        // inside openCardModal, so this returns what that literal produces
+        // rather than a copy of it: openCardModal is called with a stub that
+        // captures the card and never touches the document.
+        return newCardLiteral(defaults || {});
+      },
+      setBoard: function (b) { board = normalize(clone(b)); syncDerived(); return board; },
+      getBoard: function () { return board; },
+    };
+  } else {
+    loadUi();
+    board = load();
+    render();
+  }
 })();
