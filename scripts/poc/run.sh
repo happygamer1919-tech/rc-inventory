@@ -465,6 +465,170 @@ checkpoint_pr() {
 # EXTRACT-END checkpoint
 
 # ---------------------------------------------------------------------------
+# WHAT THIS RUN MAY START. Card AUT-22.
+#
+# THE ARITHMETIC, FROM COMMITTED RUN HISTORY AND NOT FROM AN IMPRESSION. The
+# measured `quality` runs took 24m48s, 18m09s and 19m43s, and one was cancelled
+# at 21m. The cap is 45 minutes. So the required check costs between forty and
+# fifty five percent of the entire budget, and two consequences follow with no
+# judgement involved: a run can merge at most one pull request, and only if its
+# head sha is pushed inside the first twenty minutes; and a run that builds a
+# card from scratch cannot also merge it.
+#
+# IT HAPPENED ON THREE CONSECUTIVE RUNS. 20260904-010000 built AUT-16 in full and
+# ran out of clock with PR #186 open. 20260904-040001 merged it, having inherited
+# finished work and pushed at minute two, and then could not start AUT-17 for the
+# same reason and said so. That reads in the reports as three runs each failing
+# to finish. It is not: it is the harness meeting an arithmetic constraint
+# nobody had written down.
+#
+# THIS IS NOT AN ARGUMENT FOR A LONGER CAP AND MUST NOT BE READ AS ONE. Making
+# the run longer moves the boundary; making the run KNOW where the boundary is
+# removes the class. THE CAP IS NOT TOUCHED BY THIS BLOCK. Forty five minutes is
+# the owner's number in CLAUDE.md section 13 and changing it is his decision.
+#
+# THE ESTIMATE IS A COMMITTED CONSTANT AND NOT A LIVE QUERY. A run that had to
+# call the GitHub API to decide whether it may start work would have added a
+# network failure mode to the decision that protects it from network failure.
+#
+# A RUN THAT REFUSES TO START A CARD IS NOT A SILENT RUN. Section 13 says silence
+# about an eligible card is a defect and never a normal outcome, and names four
+# reasons a run can ship nothing. This adds a fifth, "not enough clock left to
+# merge it", written to the log and carried into the escalation exactly like the
+# other four.
+#
+# BOUNDARY WITH AUT-9: that card owns the MEASUREMENT of the clock and the stale
+# lock. This owns the DECISION taken given a clock. Neither touches the other's
+# code path, and this block reads the clock exactly the way run.sh reads it now.
+#
+# BOUNDARY WITH AUT-18: that card makes every open pull request VISIBLE and
+# merges nothing. Clause 3 here PREFERS an inherited branch, which is a selection
+# decision rather than a census. Neither substitutes for the other.
+#
+# HOW IT IS TESTED. The three `work_*` seams below are the only place the clock,
+# GitHub or the board is reached. scripts/poc/test-harness-caps.sh lifts this
+# block verbatim by its fences and drives it against fixtures.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN work-selection
+
+# THE ESTIMATE, ONE NAMED CONSTANT, BESIDE THE CAP IN SPIRIT AND IN THIS BLOCK IN
+# FACT. 1500 seconds is the observed maximum of the last eight quality runs.
+POC_CARD_ESTIMATE_SECONDS=${POC_CARD_ESTIMATE_SECONDS:-1500}
+
+# THE MARGIN, ALSO ONE NAMED CONSTANT AND ALSO WRITTEN ONCE. It is separate from
+# the estimate because they answer different questions: the estimate is what the
+# check costs and is measured, the margin is what everything else costs and is
+# chosen. Folding them into a single 1800 would make raising one look like
+# raising the other.
+POC_CARD_MARGIN_SECONDS=${POC_CARD_MARGIN_SECONDS:-300}
+
+# The documented return codes. THE CODES ARE THE INTERFACE, arranged so the lazy
+# reading is the safe one: only 0 means "something was chosen".
+POC_WORK_CHOSE=0    # WORK_KIND and WORK_TARGET carry what to do
+POC_WORK_REFUSE=3   # not enough clock; start nothing
+
+# Seam 1. Now, in epoch seconds. The same clock run.sh reads everywhere else, and
+# a DEADLINE COMPARISON rather than a countdown, for the reason the deadline
+# helpers above give at length: nanosleep does not advance across a suspend.
+work_now_seconds() { date +%s; }
+
+# Seam 2. One line per OPEN pull request: number, head branch, mergeStateStatus,
+# tab separated. Empty output means none, and an unreadable answer means none
+# too, which is the safe direction here: failing to notice an inherited branch
+# costs a duplicated decision, while inventing one would park the run on nothing.
+work_open_prs() {
+  gh_bounded pr list --state open --limit 50 \
+    --json number,headRefName,mergeStateStatus \
+    -q '.[] | [.number, .headRefName, .mergeStateStatus] | @tsv'
+}
+
+# Seam 3. The eligible cards, lowest id first, comma separated. run.sh has
+# already computed this; the seam exists so the test can drive the decision
+# without a board.
+work_eligible_ids() { echo "${ELIGIBLE_AT_START:-}"; }
+
+# A BRANCH THIS HARNESS OPENED. `poc/` is the harness's own state and report
+# branches; `card/` is what the EXECUTOR inside a run opens for a card. Both are
+# this loop's output and both are work an earlier run left behind. Anything else
+# belongs to somebody the harness must not act for.
+work_is_ours() {
+  case "$1" in
+    card/*|poc/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# THE DECISION.
+#
+# Sets three globals and returns one of the two codes above. It prints NOTHING of
+# its own, because log() in this file writes to stdout and a function that both
+# logs and prints its answer hands the caller its log lines as the answer:
+#
+#   WORK_KIND     inherited-pr | card | none
+#   WORK_TARGET   the pull request number, or the card id, or empty
+#   WORK_REASON   one line, already written to the log, kept for the escalation
+#
+# THE ORDER IS THE WHOLE POINT. Finishing what an earlier run left comes FIRST,
+# before the clock is consulted at all, because landing an inherited branch is
+# the cheap half of the arithmetic: its head sha is already pushed, so the check
+# can start at minute two instead of minute twenty five.
+work_selection() {
+  WORK_KIND=none
+  WORK_TARGET=""
+  WORK_REASON=""
+
+  WS_DEADLINE=$1        # epoch seconds this run must be finished by
+  WS_REMAINING=$(( WS_DEADLINE - $(work_now_seconds) ))
+  WS_NEEDED=$(( POC_CARD_ESTIMATE_SECONDS + POC_CARD_MARGIN_SECONDS ))
+
+  # 3. FINISH BEFORE YOU START, WHATEVER THE CLOCK SAYS.
+  #
+  # BEHIND and CONFLICTING are the two states that need a terminal rather than
+  # time: one needs main merged in, the other needs a resolution, and under
+  # `required_status_checks.strict` neither clears itself. A run that started a
+  # new card instead would leave that branch to rot for another six hours and
+  # add a second branch beside it.
+  while IFS=$'\t' read -r WS_NUM WS_BRANCH WS_STATE; do
+    [ -z "${WS_STATE:-}" ] && continue
+    work_is_ours "$WS_BRANCH" || continue
+    case "$WS_STATE" in
+      BEHIND|DIRTY|CONFLICTING) ;;
+      *) continue ;;
+    esac
+    WORK_KIND=inherited-pr
+    WORK_TARGET=$WS_NUM
+    WORK_REASON="pull request #$WS_NUM on $WS_BRANCH is $WS_STATE and was opened by this harness. Landing it comes before starting anything new, whatever the clock says: its head sha is already pushed, so the check can start now instead of after a build."
+    log "work selection: INHERITED #$WS_NUM branch=$WS_BRANCH state=$WS_STATE, remaining ${WS_REMAINING}s"
+    return "$POC_WORK_CHOSE"
+  done <<< "$(work_open_prs)"
+
+  WS_ELIGIBLE=$(work_eligible_ids)
+  if [ -z "$WS_ELIGIBLE" ]; then
+    WORK_REASON="no eligible card and no inherited pull request."
+    log "work selection: nothing eligible and nothing inherited, remaining ${WS_REMAINING}s"
+    return "$POC_WORK_CHOSE"
+  fi
+
+  # 1. REFUSE. Not enough clock to build a card AND get its check green.
+  if [ "$WS_REMAINING" -lt "$WS_NEEDED" ]; then
+    WORK_KIND=none
+    WORK_TARGET=""
+    WORK_REASON="${WS_REMAINING}s of wall clock remain and a card needs ${WS_NEEDED}s (a ${POC_CARD_ESTIMATE_SECONDS}s check plus a ${POC_CARD_MARGIN_SECONDS}s margin), so no card was started. The work would have been built and left unmergeable."
+    log "work selection: REFUSING to start a card. remaining ${WS_REMAINING}s, estimate ${POC_CARD_ESTIMATE_SECONDS}s, margin ${POC_CARD_MARGIN_SECONDS}s, needed ${WS_NEEDED}s"
+    return "$POC_WORK_REFUSE"
+  fi
+
+  # 2. PROCEED, unchanged from before this card: the lowest id eligible card.
+  WORK_KIND=card
+  WORK_TARGET=$(echo "$WS_ELIGIBLE" | cut -d, -f1)
+  WORK_REASON="$WORK_TARGET was started with ${WS_REMAINING}s remaining against a ${WS_NEEDED}s requirement."
+  log "work selection: starting card $WORK_TARGET, remaining ${WS_REMAINING}s, needed ${WS_NEEDED}s"
+  return "$POC_WORK_CHOSE"
+}
+# EXTRACT-END work-selection
+
+# ---------------------------------------------------------------------------
 # THE PULL REQUEST CENSUS. Card AUT-18.
 #
 # WHAT IT IS FOR. Finished work sits in an open pull request that nothing ever
@@ -953,11 +1117,40 @@ fi
 # the protection that matters in the other direction works fully: a human claims
 # through scripts/poc/claim.sh before starting, that claim is on main, and the
 # next run reads it and skips the card.
+# AUT-22. WHAT THIS RUN MAY START, decided by the fenced block above rather than
+# by taking the head of the eligible list unconditionally.
+#
+# THE DEADLINE IS THIS RUN'S OWN, computed once from the moment it started and the
+# cap it declared. A deadline and not a countdown, for the reason the deadline
+# helpers give: nanosleep does not advance across a suspend and this machine
+# sleeps every night.
+POC_RUN_DEADLINE=$(( RUN_STARTED_AT + POC_MAX_SECONDS ))
+
 HARNESS_CARD=""
-if [ -n "$ELIGIBLE_AT_START" ]; then
-  HARNESS_CARD=$(echo "$ELIGIBLE_AT_START" | cut -d, -f1)
-  log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
-fi
+INHERITED_PR=""
+WORK_REFUSAL=""
+
+work_selection "$POC_RUN_DEADLINE"
+WORK_CODE=$?
+
+case "$WORK_KIND" in
+  inherited-pr)
+    INHERITED_PR=$WORK_TARGET
+    log "intending to land inherited pull request #$INHERITED_PR before starting any card"
+    ;;
+  card)
+    HARNESS_CARD=$WORK_TARGET
+    log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
+    ;;
+  *)
+    # A REFUSAL IS NOT SILENCE. Section 13 names four reasons a run can ship
+    # nothing; this is the fifth and it is escalated exactly like the other four.
+    if [ "$WORK_CODE" -eq "$POC_WORK_REFUSE" ]; then
+      WORK_REFUSAL=$WORK_REASON
+      log "no card started this run: $WORK_REASON"
+    fi
+    ;;
+esac
 
 # The claim lease is computed BEFORE the prompt is written, because the prompt
 # interpolates $CLAIM_SKIPPED to tell EXECUTOR which cards are off limits. With
@@ -965,10 +1158,42 @@ fi
 # zero byte prompt file and an EXECUTOR invocation with no prompt at all:
 # "Error: Input must be provided either through stdin or as a prompt argument".
 # The run reported exit 1 having never actually started work.
+# AUT-22. THE SELECTION, TURNED INTO ONE PARAGRAPH THE MODEL READS.
+#
+# Computed BEFORE the heredoc, because with set -u an unset variable aborts a
+# heredoc, and on 2026-08-27 that produced a zero byte prompt file and an
+# EXECUTOR invocation with no prompt at all. The variable is always set below,
+# whichever branch the selection took.
+case "$WORK_KIND" in
+  inherited-pr)
+    WORK_DIRECTIVE="FIRST, LAND PULL REQUEST #$INHERITED_PR. An earlier run opened it and it is
+  behind main or conflicting, so it cannot merge itself. Bring main into that
+  branch locally, resolve any conflict against the full tree, run the validator
+  before committing, wait for a quality run that exists for the NEW head sha,
+  and merge it. Only after that, and only if the clock allows, start a card.
+  Its head sha is already pushed, which is why it is cheaper than a new card."
+    ;;
+  card)
+    WORK_DIRECTIVE="Work the lowest id eligible card. There is enough wall clock left to build it
+  and get its check green."
+    ;;
+  *)
+    WORK_DIRECTIVE="DO NOT START A NEW CARD THIS RUN. $WORK_REASON
+  Building work this run cannot merge is what this instruction exists to stop.
+  If there is finished work to land, land it. Otherwise write your report and
+  finish early, and say in the report that the clock is why."
+    ;;
+esac
+
 PROMPT_FILE=$POC_LOG_DIR/$RUN_ID.prompt.txt
 cat > "$PROMPT_FILE" <<PROMPT_EOF
 You are EXECUTOR. Boot per CLAUDE.md.
 Work the board.
+
+WHAT THIS RUN MAY START, decided by the harness from the clock and from what an
+earlier run left open. This is not advice:
+
+  $WORK_DIRECTIVE
 
 This is an unattended scheduled run, run id $RUN_ID. CLAUDE.md section 13 binds
 you. Restated so there is no ambiguity:
@@ -1375,6 +1600,10 @@ if [ -n "$ELIGIBLE_AT_START" ]; then
     # different failures and must never share a message.
     if [ -n "$CARDS_ON_BRANCH" ]; then
       SILENCE_REASON="work is on a branch and was not merged: $CARDS_ON_BRANCH. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so."
+    elif [ -n "$WORK_REFUSAL" ]; then
+      # AUT-22. THE FIFTH REASON. Section 13 named four and this is the one it
+      # could not name, because until this card the run had no way to know it.
+      SILENCE_REASON="$WORK_REFUSAL"
     elif [ "$CAPPED" = yes ]; then
       SILENCE_REASON="the executor ran ${EXECUTOR_ELAPSED}s against a ${POC_MAX_SECONDS}s cap and was stopped before it could ship."
     elif [ "$EXECUTOR_EXIT" != "0" ]; then

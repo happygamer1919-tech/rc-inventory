@@ -3956,3 +3956,35 @@ threshold is MEASURED at test time by probing the same PostgREST the application
 uses, rather than written into the test: 208 was measured on one stack on one
 day, and a number copied into a test is a fact about a machine that has since
 changed.
+
+### `$(extract ...)` runs the extractor in a subshell, so its hard failure became seventeen soft ones
+**Tag:** ci
+**ERROR:** `scripts/poc/test-harness-caps.sh` lifts fenced blocks out of
+`run.sh` with `SELECTION=$(extract work-selection)`. The `extract` helper calls
+`exit 1` when the fence is missing, which is correct, but command substitution
+runs it in a **subshell**: the exit killed the subshell, `SELECTION` came back
+empty, `source ""` failed, and all eleven cases then failed one by one against
+nothing. Run against the pre-change `run.sh` the output was `17 assertion(s)
+failed` with no line saying the fence was gone.
+**SOLUTION:** the caller checks that the extraction produced a non-empty file and
+fails hard with the fence named. `scripts/poc/test-pr-census.sh` already carried
+this warning in its own header, having hit it first, and the fix there was to have
+`extract` write to a path the caller already knows and return a status. RULE: a
+helper whose failure mode is `exit` cannot be called through `$(...)`. Either it
+returns a status and writes to a known path, or the caller checks the result. A
+lesson recorded in one test file is not a lesson until the next test file that
+needs it has it too.
+
+### The GitHub API says DIRTY where the documentation says CONFLICTING
+**Tag:** ci
+**ERROR:** AUT-22 asks a run to prefer an inherited pull request whose
+`mergeStateStatus` is `BEHIND` or `CONFLICTING`. `CONFLICTING` is the name in the
+field's documentation. The value the API actually returns for a pull request that
+conflicts with `main` is **`DIRTY`**, which this session saw directly: PR #214
+reported `mergeStateStatus DIRTY` and `npm run checks:state` printed it. A
+selection matching only the documented name would have compiled, passed a test
+written from the same documentation, and never fired in production.
+**SOLUTION:** both strings are accepted and each has its own case. RULE: when a
+card names an API value, check what the API returns before matching on it. The
+documentation names the concept; the wire names the value, and only one of those
+is what the code will meet.
