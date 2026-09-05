@@ -436,6 +436,21 @@ jobs:
       - name: Prove the harness caps enforce  # HARNESS-CAP-PROOF
         run: bash scripts/poc/test-harness-caps.sh
 
+      # AUT-18. The pull request census: every scheduled run names every open
+      # pull request it did not merge, and escalates the two shapes no merge can
+      # rest on. Three real incidents are behind it. PR #133 went CONFLICTING
+      # with no `quality` run on its head sha at all, because a conflicting pull
+      # request triggers zero workflows. PR #130 sat red for a whole run and was
+      # named by nothing. A card branch was pushed with no pull request ever
+      # opened, so no check ran and no list contained it, and the owner noticed
+      # before any terminal did.
+      #
+      # NOT PATH FILTERED, deliberately. It needs no container and no database,
+      # and the failure it catches is a report going quiet, which is exactly the
+      # class of defect a skipped step hides.
+      - name: Prove the pull request census  # AUT-18-CENSUS-PROOF
+        run: bash scripts/poc/test-pr-census.sh
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
