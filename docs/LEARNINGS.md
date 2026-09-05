@@ -3848,3 +3848,55 @@ reader arriving with the old wording in hand. RULE: when a card's acceptance
 greps for the ABSENCE of a phrase, section 9c's quote-the-false-sentence style
 is unavailable for that phrase, and the supersession is written as description
 rather than as quotation. 9c's purpose survives, its literal form does not.
+
+### A test that reads and writes a live spool goes red for reasons that are not in the repository, and writes decisions nobody made
+**Tag:** ci
+**ERROR:** `scripts/poc/test-chat-classify.sh` was AUT-6's acceptance and had
+been red on `main` for as long as anyone could measure, failing with
+`expected [ignored,empty,ruling,ruling,question], got [ignored,empty,ruling,ruling,answer]`.
+The classifier was right on every message. ASK-01 later gave
+`scripts/poc/chat-classify.mjs` two spool directories it both READS and WRITES,
+the ask spool and the ruling spool, each defaulting to a real path under
+`/Users/ivan/rc-poc-logs`, plus `--asks` and `--rulings` flags to point them
+elsewhere. The test predates ASK-01 and never passed either flag. So its verdict
+depended on machine state: `/Users/ivan/rc-poc-logs/asks/open/` held exactly one
+outstanding question, ASK-01's rule 3 says ordinary text with exactly one
+question outstanding IS the answer to it, and the fifth fixture message was
+correctly routed as `answer`. In CI, where that directory does not exist, the
+same test would have gone green for an equally accidental reason. The half
+nobody had noticed is that it also WROTE: each run spooled the fixture's two
+ruling messages, `R P2-13 default` and `R P2-13: take the second option`, into
+the real pending ruling spool where `inbox.mjs` reads them as decisions the
+owner made, and spooled the fifth message into the real answer spool as an owner
+instruction against whichever card was outstanding. `rulings/consumed/` held both
+fixture files dated 2026-09-04, so `inbox.mjs` had already picked them up once.
+**SOLUTION:** the TEST was corrected, not the classifier, because a committed
+change (ASK-01, and CLAUDE.md section 14) altered the behaviour and the test was
+never updated. Every invocation now passes `--asks` and `--rulings` at
+directories under its own `mktemp -d`, routed through one `classify()` helper so
+no future call site can forget a flag, and the isolation is itself asserted: the
+answer must land in the fixture spool and both rulings must land in the fixture
+ruling spool. ASK-01's rule 3 is now pinned deliberately against a second
+fixture spool holding one question, instead of arriving by accident from a
+directory nobody controls. RULE: a test whose subject takes a `--dir` flag
+passes that flag on EVERY invocation, and asserts that the artefact landed in
+the directory it named. A default that points at production state makes the test
+a writer to production state, and a test that writes to the channel the owner
+makes decisions through is worse than a test that does not run.
+
+### A test file with no runner is a check that reports as passing by never existing
+**Tag:** ci
+**ERROR:** `scripts/poc/test-chat-classify.sh` was named in no step of
+`.github/workflows/quality.yml`, while its four siblings
+(`test-harness-caps.sh`, `test-install.sh`, `test-ask-digest.sh`,
+`test-board-set.sh`) were each wired in by name with a comment tag. Nothing in
+`quality` measured the responder classifier, so its red was invisible from every
+run log; the gap was only findable by reading the workflow against the directory
+listing. `npm run check:assertion-register` catches an assertion with no failing
+case, which is a different class and did not apply.
+**SOLUTION:** the step was added, unfiltered, next to its siblings and tagged
+`# AUT-6-AUT-20-CLASSIFY-PROOF`. RULE: a proof script ships wired into `quality`
+in the same pull request that creates it, because a proof nothing invokes is
+indistinguishable in every report from a proof that passes. If a third instance
+of this class appears, the fix is a check that compares the `scripts/poc/test-*`
+listing against the step list rather than a third manual wiring.
