@@ -240,6 +240,191 @@ if [ -e /Users/ivan/rc-poc-bin ] || [ ! -e /Users/ivan ]; then
   fi
 fi
 
+
+# ===========================================================================
+# 6. AUT-21: THE DEPLOYED COPIES ARE COMPARED WITH THE REPOSITORY
+# ===========================================================================
+#
+# The three scripts under rc-poc-bin are installed copies and the .mjs modules
+# beside them are read from a worktree at origin/main, so the two halves do not
+# upgrade together. R-120 is the instance: merging a fix to the selector did not
+# fix the selector, because run.sh is a deployed copy.
+#
+# THE BLOCK IS LIFTED FROM run.sh VERBATIM, by its EXTRACT fences, the same
+# mechanism test-pr-census.sh uses. A test that re-stated the comparison would
+# prove only that the test agrees with itself.
+#
+# EVERY PATH BELOW IS UNDER THE TEMPORARY PREFIX SECTION 1 ALREADY BUILT AND
+# SECTION 5 ALREADY ASSERTED IS NOT /Users/ivan. Nothing here reads
+# /Users/ivan/rc-poc-bin, /Users/ivan/rc-poc-logs or /Users/ivan/rc-secrets, and
+# no credential value is read, printed or logged.
+echo
+echo "6. AUT-21: deployed-copy drift"
+
+DRIFT_BLOCK=$WORK/drift-check.sh
+awk '
+  $0 == "# EXTRACT-BEGIN drift-check" { taking = 1; next }
+  $0 == "# EXTRACT-END drift-check"   { taking = 0; found = 1; next }
+  taking { print }
+  END { if (!found) exit 3 }
+' "$HERE/run.sh" > "$DRIFT_BLOCK"
+if [ $? -ne 0 ] || [ ! -s "$DRIFT_BLOCK" ]; then
+  fail "no EXTRACT block named 'drift-check' in $HERE/run.sh. The fences are part of the contract."
+  echo
+  echo "$FAILURES assertion(s) failed"
+  exit 1
+fi
+pass "the drift-check block is fenced in run.sh and was lifted verbatim"
+
+# The harness for one case: a state.json, a log, and the real block sourced over
+# them. install.sh is invoked for its manifest only, with the prefix as its root,
+# so the destinations it prints are the ones section 1 installed.
+drift_case() {
+  DC_DIR=$WORK/drift-$1
+  mkdir -p "$DC_DIR"
+  : > "$DC_DIR/log.txt"
+  echo '{"schema_version": 2, "escalations": []}' > "$DC_DIR/state.json"
+  cat > "$DC_DIR/case.sh" <<CASE
+set -u -o pipefail
+CASE_DIR=$DC_DIR
+RUN_ID=testrun
+POC_INSTALL_ROOT=$PREFIX
+export POC_INSTALL_ROOT
+CASE
+  cat >> "$DC_DIR/case.sh" <<'CASE'
+log() { echo "$*" >> "$CASE_DIR/log.txt"; }
+CASE
+  cat >> "$DC_DIR/case.sh" <<CASE
+source "$DRIFT_BLOCK"
+drift_detect "$HERE/install.sh"
+drift_escalate "\$CASE_DIR/state.json"
+CASE
+  bash "$DC_DIR/case.sh" > "$DC_DIR/stdout.txt" 2>&1
+  echo "$DC_DIR"
+}
+
+escalation_count() {
+  node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log((s.escalations||[]).length)' "$1/state.json"
+}
+
+# --- 6b. NO DRIFT IS SILENT ------------------------------------------------
+# Section 1 installed from this very repository moments ago, so the copies are
+# byte identical and this case must produce nothing.
+D=$(drift_case quiet)
+if grep -q "DRIFT " "$D/log.txt"; then
+  fail "a byte-identical installation reported drift"
+  cat "$D/log.txt"
+else
+  pass "byte-identical copies write no drift line"
+fi
+if [ "$(escalation_count "$D")" = 0 ]; then
+  pass "byte-identical copies append no escalation"
+else
+  fail "a byte-identical installation appended an escalation"
+fi
+if grep -q "deployed script(s) match the repository byte for byte" "$D/log.txt"; then
+  pass "and it says so out loud, so a check that ran cannot look like one that did not"
+else
+  fail "the quiet case wrote nothing at all, which is indistinguishable from not running"
+  cat "$D/log.txt"
+fi
+
+# --- 6a. DRIFT IS REPORTED -------------------------------------------------
+# ONE BYTE. Not a rewrite: the check must not need a large difference to see one,
+# and a comment line is what a real drift usually looks like.
+echo "# one byte of drift, added by test-install.sh" >> "$PREFIX/rc-poc-bin/run.sh"
+
+D=$(drift_case noisy)
+if grep -q "DRIFT $PREFIX/rc-poc-bin/run.sh " "$D/log.txt"; then
+  pass "a one-byte difference is reported, and the line names the file"
+else
+  fail "a one-byte difference was not reported"
+  cat "$D/log.txt"
+fi
+
+# THE TWELVE CHARACTERS OF BOTH SUMS, and they must be DIFFERENT from each other,
+# which is what makes the line evidence rather than decoration.
+DRIFT_LINE=$(grep "DRIFT $PREFIX/rc-poc-bin/run.sh " "$D/log.txt" | head -1)
+D_REPO=$(printf '%s' "$DRIFT_LINE" | sed -n 's/.*repo=\([0-9a-f]*\).*/\1/p')
+D_DEPL=$(printf '%s' "$DRIFT_LINE" | sed -n 's/.*deployed=\([0-9a-f]*\).*/\1/p')
+if [ ${#D_REPO} = 12 ] && [ ${#D_DEPL} = 12 ] && [ "$D_REPO" != "$D_DEPL" ]; then
+  pass "the line carries twelve characters of each sha256 and they differ: $D_REPO vs $D_DEPL"
+else
+  fail "the drift line does not carry two different twelve-character sums: '$DRIFT_LINE'"
+fi
+
+if [ "$(escalation_count "$D")" = 1 ]; then
+  pass "exactly one escalation is appended to state.json"
+else
+  fail "expected one escalation, found $(escalation_count "$D")"
+fi
+
+ESC=$(node -e '
+  const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  const e = (s.escalations || [])[0] || {};
+  console.log(JSON.stringify({ card: e.card_id, q: e.question || "", r: e.recommendation || "" }));
+' "$D/state.json")
+if printf '%s' "$ESC" | grep -q '"card":"AUT-21"'; then
+  pass "the escalation names the card"
+else
+  fail "the escalation does not name AUT-21: $ESC"
+fi
+if printf '%s' "$ESC" | grep -q "rc-poc-bin/run.sh"; then
+  pass "the escalation names the file that drifted"
+else
+  fail "the escalation does not name the drifted file: $ESC"
+fi
+if printf '%s' "$ESC" | grep -q "install.sh"; then
+  pass "the recommendation says to re-run the installer"
+else
+  fail "the recommendation does not name install.sh: $ESC"
+fi
+
+# IT REPORTS, IT NEVER RE-INSTALLS. The drifted copy is still drifted afterwards.
+# A check that quietly healed what it found would make the next run look clean and
+# would be rewriting a script something may be executing.
+if [ "$(tail -1 "$PREFIX/rc-poc-bin/run.sh")" = "# one byte of drift, added by test-install.sh" ]; then
+  pass "the check reported and did not re-install: the drifted copy is untouched"
+else
+  fail "the drift check modified the deployed copy"
+fi
+
+# THE LIST IS DERIVED FROM install.sh AND NOT TYPED. Proved by asking install.sh
+# for its manifest and requiring the three 755 rows to be exactly the files the
+# check compares, so a fourth agent added to that manifest joins this check with
+# no second edit anywhere.
+MANIFEST_SCRIPTS=$(POC_INSTALL_ROOT="$PREFIX" bash "$HERE/install.sh" --manifest 2>/dev/null \
+  | awk -F'|' '$4 == "755" { print $3 }' | sort)
+CHECKED=$(grep -oE "DRIFT [^ ]+|match the repository" "$D/log.txt" >/dev/null 2>&1; \
+  POC_INSTALL_ROOT="$PREFIX" bash "$HERE/install.sh" --manifest 2>/dev/null | awk -F'|' '$4 == "755"' | wc -l | tr -d '[:space:]')
+if [ "$CHECKED" = 3 ] && printf '%s\n' "$MANIFEST_SCRIPTS" | grep -q "rc-poc-bin/run.sh"; then
+  pass "the manifest itself yields the three deployed scripts, so the list is derived"
+else
+  fail "install.sh --manifest did not yield three 755 rows (got $CHECKED)"
+fi
+
+# --manifest INSTALLS NOTHING. It is the seam this check reads and it must not be
+# able to write, or a check would become a writer to the thing it checks.
+MANIFEST_PROBE=$WORK/manifest-probe
+POC_INSTALL_ROOT="$MANIFEST_PROBE" bash "$HERE/install.sh" --manifest > /dev/null 2>&1
+if [ ! -e "$MANIFEST_PROBE" ]; then
+  pass "install.sh --manifest creates nothing at all"
+else
+  fail "install.sh --manifest wrote into $MANIFEST_PROBE"
+fi
+
+# A DEPLOYED COPY THAT IS ABSENT IS REPORTED, NOT SKIPPED. An installer that never
+# ran for a file is a louder version of the same fault, and a missing file that
+# read as "no drift" would be the exact silence this card removes.
+rm -f "$PREFIX/rc-poc-bin/digest.sh"
+D=$(drift_case absent)
+if grep -q "DRIFT $PREFIX/rc-poc-bin/digest.sh repo=.* deployed=absent" "$D/log.txt"; then
+  pass "a deployed copy that is missing entirely is reported as drift"
+else
+  fail "a missing deployed copy was skipped instead of reported"
+  cat "$D/log.txt"
+fi
+
 echo
 if [ "$FAILURES" -eq 0 ]; then
   echo "all installer assertions passed"
