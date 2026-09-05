@@ -261,20 +261,46 @@ Phase 3: 37 shipped, 34 todo. **Launch gate 0/9, unchanged.**
 | PR | branch | state at 05:24 UTC |
 |---|---|---|
 | #206 | `poc/report-20260904-220003` | updated onto the new `main` (`d06f60b`), `quality` queued. Should be green and CLEAN well before the next run. |
-| #207 | `triage/20260904-220003` | **CONFLICTS with `main`.** `gh pr update-branch` refused. |
+| #207 | `triage/20260904-220003` | conflicted with `main`; **resolved locally by this run** as `44cb6af`. `quality` running. |
+| #209 | `poc/report-20260905-010004` | this report. `quality` running. |
 
-**#207 conflicts because #205 landed.** Both touch the same doctrine surface.
-Under CLAUDE.md section 3 and ruling R-052 that conflict is EXECUTOR's to resolve
-LOCALLY, against the full tree, with the validator run before the commit, and
-never in the GitHub web editor. This run attempted it after securing the report.
+**#207 conflicted because #205 landed**, and **this run resolved it.** Under
+CLAUDE.md section 3 and ruling R-052 a conflicting pull request is EXECUTOR's to
+resolve LOCALLY, against the full tree, with the validator run before the commit,
+and never in the GitHub web editor. Done in that order, as merge commit `44cb6af`.
+
+**The conflict was one line**, the phase 2 board's `as_of`. Both sides are kept:
+`main`'s `AUT-19` ship from #205, and the branch's three gate-audit evidence
+blocks written under R-134. `as_of` is set to the commit moment per section 2.
+Verified after resolving, not assumed: the board parses, `AUT-19` reads `shipped`
+from `main`'s side, the three TRIAGE evidence blocks are present on the branch's
+side, and 83 cards remain.
+
+R-052 exists because three resolutions have reached this repository carrying
+residue, in every case by deleting the marker CHARACTERS and leaving the tails as
+file content, which is why a grep for `<<<<<<<` is not the check. The check is
+`npm run check:conflict-residue`, and it was run before both commits:
+
+```
+node docs/board/validate-board.mjs  exit 0 on all three boards
+npm run check:conflict-residue      exit 0
+npm run check:unique-ids            exit 0
+```
+
+**The same conflict hit this report's own branch**, in `docs/LEARNINGS.md`,
+because `AUT-19` appended an entry too. Resolved the same way, keeping both
+entries, `main`'s first.
 
 ### The order for the next run
 
 1. **`AUT-3`.** The cheapest ship on either board and nine days overdue. Its
    closing condition is already satisfied by PR #207. Board edit and evidence
    ref, no code. See section 6.
-2. **#206 and #207.** One of them, not both, and expect to spend the whole merge
-   budget on it. See the learnings entry: one merge per run is structural here.
+2. **#206, #207 or #209.** ONE of them, not all three, and expect to spend the
+   whole merge budget on it. All three had a `quality` run in flight on their
+   current head sha when this run ended, so the next run should find them green
+   and CLEAN. See the learnings entry: one merge per run is structural here, and
+   merging the first will put the other two back to `BEHIND`.
 3. **DO NOT work `APPLY-02` as written**, even though `eligible.mjs` names it
    first. It asks a terminal to apply six migrations this repository's own
    `APPLY-LOG.md` already records as applied. It needs re-authoring against
