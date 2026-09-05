@@ -3754,3 +3754,43 @@ hard failure rather than an empty extraction that would pass every assertion.
 The rule that makes this work: fence the logic and extract it, and separately run
 the OLD implementation on the same fixture and REQUIRE IT TO FAIL. A guard nobody
 has watched fail is a guard nobody has tested.
+
+## A read whose error is discarded renders as "there is nothing there"
+
+**Found 2026-09-04, by card EXT-18's test lane, confirmed by a probe with a
+control. Carded as `P3-38`.**
+
+`lib/data/extraction.ts` asks PostgREST for the lines of **every** pending draft
+in one request:
+
+    .in("order_id", pending.map((r) => String(r.order_id)))
+
+Past a couple of hundred pending drafts the id list makes the URL longer than the
+gateway will accept. Measured against the local stack, bisected:
+
+    50 ids   -> 200
+    150 ids  -> 200
+    208 ids  -> 200
+    209 ids  -> 414 URI Too Long
+
+The code destructures `const { data: lines } = await ...` and **never reads
+`error`**. So the 414 produces `lines === undefined`, an empty per-order map, and
+**every draft on the review screen renders with zero line items**. Nothing is
+red. The operator sees a screen that says, in effect, "none of these documents
+had anything written on them."
+
+**The url length is the trigger. The discarded error is the defect.** A screen
+that cannot tell *"no lines"* from *"I could not read the lines"* will find
+another way to say the wrong one. Fixing the batching alone would leave the next
+unread error exactly as quiet.
+
+**It is invisible in CI by construction.** Every run starts from
+`supabase db reset`, so the pending-draft count never leaves single digits. It
+needs an installation that has been running for a while, which is the only kind
+the client will ever have.
+
+**The lane that found it is worth keeping for the same reason.** Eight full runs
+against one persistent local stack is closer to a real installation than any
+single CI run is, and the failure it produced looked at first like a regression
+in the diff. It was not. Baseline against the unchanged tree before blaming the
+diff, and when a "flaky" failure appears only after several runs, count the rows.

@@ -30,6 +30,25 @@ export const EXTRACTION_ERROR_CODES = [
 ] as const;
 export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 
+/** EXT-19. CELE DOUA INSTRUCTIUNI, FIINDCA ELE SUNT DIFERENTA CARE CONTEAZA.
+ *
+ *  Un document respins il trimite pe operator sa faca CEVA, iar cele doua coduri
+ *  il trimit sa faca lucruri diferite:
+ *
+ *    unreadable_document      documentul nu s-a putut citi   -> alta scanare
+ *    reconciliation_failed    cifrele nu se potrivesc        -> batut de mana
+ *
+ *  A-i spune omului pe cel gresit ii pierde timpul: retrimite la nesfarsit o
+ *  scanare perfect lizibila ale carei numere nu se aduna, sau bate de mana un
+ *  document pe care o poza mai buna l-ar fi rezolvat.
+ *
+ *  FIECARE ESTE UN SIR NUMIT, folosit si de eticheta de mai jos si de proba din
+ *  review.spec. Doua copii ale unei propozitii pot ajunge sa nu fie de acord, si
+ *  dezacordul care conteaza este exact cel dintre ce scrie pe ecran si ce
+ *  verifica testul. */
+export const ACTION_RESCAN = "Încarcă o scanare mai bună.";
+export const ACTION_ENTER_BY_HAND = "Documentul trebuie introdus manual.";
+
 /** Propozitia romaneasca a fiecarui cod. Un token brut pe ecran ar fi un sir
  *  englezesc ajuns in interfata, ceea ce sectiunea 11 din CLAUDE.md interzice.
  *  Ecranul apartine lui P2-09; textele stau aici ca sa existe un singur loc. */
@@ -37,15 +56,21 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   download_failed: "Documentul nu a putut fi descărcat de serviciul de extragere.",
   url_expired: "Legătura semnată a expirat înainte să fie folosită. Retrimite documentul.",
   unsupported_format: "Formatul fișierului nu poate fi citit de serviciul de extragere.",
-  unreadable_document: "Documentul este într-un format acceptat, dar conținutul nu este lizibil.",
+  // EXT-19. PROPOZITIA ISI POARTA INSTRUCTIUNEA, si pana la acest card nu o
+  // purta pe niciuna: spunea ce s-a intamplat si il lasa pe operator sa
+  // ghiceasca ce sa faca. Instructiunea este COMPUSA din constanta de mai sus,
+  // nu copiata, ca proba sa verifice exact sirul care ajunge pe ecran.
+  unreadable_document: `Documentul este într-un format acceptat, dar conținutul nu este lizibil. ${ACTION_RESCAN}`,
   extraction_failed: "Extragerea a rulat și nu a produs nimic utilizabil.",
   invalid_output: "Serviciul a răspuns cu date care nu respectă contractul.",
   timeout: "Extragerea a depășit timpul maxim al serviciului.",
   // Fara jargon si fara numere: operatorul vede ce nu se potriveste si ce are de
   // facut, nu formula. Sectiunea 11 din CLAUDE.md cere romana cu diacritice pe
   // fiecare sir care ajunge pe ecran.
-  reconciliation_failed:
-    "Suma liniilor citite nu se potrivește cu totalul tipărit pe document. Documentul trebuie introdus manual.",
+  // EXT-19. Aceeasi compunere, cu CEALALTA instructiune. Textul este neschimbat
+  // fata de EXT-16; ce s-a schimbat este ca a doua propozitie vine acum din
+  // constanta pe care proba o citeste.
+  reconciliation_failed: `Suma liniilor citite nu se potrivește cu totalul tipărit pe document. ${ACTION_ENTER_BY_HAND}`,
 };
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
@@ -96,6 +121,31 @@ export function isDocumentSource(v: unknown): v is DocumentSource {
 /** Sursa efectiva a unei ciorne: ce a declarat, sau valoarea sigura. */
 export function effectiveSource(v: unknown): DocumentSource {
   return isDocumentSource(v) ? v : SAFE_DOCUMENT_SOURCE;
+}
+
+/** EXT-17. CE SCRIE PE O LINIE CITITA DINTR-O IMAGINE.
+ *
+ *  UN SINGUR LOC. Ecranul o randeaza si specul o citeste de aici, ca textul pe
+ *  care il vede operatorul si textul pe care il verifica proba sa nu poata fi
+ *  doua siruri diferite. Aceeasi doctrina ca la EXTRACTION_ERROR_LABEL.
+ *
+ *  SPUNE CE S-A INTAMPLAT, NU CAT DE GRAV ESTE. Cuvintele sunt ale
+ *  proprietarului: "Citit de masina dintr-o imagine" ii spune celui care verifica
+ *  ce sa faca altfel. "Atentie" nu ii spune nimic. */
+export const SCAN_LINE_NOTICE = "Citită de mașină dintr-o imagine.";
+
+/** EXT-17. Se marcheaza liniile acestei ciorne?
+ *
+ *  O SINGURA DEFINITIE, folosita si de formular si de proba. Regula este SURSA,
+ *  nu rezultatul reconcilierii: un document care se aduna corect este exact cazul
+ *  pentru care cardul exista, fiindca un set de linii fabricate care se intampla
+ *  sa dea totalul tiparit trece de aritmetica si nu trece de un om.
+ *
+ *  NU SE INTREABA DE STATUS. O scanare `partial` isi pastreaza liniile citite si
+ *  ele sunt tot linii citite dintr-o imagine. Una `failed` nu are linii deloc,
+ *  prin EXT-15, deci nu are ce marca si conditia nu o exclude degeaba. */
+export function scanReadLines(draft: { documentSource: unknown }): boolean {
+  return effectiveSource(draft.documentSource) === "scan";
 }
 
 export type ExtractionDraft = {
