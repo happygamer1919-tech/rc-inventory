@@ -196,4 +196,155 @@ merge history before quoting them anywhere the number matters.
 
 ---
 
+## 3. The local acceptance lane, because the first attempt to run it failed
+
+The EXT cards' acceptance lines are Playwright specs, and the specs need a
+Supabase stack. `supabase start` in this repository **refused**: the
+`supabase_db_rc-inventory` container was `Created` and could not start, because
+ports 54321 and 54322 were held by an OsteoJP stack that another session had
+restarted two minutes earlier.
+
+**That stack was not touched.** A scratch workdir was built instead, under the
+session scratchpad, holding a copy of `supabase/config.toml` with `project_id`
+`rc-inv-e17` and the ports shifted to 55321, 55322 and 55320, plus a symlink to
+this worktree's `supabase/migrations`. `supabase --workdir` brought up a second,
+independent stack, `supabase db reset` replayed all 34 migrations unmodified, and
+the four CI seed scripts ran against it. **No repository file was edited to make
+this work**, which is the point: a port number committed to `config.toml` to
+unblock one session is a port number every other session then inherits.
+
+**Baseline first, on the unchanged tree:** `extraction.spec.ts` and
+`review.spec.ts`, **30 of 30 green in 1.4 minutes**. Anything red after that is
+this session's diff and not the lane.
+
+**Two things the lane dirties, recorded so the next session does not commit
+them.** The Next production build writes `.next-prod` include paths into
+`tsconfig.json` on every run, and `npm ci` is required in a fresh worktree
+because a symlinked `node_modules` makes Turbopack panic with
+`Symlink [project]/node_modules is invalid, it points out of the filesystem
+root`. `tsconfig.json` was reverted before every commit.
+
+---
+
+## 4. EXT-17: a scan-sourced document never auto-accepts, and its lines say so
+
+**Card:** `EXT-17`, phase 3. **Files:** `lib/data/extraction-types.ts`,
+`components/orders/ExtractionReviewPanel.tsx`, plus four new e2e cases.
+
+### The change
+
+One named constant and one named predicate, each in one place:
+
+    SCAN_LINE_NOTICE = "Citita de masina dintr-o imagine."   (with diacritics in the source)
+    scanReadLines(draft) -> effectiveSource(draft.documentSource) === "scan"
+
+The review form renders the notice **inside each line's own container**, with
+`data-scan-read` on the line. It is keyed on the **source** and never on the
+reconciliation result, which is the card's whole rationale: reconciliation caught
+the observed failure only because the model read the totals correctly and the
+lines wrong. A set of fabricated lines that happens to sum to the printed total
+passes the arithmetic.
+
+### The four cases, and which failed before
+
+| Case | Before the change | After |
+|---|---|---|
+| review 12: a **reconciling** scan marks every line, inside the line element | **FAILED**, `data-scan-read` resolved to `null` | pass |
+| review 13: the same lines marked `digital` carry no notice anywhere on the page | **FAILED**, same assertion | pass |
+| extraction 16: a reconciling scan lands in review, `confirmed_at` null, inbound count unchanged | **passed** | pass |
+| extraction 17: the same payload marked `digital`, identical | **passed** | pass |
+
+**Cases 16 and 17 passing before the change is the correct result, and the card
+says so in its own defaults:** *"NO AUTO-ACCEPT EXISTS FOR ANY SOURCE TODAY, AS
+FAR AS THE REPOSITORY SHOWS, AND THIS CARD MUST PROVE THAT RATHER THAN ASSUME
+IT."* They are a proof of an invariant, not a change to one, so there was nothing
+for them to fail against.
+
+**They were therefore driven against a mutant instead.** One line added to the
+callback route, `confirmed_at: new Date().toISOString()`, and **both cases went
+red**, on the assertion that matters:
+
+    Error: nici calea digitala nu se confirma singura
+    Received: "2026-09-04T23:37:51.338+00:00"
+    > 1000 |  expect(d.confirmed_at, ...).toBeNull();
+
+The mutant was reverted. An assertion nobody has watched fail is not an
+assertion, and that is this repository's own rule rather than an invention here.
+
+### What the first draft of those cases got wrong
+
+Cases 16 and 17 were first written on `orderWithDocument`, which attaches a
+document to an inbound order **that already exists**. `listReviewDrafts` excludes
+exactly that shape, deliberately and with the reason in its own header, so the
+draft could never have appeared in the review list, and "is not booked" could not
+have been measured because the order was already there. The case caught it:
+
+    Locator: [data-testid="draft-card"][data-order-id="ca7ac6fd-..."]
+    Expected: 1   Received: 0
+
+Both were rebuilt on the **extraction band**, where no inbound order exists until
+somebody confirms one. That is what makes the count assertion mean anything.
+
+### The grep-proof: every path from a draft to a booked inbound order
+
+The card requires this enumerated, with the scan case named.
+
+**1. The booking is one RPC, `public.confirm_extraction_draft`, and it has
+exactly one caller in application code.**
+
+    lib/data/extraction-actions.ts:345   supabase.rpc("confirm_extraction_draft", {...})
+
+Every other hit in the repository is the migration that defines it (0010, 0011),
+the generated ledger rows, the applier's expected-function list, or the
+schema-direction proof. None of them is a call site.
+
+**2. That caller has exactly one caller.**
+
+    components/orders/ExtractionReviewPanel.tsx:112   await confirmExtractionDraft(draft.orderId, {...})
+
+which is the body of `confirm()`, behind the `review-confirm` button labelled
+"Confirma si creeaza comanda". `confirmExtractionDraft` opens with
+`getSessionUser()` and refuses without a session.
+
+**3. `confirmed_at` is written by nothing else.** Application code only ever
+*reads* it: `extraction-actions.ts:128,136` and `extraction.ts:27,30,118`. The
+column is set inside the RPC.
+
+**4. The callback route reaches none of it.** `inbound_orders`, `confirmed_at`
+and `confirm_extraction` appear **nowhere** in
+`app/api/extraction/callback/route.ts`. It writes `extraction_drafts` and
+`extraction_draft_lines` and nothing else.
+
+**5. The other two order-creating RPCs take no draft.** `create_inbound_order` is
+the manual form (`InboundOrderForm.tsx:123`) and `receive_inbound_order` is the
+operator's receive button (`InboundPanel.tsx:57`). Neither reads an extraction
+draft.
+
+**The scan case, named as the card requires.** For a scan-sourced draft the only
+route to a booked order is the same `confirmExtractionDraft`. It carries an
+additional refusal for a `failed` scan, added by EXT-15 and read **from the
+database rather than from the caller**, and for an `extracted` scan it requires
+the operator's confirm exactly as a digital document does, with every line now
+carrying the notice.
+
+**No auto-accept path was found**, and the card's defaults say that if one had
+been found, that path would have been the card and the marking the smaller half.
+
+### What was deliberately not built
+
+**No server-side guard was added for a reconciling scan.** A reconciling scan is
+a document the operator *is* allowed to accept; the card asks that the acceptance
+be his, informed, and never automatic. A refusal inside `confirmExtractionDraft`
+would have removed the operator's own path, which is the opposite of the card.
+
+### Commands
+
+    npx tsc --noEmit                                                exit 0
+    node docs/board/validate-board.mjs <all three>                   exit 0, 0 violations
+    npx playwright test extraction.spec.ts review.spec.ts           exit 0, 34 of 34
+    npm run check:board-edit                                         exit 0, EXT-17 todo -> shipped
+    npm run prove:board-edit                                         exit 0, 45 of 45
+
+---
+
 ## (narrative continues; this file is written as the work proceeds)
