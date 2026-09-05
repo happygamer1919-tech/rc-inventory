@@ -4049,3 +4049,40 @@ written from the same documentation, and never fired in production.
 card names an API value, check what the API returns before matching on it. The
 documentation names the concept; the wire names the value, and only one of those
 is what the code will meet.
+
+### Two lists that agree today are one credential surviving tomorrow
+**Tag:** infra
+**ERROR:** `scripts/poc/responder.sh` stripped ten credential names from its model
+child with `env -u`, written out at the call site. `scripts/poc/run.sh` needed the
+same strip at its own `claude -p` and had none at all: every scheduled EXECUTOR
+carried every credential in the secrets file, four times a night, whether or not
+that run went near a database. The obvious fix was to copy the responder's line
+into `run.sh`, which would have been two lists agreeing on the day they were
+written and drifting apart every day after. The failure mode of that drift is a
+credential quietly surviving in one process while the other is clean, and nobody
+notices because both look right in isolation.
+**SOLUTION:** `scripts/poc/secret-names.sh` holds the list once, both scripts
+source it from their worktree, and the responder's inline copy is **deleted**
+rather than left beside it. `npm run check:executor-env` asserts both call sites
+go through the shared list AND that neither carries an inline `env -u NAME -u`
+sequence any more. RULE, and this repository has now paid for it three times
+(AUT-16's path lists, AUT-21's manifest, this): a list that two scripts need is a
+file, never a paragraph in each of them. The check that makes it stick is the one
+that refuses the second copy, not the one that verifies the first.
+
+### A check that reads a list and compares it to another list proves the two lists agree
+**Tag:** ci
+**ERROR:** the obvious shape for "the model process does not carry these
+credentials" is to read the strip list and assert the expected names are on it.
+That passes whenever the two lists match, including when the strip is never
+applied, when the call site was reverted, and when `env -u` was handed no
+arguments at all.
+**SOLUTION:** `check:executor-env` **runs the strip**. Every name on the list is
+set to a dummy value in the checking process, `printenv` is spawned as the child
+in place of `claude` through the same `env -u` arguments, and what comes back is
+what the model would have carried. Three further assertions close the ways it
+could still pass while measuring nothing: the child must report a **non-empty**
+environment, the argument count must be exactly two per name, and the check drops
+one name from its own arguments and requires that name to **reach** the child.
+RULE: a check about what a process carries spawns a process. Anything else is a
+statement about the source, and the source is not where the failure lives.
