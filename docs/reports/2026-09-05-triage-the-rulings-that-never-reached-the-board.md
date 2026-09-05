@@ -265,3 +265,27 @@ deviation.
 Note that AUT-19's `shipped` flip rides on #205 and is not on `main`, so a run
 reading the board before that merges will still see it `todo`. That is correct
 and is not a defect.
+
+---
+
+## 10. This run's own pull request, and why it is left open
+
+**Pull request 207, branch `triage/20260904-220003`, cut from `origin/main` at
+`4b9a65b`.** Six files: `decisions/inbox.md`, `decisions/NEXT-RULING-ID`, the
+phase 2 and phase 3 boards, `docs/poc/triage-latest.json` and this report.
+
+**IT IS DELIBERATELY NOT MERGED, AND THE REASON IS MERGE ORDER RATHER THAN
+DOUBT.** DOCTRINE-TRIAGE lets TRIAGE merge its own rulings pull request, and
+CLAUDE.md 3.1 would allow it on a green `quality` for the head sha. Two older
+pull requests were already open and pending when this one was cut, #205 carrying
+AUT-19 and #206 carrying the input report, **and both edit the phase 2 board.**
+Merging this one first would put both of them straight into `DIRTY` on the
+`as_of` line, which is exactly the collision the input report's section 3a
+describes and exactly the class the run's own census card was written against.
+
+`quality` was `in_progress` on `efea556` when this report was written, so there
+was no green to merge on in any case. **Whoever comes next merges #205 and #206
+first, then this one, and reads `mergeStateStatus` beside the check result each
+time.** This pull request conflicts with neither of them today; it will conflict
+with both the moment either lands, and the resolution is a local merge of `main`
+into this branch per R-052, never the web editor.
