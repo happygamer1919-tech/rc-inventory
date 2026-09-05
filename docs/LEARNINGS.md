@@ -3804,6 +3804,34 @@ single CI run is, and the failure it produced looked at first like a regression
 in the diff. It was not. Baseline against the unchanged tree before blaming the
 diff, and when a "flaky" failure appears only after several runs, count the rows.
 
+### A test that extracts a fenced block must fail hard when the fence is gone
+**Tag:** ci
+**ERROR:** `scripts/poc/test-pr-census.sh` was written with the same helper
+shape as `test-harness-caps.sh`: `CENSUS=$(extract pr-census)`, where `extract`
+prints a FATAL message and calls `exit 1` if the fence is missing. Run against a
+`run.sh` with no fence, the test did not stop. Command substitution runs the
+function in a SUBSHELL, so `exit 1` killed only that subshell; the variable was
+set to the FATAL text, the block was never sourced, and the suite carried on and
+reported `FAIL: 20 assertion(s) failed` from twenty unrelated assertions. A
+deleted fence is one defect and it presented as twenty.
+**SOLUTION:** the helper writes to a path the caller already knows and RETURNS a
+status; the caller runs `extract pr-census || exit 1` outside any substitution.
+The same input now prints the FATAL line and exits 1. RULE: a shell helper whose
+failure must stop the program never runs inside `$(...)`, because `exit` in a
+subshell is `return` with extra steps.
+
+### The census must count an unknown commit time as old, not as new
+**Tag:** infra
+**ERROR:** the pull request census decides whether a head commit predates the
+run, and escalates a not-green pull request only when it does. The first draft
+left the epoch empty when neither git nor GitHub could resolve the sha, and an
+empty string compared as newer than the run start, so an unresolvable head sha
+silently suppressed its own escalation.
+**SOLUTION:** an unresolvable commit time is pinned to 0, which reads as older
+than every run and therefore escalates. RULE: when a missing input decides
+between reporting and staying quiet, the missing case reports. A census that
+fails quiet is the thing it was built to replace.
+
 ### A card acceptance that greps for an absent phrase forbids quoting it, even when the doctrine style says quote it
 **Tag:** ci
 **ERROR:** AUT-19's replacement text for `docs/DOCTRINE-TRIAGE.md` section 2 was
