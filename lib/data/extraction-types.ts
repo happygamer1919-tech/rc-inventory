@@ -123,6 +123,31 @@ export function effectiveSource(v: unknown): DocumentSource {
   return isDocumentSource(v) ? v : SAFE_DOCUMENT_SOURCE;
 }
 
+/** EXT-17. CE SCRIE PE O LINIE CITITA DINTR-O IMAGINE.
+ *
+ *  UN SINGUR LOC. Ecranul o randeaza si specul o citeste de aici, ca textul pe
+ *  care il vede operatorul si textul pe care il verifica proba sa nu poata fi
+ *  doua siruri diferite. Aceeasi doctrina ca la EXTRACTION_ERROR_LABEL.
+ *
+ *  SPUNE CE S-A INTAMPLAT, NU CAT DE GRAV ESTE. Cuvintele sunt ale
+ *  proprietarului: "Citit de masina dintr-o imagine" ii spune celui care verifica
+ *  ce sa faca altfel. "Atentie" nu ii spune nimic. */
+export const SCAN_LINE_NOTICE = "Citită de mașină dintr-o imagine.";
+
+/** EXT-17. Se marcheaza liniile acestei ciorne?
+ *
+ *  O SINGURA DEFINITIE, folosita si de formular si de proba. Regula este SURSA,
+ *  nu rezultatul reconcilierii: un document care se aduna corect este exact cazul
+ *  pentru care cardul exista, fiindca un set de linii fabricate care se intampla
+ *  sa dea totalul tiparit trece de aritmetica si nu trece de un om.
+ *
+ *  NU SE INTREABA DE STATUS. O scanare `partial` isi pastreaza liniile citite si
+ *  ele sunt tot linii citite dintr-o imagine. Una `failed` nu are linii deloc,
+ *  prin EXT-15, deci nu are ce marca si conditia nu o exclude degeaba. */
+export function scanReadLines(draft: { documentSource: unknown }): boolean {
+  return effectiveSource(draft.documentSource) === "scan";
+}
+
 export type ExtractionDraft = {
   orderId: string;
   documentPath: string;

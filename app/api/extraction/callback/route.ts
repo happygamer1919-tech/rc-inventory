@@ -32,7 +32,7 @@ import {
   hasExtractionPageCount,
   hasReconciliationFailedCode,
 } from "@/lib/data/schema-capability";
-import { reconcile } from "@/lib/data/reconciliation";
+import { headerConsistency, reconcile } from "@/lib/data/reconciliation";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -257,13 +257,50 @@ export async function POST(request: Request) {
         })
       : null;
 
+  // --- EXT-18. AUTOCONSISTENTA ANTETULUI, PE ACEEASI POARTA -----------------
+  //
+  // ACEEASI CONDITIE CA EXT-16, SI ESTE O ALEGERE FACUTA, NU O SCAPARE. Cardul
+  // nu numeste sursa; se aplica unde se aplica EXT-16, adica pe scanari cu
+  // status extracted. Doua motive, amandoua verificabile:
+  //
+  //   1. CALEA DIGITALA A FOST LASATA NEATINSA IN MOD DELIBERAT de EXT-16 si
+  //      cazul 14 din extraction.spec o afirma. Un refuz nou pe acea cale ar
+  //      schimba in tacere comportamentul pe care cardul precedent l-a
+  //      protejat, ceea ce este exact definitia scopului auto-inventat.
+  //   2. UN COD DE ESEC NOU PE O SUPRAFATA NOUA SE COMUNICA INAINTE, prin
+  //      hotararea R-098. Extinderea la digital ar face ca documente pe care
+  //      Andre le trimite astazi sa fie respinse maine fara ca el sa fi fost
+  //      anuntat.
+  //
+  // ESECUL POARTA reconciliation_failed SI NU UN COD NOU, din aceeasi hotarare:
+  // un cod nou ar trebui comunicat celeilalte parti INAINTE sa poata fi emis, in
+  // amandoua directiile, iar el nu a fost. Propozitia romaneasca a codului
+  // vorbeste despre cifre care nu se potrivesc, ceea ce este adevarat si aici.
+  const headerVerdict =
+    documentSource === "scan" && status === "extracted"
+      ? headerConsistency({
+          subtotal: num(body.subtotal),
+          vatAmount: num(body.vat_amount),
+          documentTotal: num(body.document_total),
+          vatRate: num(body.vat_rate),
+          // Numarul de linii AL DOCUMENTULUI, ca toleranta sa fie aceeasi cu cea
+          // pe care o foloseste reconcilierea liniilor de deasupra.
+          lineCount: rawLines.length,
+        })
+      : null;
+
   // POARTA, SI FARA EA NIMIC NU AR FI CERUT-O. 0034 adauga o ETICHETA DE ENUM, si
   // check:pending-schema-reads nu vede `alter type ... add value`. Scrierea
   // etichetei inaintea aplicarii da 22P02 si ruta ar raspunde 500. Cat timp baza
   // nu o cunoaste, comportamentul este cel de astazi: payload-ul se pastreaza asa
   // cum a sosit, fiindca a refuza fara a putea spune DE CE ar fi mai rau decat a
   // nu refuza.
-  const reconciliationFailed = verdict !== null && !verdict.ok && canFlagReconciliation;
+  // EXT-16 SI EXT-18 IMPART ACELASI REFUZ. Oricare dintre ele care cade respinge
+  // payload-ul, si nu se cere ca amandoua sa cada: fiecare raspunde la o
+  // intrebare pe care cealalta nu o pune.
+  const reconciliationFailed =
+    ((verdict !== null && !verdict.ok) || (headerVerdict !== null && !headerVerdict.ok)) &&
+    canFlagReconciliation;
   const effectiveStatus = reconciliationFailed ? "failed" : status;
   const effectiveErrorCode = reconciliationFailed ? "reconciliation_failed" : errorCodeRaw;
 

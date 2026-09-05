@@ -7,6 +7,7 @@ import {
   ACTION_RESCAN,
   EXTRACTION_ERROR_CODES,
   EXTRACTION_ERROR_LABEL,
+  SCAN_LINE_NOTICE,
 } from "@/lib/data/extraction-types";
 
 // review.spec - linia de acceptanta a cardului P2-09.
@@ -799,6 +800,95 @@ test.describe("Verificare si confirmare extragere", () => {
     ]) {
       await expect(page.getByTestId(t), `EXT-15: ${t} nu are voie sa existe`).toHaveCount(0);
     }
+  });
+
+  test("12. EXT-17: liniile unei scanari care SE ADUNA CORECT sunt marcate PE LINIE ca citite dintr-o imagine", async ({
+    page,
+    request,
+  }) => {
+    // EXT-17. Marcajul nu depinde de reconciliere si acesta este cazul care o
+    // spune: cifrele documentului se aduna, fisa se randeaza intreaga, si
+    // fiecare linie poarta propozitia. Reconcilierea a prins esecul observat
+    // NUMAI fiindca modelul citise corect totalurile si gresit liniile; un set
+    // de linii fabricate care da totalul tiparit trece de aritmetica.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "scanmark");
+
+    // SE ADUNA CORECT. prices_include_vat false, deci tinta este subtotal, iar
+    // singura linie il poarta exact. Toleranta pentru o linie este 0.05 si
+    // diferenta este 0.
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            document_source: "scan",
+            subtotal: 18450.0,
+            lines: [extractedLine(`Tigla scanata ${RUN}`, { line_total: 18450.0 })],
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    // MARCAJUL ESTE PE LINIE. Se cere INAUNTRUL containerului liniei, si asta
+    // este toata afirmatia: un banner in capul paginii ar trece o cautare pe
+    // text si ar cadea aici, ceea ce este exact distinctia pe care o cere cardul.
+    const line = page.locator('[data-testid="review-line"][data-index="0"]');
+    await expect(line).toHaveCount(1);
+    await expect(line).toHaveAttribute("data-scan-read", "true");
+    const mark = line.getByTestId("review-line-scan-0");
+    await expect(mark).toBeVisible();
+
+    // TEXTUL ESTE CEL CARE SE LIVREAZA, citit din sursa si nu copiat aici. Doua
+    // siruri, unul pe ecran si unul in test, pot ajunge sa nu fie de acord.
+    await expect(mark).toHaveText(SCAN_LINE_NOTICE);
+
+    // ROMANESTE, SI SPUNE CE S-A INTAMPLAT. Nu un cuvant de gravitate.
+    await expect(mark).toContainText("imagine");
+
+    // FISA ESTE INTREAGA. Marcajul informeaza, nu blocheaza: documentul se
+    // aduna, deci operatorul are ce verifica si ce confirma.
+    await expect(page.getByTestId("review-line-name-0")).toBeVisible();
+    await expect(page.getByTestId("review-confirm")).toBeVisible();
+  });
+
+  test("13. EXT-17: aceleasi linii declarate DIGITAL nu poarta marcajul", async ({
+    page,
+    request,
+  }) => {
+    // CONTROLUL, PE ACEEASI FISA. Fara el, cazul 12 ar trece si pe un ecran care
+    // marcheaza fiecare linie a fiecarui document, ceea ce nu ar spune nimic
+    // despre sursa.
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "digmark");
+
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            document_source: "digital",
+            subtotal: 18450.0,
+            lines: [extractedLine(`Tigla digitala ${RUN}`, { line_total: 18450.0 })],
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    const line = page.locator('[data-testid="review-line"][data-index="0"]');
+    await expect(line).toHaveCount(1);
+    await expect(line).toHaveAttribute("data-scan-read", "false");
+    await expect(page.getByTestId("review-line-scan-0")).toHaveCount(0);
+
+    // SI NICAIERI PE PAGINA. Un marcaj mutat intr-un banner ar trece afirmatia
+    // de mai sus si ar lasa ecranul spunand acelasi lucru gresit.
+    await expect(page.getByText(SCAN_LINE_NOTICE)).toHaveCount(0);
   });
 
   test("14. EXT-19: cele doua coduri il trimit pe operator sa faca lucruri diferite, si niciunul nu poarta instructiunea celuilalt", async ({

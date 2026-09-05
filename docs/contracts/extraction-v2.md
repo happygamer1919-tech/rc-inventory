@@ -515,6 +515,92 @@ separately and is now directly above this section. That group is our own
 validator refusing a well-formed payload: the download succeeded and the model
 returned, so it belongs to neither of the other two.
 
+### 5.3a Header self-consistency. Card EXT-18, 2026-09-04.
+
+Two further arithmetic checks, on the figures the document prints **about
+itself**, run on the same payloads and with the **same tolerance** as 5.3.
+
+| | check | what it asks |
+|---|---|---|
+| **A** | `subtotal + vat_amount` against `document_total` | do the document's own three totals agree |
+| **B** | `subtotal * vat_rate` against `vat_amount` | is the VAT the stated rate of the stated base |
+
+#### The tolerance is 5.3's, called and not restated
+
+    tolerance = max(0.05, 0.01 * line_count)
+
+**The same named expression, read from one place.** This is not a style
+preference: two tolerances that disagree at the boundary are worse than one, and
+the boundary is the only place a tolerance is ever consulted. Both sides are
+rounded to two decimals **before** subtracting, exactly as in 5.3, for the same
+reason.
+
+`line_count` is the **document's** line count. On a header-only payload it is
+zero and the floor of `0.05` wins. That is correct rather than a special case: a
+header check does not become stricter because the lines are missing.
+
+#### A missing figure means the check DID NOT RUN. It does not mean it passed.
+
+`subtotal`, `vat_amount`, `document_total` and `vat_rate` are all nullable by
+section 4.1. Check A needs three of them and check B needs three of them; when
+one is absent, that check is recorded as **not run**, and a not-run check never
+rejects on its own. What rejects a document whose totals are absent entirely is
+5.3's `target_missing` rule, which is unchanged.
+
+#### Same scope as 5.3: scan-sourced payloads only
+
+A digital-sourced payload is **not touched** by this section either, and that is
+a decision rather than an omission. 5.3 left the digital path alone deliberately;
+a new refusal there would change, silently, the behaviour of documents Andre
+delivers today, and section 5.2a requires a new failure on a surface to be
+announced before it can appear.
+
+#### A failure carries `reconciliation_failed`, not a new code
+
+Same wire shape as 5.3: `status: failed`, `error_code: reconciliation_failed`, no
+lines stored, header kept. **No ninth code was added**, because section 5.2a
+requires a new code to be communicated in both directions before it can be
+emitted or received, and this check needed none: its Romanian sentence already
+says the figures do not agree, which is true here too.
+
+#### WHAT THESE TWO CHECKS DO NOT DO, AND THIS PARAGRAPH IS THE POINT OF THE SECTION
+
+**They do not detect a fabrication, and they do not close the gap 5.3 left open.**
+
+Andre confirmed the asymmetry with evidence. On the Matnord scan **whose line
+table contained four fabricated lines**, the header was read correctly, so:
+
+    A:  subtotal + vat_amount  vs  document_total     misses by exactly 0.00
+    B:  subtotal * vat_rate    vs  vat_amount         misses by exactly 0.00
+
+Both checks **pass** that document. The line-sum check in 5.3 is what refused it,
+missing by `1301.00` against a tolerance of `0.07`.
+
+What these checks do is raise the **cost** of a fabrication that survives: it now
+has to be coordinated across the header **and** the line table rather than only
+inside the line table. That is a real gain and it is a different claim.
+
+**The last control is a person looking at the scan.** Neither this section, nor
+5.3, nor the review screen's per-line marking replaces that, and none of them
+reduces the risk to zero.
+
+#### The four sample documents are the fixtures, and all four hold both checks
+
+A guard that has only ever run against documents it rejects has not been shown to
+accept a correct one. `npm run check:reconciliation` carries all four sample
+documents' header figures, read from the files themselves:
+
+| document | lines | tolerance | A misses by | B misses by |
+|---|---|---|---|---|
+| `aviz-scan-matnord-0021884` | 7 | 0.07 | 0.00 | 0.00 |
+| `confirmare-comanda-mpc-8842` | 6 | 0.06 | 0.00 | 0.00 |
+| `factura-betonmix-4417` | 5 | 0.05 | 0.00 | **0.01** |
+| `factura-tehnocom-0009312` | 54 | 0.54 | 0.00 | 0.00 |
+
+Betonmix's `0.01` is the one that matters: `89609.38 * 0.20` is `17921.876` and
+the document prints `17921.87`. Four documents all landing at exactly zero would
+not have shown that the tolerance is reachable at all.
+
 ---
 
 ## 6. Callback response codes
