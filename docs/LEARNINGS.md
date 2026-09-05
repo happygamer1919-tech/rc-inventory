@@ -3956,3 +3956,34 @@ threshold is MEASURED at test time by probing the same PostgREST the application
 uses, rather than written into the test: 208 was measured on one stack on one
 day, and a number copied into a test is a fact about a machine that has since
 changed.
+### JavaScript string replace eats `$'`, and it silently mangled a shell script it was inserting
+**Tag:** ci
+**ERROR:** inserting a block into `scripts/poc/run.sh` with
+`s.replace(anchor, anchor + block)` produced a file that failed `bash -n` at a
+line 500 lines away from the insertion. The block contained
+`grep -oE '[0-9]+$'`, and in a string replacement JavaScript reads `$'` as the
+special pattern meaning "the portion of the string after the match". The `$'`
+was replaced by the whole rest of the file, which unbalanced a quote in an
+unrelated `node -e` heredoc and moved the reported error somewhere the change had
+not touched.
+**SOLUTION:** pass a FUNCTION as the replacement, `s.replace(anchor, () => anchor
++ block)`, where no `$` pattern is interpreted. RULE: any programmatic file edit
+whose replacement text is data rather than a pattern uses a function replacement.
+And the second half of the rule is what caught it: **`bash -n` was run
+immediately after the insertion**, so the corruption was found in seconds rather
+than at 22:00 by a scheduled run that could not parse its own harness.
+
+### A decision function that logs cannot also print its verdict, when the log IS stdout
+**Tag:** infra
+**ERROR:** `gate_decision` in `scripts/poc/run.sh` was first written to `echo`
+its verdict, read by the caller as `set -- $(gate_decision)`. `log()` in that
+file writes to stdout, because the run's stdout is the run log. So on the
+fail-open branch, which is the one branch that logs, the captured output was the
+log line followed by the verdict, and `$1` parsed as a timestamp instead of
+`open`. The gate would have failed to open on exactly the path whose whole
+purpose is to open.
+**SOLUTION:** the function sets two globals, `GATE_VERDICT` and `GATE_COUNT`, and
+prints nothing. RULE: in a script where `log` writes to stdout, a function that
+logs must not also return a value through stdout. Either it returns through a
+global, or it logs to a file descriptor the caller is not capturing, and the
+first is simpler and has no second thing to remember.
