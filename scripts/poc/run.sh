@@ -565,6 +565,31 @@ fi
 # works from, so the list comes from that commit's boards.mjs rather than from a
 # constant written here. A set that cannot be read is fatal: working a subset of
 # the boards in silence is the exact defect this card removed.
+# AUT-8. THE STRIP LIST, FROM THE ONE PLACE THAT DEFINES IT.
+#
+# Read out of the run worktree at origin/main, the same way boards.mjs and every
+# other module here is read, so run.sh and responder.sh cannot drift apart about
+# what a model process may hold.
+#
+# A MISSING LIST IS FATAL, and that is the safe direction rather than a strict
+# one. The alternative is a fallback list written here, which would be the second
+# copy this file exists to prevent, and its failure mode is a credential quietly
+# surviving. A run that refuses is recoverable; a credential in a process that had
+# no reason to hold it is not.
+if [ ! -r "$POC_RUN_WORKTREE/scripts/poc/secret-names.sh" ]; then
+  log "FATAL: $POC_RUN_WORKTREE/scripts/poc/secret-names.sh is missing, so the strip list cannot be read."
+  log "Refusing to invoke a model with an environment nothing has vetted."
+  EXIT_CODE=1
+  exit 1
+fi
+# shellcheck disable=SC1091
+. "$POC_RUN_WORKTREE/scripts/poc/secret-names.sh"
+POC_STRIP_ARGS=()
+while IFS= read -r POC_STRIP_LINE; do
+  POC_STRIP_ARGS+=("$POC_STRIP_LINE")
+done < <(poc_secret_strip_args)
+log "model environment: $(( ${#POC_STRIP_ARGS[@]} / 2 )) credential name(s) will be stripped from every model child"
+
 POC_BOARDS=$(node "$POC_RUN_WORKTREE/scripts/poc/boards.mjs" --paths 2>/dev/null | tr '\n' ' ')
 POC_BOARDS=${POC_BOARDS% }
 
@@ -1434,10 +1459,22 @@ log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
 EXECUTOR_LOG=$POC_LOG_DIR/$RUN_ID.executor.log
 EXECUTOR_STARTED_AT=$(date +%s)
-claude -p "$(cat "$PROMPT_FILE")" \
-  --permission-mode bypassPermissions \
-  --add-dir "$POC_RUN_WORKTREE" \
-  > "$EXECUTOR_LOG" 2>&1 &
+# AUT-8. THE SECRETS ARE STRIPPED FROM THE MODEL PROCESS.
+#
+# env -u removes them from the child: the model cannot read what the process does
+# not carry. The list is the one in scripts/poc/secret-names.sh, shared with
+# responder.sh, which solved the identical problem first and whose comment states
+# the same reason.
+#
+# THIS DOES NOT NARROW CLAUDE.md 8.3. The secrets FILE is still readable, and a
+# step that genuinely needs a credential re-sources it under `set -o allexport`
+# exactly as that section authorises. What is removed is the credential sitting in
+# the model process on every run REGARDLESS of whether a migration is in scope.
+env "${POC_STRIP_ARGS[@]}" \
+  claude -p "$(cat "$PROMPT_FILE")" \
+    --permission-mode bypassPermissions \
+    --add-dir "$POC_RUN_WORKTREE" \
+    > "$EXECUTOR_LOG" 2>&1 &
 CLAUDE_PID=$!
 
 # macOS ships no timeout(1), so the cap is enforced here. The deadline is
