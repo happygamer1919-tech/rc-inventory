@@ -137,10 +137,33 @@ nobody will read again.**
 Use the format in `decisions/inbox.md`, unchanged. Three requirements TRIAGE adds
 to it:
 
-1. **The id is the next free one, and a collision is fixed by renumbering the NEW
-   entry, never by touching the old one.** Ids are namespaced by author, and the
-   shift is written into the renumbered entry so a reader is not left
-   reconstructing it. This has happened twice; it will happen again.
+1. **The id is allocated from `decisions/NEXT-RULING-ID` per CLAUDE.md section
+   8b**, which is the authority, the way section 6 below cites R-057. Read the
+   counter, use the id it holds, and advance the file **in the same commit as
+   the ruling**. That third step is the whole mechanism: the counter is one
+   line, so two terminals allocating at once produce a merge conflict on that
+   line, which is the loudest signal git has.
+
+   **THIS REPLACED AN EARLIER RULE ON 2026-09-02, AND THE SUPERSESSION IS STATED
+   HERE RATHER THAN LEFT AS A PHRASE THAT QUIETLY STOPPED EXISTING.** Until card
+   **RULE-02** installed the counter, this requirement told a session to take the
+   next free id by scanning `decisions/inbox.md`, and said ids were kept apart by
+   which role wrote them. **Neither half is the rule anymore.** There is one
+   flat namespace and one allocator, `npm run check:unique-ids` refuses a ruling
+   id that is already taken and refuses a counter that has not advanced, and the
+   counter is what makes allocation atomic. A session following the old text
+   would take the highest id plus one, leave the counter where it was, and ship a
+   pull request that `quality` refuses at the counter assertion. **Ruling R-088
+   recorded exactly that happening**: a TRIAGE run that obeyed CLAUDE.md instead
+   of its own rubric, which was correct and was against the letter of this file.
+   Card **AUT-19** is the correction. If you arrived here from an older ruling,
+   report or pull request quoting the previous wording, this paragraph is your
+   answer: the rule changed, and CLAUDE.md section 8b is where it now lives.
+
+   **A collision is still never fixed by renumbering the OLD entry**, and no id
+   is ever renumbered to make a check pass. Where two ids already collide in the
+   record, the pair goes in the check's `TOLERATED` list with its reason, per
+   CLAUDE.md section 8b. History is not rewritten.
 2. **`Answer, verbatim` for a TRIAGE ruling quotes the REPORT**, and says so, in
    the form `> from docs/reports/<file>, section <n>:`. TRIAGE is not Ivan and
    never writes in his voice. A ruling that reads as though the owner said
