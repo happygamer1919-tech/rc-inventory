@@ -3,6 +3,8 @@ import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn, signOut } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 import {
+  ACTION_ENTER_BY_HAND,
+  ACTION_RESCAN,
   EXTRACTION_ERROR_CODES,
   EXTRACTION_ERROR_LABEL,
   SCAN_LINE_NOTICE,
@@ -887,6 +889,79 @@ test.describe("Verificare si confirmare extragere", () => {
     // SI NICAIERI PE PAGINA. Un marcaj mutat intr-un banner ar trece afirmatia
     // de mai sus si ar lasa ecranul spunand acelasi lucru gresit.
     await expect(page.getByText(SCAN_LINE_NOTICE)).toHaveCount(0);
+  });
+
+  test("14. EXT-19: cele doua coduri il trimit pe operator sa faca lucruri diferite, si niciunul nu poarta instructiunea celuilalt", async ({
+    page,
+    request,
+  }) => {
+    // EXT-19, PARTEA RAMASA. Eticheta de enum a venit cu EXT-16, prin migratia
+    // 0034. Ce ramanea este jumatatea pe care o numeste chiar titlul cardului:
+    // reconciliation_failed este DISTINCT de unreadable_document fiindca cele
+    // doua il trimit pe om sa faca lucruri diferite.
+    //
+    //   unreadable_document    nu s-a putut citi     -> alta scanare
+    //   reconciliation_failed  cifrele nu se aduna   -> batut de mana
+    //
+    // A-i spune omului pe cel gresit ii pierde timpul, si asta este tot cardul.
+    await signIn(page, ownerAccount());
+
+    // 1. LA NIVEL DE SURSA: fiecare propozitie poarta instructiunea EI si NU o
+    //    poarta pe a celeilalte. Aceasta este afirmatia care cade prima daca
+    //    cineva colapseaza cele doua texte intr-unul singur.
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).toContain(ACTION_RESCAN);
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).not.toContain(ACTION_ENTER_BY_HAND);
+    expect(EXTRACTION_ERROR_LABEL.reconciliation_failed).toContain(ACTION_ENTER_BY_HAND);
+    expect(EXTRACTION_ERROR_LABEL.reconciliation_failed).not.toContain(ACTION_RESCAN);
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).not.toBe(
+      EXTRACTION_ERROR_LABEL.reconciliation_failed,
+    );
+    // Si cele doua instructiuni sunt ele insele distincte, altfel afirmatiile de
+    // mai sus s-ar putea satisface una pe alta fara ca ecranul sa spuna nimic
+    // diferit.
+    expect(ACTION_RESCAN).not.toBe(ACTION_ENTER_BY_HAND);
+
+    // 2. PE ECRAN, care este singurul loc unde conteaza. Aceeasi ciorna, pe rand
+    //    cu fiecare cod, si de fiecare data se citeste propozitia randata.
+    const orderId = await uploadForExtraction(page, request, "distinct");
+
+    const rendered: Record<string, string> = {};
+    for (const [code, mine, theirs] of [
+      ["unreadable_document", ACTION_RESCAN, ACTION_ENTER_BY_HAND],
+      ["reconciliation_failed", ACTION_ENTER_BY_HAND, ACTION_RESCAN],
+    ] as const) {
+      expect(
+        (
+          await post(
+            request,
+            callbackBody(orderId, {
+              status: "failed",
+              error_code: code,
+              reason: `Motiv ${RUN}`,
+              // DIGITAL, ca liniile sa nu fie scoase de regula EXT-15 si ca
+              // acest caz sa ramana despre COPIE si nu despre o alta regula.
+              document_source: "digital",
+              lines: [],
+            }),
+          )
+        ).status(),
+      ).toBeLessThan(300);
+
+      await page.goto(UPLOAD);
+      const card = draftCard(page, orderId);
+      await expect(card).toHaveCount(1, { timeout: 30_000 });
+      const sentence = card.getByTestId("draft-error-sentence");
+      await expect(sentence).toHaveAttribute("data-error-code", code);
+      await expect(sentence, `${code} isi poarta instructiunea`).toContainText(mine);
+      await expect(sentence, `${code} NU poarta instructiunea celuilalt`).not.toContainText(theirs);
+      rendered[code] = (await sentence.innerText()).trim();
+    }
+
+    // 3. SI CELE DOUA PROPOZITII RANDATE SUNT DIFERITE. Aceasta este afirmatia
+    //    care cade daca cineva le colapseaza, chiar daca ambele coduri
+    //    supravietuiesc in enum: cardul spune in terms ca ce conteaza este COPIA,
+    //    nu eticheta.
+    expect(rendered.unreadable_document).not.toBe(rendered.reconciliation_failed);
   });
 
   test("9. catalogul nu ii ofera operatorului nicio cale directa, iar administratorul creeaza in continuare nemarcat", async ({

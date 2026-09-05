@@ -366,11 +366,37 @@ is a rejected payload, `400`.
 | `extraction_failed` | The model ran and produced nothing usable. |
 | `invalid_output` | The model produced output that does not satisfy this schema. |
 | `timeout` | The extraction exceeded Make's own limit. |
+| `reconciliation_failed` | **Ours, not Make's.** The payload arrived well-formed and OUR arithmetic refused it: the line sum does not reconcile against the total printed on the document, or the header does not agree with itself. Sections 5.3 and 5.3a. |
 
-| `reconciliation_failed` | **Ours, not Make's.** The payload arrived well-formed and OUR arithmetic refused it: the line sum does not reconcile against the total printed on the document. Section 5.3. |
+**The eighth row was a table of its own until 2026-09-04.** A blank line above it
+split the markdown, so it rendered as a separate headerless one-row table under
+the seven. It is joined here by card EXT-19, whose acceptance asks that the code
+be documented **beside** the existing ones rather than after them.
 
 `reason` stays free text alongside the code. The code is what we branch on; the
 reason is what the operator reads.
+
+#### `reconciliation_failed` and `unreadable_document` send the operator to do DIFFERENT things. Card EXT-19, 2026-09-04.
+
+The two are adjacent in the set and are the pair most easily confused, because
+both mean "we did not get usable line items out of this document". They mean
+opposite things about **what to do next**:
+
+| code | what happened | what the operator does |
+|---|---|---|
+| `unreadable_document` | the content could not be read | upload a better scan |
+| `reconciliation_failed` | the content was read and the figures do not agree | enter the document by hand |
+
+**Telling a person the wrong one wastes their time**, in both directions: they
+re-upload a perfectly legible scan whose numbers will never add up, or they type
+out by hand a document a better photograph would have fixed.
+
+**So the two Romanian sentences carry their own instruction and never the
+other's.** Each instruction is a single named string in
+`lib/data/extraction-types.ts`, composed into the label rather than copied, and
+`tests/e2e/review.spec.ts` asserts on screen that each code's rendered sentence
+contains its own and not the other's. That case fails against a version that
+collapses the two.
 
 ### 5.2a The set is named in two halves, and a new code is announced before it exists
 
