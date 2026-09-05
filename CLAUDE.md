@@ -49,10 +49,31 @@ The board is the work queue. Nothing is worked that is not a card.
 - every id in `depends_on` belongs to a card whose `status` is `shipped`
 - `blocked_on` is `null`
 
-**Pick.** Take the **lowest-id eligible card**. Ids sort lexically
-(`P2-01` before `P2-02` before `P2-10`), which is why they are zero-padded.
-Never skip an eligible card because a later one looks easier or more
-interesting.
+**Pick.** Take the **lowest-id eligible card**. **Ids sort on a TUPLE of
+(prefix, number, suffix), so the number is compared as a number**: `AUT-8` before
+`AUT-9` before `AUT-16`, and `P3-04` before `P3-04b` before `P3-05`. An id the
+key cannot parse falls back to the raw string and is never dropped. The
+comparator is `scripts/poc/card-order.mjs` and it is the only one; a second sort
+anywhere is a defect. Never skip an eligible card because a later one looks
+easier or more interesting.
+
+**THIS PARAGRAPH SAID SOMETHING ELSE UNTIL 2026-09-05 AND IT WAS FALSE ABOUT THE
+CODE**, corrected by card BOARD-03 under section 9c. It read:
+
+> *"Ids sort lexically (`P2-01` before `P2-02` before `P2-10`), which is why they
+> are zero-padded."*
+
+The description was accurate about `localeCompare`, which is what
+`scripts/poc/eligible.mjs` used, and the consequence it did not draw is the
+defect: **an id that is NOT zero-padded sorts by its characters.** `AUT-8` and
+`AUT-9` therefore queued behind every `AUT-1x` card authored days later, and a
+lane only ever grows, so nothing would ever have moved them back to the front. On
+2026-09-05 the eligible list on the phase 2 board began
+`AUT-21,AUT-22,AUT-23,AUT-8,AUT-9` and the session reading it worked AUT-21,
+AUT-22 and AUT-23 first, in that order, exactly as the defect dictated.
+
+**NOTHING WAS RENUMBERED**, per section 8b: `AUT-8` and `AUT-9` are cited in
+reports, rulings and pull requests. The sort changed; the ids did not.
 
 **One card, one branch, one PR.**
 
