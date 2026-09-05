@@ -4086,3 +4086,40 @@ environment, the argument count must be exactly two per name, and the check drop
 one name from its own arguments and requires that name to **reach** the child.
 RULE: a check about what a process carries spawns a process. Anything else is a
 statement about the source, and the source is not where the failure lives.
+
+### A save path that rebuilds an object from a literal deletes every field nobody remembered
+**Tag:** frontend
+**ERROR:** the board portal's card modal built its saved card as a fresh object
+listing the eleven fields the modal edits. Every other field on the card was
+therefore **deleted on save**: `plain`, `depends_on`, `acceptance`, `defaults` and
+`question`. Saving one card in the portal and pasting the export back produced a
+board `docs/board/validate-board.mjs` rejects, and **the in-app validator reported
+it clean**, because it did not check those five either. The portal's whole purpose
+is to tell the reader whether a paste-back would pass, and it was answering about
+a card it had just emptied.
+**SOLUTION:** the save path merges: `nextCardFrom(existing, edits)` clones the old
+card and overwrites the edited keys. RULE: **the fix for a dropped field is never
+to list the field.** Enumerating the five missing today fixes today and breaks
+again the next time the contract grows a field, which is exactly how this
+happened. A merge is correct for every field that will ever exist. The same rule
+caught the in-app validator: it now checks the five, so the two validators agree
+about what a committable card is.
+
+### Proving a browser file under node needs a seam, and the seam is one branch at the bottom
+**Tag:** ci
+**ERROR:** `docs/board/board-app.js` is an IIFE that reads its seed from the DOM
+at load, attaches listeners, and boots. Nothing escapes the closure, so a check
+could not call its save path at all. Loading it under node with a `document` stub
+got as far as `render()` and died on `Cannot set properties of null (setting
+'innerHTML')`, which proves nothing about any field.
+**SOLUTION:** the file's last statement branches on `typeof module`: under node it
+exports its functions and does not boot; in a browser `module` does not exist, so
+the rendered page takes the else branch and boots exactly as before. The file is
+inlined verbatim into the artifact, so **the thing the check drives is the thing
+that ships**. RULE: a check for a browser file drives the real file behind a
+guarded export, never a copy of its logic. And a second rule the same card
+produced: **when the pre-change file cannot be driven at all, assert on its
+source** for the one thing that can be read there. Here that is a single
+assignment, `var next =`, and whether it is an object literal; against the old
+file that names all five dropped fields, where a bare "did not load" would have
+proved only that the file changed.
