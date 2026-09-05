@@ -485,6 +485,22 @@ jobs:
       - name: Refuse a model child that carries a credential  # AUT-8-EXECUTOR-ENV-PROOF
         run: npm run check:executor-env
 
+      # BOARD-01. THE PORTAL SHOWS plain AND ITS SAVE PATH KEEPS EVERY FIELD.
+      #
+      # It loads the real docs/board/board-app.js, which render-board.mjs inlines
+      # verbatim into the rendered HTML, so the thing under test is the thing that
+      # ships. It drives the real save path and then hands what that path produced
+      # to docs/board/validate-board.mjs, which is the property that matters: what
+      # the portal exports must be committable.
+      #
+      # It also reads the save path's SHAPE from the source, so a version with no
+      # export seam still reports which of the five contract fields it drops by
+      # name rather than merely failing to load.
+      #
+      # NOT PATH FILTERED. No container, no browser, no network, and the defect it
+      # catches is a save that reports itself clean.
+      - name: Refuse a portal save that deletes fields  # BOARD-01-BOARD-APP-PROOF
+        run: npm run check:board-app
       # BOARD-02. A BOARD TIMESTAMP AHEAD OF THE COMMIT THAT WROTE IT.
       #
       # The phase 3 board's as_of drifted 3, 21, 62, 150, 226, 300, 398, 467, 521,

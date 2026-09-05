@@ -37,6 +37,7 @@
     "check:board-edit": "node scripts/poc-free/check-board-edit.mjs",
     "prove:board-edit": "node scripts/poc-free/prove-board-edit.mjs",
     "check:executor-env": "node scripts/poc-free/check-executor-env.mjs",
+    "check:board-app": "node scripts/poc-free/check-board-app.mjs",
     "check:board-clock": "node scripts/poc-free/check-board-clock.mjs"
   },
   "dependencies": {
