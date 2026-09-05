@@ -4123,6 +4123,42 @@ source** for the one thing that can be read there. Here that is a single
 assignment, `var next =`, and whether it is an object literal; against the old
 file that names all five dropped fields, where a bare "did not load" would have
 proved only that the file changed.
+### A timestamp read from the previous timestamp drifts, and nobody wants to be the one who moves it back
+**Tag:** data
+**ERROR:** the phase 3 board's `as_of` ran 3, 21, 62, 150, 226, 300, 398, 467,
+521, 557 and 554 minutes ahead of the commit that carried it, across eleven
+consecutive commits. Every session set it by reading the PREVIOUS `as_of` and
+moving it forward a little, because correcting it makes the number jump backwards
+on a board whose whole purpose is to say when it last told the truth. No session
+wanted to be the one that moved it back, so each added to the error. By the end
+the board claimed it had been updated nine hours before it actually was.
+**SOLUTION:** `npm run check:board-clock` refuses any board timestamp ahead of the
+commit that wrote it: sixty minutes of slack on `as_of`, because a board is
+written before it is committed, and **zero** on every per-card `last_checkpoint`
+and `evidence.at`, because a checkpoint in the future has no honest reading. The
+bound is one-directional: only *ahead* is an error, so honest commits are never
+caught and the threshold never has to be loosened. RULE: **a field whose next
+value is computed from its previous value is a field that drifts.** The fix is
+never a tolerance and never deleting the field; it is a check that compares it
+against something outside itself, which here is git.
+
+### The session that built the drift check committed the drift twice while building it
+**Tag:** data
+**ERROR:** the first run of `check:board-clock` against `main` found exactly one
+violation, and it belonged to the session that had just written the check:
+`AUT-9.last_checkpoint = 2026-09-05T19:10:00Z`, a round number chosen by hand, 30
+minutes ahead of its own commit. The second was on a still-open pull request from
+the same session: `as_of`, `last_checkpoint` and `evidence.at` all at
+`2026-09-05T20:30:00Z`, **109 minutes ahead**. Both were written after reading the
+card that describes this exact failure.
+**SOLUTION:** both corrected, the historical one to the commit time of the commit
+that wrote it and the in-flight one to a real clock, each with a note on the card
+saying it was corrected and from what. RULE, and it is about people and not about
+code: **a round number in a timestamp field is a number nobody read.** `19:10:00Z`
+and `20:30:00Z` are not clock readings. If a value ends in `:00:00Z` and was not
+copied from something, it was invented. The second rule is the one the correction
+notes enforce: **a corrected value that presents itself as always having been
+right teaches the next reader nothing.**
 
 ### An id that is not zero-padded sorts by its characters, and a lane only ever grows
 **Tag:** infra

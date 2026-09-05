@@ -501,6 +501,26 @@ jobs:
       # catches is a save that reports itself clean.
       - name: Refuse a portal save that deletes fields  # BOARD-01-BOARD-APP-PROOF
         run: npm run check:board-app
+      # BOARD-02. A BOARD TIMESTAMP AHEAD OF THE COMMIT THAT WROTE IT.
+      #
+      # The phase 3 board's as_of drifted 3, 21, 62, 150, 226, 300, 398, 467, 521,
+      # 557 and 554 minutes ahead across eleven consecutive commits, because each
+      # session read the PREVIOUS as_of instead of a clock and moved it forward a
+      # little. Correcting it makes the number jump backwards, which is why no
+      # session wanted to be the one to do it. A check ends that argument.
+      #
+      # AHEAD ONLY. A board written before its own commit is normal. Sixty minutes
+      # of slack on as_of, for a long commit sequence; ZERO on every per-card
+      # timestamp, because a checkpoint in the future has no honest reading.
+      #
+      # It PRINTS which commit it compared against on every run, because a check
+      # whose basis is invisible produces a failure nobody can reproduce locally.
+      #
+      # NOT PATH FILTERED. It reads git and three JSON files and needs nothing
+      # else, and it must run on every pull request because every pull request
+      # that touches a board writes one of these values.
+      - name: Refuse a board timestamp from the future  # BOARD-02-BOARD-CLOCK-PROOF
+        run: npm run check:board-clock
 
       # BOARD-03. THE NEXT-CARD PICK COUNTS NUMBERS AS NUMBERS.
       #
