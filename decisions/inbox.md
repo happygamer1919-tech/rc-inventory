@@ -7405,3 +7405,434 @@ a date and an author and a future reader needs to know when the practice started
 and who decided it.
 
 **Unblocks:** no card. It binds every role from the moment it is written.
+
+---
+
+### R-135 - this run allocates from R-135 and not from the counter's R-128, because an open sibling holds seven ids and the check that refuses a collision only speaks at merge time; RULE-08 is authored
+**Date:** 2026-09-05
+**Asked on:** DOCTRINE-TRIAGE section 2 requirement 1 and CLAUDE.md section 8b, which require an id allocation on every run.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT. This is the allocation CLAUDE.md 8b requires
+> before a ruling can be written, and it produced a finding of its own.
+>
+> from `decisions/NEXT-RULING-ID` on origin/main at 68f3f90:
+>
+> "R-128"
+>
+> from `git diff origin/main...origin/triage/20260904-220003 -- decisions/inbox.md`,
+> the open pull request #207:
+>
+> "### R-128 ... ### R-129 ... ### R-130 ... ### R-131 ... ### R-132 ...
+>  ### R-133 ... ### R-134"
+>
+> and from that branch's own `decisions/NEXT-RULING-ID`:
+>
+> "R-135"
+
+**Ruling:** this run's ids run from **R-135**. The counter on `main` says `R-128`
+and taking it would have put seven rulings of this run on top of seven rulings of
+an open pull request, with different meanings, which is the incident RULE-02 and
+RULE-04 both exist because of.
+
+**THE COUNTER IS NOT WRONG, IT IS EARLY.** CLAUDE.md 8b's mechanism is that the
+counter turns a race into a merge conflict on one line. `scripts/poc-free/check-open-branch-ids.mjs`,
+shipped by RULE-04, says the rest out loud in its own header: the counter converts
+a race into a conflict only AT MERGE TIME, and allocation happens hours earlier.
+So the counter's value is the id nobody has MERGED, and the id nobody HOLDS is a
+different number whenever a sibling pull request is open. This run read the
+sibling and took the second number.
+
+**THE CHECK WOULD HAVE CAUGHT IT, AND CATCHING IT IS NOT THE SAME AS AVOIDING
+IT.** `npm run check:open-branch-ids` runs in `quality` on every pull request and
+refuses two open branches that write one id with different headings. Had this run
+obeyed the counter literally, the refusal would have arrived after seven rulings
+were written, and the repair is renumbering seven entries and every cross
+reference in a report that quotes them. R-126 is the record of that repair being
+done once already, for a single id.
+
+**WHAT IS AUTHORED, AND IT IS NOT THE ALLOCATOR.** Card **RULE-08**: the same
+check covers CARD ids as well as ruling ids. Card ids have had the identical
+collision, one day after the ruling one, and the record already carries it: the
+notes of card `P3-37` read that it was renumbered from `P3-35` by hand, before
+either pull request landed, because two open TRIAGE pull requests each allocated
+`P3-35` for different work. The ruling namespace now has a machine and the card
+namespace still has a person reading two files.
+
+**A HELPER THAT HANDS OUT A FREE ID IS DELIBERATELY NOT AUTHORED.** It would be a
+convenience, and RULE-04's own reasoning is that a sweep is only true at the
+moment it runs. The check is the thing that holds, and extending it costs one
+parse of trees it already fetches.
+
+**Unblocks:** no card. It governs this run's own six remaining ids, and it
+authors RULE-08.
+**Supersedes:** none. CLAUDE.md 8b is unchanged and still binds: read the
+counter, and this ruling records what a reader does when an open branch has
+already taken what the counter offers.
+
+---
+
+### R-136 - the three deviations in the input report, ratified individually with the test that fired
+**Date:** 2026-09-05
+**Asked on:** the run `20260905-010004` executor report, and cards AUT-19, APPLY-02, AUT-3.
+**Answer, verbatim:**
+> from `docs/reports/2026-09-05-executor-stale-pr-backlog.md`, section 2:
+>
+> "No new card was started, deliberately. `quality` costs about 20.5 minutes
+> here, measured on the four most recent completed runs (20.8, 20.6, 20.2 minutes
+> plus one cancelled). Against a 45 minute cap that leaves room for one check
+> cycle."
+>
+> from section 7:
+>
+> "This run did NOT edit `APPLY-02`. Two reasons, both deliberate. It is not this
+> run's card, and section 3 forbids self-invented scope."
+>
+> from section 8:
+>
+> "#207 conflicted because #205 landed, and this run resolved it. Under CLAUDE.md
+> section 3 and ruling R-052 a conflicting pull request is EXECUTOR's to resolve
+> LOCALLY, against the full tree, with the validator run before the commit, and
+> never in the GitHub web editor. Done in that order, as merge commit `44cb6af`."
+
+**Ruling:** three deviations, three verdicts, each naming the test that decided
+it. The report flagged none of them for ratification under that heading, so they
+were derived from what it did.
+
+**DEVIATION 1: THE RUN SPENT ITS ENTIRE BUDGET FINISHING ANOTHER RUN'S BRANCH AND
+STARTED NO NEW CARD. RATIFIED.** Test 1 does not fire: nothing was destroyed.
+Test 2 passes: PR #205, head `291ac41`, run `33946165159` concluded success at
+05:23:47, squash `68f3f90` on `main`, and `npm run checks:state 205` exit 0, all
+re-verifiable by a stranger. Test 3 says this APPLIES a rule rather than widening
+one: section 13 caps a run at two cards and requires an escalation only when a
+run finds an eligible card and ships NOTHING, and this run shipped the lowest-id
+eligible card. Test 4 decides it: the alternative was starting a card at 05:24
+with a check costing 20.5 minutes against a cap firing at 05:45, which strands an
+`in_flight` card on a half-finished branch, and that is the failure card AUT-22
+was authored to end.
+
+**DEVIATION 2: THE RUN RESOLVED THE CONFLICT ON ANOTHER RUN'S TRIAGE BRANCH AND
+COMMITTED TO IT. RATIFIED.** Test 1 does not fire. Test 2 passes: merge commit
+`44cb6af` exists on `triage/20260904-220003`, its parents are the branch and
+`68f3f90`, and the report records the board validator, `check:conflict-residue`
+and `check:unique-ids` all run before the commit. Test 3: R-052 assigns a
+conflicting pull request to EXECUTOR by name and requires exactly this, locally
+and against the full tree. Test 4: the alternative is a conflicting pull request,
+and CLAUDE.md section 3 says what that is worth: zero workflows triggered, the
+previous sha's green result still attached, and a fix that never runs while
+`gh pr checks` reports pass. During INC-06 that state hid a six-screen outage fix
+for about an hour.
+
+**DEVIATION 3: THE RUN FOUND TWO CARDS WRONG AND EDITED NEITHER. RATIFIED, AND IT
+IS THE ONE WORTH READING TWICE.** Test 2 passes: both findings are written up
+with the committed artefacts that establish them. Test 3: not editing a card that
+belongs to another lane is section 3's no-self-invented-scope applied, not
+widened. Test 4: the alternative was a second pull request needing its own twenty
+minute check, inside a budget already spent, on a card under another actor's
+claim. **The board edits it declined to make were the right edits and they are
+TRIAGE's to make**, which is the division of labour AUT-3 built the chain for.
+Both had in fact already been made, on the unmerged pull request #207, which
+neither terminal could see: see R-139.
+
+**Unblocks:** no card. Three ratifications and no board change.
+**Supersedes:** none.
+
+---
+
+### R-137 - the phase 3 launch gate audit for run 20260905-010004: nothing flips, 0 of 9 counted, the blocker every condition rested on is false in all three of its clauses, and five conditions now sit behind one verification card
+**Date:** 2026-09-05
+**Asked on:** all nine phase 3 launch gate conditions, and cards GATE-01, GATE-02, P3-35.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT. DOCTRINE-TRIAGE section 4 requires this on every
+> run over committed repository files.
+>
+> from `docs/board/rc-board-phase3.json`, the `evidence.ref` of every one of the
+> nine conditions, dated 2026-08-31T02:41:00Z:
+>
+> "THE COMMON BLOCKER, AND IT IS THE WHOLE AUDIT: no phase 3 migration has been
+> applied to the RC Supabase project. Twelve files, 0013 to 0024, are pending in
+> docs/migrations/APPLY-LOG.md, every one naming P3-27, which is blocked on ivan."
+>
+> from `docs/migrations/APPLY-LOG.md`:
+>
+> "## WAVE 1 BATCH, 0013 to 0025 - APPLIED ... 13 files, 202 statements, one
+> transaction, 11 assertions, committed on all-pass ... Ledger after: 25 rows,
+> 0001 to 0025, no gaps."
+>
+> and the pending register of that same file, in full:
+>
+> ""
+
+**Ruling:** the audit is run, all nine conditions are re-derived against the
+tree, **nothing flips**, `readiness_passed` is set to 0 by counting the
+conditions in state `pass` rather than by estimate, and every one of the nine
+`evidence.ref` fields is rewritten with the audit and `at` 2026-09-05.
+
+**THE SENTENCE ALL NINE RESTED ON IS FALSE IN ALL THREE OF ITS CLAUSES**, and it
+is corrected in place with the old text quoted, per CLAUDE.md 9c. P3-27 is
+shipped, not blocked on Ivan. The wave 1 batch is journalled as applied on
+2026-08-31, with 0026 and 0027 carrying their own entries and 0028 to 0034
+recorded applied. The pending register is empty, not twelve files deep. **The
+count is still 0 of 9 and that is exactly why this matters**: a false reason for
+a true number sends the next reader to the wrong card.
+
+**WHAT THE NINE ACTUALLY WAIT ON TODAY.** G1: two clauses, both proved by a real
+request against production, met by GATE-01 or by P3-35 clause 1, with clauses 1
+and 4 already met on the P3-27 journal. G2: one number nobody has read, and the
+query that produces it shipped in 0024. G3, G4, G6: the deployed-screen and
+cross-link verification, which is P3-35. G5: a real project, which needs real
+client data and therefore cannot be closed by any terminal, per section 4's third
+kind. G7: card P3-13c. G8: cards P3-15 and P3-16. G9: the eight cards of the
+density batch. **Five of the nine touch P3-35**, which makes it the highest-value
+card on that board today whatever its id sorts as, and its notes now say so.
+
+**GATE-02 ASKED FOR THIS AUDIT AND IS NOT SHIPPED BY THE ROLE THAT RAN IT.**
+TRIAGE may not ship a card and runs nothing. Its two acceptance clauses, a
+committed report re-running all nine conditions and a rewrite of all nine
+evidence fields, are both satisfied by this run's artefacts; whoever picks the
+card up verifies that against the tree and ships it. Expect a board edit, not
+code.
+
+**R-126 DEFERRED THIS AUDIT TO GATE-02 ON 2026-09-03, AND ITS REASONING IS MET
+RATHER THAN OVERTURNED.** It objected that an audit written in a ruling would
+land WITHOUT the report GATE-02's acceptance requires, leaving the card half done
+by two hands. This run writes the report and the fields together, in one pull
+request, which is the condition that objection named. **Two runs deferring in a
+row is what changed the answer**: the false premise has now stood in nine board
+fields for five days while the card that owns it sat behind seven others in the
+queue.
+
+**Unblocks:** no card, and it changes three. GATE-02 gains the note that its work
+is done and awaits a verification. GATE-01 gains the overlap with P3-35 clause 1,
+neither retired. P3-35 gains the note that five conditions turn on it.
+**Supersedes:** none. R-126's deferral was correct on its own condition and this
+run met that condition.
+
+---
+
+### R-138 - the board sweep for run 20260905-010004: four checks over three boards and 164 cards, no edge changes, and the capability precondition that spans two boards cannot be an edge at all
+**Date:** 2026-09-05
+**Asked on:** DOCTRINE-TRIAGE section 3, which requires all four checks every run over the whole board set.
+**Answer, verbatim:**
+> NOT FROM THE DISPATCH REPORT.
+>
+> from `docs/board/validate-board.mjs`, the depends_on resolution:
+>
+> "cards (${id}).depends_on: ${JSON.stringify(dep)} is not a card id on this
+> board."
+>
+> from the notes of card `APPLY-02` on the phase 3 board:
+>
+> "IT MUST RUN BEFORE P2-13, WHICH IS WHY P2-13 NOW DEPENDS ON IT."
+>
+> and from `docs/board/rc-board-phase2.json`, card P2-13:
+>
+> "depends_on": ["P2-08b"]
+
+**Ruling:** the sweep is run. **164 cards, three boards, four checks, no edge is
+changed by this ruling.**
+
+**CHECK 1, DANGLING: none.** Every id in every `depends_on` on all three boards
+resolves to a card.
+
+**CHECK 2, SATISFIED BUT BLOCKING: three blocked cards, and all three are
+correct.** P2-08b's dependency is shipped and it waits on Andre, who genuinely
+owes a live extraction round trip. P2-14's dependency is not shipped and it waits
+on Mihai. MIG-01 waits on Ivan and its answer is already ruled on the open pull
+request #207 as R-131, which is R-139's subject and is not re-decided here.
+
+**CHECK 3, THE CAPABILITY EDGE, AND IT IS THE FINDING.** P2-13 revokes every
+terminal grant, including R-082's migration apply. The card that needs that
+capability most is APPLY-02, and APPLY-02's own notes assert the edge exists.
+**It does not exist and it cannot be created**: `validate-board.mjs` resolves
+every `depends_on` entry against the cards of the board being validated, APPLY-02
+is on the phase 3 board and P2-13 is on the phase 2 board, and no cross-board
+edge exists anywhere in 164 cards. The claim in those notes was true about intent
+and false about the file from the moment it was written.
+
+**THE PRECONDITION IS REAL AND IT IS ALREADY CARRIED, BY AN ACCEPTANCE CLAUSE
+RATHER THAN BY AN EDGE.** R-072 added a tickable box to P2-13: every migration
+file under `supabase/migrations/` is recorded as applied in
+`docs/migrations/APPLY-LOG.md`, checked before any credential is rotated, counted
+by the same `grep -c` the rest of that acceptance uses. So nothing is unguarded
+today, and the guard is machine-checkable.
+
+**SO THE STANDING RULE, AND IT IS THE DECISION THIS RULING MAKES: A CAPABILITY
+PRECONDITION THAT SPANS TWO BOARDS IS WRITTEN INTO THE REVOKING CARD'S
+ACCEPTANCE, NEVER INTO ITS `depends_on`.** An edge that the validator refuses is
+not a weaker guard, it is an absent one that reads like a present one. No card is
+authored to make the validator span boards: eligibility, claims and the selector
+all compute per board, and widening the edge namespace to change one card's
+paperwork would touch every one of them.
+
+**CHECK 4, SPLIT CARDS: no re-derivation is owed.** The split families on these
+boards are P2-08a and P2-08b, P3-04 and P3-04b, P3-05 and P3-05b, P3-11 and its
+five suffixed cards, P3-13 with 13b and 13c, and P3-29 with 29a, 29b and 29c.
+Every edge pointing into a split family already names the half it needs:
+P3-13c depends on P3-13b, P3-14 on P3-04, P3-18 on P3-13c, P2-13 on P2-08b and
+P2-20 on P2-08a.
+
+**Unblocks:** no card. It changes no edge and records why the one edge somebody
+expected to find is absent by construction.
+**Supersedes:** none.
+
+---
+
+### R-139 - two consecutive review runs ruled the same findings because the first one is still unmerged, and nothing in the reviewer's rubric told it to look; AUT-25 is authored
+**Date:** 2026-09-05
+**Asked on:** AUT-25, APPLY-02, AUT-3, MIG-01, P2-13.
+**Answer, verbatim:**
+> from `docs/reports/2026-09-05-executor-stale-pr-backlog.md`, section 4:
+>
+> "THE FINDING THAT MATTERS MOST: APPLY-02 IS BUILT ON THE SENTENCE R-124
+> DISPROVED. This is the first card `scripts/poc/eligible.mjs` names, so the next
+> run will reach for it, and it should not apply it as written."
+>
+> and from the heading of ruling R-133, written the previous night and open on
+> pull request #207 since before that report was started:
+>
+> "APPLY-02 was authored to apply six migrations that were already applied, on
+> the sentence R-124 disproved the same day, so its acceptance becomes a
+> verification and P3-35's overlap is named rather than left for whoever picks
+> one first"
+
+**Ruling:** this is a defect in how the chain hands work between runs, it costs a
+measurable amount of every run's budget, and card **AUT-25** is the fix: the
+harness names the open pull requests, their branches and the ruling ids each one
+adds, in the TRIAGE prompt it already builds.
+
+**THE OVERLAP IS NOT A NEAR MISS, IT IS FOUR FOR FOUR.** Before this run wrote
+anything, pull request #207 already contained: the APPLY-02 premise finding
+(R-133), the flip of AUT-3 out of `in_flight`, the clearing of MIG-01 whose
+answer the owner gave on 2026-09-04, and two capability edges added to P2-13.
+Those were four of the six actions this run had derived independently and was
+about to take. **It did not take them**, because taking them would have written a
+second decision onto a card an open pull request already edits, which is a merge
+conflict on a JSON string and a second author for one decision.
+
+**AND THE EXECUTOR PAID FOR IT FIRST.** The report above spends its longest
+section deriving R-133's finding from scratch, seven hours after R-133 was
+written, and correctly calls it the finding that matters most. Two terminals, one
+finding, twice the work, and **neither was wrong**: both read `main`, and on
+`main` the ruling does not exist.
+
+**WHY IT IS STRUCTURAL AND NOT BAD LUCK.** `quality` costs about 20.5 minutes of
+a 45 minute cap and `main` requires branches to be up to date, so a scheduled run
+lands at most one pull request and the first merge of a round puts every sibling
+back to BEHIND. The chain produces two pull requests a run and drains one. AUT-22
+is the arithmetic and AUT-23 is the depth check; **both are unbuilt**, so the
+queue is the standing condition rather than the exception, and every TRIAGE run
+under it is reading a `main` that is one full night stale.
+
+**WHAT THIS RULING DOES NOT DO.** It does not make an unmerged ruling binding.
+DOCTRINE-TRIAGE's ground truth is committed files and a decision on an open
+branch has not landed; R-133 is not law until #207 merges, and if #207 is closed
+unmerged then R-133, R-131 and the AUT-3 flip die with it and must be re-authored
+under fresh ids. That has happened here before: pull request #143 was closed
+unmerged and cards GATE-01, GATE-02 and P3-37 were salvaged out of it by hand.
+**What the prompt gives is a pointer, not an authority.**
+
+**THE PHASE 2 GATE AUDIT IS DELIBERATELY NOT WRITTEN INTO THE BOARD THIS RUN, AND
+THAT IS THIS RULING'S SECOND DECISION.** DOCTRINE-TRIAGE section 4 says to write
+the audit into `evidence.ref` whether or not it flips. R-134, open on #207, wrote
+exactly that audit for the same three failing conditions today, against a `main`
+this run has not changed in any way that touches a gate. Writing a second copy
+into the same three JSON strings guarantees a conflict in the fields whose
+resolution is hardest to check. The audit is therefore in this run's report, in
+full, condition by condition, and the board fields are left for #207. **If #207
+is closed unmerged, the report is the record and the next TRIAGE writes it in.**
+This is a gap in the rubric rather than a licence: section 4 assumes one reviewer
+at a time.
+
+**Unblocks:** no card. It authors AUT-25 and it records why four board edits this
+run had derived were not made.
+**Supersedes:** none.
+
+---
+
+### R-140 - twelve shipped cards point their evidence at a placeholder that was knowable the moment the pull request opened; GUARD-04 is authored
+**Date:** 2026-09-05
+**Asked on:** GUARD-04, and the twelve cards it names.
+**Answer, verbatim:**
+> from `docs/reports/2026-09-05-executor-stale-pr-backlog.md`, section 5:
+>
+> "Eleven shipped cards across the two boards carry an `evidence.ref` beginning
+> `#PENDING` ... Section 6 requires a ref that must let a stranger re-verify
+> without asking anyone: a PR number. `#PENDING` is a placeholder for a number
+> that is unknowable at commit time and knowable immediately afterwards, and
+> nothing goes back to fill it in."
+
+**Ruling:** it is work, not a decision, and card **GUARD-04** carries it: a check
+that refuses a shipped card whose `evidence.ref` matches `#PENDING`, plus the
+backfill of the twelve on `main` today.
+
+**THE CENSUS IS TWELVE AND NOT ELEVEN**, re-taken on `main` at `68f3f90`: RULE-02
+and AUT-19 on the phase 2 board, and P3-11a, P3-11b, P3-11e, P3-12, P3-33, P3-34,
+APPLY-01, PROVE-01, EXT-14 and EXT-15 on the phase 3 board. AUT-19 shipped with
+`#PENDING-AUT19` in the same run that reported the class, which is the mechanism
+producing one more every night.
+
+**NOTHING IN THE RECORD IS FALSE AND THE CARD SAYS SO.** Every one of the twelve
+carries its real acceptance evidence after the placeholder, so no card is shipped
+without proof. What is missing is the single thing CLAUDE.md section 6 asks the
+ref to do, which is get a stranger back to the pull request without asking
+anyone.
+
+**THE RULE THE CHECK ENFORCES IS NOT "NAME A PULL REQUEST NUMBER".** The board
+edit rides in the same pull request as the code, so the number is genuinely
+unassigned when the field is written. The branch name is knowable at that moment
+and the squash sha is knowable straight after, and either lets a stranger
+re-verify. The rule is name something resolvable, and the check accepts all three
+forms.
+
+**Unblocks:** no card. It authors GUARD-04.
+**Supersedes:** none.
+
+---
+
+### R-141 - CLAUDE.md section 1 asks a booting session for one launch gate count and there are two boards, which has already put a false line in a committed report; RULE-05 gains the assertion
+**Date:** 2026-09-05
+**Asked on:** RULE-05.
+**Answer, verbatim:**
+> from `docs/reports/2026-09-05-executor-stale-pr-backlog.md`, section 1, under
+> its own heading "Phase 2 board":
+>
+> "| shipped | 49 | | todo | 27 | | blocked | 3 | | in_flight | 1 |
+>
+>  Launch gate: 0/9."
+>
+> and from `docs/board/rc-board-phase2.json` at the commit that report was
+> written against:
+>
+> "readiness_passed": 6, "denominator": 9
+
+**Ruling:** the defect is in CLAUDE.md section 1, not in the report, and it is
+added to card **RULE-05** rather than given a card of its own, because RULE-05
+already carries the identical defect one section later and its acceptance is a
+check over the same document against the same module.
+
+**THE EXECUTOR OBEYED THE FILE.** Section 1 requires "the launch gate count in
+`passed/denominator` form", singular, and was written when there was one board.
+AUT-16 made the working set two boards with a gate each. The number printed, 0/9,
+is the phase 3 gate, correct for that board and printed under a Phase 2 heading;
+section 8 of the same report repeats it. A reader who does not hold both boards
+in mind takes away that the launch work has zero readiness when six of its nine
+conditions are passed and evidenced.
+
+**THE REPORT IS NOT CORRECTED.** It is a dated artefact and editing it after the
+fact would make the record say the run printed something it did not. The
+correction lives here and on the card.
+
+**THE HARNESS ALREADY GETS THIS RIGHT, WHICH IS WHY THE FIX IS CHEAP AND WHY THE
+GAP IS EMBARRASSING RATHER THAN HARD.** `scripts/poc/notify.mjs` prints one
+launch gate line per board and carries the reason in its own comment: two launch
+gates are never summed, because 6 of 9 and 0 of 9 is not 6 of 18 and a merged
+figure is a number nobody can check. The digest a human reads is correct. The
+instruction a booting terminal reads is not, and the terminal is the one asked to
+produce the number by hand.
+
+**RULE-05'S ACCEPTANCE GAINS ONE ASSERTION**, in the same check: section 1's
+status report requires the gate count PER BOARD, naming each board of the working
+set, proved to fail first against the current CLAUDE.md.
+
+**Unblocks:** no card. It changes RULE-05's acceptance and notes.
+**Supersedes:** none.
