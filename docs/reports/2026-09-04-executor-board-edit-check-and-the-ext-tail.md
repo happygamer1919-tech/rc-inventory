@@ -487,5 +487,67 @@ unchanged file**, spread across `10606.00` against a tolerance of `0.07`.
 
 ---
 
+## 5b. A production defect the lane found, verified, and carded: P3-38
+
+**Not part of the dispatch. Found while running EXT-18's acceptance, confirmed by
+a probe with a control, authored as a card and NOT built**, per CLAUDE.md 3: a
+defect noticed in passing becomes a card, not a quiet extra commit.
+
+### How it surfaced
+
+After eight full runs of `extraction.spec` and `review.spec` against **one
+persistent local stack**, `review.spec` case 1 went red:
+
+    Locator: getByTestId('review-line-name-0')
+    Error: element(s) not found
+
+The review **form** rendered. It had **no line inputs**. The database then held
+**252 unconfirmed drafts and 451 lines**.
+
+### The cause, probed rather than guessed
+
+`lib/data/extraction.ts` asks PostgREST for the lines of every pending draft in
+one request: `.in("order_id", pending.map(...))`. Three requests to the local
+PostgREST, same endpoint, same key, only the id-list length changing:
+
+| ids | response |
+|---|---|
+| 50 | `200` |
+| 150 | `200` |
+| 252 | **`414 URI Too Long`** |
+
+Bisected: **208 returns `200`, 209 returns `414`.** About 7.7 KB of request line,
+the shape of an 8 KB limit in the gateway in front of PostgREST.
+
+### The url length is the trigger. The discarded error is the defect.
+
+    const { data: lines } = await supabase.from("extraction_draft_lines")...
+
+`error` is never read. The `414` produces `lines === undefined`, an empty
+per-order map, and **every draft on the review screen renders with zero line
+items**. Nothing is red. The operator sees a screen saying, in effect, that none
+of these documents had anything written on them.
+
+**A screen that cannot tell "no lines" from "I could not read the lines" will
+find another way to say the wrong one.** Fixing the batching alone would leave
+the next unread error just as quiet, which is why `P3-38`'s acceptance requires
+both halves and why its defaults refuse the obvious wrong fix, capping the draft
+list.
+
+**The sibling is on the same function.** `.in("id", ids)` against `inbound_orders`
+a few lines above has the same unbounded shape. Less exposed today, because a
+`414` there would show *more* drafts rather than fewer, but the card names it so
+a fix cannot land half of it.
+
+### It is invisible in CI by construction
+
+Every CI run starts from `supabase db reset`, so the pending-draft count never
+leaves single digits. This needs an installation that has been running for a
+while, which is the only kind the client will ever have. A `docs/LEARNINGS.md`
+entry records that, and records the other half: the failure looked at first like
+a regression in this session's diff, and it was not.
+
+---
+
 ## (narrative continues; this file is written as the work proceeds)
 
