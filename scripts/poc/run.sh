@@ -465,6 +465,246 @@ checkpoint_pr() {
 # EXTRACT-END checkpoint
 
 # ---------------------------------------------------------------------------
+# THE PULL REQUEST CENSUS. Card AUT-18.
+#
+# WHAT IT IS FOR. Finished work sits in an open pull request that nothing ever
+# names again. On 2026-08-31 PR #133 went CONFLICTING with no `quality` run on
+# its head sha at all, because a conflicting pull request triggers zero
+# workflows, and PR #130 sat red on the End to end step for a whole run. Neither
+# was named by anything. On 2026-09-01 a card branch was pushed and no pull
+# request was ever opened, so no check ran and no list anywhere contained it.
+#
+# WHAT IT IS NOT. IT MERGES NOTHING AND MUST NEVER LEARN HOW. RST-02 owns the
+# merge selector and its acceptance asserts that a `card/` branch is never
+# selected for merging. This block READS every open pull request, card branches
+# included, which is only safe because it merges none of them. It also never
+# deletes a branch: a sweep that deleted branches could delete work that was
+# never published, which is the exact loss this exists to prevent.
+#
+# THE TWO ESCALATING SHAPES, AND WHY THE AGE CONDITION IS ON ONLY ONE.
+#   - CONFLICTING, at any age. A hard stop: no check can run, so nothing may
+#     merge, whoever pushed it and whenever.
+#   - NOT GREEN on a head commit that PREDATES this run's start. Absent, failed
+#     and still pending all count as not green, because no merge may rest on any
+#     of them. The age condition is what separates a stuck pull request from a
+#     card being actively worked: a card pull request is red for most of its
+#     life and escalating that every run trains the reader to skip the list.
+#
+# CLAUSE 4 STARTS FROM BRANCHES, NOT FROM PULL REQUESTS, and that is the whole
+# point of it. Every other sweep here begins with the pull request list, so a
+# branch that never got a pull request appears in no input anywhere. This one
+# lists remote branches and SUBTRACTS the ones that have a pull request or are
+# already in main. MERGED MEANS MERGED BY ANY ROUTE: a squash merge leaves a
+# head sha that is absent from main, so the ancestor test alone would report
+# every squash-merged branch forever, which is how a report gets ignored.
+#
+# HOW IT IS TESTED. The five `census_*` seams below are the only place gh or git
+# is touched. scripts/poc/test-pr-census.sh lifts this block verbatim by its
+# fences, replaces the seams with fixtures, and asserts the census lines and the
+# escalations without a network, a gh binary or a remote. It also stubs
+# `merge_when_green` and `gh` and asserts neither is called.
+#
+# It needs `log` and, for the real seams only, `gh_bounded`. Both are defined
+# above. No credential is read, printed or logged anywhere in here.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN pr-census
+
+# Seam 1. One line per open pull request:
+#   number <TAB> headRefName <TAB> headRefOid <TAB> mergeStateStatus
+census_pr_list() {
+  gh_bounded pr list --state open --limit 100 \
+    --json number,headRefName,headRefOid,mergeStateStatus \
+    -q '.[] | [.number, .headRefName, .headRefOid, .mergeStateStatus] | @tsv'
+}
+
+# Seam 2. What `quality` concluded ON THIS EXACT HEAD SHA. Never a pull request
+# level summary: `gh pr checks` happily reports a result that belongs to an
+# earlier commit, which is CLAUDE.md section 3's stale-green trap.
+# One of SUCCESS, FAILURE, PENDING, ABSENT.
+census_quality_for_sha() {
+  CQS_RAW=$(gh_bounded api "repos/{owner}/{repo}/commits/$1/check-runs" \
+    -q '.check_runs[] | select(.name == "quality") | (.conclusion // .status)' \
+    2>/dev/null | head -1 | tr -d '[:space:]')
+  census_normalise_quality "$CQS_RAW"
+}
+
+# The normaliser is separate from the fetch so the mapping is testable on its
+# own and so a fixture can feed a raw GitHub word rather than a decision.
+census_normalise_quality() {
+  case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+    '')                       echo ABSENT ;;
+    success)                  echo SUCCESS ;;
+    queued|in_progress|pending|waiting|requested)
+                              echo PENDING ;;
+    *)                        echo FAILURE ;;
+  esac
+}
+
+# Seam 3. Committer epoch of a sha, or empty. git first, because after a fetch
+# every origin ref is local and that costs no API call.
+census_commit_epoch() {
+  CCE=$(git show -s --format=%ct "$1" 2>/dev/null | tr -d '[:space:]')
+  case "$CCE" in
+    ''|*[!0-9]*)
+      CCE=$(gh_bounded api "repos/{owner}/{repo}/commits/$1" \
+        -q '.commit.committer.date' 2>/dev/null | tr -d '[:space:]')
+      [ -n "$CCE" ] && CCE=$(date -j -f %Y-%m-%dT%H:%M:%SZ "$CCE" +%s 2>/dev/null \
+        || date -d "$CCE" +%s 2>/dev/null)
+      ;;
+  esac
+  case "$CCE" in
+    ''|*[!0-9]*) echo "" ;;
+    *) echo "$CCE" ;;
+  esac
+}
+
+# Seam 4. One line per remote branch: branch <TAB> sha. `main` and the symbolic
+# HEAD are dropped here rather than at the call site, so no caller can forget.
+census_branch_list() {
+  git for-each-ref --format='%(refname:strip=3)%09%(objectname)' refs/remotes/origin 2>/dev/null \
+    | awk -F'\t' '$1 != "HEAD" && $1 != "main"'
+}
+
+# Seam 5. Is this branch already in main BY ANY ROUTE. Ancestor first; a squash
+# merge rewrites the sha, so a merged pull request for the branch counts too.
+census_branch_merged() {
+  if git merge-base --is-ancestor "$2" origin/main 2>/dev/null; then
+    return 0
+  fi
+  CBM=$(gh_bounded pr list --head "$1" --state merged --limit 1 --json number \
+    -q '.[0].number' 2>/dev/null | tr -d '[:space:]')
+  case "$CBM" in
+    ''|*[!0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# One escalation row on docs/poc/state.json. The digest is what carries it to
+# Ivan, and section 13's escalation rubric makes the recommendation mandatory.
+# The same pull request escalating on consecutive runs is CORRECT and is not
+# deduplicated across runs: a stuck pull request that goes quiet after the first
+# night is the failure this whole block exists to stop.
+census_escalate() {
+  node -e '
+    const fs = require("fs");
+    const [path, cardId, question, recommendation, at, runId] = process.argv.slice(1);
+    const state = JSON.parse(fs.readFileSync(path, "utf8"));
+    state.escalations = (state.escalations || []).concat([{
+      card_id: cardId || null,
+      question,
+      recommendation,
+      raised_at: at,
+      run_id: runId,
+    }]);
+    fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
+  ' "$1" "$2" "$3" "$4" "$5" "$6"
+}
+
+# The census itself.
+#   $1 path to state.json   $2 this run's start, epoch seconds
+#   $3 run id               $4 ISO timestamp for raised_at
+# Always writes census lines, even when nothing escalates: a run that reported
+# nothing must never look identical to a run with no open pull requests, which
+# is CLAUDE.md section 13's silence rule applied to pull requests.
+run_pr_census() {
+  RPC_STATE=$1
+  RPC_RUN_START=$2
+  RPC_RUN_ID=$3
+  RPC_AT=$4
+  RPC_ESCALATED=0
+  RPC_SEEN=0
+
+  RPC_PRS=$(census_pr_list)
+
+  while IFS=$'\t' read -r RPC_NUM RPC_BRANCH RPC_SHA RPC_MERGE; do
+    [ -z "${RPC_NUM:-}" ] && continue
+    RPC_SEEN=$(( RPC_SEEN + 1 ))
+    RPC_Q=$(census_quality_for_sha "$RPC_SHA")
+    RPC_EPOCH=$(census_commit_epoch "$RPC_SHA")
+    # An unknown commit time is treated as OLD. The alternative silently
+    # suppresses an escalation, and a census that fails quiet is the thing
+    # being replaced.
+    case "$RPC_EPOCH" in ''|*[!0-9]*) RPC_EPOCH=0 ;; esac
+    if [ "$RPC_EPOCH" -ge "$RPC_RUN_START" ]; then
+      RPC_PUSHED=this-run
+    else
+      RPC_PUSHED=earlier
+    fi
+
+    log "pr census: pr=#$RPC_NUM branch=$RPC_BRANCH head=$RPC_SHA merge_state=$RPC_MERGE quality=$RPC_Q pushed=$RPC_PUSHED"
+
+    RPC_REASON=""
+    # GitHub says CONFLICTING on `mergeable` and DIRTY on `mergeStateStatus`
+    # for the same condition. Both are accepted so the seam can be fed either.
+    case "$RPC_MERGE" in
+      CONFLICTING|DIRTY)
+        RPC_REASON="it conflicts with main, so no workflow runs on its head sha and nothing may merge on it"
+        ;;
+      *)
+        if [ "$RPC_PUSHED" = earlier ] && [ "$RPC_Q" != SUCCESS ]; then
+          RPC_REASON="its head commit predates this run and quality on that head sha is $RPC_Q, so no merge may rest on it"
+        fi
+        ;;
+    esac
+
+    if [ -n "$RPC_REASON" ]; then
+      log "pr census: ESCALATING #$RPC_NUM, $RPC_REASON"
+      census_escalate "$RPC_STATE" "PR-$RPC_NUM" \
+        "Pull request #$RPC_NUM on branch $RPC_BRANCH (head $RPC_SHA) was left open by run $RPC_RUN_ID: $RPC_REASON." \
+        "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished." \
+        "$RPC_AT" "$RPC_RUN_ID"
+      RPC_ESCALATED=$(( RPC_ESCALATED + 1 ))
+    fi
+  done <<RPC_PR_EOF
+$RPC_PRS
+RPC_PR_EOF
+
+  [ "$RPC_SEEN" -eq 0 ] && log "pr census: no open pull requests"
+
+  # --- clause 4: branches with no pull request at all ---
+  RPC_PR_BRANCHES=$(printf '%s\n' "$RPC_PRS" | awk -F'\t' 'NF > 1 { print $2 }')
+  RPC_BSEEN=0
+
+  while IFS=$'\t' read -r RPC_B RPC_BSHA; do
+    [ -z "${RPC_B:-}" ] && continue
+    [ -z "${RPC_BSHA:-}" ] && continue
+    printf '%s\n' "$RPC_PR_BRANCHES" | grep -qxF "$RPC_B" && continue
+    census_branch_merged "$RPC_B" "$RPC_BSHA" && continue
+
+    RPC_BEPOCH=$(census_commit_epoch "$RPC_BSHA")
+    case "$RPC_BEPOCH" in ''|*[!0-9]*) RPC_BEPOCH=0 ;; esac
+    if [ "$RPC_BEPOCH" -ge "$RPC_RUN_START" ]; then
+      RPC_BPUSHED=this-run
+      RPC_BAGE=0
+    else
+      RPC_BPUSHED=earlier
+      RPC_BAGE=$(( (RPC_RUN_START - RPC_BEPOCH) / 86400 ))
+    fi
+    RPC_BSEEN=$(( RPC_BSEEN + 1 ))
+
+    log "branch census: branch=$RPC_B head=$RPC_BSHA age_days=$RPC_BAGE pr=none pushed=$RPC_BPUSHED"
+
+    if [ "$RPC_BPUSHED" = earlier ]; then
+      log "branch census: ESCALATING $RPC_B, pushed with no pull request"
+      census_escalate "$RPC_STATE" "BRANCH-$RPC_B" \
+        "Branch $RPC_B (head $RPC_BSHA, $RPC_BAGE days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it." \
+        "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost." \
+        "$RPC_AT" "$RPC_RUN_ID"
+      RPC_ESCALATED=$(( RPC_ESCALATED + 1 ))
+    fi
+  done <<RPC_BR_EOF
+$(census_branch_list)
+RPC_BR_EOF
+
+  [ "$RPC_BSEEN" -eq 0 ] && log "branch census: every remote branch is merged or has a pull request"
+
+  log "pr census: $RPC_SEEN open pull request(s), $RPC_BSEEN unpublished branch(es), $RPC_ESCALATED escalation(s), 0 merges"
+  return 0
+}
+# EXTRACT-END pr-census
+
+# ---------------------------------------------------------------------------
 # WHICH REPORT THE REVIEW STEP IS HANDED. Card AUT-17.
 #
 # The old selection was `git ls-tree ... | sort | tail -1` and had three defects
@@ -1189,6 +1429,16 @@ fi
 log "writing $POC_STATE on $STATE_BRANCH"
 
 git checkout -b "$STATE_BRANCH" origin/main --quiet
+
+# ---------------------------------------------------------------------------
+# The pull request census, card AUT-18. It runs HERE, after every merge this run
+# was going to make and on the state branch, so what it writes to state.json is
+# carried by the state pull request like every other escalation. It merges
+# nothing and deletes nothing; see the block above pr-census for why.
+# ---------------------------------------------------------------------------
+log "taking the pull request census"
+run_pr_census "$POC_STATE" "$RUN_STARTED_AT" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  || log "WARNING: the pull request census exited non-zero"
 
 node -e '
   const fs = require("fs");
