@@ -539,6 +539,24 @@ jobs:
       - name: Refuse a card pick that sorts numbers as text  # BOARD-03-CARD-ORDER-PROOF
         run: npm run check:card-order
 
+      # CLAIM-01. TWO CLAIMS CUT FROM ONE BASE MUST MERGE.
+      #
+      # Claims used to live in a single `claims` object inside
+      # docs/poc/state.json. Two branches cut from one base, each claiming a
+      # DIFFERENT card, each rewrote that object: the first merged clean and the
+      # second CONFLICTED, with the boundary running THROUGH the JSON, so a
+      # resolution that deleted only the marker characters left a claims map that
+      # did not parse. That is the file the harness reads before it picks a card.
+      #
+      # It performs REAL GIT MERGES in throwaway repositories, drives the shipped
+      # writer in scripts/poc/claims.mjs rather than a restatement of it, and runs
+      # the OLD SHAPE beside the new one as a control that MUST still conflict.
+      #
+      # NOT PATH FILTERED. Throwaway repositories only: no container, no network,
+      # no database, no gh.
+      - name: Prove two claims from one base merge  # CLAIM-01-CLAIM-MERGE-PROOF
+        run: npm run prove:claim-merge
+
       # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
       #
       # It reads this workflow rather than a list of what is in it, so the NEXT
