@@ -7405,3 +7405,88 @@ a date and an author and a future reader needs to know when the practice started
 and who decided it.
 
 **Unblocks:** no card. It binds every role from the moment it is written.
+
+---
+
+### R-142
+
+**APPLY-02 IS CANCELLED, NOT DELETED. Its acceptance describes a production state
+that no longer exists, and the work it was authored to do was done by a mechanism
+the card did not know about.**
+
+**Reason line, as the owner gave it:** superseded by the auto-apply mechanism
+established in R-124, verified at ledger 0034 with the register empty and the
+health route agreeing.
+
+**Asked by:** EXECUTOR, 2026-09-05, on the pull request that blocked the card.
+**Decided by:** the owner in the dispatch of 2026-09-06, in his own words.
+
+**WHAT THE CARD SAID.** APPLY-02 was authored on 2026-09-04 by TRIAGE under R-115
+to apply six merged migrations, `0028` through `0033`, to the production Supabase
+project through the assertion-bearing applier, and to journal all three phases.
+Its notes named it the single deciding cause for all nine phase 3 launch
+conditions reading 0 of 9.
+
+**WHY IT CANNOT BE DONE, AND IT IS NOT THAT ANYTHING IS BROKEN.** R-124 landed on
+2026-09-04, the same day the card was authored, and it records what this
+repository actually does: a Supabase GitHub integration applies merged migrations
+to the production project within about two minutes, with no terminal involved. The
+six were live before any card claimed them. The card's own notes rest on the
+sentence R-124 disproved, and under R-127 that sentence is left standing on the
+card with the correction beside it rather than edited away.
+
+**THE VERIFICATION, RE-RUN ON 2026-09-06 FOR THIS RULING RATHER THAN QUOTED FROM
+THE PULL REQUEST THAT ASKED FOR IT.** Read-only, under the single permitted
+secrets read of CLAUDE.md 8.3, with no value printed and nothing written:
+
+    AT                        2026-09-06T12:34:42.778Z
+    project ref               bwhzatwwjqmyfesfnisa
+    applied_ledger_version()  HTTP 200  "0034"
+    GET /api/health           HTTP 200  {"commit":"af9f592dea7a89f1ac2cf1a41a89663d0debc5f6",
+                                         "ledger_version":"0034",
+                                         "at":"2026-09-06T12:34:44.953Z"}
+    pending register entries  0 (empty)
+    highest migration file    0034_error_code_reconciliation_failed.sql
+    applier, RC_APPLY_TARGET=production
+                              "zero pending migrations. The register is empty, so
+                               production is already current. Nothing was executed
+                               and nothing was written."
+                              exit 0
+
+**THREE READERS AGREE AND ONE OF THEM IS NOT A REPOSITORY FILE.** The function
+answers 0034. The deployed application answers 0034 independently, and the commit
+it names, `af9f592`, is `main`'s tip, so the deployment is current as well as the
+schema. The highest migration file on `main` is 0034, so an empty register is
+consistent with every merged file being applied rather than with a register nobody
+maintained.
+
+**CANCELLED IS NOT DELETED, AND THE DIFFERENCE IS THE WHOLE POINT.** The card
+stays on the board with its question, its evidence and this ruling's id on it.
+Deleting it would remove the only record that six migrations reached production
+without a terminal, which is the fact the next reader most needs. It is the same
+reason R-127 keeps a false sentence quoted rather than removing it.
+
+**HOW A CANCELLED CARD IS RECORDED, AND THERE IS PRECEDENT.** `status: shipped`
+with `evidence.kind: journal`, whose `ref` opens by saying it was cancelled and by
+which ruling. That is exactly what P2-19 does: it was RETIRED, not completed, by
+R-054, and its evidence says so in its first line. **No new status value is
+invented.** `halted` is reserved by CLAUDE.md 10 for the failure ceiling and this
+is not a failure, `blocked` says somebody owes an answer and nobody does any more,
+and adding a sixth status would change the validator, the portal, the digest and
+the selector to record one card. The distinction lives where a reader will meet
+it, on the card, rather than in a schema.
+
+**WHAT THIS DOES NOT DECIDE.** The phase 3 gate conditions still read 0 of 9 and
+still name APPLY-02 in their notes as the deciding cause. That premise is now
+false and correcting it is a gate audit, which belongs to TRIAGE under
+DOCTRINE-TRIAGE section 4 and not to this ruling.
+
+**AND ONE THING IS STILL OPEN, NAMED HERE SO CANCELLING THE CARD DOES NOT CLOSE
+IT BY ACCIDENT.** Nothing notices when the integration applies a migration. It
+reads no register, runs no assertion, writes no journal row and asks nobody, which
+is why `0028` through `0031` had to be reconstructed after the fact rather than
+journalled. R-124 says so in terms and CLAUDE.md 8.8 names it as the third writer
+that journals nothing. Cancelling APPLY-02 removes the card that was pointing at
+that gap; it does not remove the gap.
+
+**Unblocks:** APPLY-02, by cancelling it.
