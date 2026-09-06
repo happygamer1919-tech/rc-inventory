@@ -15,7 +15,10 @@
 //   answerable   - blocked_on is ivan. A card blocked on andre or client is not
 //                  something Ivan can unstick by typing, and offering him a
 //                  reply line for it says otherwise.
-//   claimed      - another actor holds a lease on it, per docs/poc/state.json.
+//   claimed      - another actor holds a lease on it, per docs/poc/claims/ and,
+//                  for a harness claim written by a run.sh that has not been
+//                  reinstalled yet, per docs/poc/state.json. Card CLAIM-01;
+//                  scripts/poc/claims.mjs is the one reader of both.
 //
 // Usage:
 //   node scripts/poc/eligible.mjs --board <path> --ids
@@ -29,8 +32,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { byCardId } from "./card-order.mjs";
-
-const CLAIM_TTL_SECONDS = 21600; // 6 hours, matches POC_CLAIM_TTL_SECONDS in run.sh
+import { CLAIM_TTL_SECONDS, readClaims } from "./claims.mjs";
 
 function parseArgs(argv) {
   const args = {};
@@ -205,9 +207,16 @@ if (RUN_DIRECTLY && args.board) {
     label: p,
     board: readJson(p, { cards: [] }),
   }));
-  const state = args.state ? readJson(args.state, {}) : {};
   const actor = args.actor || "harness";
   const now = Math.floor(Date.now() / 1000);
+  // CLAIM-01. The claims this run sees are the UNION of docs/poc/claims/ and the
+  // legacy `claims` object in state.json, computed once here and handed to
+  // analyseAll as `state.claims`. claimFor is unchanged and still reads a plain
+  // map, so every importer that builds its own state object keeps working.
+  const rawState = args.state ? readJson(args.state, {}) : {};
+  const state = args.state
+    ? { ...rawState, claims: readClaims({ statePath: args.state, state: rawState, nowSeconds: now }) }
+    : rawState;
   const result = analyseAll(boards, state, actor, now);
 
   if (args.json === "true") {

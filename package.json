@@ -40,6 +40,7 @@
     "check:board-app": "node scripts/poc-free/check-board-app.mjs",
     "check:board-clock": "node scripts/poc-free/check-board-clock.mjs",
     "check:card-order": "node scripts/poc-free/check-card-order.mjs",
+    "prove:claim-merge": "node scripts/poc-free/prove-claim-merge.mjs",
     "check:action-pins": "node scripts/poc-free/check-action-pins.mjs"
   },
   "dependencies": {
