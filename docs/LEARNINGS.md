@@ -4230,3 +4230,39 @@ read out of a green run's own log rather than from the tag as it stands today.
 RULE: a pin is a claim about what has already worked. Look up what ran, do not
 choose what looks current, and say in the file which behaviours the pin is
 protecting so whoever raises it knows what to re-prove.
+
+### SIGTERM kills a stopped process on macOS and does not on Linux
+**Tag:** infra
+**ERROR:** AUT-9 case 2 asks for a stub child to be SIGSTOPped mid-run and still
+stopped at its deadline. The case was written with a comment asserting *"a stopped
+process does not take SIGTERM, it queues"*, and the mutation proof was built on
+that: delete the grace-then-KILL escalation from `stop_pid` and the case should go
+red. It did not. On this Mac the mutated harness still ended the suspended child
+in 1 second and every assertion stayed green, so **the case was passing for a
+reason that had nothing to do with what it claimed to test.** Run directly:
+`kill -STOP` then `kill -TERM` on a `sleep 120` reports `Terminated: 15` on
+Darwin, and reports `STILL ALIVE (state=T)` on `ubuntu:24.04`.
+**SOLUTION:** the difference is real and is now written into the case rather than
+assumed away. The elapsed time the case reports is about 1s on macOS, where the
+TERM ends it, and about 2 to 3s on Linux, where the KILL escalation is what ends
+it. The mutation proof was re-run in a Linux container, which is what
+`ubuntu-latest` gives CI: with the KILL removed the case reports
+`took 8s after the deadline` and `a SIGSTOPped child outlived its deadline`, while
+section 1 stays green, which is exactly the discrimination the new case exists to
+provide. RULE: **a test whose premise is a kernel behaviour must be run on the
+kernel CI uses before its mutation proof is believed.** A green case on the
+developer's machine and a green case on the runner can be green for two different
+reasons, and the one that matters is the runner's.
+
+### A mutation that changes nothing is a finding, not a nuisance
+**Tag:** infra
+**ERROR:** the natural reading of a mutation proof that comes back green is that
+the mutation was wrong or the anchor did not apply. Here the patch applied, the
+mutated file was correct, and the suite still passed.
+**SOLUTION:** treat an unmoved suite as the answer, not as a broken experiment.
+It said the assertion did not depend on the deleted code, which was true, and
+chasing that produced the platform fact above. It would also have been true of a
+case that tested nothing at all, which is the more common version of this. RULE:
+**when a deliberate break does not turn something red, the finding is about the
+test, not about the break.** The next question is never "why did my patch fail to
+apply", it is "what is this assertion actually resting on".
