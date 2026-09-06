@@ -4266,3 +4266,58 @@ case that tested nothing at all, which is the more common version of this. RULE:
 **when a deliberate break does not turn something red, the finding is about the
 test, not about the break.** The next question is never "why did my patch fail to
 apply", it is "what is this assertion actually resting on".
+
+### A JSON object is not a mergeable store, however small the writes are
+**Tag:** infra
+**ERROR:** claim leases lived in a single `claims` object inside
+`docs/poc/state.json`. Two branches cut from one base, each claiming a
+**different** card, each rewrote that object. The first merged clean; the second
+conflicted, and the boundary ran **through** the JSON: the `HEAD` side kept its
+claim's opening brace and the incoming side kept its claim's closing brace. So a
+resolution that deleted only the marker characters produced a claims map that did
+not parse, in the one file the harness reads before it picks a card. The writes
+were tiny and touched different keys, which is exactly why it looked safe.
+**SOLUTION:** one file per claim, `docs/poc/claims/<CARD-ID>.json`. Two claims are
+then two **adds of different paths**, which git merges without overlap by
+construction, with no merge driver for anybody to configure, and a release is a
+**deletion**, which merges the same way. `npm run prove:claim-merge` performs the
+real merges and runs the old shape beside the new one as a control that must
+still conflict. RULE: **if two authors can write to a file at the same time, the
+unit of concurrency has to be the unit git merges, which is the line and the
+path, not the key.** Disjoint keys inside one object share every brace around
+them.
+
+### The claim mechanism cannot protect work shorter than a CI cycle
+**Tag:** infra
+**ERROR:** `scripts/poc/claim.sh` writes the lease through a pull request, and it
+says so itself: *"The claim is live locally as soon as that PR merges. Until then
+the harness still reads the old state from main."* `quality` takes about twenty
+minutes here. AUT-9 was claimed at 15:39 local on 2026-09-06 and shipped in #230
+before the claim pull request had merged, so #229 was closed unmerged. That is
+the **fourth** instance: PR #86 was closed for the same reason with the owner's
+own note, R-063 measured a four second version of it, and R-078 measured a three
+hour one.
+**SOLUTION:** not fixed, and saying so is the point. CLAIM-01's own defaults
+permit shipping the collision half and recording why the latency half was not
+attempted, because closing it is a redesign of the lease and a different card.
+What is used instead is what R-063 already identified as the only signal that
+existed at the moment it was needed: **read the open pull request list before
+starting.** It is authoritative, needs no new file, and cannot go stale, because a
+branch is either open or it is not. RULE: **a protection that becomes true later
+protects nothing about now.** Before adding one, ask how long it takes to become
+true and compare that to how long the thing it guards actually lasts.
+
+### The script that fixes a session-scoped bug has to survive a killed session
+**Tag:** infra
+**ERROR:** `claim.sh` used to leave the working tree **on the claim branch**, so a
+second claim in the same session was cut from the first claim's tree and carried
+it in its diff. The fix was a `git checkout` back at the end of the script. It
+was verified working, and then the same test with the output piped into `head -1`
+left the terminal on `poc/claim-bbb-02`: `head` closes the pipe, the script dies
+on SIGPIPE partway through its closing `echo`s, and the last line never runs.
+**SOLUTION:** the return moved into `trap claim_return EXIT PIPE TERM INT`, and
+the final line only reports what the trap already did. Re-measured with the same
+`| head -1` and the terminal comes back to `card/x` both times, each branch
+carrying exactly its own claim file. RULE: **cleanup that matters belongs in a
+trap, not at the end of the script.** "The last line runs" is an assumption about
+how the process ends, and a caller you do not control decides that.

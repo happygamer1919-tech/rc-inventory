@@ -1162,8 +1162,34 @@ worked P2-09 by hand in `/Users/ivan/rc-inventory` while the scheduled harness
 picked up the same card in its own worktree, four times a day, with neither able
 to tell. The lease is how they agree without talking.
 
-- Claims live in `docs/poc/state.json` under `claims`, as
-  `{"<card-id>": {"claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}}`.
+- **Claims live in `docs/poc/claims/`, one file per claim**, named for the card
+  as the board spells it: `docs/poc/claims/AUT-9.json`, holding
+  `{"card": "<card-id>", "claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}`.
+  A release DELETES the file. `scripts/poc/claims.mjs` is the only reader and the
+  only writer, and `scripts/poc/eligible.mjs` imports it.
+
+  **THIS BULLET SAID SOMETHING ELSE UNTIL 2026-09-06 AND IT DESCRIBED A STORE
+  THAT COULD NOT BE MERGED**, corrected by card CLAIM-01 under section 9c. It
+  read:
+
+  > *"Claims live in `docs/poc/state.json` under `claims`, as
+  > `{"<card-id>": {"claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}}`."*
+
+  That was accurate about the code and it is the shape that failed. Two branches
+  cut from one base, each claiming a DIFFERENT card, each rewrote that one
+  object: the first merged clean, the second CONFLICTED, and the boundary ran
+  THROUGH the JSON, so a resolution that deleted only the marker characters left
+  a claims map that did not parse. **The mechanism failed in its design case**,
+  which is two actors claiming two cards at the same time. One file per claim
+  makes two claims two adds of different paths, and a release a deletion, which
+  git merges without overlap by construction.
+
+  **`state.claims` IS STILL READ, and the condition for stopping is written
+  down.** `run.sh` writes the harness's own claim there and `run.sh` is a
+  deployed copy that only changes when `scripts/poc/install.sh` is re-run, which
+  is an owner action. The reader is the union of the two, the directory winning.
+  When the harness has been reinstalled from a `run.sh` that writes to the
+  directory, the legacy read can go.
 - **A run never takes a card claimed by another actor inside the window**, even
   if it is the only eligible card. It logs the skip, escalates it, and moves on.
   Skipping is correct; skipping quietly is not.
