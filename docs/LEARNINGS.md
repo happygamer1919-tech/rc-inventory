@@ -4194,3 +4194,39 @@ knew. RULE: **a rule that describes the mechanism is not the same as a rule that
 states the guarantee.** "Ids sort lexically" describes; "AUT-8 comes before AUT-16"
 guarantees. Only the second one is falsifiable by reading the board, which is why
 only the second one would have been noticed.
+
+### `version: latest` is two defects and the transient one is the smaller
+**Tag:** ci
+**ERROR:** `.github/workflows/quality.yml` pinned `supabase/setup-cli` to
+`version: latest`. On 2026-09-03, run 33810964883 failed at `Start local Supabase`
+with `Failed to resolve latest Supabase CLI release: rate limit exceeded`, before a
+single test ran; re-running it passed with no code change. **The rate limit is the
+lesser half.** `latest` also makes the workflow non-reproducible: the same commit
+can pass today and fail tomorrow because a release in between changed behaviour,
+and the failure presents as the pull request's fault. That is not theoretical here
+- P3-33 had to split migration 0030 from 0031 because `supabase db reset` wraps
+each file in one transaction, which is exactly the kind of behaviour a CLI release
+can change.
+**SOLUTION:** pin the version, do not add a token: a token removes the rate limit
+and leaves the reproducibility half untouched. `npm run check:action-pins` reads
+the workflow and refuses both shapes, a `uses:` on a tag rather than a sha and a
+`version:` set to a moving target, so the **next** floating reference is refused
+rather than discovered. RULE: **when a fix is offered for a flake, ask which of
+the two problems it solves.** The loud one is usually the smaller one, and the
+version that has to be resolved at run time is a dependency nobody wrote down.
+
+### The version that is green is a fact you can look up, not a version you choose
+**Tag:** ci
+**ERROR:** pinning invites picking the newest, which is a version the suite has
+never run. The card forbade it in terms and the temptation is real: `2.117.0`
+exists and looks like the obvious pin.
+**SOLUTION:** the pin was **derived**. `npm view supabase dist-tags` answers
+`latest = 2.116.0`, published 2026-08-26 and unchanged since, and this
+repository's lockfile carries no `supabase` package for the action to prefer, so
+every green run since that date resolved `latest` to exactly `2.116.0`. **Pinning
+it changes nothing about what runs**, which is what makes it the right pin, and
+`2.117.0` turned out to be a prerelease. The action sha was derived the same way,
+read out of a green run's own log rather than from the tag as it stands today.
+RULE: a pin is a claim about what has already worked. Look up what ran, do not
+choose what looks current, and say in the file which behaviours the pin is
+protecting so whoever raises it knows what to re-prove.
