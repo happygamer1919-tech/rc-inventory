@@ -7490,3 +7490,85 @@ that journals nothing. Cancelling APPLY-02 removes the card that was pointing at
 that gap; it does not remove the gap.
 
 **Unblocks:** APPLY-02, by cancelling it.
+
+---
+
+### R-143
+
+**CLAUDE.md SECTION 13 STANDS. AUT-9's DEFAULTS ARE OVERTURNED, BOTH CLAUSES.
+A LOCK IS NOT HONOURED FOREVER BECAUSE ITS PID IS ALIVE, AND THE STALE MARGIN IS
+FIFTEEN MINUTES.**
+
+**Asked by:** EXECUTOR, 2026-09-05, on AUT-9, and re-asked on 2026-09-06 with both
+sides quoted verbatim on the card.
+**Decided by:** the owner in the dispatch of 2026-09-06, in his own words.
+
+**WHAT WAS IN DISPUTE.** AUT-9 carries acceptance case 4 and a defaults clause
+that say a `run.lock` whose recorded pid is alive is honoured **whatever its
+age**, and a second defaults clause that says the stale margin is **twice the
+cap**. CLAUDE.md section 13 says a lock older than its holder's declared
+`cap_seconds` plus **a fifteen minute margin** is wreckage and is reclaimed, after
+the holder is stopped and only once its identity is confirmed. Both texts were
+written on 2026-08-28 about the same incident, run `20260827-220052`, and they
+reached opposite conclusions.
+
+**THE DECISION, IN THREE PARTS.**
+
+1. **Section 13 stands, unamended.** A stale lock whose pid is alive **and is this
+   harness** is stopped, process group included, and reclaimed. A stale lock whose
+   pid is alive and is **not** this harness is left unsignalled and reclaimed
+   around. A lock inside its declared cap is still refused and still exits 0.
+2. **The card's defaults are overturned**, both the live-pid clause and the
+   twice-the-cap clause.
+3. **The margin is fifteen minutes**, which is what `POC_LOCK_STALE_MARGIN_SECONDS`
+   already is.
+
+**THE REASONS, IN THE ORDER THEY WEIGH.**
+
+**THE CARD'S OWN TITLE AGREES WITH SECTION 13 AND CONTRADICTS ITS OWN DEFAULTS.**
+The title reads *"a lock whose owner is gone is not honoured forever"*. An owner
+that is gone is exactly what section 13 reclaims. Under CLAUDE.md 5 a `defaults`
+field fills silence; it does not contradict speech, and here it contradicts both
+the standing rule and the sentence at the top of its own card. A card that
+disagrees with itself cannot be the authority over a file that does not.
+
+**A MARGIN OF TWICE THE CAP WOULD NOT HAVE CAUGHT THE INCIDENT THE CARD WAS
+WRITTEN ABOUT.** The lock advertises its holder's own `cap_seconds`, which is
+`POC_RUN_TOTAL_CAP_SECONDS = 2700 + 1800 + 900 * 2 = 6300s`. Under section 13 and
+the code a lock goes stale at `6300 + 900 = 7200s`, two hours, which fits inside
+the three hour gap between windows, so a run that dies holding the lock costs at
+most the window it died in. Under the card's defaults it would go stale at
+`6300 + 12600 = 18900s`, **five hours fifteen minutes**, which spans two windows
+before anything looked at it. On the night of 2026-08-27 the lock was held for
+**nine hours**. The card's margin would have missed it, and its live-pid clause
+would have refused to reclaim it at all, because the holder's pid was alive the
+whole time. A rule authored to fix an outage that would not have detected that
+outage is not the rule to keep.
+
+**THE CODE ALREADY IMPLEMENTS FIFTEEN MINUTES, SO SECTION 13 AND THE CODE AGREE
+AND ONLY THE DEFAULTS DISSENT.** `scripts/poc/run.sh` line 69 reads
+`POC_LOCK_STALE_MARGIN_SECONDS=900` with the reason written beside it: *"The sum
+is 7200s, two hours, which is inside the three hour gap between windows: a run
+that dies holding the lock costs at most the one window it died in."* The
+reclaim path, the process-group stop and the identity check are all live on
+`main` and are proved by `scripts/poc/test-harness-caps.sh` section 3 on every
+pull request. Upholding the card would mean turning green assertions red and
+re-opening a fixed nine hour outage to satisfy a sentence in a defaults field.
+
+**THE CARD'S DEFAULTS ARE CORRECTED ON THE BOARD RATHER THAN LEFT STANDING.** The
+two overturned clauses are rewritten to match this ruling, in the same commit, so
+the contradiction does not sit on the board waiting to be re-litigated by the next
+reader. **THE OLD TEXT IS QUOTED, NOT DELETED**, per R-127: the card keeps both
+overturned clauses verbatim under a heading that says they were overturned and by
+which ruling. That is the same treatment R-142 gave APPLY-02 and the same reason:
+the record of what was believed is the part a future reader needs.
+
+**WHAT THIS DOES NOT DECIDE.** It does not decide what AUT-9's acceptance should
+point at. Case 4 as written cannot be built, so the card's acceptance is rewritten
+under this ruling to the behaviour section 13 describes; whether the proof lives
+in `test-harness-caps.sh` or in a new `check:run-cap` is an implementation
+question for the card, not a decision for the owner. Nor does it touch the
+watchdog: the deadline-versus-countdown clause of the defaults was never in
+dispute and stands.
+
+**Unblocks:** AUT-9.
