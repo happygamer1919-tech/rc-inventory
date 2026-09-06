@@ -78,6 +78,14 @@ HELPERS=$2
 VICTIM_LOG=$3
 STYLE=$4
 
+# STYLE is <watchdog>[-stopped]. The `-stopped` half is AUT-9 case 2: the victim
+# is SIGSTOPped before the clock passes the deadline, so the watchdog is asked to
+# end a process that is not running.
+case "$STYLE" in
+  *-stopped) WATCHDOG_STYLE=${STYLE%-stopped}; SUSPEND=yes ;;
+  *)         WATCHDOG_STYLE=$STYLE;            SUSPEND=no  ;;
+esac
+
 # The wall clock the code under test sees. A real suspend moves this and does
 # not move `sleep`; so does this file.
 date() {
@@ -97,7 +105,7 @@ VICTIM=$!
 CAP=60
 DEADLINE=$(( $(date +%s) + CAP ))
 
-if [ "$STYLE" = new ]; then
+if [ "$WATCHDOG_STYLE" = new ]; then
   watchdog "$VICTIM" "$DEADLINE" "$VICTIM_LOG" "executor ${CAP}s" &
 else
   # The 2026-08-27 watchdog, verbatim in shape: count down to the deadline
@@ -112,19 +120,40 @@ else
 fi
 WD=$!
 
-# The machine suspends for an hour and comes back.
+# The child stops running. `kill -0` still succeeds on a stopped process, so the
+# pid existing says nothing about whether it is making progress, and the child
+# will never exit on its own for the watchdog to notice.
+[ "$SUSPEND" = yes ] && kill -STOP "$VICTIM" 2>/dev/null
+
+# The machine suspends for an hour and comes back. This is the instant the
+# deadline is crossed, so it is the instant the budget is measured from.
+DEADLINE_CROSSED_AT=$(command date +%s)
 echo 3600 > "$CLOCK_OFFSET_FILE"
 
-# Long enough for several polls of the new watchdog, far short of the 60s the
-# old one is counting down.
-command sleep 6
+# Poll for the victim rather than sleeping a fixed span, so the case reports HOW
+# LONG the stop took and not only whether it happened. The bound is deliberately
+# LONGER than the budget asserted upstream: a case that clipped at the budget
+# would report the same number for a stop that was late and one that never
+# happened. It stays far short of the 60s the old watchdog counts down.
+POLL_BOUND_SECONDS=8
+ELAPSED=0
+while [ "$ELAPSED" -lt "$POLL_BOUND_SECONDS" ]; do
+  kill -0 "$VICTIM" 2>/dev/null || break
+  command sleep 0.2
+  ELAPSED=$(( $(command date +%s) - DEADLINE_CROSSED_AT ))
+done
 
+echo "ELAPSED=$ELAPSED"
 if kill -0 "$VICTIM" 2>/dev/null; then
   echo ALIVE
 else
   echo DEAD
 fi
-kill "$WD" "$VICTIM" 2>/dev/null
+# CONT BEFORE KILL, AND KILL RATHER THAN TERM. A child left stopped would sit
+# there after this case returned, taking no TERM until something continued it.
+kill -CONT "$VICTIM" 2>/dev/null
+kill -KILL "$VICTIM" 2>/dev/null
+kill "$WD" 2>/dev/null
 wait 2>/dev/null
 CASE
 
@@ -158,6 +187,92 @@ if [ "$RESULT_OLD" = ALIVE ]; then
   pass "the 2026-08-27 sleep-based watchdog does NOT fire on the same input, which is the defect"
 else
   fail "the old watchdog fired, so this case no longer reproduces the defect and proves nothing"
+fi
+
+# ---------------------------------------------------------------------------
+# 1b. THE SUSPENDED CHILD. Card AUT-9 case 2, added 2026-09-06 under ruling R-143.
+#
+# Section 1 models a suspend by moving the CLOCK while the victim keeps running.
+# A real suspend does both: the clock jumps AND the process was not running while
+# it jumped. This case adds the second half. The victim is SIGSTOPped before the
+# deadline passes, so:
+#
+#   1. It will never exit on its own. `wait_for_exit` can only end by reaching
+#      the deadline, which is the property the whole card is about.
+#   2. `kill -0` keeps succeeding on it, so "does the pid exist" cannot answer
+#      "is this run still going".
+#   3. ENDING IT NEEDS SIGKILL ON LINUX, WHICH IS WHERE CI RUNS. A stopped
+#      process holds a pending SIGTERM and stays stopped until something
+#      continues it; SIGKILL takes effect regardless. So on ubuntu-latest this
+#      case exercises the grace-then-KILL escalation in `stop_pid`, which
+#      section 1 never reaches because its victim is running and dies on the
+#      TERM.
+#
+# THE TWO PLATFORMS GENUINELY DIFFER HERE AND IT IS WRITTEN DOWN RATHER THAN
+# ASSUMED AWAY. On macOS a stopped process IS terminated by SIGTERM, so the same
+# case finishes on the TERM and never reaches the KILL. That is why the elapsed
+# time this case reports is around 1s on a Mac and around 3s on Linux, and why a
+# mutation that deletes the KILL escalation is caught here on ubuntu-latest and
+# not on a developer's Mac. Both were measured on 2026-09-06, not assumed.
+#
+# THE BUDGET IS ASSERTED, NOT JUST THE OUTCOME. The card asks for a stop WITHIN
+# 5 SECONDS OF THE DEADLINE, so the case measures from the instant the clock is
+# moved past the deadline. An assertion that only asked "did it die eventually"
+# would pass on a watchdog that took an hour.
+#
+# THE CONTROL IS THE SAME 2026-08-27 WATCHDOG on the same suspended child, and it
+# MUST NOT fire.
+# ---------------------------------------------------------------------------
+echo
+echo "1b. a watchdog stops a SIGSTOPped child, and stops it within 5s of the deadline"
+
+STOP_BUDGET_SECONDS=5
+
+# Runs one watchdog case and leaves its stdout in $WORK/case-<tag>. Captured to a
+# FILE and not through $(...) for the reason section 1 already records: the
+# old-style case leaves a `sleep 60` holding the pipe.
+run_watchdog_case() {
+  RWC_TAG=$1
+  RWC_STYLE=$2
+  echo 0 > "$WORK/offset-$RWC_TAG"
+  : > "$WORK/vlog-$RWC_TAG"
+  bash "$WORK/watchdog-case.sh" "$WORK/offset-$RWC_TAG" "$HELPERS" "$WORK/vlog-$RWC_TAG" "$RWC_STYLE" \
+    > "$WORK/case-$RWC_TAG" 2>/dev/null
+}
+
+run_watchdog_case new-stopped new-stopped
+RESULT_STOPPED=$(tail -1 "$WORK/case-new-stopped")
+ELAPSED_STOPPED=$(sed -n 's/^ELAPSED=//p' "$WORK/case-new-stopped" | tail -1)
+
+if [ "$RESULT_STOPPED" = DEAD ]; then
+  pass "the shipped watchdog ended a SIGSTOPped child after the clock passed the deadline"
+else
+  fail "a SIGSTOPped child outlived its deadline: it took no TERM and was never KILLed"
+fi
+
+case "$ELAPSED_STOPPED" in
+  ''|*[!0-9]*)
+    fail "the case reported no elapsed time, so the ${STOP_BUDGET_SECONDS}s budget was not measured at all" ;;
+  *)
+    if [ "$ELAPSED_STOPPED" -le "$STOP_BUDGET_SECONDS" ]; then
+      pass "it ended it ${ELAPSED_STOPPED}s after the deadline, inside the ${STOP_BUDGET_SECONDS}s budget"
+    else
+      fail "it took ${ELAPSED_STOPPED}s after the deadline, outside the ${STOP_BUDGET_SECONDS}s budget"
+    fi ;;
+esac
+
+if grep -q '^\[watchdog\] executor .* cap reached, stopping$' "$WORK/vlog-new-stopped"; then
+  pass "it wrote its cap line into the process log for the suspended child too"
+else
+  fail "no watchdog line was written for the suspended child"
+fi
+
+run_watchdog_case old-stopped old-stopped
+RESULT_STOPPED_OLD=$(tail -1 "$WORK/case-old-stopped")
+if [ "$RESULT_STOPPED_OLD" = ALIVE ]; then
+  pass "the 2026-08-27 sleep-based watchdog does NOT fire on a suspended child either, which is the control"
+else
+  fail "the old watchdog fired on the suspended child, so this case proves nothing"
 fi
 
 # ---------------------------------------------------------------------------
