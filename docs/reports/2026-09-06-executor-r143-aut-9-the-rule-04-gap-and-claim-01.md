@@ -34,8 +34,9 @@ phase 2 and the dispatch named CLAIM-01, so phase 2 leads.
 | **#228** | R-143, AUT-9's defaults corrected and the card unblocked | `2ec1e5e` |
 | #229 | the AUT-9 claim lease | **closed unmerged**, on purpose |
 | **#230** | AUT-9 shipped: the suspended child | `2d1b19f` |
-| **#231** | RULE-09 authored, plus this report | open at time of writing |
+| **#231** | RULE-09 authored, plus this report | `b811053` |
 | **#232** | CLAIM-01 shipped: one file per claim | `7f32471` |
+| **#233** | DIG-01 shipped: the recommendation reaches the digest whole | open at time of writing |
 
 ---
 
@@ -297,6 +298,100 @@ with the old sentence quoted.
 
 ---
 
+## 5. DIG-01. The recommendation reaches the digest whole, and so does the digest
+
+Written after this report first landed in #231, and appended in #233 rather than
+filed as a second report, because it is the same session.
+
+### Three cuts where the card named two
+
+`firstLine` does two things to this field and both are wrong for it: it keeps only
+the **first line**, and it cuts that line at a limit.
+
+| block | was | now |
+|---|---|---|
+| TRIAGE escalations | `firstLine(e.recommendation, 160)` | whole |
+| EXECUTOR escalations | `firstLine(e.recommendation, 180)` | whole |
+| WAITING ON YOU, via `recommendationOf` | `firstLine(..., 220)` | whole |
+
+The same field was three different lengths in three places. The truncations the
+card's defaults say stay are untouched: titles at 90, questions at 200, change
+lines at 140.
+
+### And a second cut that made the first fix worthless
+
+`buildDigest` capped its **whole output** at `TELEGRAM_MAX = 4096` with
+`"… truncated, see the run log."`. That output is the **full** digest, written to
+a file under `FULL_DIGEST_DIR` and never sent; the message that goes to Telegram
+is the **plain** digest, which was never capped at all. Telegram's limit was
+cutting a file and telling the reader to see the log they were already reading,
+while the string that actually has to fit in a Telegram message had no guard.
+
+Measured: run `dig01-check` on 2026-09-06 wrote 5428 bytes, and the `ESCALATIONS`
+block, the last block in the digest, was cut after its first entry. That block is
+where this field lives.
+
+**The two defects were masking each other.** Run against the pre-fix
+`notify.mjs` from `origin/main`, the cap never fired, because `firstLine` had
+already shortened every escalation enough to keep the digest under 4096. So the
+case asserts separately that the restored cap **fired**.
+
+### The before, from the real pre-fix file rather than a mutant
+
+```
+- MIG-01: Does the integration keep applying merged migrations to production, or is it turned off?
+  recommended: Take option (b) and keep the integration, because it has applied at least five migrations correctly and the friction it removes is real.
+
+--- marker present? ---
+0
+```
+
+Four of the five lines gone, and `LAST-CHARACTERS-MARKER-8F2A` absent.
+
+### A third defect, found while building the test seam
+
+`notify.mjs` had no direct-run guard, so importing it built a whole digest and
+**sent a Telegram message**. The guard added is the one `eligible.mjs` already
+carries.
+
+**The first version of that guard was wrong.** `import.meta.url` is resolved
+through symlinks and `process.argv[1]` is not, so under a `/var/folders/...` path
+on macOS the two differed, `RUN_DIRECTLY` came out false, and the script did
+nothing and **exited 0**, which is indistinguishable from a digest with nothing
+to say. It compares `realpathSync` on both sides now. `eligible.mjs` carries the
+unhardened form and is exposed the same way; it was left alone because it is not
+this card.
+
+### The card's `plain` field was wrong and is corrected, with the old text quoted
+
+It said the cut reaches the owner *"before sending it"*. It does not. Verified by
+reading all three renderers rather than assuming: `renderBoth()` sends the plain
+digest and writes the full one to a file marked *"not sent, not linked, not
+announced"*; `plain-digest.mjs`'s NEEDS YOU block renders the card's own `plain`
+field; `digest.mjs` renders `q.recommendation` from the `ask.sh` spool with **no
+limit**, and reads `runState.escalations` only for a timestamp. The cut field is
+read by whoever maintains the harness, in the run log.
+
+### One process miss, recorded rather than tidied
+
+CLAUDE.md 2 says `todo -> in_flight` is committed **first**. On DIG-01 it was not:
+the work was written before that flip was committed. Nothing had been pushed, so
+no reader saw a stale board and the cost was zero. It is on the card and in the
+flip's own commit message, because a flip commit dated before the work it
+precedes would read as compliance. AUT-9 and CLAIM-01 were both flipped first,
+correctly.
+
+### Two stray files left in the operator's log directory
+
+`/Users/ivan/rc-poc-logs/dig01-check.full-digest.txt` and
+`dig01-check2.full-digest.txt` were written by two measurement runs of
+`notify.mjs --dry-run`. They are **not** real runs. They were left in place rather
+than deleted, because CLAUDE.md's hard rules make deleting files outside a scratch
+directory owner-confirmable, and they are named here so nobody mistakes them for
+run records.
+
+---
+
 ## What is owed, and to whom
 
 | item | owed by | why |
@@ -304,17 +399,23 @@ with the old sentence quoted.
 | `scripts/poc/install.sh` re-run | **the owner** | `run.sh` on this branch is unchanged, so nothing breaks without it. The legacy read exists precisely so that no install is required today. Running it is what eventually lets the legacy read go. |
 | RULE-09 | the board | the authoring-time id check. Carded, not built, per the dispatch. |
 | CLAIM-01's latency half | a future card | it is a redesign of the lease and needs a decision this card does not carry. |
+| the 4096 guard in `send()` | a future card | it was removed from the wrong string, not moved. A plain digest over 4096 characters is refused by Telegram with an HTTP status `notify.mjs` reports, which is loud rather than silent, so nothing is worse than before. |
+| `eligible.mjs`'s direct-run guard | a future card | same symlink exposure as `notify.mjs` had. Left alone because it is not DIG-01. |
+| two stray `dig01-check*.full-digest.txt` files | **the owner** | deleting outside a scratch directory is owner-confirmable. |
 | P3-13b's stranded `in_flight` flip (R-078) | the same future card | the same latency at a three hour timescale. |
 
 ## Learnings appended
 
-Five entries in `docs/LEARNINGS.md`:
+Eight entries in `docs/LEARNINGS.md`:
 
 1. SIGTERM kills a stopped process on macOS and does not on Linux.
 2. A mutation that changes nothing is a finding, not a nuisance.
 3. A JSON object is not a mergeable store, however small the writes are.
 4. The claim mechanism cannot protect work shorter than a CI cycle.
 5. The script that fixes a session-scoped bug has to survive a killed session.
+6. The cap was on the wrong string, in both directions.
+7. Two defects can mask each other and make the fixture look harmless.
+8. `import.meta.url` is a real path and `process.argv[1]` is whatever was typed.
 
 ## Rulings in force this session
 

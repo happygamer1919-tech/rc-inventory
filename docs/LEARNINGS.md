@@ -4321,3 +4321,54 @@ the final line only reports what the trap already did. Re-measured with the same
 carrying exactly its own claim file. RULE: **cleanup that matters belongs in a
 trap, not at the end of the script.** "The last line runs" is an assumption about
 how the process ends, and a caller you do not control decides that.
+
+### The cap was on the wrong string, in both directions
+**Tag:** infra
+**ERROR:** `notify.mjs` capped its output at `TELEGRAM_MAX = 4096` with the note
+*"… truncated, see the run log."* That output is the **full technical digest**,
+which `renderBoth()` writes to a file under `FULL_DIGEST_DIR` and never sends: the
+message that goes to Telegram is the **plain** digest, which was never capped at
+all. So Telegram's limit was cutting a file, and telling the reader to see the run
+log they were already reading, while the string that actually has to fit in a
+Telegram message had no guard. Measured on 2026-09-06: run `dig01-check` wrote
+5428 bytes and the `ESCALATIONS` block, the last block in the digest, was cut
+after its first entry.
+**SOLUTION:** the cap is gone from `buildDigest`. The constant stays, with the
+reason written next to it, for whoever puts the guard where it belongs, in
+`send()`. Without this the field fix in DIG-01 would have been invisible: the
+recommendation it renders whole was landing past the cut. RULE: **before adding a
+limit, name the transport it belongs to and check that the string you are
+capping actually travels on it.** A limit copied to the nearest string is a limit
+in the wrong place twice over, because it also is not where it is needed.
+
+### Two defects can mask each other and make the fixture look harmless
+**Tag:** infra
+**ERROR:** the fixture for DIG-01 was built to prove the 4096 cap ate the
+recommendation. Run against the pre-fix `notify.mjs` from `origin/main`, the cap
+never fired: `firstLine` had already shortened every escalation so much that the
+digest stayed under 4096. So on the real historical code the cap looked harmless,
+and on the fixed field renderer, with recommendations rendered whole, it was the
+thing eating them.
+**SOLUTION:** the case runs two mutants, not one, and each is separately proved to
+FIRE: mutant A restores the field truncation and must lose the tail, mutant B
+restores the cap and must both **fire** and lose the tail. The "did the cap
+actually fire" assertion is the one that matters, because without it a future
+change that shrinks the digest would make the case pass while measuring nothing.
+RULE: **when two guards can each hide the other, assert that the one you are
+testing was reached**, not only that the outcome was wrong.
+
+### `import.meta.url` is a real path and `process.argv[1]` is whatever was typed
+**Tag:** infra
+**ERROR:** the standard direct-run guard, `import.meta.url === pathToFileURL(process.argv[1]).href`,
+came out **false** when `notify.mjs` was invoked under a `/var/folders/...` path,
+because on macOS `/var` is a symlink to `/private/var`: `import.meta.url` is
+resolved through the symlink and `process.argv[1]` is not. The script then did
+nothing at all and **exited 0**, which is indistinguishable from a digest with
+nothing to say. It was found only because a test that expected a file found none.
+**SOLUTION:** compare real paths, `realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])`,
+falling back to a resolved-path comparison when either cannot be stat'd.
+`scripts/poc/eligible.mjs` carries the unhardened form and is exposed the same
+way; it was left alone because it is not this card, and it is named here so the
+next reader of that file knows. RULE: **an equality test between two paths is a
+test about symlinks.** Resolve both sides, or the guard is a coin flip decided by
+how the caller happened to spell the directory.
