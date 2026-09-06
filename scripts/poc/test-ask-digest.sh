@@ -1203,6 +1203,189 @@ else
   fail "the digest plist does not parse"
 fi
 
+# ===========================================================================
+echo
+echo "10. the escalation recommendation reaches the digest WHOLE. Card DIG-01."
+# ===========================================================================
+#
+# The escalation rubric in docs/DOCTRINE-TRIAGE.md says an escalation with no
+# recommendation is not finished. notify.mjs rendered that field through
+# firstLine, which keeps only the FIRST line and cuts it at a character limit:
+# 160 in one block, 180 in another, 220 in a third. The cut is INVISIBLE on the
+# receiving end, so a recommendation of 900 characters and one of 180 look
+# identical, with the alternative option and the whole IF UNANSWERED line gone.
+#
+# IT DRIVES THE WHOLE SCRIPT, not one exported function, because the acceptance
+# is about what lands in the OUTPUT. Two mutants are run against the same input
+# and each must lose the tail, and each is first proved to RUN.
+
+digest_tree() {
+  DT_DIR=$WORK/$1
+  mkdir -p "$DT_DIR/scripts/poc" "$DT_DIR/docs/poc" "$DT_DIR/docs/board"
+  cp "$HERE"/*.mjs "$DT_DIR/scripts/poc/"
+  cp "$REPO_ROOT"/docs/board/rc-board.json \
+     "$REPO_ROOT"/docs/board/rc-board-phase2.json \
+     "$REPO_ROOT"/docs/board/rc-board-phase3.json "$DT_DIR/docs/board/"
+  echo "$DT_DIR"
+}
+
+# The marker is at the END of a long, multi-line recommendation. Nothing else in
+# the digest can produce it, so finding it means the whole field arrived.
+REC_HEAD="Take option (b) and keep the integration, because it has applied at least five migrations correctly and the friction it removes is real."
+REC_TAIL="LAST-CHARACTERS-MARKER-8F2A"
+LONG_REC="$REC_HEAD
+The danger is concentrated entirely in the destructive class, which a pre-merge
+check covers completely, and that check is the same parser pass the applier
+already performs on every file it touches.
+If nothing is decided the two documents stay in disagreement, which is the state
+that produced this escalation in the first place. $REC_TAIL"
+
+# Sanity on the fixture itself: the acceptance says LONGER THAN 200 CHARACTERS,
+# so a case built from a shorter string would pass against the old code too.
+REC_LEN=${#LONG_REC}
+if [ "$REC_LEN" -gt 200 ]; then
+  pass "the fixture recommendation is ${REC_LEN} characters, over the 200 the card names"
+else
+  fail "the fixture recommendation is only ${REC_LEN} characters, so this case cannot show the defect"
+fi
+
+# THE MARKED ESCALATION IS THE OLDEST OF THE LAST FIVE, ON PURPOSE.
+#
+# The block renders `escalations.slice(-5).reverse()`, newest first, so the
+# oldest of those five is rendered LAST and is the first thing a cap at the end
+# of the digest eats. Four padding escalations follow it, which is also what
+# pushes the digest past 4096 characters: with one escalation the fixture digest
+# is about 3.7KB and a restored cap would never fire, so the case would report
+# that the cap was harmless rather than that it was never reached.
+write_state() {
+  node -e '
+    const fs = require("fs");
+    // Each padder is deliberately long. The digest has to clear 4096 characters
+    // BEFORE the marked escalation is reached, and the escalation block renders
+    // only the last five, so the room has to come from the length of those five
+    // rather than from their number. The case asserts that the restored cap
+    // actually FIRED, so a future change that shrinks the digest reports itself
+    // instead of quietly passing.
+    const pad = (n) => ({
+      card_id: "PAD-0" + n,
+      question: "Padding escalation " + n + ". It exists to push this digest past the four thousand and ninety six characters at which the removed cap used to fire, so that the case below reaches the boundary it is about rather than reporting that the boundary was harmless. It is written out at length for exactly that reason and carries no meaning of its own beyond taking up the room a real escalation would have taken.",
+      recommendation: "Read the run log for padding escalation " + n + ". Silence on an eligible card is a defect, not a normal outcome, and the four reasons are distinguished: work left on a branch, the wall clock cap, a non-zero executor exit, and an executor that finished clean with nothing to show. This sentence is here to take up room and says nothing a reader needs.",
+      raised_at: "2026-09-06T13:0" + n + ":00Z",
+      run_id: "digtest",
+    });
+    fs.writeFileSync(process.argv[1], JSON.stringify({
+      schema_version: 2,
+      run_id: "digtest",
+      escalations: [
+        {
+          card_id: "MIG-01",
+          question: "Does the integration keep applying merged migrations to production, or is it turned off?",
+          recommendation: process.argv[2],
+          raised_at: "2026-09-06T12:00:00Z",
+          run_id: "digtest",
+        },
+        pad(1), pad(2), pad(3), pad(4),
+      ],
+      claims: {},
+    }, null, 2) + "\n");
+  ' "$1" "$LONG_REC"
+}
+
+run_notify() {
+  RN_TREE=$1
+  RN_OUT=$2
+  rm -rf "$RN_OUT"
+  mkdir -p "$RN_OUT"
+  write_state "$RN_TREE/docs/poc/state.json"
+  POC_FULL_DIGEST_DIR=$RN_OUT node "$RN_TREE/scripts/poc/notify.mjs" \
+    --dry-run --run-id digtest >/dev/null 2>&1
+  cat "$RN_OUT/digtest.full-digest.txt" 2>/dev/null
+}
+
+SHIPPED_TREE=$(digest_tree dig-shipped)
+SHIPPED_OUT=$(run_notify "$SHIPPED_TREE" "$WORK/dig-out-shipped")
+
+if printf '%s' "$SHIPPED_OUT" | grep -q "$REC_HEAD"; then
+  pass "the escalation reaches the digest at all"
+else
+  fail "the escalation did not reach the digest, so nothing below is measuring the field"
+fi
+if printf '%s' "$SHIPPED_OUT" | grep -q "$REC_TAIL"; then
+  pass "the recommendation's LAST characters are present, which is the card"
+else
+  fail "the recommendation's last characters are missing from the digest"
+fi
+if printf '%s' "$SHIPPED_OUT" | grep -q "check covers completely"; then
+  pass "  ...and its middle lines survive too, so it is whole and not merely longer"
+else
+  fail "  ...but a middle line was dropped, so firstLine is still taking one line"
+fi
+
+# --- MUTANT A: the field truncation, restored -------------------------------
+MUTA=$(digest_tree dig-mut-a)
+sed 's|      if (e.recommendation) lines.push(...recommendationLines(e.recommendation, "  "));|      if (e.recommendation) lines.push("  recommended: " + firstLine(e.recommendation, 180));|' \
+  "$HERE/notify.mjs" > "$MUTA/scripts/poc/notify.mjs"
+if cmp -s "$HERE/notify.mjs" "$MUTA/scripts/poc/notify.mjs"; then
+  fail "mutant A did not apply, so the escalation render has changed shape and this case is stale"
+else
+  MUTA_OUT=$(run_notify "$MUTA" "$WORK/dig-out-mut-a")
+  if printf '%s' "$MUTA_OUT" | grep -q "$REC_HEAD"; then
+    pass "mutant A runs and still renders the escalation, so it is executing"
+  else
+    fail "mutant A rendered nothing, so this mutation is measuring a broken harness"
+  fi
+  if printf '%s' "$MUTA_OUT" | grep -q "$REC_TAIL"; then
+    fail "the 180 character cut did NOT lose the tail, so this case has no teeth"
+  else
+    pass "restoring firstLine(e.recommendation, 180) LOSES the tail, which is the defect"
+  fi
+fi
+
+# --- MUTANT B: the transport cap on a file, restored -------------------------
+#
+# The field renderer alone is not enough. buildDigest used to cap its WHOLE
+# output at Telegram's 4096 characters, and that output is written to a FILE and
+# never sent. The escalations block is the last block in the digest, so the cap
+# ate exactly the field this card renders whole. Restoring the cap must lose the
+# tail again, which is what makes removing it part of this card rather than
+# tidying beside it.
+MUTB=$(digest_tree dig-mut-b)
+sed 's|  return lines.join("\\n");\n}||' "$HERE/notify.mjs" > /dev/null 2>&1
+node -e '
+  const fs = require("fs");
+  const src = fs.readFileSync(process.argv[1], "utf8");
+  const anchor = "  return lines.join(\"\\n\");\n}\n";
+  const at = src.indexOf(anchor);
+  if (at < 0) { console.error("MUTANT B ANCHOR MISSING"); process.exit(3); }
+  const capped =
+    "  let text = lines.join(\"\\n\");\n" +
+    "  if (text.length > TELEGRAM_MAX) {\n" +
+    "    text = text.slice(0, TELEGRAM_MAX - 40) + \"\\n… truncated, see the run log.\";\n" +
+    "  }\n" +
+    "  return text;\n}\n";
+  fs.writeFileSync(process.argv[2], src.slice(0, at) + capped + src.slice(at + anchor.length));
+' "$HERE/notify.mjs" "$MUTB/scripts/poc/notify.mjs"
+if [ $? -ne 0 ] || cmp -s "$HERE/notify.mjs" "$MUTB/scripts/poc/notify.mjs"; then
+  fail "mutant B did not apply, so buildDigest has changed shape and this case is stale"
+else
+  MUTB_OUT=$(run_notify "$MUTB" "$WORK/dig-out-mut-b")
+  if [ -n "$MUTB_OUT" ]; then
+    pass "mutant B runs and writes a digest, so it is executing"
+  else
+    fail "mutant B wrote nothing, so this mutation is measuring a broken harness"
+  fi
+  if printf '%s' "$MUTB_OUT" | grep -q "truncated, see the run log"; then
+    pass "  ...and the restored cap fires on this digest, so the case reaches it"
+  else
+    fail "  ...but the restored cap never fired, so this digest is under 4096 and the case proves nothing"
+  fi
+  if printf '%s' "$MUTB_OUT" | grep -q "$REC_TAIL"; then
+    fail "the restored 4096 cap did NOT lose the tail, so removing it was not load bearing"
+  else
+    pass "restoring the 4096 cap on a file that is never sent LOSES the tail again"
+  fi
+fi
+
 echo
 if [ "$FAILURES" -eq 0 ]; then
   echo "all ask and digest assertions passed"
