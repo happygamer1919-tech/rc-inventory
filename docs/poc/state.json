@@ -174,9 +174,9 @@
   ],
   "digest_last_sent": "2026-09-05T05:50:51Z",
   "claims": {
-    "APPLY-02": {
-      "claimed_by": "harness",
-      "claimed_at": "2026-09-05T05:50:52Z"
+    "AUT-9": {
+      "claimed_by": "executor",
+      "claimed_at": "2026-09-06T19:39:26Z"
     }
   },
   "report_path": "docs/reports/2026-09-04-executor-aut-16-board-set.md"
