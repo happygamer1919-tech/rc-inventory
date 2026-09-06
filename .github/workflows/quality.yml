@@ -539,6 +539,24 @@ jobs:
       - name: Refuse a card pick that sorts numbers as text  # BOARD-03-CARD-ORDER-PROOF
         run: npm run check:card-order
 
+      # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
+      #
+      # It reads this workflow rather than a list of what is in it, so the NEXT
+      # unpinned action is refused rather than discovered on the day it breaks a
+      # run. Both shapes are covered: a `uses:` on a tag rather than a commit sha,
+      # and a `version:` input set to a moving target such as latest or beta.
+      #
+      # The allow-list in the check carries its reasons, the way EXEMPT in
+      # check-pending-schema-reads.mjs does, and a STALE entry is a failure rather
+      # than a pass: an exemption for something the file no longer uses would sit
+      # there covering whatever took its place.
+      #
+      # NOT PATH FILTERED. It reads one file and needs no container and no
+      # network, and it must run on every pull request because every pull request
+      # that edits this workflow can add the next floating reference.
+      - name: Refuse a floating action reference  # CI-01-ACTION-PINS-PROOF
+        run: npm run check:action-pins
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
@@ -653,10 +671,46 @@ jobs:
       # fixed, published demo keys, and they open nothing outside the runner.
       # ----------------------------------------------------------------------
 
+      # CI-01. PINNED, BOTH HALVES: THE ACTION TO A COMMIT SHA AND THE CLI TO AN
+      # EXACT VERSION. `version: latest` failed run 33810964883 on 2026-09-03 with
+      # "Failed to resolve latest Supabase CLI release: rate limit exceeded",
+      # before a single test ran, and re-running it passed with no code change.
+      #
+      # THE RATE LIMIT IS THE LESSER HALF. `latest` also makes this workflow
+      # NON-REPRODUCIBLE: the same commit can pass today and fail tomorrow because
+      # a CLI released in between changed behaviour, and the failure presents as
+      # the pull request's fault. A token would have fixed only the rate limit.
+      #
+      # WHICH BEHAVIOURS THIS SUITE DEPENDS ON, so whoever raises the version
+      # knows what to re-prove rather than finding out from a red run:
+      #
+      #   - `supabase db reset` WRAPS EACH MIGRATION FILE IN ONE TRANSACTION.
+      #     P3-33 had to split 0030 from 0031 for exactly this: PostgreSQL refuses
+      #     to let a newly added enum label be USED in the transaction that added
+      #     it, so the two statements cannot share a file. If a release changed
+      #     that boundary, 0030 and 0031 would need re-examining, and the applier's
+      #     enum pre-phase in scripts/apply-pending-migrations.mjs with it.
+      #   - `supabase db reset` replays supabase/migrations from empty in FILE
+      #     ORDER, which is what makes the next step a proof rather than a smoke
+      #     test.
+      #   - `supabase status -o env` prints API_URL, ANON_KEY and SERVICE_ROLE_KEY
+      #     under those names. The export step below reads them by name.
+      #   - the services started are decided by supabase/config.toml, not by flags
+      #     here, and `max_rows` in that file is load bearing for P3-38's
+      #     reconciliation and for card P3-39.
+      #
+      # 2.116.0 IS THE VERSION THAT IS GREEN, NOT THE NEWEST. It has been npm's
+      # `latest` for the `supabase` package since 2026-08-26, so every green run
+      # of this workflow since then installed it, this repository's lockfile
+      # carries no `supabase` package for the action to prefer, and pinning it
+      # changes nothing about what runs. 2.117.0 exists only as a prerelease.
+      #
+      # THE SHA IS THE ONE THE GREEN RUN OF 2026-09-05 RESOLVED `@v1` TO, read
+      # from that run's own log rather than from the tag today.
       - name: Start local Supabase
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
         with:
-          version: latest
+          version: 2.116.0
 
       - name: Launch database, auth and storage
         # Which services run is decided by supabase/config.toml, not by flags
