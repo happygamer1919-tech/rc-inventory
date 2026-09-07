@@ -161,9 +161,90 @@ defaults. P2-13 remains unworked.
 
 ---
 
-## 3. Board in order
+## 3. Board in order: P3-13c, the comparison view
 
-Continues below as cards land.
+The dispatch's wave 3 priority is `P3-12`, deviz schema, line editor, comparison
+view, necesar de materiale. Read against the board:
+
+| dispatch item | card | state at boot |
+|---|---|---|
+| P3-12 | `P3-12` | **already shipped** |
+| deviz schema | `P3-13` | **already shipped** |
+| line editor | `P3-13b` | **already shipped** |
+| **comparison view** | **`P3-13c`** | **todo, eligible** |
+| necesar de materiale | `P3-18` | todo, depends on P3-13c |
+
+So `P3-13c` was the first unshipped wave 3 item, and it shipped **independently
+of P3-18**, which the dispatch required and which the card's own defaults state
+in terms. Nothing in P3-18 was built or touched.
+
+### Every premise verified before building, per the card's HALT clause
+
+`deviz_lines.unit_price_mdl` (0025), `outbound_issues.project_id` (0017), the
+`devize` version table, `project_material_cost` (0024), and the primitives and
+side-panel vocabulary. Nothing was missing and nothing was invented.
+
+### Nothing computed twice
+
+The Estimat side is `getProjectDevizView`, the Emis side is
+`getProjectMaterialCost`, both already existing.
+`lib/reporting/deviz-comparison.ts` joins them and is the single place P3-18 will
+read issued quantity from, which is what the card's defaults require. **No
+migration was needed**: both sides existed and the join is a read.
+
+### The place that could have silently dropped a Neprevazut, and its guard
+
+`project_material_cost` truncates its per-product breakdown at `p_limit` while
+computing the **total** from every line. A truncated call therefore renders a
+short table under a correct foot, which is exactly the *flattering and useless*
+comparison the card forbids. The reader asks for 2000 rows **and then asserts the
+breakdown sums to the total**; when it does not, `truncated` is true and the
+screen says the table is incomplete instead of pretending.
+
+### The acceptance, run three times
+
+```
+npx playwright test tests/e2e/deviz-comparison.spec.ts
+  9 passed (14.2s)
+  9 passed (13.8s)
+  9 passed (13.5s)
+```
+
+Three runs in a row, against a live local Supabase stack. The eighth case edits
+the catalogue through the product screen and **puts it back**, so a spec that
+passed once and failed afterwards would have been a spec that consumed its own
+fixture.
+
+The arithmetic was verified against the database **before** the spec was written:
+`project_material_cost` returned exactly `4/480`, `8/200`, `6/180` and a total of
+`860` for the main project, `0` for the project with no issues, and `3/120` plus
+`7/70` totalling `190` for the unplanned-only project.
+
+### One defect cost most of the build, and it was not in the arithmetic
+
+All nine cases failed on `getByTestId('panel-comparatie') resolved to 2
+elements`. `ProjectTabs` already wraps every tab body in a div whose testid is
+**built as a template**, ``panel-${active}``, which is where `panel-deviz` and
+`panel-consum` come from. My own wrapper made a second, nested, identical node.
+
+Grepping for the literal `panel-comparatie` could never have found the
+convention, **because the convention has no literal**. It was identified by
+putting a `data-mark` attribute on the wrapper this component actually renders
+and asking the DOM which of the two carried it: the outer one did not, so it was
+not this component's. Both halves are in `docs/LEARNINGS.md`.
+
+### Running the acceptance locally needed a second stack
+
+`supabase/config.toml` wants ports 54321 and 54322 and **an rc-inventory stack
+was already up on them**. Per the standing note about this collision, a scratch
+copy of the tree was built outside the repository, its ports shifted to 55321 and
+55322, and the stack brought up there. Neither repository's committed config was
+edited. Two incidental obstacles are worth recording: Turbopack refuses a
+`node_modules` symlink pointing outside the project root, so the scratch tree
+needs a real (hard-linked) copy; and the main clone's own `node_modules` carries
+a self-referential `node_modules/node_modules` symlink dated 2026-08-27, which
+that copy inherits and which has to be removed **in the scratch copy only**. The
+main clone was not touched.
 
 ---
 
@@ -187,7 +268,17 @@ Continues below as cards land.
    execution of P2-13 and not a revocation of anything. Both instructions hold
    under that reading and under no other. Flagged as a boundary call.
 
-3. **Six ids added to P2-13's checklist, where the card names one.** GATE-03's
+3. **"Total deviz" in P3-13c's foot is the material subtotal, adaos excluded.**
+   The card names four foot totals and does not say whether the deviz total
+   includes the margin. It is the **subtotal**, because the Estimat column has to
+   add up to its own foot and the adaos has no counterpart in the Emis column. The
+   adaos is displayed beside the foot with a sentence naming it, so the Comparatie
+   tab and the Deviz tab reconcile instead of appearing to contradict each other.
+   That is one more **number** on screen, not a fifth total. Flagged because the
+   other reading, the adaos-inclusive total, is available and would make the
+   column not add up.
+
+4. **Six ids added to P2-13's checklist, where the card names one.** GATE-03's
    title and ARTEFACT clause are about R-082. Its third clause asks for a check,
    and the check found six grants unnamed. A check that cannot be green is not a
    check, so all six were named. This is inside the card's own acceptance and

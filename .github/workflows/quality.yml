@@ -836,6 +836,13 @@ jobs:
           # non-draft deviz and the header is frozen after it is sent, so
           # neither row can be built through the screen. Fixed ids, no DELETE.
           node scripts/seed-test-deviz.mjs
+          # P3-13c. The comparison needs a deviz that is ALREADY ACCEPTED with
+          # lines on it, issues dated in the past, and a deviz with no lines at
+          # all on a project that does have issues. The trigger in 0025 refuses a
+          # line on a non-draft deviz, the issue form has no date field, and the
+          # empty-deviz case cannot be built by a screen that always adds a line.
+          # Fixed ids, no DELETE.
+          node scripts/seed-test-deviz-comparison.mjs
           # .env.local is what both the dev server and the Playwright runner
           # read. It is gitignored and exists only on this runner.
           {

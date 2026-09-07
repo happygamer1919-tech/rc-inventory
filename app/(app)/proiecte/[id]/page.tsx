@@ -12,6 +12,7 @@ import {
 } from "@/lib/data/projects-list";
 import { getProjectMaterialCost } from "@/lib/reporting/material-cost";
 import { getProjectDevizView } from "@/lib/data/deviz";
+import { getDevizComparison } from "@/lib/reporting/deviz-comparison";
 import { listActiveProducts } from "@/lib/data/products";
 import { ProjectDetailScreen } from "@/components/projects/ProjectDetailScreen";
 
@@ -54,13 +55,16 @@ export default async function ProjectDetailPage({
   const rawDeviz = query["deviz"];
   const requestedDeviz = typeof rawDeviz === "string" && rawDeviz ? rawDeviz : null;
 
-  const [user, history, materials, clients, cost, deviz, products] = await Promise.all([
+  const [user, history, materials, clients, cost, deviz, comparison, products] = await Promise.all([
     getSessionUser(),
     getProjectHistory(id),
     getProjectMaterials(id),
     listClientOptions(),
     getProjectMaterialCost(id, { shippedOnly }),
     getProjectDevizView(id, requestedDeviz),
+    // P3-13c. Aceeasi versiune ceruta ca pe fila Deviz: doua file care fac
+    // acelasi lucru cu adresa nu au voie sa foloseasca doua chei.
+    getDevizComparison(id, requestedDeviz),
     listActiveProducts(),
   ]);
 
@@ -71,6 +75,7 @@ export default async function ProjectDetailPage({
       materials={materials}
       cost={cost}
       deviz={deviz}
+      comparison={comparison}
       products={products}
       clients={clients}
       canWrite={user?.role === "owner"}
