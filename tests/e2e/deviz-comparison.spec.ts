@@ -217,13 +217,21 @@ test.describe("Deviz față de realitate", () => {
       "Estimat, valoare",
       "Emis, valoare",
       "Diferență, valoare",
-      "Total deviz",
+      "Total materiale estimate",
       "Total emis",
       "Abatere",
       "Abatere procentuală",
     ]) {
       await expect(panel).toContainText(label);
     }
+
+    // P3-13d. NUMELE VECHI NU SE MAI POATE INTOARCE NEOBSERVAT.
+    //
+    // Subsolul aduna coloana Estimat, care este materialul la pretul ofertat,
+    // FARA adaos. Se numea "Total deviz", exact ca totalul de pe fila Deviz,
+    // care INCLUDE adaosul. O redenumire care lasa testul verificand sirul vechi
+    // este o redenumire care nu s-a intamplat, deci se cere si absenta lui.
+    await expect(panel).not.toContainText("Total deviz");
 
     // NICIUN SIR ENGLEZESC PE ECRAN. Cuvintele cautate sunt cele pe care le-ar
     // produce o traducere uitata in exact acest ecran.
