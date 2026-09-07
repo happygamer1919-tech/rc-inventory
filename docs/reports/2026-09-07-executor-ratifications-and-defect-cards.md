@@ -362,3 +362,157 @@ we might have **added** while the one already in the path went unexamined,
 because it arrived with the extractor rather than as a choice of ours. That is a
 fact about how the integration was assembled, not about who ends up holding the
 data. R-015 is quoted in both new documents rather than retracted.
+
+---
+
+## 8. Verified on production, read-only, and one of the two answers is bad
+
+Neither of these was asked for. Both were found by pointing a `curl` at the
+production host while working `GATE-01`, which needs the production origin, and
+both are recorded because a terminal that measures something load-bearing and
+does not write it down has produced nothing.
+
+### 8a. `EXT-21` is live and correct on production
+
+```
+GET https://rc-inventory-iota.vercel.app/api/state
+200, cache-control: no-store, max-age=0, must-revalidate
+{"categories":["Cimenturi și mortare", ... 19 entries ... ,"Vopsele, lacuri și solvenți"],
+ "units":[{"code":"m2","label":"m²"}, ... ,{"code":"t","label":"t"},{"code":"l","label":"l"}],
+ "ledger_version":"0035","at":"2026-09-07T19:04:14.662Z"}
+```
+
+**Nineteen categories, nine units including `t` and `l`.** Those two units and the
+nineteenth category are exactly the three values Andre held back for a day
+because a document we wrote told him they were not there yet. He can now ask
+production instead. This is a deployed answer, not a CI claim.
+
+### 8b. THE CLIENT DOMAIN NO LONGER SERVES THIS APPLICATION
+
+Measured 19:36 UTC, read-only, no session and no credential:
+
+```
+dig +short rapidconstructmd.com A            185.199.108.153 .109 .110 .111
+dig +short www.rapidconstructmd.com CNAME    happygamer1919-tech.github.io.
+GET https://rapidconstructmd.com/                        200, server: GitHub.com
+GET https://www.rapidconstructmd.com/autentificare       404
+GET https://www.rapidconstructmd.com/api/health          404
+```
+
+Those four addresses are **GitHub Pages**. The page served is a Rapid Construct
+**marketing site**, `last-modified: 2026-09-07T18:22:59Z`, deployed the same day
+this was measured.
+
+**On 2026-08-27 the G8 evidence recorded the opposite, and it was true then:**
+apex 308 to www, www 307 to `/autentificare` then 200, www a CNAME to
+`f1f222f4a6887f64.vercel-dns-016.com`, apex an A record on the Vercel anycast
+address. Both halves of that DNS have changed.
+
+**Nothing is down.** `https://rc-inventory-iota.vercel.app/api/health` answers 200
+with commit `1805d3d` and `ledger_version` `0035`, which is `main`'s head. The
+**domain** moved; the product did not.
+
+**A second finding rides on the first.** P2-12's defaults say, under R-004, that
+Deployment Protection stays enabled and **no `vercel.app` host serves an
+anonymous request**. The *project alias* still behaves that way
+(`rc-inventory-ivan-bong-420-s-projects.vercel.app` answers 302 to
+`vercel.com/sso-api`). **`rc-inventory-iota.vercel.app` is a different alias, it
+answers anonymously, and it is the host the owner was using on 2026-08-28 when
+CRIT-17 was raised**, so this is unlikely to be new. The CRITIC's wave 1 finding
+tested the project alias and could not have seen it.
+
+**What it blocks if it is not deliberate.** G9 needs Mihai to complete a cycle on
+production and P2-14 is that card. `check:deployed-commit` defaults its origin to
+`https://www.rapidconstructmd.com/api/health`, which now answers 404 from GitHub
+Pages, so the applier's deployed-commit guard would refuse for the wrong reason
+on its next run.
+
+**It may be deliberate and this terminal cannot tell.** A marketing site at the
+apex on the same day is a plausible owner decision and the app may be meant to
+move to a subdomain. Every name tried under the domain resolves to one wildcard
+address, `100.127.132.229`, so no subdomain serves it today.
+
+**G8's `state` was NOT flipped.** The measurement is written into the gate's
+`notes` and the state left at `pass`. Flipping a launch gate is a
+launch-readiness decision, DOCTRINE-TRIAGE section 4 gives the gate audit to
+TRIAGE, and this dispatch scoped authoring to the cards it named. The
+recommendation is Ivan's to make: point a host at the Vercel project and
+re-verify, or record that the public URL has changed and rewrite this condition
+and `check-deployed-commit`'s default origin to match.
+
+## 9. `GATE-01` was not started, and why
+
+It is the next card in board order after `EXT-13`, skipping `EXT-11`. It was
+**not** picked up.
+
+Its acceptance needs a **write against the production project with the public
+anon key**. The key is genuinely public and the card is right about that, but the
+only sources for it are `/Users/ivan/rc-secrets`, which CLAUDE.md 7 puts out of
+bounds for reads, or the production JavaScript bundle, and **the host that would
+have served that bundle is now a GitHub Pages marketing site**. The card's
+premise, that it needs nothing new from anyone, was true when it was authored and
+is not true this afternoon.
+
+Beyond that, the card is an unauthorised-write attempt against a live client
+database. It is designed to be refused and a refusal is the pass, but it is the
+one action in this session that reaches the client's production system, and the
+finding above means the ground it stands on moved today. It is left `todo`,
+unmodified, for a session that can start from a known production origin.
+
+## 10. Deviations, for explicit ratification. Not self-ratified.
+
+1. **`EXT-21`'s acceptance case 4 was corrected rather than blocked on.** It asked
+   for a category *deactivated* through the settings screen; nothing in the
+   product writes `categories.active`. The clause is quoted and marked on the
+   card under CLAUDE.md 9c and the property it exists to prove is proved by
+   *adding* a category through the same screen. This board's own doctrine says
+   *correcting a stale acceptance line* is decided and written down rather than
+   asked, which is the authority relied on. **The other reading, blocking the
+   card on a settings control that does not exist, was available.**
+
+2. **A gap was found and deliberately not carded.** There is no way to deactivate
+   a category anywhere in the product. Step 6 forbade authoring scope beyond the
+   cards named in steps 3 and 4, so it is recorded on `EXT-21`'s notes and here
+   instead of becoming a card.
+
+3. **`GUARD-06` covers four files where the backlog item named one.** The item
+   named `eligible.mjs`. `plain-digest.mjs`, `boards.mjs` and `claims.mjs` carry
+   the identical unhardened comparison, and the check the card adds would refuse
+   all three, so a card fixing one would land a check beside three known
+   violations. **Flagged because it is wider than the item as the owner phrased
+   it.**
+
+4. **`P3-13d`'s label is `Total materiale estimate`, not `Total materiale`.** The
+   ruling allowed an equivalent. `Total emis` sits beside it and is also
+   materials, so the axis being drawn is estimated against issued and the bare
+   form would name the wrong one. **Flagged because it is not the owner's exact
+   words.**
+
+5. **G8's measurement was written to the gate and its state was left at `pass`.**
+   Both halves are a judgement: recording it is EXECUTOR's evidence duty, and not
+   flipping it is a refusal to make a launch-readiness call outside this role and
+   this dispatch. **Flagged because the other reading, flipping it to `fail` on
+   the wire evidence, is available and defensible.**
+
+6. **One self-inflicted defect, corrected in the open.** The conflict resolver
+   that rebuilt the phase 3 board on `card/ext-21` took its timestamp from the
+   wrong argument and wrote `as_of` as the literal string `"x"`.
+   `validate-board.mjs` does not type `as_of` as a date and passed at 0
+   violations; `check:board-clock` caught it in `quality`. Corrected by a forward
+   commit, never a force push. **The process lesson is that the local check set
+   was run against the code commit and not against the merge commit that
+   introduced the value.**
+
+## 11. State at the end
+
+**Merged this session:** `#254` the ratifications and five authored cards, `#255`
+`EXT-21`, `#257` `EXT-13`. **Open and mine:** `#256` `P3-13d`, green on an
+earlier head and re-running after its second merge of `main`, and the pull
+request carrying this report.
+
+**Authored and untouched, all `todo`:** `RULE-10`, `CI-02`, `DIG-02`,
+`GUARD-06` on the phase 2 board.
+
+**What the next session should pick up first:** the G8 question in section 8b,
+because it is the owner's to answer and three other things wait behind it. Then
+`GATE-01`, once the production origin is known again.
