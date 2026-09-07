@@ -13,7 +13,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { hasPhase3Schema } from "./schema-capability";
+import { hasPhase3Schema, hasProductPackaging } from "./schema-capability";
 import type { SupplierOption } from "./suppliers-types";
 import { isUnitCode, type UnitCode } from "./units";
 
@@ -30,6 +30,12 @@ export type CatalogProduct = {
   /** P3-05: furnizorul ca inregistrare. Null cat timp randul nu a fost inca
    *  reconciliat, sau daca produsul chiar nu are furnizor. */
   supplierId: string | null;
+  /** EXT-10: ce factureaza FURNIZORUL, cand nu factureaza in unitatea de stoc.
+   *  Null pentru produsul obisnuit, care nu are ambalaj. */
+  packageUnit: string | null;
+  /** EXT-10: cate unitati de stoc incap intr-un ambalaj. Prezent exact cand
+   *  packageUnit este prezent, impus de constrangerea din 0035. */
+  packageFactor: number | null;
   needsReview: boolean;
   active: boolean;
   /** Suma loturilor minus iesirile. Zero cat timp nu a intrat nimic. */
@@ -103,6 +109,8 @@ type ProductRow = {
   threshold: unknown;
   unit_value_mdl: unknown;
   supplier_id: string | null;
+  package_unit?: string | null;
+  package_factor?: unknown;
   suppliers: { name: string } | { name: string }[] | null;
   needs_review: boolean;
   active: boolean;
@@ -124,6 +132,15 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
     // Still nullable: a product may genuinely have no supplier.
     supplierName: (Array.isArray(row.suppliers) ? row.suppliers[0]?.name : row.suppliers?.name) ?? null,
     supplierId: row.supplier_id ?? null,
+    // EXT-10. NULL SI 0 NU SUNT ACELASI LUCRU AICI, deci nu se trece prin
+    // toNumber, care raspunde 0 pentru absent. Un produs fara ambalaj nu are un
+    // factor de zero: nu are factor deloc, iar zero este chiar valoarea pe care
+    // constrangerea din 0035 o refuza.
+    packageUnit: row.package_unit ?? null,
+    packageFactor:
+      row.package_factor === null || row.package_factor === undefined
+        ? null
+        : toNumber(row.package_factor),
     needsReview: row.needs_review,
     active: row.active,
     stock: stock.get(row.id) ?? 0,
@@ -143,8 +160,17 @@ export async function listProducts(): Promise<CatalogProduct[]> {
   // P3-05b: ONE COLUMN LIST. The pre-phase-3 fallback named supplier_name, which
   // 0027 drops, and it was only ever reached when hasPhase3Schema() said no. The
   // wave 1 migrations are applied, so that branch is unreachable AND unsafe.
-  const columns =
+  const base =
     "id, sku, name, category_id, unit, threshold, unit_value_mdl, supplier_id, needs_review, active, categories(name), suppliers(name)";
+
+  // EXT-10. COLOANELE DE AMBALAJ SE CER DOAR CAND EXISTA. Migratia 0035 ajunge
+  // in productie pe fuziune, iar livrarea codului pleaca din acelasi push si nu
+  // se termina in aceeasi secunda. Un select care numeste o coloana neaplicata
+  // primeste 42703, iar aceasta functie este chemata de tabloul de bord, de
+  // inventar si de fiecare formular care alege un produs: exact forma lui INC-05.
+  const columns = (await hasProductPackaging(supabase))
+    ? `${base}, package_unit, package_factor`
+    : base;
 
   const [{ data, error }, stock] = await Promise.all([
     supabase.from("products").select(columns).order("sku", { ascending: true }),
