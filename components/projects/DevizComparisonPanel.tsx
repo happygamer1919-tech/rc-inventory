@@ -234,7 +234,7 @@ export function DevizComparisonPanel({
               PAGINA VIZIBILA. */}
           <div className="mt-4 grid grid-cols-4 gap-3 border-t border-rc-line pt-3">
             <div>
-              <div className="text-[12.5px] text-rc-muted">Total deviz</div>
+              <div className="text-[12.5px] text-rc-muted">Total materiale estimate</div>
               <div
                 className="text-[17px] font-semibold text-rc-black"
                 data-testid="comparison-total-deviz"
@@ -288,10 +288,17 @@ export function DevizComparisonPanel({
 
           {/* DE CE TOTALUL DE AICI NU ESTE TOTALUL DE PE FILA DEVIZ. Adaosul nu
               este material si nu are corespondent in coloana Emis, deci nu intra
-              in comparatie. Se arata ca sa poata fi reconciliate. */}
+              in comparatie. Se arata ca sa poata fi reconciliate.
+
+              P3-13d. ETICHETA NU MAI SPUNE "deviz", SI ASTA ESTE CHIAR CARDUL.
+              Cifra este subtotalul de material, fara adaos, deci coloana Estimat
+              se aduna in propriul ei subsol. Purta insa acelasi nume ca totalul
+              de pe fila Deviz, care INCLUDE adaosul, si doua ecrane pareau ca se
+              contrazic cand de fapt raspundeau la doua intrebari. Cifra nu s-a
+              schimbat; numele ei spune acum ce aduna. */}
           <div className="mt-2 text-[12.5px] text-rc-muted" data-testid="comparison-adaos-note">
-            Totalul devizului de aici este materialul la prețul ofertat, fără adaos. Adaosul
-            versiunii este{" "}
+            Totalul de materiale de aici este materialul la prețul ofertat, fără adaos, iar
+            totalul de pe fila Deviz include adaosul. Adaosul versiunii este{" "}
             <span data-testid="comparison-adaos" data-value-mdl={totals.adaosMdl}>
               {formatMoney(totals.adaosMdl)}
             </span>{" "}
