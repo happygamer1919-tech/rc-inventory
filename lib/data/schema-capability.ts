@@ -230,3 +230,46 @@ export async function hasReconciliationFailedCode(probe: LabelProbe): Promise<bo
   }
   return cachedReconciliationCode.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// EXT-10. Exista coloanele products.package_unit si products.package_factor?
+//
+// DE CE ARE NEVOIE DE O POARTA PROPRIE. hasPhase3Schema intreaba daca TABELELE
+// fazei 3 exista, ceea ce este alta intrebare: 0035 este o migratie separata si
+// ajunge in productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ
+// doua minute. Livrarea codului si aplicarea migratiei pleaca din acelasi push si
+// NU se termina in aceeasi secunda, deci exista o fereastra in care codul nou
+// ruleaza peste schema veche.
+//
+// FARA ACEASTA POARTA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. listProducts este
+// chemata de tabloul de bord, de inventar si de fiecare formular care alege un
+// produs. Un `select` care numeste o coloana inexistenta primeste 42703 de la
+// PostgREST, functia arunca, si sase ecrane raspund 500 pana cand migratia
+// ateriza. Costul portii este o interogare pe minut; costul lipsei ei l-am
+// platit deja o data.
+//
+// SONDA MERGE PE COLOANA, prin PostgREST, din acelasi motiv ca celelalte: o
+// functie SQL ar fi ea insasi intr-o migratie care poate lipsi.
+
+let cachedProductPackaging: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: o sonda care intreaba pe alta legatura decat
+ *   cea care va lucra raspunde la alta intrebare.
+ */
+export async function hasProductPackaging(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedProductPackaging && now - cachedProductPackaging.at < TTL_MS) {
+    return cachedProductPackaging.value;
+  }
+  try {
+    const { error } = await client.from("products").select("package_unit").limit(1);
+    cachedProductPackaging = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul citeste ce exista, in loc sa cada.
+    cachedProductPackaging = { value: false, at: now };
+  }
+  return cachedProductPackaging.value;
+}

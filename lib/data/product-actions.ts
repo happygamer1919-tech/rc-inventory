@@ -17,6 +17,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
+import { hasProductPackaging } from "./schema-capability";
 
 export type ActionResult =
   | { ok: true }
@@ -36,7 +37,62 @@ type ProductInput = {
   unitValueMdl: string;
   /** P3-05: fie un ID de furnizor, fie un nume nou. Vezi looksLikeUuid. */
   supplier: string;
+  /** EXT-10: ce factureaza furnizorul. Gol inseamna "fara ambalaj". */
+  packageUnit: string;
+  /** EXT-10: cate unitati de stoc incap intr-un ambalaj. */
+  packageFactor: string;
 };
+
+/** EXT-10. Perechea de ambalaj, curatata, sau primul camp gresit.
+ *
+ *  AMANDOUA SAU NICIUNA, si asta este si constrangerea din migratia 0035. Un
+ *  ambalaj fara factor inseamna un furnizor care factureaza pe palet si nimic cu
+ *  ce sa converteasca, iar un factor fara ambalaj este un numar care nu
+ *  converteste nimic. Mesajul spune care jumatate lipseste, nu ca "ceva" este
+ *  gresit.
+ *
+ *  UN SIR GOL DEVINE NULL SI NU AJUNGE NICIODATA IN BAZA. Constrangerea intreaba
+ *  daca ambalajul este PREZENT, iar un sir gol este prezent pentru SQL si absent
+ *  pentru oricine citeste ecranul. Diferenta se rezolva aici, o data. */
+function validatePackage(input: ProductInput):
+  | { ok: true; value: { package_unit: string | null; package_factor: number | null } }
+  | { ok: false; message: string; field: string } {
+  const unit = input.packageUnit.trim();
+  const rawFactor = input.packageFactor.trim();
+
+  if (unit.length === 0 && rawFactor.length === 0) {
+    return { ok: true, value: { package_unit: null, package_factor: null } };
+  }
+
+  if (unit.length === 0) {
+    return {
+      ok: false,
+      field: "packageUnit",
+      message: "Scrie ambalajul furnizorului sau șterge factorul: un factor fără ambalaj nu convertește nimic.",
+    };
+  }
+  if (unit.length > 32) {
+    return { ok: false, field: "packageUnit", message: "Ambalajul este prea lung.", };
+  }
+  if (rawFactor.length === 0) {
+    return {
+      ok: false,
+      field: "packageFactor",
+      message: "Scrie câte unități de stoc încap într-un ambalaj.",
+    };
+  }
+
+  const factor = Number(rawFactor.replace(",", "."));
+  if (!Number.isFinite(factor) || factor <= 0) {
+    return {
+      ok: false,
+      field: "packageFactor",
+      message: "Factorul de ambalaj trebuie să fie un număr mai mare decât zero.",
+    };
+  }
+
+  return { ok: true, value: { package_unit: unit, package_factor: factor } };
+}
 
 /** Validare comuna. Intoarce fie valorile curate, fie primul camp gresit. */
 function validate(input: ProductInput):
@@ -102,6 +158,35 @@ function translateWriteError(code: string | undefined, message: string): ActionR
   return { ok: false, message: `Salvarea a eșuat. ${message}` };
 }
 
+/**
+ * EXT-10. Ce se scrie in coloanele de ambalaj, si daca se scrie ceva.
+ *
+ * MIGRATIA 0035 AJUNGE IN PRODUCTIE PE FUZIUNE, iar livrarea codului pleaca din
+ * acelasi push si nu se termina in aceeasi secunda. In fereastra dintre ele
+ * coloanele nu exista, iar un insert care le numeste primeste 42703 de la
+ * PostgREST: catalogul ar refuza ORICE produs nou, nu doar pe cele cu ambalaj.
+ *
+ * DECI: cand coloanele lipsesc si operatorul nu a cerut ambalaj, se scrie ca
+ * pana acum. Cand lipsesc SI a cerut ambalaj, se refuza romaneste, pentru ca a
+ * salva produsul fara ambalajul cerut ar fi o pierdere tacuta de date pe un
+ * ecran care tocmai a spus ca a salvat.
+ */
+async function packagingColumns(
+  client: Parameters<typeof hasProductPackaging>[0],
+  value: { package_unit: string | null; package_factor: number | null },
+): Promise<
+  | { ok: true; value: Record<string, string | number | null> }
+  | { ok: false; message: string; field?: string }
+> {
+  if (await hasProductPackaging(client)) return { ok: true, value };
+  if (value.package_unit === null) return { ok: true, value: {} };
+  return {
+    ok: false,
+    field: "packageUnit",
+    message: "Ambalajul furnizorului nu poate fi salvat încă. Încearcă din nou peste câteva minute.",
+  };
+}
+
 export async function createProduct(input: ProductInput): Promise<ActionResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
@@ -110,13 +195,19 @@ export async function createProduct(input: ProductInput): Promise<ActionResult> 
   const checked = validate(input);
   if (!checked.ok) return checked;
 
+  const pack = validatePackage(input);
+  if (!pack.ok) return pack;
+
   const supabase = await createClient();
   const supplier = await resolveSupplier(input.supplier);
   if (!supplier.ok) return supplier;
 
+  const packColumns = await packagingColumns(supabase, pack.value);
+  if (!packColumns.ok) return packColumns;
+
   const { error } = await supabase
     .from("products")
-    .insert({ ...checked.value, ...supplier.value });
+    .insert({ ...checked.value, ...supplier.value, ...packColumns.value });
   if (error) return translateWriteError(error.code, error.message);
 
   revalidatePath("/inventar");
@@ -131,6 +222,9 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ac
 
   const checked = validate(input);
   if (!checked.ok) return checked;
+
+  const pack = validatePackage(input);
+  if (!pack.ok) return pack;
 
   const supabase = await createClient();
 
@@ -168,9 +262,12 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ac
   const supplier = await resolveSupplier(input.supplier);
   if (!supplier.ok) return supplier;
 
+  const packColumns = await packagingColumns(supabase, pack.value);
+  if (!packColumns.ok) return packColumns;
+
   const { error } = await supabase
     .from("products")
-    .update({ ...checked.value, ...supplier.value })
+    .update({ ...checked.value, ...supplier.value, ...packColumns.value })
     .eq("id", id);
   if (error) return translateWriteError(error.code, error.message);
 

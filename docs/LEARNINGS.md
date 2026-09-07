@@ -4451,3 +4451,53 @@ boards there would stop the case tracking the digest the product actually render
 which the card's defaults forbid in terms. RULE: **run a new check against your own
 last week before you run it against anyone else's.** A rule worth writing is
 usually one you have already broken.
+
+### A merged migration applies itself, so the code that reads its columns races the apply
+**Tag:** data
+**ERROR:** EXT-10 adds `products.package_unit` and `products.package_factor` and
+the catalogue read has to name them. `listProducts` is called by the dashboard,
+by the inventory screen and by every form that picks a product, so a `select`
+naming a column PostgREST does not have yet answers 42703 and takes six screens
+down with it. Under CLAUDE.md 8.0 the migration lands on merge, in about two
+minutes, while the Vercel build that carries the reading code leaves the same
+push and finishes on its own schedule. The two are not ordered.
+**SOLUTION:** the columns are asked for behind `hasProductPackaging` in
+`lib/data/schema-capability.ts`, the third gate of that shape after EXT-09 and
+EXT-15, and the column list is built from its answer. The write path uses the
+same gate: with the columns absent and no packaging requested it writes exactly
+what it wrote yesterday, and with the columns absent and packaging requested it
+refuses in Romanian rather than saving the product and silently dropping the
+half the operator typed. The rule: a pull request that adds a column AND reads it
+in the same merge must gate the read, because "merged" and "applied" are two
+minutes apart and "deployed" is neither.
+
+### A nullable numeric column read through a zero-defaulting helper loses the difference between none and zero
+**Tag:** data
+**ERROR:** `lib/data/products.ts` has a `toNumber` helper that answers `0` for
+null and undefined, which is right for `threshold` and `unit_value_mdl` because
+both are `not null default 0`. `package_factor` is nullable and zero is the one
+value its constraint refuses, so passing it through the same helper would have
+turned "this product has no packaging" into "one package holds zero stock units",
+and every conversion computed from it into zero.
+**SOLUTION:** the null check happens before the conversion, and only a value that
+is genuinely present is converted. The rule: a helper that folds absent into a
+legal value may only be used on columns where that value is legal. Where the
+column's own constraint refuses the fold target, the fold is a defect.
+
+### A card cannot be pushed as in_flight beside its own code: check:board-edit demands a terminal status
+**Tag:** ci
+**ERROR:** EXT-10's first push carried the code with the card at `in_flight`, on
+the reasoning that `shipped` requires an acceptance that had not been observed
+yet and that claiming it early is the one failure section 6 has no recovery from.
+`quality` refused the whole pull request: `check:board-edit` resolves the card ids
+in the branch name and the commit subjects, and requires each one to reach a
+TERMINAL status at the head. `in_flight` is not terminal, so `satisfied 0 of 1
+card id(s)` and the job exited 1 before any other step could report.
+**SOLUTION:** the flip to `shipped` goes in the same pull request as the code, and
+the honesty it seemed to cost is recovered somewhere else: the acceptance commands
+RUN IN `quality`, so the green check on the head sha IS the acceptance passing,
+and the merge is the single moment at which both halves of section 5b are true.
+The rule: a code pull request is authored to land in one terminal state, and a
+board left mid-flight is a pull request the check reads as unfinished, not as
+cautious. If the acceptance genuinely cannot be run, the terminal status is
+`blocked`, not `in_flight`.
