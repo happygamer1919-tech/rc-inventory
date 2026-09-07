@@ -66,7 +66,7 @@
 //     TEST-CMP-04  est  0 /    0.00   emis 6 / 180.00   dif  +6 /  +180.00  NEPREVAZUT
 //
 //   subsolul:
-//     Total deviz  1310.00   (materialul la pret ofertat, ADAOSUL IN AFARA)
+//     Total materiale estimate  1310.00   (materialul la pret ofertat, ADAOSUL IN AFARA)
 //     Total emis    860.00
 //     Abatere      -450.00
 //     Abatere %     -34.35   ( -450 / 1310 * 100 = -34.351145..., la ban -34.35 )
@@ -75,14 +75,14 @@
 // iesiri. Fiecare rand are emis zero si abaterea este exact minus totalul.
 //
 //   TEST-CMP-01  cantitate 2  ofertat 100.00  =  200.00
-//     Total deviz  200.00   Total emis 0.00   Abatere -200.00   Abatere % -100.00
+//     Total materiale estimate  200.00   Total emis 0.00   Abatere -200.00   Abatere % -100.00
 //
 // PROIECTUL 3, "TEST Comparatie doar neprevazut". Deviz v1 acceptat FARA LINII,
 // si doua iesiri de produse neofertate.
 //
 //   TEST-CMP-05  cantitate 7  valoare azi 10.00  =   70.00
 //   TEST-CMP-06  cantitate 3  valoare azi 40.00  =  120.00
-//     Total deviz    0.00   Total emis 190.00   Abatere +190.00   Abatere %  -
+//     Total materiale estimate    0.00   Total emis 190.00   Abatere +190.00   Abatere %  -
 //
 // Nicio valoare secreta nu este scrisa in jurnal.
 
