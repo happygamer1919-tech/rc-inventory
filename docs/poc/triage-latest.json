@@ -1,27 +1,48 @@
 {
-  "run_id": "20260904-071258",
-  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
+  "run_id": "20260906-220005",
+  "report": "docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md",
   "rulings_written": [
-    "R-118",
-    "R-119",
-    "R-120",
-    "R-121"
+    "R-144",
+    "R-145",
+    "R-146",
+    "R-147",
+    "R-148"
   ],
   "cards_resequenced": [
     {
-      "card_id": "AUT-6",
-      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
+      "card_id": "EXT-22",
+      "change": "NEW JOB, AND IT IS THE POINT OF THE ONE THAT JUST FINISHED. Last night's work taught the system what a supplier's pallet or box is and how many sacks fit in one, but nothing yet uses that. This is the job that uses it: when a delivery document says two pallets, the stock goes up by the number of sacks in two pallets, and the screen shows both figures side by side before anyone presses confirm. Until this is done, the new fields sit there unread, and a document billed per pallet is still received as if it were two sacks. It needs nothing from the extraction supplier: the information it needs already arrives in what he sends us."
+    },
+    {
+      "card_id": "GATE-04",
+      "change": "NEW JOB, FOUND BY COUNTING RATHER THAN BY READING A STATUS. One of the nine readiness lines for this phase asks that the budget screen be shown working in four situations: under budget, exactly on budget, over budget, and no budget set. The screen was built and tested, and the tests cover the awkward no-budget case and nothing about the other three. Three short tests close it. It is the cheapest readiness work left on this phase and four previous reviews recorded the line as having no evidence at all, which was true when they wrote it and stopped being true days ago."
+    },
+    {
+      "card_id": "P2-13",
+      "change": "THE CREDENTIAL LOCKDOWN NOW WAITS ON TWO MORE THINGS, AND BOTH WERE ALREADY DECIDED AND NEVER WRITTEN DOWN. Two reviews on 2026-09-04 each said in writing that this job must wait for two others: the one that makes its own checklist name every temporary permission it revokes, and the open question about how database changes reach the live system. Neither instruction was ever carried onto the job itself, so it has been sitting there for three days looking simpler than it is. Both are now recorded. Nothing became newly blocked: this job was already waiting on the extraction supplier."
+    },
+    {
+      "card_id": "P3-37",
+      "change": "HALF OF THIS JOB IS ALREADY DONE BY SOMETHING ELSE, SO IT IS CUT IN HALF RATHER THAN LEFT DESCRIBING A WORLD THAT ENDED. It asked somebody to switch on one piece of database work and then confirm the live system reported it. That happened on its own, through the automatic mechanism we discovered last week, and it was independently confirmed yesterday. What remains, and is kept, is the safety check that notices when a piece of database work is left with nobody responsible for it. The old wording is quoted on the job rather than deleted."
+    },
+    {
+      "card_id": "GATE-02",
+      "change": "THE WORK THIS JOB ASKED FOR HAS NOW BEEN DONE, BY THE REVIEW ROLE, WHICH IS NOT ALLOWED TO MARK IT FINISHED. It asked for the phase readiness scorecard to be re-checked, because every one of its nine lines blamed the same cause and that cause stopped existing a week ago. All nine have been re-checked and rewritten. The job is left open on purpose so that whoever picks it up records it as finished, and it now points at exactly where each piece of the answer already is, so nobody redoes the review."
+    },
+    {
+      "card_id": "P3-35",
+      "change": "A WARNING ADDED BEFORE SOMEBODY FLIPS A READINESS LINE ON A MEANINGLESS NUMBER. This job takes a read-only look at the live system to close four readiness lines. One of them asks for the count of material releases that are not attached to a job to be zero. It will be zero, because there are no material releases on the live system at all. A zero that comes from having nothing is not the zero that line is asking for, and the job now says so and says to write down the number and leave the line open."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fifth time it has been raised.",
+      "recommendation": "Set both of them in the production environment, by name only, and reply that they are done. RECOMMENDED BECAUSE THEY COST NOTHING, TAKE TWO MINUTES, AND ARE ALREADY REQUIRED ITEMS ON THE CREDENTIAL LOCKDOWN CHECKLIST, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED MORE PLAINLY THAN LAST TIME BECAUSE IT IS THE REASON THIS KEEPS COMING BACK UNANSWERED: this does NOT make the readiness line pass, and doing it will not move the score. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the credential lockdown, and the lockdown is still waiting on the extraction supplier. What your two minutes buy is two of three blockers removed, permanently, and one fewer thing to do on lockdown day. IF UNANSWERED: nothing breaks and nothing gets worse. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
+      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, has been waiting on the extraction supplier since 2026-08-27. The advice given last time was to set a date and do it anyway. That advice is now withdrawn and replaced, because this review found two things it had to wait for that nobody had written down.",
+      "recommendation": "DO NOT SET A DATE YET. Do one thing first, and it is yours to do rather than the supplier's: answer the open question about how database changes reach the live system. RECOMMENDED BECAUSE THE LOCKDOWN REWRITES OUR OWN RULEBOOK TO SAY THAT NO OVERNIGHT SESSION CAN REACH THE DATABASE AT ALL, and that sentence would be false the day it is written. Database changes currently reach the live system automatically when work is published, with no session involved, which we discovered last week and proved twice. Locking down the credentials does not stop that, so the rulebook would be recording a protection we do not have. Answering the question costs you one decision and unblocks a job that is already written and waiting. THE SECOND THING is a small piece of work already on the list that makes the lockdown checklist name every temporary permission it revokes, rather than two of the three; it needs nobody but an overnight session. IF UNANSWERED: the lockdown keeps waiting, which is what it has been doing for eleven days, and the risk does not grow: the permissions it revokes are all held by sessions on this machine and none of them reaches real client data, because there is none yet. What does grow is the chance that somebody eventually runs the lockdown on the advice given last time and writes a false rule into the rulebook."
     }
   ]
 }
