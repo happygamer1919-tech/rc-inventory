@@ -195,9 +195,65 @@ followed.
 
 ---
 
-## 3. Board in order
+## 3. FIXTURE-01. A fixture built from live state must say what it depends on
 
-`FIXTURE-01` follows this card. Its outcome is at the end of this report.
+`npm run check:live-fixtures` enumerates every place under `scripts/poc/` or
+`tests/` that **copies a live artefact** out of this repository into a fixture,
+and requires each to be declared:
+
+- **NEUTRALISED**, with the marker string the file must still contain, so deleting
+  the neutralisation turns the check red rather than turning the assertion
+  silently accidental again.
+- **EXEMPT**, with the property named in words **and** the loud-failure string the
+  file prints when that property stops holding. An exemption with no loud failure
+  is the defect with a note attached.
+
+A declaration whose string is gone is refused. So is a declaration matching no
+copy, which is the stale-allow-list failure `check-action-pins` already refuses.
+
+### Three sites, all in `test-ask-digest.sh`, all declared
+
+| site | treatment | the property |
+|---|---|---|
+| `::WORK` | **neutralised** | case 6 sets every card blocked on ivan back to `todo` before asking the digest whether it should speak |
+| `::FIXTURE` | **exempt** | case 3 needs one card that is `todo` with `blocked_on: null`. Neutralising would mean **injecting** a card into a fixture the real `validate-board.mjs` then runs over. It already refuses loudly: `no todo card on the fixture board to expire against` |
+| `::DT_DIR` | **exempt** | case 10 needs the rendered digest over 4096 characters so its restored-cap mutant reaches the boundary. It asserts separately that the cap **fired**, so a board set that shrinks reports itself |
+
+### The clause that matters, proved against the real historical file
+
+> THAT CASE MUST FAIL BEFORE THE CHANGE against `test-ask-digest.sh` as it stood
+> on 2026-09-03, and PASS against it as it stands now.
+
+Read out of this repository's own history at **`4b2b853`**, the last commit to
+touch that file before the incident and before the neutralisation landed in
+`d3a8474` on 2026-09-04. A hand-written approximation would have proved that the
+approximation fails.
+
+```
+check-live-fixtures: A FIXTURE IS BUILT FROM LIVE STATE AND NOT DECLARED.
+  scripts/poc/test-ask-digest.sh::WORK is declared neutralised, but the file no
+  longer contains the neutralisation it names.
+EXIT=1
+```
+
+`npm run prove:live-fixtures`: **20 of 20**. Both steps run in `quality` and
+neither is path filtered.
+
+### The check found an instance in the work that built it, one day old
+
+DIG-01's case 10, written 2026-09-06, copies all three live boards and then
+asserts a mutant restoring the 4096 cap makes that cap **fire**, which depends on
+the digest exceeding 4096 characters, which depends partly on the live boards.
+Same class, same author, previous day. Exempt honestly, because that case already
+refuses loudly when the boundary is not reached.
+
+And the neutralisation that already existed was **unguarded**: deleting its twelve
+lines would have restored the accidental dependency exactly, with every assertion
+still green.
+
+**Nothing was frozen.** A checked-in board snapshot would keep passing against a
+board shape the product no longer has, which the card's defaults forbid in terms.
+Every fixture still copies the live file.
 
 ---
 
@@ -211,14 +267,31 @@ scratch directory is owner-confirmable under CLAUDE.md's hard rules.
 
 ---
 
+## One CI failure, and it was not the diff
+
+`quality` on #234 failed at **Apply every migration to a bare postgres**:
+
+```
+Unable to find image 'postgres:16' locally
+docker: Error response from daemon: received unexpected HTTP status: 502 Bad Gateway
+```
+
+Docker Hub, not this repository. The step never reached a migration. Re-run,
+green, merged. Recorded rather than passed over, because CI-01's learning is that
+the loud half of a flake is usually the smaller half: this is the same registry
+dependency that produced the rate-limit failure CI-01 pinned the action for, and
+pinning the action did not and could not pin the image pull.
+
 ## Learnings appended
 
-Three entries in `docs/LEARNINGS.md`, all three found by this card's own mutants
-rather than by reading:
+Five entries in `docs/LEARNINGS.md`. The first three were found by RULE-09's own
+mutants rather than by reading:
 
 1. A count assertion that counts a derived list asserts nothing.
 2. A mutant whose edit half applied reported itself applied.
 3. A range measured from a shared baseline reads as a false accusation.
+4. A neutralisation nobody guards is a comment.
+5. The check for a defect found an instance in the work that built it.
 
 ## Rulings in force this session
 

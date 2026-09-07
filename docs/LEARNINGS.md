@@ -4417,3 +4417,37 @@ is what a reader can act on and it does not overlap. RULE: **when several actors
 advance past one baseline, a range from that baseline attributes every actor's
 work to each of them.** State the bound each one sets, not the distance each one
 travelled.
+
+### A neutralisation nobody guards is a comment
+**Tag:** infra
+**ERROR:** `test-ask-digest.sh` case 6 was fixed on 2026-09-04 by clearing every
+card blocked on Ivan out of the copied board before asserting the digest is
+silent. That fix was correct and it was **unguarded**: deleting those twelve lines
+would have restored the accidental dependency exactly, with every assertion still
+green and nothing to notice it. The same is true of the two sites that legitimately
+DO depend on live state and fail loudly when it moves: delete the loud failure and
+the exemption becomes the defect with a note attached.
+**SOLUTION:** `npm run check:live-fixtures` enumerates every copy of a live
+artefact into a fixture under `scripts/poc/` and `tests/`, and requires each to be
+declared **neutralised** with the marker string the file must still contain, or
+**exempt** with the property named in words and the loud-failure string the file
+must still print. A declaration whose string is gone is refused, and so is a
+declaration matching no copy. RULE: **a fix to a test is itself untested until
+something fails when it is removed.** The fix and the guard on the fix are two
+pieces of work, and only the second one survives the next editor.
+
+### The check for a defect found an instance in the work that built it
+**Tag:** infra
+**ERROR:** DIG-01's case 10, written the day before, copies all three live boards
+into a fixture tree and then asserts that a mutant restoring the 4096 cap makes
+that cap FIRE. Whether it fires depends on the rendered digest exceeding 4096
+characters, and the digest's length comes partly from the live boards. That is the
+same accidental-property dependency the check was being built to find, one day
+old, in the author's own work.
+**SOLUTION:** it is EXEMPT rather than neutralised, and the exemption is honest
+because the case already asserts separately that the cap fired: a board set that
+shrinks below the boundary reports itself instead of passing quietly. Freezing the
+boards there would stop the case tracking the digest the product actually renders,
+which the card's defaults forbid in terms. RULE: **run a new check against your own
+last week before you run it against anyone else's.** A rule worth writing is
+usually one you have already broken.
