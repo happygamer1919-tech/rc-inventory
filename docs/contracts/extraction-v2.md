@@ -412,6 +412,81 @@ file so that they cannot drift apart, and `npm run prove:extraction-budget`
 asserts both, the boundary at exactly 20, and that the acknowledgement clock is
 still a different number.
 
+---
+
+## 4b. The state endpoint. THE AUTHORITATIVE ANSWER TO "WHAT DO YOU ACCEPT NOW". Card EXT-21, 2026-09-07.
+
+    GET https://<host>/api/state
+
+**No credential. No session. No header.** It is public and unauthenticated on
+purpose: what it returns is a controlled vocabulary and an enum, both of which
+already reach you through this document, and a key would put the answer back
+behind the human step this endpoint exists to remove.
+
+### The shape
+
+```json
+{
+  "categories": ["Cimenturi și mortare", "Zidărie și cărămidă", "..."],
+  "units": [{ "code": "pcs", "label": "buc" }, { "code": "t", "label": "t" }],
+  "ledger_version": "0033",
+  "at": "2026-09-07T18:40:00.000Z"
+}
+```
+
+| field | what it is |
+|---|---|
+| `categories` | the **active** category names, in display order. This is the list section 4.4's `category` field is validated against, read live. |
+| `units` | the **active** unit codes with their Romanian labels, in display order. **You emit the `code`.** The label is ours and is presentational. |
+| `ledger_version` | the highest APPLIED migration version, read from the database and never from our repository. It answers *is the schema you are talking about the schema I am looking at*. `null` reads as **I do not know**, never as *none*. |
+| `at` | when this answer was produced. |
+
+**`503` with `{"error": "state_unavailable"}` when the endpoint cannot read.** It
+never answers `200` with empty lists, because a poller cannot tell *we accept
+nothing* from *I could not look*, and the first reading is the one that makes you
+hold back values that are already safe.
+
+**`cache-control: no-store`.** A cached answer to *what do you accept now* is the
+whole failure this endpoint removes, served with a success code.
+
+### It SUPERSEDES every hand-written status document
+
+**This endpoint wins.** Where it and any document disagree, including
+`ANDRE-STATUS.md` and including the snapshot in `docs/contracts/categories.json`,
+the endpoint is right and the document is commentary.
+
+**Why this section exists, stated rather than left as a preference.** On
+2026-09-03 our own migration register listed `0028` to `0031` as pending while
+production had already applied all four. The status document written for you was
+composed from that register, and it said the nineteenth category and the units
+`t` and `l` *"will land when the pending migration batch is applied to
+production, which is a separate owner-run step"*. That was false at the moment it
+was written, and it cost a day of holding back three values that were already
+safe to send.
+
+**Nothing went red.** No check failed, and both sides behaved correctly against
+the information they had. A rule saying *keep the status document accurate* would
+have been obeyed by everyone involved and would have changed nothing, because the
+person writing it believed it was accurate. The only thing that removes this
+class of failure is your being able to **ask production** rather than read what
+we wrote about it.
+
+### What it deliberately does not carry
+
+**No client data of any kind**, and that is enforced rather than reviewed:
+`npm run check:state-endpoint` refuses any query in the route that names a table
+other than `categories` and `units`, refuses a lost `active` filter, and refuses
+a cacheable or statically rendered response. `npm run prove:state-endpoint`
+shows every one of those refusals firing.
+
+**Not the error-code set.** Section 5.2a already requires a new code to be
+announced before it can be emitted or received, in both directions, which is a
+stronger guarantee than polling. Two answers to one question is worse than one.
+
+**Not a webhook.** You poll. A push needs a URL from you, a retry policy and a
+failure mode, and none of that is needed to answer a question whose answer
+changes about once a month.
+
 ## 5. Status and error codes
 
 ### 5.1 `status`
