@@ -4501,3 +4501,38 @@ The rule: a code pull request is authored to land in one terminal state, and a
 board left mid-flight is a pull request the check reads as unfinished, not as
 cautious. If the acceptance genuinely cannot be run, the terminal status is
 `blocked`, not `in_flight`.
+
+### A card whose acceptance names a column that no migration ever created
+**Tag:** data
+**ERROR:** EXT-11's acceptance reads "adds the series to the supplier document
+reference wherever order_ref is stored, on orders and on extraction drafts", and
+its notes say P3-31 already split order_ref into theirs and ours. Neither is true
+of the schema. `order_ref` exists in no migration: `extraction_drafts` has no
+such column, `inbound_orders.reference` is OUR reference under its own unique
+constraint, and contract section 4.1a states in terms that `order_ref` arrives
+from Andre, is accepted and is IGNORED. P3-31 is still `todo` and its own
+acceptance line ("a nullable client_ref column alongside the EXISTING order_ref")
+assumes the same column. Two cards each built on a field the other was assumed to
+have landed.
+**SOLUTION:** The card that needs the column creates it, and says so in its notes
+rather than in a new card. EXT-11 lands `order_ref` and `order_ref_series`
+together because a series with nothing to qualify is not an identifier. The rule
+that prevents the next instance: a card whose acceptance names an existing column
+names the migration that created it. `grep -rn "<column>" supabase/migrations/`
+is one command and it is the difference between a card that can be worked and one
+that discovers its own premise is false halfway through.
+
+### The before-and-after proof does not fit in one harness window
+**Tag:** ci
+**ERROR:** EXT-11 requires the new e2e case "FAILING BEFORE THE CHANGE AND THE PR
+SHOWING BOTH RESULTS". `quality` takes about 22 minutes and
+`.github/workflows/quality.yml` sets `concurrency.cancel-in-progress: true` on
+`quality-${{ github.ref }}`, so a second push inside that window CANCELS the
+first run. A harness run capped at 45 minutes cannot produce a completed red run
+and a completed green run on the same branch: the red is cancelled before it
+concludes, and a cancelled run proves nothing.
+**SOLUTION:** Split the two results across two runs. The first push carries the
+tests alone and is left to conclude red. The next run pushes the implementation
+onto the same pull request and records the green. The rule: when a card's
+acceptance demands both a failing and a passing run on one branch, budget two CI
+cycles, not two commits.
