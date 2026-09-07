@@ -587,6 +587,29 @@ jobs:
       - name: Prove the live-fixture check refuses  # FIXTURE-01-LIVE-FIXTURES-PROOF
         run: npm run prove:live-fixtures
 
+      # GATE-03. A GRANT THAT NAMES ITS REVOKING CARD MUST BE NAMED BACK.
+      #
+      # R-072 wrote P2-13's capability clause. R-082 created a NEW grant of
+      # exactly the class that clause exists to revoke, AFTER it was written, so
+      # the clause could not have known about it, and section 8.7 covered it only
+      # by the blanket phrase "reverting section 8". A checklist that names two
+      # grants by id and leaves the third to a blanket phrase will revoke two.
+      #
+      # The edge was never missing in both directions: R-082 ends "REVOKED BY
+      # P2-13". The CHECKLIST did not point back, and that asymmetry is what this
+      # reads, which is why it never has to guess whether a ruling is a grant.
+      #
+      # NOT PATH FILTERED. It reads decisions/inbox.md and the three boards, needs
+      # no container and no network, and every pull request that adds a ruling can
+      # add the next unnamed grant.
+      - name: Refuse a grant no revocation checklist names  # GATE-03-GRANT-REVOCATION
+        run: npm run check:grant-revocation
+
+      # The same file proved to REFUSE, on the defect reconstructed as a fixture.
+      # NOT PATH FILTERED, for the same reason.
+      - name: Prove the grant-revocation check refuses  # GATE-03-GRANT-REVOCATION-PROOF
+        run: npm run prove:grant-revocation
+
       # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
       #
       # It reads this workflow rather than a list of what is in it, so the NEXT
