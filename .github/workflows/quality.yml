@@ -557,6 +557,36 @@ jobs:
       - name: Prove two claims from one base merge  # CLAIM-01-CLAIM-MERGE-PROOF
         run: npm run prove:claim-merge
 
+      # FIXTURE-01. A TEST WHOSE FIXTURE IS LIVE STATE PASSES ON AN ACCIDENTAL
+      # PROPERTY OF THAT STATE.
+      #
+      # test-ask-digest.sh case 6 asserted the digest is silent with nothing
+      # outstanding, and built its fixture by copying the LIVE phase 2 board. It
+      # held only while the board happened to contain no card blocked on Ivan,
+      # which was zero cards and nothing else. On 2026-09-03 MIG-01 was authored
+      # blocked on Ivan, exactly as CLAUDE.md section 4 requires, and three
+      # assertions turned red. The card was right, the digest was right, the
+      # fixture was wrong, and a gate that goes red when the doctrine is obeyed
+      # teaches terminals not to obey it.
+      #
+      # Every copy of a live artefact into a fixture under scripts/poc/ or tests/
+      # must be NEUTRALISED, or EXEMPT with the property it depends on written
+      # out and the loud failure it prints when that property fails. A stale
+      # declaration is refused too.
+      #
+      # NOT PATH FILTERED. It reads text files and needs no container and no
+      # network, and every pull request can add the next undeclared copy.
+      - name: Refuse a fixture built from live state  # FIXTURE-01-LIVE-FIXTURES
+        run: npm run check:live-fixtures
+
+      # The same file proved to REFUSE, including against scripts/poc/test-ask-digest.sh
+      # as it ACTUALLY STOOD on 2026-09-03, read out of this repository's history
+      # at 4b2b853 rather than approximated.
+      #
+      # NOT PATH FILTERED, for the same reason.
+      - name: Prove the live-fixture check refuses  # FIXTURE-01-LIVE-FIXTURES-PROOF
+        run: npm run prove:live-fixtures
+
       # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
       #
       # It reads this workflow rather than a list of what is in it, so the NEXT
