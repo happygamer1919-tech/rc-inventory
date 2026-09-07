@@ -4583,3 +4583,30 @@ supplier label could not be written loses the delivery to save the label. The
 rule: adding a column does not require changing the function that inserts the
 row, and the write with the smaller blast radius wins when both produce the same
 stored state.
+
+### A "must fail before the change" acceptance cannot be honoured by a tests-only push
+**Tag:** ci
+**ERROR:** EXT-11's acceptance names a clause that is a fact about history rather
+than about the tree: "THAT CASE FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH
+RESULTS". Two runs tried to satisfy it and neither produced a before-result. Run
+20260907-010004 pushed the two new extraction.spec cases alone, with the card
+honestly left at `todo`, and the quality job stopped at "Refuse a code pull
+request whose board edit is missing"; every step after it, the whole end to end
+suite included, reported `skipped`. Run 20260907-040001 then pushed the
+implementation, wrote `shipped` on the card, and cited that same failed run in the
+evidence field as the RED. It was not a RED for the cases. Cases 25 and 26 had
+never been executed in either state, so the checks the card adds had never been
+seen to fail, which the phase 3 board doctrine refuses in terms. The card was one
+merge away from shipping on a suite that never ran.
+**SOLUTION:** `scripts/poc-free/check-board-edit.mjs` classifies `tests/` as CODE,
+so ANY push carrying a test must have its card at a finished status or the job is
+refused before the end to end step is reached. That is not a bug in either rule;
+it means the intermediate push in a before-and-after sequence has to carry the
+card at `shipped` while the code is still absent. That is legitimate on an
+UNMERGED branch, which proposes a board state rather than asserting one about
+main, and it is only legitimate when the evidence field and the pull request body
+both say at the top that the card is not finished. The rule that prevents the next
+instance: **a cited RED is not evidence until its step list has been read.** A run
+concluding `failure` proves only that something failed. Before naming a run as the
+before-result, run `gh run view <id> --json jobs` and confirm the step that was
+supposed to fail has conclusion `failure` and not `skipped`.

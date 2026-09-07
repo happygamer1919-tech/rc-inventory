@@ -30,7 +30,6 @@ import { supabaseUrl } from "@/lib/supabase/env";
 import {
   hasExtractionDocumentSource,
   hasExtractionPageCount,
-  hasSupplierDocumentRef,
   hasReconciliationFailedCode,
 } from "@/lib/data/schema-capability";
 import { headerConsistency, reconcile } from "@/lib/data/reconciliation";
@@ -259,9 +258,6 @@ export async function POST(request: Request) {
   // priveste un payload care NU A DECLARAT sursa pe o baza care POATE sa o
   // pastreze, ceea ce este alta intrebare.
   const canStoreSource = await hasExtractionDocumentSource(supabase);
-  // EXT-11. Poarta proprie, pe aceeasi legatura pe care se scrie. Vezi antetul
-  // lui hasSupplierDocumentRef pentru de ce nu este impartita cu cea de mai sus.
-  const canStoreSupplierRef = await hasSupplierDocumentRef(supabase);
 
   // --- EXT-16. RECONCILIEREA, PE PARTEA NOASTRA ---------------------------
   //
@@ -452,27 +448,6 @@ export async function POST(request: Request) {
   // impreuna si ar ascunde exact cazul in care una este aplicata si cealalta nu.
   if (canStoreSource) {
     draftUpdate.document_source = documentSource;
-  }
-
-  // EXT-11. REFERINTA DOCUMENTULUI FURNIZORULUI: SERIA SI NUMARUL, SEPARAT.
-  //
-  // Pana la 0036 amandoua soseau, erau acceptate si erau ARUNCATE: sectiunea
-  // 4.1a din contract spunea asta in termeni. Un identificator pe care il
-  // aruncam nu poate ciocni, si de aceea defectul nu se vedea nicaieri.
-  //
-  // NIMIC NU SE LIPESTE. `TG` si `0009312` intra in doua coloane, fiindca doua
-  // fapte lipite la scriere nu se mai pot dezlipi la citire.
-  //
-  // ABSENTA ORICAREIA NU ESTE O EROARE, si nu se raspunde 400 pentru ea. Nu
-  // orice document poarta o serie, iar partea lui Andre si a noastra nu se
-  // desfasoara in aceeasi secunda: un contract care invalideaza payload-ul
-  // versiunii precedente este o pana programata pentru ziua in care el livreaza
-  // primul. `str()` face un sir gol sa fie null, deci "trimis gol" si "netrimis"
-  // ajung amandoua NULL si nu se deosebesc, ceea ce este exact ce vrem: nu
-  // exista document a carui serie este sirul gol.
-  if (canStoreSupplierRef) {
-    draftUpdate.order_ref = str(body.order_ref);
-    draftUpdate.order_ref_series = str(body.order_ref_series);
   }
 
   const { error: updateError } = await supabase

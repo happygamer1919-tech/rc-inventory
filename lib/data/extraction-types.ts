@@ -169,15 +169,6 @@ export type ExtractionDraft = {
   currencyRaw: string | null;
   /** EXT-15. null inseamna "extractorul nu a spus", citit ca `scan`. */
   documentSource: DocumentSource | null;
-  /** EXT-11. NUMARUL documentului furnizorului. A noastra este referinta
-   *  comenzii si este alt lucru. null inseamna ca nu s-a raportat unul, sau ca
-   *  randul este de dinaintea migratiei 0036. */
-  orderRef: string | null;
-  /** EXT-11. SERIA documentului furnizorului: codul de litere tiparit inaintea
-   *  numarului. In facturarea moldoveneasca face parte din identificator, fiindca
-   *  doi furnizori pot emite amandoi 0009312. null este legal: nu orice document
-   *  poarta o serie. */
-  orderRefSeries: string | null;
   firedAt: string | null;
   callbackAt: string | null;
   lines: ExtractionLine[];

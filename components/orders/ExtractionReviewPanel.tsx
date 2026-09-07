@@ -82,14 +82,6 @@ function ReviewForm({
   const [supplierName, setSupplierName] = React.useState(draft.supplierName ?? "");
   const [currency, setCurrency] = React.useState(draft.currency ?? "MDL");
   const [orderedAt, setOrderedAt] = React.useState(draft.orderDate ?? "");
-  // EXT-11. Seria si numarul documentului furnizorului, in doua campuri.
-  //
-  // PE ECRAN SI NU NUMAI IN BAZA. Seria este partea identificatorului pe care
-  // operatorul o vede tiparita pe hartie inaintea numarului. Daca ea ajunge in
-  // baza si nu pe ecran, singurul om care poate corecta o citire gresita nu stie
-  // ca exista ce sa corecteze.
-  const [orderRef, setOrderRef] = React.useState(draft.orderRef ?? "");
-  const [orderRefSeries, setOrderRefSeries] = React.useState(draft.orderRefSeries ?? "");
   const [expectedAt, setExpectedAt] = React.useState("");
   const [lines, setLines] = React.useState<ReviewedLine[]>(() =>
     draft.lines.map((l) => ({
@@ -122,8 +114,6 @@ function ReviewForm({
       currency,
       orderedAt,
       expectedAt,
-      orderRef,
-      orderRefSeries,
       lines,
     });
     setPending(false);
@@ -249,30 +239,6 @@ function ReviewForm({
             data-testid="review-expected-at"
             value={expectedAt}
             onChange={(e) => setExpectedAt(e.target.value)}
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
-          />
-        </label>
-        {/* EXT-11. DOUA CAMPURI SI NU UNUL. `TG 0009312` scris intr-un singur
-            camp este doua fapte lipite la tastare, si nimic nu le mai poate
-            dezlipi: un ecran care le vrea impreuna le poate alatura, unul care
-            cauta dupa numar nu poate desface ce a fost concatenat. */}
-        <label className="text-[12.5px] text-rc-muted">
-          Seria documentului
-          <input
-            data-testid="review-order-ref-series"
-            value={orderRefSeries}
-            onChange={(e) => setOrderRefSeries(e.target.value)}
-            placeholder="TG"
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
-          />
-        </label>
-        <label className="text-[12.5px] text-rc-muted">
-          Numărul documentului
-          <input
-            data-testid="review-order-ref"
-            value={orderRef}
-            onChange={(e) => setOrderRef(e.target.value)}
-            placeholder="0009312"
             className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
           />
         </label>
