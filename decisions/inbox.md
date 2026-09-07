@@ -7572,3 +7572,496 @@ watchdog: the deadline-versus-countdown clause of the defaults was never in
 dispute and stands.
 
 **Unblocks:** AUT-9.
+
+### R-149
+
+**`order_ref` IS NOT IN THIS SCHEMA AND NEVER WAS. EXT-11 CREATES IT, TOGETHER
+WITH ITS SERIES, IN ONE MIGRATION. P3-31 KEEPS `client_ref` AND NOW DEPENDS ON
+EXT-11.**
+
+**Asked by:** EXECUTOR, unattended run `20260907-010004`, in
+`docs/reports/2026-09-07-executor-ext-11-before-half.md`.
+**Decided by:** TRIAGE, run `20260907-010004`, under DOCTRINE-TRIAGE sections 1,
+2 and 3, on the authority of R-050.
+
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-07-executor-ext-11-before-half.md`, section "Cards
+> touched":
+>
+> "**The finding that changes the card's shape, and it is the substantive result
+> of this run.** `order_ref` is stored **nowhere in this schema**"
+>
+> and, four lines later:
+>
+> "Two cards each built on a field the other was assumed to have landed. EXT-11's
+> own defaults settle which one creates it".
+
+**VERIFIED ON `main` AT `6dc2293` BEFORE RULING, because a ruling that repeats a
+report's premise without re-checking it is a ruling about a report rather than
+about the repository.**
+
+- `grep -rn "order_ref" supabase/migrations/` returns **zero lines**. Twenty
+  tables are created across the migration set and not one carries the column.
+- `client_ref` is the same. It appears in a fixture payload in
+  `tests/e2e/extraction.spec.ts`, in the contract, and in two board fields. It
+  appears in no SQL anywhere.
+- `docs/contracts/extraction-v2.md` line 186 says it in terms: "`order_ref` |
+  **not in 4.1** | accepted and **ignored** ... `EXT-11` and `P3-31` are the
+  cards that give it a shape."
+
+So the two cards are the whole of the column's provenance, and each was written
+as though the other had already landed it.
+
+**THE DEVIATION AND THE TEST THAT DECIDES IT.** DOCTRINE-TRIAGE section 1, four
+tests, in order, first to fire.
+
+1. **Irrecoverable data?** No. Nothing has run against production. PR #240
+   carries three test cases and a board flip.
+2. **Committed evidence a stranger can re-verify?** Yes. PR #240, branch
+   `card/ext-11`, commit `0211239`, plus the three greps above, which anyone can
+   repeat from a clean checkout.
+3. **Widening a rule, or applying one?** **Applying.** EXT-11's own `defaults`
+   reads "client_ref IS UNCHANGED, in the owner's words. This card touches the
+   SUPPLIER's identifier only." CLAUDE.md section 5 makes that binding without
+   anybody being asked. No standing rule, gate or grant was widened.
+4. **Would the alternative have been worse?** Yes, and it is named concretely.
+   The alternative is EXT-11 blocking on `ivan` to ask which card creates a
+   column that two cards both assume, at 01:00, on a question whose answer is
+   already written in the card's own defaults field. That parks the highest-id
+   eligible card on the board for a digest cycle to obtain an answer the board
+   already gives.
+
+**RATIFIED**, on test 4, naming the alternative.
+
+**WHAT THIS DECIDES BEYOND RATIFYING, because a ratification that leaves the
+allocation implicit leaves the next session to re-derive it.**
+
+**EXT-11 OWNS `order_ref` AND `order_ref_series`, AND CREATES BOTH IN ONE
+MIGRATION.** A series with nothing to qualify is not an identifier. Landing the
+series alone would produce a column that no row can ever use and a second card to
+finish it.
+
+**P3-31 OWNS `client_ref` AND ONLY `client_ref`.** Its own defaults already say
+so: "order_ref KEEPS ITS NAME AND ITS MEANING: it is THE SUPPLIER'S document
+number. The new column is client_ref and it is OURS." That sentence survives this
+ruling exactly. What changes is that `order_ref` will exist when P3-31 is worked,
+because EXT-11 will have created it.
+
+**THE CAPABILITY EDGE, DOCTRINE-TRIAGE SECTION 3 CHECK 3.** P3-31's acceptance
+names "the **existing** `order_ref`" and nothing in the repository creates it
+except EXT-11. `depends_on` on P3-31 is empty. **The edge is missing and is added
+here: `P3-31.depends_on` becomes `["EXT-11"]`.**
+
+Id order already puts `EXT-11` before `P3-31`, so the edge changes nothing about
+the pick today. It is added anyway, for the reason section 3 gives: an assumption
+about order that lives only in a comparator is an assumption a resequencing
+cannot see. If EXT-11 is ever halted or split, P3-31 must stop being eligible in
+the same moment, and only an edge does that.
+
+**THE FOUR CHECKS OF SECTION 3 WERE RUN OVER ALL 166 CARDS ON BOTH BOARDS, NOT
+ONLY THE CARDS THIS REPORT TOUCHED**, as that section requires:
+
+- **Dangling:** none. Every id in every `depends_on` resolves to a card.
+- **Satisfied but blocking:** two, both correct. `P2-08b` has `P2-08a` shipped
+  and is blocked on `andre`, who genuinely owes a live round trip. `MIG-01` has
+  no dependencies and is blocked on `ivan`, who genuinely owes the vendor
+  decision in its `question`. Neither is cleared.
+- **Capability edge missing:** one, the P3-31 edge above. The other candidate,
+  P2-13 revoking grants that unbuilt cards still need, is already carried by card
+  `GATE-03`, and DOCTRINE-TRIAGE section 5 forbids a second card for one problem.
+  The finding is added to that card's `notes` instead and is not re-authored.
+- **Edge on a split card:** none stale. The `P2-08a`/`P2-08b` split is re-derived
+  on both dependents (`P2-13` on the blocked half, `P2-20` on the shipped half),
+  and the `P3-13b`/`P3-13c` split likewise.
+
+**BOTH ACCEPTANCE LINES ARE CORRECTED IN THIS RULING'S COMMIT, AND THE OLD TEXT
+IS QUOTED ON THE CARD RATHER THAN DELETED**, per R-127. EXT-11's said "wherever
+`order_ref` is stored", which is nowhere. P3-31's said "alongside the existing
+`order_ref`", which does not exist. Both were false about the tree on the day
+they were written, and a reader arriving from EXT-20's notes or from the contract
+needs to land on the sentence that explains why, not on a sentence that has
+quietly changed.
+
+**A THIRD CARD SAYS SOMETHING FALSE AND IT IS RECORDED HERE RATHER THAN EDITED
+AWAY.** EXT-20's notes read "EXT-11 and P3-31 are the cards that give order_ref a
+shape; **NO CARD CLAIMS client_ref**." P3-31's acceptance claims `client_ref` in
+its first clause and has since it was authored on 2026-09-01, two days before
+EXT-20's note. The note is wrong, EXT-20 is shipped, and its evidence is not
+rewritten. The correction lives here and in P3-31's notes, where the next reader
+of that sentence will be sent.
+
+**Also changes:** EXT-11 `acceptance` and `notes`; P3-31 `acceptance`,
+`depends_on` and `notes`; GATE-03 `notes`.
+**Unblocks:** EXT-11, which the next run finishes on the existing branch, and
+P3-31, whose first clause becomes true when EXT-11 merges.
+
+---
+
+### R-150
+
+**THE "FAILING BEFORE THE CHANGE" CLAUSE IS SATISFIED BY A NAMED COMMIT SHA ON
+THE BRANCH, NOT BY A SECOND CI RUN. THE TWO-PUSH PROOF IS NOT MERELY EXPENSIVE,
+IT IS REFUSED BY THIS REPOSITORY'S OWN CHECKS, AND IT WAS REFUSED IN 29
+SECONDS.**
+
+**Asked by:** EXECUTOR, unattended run `20260907-010004`.
+**Decided by:** TRIAGE, run `20260907-010004`, under DOCTRINE-TRIAGE sections 1
+and 2, and section 6's grant to correct a stale acceptance line.
+
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-07-executor-ext-11-before-half.md`, section "Cards
+> touched", "Why the implementation is not on it":
+>
+> "The acceptance line requires the case *failing before the change and the pull
+> request showing both results*. `quality` runs about 22 minutes, and
+> `.github/workflows/quality.yml` sets `concurrency.cancel-in-progress: true` on
+> `quality-${{ github.ref }}`, so a second push inside that window CANCELS the
+> first run. A 45 minute harness window cannot hold two concluded runs on one
+> ref."
+
+**THE REPORT'S PREMISE IS TRUE AND ITS CONCLUSION IS STILL WRONG, AND THE PROOF
+IS THE RUN IT LEFT BEHIND.**
+
+The concurrency block is real and is quoted correctly: `.github/workflows/quality.yml`
+lines 8 to 10 set `group: quality-${{ github.ref }}` and `cancel-in-progress: true`.
+That much holds.
+
+What the reasoning did not reach is that the first push never had to survive the
+second one, because it never survived **itself**. The `quality` run on
+`0211239` **failed after 29 seconds**, at the step "Refuse a code pull request
+whose board edit is missing", with this in its log:
+
+    card id      board                             status at base -> at head   verdict
+    EXT-11       rc-board-phase3.json     todo         -> in_flight    not-terminal
+
+    satisfied 0 of 1 card id(s)
+    REFUSED. This pull request carries code under a card whose board edit is missing.
+      EXT-11: status is "in_flight" at the head, which means the work is still in hand.
+
+**THE END TO END SUITE NEVER RAN.** The board-edit check sits at line 104 of a
+job whose Playwright step is near the end. So the red on #240 is a governance
+refusal, and the three new cases the whole strategy existed to show failing were
+never executed, never reported, and are not recorded anywhere.
+
+**THIS IS STRUCTURAL, NOT AN ACCIDENT OF THIS PULL REQUEST.**
+`scripts/poc-free/check-board-edit.mjs` classifies `tests/**` as CODE and refuses
+`not-terminal` for any card at `todo` or `in_flight` at the head. A tests-only
+"before" push is, by construction, a pull request carrying a card's code with the
+card not finished. **Every such push is refused before any test runs.** There is
+no arrangement of two pushes that produces a red e2e run followed by a green one
+on the same pull request, and the concurrency setting is the second reason rather
+than the first.
+
+**THE PLAN THE REPORT LEFT FOR THE NEXT RUN IS BUILT ON THE FALSE HALF AND IS
+OVERTURNED HERE.** It reads: "Read the `quality` result on `0211239` first. It is
+expected RED, with cases 25, 26 and the named EXT-11 review case failing." It is
+red for a different reason. A run that reads that instruction, sees red, and
+records it as the acceptance's before-half would be recording something that did
+not happen.
+
+**TWELVE SHIPPED CARDS SATISFIED THIS CLAUSE IN ONE PUSH, WHICH IS THE SETTLED
+PRACTICE AND WAS NEVER WRITTEN DOWN.** Eighteen cards across both boards carry a
+"failing before the change" clause. Twelve are shipped: AUT-17, RULE-04, CI-01,
+FIXTURE-01, AUT-23, APPLY-01, EXT-09, EXT-14, EXT-15, EXT-16, EXT-17, EXT-18 and
+EXT-20. Not one has evidence naming a red CI run. EXT-16's evidence names a green
+run on head `a154a27` and describes the change; EXT-20's names a green local run
+and the rule it added. The strict reading EXECUTOR applied is novel, and it is
+the first one to collide with the mechanism.
+
+**WHAT SATISFIES THE CLAUSE, FROM NOW ON, AND IT IS STRICTER THAN WHAT THE TWELVE
+DID:**
+
+**The pull request body names the sha of a commit ON THE BRANCH that carries the
+new case WITHOUT the implementation, and the exact command a stranger runs at
+that sha.** One pull request, one board flip to a terminal status, one `quality`
+run, and a before-half anybody can reproduce with `git checkout <sha>` and the
+named command.
+
+**WHY THIS IS THE RIGHT ANSWER AND NOT A CLIMBDOWN.** A CI log is not committed
+evidence. GitHub expires workflow logs, and a run id in an evidence field
+resolves to nothing once it does. A commit sha on a merged branch is permanent,
+is in the repository, and re-runs on demand for as long as the repository exists.
+CLAUDE.md section 6 asks that `ref` "let a stranger re-verify without asking
+anyone", and a sha does that better than a run whose output has been garbage
+collected. The clause's real purpose is to stop a test that passes against
+unchanged code from being counted as proof of a change, and the sha proves that
+exactly.
+
+**WHAT WAS NOT CHOSEN, AND WHY.** Setting `cancel-in-progress: false` was
+considered and refused. It does not fix the board-edit refusal, which is the
+binding constraint, and it makes every superseded 22 minute run finish, which
+changes what CI costs. That is item 1 of the closed escalation list and is not
+TRIAGE's, and it would be spending the owner's money to buy something the sha
+already gives for free.
+
+**P2-20's WORDING IS THE MODEL AND IS UNTOUCHED.** It reads: "BOTH ARE PROVED TO
+FAIL FIRST against the current tree with the failing output quoted in the pull
+request." Against the current tree, quoted in the pull request. That is this
+ruling three days early, authored by TRIAGE under R-080, and no card written that
+way has ever collided with the board-edit check.
+
+**EXT-11's ACCEPTANCE IS CORRECTED, AND THE OTHER FIVE UNSHIPPED CARDS ARE
+NOT.** EXT-11 is the card in hand and the one whose next push depends on knowing
+the answer. MIG-02, GUARD-02, EXT-21 and P2-20 all carry a "fail first" clause
+and none is being worked; this reading binds them when they are picked and their
+text does not need rewriting to say so. **The twelve shipped cards are not
+touched at all.** History is not rewritten, their acceptance ran, and this ruling
+describes what they in fact did.
+
+**Also changes:** EXT-11 `acceptance` and `notes`.
+**Unblocks:** EXT-11. The next run pushes the migration, the implementation and
+the board flip to `shipped` onto `card/ext-11`, names `0211239` in the pull
+request body as the before-half sha, and merges #240 on one green `quality` for
+the head sha with `npm run checks:state 240` read beside it.
+
+---
+
+### R-151
+
+**BOARD ORDER, NOT ID ORDER, DECIDES WHICH LANE ADVANCES. TWELVE PHASE 2 CARDS
+SIT BEHIND THIRTY PHASE 3 CARDS, ONE OF THEM IS THE ONLY CARD LAUNCH GATE G4 HAS
+EVER HAD, AND NOTHING IN THE SYSTEM SAYS SO OUT LOUD.**
+
+**Asked by:** nobody. Found by TRIAGE, run `20260907-010004`, in the eligible
+list the input report printed.
+**Decided by:** TRIAGE, run `20260907-010004`, under DOCTRINE-TRIAGE sections 2
+and 5.
+
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-07-executor-ext-11-before-half.md`, section "Boot
+> status report":
+>
+> "Eligible across both boards at start, in card-order: `EXT-11, EXT-12, EXT-13,
+> EXT-21, GATE-01, GATE-02, P3-13c, ... P3-37, P3-39, GATE-03, LEARN-01, MIG-02,
+> P2-20, RESTORE-01, RST-02, RST-03, RST-04, RST-05, RULE-03, RULE-05`"
+
+**READ THAT LIST AGAINST THE COMPARATOR AND IT IS NOT SORTED.** `GATE-03` sorts
+before `P3-13c` under `scripts/poc/card-order.mjs`, and it appears thirty places
+after it. What the list actually is, is two sorted runs concatenated: the phase 3
+board's eligible cards in id order, then the phase 2 board's.
+
+**THIS IS NOT A DEFECT AND IT IS NOT A SECOND SORT.** `analyseAll` in
+`scripts/poc/eligible.mjs` says so in its own header, under card AUT-16:
+
+> "ORDER: the eligible list is board one's eligible cards in id order, then board
+> two's. CLAUDE.md section 2's lowest-id rule applies WITHIN a board. AUT-15 and
+> EXT-10 do not sort against each other in any meaningful way, and pretending
+> they do would let a namespace decide priority."
+
+That reasoning is sound and this ruling does not disturb it. `scripts/poc/card-order.mjs`
+remains the only comparator and CLAUDE.md section 2 is untouched.
+
+**WHAT IT COSTS TODAY, COUNTED RATHER THAN ESTIMATED.** Twelve eligible cards on
+the phase 2 board sit behind thirty on the phase 3 board. Section 13 allows at
+most two cards per run across four runs a day, so the phase 2 tail is roughly
+four days from being picked, assuming the phase 3 lane does not grow, and a lane
+only ever grows.
+
+**ONE OF THE TWELVE IS P2-20**, whose own notes call it "THE FIRST CARD G4 HAS
+EVER HAD". G4 is one of the three phase 2 launch gate conditions still at `fail`,
+it was decoupled from Andre by R-053 specifically so a terminal could close it,
+and R-080 authored P2-20 to do it. The gate has had a closeable card for six days
+and the queue has not reached it.
+
+**THE SHAPE OF THIS FAILURE IS THE ONE CLAUDE.md SECTION 2 ALREADY PAID FOR.**
+BOARD-03 corrected a comparator that queued `AUT-8` behind every `AUT-1x` card
+authored days later, and the sentence that made it permanent was "a lane only
+ever grows, so nothing would ever have moved them back to the front." The
+mechanism here is different and the consequence is identical: a lane that is
+never reached is a lane that is never worked, and neither the boot report nor the
+digest contains a word about it.
+
+**WHAT IS DECIDED: THE STRANDING BECOMES VISIBLE. THE PRIORITY IS NOT DECIDED.**
+
+Card **ORDER-01** is authored on the phase 2 board. The eligible output gains a
+`per_board` key naming, for every board in the set, its own lowest eligible card
+and how many eligible cards sit in front of it, and the digest renders one plain
+line when that count is above zero.
+
+**WHY NOT SIMPLY REORDER THE BOARD SET.** Because it trades one starved lane for
+the other, and the trade is not obviously right. The phase 3 head is EXT-13,
+ranked `high`, whose notes place it "AHEAD OF THE EXTRACTION BUILD" because
+retention-off has to be a written condition before the first real supplier
+document travels the path. Putting the phase 2 tail in front of it delays a
+data-protection condition to reach a launch gate condition. That is a real
+priority call with a real cost on both sides, and DOCTRINE-TRIAGE section 6 leaves
+it with the terminal rather than the owner. **This ruling declines to make it now
+for one reason: it would be made on an invisible baseline.** Nobody has ever seen
+the number this card produces. It is made after ORDER-01 lands and the first
+digest carries the count, by whoever reads that digest.
+
+**WHAT THIS DOES NOT TOUCH.** Not `card-order.mjs`, not CLAUDE.md section 2, not
+AUT-16's decision, and not `scripts/poc/boards.mjs`. ORDER-01's defaults forbid
+all four in terms, because a card authored to report a consequence must not
+quietly re-decide it.
+
+**Also changes:** authors ORDER-01 on `docs/board/rc-board-phase2.json`.
+**Unblocks:** nothing. ORDER-01 is eligible on authoring.
+
+---
+
+### R-152
+
+**GATE AUDIT, 2026-09-07, TRIAGE RUN `20260907-010004`. BOTH BOARDS, EVERY
+CONDITION AT `fail`. NOTHING FLIPS. PHASE 2 STAYS 6 OF 9 AND PHASE 3 STAYS 0 OF
+9, AND G4 IS NOW SHORT OF A QUEUE POSITION RATHER THAN SHORT OF A CARD.**
+
+**Asked by:** nobody. DOCTRINE-TRIAGE section 4 requires it on every run.
+**Decided by:** TRIAGE, run `20260907-010004`.
+
+**PHASE 2, `docs/board/rc-board-phase2.json`. Three conditions at `fail`.**
+
+**G4, extraction live end to end. STAYS `fail`. TWO CLAUSES SHORT, MEASURED
+AGAINST THE TREE AND NOT AGAINST THE CARDS.** The deciding clause is R-053's: the
+ingest endpoint asserted against a fixture document plus four named failure
+cases. R-080 found fixture, auth rejection and malformed payload green, and
+redirect and oversize absent. **Both are still absent at `6dc2293`:**
+`grep -n "redirect\|follow\|301\|302" lib/data/extraction-fire.ts` returns
+nothing, `app/api/extraction/callback/route.ts` bounds no request size, and
+`tests/e2e/extraction.spec.ts` carries no case for either. Three of five.
+
+**WHAT IS NEW SINCE R-080, AND IT IS NOT ABOUT THE CLAUSES.** P2-20 exists,
+carries exactly these two cases, is `todo`, has `P2-08a` shipped, and is
+therefore eligible. **It is thirty-first in the queue**, for the reason R-151
+records. This gate is backlog with a card and the card is starved. A reader
+counting it as remaining work is right to, and a reader assuming the queue will
+reach it soon is not.
+
+**G7, reminders fire a real Resend email. STAYS `fail`, `blocked_on: ivan`
+RETAINED.** Deciding clause unchanged: one real email delivered from a real
+threshold crossing on production. The same three things stand in front of it and
+none has moved since the 2026-08-27 audit: `RESEND_API_KEY` present in the
+production environment, `RESEND_FROM` set, and a recipient that is not on
+`rc-inventory.local`, a domain that does not exist. **No database read was
+performed for this audit and none is claimed.** No terminal has touched the
+production database since the last audit, so no crossing can have been recorded.
+**Not backlog.** Two of the three are clicks in a hosting console, item 7 of the
+closed list, escalated again by this run. The third lands at P2-13.
+
+**G9, Mihai completes one full cycle himself. STAYS `fail`.** Deciding clause
+unchanged: P2-14 recording Ivan reporting that Mihai personally completed the
+cycle on production. No such report exists, P2-14 is `blocked_on: client`.
+**Not backlog and unflippable by any terminal**, under section 4's second and
+third kinds at once. It is downstream of G4, and G4 moved no closer this run.
+
+**PHASE 3, `docs/board/rc-board-phase3.json`. All nine at `fail`, last audited
+2026-08-31 under R-065, six days ago. ALL NINE STAY `fail`.**
+
+**EVERY ONE OF THE NINE DECIDING CLAUSES NAMES A PRODUCTION VERIFICATION**, and
+that is the finding this audit adds. G1 wants RLS proven with a real
+unauthenticated request rather than by reading policies. G2 wants an
+issues-with-no-project count taken read-only and pasted. G3 wants four deployed
+screens verified. G4 wants a nine-direction walk on production. G5 wants one real
+project reconciled by hand. G6 wants four cases demonstrated. G7 wants a deviz
+built against a real project. G8 wants a signed link proven with a real request.
+G9 wants the density sweep shipped and the localisation check seen to fail.
+
+**THE TREE HALVES ARE LARGELY THERE AND THE PROOFS ARE NOT.** `public.clients`,
+`public.contacts`, `public.suppliers`, `public.projects`, `public.devize` and
+`public.deviz_lines` all exist as migrations; `products.supplier_id` exists with
+its foreign key in `0019_suppliers.sql`; `app/(app)/clienti` and
+`app/(app)/proiecte` both exist. **None of that closes a single clause**, because
+CLAUDE.md 5b already settled that a screen condition needs the named spec green
+in CI **plus** EXECUTOR's own deployed-screen verification recorded as evidence,
+and no such verification is committed for any phase 3 screen.
+
+**NOTHING THAT SHIPPED SINCE 2026-08-31 TOUCHES ANY OF THE NINE.** The cards that
+shipped in that window are EXT-09 through EXT-20 and EXT-10: extraction contract
+and product packaging work, which is phase 2's G4 lane. Not one of them creates a
+counterparty record, a cross-link, a cost report, a budget comparison, an
+estimate, a document attachment or a density verdict.
+
+**PHASE 3 IS BACKLOG WITH CARDS, WHICH IS WORTH SAYING BECAUSE 0 OF 9 READS LIKE
+IT IS NOT.** GATE-01 carries G1's third clause, GATE-02 its sibling, and P3-35
+carries the production read-only verification and the deployed screens. All three
+are `todo` and all three are eligible. This is not the phase 2 situation where
+three gates wait on people; it is thirty-two unbuilt cards.
+
+**NO GATE FLIPS ON THIS RUN, ON EITHER BOARD.** The input report ships a schema
+and contract card on the extraction path and touches no gate clause on either
+board. This audit is recorded rather than skipped because section 4 requires it
+every time, and because two things in it are new: G4's card is starved rather
+than missing, and the phase 3 nine are one shape of missing evidence rather than
+nine.
+
+**Also changes:** the audit is written into the `notes` of the three phase 2
+conditions at `fail` and into the `evidence.ref` of the nine phase 3 conditions,
+each board keeping the convention its five previous audits used.
+**Unblocks:** nothing.
+
+---
+
+### R-153
+
+**MIG-01's `IMPACT IF UNANSWERED` IS STALE. THE PRE-MERGE CHECK ITS OWN
+RECOMMENDATION MADE A PRECONDITION NOW EXISTS, RUNS UNFILTERED ON EVERY PULL
+REQUEST, AND IS ITSELF PROVED. THE CARD STAYS `blocked_on: ivan` ANYWAY, ON THE
+HALF THAT IS GENUINELY HIS.**
+
+**Asked by:** nobody. Found by TRIAGE, run `20260907-010004`, while running
+DOCTRINE-TRIAGE section 3 check 2 over the blocked cards.
+**Decided by:** TRIAGE, run `20260907-010004`, under section 6's grant to correct
+a stale card field. The escalation itself is **not** withdrawn: it is items 4 and
+7 and it stays with the owner.
+
+**WHAT THE CARD SAYS TODAY**, written 2026-09-03:
+
+> "IMPACT IF UNANSWERED: every migration merged from now on applies to production
+> with no pre-check, no in-transaction assertion, no post-check and no journal,
+> and 8.6 protects nothing. A merged `DROP TABLE`, `TRUNCATE` or `DELETE` would
+> execute against production despite the rule saying it is never auto-applied."
+
+**THAT WAS TRUE WHEN IT WAS WRITTEN AND THE LAST SENTENCE IS FALSE NOW.** The
+card's own `RECOMMENDATION` was option (b), keep the integration and rewrite
+section 8, "but ONLY AFTER a pre-merge check refuses a row-destroying statement
+in any migration file on a pull request." **That precondition is met.**
+
+- `npm run check:no-destructive-migration` exists at
+  `scripts/poc-free/check-no-destructive-migration.mjs`.
+- It runs in `quality` at the step "Refuse a migration that removes rows", with
+  **no `if:` and no path filter**. The two filtered steps in that job are the
+  applier proof and the assertion proof, and this is neither.
+- `npm run prove:no-destructive-migration` runs immediately after it, unfiltered,
+  and proves it refuses.
+- CLAUDE.md 8.0 item 2 describes its behaviour: it parses with `pgsql-parser`,
+  refuses `DROP TABLE`, `TRUNCATE` and `DELETE` with the statement quoted, fails
+  closed on any statement kind it has not been taught, and treats an unparseable
+  file as a failure rather than a pass.
+
+**AND SECTION 8 HAS ALREADY BEEN REWRITTEN**, by R-124 on 2026-09-04, the day
+after this question was asked. Section 8.0 now opens with "MERGE IS APPLY" and
+its four consequences, and 3.1 quotes the false sentence and marks it false
+rather than deleting it. Option (b) was adopted, in full, while the card that
+proposed it sat blocked.
+
+**SO THE EXPOSURE IS NARROWER THAN THE CARD CLAIMS, AND SAYING SO IS NOT
+SOFTENING IT.** A merged `DROP TABLE` cannot reach production, because the pull
+request carrying it cannot go green, and a pull request that is not green cannot
+be merged under section 3. What remains true, and stays in the question because
+it is the real cost: a merged migration still reaches production with no
+in-transaction assertion, no post-check and no journal row, and the pending
+register still says nothing about what is live.
+
+**WHY THE CARD IS NOT UNBLOCKED.** The half that is genuinely outstanding is the
+vendor and console half: whether the Supabase GitHub integration stays on. That is
+items 4 and 7 of the closed list under R-057 and it is not TRIAGE's, whatever the
+checks now cover. `blocked_on: ivan` is retained, unchanged.
+
+**THE ORIGINAL TEXT IS KEPT AND THE CORRECTION IS APPENDED BENEATH IT**, per
+R-127's discipline applied to a card field. The `question` is what `ask.sh` and
+the digest read, so a reader arriving at it must see both what was believed on
+2026-09-03 and what is true on 2026-09-07, in that order. Deleting the stale
+sentence would leave a record saying the project always knew the check existed,
+three days before it did.
+
+**WHY THIS MATTERS BEYOND TIDINESS.** This question repeats in every digest until
+it is answered, which is section 15 working as designed. An escalation that
+overstates its own cost gets one of two responses: it is answered in a panic, or
+it is learned and discounted. Both are worse than an accurate one, and this one
+has been repeating for four days.
+
+**Also changes:** MIG-01 `question` and `last_checkpoint`.
+**Unblocks:** nothing. MIG-01 stays blocked on `ivan`.
