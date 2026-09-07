@@ -4534,3 +4534,33 @@ was the first. RULE: **a card's "verified on main" note is a measurement with a
 timestamp, not a standing fact.** Re-run the verification when you pick the card
 up, especially where a long-lived TRIAGE branch can land between authoring and
 working.
+
+### The tab strip already gave every panel its testid, and a second one broke strict mode
+**Tag:** frontend
+**ERROR:** `DevizComparisonPanel` was written with its own
+`<div data-testid="panel-comparatie">` wrapper. Every one of the nine new
+Playwright cases failed on `getByTestId('panel-comparatie') resolved to 2
+elements`, because `ProjectTabs` already wraps every tab body in
+``<div data-testid={`panel-${active}`}>``, which is where `panel-deviz` and
+`panel-consum` come from. The two nodes were **nested and identical**, which is
+why reading the source did not find it: the component really did render one
+wrapper, and the other came from a file nobody was looking at.
+**SOLUTION:** the panel returns its `Card` directly, like every other tab body.
+Found by putting a `data-mark` attribute on the component's own wrapper and
+asking the DOM which of the two carried it: the outer one did not, so it was not
+this component's. RULE: **when two identical nodes appear and the source has one,
+mark the one you wrote.** Reading harder finds the node you already know about;
+an attribute that only one of them can carry names the other one's owner in a
+single run.
+
+### A convention that is generated cannot be found by grepping for its result
+**Tag:** frontend
+**ERROR:** the testid above is built as a template, ``panel-${active}``, so
+`grep -rn "panel-comparatie"` over the whole repository returned only the new
+component and its spec. The existing convention was invisible to the search that
+would have prevented the mistake, and every other tab body demonstrates it by
+NOT having a wrapper, which is an absence and not something a grep finds.
+**SOLUTION:** the search that would have worked is for the SHAPE, `data-testid={`,
+in the file that renders the thing being added to. RULE: **before adding a
+testid, grep for `data-testid={` in the parent, not for the literal you are about
+to write.** A generated identifier has no literal to find.
