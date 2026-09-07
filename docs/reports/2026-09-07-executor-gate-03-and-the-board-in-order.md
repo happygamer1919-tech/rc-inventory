@@ -307,6 +307,53 @@ and `deviz.spec` run together: **30 passed**. The remaining specs need storage
 objects and mock services this stack does not carry, which is a property of the
 scratch environment and not of the branch.
 
+## 5. EXT-12, the extraction latency budget
+
+### The first thing the card asks to establish, established
+
+`extraction-fire.ts`'s 15 second `TIMEOUT_MS` is the **acknowledgement** clock,
+not the extraction budget. The POST carries `callback_url` in its body and the
+function returns as soon as Make answers 2xx: it waits for Make **accepting** the
+job. The operator's screen waits on that clock, so raising it to 120 seconds
+would hold the screen for two minutes and measure nothing about the model, which
+the card's own note forbids in terms.
+
+### And the line count is not knowable at fire time
+
+The payload is fixed at six fields and none is a line count: the count is the
+**result**. The card pre-decided this in its defaults, so the **longer budget
+applies to every document** and this report says so plainly. `size_bytes` was
+**not** used as a proxy: a one-page scan can be heavier than a three-page digital
+document, and a proxy invented here would become "the threshold" within six
+months without anybody having decided it.
+
+So the acceptance's first clause could not be met as written, and it shipped
+under **CLAUDE.md 5**, a default applied and logged, rather than under section 4
+as a block.
+
+### Three clocks, told apart
+
+| clock | where | value | what it measures |
+|---|---|---|---|
+| acknowledgement | `extraction-budget.ts:80`, read by `extraction-fire.ts:39` | 15s | whether Make **accepted** the job |
+| **extraction** | `extraction-budget.ts`, `extractionBudgetMs()` | **120s / 60s** | how long the model may take. **Make's own limit.** |
+| document serving | `app/api/documents/[...path]/route.ts:42` | 20s | how long **we** wait on storage |
+
+The third stays where it is: it is on this path and it is not an extraction
+budget. `lib/reminders/resend.ts:33` was found by the same sweep and is the email
+path.
+
+`npm run prove:extraction-budget`: **13 of 13**, including the boundary at exactly
+20 going to the **short** budget because the rule is *above* 20, and an assertion
+that the acknowledgement clock is still a **different number** so a future edit
+that conflates them turns it red.
+
+**No test framework was added.** Every unit-shaped assertion here is a
+`prove-*.mjs` wired into `quality` by name; a second framework for thirteen
+assertions is a dependency CLAUDE.md forbids taking without asking.
+
+---
+
 ### The ordering rule broke again, on this card, an hour after the analysis of it
 
 CLAUDE.md 2 says `todo -> in_flight` is committed **first**. On P3-18 there is no
@@ -323,6 +370,16 @@ both flipped first, correctly, so it is not a terminal that never does it. It is
 a rule with no gate, and that is now demonstrated rather than argued.
 
 Recorded on the card, not tidied away. **No fix was built**, per the dispatch.
+
+**It then happened a third time, on EXT-12**, and three instances make the pattern
+legible. GATE-03 and P3-13c were flipped **first**, correctly. DIG-01, P3-18 and
+EXT-12 were not. The difference is what the work started with: where it started by
+**editing the board**, the flip happened; where it started by **reading code to
+verify a premise**, the flip was never reached, because by the time the board was
+touched the work was done. The rule is written as a step in a sequence and there
+is no gate on the sequence, so it survives only when the sequence happens to begin
+at the board. That is a sharper statement of section 2's finding than section 2
+could make, and it is the terminal's own record against itself.
 
 ---
 
