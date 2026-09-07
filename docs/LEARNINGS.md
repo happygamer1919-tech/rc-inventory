@@ -4483,3 +4483,21 @@ and every conversion computed from it into zero.
 is genuinely present is converted. The rule: a helper that folds absent into a
 legal value may only be used on columns where that value is legal. Where the
 column's own constraint refuses the fold target, the fold is a defect.
+
+### A card cannot be pushed as in_flight beside its own code: check:board-edit demands a terminal status
+**Tag:** ci
+**ERROR:** EXT-10's first push carried the code with the card at `in_flight`, on
+the reasoning that `shipped` requires an acceptance that had not been observed
+yet and that claiming it early is the one failure section 6 has no recovery from.
+`quality` refused the whole pull request: `check:board-edit` resolves the card ids
+in the branch name and the commit subjects, and requires each one to reach a
+TERMINAL status at the head. `in_flight` is not terminal, so `satisfied 0 of 1
+card id(s)` and the job exited 1 before any other step could report.
+**SOLUTION:** the flip to `shipped` goes in the same pull request as the code, and
+the honesty it seemed to cost is recovered somewhere else: the acceptance commands
+RUN IN `quality`, so the green check on the head sha IS the acceptance passing,
+and the merge is the single moment at which both halves of section 5b are true.
+The rule: a code pull request is authored to land in one terminal state, and a
+board left mid-flight is a pull request the check reads as unfinished, not as
+cautious. If the acceptance genuinely cannot be run, the terminal status is
+`blocked`, not `in_flight`.
