@@ -4626,3 +4626,21 @@ phrase means here. A second test framework for thirteen assertions is a
 dependency CLAUDE.md forbids taking without asking. RULE: **before adding a tool
 to satisfy a word in an acceptance, look for what the repository already calls by
 that word.** The idiom is usually there under a different name.
+
+### Node 22 strips types and node 20 does not, and CI is node 20
+**Tag:** ci
+**ERROR:** the extraction budget was written as `lib/data/extraction-budget.ts`
+and imported by `scripts/poc-free/prove-extraction-budget.mjs`. Thirteen
+assertions passed locally. CI went red on the first run with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+this Mac runs node 22, which strips type annotations natively, and the workflow
+pins `node-version: '20'`, which does not.
+**SOLUTION:** **the repository had already answered this.** EXT-08 hit the same
+error and created `lib/data/document-url-contract.mjs` with a `.d.mts` beside it,
+rejecting in terms the alternative of raising the workflow's node version, *"an
+environment change for all twenty-two steps of the job, made for a reason that has
+nothing to do with any of them."* EXT-12 follows that precedent rather than
+inventing a second answer. RULE: **when a runner rejects something your machine
+accepts, grep the repository for the error string before choosing a fix.** This
+one was already solved, with the reasoning written down, in a file two
+directories away.

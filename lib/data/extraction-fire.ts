@@ -21,7 +21,7 @@ import { toDocumentUrl } from "./document-url";
 // EXT-12. UN SINGUR IZVOR PENTRU FIECARE CEAS DE PE CALEA DE EXTRAGERE. Un timp
 // care exista in doua fisiere este un timp care va ajunge sa nu fie de acord cu
 // el insusi.
-import { ACK_TIMEOUT_MS } from "./extraction-budget";
+import { ACK_TIMEOUT_MS } from "./extraction-budget.mjs";
 
 /** Cat traieste legatura semnata. Destul pentru o extragere, nu mai mult. */
 const SIGNED_URL_TTL_SECONDS = 15 * 60;

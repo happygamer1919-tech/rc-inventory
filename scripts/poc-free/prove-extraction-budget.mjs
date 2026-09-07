@@ -2,6 +2,12 @@
 // prove-extraction-budget.mjs
 // Card EXT-12. The named unit case for the extraction latency budget.
 //
+// AND WHY IT IMPORTS A .mjs. `quality` runs node 20, which cannot strip type
+// annotations: importing a .ts from here fails with ERR_UNKNOWN_FILE_EXTENSION,
+// and it did, on this card's first CI run. It works locally on node 22 and not on
+// the runner, which is the whole reason the budget lives in plain JavaScript with
+// its types beside it, exactly as EXT-08 decided for document-url-contract.mjs.
+//
 // WHY A prove-* SCRIPT AND NOT A UNIT TEST FRAMEWORK. This repository has no
 // vitest, no jest and no unit runner at all: `npm run test:e2e` is Playwright and
 // nothing else. Every other unit-shaped assertion here is a `prove-*.mjs` wired
@@ -27,7 +33,7 @@ import {
   EXTRACTION_BUDGET_BELOW_MS,
   EXTRACTION_LINE_THRESHOLD,
   extractionBudgetMs,
-} from "../../lib/data/extraction-budget.ts";
+} from "../../lib/data/extraction-budget.mjs";
 
 const results = [];
 const record = (name, pass, detail) => {
