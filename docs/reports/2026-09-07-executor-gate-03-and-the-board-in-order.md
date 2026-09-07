@@ -307,6 +307,23 @@ and `deviz.spec` run together: **30 passed**. The remaining specs need storage
 objects and mock services this stack does not carry, which is a property of the
 scratch environment and not of the branch.
 
+### The ordering rule broke again, on this card, an hour after the analysis of it
+
+CLAUDE.md 2 says `todo -> in_flight` is committed **first**. On P3-18 there is no
+such commit: the branch went from cutting straight to the finished work, and the
+board moved `todo -> shipped` in one step. Nothing had been pushed, so no reader
+saw a stale board and the cost was zero.
+
+**It is the second instance in two sessions by the same terminal**, after DIG-01
+on 2026-09-06, and this session had already written section 2 above explaining
+why it happens: `check-board-edit` gates the pull request and cannot see commit
+ordering inside it, so the rule is green whatever the order was. Writing the
+analysis did not prevent the repeat. GATE-03 and P3-13c in this same session were
+both flipped first, correctly, so it is not a terminal that never does it. It is
+a rule with no gate, and that is now demonstrated rather than argued.
+
+Recorded on the card, not tidied away. **No fix was built**, per the dispatch.
+
 ---
 
 ## Deviations, for explicit ratification. Not self-ratified.
