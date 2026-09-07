@@ -4536,3 +4536,50 @@ tests alone and is left to conclude red. The next run pushes the implementation
 onto the same pull request and records the green. The rule: when a card's
 acceptance demands both a failing and a passing run on one branch, budget two CI
 cycles, not two commits.
+
+### A capability gate per migration FILE, not per column
+**Tag:** data
+**ERROR:** EXT-11 adds two columns and the four gates already in
+`lib/data/schema-capability.ts` each guard one column, so the obvious move was
+two more probes. Two probes for two columns added in the same `begin/commit` of
+the same file spend two PostgREST queries a minute to learn one fact, and worse,
+they imply a state that cannot exist: a reader of the code is told that
+`order_ref` might be present while `order_ref_series` is not.
+**SOLUTION:** One gate per migration FILE. Columns added in one transaction
+arrive together, so one probe answers for all of them; columns in different files
+reach production separately and need separate probes, which is why 0032 and 0033
+correctly have their own. The rule: the unit a gate guards is the unit that lands
+atomically, and that unit is the file.
+
+### A card's acceptance quietly assumed a column that no migration created
+**Tag:** data
+**ERROR:** EXT-11's acceptance says "wherever `order_ref` is stored, on orders
+and on extraction drafts", and its notes say P3-31 already split `order_ref` into
+theirs and ours. `grep -rn order_ref supabase/migrations/` returns nothing.
+`extraction_drafts` had no such column, `inbound_orders.reference` is OUR
+reference, and contract section 4.1a said in terms that `order_ref` arrives, is
+accepted and is IGNORED. P3-31's own acceptance line assumes the column too and
+P3-31 has not shipped. Two cards each built on a field the other was assumed to
+have landed, and neither creates it.
+**SOLUTION:** The card that needs the column creates it and records that it did.
+EXT-11 landed `order_ref` with `order_ref_series`, because a series with nothing
+to qualify is not an identifier. The rule that prevents the next instance: before
+working a card whose acceptance names an existing column, run
+`grep -rn "<column>" supabase/migrations/`. It is one command and it is the
+difference between a card that can be worked and one that discovers its premise
+is false halfway through.
+
+### Adding a field to a fixed-signature SQL function is not the cheap path
+**Tag:** backend
+**ERROR:** Carrying the supplier reference onto the created order looked like two
+new parameters on `confirm_extraction_draft`. A PostgreSQL function is not
+altered, it is dropped and recreated, so that is a migration replacing the
+function every confirmed document passes through, to add two columns the card
+asked for and a signature the card did not.
+**SOLUTION:** The RPC returns the new row's id, so the two fields go on in a
+gated `update` immediately after it, and that update's failure is deliberately
+not fatal: the order already exists, and refusing a real delivery because its
+supplier label could not be written loses the delivery to save the label. The
+rule: adding a column does not require changing the function that inserts the
+row, and the write with the smaller blast radius wins when both produce the same
+stored state.
