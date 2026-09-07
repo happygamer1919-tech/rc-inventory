@@ -253,3 +253,112 @@ pull request branches and this working tree. `GUARD-03` came back **CLAIMED** on
 `RULE-09` designed.
 
 All three boards validate at 0 violations.
+
+---
+
+## 5. `EXT-21`. The state endpoint. Shipped, `#255`.
+
+`app/api/state/route.ts`. An unauthenticated GET returns the **active** category
+names, the unit enum as `code` plus Romanian label, and the applied ledger
+version read from the database. `force-dynamic`, `cache-control: no-store`, one
+object, service-role read.
+
+**503 and never 200 with empty lists.** A poller cannot tell *we accept nothing*
+from *I could not look*, and the first of those readings is the one that made
+Andre hold back three safe values for a day.
+
+**The service-role client, not the anon one, and that is not a shortcut.**
+Migration `0001` grants `select` on `categories` and `units` to `authenticated`
+only. An anon read would return an **empty list rather than an error**, which is
+precisely the silent lie this card removes.
+
+**`proxy.ts` gains one line**, beside `/api/health` and `/api/documents`: without
+it the middleware answers 307 to `/login` and a redirect-following client reads
+200 and `text/html`.
+
+**Two new steps in `quality`, neither path filtered.**
+`check:state-endpoint` refuses a table outside `[categories, units]`, a function
+outside `[applied_ledger_version]`, fewer `active` filters than selects, a
+missing `no-store`, a missing `force-dynamic`, a route it cannot read, and a
+route that selects from nothing. `prove:state-endpoint` is 9 of 9, every refusal
+built by **mutating the shipped route** rather than by writing a fixture that
+resembles it.
+
+### The acceptance clause that could not be run, and what was done about it
+
+Case 4 asked for *"a category deactivated through the settings screen"*.
+**Nothing in the product writes `categories.active`.** The column exists, `NOT
+NULL DEFAULT true` since `0001`, and is read by `listCategories`.
+`CategorySettings.tsx` offers add and rename and says in its own header that it
+deliberately offers nothing else. `product-actions.ts` has `createCategory` and
+`renameCategory` and no `setCategoryActive`. Grepped across `app`, `components`,
+`lib`, `tests` and `scripts`: the only writer anywhere is a fixture insert in
+`prove-applier.mjs`.
+
+**Corrected, not deleted.** The clause is quoted on the card under CLAUDE.md 9c
+and marked. The property it exists to prove, *that the response reads the
+database and not a constant*, is proved by **adding** a category through the same
+screen and seeing it one request later on the same server and the same build.
+That is also the incident's own direction: 2026-09-03 was a **new** category and
+two **new** units being invisible, not a retired one lingering. The `active` half
+stays guarded statically.
+
+**Recorded and not carded:** there is no way to deactivate a category anywhere in
+the product. That is a gap in the settings screen, and the dispatch forbade
+authoring scope beyond the cards it named, so no card was written for it.
+
+## 6. `P3-13d`. The label, renamed. `#256`.
+
+`Total deviz` becomes **`Total materiale estimate`** in the Comparatie foot. The
+two extra words are not decoration: `Total emis` sits beside it and is also
+materials, so the axis the foot draws is estimated against issued.
+
+**The number did not change.** The four assertions on
+`comparison-total-deviz`'s `data-value-mdl` (1310, 200, 0) are untouched. The
+spec now also asserts the **absence** of the exact string `Total deviz`, because
+asserting only the new label would let both live side by side. The adaos sentence
+is reworded to name both sides in one sentence and keeps its testid.
+
+`P3-12`'s `Total deviz acceptat` is untouched: that total **includes** the adaos,
+so the word heads a column that contains what it implies.
+
+## 7. `EXT-13`. Retention off, and the map that was missing a row.
+
+Two artefacts, no code.
+
+**`docs/contracts/extraction-v2.md` section 4c** states retention-off as a
+**required condition** of the integration, names what is retained without it
+(the extracted content plus a conversation object per request) and whose data it
+is, and says plainly that we cannot verify it: there is no `OPENAI_*` name
+anywhere in this repository, in `lib/env-required.ts` or on the strip list in
+`scripts/poc/secret-names.sh`. Andre sets the flag; Ivan relays the confirmation;
+until it lands, the map assumes retention persists.
+
+**`docs/DATA-MAP.md` is new.** Eleven rows in two tables. Seven for supplier
+document content: Supabase Storage `rc-docs`, `extraction_drafts`, the accepted
+order and product tables, Make, **the model provider**, this git repository, and
+Vercel request logs. Four for client data that is not document content: Resend,
+Telegram, Supabase Auth, and the model behind every terminal working this
+repository.
+
+**Five rows read NOT KNOWN, and each names who owes the answer.** Rows 4 and 5
+are owed by **Andre** through Ivan. Rows 7, 8 and 11 are Vercel, Resend and
+Anthropic account settings that only **Ivan** can read. The card required an
+explicit statement where the answer is not known; a sweep that found nothing
+would have been the suspicious outcome.
+
+### The finding worth more than the flag
+
+**The principle was already written down, one section along, and was pointed at
+the wrong party.** Section 9 of the contract has refused a third-party conversion
+sub-processor since the contract was frozen, under R-015:
+
+> *"A converter sees every supplier invoice in full, so adding one is a
+> data-sharing decision about the client's commercial information and needs an
+> owner ruling naming the service."*
+
+**The model sees exactly the same thing.** The argument was applied to a service
+we might have **added** while the one already in the path went unexamined,
+because it arrived with the extractor rather than as a choice of ours. That is a
+fact about how the integration was assembled, not about who ends up holding the
+data. R-015 is quoted in both new documents rather than retracted.

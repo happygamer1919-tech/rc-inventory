@@ -487,6 +487,85 @@ stronger guarantee than polling. Two answers to one question is worse than one.
 failure mode, and none of that is needed to answer a question whose answer
 changes about once a month.
 
+---
+
+## 4c. RETENTION OFF IS A REQUIRED CONDITION OF THIS INTEGRATION. Card EXT-13, 2026-09-07.
+
+**This is a condition, not a preference, and it is written here rather than only
+agreed in conversation.** A scenario rebuilt from scratch in six months restores
+the BEHAVIOUR and not the SETTING. The behaviour is what a test exercises; the
+setting is what nobody looks at again. So it is in the contract, where a rebuild
+reads.
+
+### The condition
+
+**The model provider's retention must be OFF for every request that carries a
+document from this integration**, and it must be off before the first REAL
+supplier document goes through. The four sample documents are synthetic and are
+already through; a real document is the line.
+
+**The owner has ruled: OFF.** This section does not weigh it again.
+
+### What is retained without it, and whose data it is
+
+Without retention off, the model provider keeps, on the extractor's account:
+
+- **the extracted CONTENT of the document** - supplier name, document reference,
+  dates, product names, quantities, unit prices and totals, and
+- **a conversation object per request**.
+
+**That is Mihai's commercial data and his suppliers'.** It is what he buys, from
+whom, in what quantity and at what price, which is the whole of a construction
+merchant's commercial position. It is not ours to leave sitting on a third
+account by default, and it reached that account because our own map did not have
+a row for it.
+
+### Who does what
+
+| | |
+|---|---|
+| **Andre** | sets the flag on his side. It is his account and his scenario, and nothing on our side can set it or read it. |
+| **Us** | record it HERE, as a required condition, and carry the row in `docs/DATA-MAP.md`. |
+| **Confirmation** | Andre confirms the flag is off. Until he does, `docs/DATA-MAP.md` row 5 reads **NOT KNOWN** and assumes it persists. |
+
+**We cannot verify this and we do not pretend to.** There is no `OPENAI_*` name
+anywhere in this repository, in `lib/env-required.ts` or on the strip list in
+`scripts/poc/secret-names.sh`: we hold no credential for that provider and reach
+it only from inside Andre's scenario. This section is a stated condition backed
+by his confirmation, which is exactly as strong as it sounds and is why it is
+written down instead of remembered.
+
+### The reasoning already existed in this document, one row along, and did not reach the model
+
+Section 9 has said since this contract was frozen, under ruling R-015:
+
+> *"No third-party conversion sub-processor. If Make's OpenAI file input cannot
+> read a format, the conversion is built inside our own application. A converter
+> sees every supplier invoice in full, so adding one is a data-sharing decision
+> about the client's commercial information and needs an owner ruling naming the
+> service."*
+
+**That is the same argument, and it was applied to a service we might have added
+while the service already in the path went unexamined.** A converter would see
+every supplier invoice in full. So does the model. The difference the reasoning
+turned on was that one was a NEW party and the other arrived with the extractor,
+which is a fact about how the integration was assembled and not about who ends up
+holding the data.
+
+Nothing in R-015 is retracted. It is quoted here because a reader who finds this
+section is owed the fact that the principle was already written down.
+
+### It is a SECOND DATA LOCATION and that is the part worth more than the flag
+
+When this contract was frozen the data map had one row for the extractor: Make.
+The model provider was not on it. **A map that is wrong about where data rests is
+worse than no map, because it is consulted**, and this one was.
+
+`docs/DATA-MAP.md` now lists every place supplier document content and client
+data come to rest, this one marked as **the location that was missing**. It also
+records, for every third party, what is retained and who owes the answer where we
+do not know it.
+
 ## 5. Status and error codes
 
 ### 5.1 `status`
