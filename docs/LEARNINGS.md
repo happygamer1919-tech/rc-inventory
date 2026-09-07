@@ -4373,6 +4373,51 @@ next reader of that file knows. RULE: **an equality test between two paths is a
 test about symlinks.** Resolve both sides, or the guard is a coin flip decided by
 how the caller happened to spell the directory.
 
+### A count assertion that counts a derived list asserts nothing
+**Tag:** infra
+**ERROR:** the `--free` mode built a `sources` array from the open pull request
+list and then asserted `read + refused === sources.length + 1`. A mutant written
+to prove the assertion had teeth dropped one branch **while building that array**,
+and the assertion held: the mutation shrank both sides equally. So the check would
+have reported an id free after looking at one fewer branch than it was given, with
+its own guard reporting green. Found by the mutant, not by reading the code, and
+the mutant was written expecting the opposite result.
+**SOLUTION:** assert against the **input**, which is `openBranches.length + 2` for
+main and this working tree, counted before anything is derived from it. RULE:
+**a count assertion must have one side the code under test cannot move.** Comparing
+two numbers the same bug computes is a tautology dressed as a guard, and it reads
+exactly like a real assertion in a diff.
+
+### A mutant whose edit half applied reported itself applied
+**Tag:** infra
+**ERROR:** `mutantCheck` returns null when the edited source is identical to the
+original, which is the standard "the anchor no longer matches, so this case is
+stale" guard. The 7d mutant made **two** replacements. The check had been fixed
+underneath it, so the second anchor no longer existed and only the first
+replacement applied. The file still differed from the original, so the mutant was
+reported as applied, and the case it was supposed to prove quietly measured the
+wrong thing.
+**SOLUTION:** the edit function asserts **every** anchor is present before it
+makes **any** replacement, so a partly stale mutation is reported as stale rather
+than as a working mutant. RULE: **"the file changed" is not "the mutation
+happened."** A multi-part edit needs its anchors checked as a set.
+
+### A range measured from a shared baseline reads as a false accusation
+**Tag:** infra
+**ERROR:** the holdings report first said what each open branch had consumed as a
+range from `main`'s counter: `triage-a consumed R-128 to R-134` and
+`triage-b consumed R-128 to R-141`. Both statements are literally true, because
+both branches were cut from a `main` sitting at R-128 and both advanced past it.
+Read side by side they say the second branch took the first branch's ids, which it
+did not: it wrote R-135 to R-141 and its counter merely accounts for what somebody
+else had already taken.
+**SOLUTION:** report the **ceiling**, not the range: `counter R-142, so no id below
+R-142 is free`, with what the branch actually wrote listed beside it. The ceiling
+is what a reader can act on and it does not overlap. RULE: **when several actors
+advance past one baseline, a range from that baseline attributes every actor's
+work to each of them.** State the bound each one sets, not the distance each one
+travelled.
+
 ### A neutralisation nobody guards is a comment
 **Tag:** infra
 **ERROR:** `test-ask-digest.sh` case 6 was fixed on 2026-09-04 by clearing every

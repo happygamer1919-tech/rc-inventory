@@ -894,9 +894,39 @@ both.
 ### Allocating a ruling id
 
 1. Read `decisions/NEXT-RULING-ID`. It holds one id, `R-NNN`, and nothing else.
-2. Use that id.
-3. **Advance the file in the same commit as the ruling.** Not afterwards, not in
+2. **ASK WHETHER IT IS FREE, BEFORE YOU WRITE IT:**
+
+   ```
+   npm run id:free -- R-143
+   ```
+
+   Exit 0 means free across `main`, every open pull request branch and this
+   working tree. Exit 1 names every branch that holds it and names the lowest id
+   that is actually free. Exit 2 means a source could not be read, and that is
+   **not** permission to proceed.
+3. Use the id it accepted.
+4. **Advance the file in the same commit as the ruling.** Not afterwards, not in
    a follow-up.
+
+**STEP 2 DID NOT EXIST UNTIL 2026-09-07 AND THE SECTION SAID THE COUNTER WAS THE
+ALLOCATOR**, corrected by card RULE-09 under section 9c. It read:
+
+> *"1. Read `decisions/NEXT-RULING-ID`. It holds one id, `R-NNN`, and nothing
+> else. 2. Use that id."*
+
+**That produced four collisions**: R-096, R-098, the R-090/R-091 pair, and R-128.
+The counter on `main` only knows what has MERGED. A TRIAGE run writes a whole
+range of rulings and advances the counter **on its own branch**, so while that
+branch is open the counter on `main` is stale by however many ids that run took.
+On 2026-09-06 it read `R-128` while two open branches held `R-128` through
+`R-141`.
+
+**THE THIRD STEP IS STILL THE MECHANISM AND STEP 2 DOES NOT REPLACE IT.** The
+counter is one line, so two terminals allocating at the same time still produce a
+merge conflict on that line. Step 2 is **advisory**: it can stop being true the
+moment after it answers, and R-098 is the proof, having been swept correctly and
+collided anyway. It removes the case that has happened four times. The merge-time
+refusal in `check-open-branch-ids.mjs` still catches the residue.
 
 That third step is the whole mechanism. The counter is one line, so two terminals
 allocating at the same time produce a **merge conflict on that line**, which is
@@ -912,11 +942,37 @@ counter keeps one flat namespace and turns the collision into a conflict.
 
 ### Allocating a card id
 
-Card ids are allocated on the board, and the board is one file per phase, so two
-cards authored at once already conflict. What did not exist is a check that the
-ids are unique **across** boards, and that is now `npm run check:unique-ids`.
+**The same question, and the same command:**
 
-### What the check enforces, in `quality`, on every pull request
+```
+npm run id:free -- RULE-09
+```
+
+It reads every card id on all three boards, on `main` and on every open pull
+request branch, and names the next free id in that lane.
+
+**THIS SECTION SAID SOMETHING ELSE UNTIL 2026-09-07 AND IT WAS FALSE ABOUT
+BRANCHES**, corrected by card RULE-09 under section 9c. It read:
+
+> *"Card ids are allocated on the board, and the board is one file per phase, so
+> two cards authored at once already conflict. What did not exist is a check that
+> the ids are unique **across** boards, and that is now `npm run
+> check:unique-ids`."*
+
+The first sentence is true only of two cards that MERGE INTO EACH OTHER. Two
+branches cut from one `main` never conflict with each other at all, and until
+RULE-09 nothing looked across them: `check-open-branch-ids.mjs` read
+`decisions/` and never opened a board, so **card ids had no cross-branch check of
+any kind.** On 2026-09-06 `RULE-07` sat on one open branch and `RULE-08` on
+another, and a session taking the next `RULE` id from `main` alone would have
+taken `RULE-07` and collided on its first try.
+
+`npm run check:unique-ids` is unchanged and still enforces uniqueness within and
+across boards on one side.
+
+### What the checks enforce, in `quality`, on every pull request
+
+`npm run check:unique-ids`, within one side:
 
 - no card id twice, on one board or across all three
 - no ruling id twice in `decisions/inbox.md`
@@ -924,6 +980,18 @@ ids are unique **across** boards, and that is now `npm run check:unique-ids`.
   is the one that would have caught the incident, because within each side the
   ids were perfectly unique
 - `decisions/NEXT-RULING-ID` ahead of the highest ruling actually written
+
+`npm run check:open-branch-ids`, ACROSS open branches, at merge time:
+
+- no ruling id added by this branch carrying different heading text on another
+  open pull request branch
+- what each open branch HOLDS, printed: the ids it wrote beyond `main` and the
+  ceiling its counter sets. **That block used to be an equality test on the
+  counter and was a false green pointed at the wrong evidence**, naming three
+  branches that had written nothing while staying silent about two that held
+  fourteen ids. RULE-09.
+- every source read or REFUSED, with the count asserted against the INPUT, so
+  silence means nothing is claimed and never that it could not look
 
 **NO ID IS EVER RENUMBERED TO MAKE IT PASS.** History is not rewritten. Where two
 ids already collide, the pair goes in the check's `TOLERATED` list with its
