@@ -382,6 +382,36 @@ CRIT-11 residue and belongs to P2-15.
 
 ---
 
+### 4.4a The latency budget, and the three clocks it is not. Card EXT-12, 2026-09-07.
+
+**120 seconds above 20 lines, 60 seconds at or below.** The owner's numbers,
+relayed from Andre and confirmed by him: *"49.7 of 51 seconds is the model call,
+which neither side controls."* Almost the whole budget is the model, so this is a
+target the scenario is configured to meet and not a number either side can
+engineer down.
+
+**THE COUNT IS NOT KNOWABLE WHEN WE FIRE.** Section 3's payload carries exactly
+six fields and none of them is a line count: the count is the *result* of the
+extraction. So **in practice the longer budget applies to every document**, and
+this is written down rather than inferred. `size_bytes` is deliberately **not**
+used as a proxy: a one-page scan can be heavier than a three-page digital
+document, and a proxy invented here would become "the threshold" within six
+months without anybody having decided it.
+
+**THREE CLOCKS, AND ONLY THE SECOND ONE IS THIS BUDGET.**
+
+| clock | where | value | what it measures |
+|---|---|---|---|
+| acknowledgement | `lib/data/extraction-budget.ts`, `ACK_TIMEOUT_MS`, read by `lib/data/extraction-fire.ts` | 15s | whether Make **accepted** the job. The operator's screen waits on this one, so it stays short. |
+| **extraction** | `lib/data/extraction-budget.ts`, `extractionBudgetMs()` | **120s / 60s** | how long the model may take. **Make's own limit**, which is why `timeout` in section 5.2 reads "exceeded Make's own limit". Our code declares it; the scenario enforces it. |
+| document serving | `app/api/documents/[...path]/route.ts`, `UPSTREAM_TIMEOUT_MS` | 20s | how long **we** wait on storage when Make fetches the file. A third question, and it does not move to the budget module because it is not an extraction budget. |
+
+Raising the first clock to 120 seconds would hold an operator's screen for two
+minutes and would measure nothing about the model. The two numbers live in one
+file so that they cannot drift apart, and `npm run prove:extraction-budget`
+asserts both, the boundary at exactly 20, and that the acknowledgement clock is
+still a different number.
+
 ## 5. Status and error codes
 
 ### 5.1 `status`

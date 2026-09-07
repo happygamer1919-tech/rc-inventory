@@ -18,10 +18,25 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { DOCS_BUCKET } from "./inbound-types";
 import { toDocumentUrl } from "./document-url";
+// EXT-12. UN SINGUR IZVOR PENTRU FIECARE CEAS DE PE CALEA DE EXTRAGERE. Un timp
+// care exista in doua fisiere este un timp care va ajunge sa nu fie de acord cu
+// el insusi.
+import { ACK_TIMEOUT_MS } from "./extraction-budget";
 
 /** Cat traieste legatura semnata. Destul pentru o extragere, nu mai mult. */
 const SIGNED_URL_TTL_SECONDS = 15 * 60;
-const TIMEOUT_MS = 15_000;
+
+// EXT-12. ACESTA ESTE CEASUL DE CONFIRMARE SI NU BUGETUL EXTRAGERII, si cardul
+// cere ca distinctia sa fie stabilita si nu presupusa. POST-ul de mai jos poarta
+// callback_url IN CORP si functia se intoarce de indata ce Make raspunde 2xx: ce
+// se asteapta aici este confirmarea ca Make a PRIMIT lucrarea. Rezultatul soseste
+// mai tarziu, prin callback, pe bugetul lui Make.
+//
+// DECI NU SE RIDICA LA 120 DE SECUNDE. Ecranul operatorului sta pe el, si nota
+// cardului spune exact asta. Bugetul extragerii traieste in extraction-budget.ts
+// alaturi de el, in acelasi fisier, ca cele doua sa nu poata fi confundate a
+// doua oara.
+const TIMEOUT_MS = ACK_TIMEOUT_MS;
 
 export type FireResult =
   | { ok: true; orderId: string }

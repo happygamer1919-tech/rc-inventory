@@ -610,6 +610,19 @@ jobs:
       - name: Prove the grant-revocation check refuses  # GATE-03-GRANT-REVOCATION-PROOF
         run: npm run prove:grant-revocation
 
+      # EXT-12. THE EXTRACTION LATENCY BUDGET, 120 SECONDS ABOVE 20 LINES AND 60
+      # BELOW, ASSERTED WHERE IT IS DEFINED.
+      #
+      # It also asserts that the ACKNOWLEDGEMENT clock is still a different
+      # number. If those two ever became equal, somebody would have raised the
+      # operator's screen wait to two minutes while measuring nothing about the
+      # model, which is the mistake the card was written to prevent.
+      #
+      # NOT PATH FILTERED. Pure arithmetic over three constants, no container and
+      # no network.
+      - name: Prove the extraction latency budget  # EXT-12-BUDGET-PROOF
+        run: npm run prove:extraction-budget
+
       # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
       #
       # It reads this workflow rather than a list of what is in it, so the NEXT
