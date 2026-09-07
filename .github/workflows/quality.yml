@@ -111,6 +111,32 @@ jobs:
       - name: Prove the board-edit check refuses
         run: npm run prove:board-edit
 
+      # EXT-21. THE PUBLIC STATE ENDPOINT READS TWO TABLES AND NEVER A THIRD.
+      #
+      # /api/state is read by Andre's scenario, without a session and from
+      # another machine. app/api/health/route.ts already says that a health route
+      # is the endpoint everyone adds one more field to; the same sentence binds
+      # harder here, because this response leaves the company. The first extra
+      # field is always harmless and the third one is a supplier name.
+      #
+      # So the allow-list is the control: every `.from(...)` must name
+      # `categories` or `units` and every `.rpc(...)` must name
+      # `applied_ledger_version`. It also guards the three properties that fail
+      # SILENTLY and still return 200: the `active` filter, `no-store`, and
+      # `force-dynamic`.
+      #
+      # NOT PATH FILTERED. It reads one file as text: no container, no database,
+      # no network, no credential, and the defect class it catches is a field
+      # added in good faith on a pull request about something else.
+      - name: Refuse a state endpoint that reads a third table
+        run: npm run check:state-endpoint
+
+      # And the proof that it refuses. Nine assertions, every refusing case built
+      # by MUTATING the shipped route rather than by writing a fixture that looks
+      # like it, each paired with the real file passing on the same harness.
+      - name: Prove the state-endpoint check refuses
+        run: npm run prove:state-endpoint
+
       # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
       #
       # tests/e2e/document-url.spec.ts proves the three failure paths end to end,
