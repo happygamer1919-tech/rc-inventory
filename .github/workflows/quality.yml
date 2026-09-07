@@ -843,6 +843,13 @@ jobs:
           # empty-deviz case cannot be built by a screen that always adds a line.
           # Fixed ids, no DELETE.
           node scripts/seed-test-deviz-comparison.mjs
+          # P3-18. The procurement report needs projects in five different
+          # statuses, one whose only deviz stayed a draft, one with no deviz at
+          # all, and stock batches with chosen quantities so the shortfall is a
+          # number that can be checked by hand. A batch needs an arrived inbound
+          # order and an order line, which the screens build one at a time.
+          # Fixed ids, no DELETE.
+          node scripts/seed-test-procurement.mjs
           # .env.local is what both the dev server and the Playwright runner
           # read. It is gitignored and exists only on this runner.
           {

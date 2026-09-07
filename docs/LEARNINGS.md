@@ -4564,3 +4564,33 @@ NOT having a wrapper, which is an absence and not something a grep finds.
 in the file that renders the thing being added to. RULE: **before adding a
 testid, grep for `data-testid={` in the parent, not for the literal you are about
 to write.** A generated identifier has no literal to find.
+
+### The witness for "this case is included" must be a row the case can actually produce
+**Tag:** infra
+**ERROR:** P3-18's acceptance says in capitals that **a project in `active` with an
+accepted deviz IS included**, reversing what the authored card said. The fixture
+gave the `active` project one product, and that product was the over-issue case:
+estimate 6, issued 9, so its contribution is correctly **zero**. The clause was
+then untestable in the direction it was written, because a contribution of zero
+looks exactly like exclusion on screen.
+**SOLUTION:** the `active` project gained a **second** product it genuinely still
+needs, so the status breakdown shows a non-zero figure under `În lucru`. The
+over-issue case keeps the first product and is asserted separately. RULE: **a
+fixture that proves an inclusion needs a row the inclusion produces.** When the
+only case you gave a category is one whose correct answer is zero, you have built
+a fixture that cannot tell inclusion from exclusion.
+
+### A batch is not a number you can seed
+**Tag:** data
+**ERROR:** stock in this repository is `sum(batches.quantity) - sum(outbound_lines.quantity)`,
+so a fixture with a chosen stock level looked like one insert into `batches`. It
+is not: `batches` requires `inbound_order_id` **and** `order_line_id`, both NOT
+NULL with foreign keys, and `order_line_id` is unique per batch. A seeded stock
+level therefore needs an arrived inbound order, an order line per product, and a
+batch per line.
+**SOLUTION:** the seed builds that graph, and says in its own comment why the
+ceremony is not ceremony: it is the graph the inventory screen reads, and a stock
+figure written beside it would be a second truth about the same number. RULE:
+**before seeding a derived quantity, read the constraint graph of the table it is
+derived from.** The shape of the insert is the schema's answer to how that number
+is allowed to exist.

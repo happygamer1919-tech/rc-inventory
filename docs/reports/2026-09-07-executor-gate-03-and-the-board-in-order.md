@@ -248,6 +248,84 @@ main clone was not touched.
 
 ---
 
+## 4. P3-18, necesar de materiale
+
+The last unshipped item on the dispatch's wave 3 list, unblocked the moment
+P3-13c landed.
+
+### Both contradictions R-058 resolved are proved by their own case
+
+| delta | the resolution | the case |
+|---|---|---|
+| 1 | a project in `active` with an accepted deviz **is** included | case 3 |
+| 2 | the requirement **subtracts** what was already issued, floored **per project per product** | cases 1 and 2 |
+
+Case 2 is the one that matters. The `active` project estimated 6 and issued 9, so
+it contributes **zero**. The row reads **7**. Had the floor been applied after
+aggregation it would read 4, and the order would be three short. That is the
+single most expensive wrong number this screen can produce, and it now has an
+assertion.
+
+### A fixture defect found while writing the spec, of the kind that passes
+
+The `active` project's only product **was** the over-issue case, whose correct
+contribution is zero. So the clause *"a project in `active` IS included"* was
+untestable in the direction it was written: a contribution of zero looks exactly
+like exclusion. It gained a second product it genuinely needs.
+
+### Stock could not be seeded as a number
+
+Stock is `sum(batches) - sum(outbound_lines)`, and `batches` requires an
+`inbound_order_id` **and** a unique `order_line_id`. A chosen stock level
+therefore needs an arrived inbound order, a line per product and a batch per
+line. The seed builds that graph rather than writing a stock figure beside it,
+which would have been a second truth about the same number.
+
+### Nothing computed twice
+
+Issued quantity comes from P3-13c's `getDevizComparison`. Stock comes from
+`listProducts`, the same computation the inventory screen uses. The project set
+comes from `listProjects`, **paged through with its own `pageCount`**, because a
+report that read only the first page would understate the requirement without
+saying so.
+
+### The acceptance
+
+```
+npx playwright test tests/e2e/procurement.spec.ts
+  10 passed, three runs in a row
+```
+
+### And a false alarm, run down rather than shipped past
+
+The whole chromium suite was run against the scratch stack and **deviz.spec,
+project-budget.spec, document-url.spec and extraction.spec went red**. None of it
+was this diff. The scratch stack had only the seeds this session needed;
+`seed-test-cost.mjs` and `seed-test-deviz.mjs`, which CI runs, had never been
+applied to it. With the full seed set, `procurement.spec`, `deviz-comparison.spec`
+and `deviz.spec` run together: **30 passed**. The remaining specs need storage
+objects and mock services this stack does not carry, which is a property of the
+scratch environment and not of the branch.
+
+### The ordering rule broke again, on this card, an hour after the analysis of it
+
+CLAUDE.md 2 says `todo -> in_flight` is committed **first**. On P3-18 there is no
+such commit: the branch went from cutting straight to the finished work, and the
+board moved `todo -> shipped` in one step. Nothing had been pushed, so no reader
+saw a stale board and the cost was zero.
+
+**It is the second instance in two sessions by the same terminal**, after DIG-01
+on 2026-09-06, and this session had already written section 2 above explaining
+why it happens: `check-board-edit` gates the pull request and cannot see commit
+ordering inside it, so the rule is green whatever the order was. Writing the
+analysis did not prevent the repeat. GATE-03 and P3-13c in this same session were
+both flipped first, correctly, so it is not a terminal that never does it. It is
+a rule with no gate, and that is now demonstrated rather than argued.
+
+Recorded on the card, not tidied away. **No fix was built**, per the dispatch.
+
+---
+
 ## Deviations, for explicit ratification. Not self-ratified.
 
 1. **The pull request depth.** The dispatch says *hold at three open PRs per
