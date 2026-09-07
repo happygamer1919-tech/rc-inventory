@@ -503,6 +503,43 @@ unmodified, for a session that can start from a known production origin.
    was run against the code commit and not against the merge commit that
    introduced the value.**
 
+## 10a. One red run on this report's own pull request, recorded rather than quietly re-run
+
+The pull request carrying sections 8 to 11 went **red on `quality`** at 20:21
+UTC, on one test, in a spec this pull request does not touch:
+
+```
+✘ tests/e2e/cross-links.spec.ts:148  produsul duce la furnizorul lui  (24.8s)
+    line 183  await expect(row).toHaveCount(1, { timeout: 15_000 })      passed
+  > line 185  await expect(page.getByTestId("product-panel")).toBeVisible({ timeout: 20_000 })
+    Error: element(s) not found
+  1 failed, 184 passed
+```
+
+**The row was found and the click did not open the panel.** This pull request
+changes one board JSON file and one markdown report and no code path at all.
+
+**The same branch passed 25 minutes earlier**, at `3a66ccb`, with identical board
+and report content; the only difference at `c9fb065` is the merge of `P3-13d`,
+which touches `DevizComparisonPanel.tsx`, `deviz-comparison.spec.ts` and three
+comment lines in a seed script, and `P3-13d`'s own run was green over this same
+`cross-links` spec.
+
+**`retries` is 0 in `playwright.config.ts`, deliberately**, on the reasoning that
+a retry hides a race and a race in a stock system is a wrong number in a
+warehouse. So this is written down instead of being re-run into silence:
+
+- **It is not fixed and it is not diagnosed.** The shape (type into
+  `product-search`, then click the row that search filtered to) is the shape that
+  produces a click landing on a moved element, but that is a hypothesis and
+  nothing here proves it.
+- **It is not carded.** Step 6 of this session's dispatch forbade authoring scope
+  beyond the cards it named. It belongs to whoever picks up the `cross-links`
+  spec next, and it is here so they do not start from zero.
+- **The merge waits for a green run on the head sha**, per CLAUDE.md 3. A green
+  second run would not prove the race is gone; it would only mean it did not
+  fire, and this paragraph is what stops that from reading as a fix.
+
 ## 11. State at the end
 
 **Merged this session:** `#254` the ratifications and five authored cards, `#255`
@@ -515,4 +552,5 @@ request carrying this report.
 
 **What the next session should pick up first:** the G8 question in section 8b,
 because it is the owner's to answer and three other things wait behind it. Then
-`GATE-01`, once the production origin is known again.
+`GATE-01`, once the production origin is known again. The `cross-links` flake in
+section 10a is loose and belongs to nobody.
