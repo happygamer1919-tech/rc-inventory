@@ -4501,3 +4501,36 @@ The rule: a code pull request is authored to land in one terminal state, and a
 board left mid-flight is a pull request the check reads as unfinished, not as
 cautious. If the acceptance genuinely cannot be run, the terminal status is
 `blocked`, not `in_flight`.
+
+### The check for a link that was missing in one direction was itself missing one
+**Tag:** infra
+**ERROR:** `check-grant-revocation` exists because R-082 declared `REVOKED BY
+P2-13` and P2-13's checklist did not name it back. The first version of its
+detector matched `REVOKED BY <card>`, `expires at <card>` and `<card> revokes`.
+**R-059 is written "Revoked with every other terminal grant at P2-13"** and
+matched none of them, so the check built to find grants covered by an
+unenumerated phrase was itself letting a grant through on an unenumerated phrase.
+It was found by reading R-059 while classifying the hits by hand, not by the
+check reporting anything.
+**SOLUTION:** a fourth pattern, and case 3 of the proof is that exact wording, so
+the next reader meets it as an executable case rather than as a comment. RULE:
+**when a check enumerates the shapes of a thing, the enumeration is the defect the
+check is about, one level up.** Read the corpus it will run against before
+trusting the patterns, and expect the corpus to use a phrasing the patterns do
+not.
+
+### A card can be satisfied by work that lands after it is authored, and it does not notice
+**Tag:** infra
+**ERROR:** GATE-03's notes said "Verified on main before authoring: P2-13's card
+carries no occurrence of the string R-082 anywhere in any field." That was true
+on 2026-09-02 when the card was authored. On 2026-09-04 a TRIAGE rulings pull
+request cut two days earlier merged, and R-095 added exactly the box GATE-03
+asks for, in almost GATE-03's words. The card then sat eligible for three days
+asking for work already done, and its stated verification read as current.
+**SOLUTION:** the note is quoted on the card under CLAUDE.md 9c with the date it
+stopped being true and the commit that ended it, and the card shipped on the half
+that was still undone. This is the second card in a week overtaken this way; AUT-9
+was the first. RULE: **a card's "verified on main" note is a measurement with a
+timestamp, not a standing fact.** Re-run the verification when you pick the card
+up, especially where a long-lived TRIAGE branch can land between authoring and
+working.
