@@ -7572,3 +7572,380 @@ watchdog: the deadline-versus-countdown clause of the defaults was never in
 dispute and stands.
 
 **Unblocks:** AUT-9.
+
+---
+
+### R-158 - this run's dispatch is a report that pull request #238 triaged in full eight hours earlier, so nothing in it is ruled twice, and AUT-17's defect fires for a fifth time
+
+**Date:** 2026-09-07
+**Asked on:** AUT-17, and the whole of this run's input
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md`, the header:
+>
+> "**Role:** EXECUTOR, unattended scheduled run, CLAUDE.md section 13.
+>  **Cards worked:** one."
+
+**Ruling: THE DISPATCH REPORT WAS ALREADY CONSUMED. NOT ONE OF ITS FINDINGS IS
+RULED AGAIN HERE, AND THE FOUR VERDICTS THAT ALREADY EXIST ARE CITED RATHER THAN
+RE-DERIVED.**
+
+**THE EVIDENCE, AND IT IS ONE PULL REQUEST.** `#238`, branch
+`triage/20260906-220005`, head `8827cfa`, opened 2026-09-07T03:09:58Z, names in
+its own body: *"Input report: `docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md`"*.
+It carries **R-144 to R-148**: the four EXT-10 deviations ratified one at a time,
+the phase 3 gate audit, the phase 2 gate audit, the board sweep, and card
+`EXT-22`. It is green on its head sha and it is not merged.
+
+**WHAT R-158 THEREFORE DOES NOT DO.** It does not rule on the board flip that
+preceded the observed acceptance, on `hasProductPackaging`, on the free-text
+package unit, or on the missing claim. R-144 ruled all four, individually, with
+the test that fired named for each, which is what DOCTRINE-TRIAGE section 1
+requires. A second set of verdicts on one set of deviations is two ids saying
+one thing, and CLAUDE.md 8b's first sentence is that an id names exactly one
+decision.
+
+**THE TWO DEFECTS IN THE REPORT ITSELF ARE ALSO ALREADY RULED.** The boot line
+reads `Launch gate, phase 2: 0/9` where the committed board reads **6 of 9** at
+the run's own base commit `2f0878d`, and the report carries no open pull request
+census while AUT-18 requires one. R-144 recorded both; R-141, on the still-open
+`#210`, rules the underlying cause, which is that CLAUDE.md section 1 asks a
+booting session for one gate count and there are two boards. Re-derived here only
+far enough to confirm they are the same two defects and not new ones.
+
+**THIS IS THE FIFTH LIVE INSTANCE OF AUT-17** and the third that is a DUPLICATE
+rather than a mis-selection: R-075 (2026-08-31), R-102 (2026-09-04), R-118
+(2026-09-04), R-139 (2026-09-05, on the open `#210`), and this one. R-139 named
+the class in its own title: *"two consecutive review runs ruled the same findings
+because the first one is still unmerged, and nothing in the reviewer's rubric
+told it to look."*
+
+**AND THE PART THAT IS NEW, BECAUSE IT COULD NOT BE SEEN FROM INSIDE ANY ONE
+RUN.** The dispatch also named a report that is not the newest: the newest
+executor report on `main` is `docs/reports/2026-09-07-executor-rule-09-and-the-wrong-moment.md`,
+and three others carry a later date than the one dispatched. **The selector is
+not merely repeating itself, it is now reaching four reports back**, because
+every report it should have preferred rides on an unmerged branch. AUT-17's fix
+compares against `docs/poc/triage-latest.json`, and that file on `main` names run
+`20260904-071258` and a report from 2026-09-04. It is three days stale for the
+same reason: R-159.
+
+**Also changes:** `AUT-17.notes` gains this instance and `AUT-17.last_checkpoint`.
+**Unblocks:** nothing. AUT-17 is shipped and its acceptance is not reopened here.
+
+---
+
+### R-159 - five consecutive TRIAGE pull requests are green on their own head sha and none can be merged, because the required check is strict and `main` moves faster than a run can finish; RST-06 is authored
+
+**Date:** 2026-09-07
+**Asked on:** RST-02, RST-05, AUT-17, and the five open TRIAGE pull requests
+**Answer, verbatim:**
+
+> NOT FROM THE DISPATCH REPORT, AND THAT IS SAID RATHER THAN IMPLIED.
+> `docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md` names none of
+> this. It is the open pull request census AUT-18 requires of every run, taken at
+> `origin/main` `5bbc852`, plus DOCTRINE-TRIAGE's own instruction that the pull
+> requests the record names are ground truth TRIAGE may read.
+>
+> Quoted instead, from `npm run checks:state 238`, run on this branch:
+>
+> "STALE, NOT GREEN. The quality check reads SUCCESS while this pull request is
+>  BEHIND. The base has moved and the required check is strict, so the recorded
+>  run is not the run that will decide this merge."
+
+**Ruling: THE BACKLOG IS ARITHMETIC, NOT NEGLECT, AND IT IS SELF-FEEDING.**
+
+**THE CENSUS. FIVE TRIAGE PULL REQUESTS, THIRTY RULING IDS, NONE ON `main`.**
+
+| pr | branch | head | state | `quality` on that head | holds |
+|---|---|---|---|---|---|
+| `#207` | `triage/20260904-220003` | `44cb6af` | DIRTY | run 33947237196 success | R-128 to R-134 |
+| `#210` | `triage/20260905-010004` | `d13cb12` | DIRTY | run 33948234328 success | R-135 to R-141 |
+| `#238` | `triage/20260906-220005` | `8827cfa` | BEHIND | run 34078709767 success | R-144 to R-148 |
+| `#242` | `triage/20260907-010004` | `efb3321` | BEHIND | run 34086984334 success | R-149 to R-153 |
+| `#245` | `triage/20260907-040001` | `3b0daeb` | BEHIND | run 34101039755 success | R-154 to R-157 |
+
+**EVERY ONE OF THEM PASSED.** Not one is red, not one is a bad review, and not one
+was refused. `decisions/NEXT-RULING-ID` on `main` reads `R-144` while thirty ids
+above it are written and green.
+
+**THE MECHANISM, IN FOUR STEPS, EACH ONE INDIVIDUALLY CORRECT.**
+
+1. A TRIAGE run's budget is **30 minutes** under CLAUDE.md section 13. It opens
+   its pull request at the end of it, because the pull request is its last act.
+2. `quality` builds five throwaway postgres containers and a local Supabase
+   stack. R-114 measured it at **half the executor's 45 minute cap**. The green
+   arrives after the run that produced it is dead.
+3. `main` is **protected with `strict: true`** on one required check named
+   `quality`, confirmed against the branch protection API on this run. A pull
+   request whose base has moved is BEHIND, and CLAUDE.md section 3 already says
+   its green is stale. **27 commits reached `main` in the 48 hours to
+   `5bbc852`**, one every 1.8 hours on average and clustered tighter than that.
+4. So the window in which a TRIAGE pull request is both green and up to date is
+   **shorter than the interval between merges to `main`**, and no TRIAGE run is
+   alive inside it. Nothing merges it afterwards: DOCTRINE-TRIAGE lets TRIAGE
+   merge its own rulings pull request and nothing else, and RST-02, the sweep
+   that would learn the `triage/` prefix, is `todo`.
+
+**AND THE SELF-FEEDING PART, WHICH IS WHY THIS IS RULED RATHER THAN NOTED.** Each
+new TRIAGE run writes the same fields as the last: the tail of
+`decisions/inbox.md`, `decisions/NEXT-RULING-ID`, `docs/poc/triage-latest.json`,
+`P2-13.depends_on`, the notes of G5 and G8. Two of the five are already DIRTY.
+**Every run that lands nothing makes the eventual reconciliation more expensive
+than it was**, and R-052 puts that resolution on EXECUTOR, locally, never in the
+web editor.
+
+**THIS RUN THEREFORE WRITES NARROWLY, AND THAT IS A DECISION RATHER THAN AN
+OMISSION.** It re-derives no finding that a green branch already carries, it
+touches no gate note, and its only board edits are the two in R-161, which are
+inseparable from each other and land a ruling that is already on `main`. The
+argument is R-052's: the cost of a conflict is paid by whoever resolves it, and
+this run cannot be that person.
+
+**RST-06 IS AUTHORED, AND DOCTRINE-TRIAGE SECTION 5 REQUIRES THE ARGUMENT FOR NOT
+FOLDING IT INTO AN OPEN CARD.** RST-02 is the CLASS fix and stays: it teaches the
+sweep every branch prefix a scheduled run can open. RST-05 is the INSTANCE card
+for a DIFFERENT four pull requests and its premise is discharged, per R-160.
+RST-03 is the precedent for an instance card standing beside a class card, and it
+is R-107's precedent, not a new one. **This is the second instance, five deep,
+and it is a different five.**
+
+**Also changes:** a new card `RST-06` on the phase 2 board.
+**Unblocks:** nothing today. RST-06 is eligible on authoring.
+
+---
+
+### R-160 - RST-03 and RST-05 are asking for work that landed by hand on 2026-09-04, and RST-04 carries a clause that can never go green; three cards corrected and none shipped
+
+**Date:** 2026-09-07
+**Asked on:** RST-03, RST-04, RST-05
+**Answer, verbatim:**
+
+> NOT FROM THE DISPATCH REPORT. This is DOCTRINE-TRIAGE section 3's sweep and
+> section 6's "correcting a stale acceptance line", over cards the report does not
+> name, using the pull requests those cards name as ground truth.
+>
+> Quoted instead, from `docs/board/rc-board-phase2.json` on `origin/main` at
+> `5bbc852`, card `RST-05`, field `title`:
+>
+> "Land the four stranded pull requests as one reconciliation: fifteen ruling
+>  ids, eleven cards, and the apply journal that is currently false about
+>  production, three of them conflicting and two pairs of ids colliding with each
+>  other."
+
+**Ruling: EVERY PULL REQUEST THESE THREE CARDS NAME IS CLOSED OR MERGED, AND THE
+CARDS DO NOT SAY SO.**
+
+**RST-05. PREMISE DISCHARGED. THE FOUR MERGED ON 2026-09-04.**
+`#157` at 15:52:30Z, `#172` at 16:11:45Z, `#181` at 13:46:56Z, `#184` at
+16:58:23Z. Its three machine-checkable clauses were RUN on this branch, against
+`origin/main` `5bbc852`, and all three pass:
+
+- **(1)** `git show origin/main:decisions/inbox.md | grep -oE '^### R-[0-9]+' | sort | uniq -d`
+  prints **nothing**, and the distinct ruling count has risen from **88** at
+  `e15e928` to **129**, which is +41 against a required +15.
+- **(2)** `npm run check:unique-ids` exits **0**: *"166 card id(s) across 3 boards
+  and 129 ruling id(s) are each unique, 0 redefined against main."*
+- **(3)** All eleven cards resolve on a board: MIG-01, RULE-03, RULE-04, AUT-19,
+  P3-35, P3-36, P3-37, BOARD-03, RST-04, RESTORE-01, GUARD-02.
+
+**RST-03. PREMISE DISCHARGED. `#126` MERGED 2026-08-31T08:16:40Z.** Three of its
+four clauses were run here and pass: R-063 to R-067 are five headings on `main`;
+BOARD-02, AUT-15 and P3-28 all carry a non-empty `plain`, `acceptance` and
+`defaults`; and `docs/reports/2026-08-31-triage-board-clock-and-gate-audit.md`
+is on `main` with its title line intact.
+
+**RST-04. HALF DISCHARGED, AND ONE CLAUSE IS NOW UNSATISFIABLE.** `#143` is
+CLOSED, at 2026-09-02T15:11:49Z. Its clause 2 reads:
+
+> "`grep -c '^### R-087\|^### R-088\|^### R-089' decisions/inbox.md` prints 0,
+>  proving the three ids were never reused on main."
+
+**It prints 3.** All three ids are on `main`, carrying headings that are not
+`#143`'s: R-087 is the second ruling-counter allocator, R-088 is DOCTRINE-TRIAGE
+section 2's stale allocation rule, R-089 is the orphaned apply of a merged
+migration. **That re-allocation was LEGAL** and R-107 is the ruling that made it
+so: *"a ruling that has never been on `main` may be re-allocated before it
+lands."* The clause was written expecting the ids to stay empty and a later
+ruling filled them, so it can never print 0 again without deleting three
+committed rulings, which CLAUDE.md 8b forbids outright.
+
+**THE CLAUSE IS CORRECTED, NOT DELETED, AND THE CORRECTION KEEPS WHAT IT WAS
+FOR.** It becomes: the three ids appear on `main` exactly once each and are the
+re-allocated rulings named above, proven by `grep -cE '^### R-08[789] '` printing
+**3** together with `npm run check:unique-ids` exiting 0, which is the check that
+actually refuses a second ruling under a number a committed line carries. The
+card's own words for why the clause matters are unchanged and are kept.
+
+**NONE OF THE THREE IS SHIPPED HERE, AND DOCTRINE-TRIAGE IS EXPLICIT ABOUT WHY.**
+TRIAGE runs nothing that ships. Shipping needs the acceptance run inside the pull
+request that carries it, and RST-03 and RST-05 both name a validator and a
+conflict-residue check that must be run BEFORE their commit. The next EXECUTOR
+that claims either one runs four commands and six commands respectively, quotes
+the output, and ships in one pass; that is minutes of work, and it is minutes of
+work that was invisible while the cards read as unstarted.
+
+**WHY THIS WAS INVISIBLE TO FIVE TRIAGE RUNS THAT ALL SWEPT THE BOARD.**
+DOCTRINE-TRIAGE section 3's four checks read `depends_on`. All three cards have
+`depends_on: []`, so no check fires on them, and their premise lives in prose
+inside `title` and `acceptance`. **A card can go stale without any edge going
+stale**, and nothing in the rubric looks there. That is a defect in
+`docs/DOCTRINE-TRIAGE.md` and it is reported as one under section 6 of this run's
+report rather than fixed by a role that may not edit its own rubric.
+
+**Also changes:** `RST-03.notes`, `RST-04.acceptance`, `RST-04.notes`,
+`RST-05.notes`, and the `last_checkpoint` of all three.
+**Unblocks:** nothing. All three were already eligible; they are now honest about
+what remains.
+
+---
+
+### R-161 - the board sweep: the P2-13 capability edge that two rulings on `main` declared and nobody wrote is written, and RESTORE-01's clause that would forbid it is corrected in the same commit
+
+**Date:** 2026-09-07
+**Asked on:** P2-13, RESTORE-01, and every `depends_on` edge on both live boards
+**Answer, verbatim:**
+
+> NOT FROM THE DISPATCH REPORT. DOCTRINE-TRIAGE section 3 requires the sweep on
+> every run, over the whole board and not only the cards the report touched.
+>
+> Quoted instead, from `decisions/inbox.md` on `origin/main`, ruling R-105:
+>
+> "`P2-13.depends_on` becomes `[\"P2-08b\", \"GATE-03\"]`."
+
+**Ruling: FOUR CHECKS RUN OVER 166 CARDS ON BOTH LIVE BOARDS. ONE EDGE LANDS, AND
+IT LANDS WITH THE ACCEPTANCE CLAUSE THAT WOULD OTHERWISE CONTRADICT IT.**
+
+**CHECK 1, DANGLING: ZERO.** Every id in every `depends_on` resolves to a card on
+the same board.
+
+**CHECK 2, SATISFIED BUT BLOCKING: THREE BLOCKED CARDS, NONE CLEARED BY THIS
+RUN.** P2-08b is blocked on **andre**, who genuinely owes one real document
+through his own scenario. P2-14 is blocked on the **client** and its dependency is
+not satisfied. **MIG-01 is blocked on ivan and R-131 already cleared it**, on the
+open `#207`, on the ground that CLAUDE.md section 8.0 records the owner's decision
+of 2026-09-04. That clearing is correct and it is not repeated here: a second
+ruling clearing one block is the duplication R-158 refuses, and the fix for it is
+merging `#207`, which is R-159.
+
+**CHECK 3, THE CAPABILITY EDGE. `P2-13.depends_on` BECOMES
+`["P2-08b", "GATE-03", "MIG-01"]`, AND BOTH ADDITIONS ARE RULINGS ON `main` THAT
+WERE NEVER WRITTEN TO THE BOARD.**
+
+- **GATE-03, by R-105**, which listed `P2-13.depends_on` under its own "Also
+  changes" and whose acceptance half landed while the edge did not. P2-13's
+  checklist names two grants by id and reaches R-082's applier grant only through
+  the blanket phrase "reverting section 8", so a rotation run before GATE-03
+  ticks a checklist complete with that grant still standing. CLAUDE.md 8.7 states
+  the failure in its own words.
+- **MIG-01, by R-101**, which DEFERRED the write on a stated precondition:
+  *"MIG-01 is not on the board today, so writing the edge now would produce a
+  dangling `depends_on` and a red `validate-board.mjs`."* **That precondition is
+  discharged.** MIG-01 is on the phase 2 board and the validator exits 0 with the
+  edge, checked on this branch and not assumed.
+
+**THE SAME ANSWER WAS REACHED INDEPENDENTLY BY R-130 (`#207`) AND R-147 (`#238`),
+AND THAT IS STATED RATHER THAN HIDDEN.** Three TRIAGE runs reading the same two
+rulings wrote the same three-entry array. Under DOCTRINE-TRIAGE's overriding
+rule, two runs over one input must reach one answer, and they did. **It is
+written a third time here for one reason only: neither of the other two can
+merge**, per R-159, and this edge has now been ruled on `main` for three days
+while the board contradicts it.
+
+**AND IT CANNOT BE WRITTEN ALONE, WHICH IS THE OTHER HALF OF THIS RULING.**
+`RESTORE-01.acceptance` reads:
+
+> "PLUS ARTEFACT: `P2-13.depends_on` is exactly `[\"P2-08b\", \"MIG-01\"]`, per
+>  R-101."
+
+**Written as R-105 requires, that clause becomes unsatisfiable**: met literally it
+would require deleting a capability edge a later ruling put there. It is corrected
+to demand **containment** - the array CONTAINS `MIG-01` - which is what R-101
+actually ruled and what the card was actually for. R-130 corrected the same clause
+the same way on `#207` on 2026-09-05, from its own measurement; this is the same
+correction, made where it can land. **RESTORE-01's other three byte-identity
+clauses are NOT touched here.** R-130 measured them against `b25dc75` and softened
+them with its numbers; re-measuring them on a fifth branch is exactly the
+re-derivation R-159 refuses, and they are named in RST-06's scope instead.
+
+**NOTHING BECAME ELIGIBLE OR INELIGIBLE.** P2-13 already waited on P2-08b, which
+is blocked on Andre, and it still does. This is ordering, not a grant.
+
+**CHECK 4, AN EDGE ON A SPLIT CARD: NONE OUTSTANDING.** P2-08a and P2-08b remain
+the only live split and their edges were re-derived under R-046. P3-11a to P3-11e
+and P3-29a to P3-29c look like halves and are not; R-130 established that and it
+is not re-derived.
+
+**AND ONE FINDING THIS SWEEP CANNOT EXPRESS AS AN EDGE**, recorded because
+DOCTRINE-TRIAGE section 3 check 3 asks what a card takes away and P2-13 takes away
+the section 3.1 self-merge grant, which **every unshipped card needs**. R-157, on
+the open `#245`, rules exactly this and says the rubric has no answer for a
+capability the whole board depends on. It is not re-ruled here.
+
+**Also changes:** `P2-13.depends_on`, `P2-13.last_checkpoint`,
+`RESTORE-01.acceptance`, `RESTORE-01.notes`, `RESTORE-01.last_checkpoint`.
+**Unblocks:** nothing.
+
+---
+
+### R-162 - the launch gate audit: phase 2 stays 6 of 9 with all three failures re-derived, and phase 3 is deliberately not re-audited three hours after a full audit that nothing has moved
+
+**Date:** 2026-09-07
+**Asked on:** G4, G7, G9, and the phase 3 launch gate
+**Answer, verbatim:**
+
+> NOT FROM THE DISPATCH REPORT. DOCTRINE-TRIAGE section 4 requires the audit of
+> every failing gate on every run.
+>
+> Quoted instead, from `docs/board/rc-board-phase2.json` on `origin/main` at
+> `5bbc852`, `launch_gate.readiness_passed`: `6`, `denominator`: `9`, with G4, G7
+> and G9 at `fail`.
+
+**Ruling: PHASE 2 STAYS 6 OF 9. NOTHING FLIPS. NO GATE NOTE IS REWRITTEN.**
+
+**G4, AI extraction live end to end. FAIL. TWO CLAUSES, ONE UNMET AND ONE
+UNBUILT.** The deciding clause is *"one real document has travelled the whole path
+on production"*, which is exactly P2-08b, `blocked` on **andre** since
+2026-08-27, eleven days. The second clause is the two failure modes P2-20 exists
+to assert, and **P2-20 is `todo` and eligible**. Committed artefacts: none for
+either clause. **NO TERMINAL CAN CLOSE THE FIRST HALF.** It needs a third party.
+
+**G7, reminders fire a real email. FAIL, `blocked_on: ivan`, AND IT IS A PANEL
+ACTION.** Migration 0006 is applied and the logic is proven by
+`tests/e2e/reminders.spec.ts`. What is missing is `RESEND_API_KEY` and
+`RESEND_FROM` in the production environment, first recorded missing 2026-08-26,
+**twelve days**, and a recipient address on a domain that exists, which lands with
+the real staff accounts at P2-13. **NO TERMINAL CAN CLOSE THIS.** It is a click in
+a console. It is escalated again by this run, for at least the fifth time.
+
+**G9, Mihai completes one full cycle himself. FAIL.** P2-14 is `blocked` on the
+**client**, its dependency P2-13 is unshipped, and no report of such a cycle
+exists. **NO TERMINAL CAN CLOSE THIS**, it is downstream of G4, and it is not
+backlog. A reader counting 3 of 9 as remaining work will go hunting for cards that
+do not exist.
+
+**ALL THREE ARE IN THE UNFLIPPABLE SET DOCTRINE-TRIAGE SECTION 4 NAMES**: one
+needs a third party, one needs an action in a console no terminal holds, one needs
+the client himself.
+
+**THE PHASE 3 GATE IS NOT RE-AUDITED, AND THE REASON IS EVIDENCE RATHER THAN
+BUDGET.** R-145, on `#238`, audited all nine conditions **eight hours ago against
+this same dispatch report**, rewrote every evidence field, moved G5 into the
+unflippable set and authored GATE-04. **Nothing has moved since**: no card shipped
+on either board between `#238`'s base and `5bbc852`, which carries only three POC
+state merges, and `launch_gate.readiness_passed` reads 0 with all nine at `fail`,
+verified on this branch. R-106 is the precedent for a stated non-audit with its
+reason attached. **Re-deriving nine conditions onto a sixth branch would conflict
+with R-145's rewrite of the same nine fields**, which is R-159's whole argument.
+
+**NO GATE NOTE IS EDITED BY THIS RULING, AND THAT IS A DEPARTURE FROM SECTION 4
+POINT 4 THAT IS DECLARED RATHER THAN QUIET.** The rubric says to write the audit
+into the gate whether or not it flips. Five previous audits of G4, G7 and G9 are
+already in those notes, each saying what this one says, and `#238` added a sixth
+on its branch. The audit is recorded here and in this run's report, where a reader
+can find it and where it cannot make the reconciliation of five branches harder.
+**If that trade is wrong, the corrective is a ruling that says so, not a silent
+sixth paragraph.**
+
+**Unblocks:** nothing. Two gates are escalated to the owner in this run's
+`docs/poc/triage-latest.json`.
