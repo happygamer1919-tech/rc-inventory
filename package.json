@@ -49,7 +49,8 @@
     "prove:extraction-budget": "node scripts/poc-free/prove-extraction-budget.mjs",
     "check:state-endpoint": "node scripts/poc-free/check-state-endpoint.mjs",
     "prove:state-endpoint": "node scripts/poc-free/prove-state-endpoint.mjs",
-    "check:action-pins": "node scripts/poc-free/check-action-pins.mjs"
+    "check:action-pins": "node scripts/poc-free/check-action-pins.mjs",
+    "prove:anon-write-refused": "node scripts/prove-anon-write-refused.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

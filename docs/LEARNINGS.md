@@ -4502,6 +4502,114 @@ board left mid-flight is a pull request the check reads as unfinished, not as
 cautious. If the acceptance genuinely cannot be run, the terminal status is
 `blocked`, not `in_flight`.
 
+### A card whose acceptance names a column that no migration ever created
+**Tag:** data
+**ERROR:** EXT-11's acceptance reads "adds the series to the supplier document
+reference wherever order_ref is stored, on orders and on extraction drafts", and
+its notes say P3-31 already split order_ref into theirs and ours. Neither is true
+of the schema. `order_ref` exists in no migration: `extraction_drafts` has no
+such column, `inbound_orders.reference` is OUR reference under its own unique
+constraint, and contract section 4.1a states in terms that `order_ref` arrives
+from Andre, is accepted and is IGNORED. P3-31 is still `todo` and its own
+acceptance line ("a nullable client_ref column alongside the EXISTING order_ref")
+assumes the same column. Two cards each built on a field the other was assumed to
+have landed.
+**SOLUTION:** The card that needs the column creates it, and says so in its notes
+rather than in a new card. EXT-11 lands `order_ref` and `order_ref_series`
+together because a series with nothing to qualify is not an identifier. The rule
+that prevents the next instance: a card whose acceptance names an existing column
+names the migration that created it. `grep -rn "<column>" supabase/migrations/`
+is one command and it is the difference between a card that can be worked and one
+that discovers its own premise is false halfway through.
+
+### The before-and-after proof does not fit in one harness window
+**Tag:** ci
+**ERROR:** EXT-11 requires the new e2e case "FAILING BEFORE THE CHANGE AND THE PR
+SHOWING BOTH RESULTS". `quality` takes about 22 minutes and
+`.github/workflows/quality.yml` sets `concurrency.cancel-in-progress: true` on
+`quality-${{ github.ref }}`, so a second push inside that window CANCELS the
+first run. A harness run capped at 45 minutes cannot produce a completed red run
+and a completed green run on the same branch: the red is cancelled before it
+concludes, and a cancelled run proves nothing.
+**SOLUTION:** Split the two results across two runs. The first push carries the
+tests alone and is left to conclude red. The next run pushes the implementation
+onto the same pull request and records the green. The rule: when a card's
+acceptance demands both a failing and a passing run on one branch, budget two CI
+cycles, not two commits.
+
+### A capability gate per migration FILE, not per column
+**Tag:** data
+**ERROR:** EXT-11 adds two columns and the four gates already in
+`lib/data/schema-capability.ts` each guard one column, so the obvious move was
+two more probes. Two probes for two columns added in the same `begin/commit` of
+the same file spend two PostgREST queries a minute to learn one fact, and worse,
+they imply a state that cannot exist: a reader of the code is told that
+`order_ref` might be present while `order_ref_series` is not.
+**SOLUTION:** One gate per migration FILE. Columns added in one transaction
+arrive together, so one probe answers for all of them; columns in different files
+reach production separately and need separate probes, which is why 0032 and 0033
+correctly have their own. The rule: the unit a gate guards is the unit that lands
+atomically, and that unit is the file.
+
+### A card's acceptance quietly assumed a column that no migration created
+**Tag:** data
+**ERROR:** EXT-11's acceptance says "wherever `order_ref` is stored, on orders
+and on extraction drafts", and its notes say P3-31 already split `order_ref` into
+theirs and ours. `grep -rn order_ref supabase/migrations/` returns nothing.
+`extraction_drafts` had no such column, `inbound_orders.reference` is OUR
+reference, and contract section 4.1a said in terms that `order_ref` arrives, is
+accepted and is IGNORED. P3-31's own acceptance line assumes the column too and
+P3-31 has not shipped. Two cards each built on a field the other was assumed to
+have landed, and neither creates it.
+**SOLUTION:** The card that needs the column creates it and records that it did.
+EXT-11 landed `order_ref` with `order_ref_series`, because a series with nothing
+to qualify is not an identifier. The rule that prevents the next instance: before
+working a card whose acceptance names an existing column, run
+`grep -rn "<column>" supabase/migrations/`. It is one command and it is the
+difference between a card that can be worked and one that discovers its premise
+is false halfway through.
+
+### Adding a field to a fixed-signature SQL function is not the cheap path
+**Tag:** backend
+**ERROR:** Carrying the supplier reference onto the created order looked like two
+new parameters on `confirm_extraction_draft`. A PostgreSQL function is not
+altered, it is dropped and recreated, so that is a migration replacing the
+function every confirmed document passes through, to add two columns the card
+asked for and a signature the card did not.
+**SOLUTION:** The RPC returns the new row's id, so the two fields go on in a
+gated `update` immediately after it, and that update's failure is deliberately
+not fatal: the order already exists, and refusing a real delivery because its
+supplier label could not be written loses the delivery to save the label. The
+rule: adding a column does not require changing the function that inserts the
+row, and the write with the smaller blast radius wins when both produce the same
+stored state.
+
+### A "must fail before the change" acceptance cannot be honoured by a tests-only push
+**Tag:** ci
+**ERROR:** EXT-11's acceptance names a clause that is a fact about history rather
+than about the tree: "THAT CASE FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH
+RESULTS". Two runs tried to satisfy it and neither produced a before-result. Run
+20260907-010004 pushed the two new extraction.spec cases alone, with the card
+honestly left at `todo`, and the quality job stopped at "Refuse a code pull
+request whose board edit is missing"; every step after it, the whole end to end
+suite included, reported `skipped`. Run 20260907-040001 then pushed the
+implementation, wrote `shipped` on the card, and cited that same failed run in the
+evidence field as the RED. It was not a RED for the cases. Cases 25 and 26 had
+never been executed in either state, so the checks the card adds had never been
+seen to fail, which the phase 3 board doctrine refuses in terms. The card was one
+merge away from shipping on a suite that never ran.
+**SOLUTION:** `scripts/poc-free/check-board-edit.mjs` classifies `tests/` as CODE,
+so ANY push carrying a test must have its card at a finished status or the job is
+refused before the end to end step is reached. That is not a bug in either rule;
+it means the intermediate push in a before-and-after sequence has to carry the
+card at `shipped` while the code is still absent. That is legitimate on an
+UNMERGED branch, which proposes a board state rather than asserting one about
+main, and it is only legitimate when the evidence field and the pull request body
+both say at the top that the card is not finished. The rule that prevents the next
+instance: **a cited RED is not evidence until its step list has been read.** A run
+concluding `failure` proves only that something failed. Before naming a run as the
+before-result, run `gh run view <id> --json jobs` and confirm the step that was
+supposed to fail has conclusion `failure` and not `skipped`.
 ### The check for a link that was missing in one direction was itself missing one
 **Tag:** infra
 **ERROR:** `check-grant-revocation` exists because R-082 declared `REVOKED BY
@@ -4644,3 +4752,89 @@ inventing a second answer. RULE: **when a runner rejects something your machine
 accepts, grep the repository for the error string before choosing a fix.** This
 one was already solved, with the reasoning written down, in a file two
 directories away.
+
+### Un caz nou de confirmare care nu completeaza data estimata pica pe alt motiv decat cel testat
+**Tag:** ci
+**ERROR:** EXT-11, run 34179242898 pe PR #240. Un singur caz rosu din 188:
+`tests/e2e/review.spec.ts` "EXT-11: seria furnizorului se vede in fisa si valoarea
+editata este cea salvata", cazut pe `expect(getByTestId('review-created')).toBeVisible()`
+dupa 30 de secunde, "element(s) not found". Implementarea era corecta: cele doua
+campuri ale seriei se afisau si se editau, iar clauza 1 a cazului trecuse. Ce nu
+trecea era confirmarea: `confirmExtractionDraft` in `lib/data/extraction-actions.ts`
+refuza cu "Completeaza data estimata de livrare" cand `expectedAt` este gol, mesajul
+aterizeaza in `review-error`, si `review-created` nu se randeaza niciodata. Cazul nou
+era singurul de pe calea de confirmare care nu completa `review-expected-at`. Costul:
+un ciclu de quality de 22 de minute si o fereastra de harness intreaga, pentru un camp
+care nu are nimic de a face cu ce dovedeste cazul.
+**SOLUTION:** `await page.getByTestId("review-expected-at").fill("2026-12-05")` inainte
+de `review-confirm`, cu motivul scris langa el. Regula: **data estimata de livrare nu
+vine din extragere si este obligatorie, deci orice caz nou care apasa `review-confirm`
+o completeaza, oricare ar fi campul pe care il dovedeste.** Cand se scrie un caz nou pe
+o cale care are deja cazuri verzi, se citeste unul dintre ele pana la capat si se
+copiaza pasii de care depinde actiunea finala; un caz care pica pe ultimul `expect` al
+altcuiva nu spune nimic despre ce testeaza el.
+
+### A board timestamp rounded forward is a timestamp from a clock that has not struck
+**Tag:** ci
+**ERROR:** GATE-01. The board edit was written by hand with `2026-09-08T08:12:00Z`
+on three fields, `GATE-01.last_checkpoint`, `GATE-01.evidence.at` and the G1 gate
+`evidence.at`, because the session rounded the current time up to the next
+convenient minute instead of reading it. `node docs/board/validate-board.mjs`
+passed, because the shape was fine. `npm run check:board-clock` refused with
+`3 of 130 timestamp(s) are AHEAD of the commit that wrote them`, four minutes
+ahead, and that check is unfiltered in `quality`, so the pull request would have
+gone red on a board that every other validator called correct.
+**SOLUTION:** the three fields now read `2026-09-08T08:06:30Z`, after the probe
+they describe and before the commit that carries them. The rule: **a board
+timestamp is READ from the clock, with `date -u`, never composed.** A field
+recording when something happened cannot be later than the commit recording it,
+and the round number is exactly the tell, because nothing that actually happened
+happened at `:00`. Run `npm run check:board-clock` after any board edit, in the
+same breath as the board validator; passing the validator says the JSON is
+well-shaped and says nothing about whether it is true.
+
+### The deployed-commit guard is aimed at a host that stopped being the app
+**Tag:** infra
+**ERROR:** `scripts/poc-free/check-deployed-commit.mjs` defaults to
+`https://www.rapidconstructmd.com/api/health`. On 2026-09-08 that host answers
+from GitHub Pages (`server: GitHub.com`, `last-modified 2026-09-07T21:28:04Z`)
+and serves a construction company's marketing site: `/api/health` returns 404
+and so does `/autentificare`. The inventory application answers from Vercel at
+`rc-inventory-iota.vercel.app`, where `/api/health` returns
+`{"commit":"49fef9a...","ledger_version":"0036"}`. Run with its default origin
+the guard fetches an HTML 404, finds no commit, and REFUSES. The refusal is
+correct behaviour on a wrong input, which is exactly why it is dangerous: the
+check that stands between a removal migration and INC-06 now blocks on a stale
+default rather than on a real risk, and the obvious workaround is to pass
+`--origin` and stop thinking about it.
+**SOLUTION:** Not fixed here. GATE-02 is an audit and repointing a safety check's
+default deserves its own card and its own decision about which origin is
+canonical. The rule that prevents the next instance: **a check whose default
+names a host is a check with a dependency nobody declared.** When a guard hard
+codes an origin, the origin belongs in one place that something asserts, the way
+`scripts/production-refs.mjs` holds the project ref, so that repointing a domain
+breaks one assertion loudly instead of every guard quietly.
+
+### A strict required check plus a 45 minute cap means one merge per run, whatever the backlog
+**Tag:** ci
+**ERROR:** unattended run `20260905-010004` booted onto three open pull requests
+(#205 AUT-19, #206 the previous run's report, #207 the TRIAGE rulings). All three
+read `quality SUCCESS` and all three were `mergeStateStatus BEHIND`, so all three
+were stale under CLAUDE.md section 3. `quality` costs about 20.5 minutes on this
+repository, measured across the four most recent completed runs, and `main`
+requires branches to be up to date. Updating all three at once is free and their
+runs go green in parallel, but the FIRST merge puts the other two back to
+`BEHIND`, and a second round of 20.5 minutes does not fit inside what is left of
+a 45 minute cap. The arithmetic is structural, not incidental: a scheduled run
+can land exactly ONE pull request per run no matter how many are ready, so a
+backlog of N stale pull requests needs N runs to drain and grows faster than it
+drains as soon as more than one run per day opens one.
+**SOLUTION:** this run updated all three branches first, so their runs went green
+concurrently rather than serially, then spent its single merge window on the card
+pull request. RULE: a scheduled run treats its merge window as a budget of ONE and
+spends it on the highest-value pull request already open, before it considers
+opening another. `gh pr update-branch` on every stale pull request is still worth
+doing on the way past, because it costs seconds and leaves the next run a green
+head sha instead of a stale one. AUT-23 covers the half of this that is about not
+opening a fourth pull request; the half that is about only ever being able to
+close one is this entry.
