@@ -24,12 +24,18 @@ import type { UnitCode } from "@/lib/data/units";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
 import type { CatalogProduct } from "@/lib/data/products";
 import type { Deviz, DevizSummary } from "@/lib/data/deviz";
+import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
 import { DevizPanel } from "./DevizPanel";
+import { DevizComparisonPanel } from "./DevizComparisonPanel";
 
 const TABS = [
   { id: "consum", label: "Consum" },
   { id: "cost", label: "Cost" },
   { id: "deviz", label: "Deviz" },
+  // P3-13c. Devizul fata de realitate. Fila proprie si nu o sectiune pe Deviz:
+  // este o suprafata de lista cu subsolul ei, iar doctrina densitatii cere ca o
+  // lista sa pagineze in loc sa fie varsata sub alt ecran.
+  { id: "comparatie", label: "Comparație" },
   { id: "documente", label: "Documente" },
   { id: "istoric", label: "Istoric" },
 ] as const;
@@ -54,6 +60,7 @@ export function ProjectTabs({
   cost,
   history,
   deviz,
+  comparison,
   products,
   canWrite,
 }: {
@@ -62,6 +69,7 @@ export function ProjectTabs({
   cost: ProjectMaterialCost;
   history: StatusEvent[];
   deviz: { list: DevizSummary[]; open: Deviz | null };
+  comparison: DevizComparison;
   products: CatalogProduct[];
   canWrite: boolean;
 }) {
@@ -333,6 +341,14 @@ export function ProjectTabs({
             open={deviz.open}
             products={products}
             canWrite={canWrite}
+          />
+        ) : null}
+
+        {active === "comparatie" ? (
+          <DevizComparisonPanel
+            projectId={projectId}
+            comparison={comparison}
+            pathname={pathname}
           />
         ) : null}
 
