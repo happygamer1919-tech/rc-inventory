@@ -4792,3 +4792,25 @@ and the round number is exactly the tell, because nothing that actually happened
 happened at `:00`. Run `npm run check:board-clock` after any board edit, in the
 same breath as the board validator; passing the validator says the JSON is
 well-shaped and says nothing about whether it is true.
+
+### The deployed-commit guard is aimed at a host that stopped being the app
+**Tag:** infra
+**ERROR:** `scripts/poc-free/check-deployed-commit.mjs` defaults to
+`https://www.rapidconstructmd.com/api/health`. On 2026-09-08 that host answers
+from GitHub Pages (`server: GitHub.com`, `last-modified 2026-09-07T21:28:04Z`)
+and serves a construction company's marketing site: `/api/health` returns 404
+and so does `/autentificare`. The inventory application answers from Vercel at
+`rc-inventory-iota.vercel.app`, where `/api/health` returns
+`{"commit":"49fef9a...","ledger_version":"0036"}`. Run with its default origin
+the guard fetches an HTML 404, finds no commit, and REFUSES. The refusal is
+correct behaviour on a wrong input, which is exactly why it is dangerous: the
+check that stands between a removal migration and INC-06 now blocks on a stale
+default rather than on a real risk, and the obvious workaround is to pass
+`--origin` and stop thinking about it.
+**SOLUTION:** Not fixed here. GATE-02 is an audit and repointing a safety check's
+default deserves its own card and its own decision about which origin is
+canonical. The rule that prevents the next instance: **a check whose default
+names a host is a check with a dependency nobody declared.** When a guard hard
+codes an origin, the origin belongs in one place that something asserts, the way
+`scripts/production-refs.mjs` holds the project ref, so that repointing a domain
+breaks one assertion loudly instead of every guard quietly.
