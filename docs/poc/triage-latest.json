@@ -1,26 +1,55 @@
 {
-  "run_id": "20260904-071258",
-  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
+  "run_id": "20260907-070002",
+  "report": "docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md",
   "rulings_written": [
-    "R-118",
-    "R-119",
-    "R-120",
-    "R-121"
+    "R-158",
+    "R-159",
+    "R-160",
+    "R-161",
+    "R-162"
   ],
   "cards_resequenced": [
     {
-      "card_id": "AUT-6",
-      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
+      "card_id": "P2-13",
+      "change": "The credential lockdown now waits on two pieces of preparation it always needed and was never told about: the decision about the automatic database path, and the correction that makes its own shutdown list name every permission it is meant to take away. Both were decided three days ago and neither had been written onto the job, so the lockdown could have been run with one permission surviving it."
+    },
+    {
+      "card_id": "RST-05",
+      "change": "The publishing job for four nights of unpublished review work is asking for something that already happened: all four were published by hand on 2026-09-04, and the three checks it names were re-run today and all pass. The job now says so, so nobody spends a session rediscovering it."
+    },
+    {
+      "card_id": "RST-03",
+      "change": "The same is true of the older publishing job: the work it was written to rescue reached the record on 2026-08-31, and three of its four checks were re-run today and pass. What is left is one validation run and the publish itself, which is minutes."
+    },
+    {
+      "card_id": "RST-04",
+      "change": "A closing job carried a test that can never pass again, because it demanded three decision numbers stay empty and later work legitimately used them. The test is corrected to check what it was actually for, and the one thing genuinely still outstanding is named."
+    },
+    {
+      "card_id": "RESTORE-01",
+      "change": "A restoration job demanded an exact list where a later decision had added a third item, so obeying it would have meant deleting something a newer ruling put there. It now checks that the item is present rather than that the list is identical."
+    },
+    {
+      "card_id": "AUT-17",
+      "change": "The overnight review step was handed a report that had already been reviewed in full eight hours earlier, for the fifth time, and this time it also reached four reports back past three newer ones. The record of the defect now carries this instance and the reason its existing fix cannot see it."
+    },
+    {
+      "card_id": "RST-06",
+      "change": "A new job is on the list: publish five nights of finished review work that are checked, approved and stuck outside the record. Thirty decisions are written and none of them counts yet, which is why the last five reviews kept rediscovering the same things."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
+      "title": "Five nights of finished, checked and approved review work have never been published, so the written record is three days behind what has actually been decided, and every overnight review since has been re-deciding things that were already decided.",
+      "recommendation": "Let the next overnight session spend its whole run publishing the five, oldest first, instead of starting new work. RECOMMENDED BECAUSE THE CAUSE IS ARITHMETIC AND WILL NOT SELF-CORRECT: a review session gets thirty minutes, the automated check that must pass takes longer than that, and the project requires a change to be published against the very latest version of the record. By the time the check goes green the session is over, and by the next morning something else has landed and the work must be rechecked. Nothing is broken and nothing is red; the window is simply narrower than the sessions are long. THE HONEST COST: publishing them is serial, roughly one wait per item, so it is a few hours of mostly waiting and two of the five need their overlaps resolved by hand first. IF UNANSWERED: the next review is handed an already-reviewed report a sixth time, the pile grows to six, and the overlaps between them get more expensive to untangle every day."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
+      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27, now eleven days.",
+      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. ONE THING CHANGED TODAY AND IT IS IN YOUR FAVOUR: the lockdown was missing two pieces of preparation it silently depended on, and both are now written onto it, so a lockdown run today would no longer leave one permission alive behind it. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them."
+    },
+    {
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26, twelve days, and are still not confirmed set. This is the fifth time it has been raised.",
       "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
     }
   ]
