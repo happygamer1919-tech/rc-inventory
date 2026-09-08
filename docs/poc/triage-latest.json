@@ -1,27 +1,43 @@
 {
-  "run_id": "20260904-071258",
-  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
+  "run_id": "20260908-010002",
+  "report": "docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md",
   "rulings_written": [
-    "R-118",
-    "R-119",
-    "R-120",
-    "R-121"
+    "R-163",
+    "R-164",
+    "R-165",
+    "R-166",
+    "R-167",
+    "R-168",
+    "R-169",
+    "R-170"
   ],
   "cards_resequenced": [
     {
-      "card_id": "AUT-6",
-      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
+      "card_id": "P2-13",
+      "change": "The credential lockdown now formally waits on the open question about who is allowed to change the database, as well as on the extraction supplier. That was decided four days ago and the plan never recorded it, so the plan has been quietly disagreeing with a decision already made."
+    },
+    {
+      "card_id": "AUT-3",
+      "change": "The job that added the overnight review step was marked as being worked on, by nobody, since 27 August. In that state the system can never hand it to anyone. It is back in the queue, and it is a few minutes of paperwork rather than real work."
+    },
+    {
+      "card_id": "RESTORE-01",
+      "change": "A restore job was still asking for two things to be put back that were deliberately taken out afterwards. Putting them back would undo two decisions. Those two are struck from what the job has to do, and the rest of it turns out to already be done."
+    },
+    {
+      "card_id": "RST-04",
+      "change": "A tidy-up job was checking that three reference numbers had never been reused. They were reused five days ago. The check now records the clash instead of pretending it did not happen, because renumbering history is not allowed here."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
+      "title": "The stock reminder emails still cannot reach anybody, and two of the three reasons are settings only you can change in the hosting console. This was raised on 31 August and has gone eight days without an answer.",
+      "recommendation": "Set the email sending key and the sender address in the live environment this week, in one sitting. RECOMMENDED BECAUSE IT IS TEN MINUTES AND IT IS ONE OF THE THREE LAUNCH CONDITIONS STILL OPEN. THE HONEST CAVEAT, SO YOU ARE NOT SURPRISED: doing it does not switch the reminders on by itself. The third reason is that the only address the system knows belongs to a test account on a domain that does not exist, and that gets fixed when the real client accounts are created at the credential lockdown. IF UNANSWERED: nothing breaks, and the reminders keep silently addressing nobody for as long as it takes. That has been true for thirteen days."
     },
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
+      "title": "The question of whether the database keeps updating itself automatically whenever work is published has been waiting on you since 3 September, and as of today the whole credential lockdown waits behind it, which means the client acceptance walk does too.",
+      "recommendation": "Leave the automatic updating switched on, and say so, so the rules can be rewritten to describe what actually happens. RECOMMENDED BECAUSE IT IS ALREADY HOW THE SYSTEM BEHAVES and because the safety check that catches a dangerous change before it is published is built, running on every piece of work, and proven to refuse. Turning it off instead means every future database change needs a session to run it by hand, which is slower and has more ways to go wrong. IF UNANSWERED: the lockdown cannot proceed, and it is the single action that closes off every temporary permission the overnight sessions hold. That has now been waiting five days and it is no longer only about you."
     }
   ]
 }

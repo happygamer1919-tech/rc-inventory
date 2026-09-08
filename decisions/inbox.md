@@ -7572,3 +7572,442 @@ watchdog: the deadline-versus-countdown clause of the defaults was never in
 dispute and stands.
 
 **Unblocks:** AUT-9.
+
+---
+
+### R-163 - the three deviations in run 20260908-010002, ratified individually with the test that cleared each, and the fifth run on EXT-11 was a test defect rather than a feature defect
+**Date:** 2026-09-08
+**Asked on:** EXT-11. Unblocks nothing.
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md, section "EXT-11: what was actually wrong":
+>
+> "**This card took five runs. Four of them failed on the acceptance clause `THAT CASE FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH RESULTS`. The fifth failed on something else entirely**, and the distinction matters because the two are indistinguishable in `gh pr checks`."
+
+**Ruling:** **THREE DEVIATIONS, THREE VERDICTS, AND ALL THREE RATIFY.** The report
+files no "deviations flagged for ratification" section, so they are enumerated here
+from what it describes as judgement calls. DOCTRINE-TRIAGE section 1 requires each
+to name the test that decided it, and a set ratified as a block is a set nobody
+read.
+
+**DEVIATION 1: THE RUN TOOK A CARD THAT WAS UNDER CLAIM. RATIFIED ON TEST 4.**
+`docs/poc/state.json` held `EXT-11` for actor `harness` from
+`2026-09-08T03:13:01Z`, inside the six hour lease, and the run took it anyway.
+Test 1 does not fire: nothing irrecoverable was touched. Test 2 passes: the claim
+is a committed field and the run ids are on the card. Test 3 does not fire, and
+this is the whole verdict: CLAUDE.md section 13 says *"a run never takes a card
+claimed by ANOTHER actor inside the window"*, and this run boots as `harness`,
+which is the claim holder. Reading one's own lease as a bar on oneself is not a
+narrower reading of the rule, it is a different rule. Test 4 names the
+alternative concretely: a scheduled run would be barred from continuing work a
+previous scheduled run left unfinished, on every card, for ever, because the
+harness re-claims what it is working. EXT-11 took five runs and could not have
+been finished by any of them.
+
+**DEVIATION 2: ONE CARD WORKED, NOT TWO. RATIFIED ON TEST 3, AS AN APPLICATION.**
+Section 13 says *"At most 2 cards per run"*. That is a ceiling and the run treated
+it as one. Nothing was widened. The stated reason is arithmetic a reader can
+check: `quality` takes about 22 minutes against a 45 minute cap, so a second card
+could not have carried a check of its own.
+
+**DEVIATION 3: `origin/main` WAS MERGED INTO THE CARD BRANCH TO CLEAR `BEHIND`.
+RATIFIED ON TEST 3, AS AN APPLICATION.** Section 3 forbids force pushes; it does
+not forbid merging main into a branch, and R-052 requires exactly this to be done
+locally by EXECUTOR against the full tree with the checks run before the commit.
+The report records one file merged by ort with no conflict and
+`npm run check:conflict-residue` run before the commit, which is R-052 followed
+rather than bent.
+
+**THE SUBSTANTIVE FINDING, RECORDED BECAUSE IT IS THE ONE WORTH KEEPING.** The
+fifth run's red was `expect(getByTestId('review-created')).toBeVisible()` timing
+out because `confirmExtractionDraft` refuses an empty `expectedAt`, and the new
+case was the only case on the confirmation path that did not fill
+`review-expected-at`. The before-result the acceptance demands was produced
+deliberately on `93fe03c` and is unaffected. The two cases the acceptance names,
+25 and 26 in `extraction.spec.ts`, went red there and green on `1b4d726`. **The
+feature was proven in both directions on the head that reported failure**, which
+is the fact `gh pr checks` cannot express and which R-170 authors a card about.
+
+**NO DEVIATION HERE REACHED TEST 1 OR TEST 3'S WIDENING BRANCH**, so nothing in
+this run is escalated and nothing is overturned. Merging PR #240 applied migration
+`0036` to production under R-124, the `APPLY-LOG.md` row went in before the merge
+as 8.8 requires, and `check:no-destructive-migration` ran unfiltered and passed:
+that is 8.0 obeyed, not deviated from.
+
+**Unblocks:** nothing. EXT-11 is shipped and merged.
+**Supersedes:** none.
+
+---
+
+### R-164 - the phase 2 launch gate stays 6 of 9, nothing flips, and the audit finally goes in the field the rubric names instead of only in the notes
+**Date:** 2026-09-08
+**Asked on:** G4, G7, G9 on the phase 2 launch gate. Unblocks nothing.
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md, section "Status at boot":
+>
+> "| phase 2 | 65 | 1 | 3 | 0 | 16 | 6/9 |"
+
+**Ruling:** **6 OF 9. NOTHING FLIPS. THREE GATES AUDITED AND THREE EVIDENCE
+FIELDS THAT WERE EMPTY ARE NOW WRITTEN.**
+
+**THE DEFECT FOUND WHILE AUDITING, WHICH IS PROCEDURAL AND IS THIS RULING'S
+REASON FOR EXISTING.** G4, G7 and G9 each carried `evidence: {ref: "", at: null}`
+while their `notes` carried six audits between them. DOCTRINE-TRIAGE section 4
+point 4 says *"Write the audit into `evidence.ref` whether or not it flips"*, and
+five TRIAGE runs wrote into `notes` instead. R-101's audit of 2026-09-04 is worse
+than that: it exists only in this file and reached neither field. A reader opening
+the board sees three gates with no evidence at all and has to search seven
+thousand lines of inbox to learn that they have been audited six times. Fixed
+today for all three.
+
+**G4, MEASURED AGAINST THE TREE TODAY AND NOT CARRIED OVER, STAYS `fail`.**
+R-053's deciding clause is the ingest endpoint asserted against a fixture plus
+four named failure cases. Fixture, malformed payload and auth rejection are
+green. `grep -rn redirect lib/data/extraction-fire.ts
+app/api/extraction/callback/route.ts` exits 1 with no output, and
+`grep -niE "content-length|maxbody|bytelength|too large|413"` over the callback
+route exits 1. **REDIRECT AND OVERSIZE ARE STILL ABSENT** and the gate is exactly
+two asserted cases short, which is card **P2-20**, todo and eligible today.
+
+**ONE NEW FACT ON G4 THAT COULD BE MISREAD AND SO IS WRITTEN DOWN.**
+`tests/e2e/extraction.spec.ts` has grown from 8 cases at R-080 to 14 at R-101 to
+**35 today**, and two of the new lines assert a redirect. **It is a different
+redirect.** Those lines prove the callback answers 200 rather than being bounced
+to `/login` by our own proxy. R-053's clause is about the FIRE refusing a
+redirecting webhook ADDRESS, the case where an endpoint behind a redirect returns
+200 while doing nothing. A future auditor grepping for `redirect` will hit the new
+case first, and it does not satisfy the clause.
+
+**G7 STAYS `fail` AND `blocked_on: ivan` IS RETAINED.** The three things in front
+of it are the three the 2026-08-27 audit named and none has moved:
+`RESEND_API_KEY` present in the production environment, `RESEND_FROM` set, and a
+recipient not on `rc-inventory.local`, a domain that does not exist. **No database
+read was performed for this audit and none is claimed**: TRIAGE reads committed
+files and holds no connection. Two of the three are panel actions, item 7 of the
+closed escalation list, and they are **re-escalated by this run** because they
+were escalated on 2026-08-31 and have gone eight days unanswered.
+
+**G9 STAYS `fail` AND NO TERMINAL CAN CLOSE IT.** It needs Mihai to complete a
+cycle himself. P2-14 is blocked on client since R-072, and its one dependency
+P2-13 is todo and, as of R-166 below, now has two blocked dependencies rather
+than one. **It is not backlog and no card closes it**, which DOCTRINE-TRIAGE
+section 4 requires stating so a reader does not go hunting.
+
+**Unblocks:** nothing.
+**Supersedes:** none. R-101's conclusion is confirmed on freshly measured
+evidence; its premises are not edited, per R-127.
+
+---
+
+### R-165 - the phase 3 gate stays 0 of 9, and that number is a stale record rather than nine measured failures, because the single blocker all nine name was discharged when P3-27 shipped
+**Date:** 2026-09-08
+**Asked on:** all nine phase 3 launch gate conditions. Unblocks nothing. Names GATE-02 as the card.
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md, section "State at the end", point 1:
+>
+> "**The phase 3 launch gate reads 0/9, and that is a stale record rather than nine failing conditions.** `GATE-02` exists to re-run the audit against the premise `P3-27` discharged."
+
+**Ruling:** **THE REPORT IS RIGHT AND THE COUNT STILL DOES NOT MOVE.** Both halves
+matter and they are not in tension.
+
+**THE PREMISE IS DEAD.** Every one of the nine conditions carries the same
+sentence from the 2026-08-31 audit under R-065: *"no phase 3 migration has been
+applied to the RC Supabase project. Twelve files, 0013 to 0024, are pending in
+`docs/migrations/APPLY-LOG.md`, every one naming P3-27, which is blocked on
+ivan."* P3-27 is **shipped** on the phase 3 board, and R-124 established that
+merging a migration applies it to production within about two minutes with no
+terminal involved, proven by prediction with an unmerged control. The one cause
+that failed all nine at once is gone.
+
+**THE COUNT STAYS 0 OF 9 ANYWAY, ON THE ONLY BAR THAT FLIPS A GATE.** Every clause
+of every condition says "on production", and gates flip on committed evidence per
+clause. TRIAGE runs nothing and holds no production connection, so it cannot
+produce that evidence and does not pretend to. **A gate is not a percentage and it
+is not a mood**: nine conditions with a discharged blocker and no substitute
+evidence are still nine conditions with no evidence.
+
+**THE FALSE SENTENCE IS LEFT WHERE IT IS, PER CLAUDE.md SECTION 9c.** Each
+condition keeps its 2026-08-31 evidence verbatim, with today's audit appended
+beneath it saying which sentence is now false and what disproved it. Deleting it
+would make the record say the project always knew, and R-065, R-074 and R-080 all
+reason on top of it.
+
+**THE PER-CONDITION FINDINGS ARE WRITTEN ON EACH CONDITION** rather than
+summarised here, because that is where the next reader looks. The two worth
+naming in this file: **G1 is three of its four clauses away from one command, and
+GATE-01 is that command**, todo and the lowest id in the eligible order today.
+**G9's second clause is the only clause on this board a terminal could evidence
+without a live probe**, because it is about the localisation check being seen to
+fail in CI rather than about production.
+
+**GATE-02 IS THE CARD AND IT IS NOT AUTHORED HERE BECAUSE IT ALREADY EXISTS.**
+DOCTRINE-TRIAGE section 5 forbids a second card for a problem an open card
+covers. It is todo, eligible, and second in the pick order.
+
+**Unblocks:** nothing. The nine stay `fail`, `readiness_passed` stays 0.
+**Supersedes:** none. R-065's conclusion is superseded in its reasoning and not in
+its outcome, and its text is untouched.
+
+---
+
+### R-166 - a committed ruling that the board never carried for four days: P2-13 gains its capability edge on MIG-01, and RESTORE-01 stops asking for a restore that would now be a defect
+**Date:** 2026-09-08
+**Asked on:** P2-13, RESTORE-01, MIG-01.
+**Answer, verbatim:**
+> from `decisions/inbox.md` on `main`, R-101, dated 2026-09-04, heading line:
+>
+> "R-101 - the gate audit and the board sweep: phase 2 stays 6 of 9, nothing flips, and **P2-13 gains the capability edge on MIG-01** that RESTORE-01 lands"
+
+**Ruling:** **TWO THINGS, AND THE FIRST IS THE ONE THAT SHOULD NOT HAVE NEEDED A
+RULING.**
+
+**ONE: `P2-13.depends_on` BECOMES `["P2-08b", "MIG-01"]`, FROM `["P2-08b"]`.**
+R-101 ruled this edge on 2026-09-04 and landed on `main` in pull request 184 the
+same day. **The board never carried it.** RESTORE-01 has been asserting it as an
+acceptance clause ever since, which means the only mechanism that would have
+applied it was a card thirty-fifth in the eligible order. A committed ruling the
+board silently disagrees with is worse than an unmade decision, because the record
+says it was made.
+
+**THE EDGE IS REAL AND IS RESTATED SO IT SURVIVES THIS RULING.** P2-13 REVOKES the
+migration grant and rewrites CLAUDE.md section 8. MIG-01 decides whether the
+Supabase GitHub integration keeps applying merged migrations, which is what
+section 8 has to describe. Rewriting section 8 before that answer exists rewrites
+it around a mechanism whose fate is undecided. That is DOCTRINE-TRIAGE section 3
+check 3 exactly: ask what the card takes away, and make everything that needs the
+capability a dependency. **The consequence is stated rather than discovered
+later**: P2-13 now has two blocked dependencies instead of one, and P2-14 and gate
+G9 sit behind it.
+
+**TWO: RESTORE-01'S `extraction-v2.md` CLAUSE IS DELETED, AND SATISFYING IT WOULD
+NOW BE A DEFECT.** The clause asked for `git show
+b25dc75:docs/contracts/extraction-v2.md | diff - ...` to exit 0. Measured today,
+six lines that `b25dc75` carried are absent and **every one is absent on
+purpose**: four are the `confidence` field, removed by card EXT-14 on 2026-09-03
+with section 4.2b of the contract explaining that it returned `1.0` on a scan
+where the model could not have known; the sixth is a heading reading "Ruling
+R-098, amendment 1" which now reads **R-123**, renumbered on 2026-09-04 before
+merging because pull request 184 held R-098.
+
+**A VERBATIM-RESTORE ACCEPTANCE IS ONLY CORRECT WHILE NOTHING HAS LEGITIMATELY
+CHANGED UNDERNEATH IT.** Something has, twice, and running that clause would
+re-add a field the project deliberately deleted and re-create an id collision
+somebody deliberately settled. Correcting a stale acceptance line is named in
+DOCTRINE-TRIAGE section 6 as TRIAGE's to decide.
+
+**WHAT IS ALREADY TRUE ON `main` AND IS RECORDED SO NOBODY RE-DOES IT**: the
+`APPLY-LOG.md` missing-line count against `b25dc75` is 0 with the whole 0028 to
+0031 reconstruction present; `LEARNINGS.md` is 0; `test-ask-digest.sh` is 0;
+MIG-01 and RULE-04 are both on the phase 2 board. **The card was never worked and
+most of it landed anyway**, by other cards merging. Whoever picks it up should
+expect to confirm rather than to restore, and the acceptance now says so.
+
+**Unblocks:** nothing. P2-13 stays todo behind two blocked dependencies, which is
+what the edge is for.
+**Supersedes:** none. R-101 is applied, not overturned.
+
+---
+
+### R-167 - RST-04's acceptance asserted that three ruling ids were never reused, and they were reused five days ago, so the check changes sign rather than the ids changing number
+**Date:** 2026-09-08
+**Asked on:** RST-04.
+**Answer, verbatim:**
+> from `decisions/inbox.md` on `main`, R-090, heading line:
+>
+> "R-090 - the ruling sequence **skips R-087 to R-089** because they are committed lines on a conflicting pull request, that pull request is disposed of item by item, and its new card collides with a card id already on main"
+
+**Ruling:** **THE RESERVATION FAILED, THE IDS ARE ON `main`, AND NOTHING IS
+RENUMBERED.**
+
+RST-04's clause 2 reads `grep -c '^### R-087\|^### R-088\|^### R-089'
+decisions/inbox.md` **prints 0**, and its own acceptance says that command
+*"must stay in the acceptance line even though it passes today: it is what makes
+a later run that reaches for R-087 as 'the next free id' go red instead of
+shipping a second ruling under a number a committed line already carries."*
+
+**IT PRINTS 3.** The reuse happened on 2026-09-03, the day after R-090 reserved
+them, by a run allocating from `decisions/NEXT-RULING-ID`. **That run did nothing
+wrong.** R-090's reservation lived in a ruling; the counter is one line and it
+said those ids were free. This is the fourth instance of the shape CLAUDE.md 8b
+now names and the reason step 2, `npm run id:free`, exists at all.
+
+**WHAT EACH ID NOW NAMES TWICE, measured at this commit:**
+
+| id | on `main`, 2026-09-03 | on the closed branch `triage/20260901-070544`, 2026-09-01 |
+|---|---|---|
+| R-087 | the ruling counter has a second allocator that never reads it | the phase 2 gate audit re-runs at 6 of 9 |
+| R-088 | DOCTRINE-TRIAGE section 2 still tells TRIAGE to allocate the way RULE-02 abolished | the only lawful path to production hardcodes wave 1 |
+| R-089 | a merged migration's apply is orphaned | the board sweep under DOCTRINE-TRIAGE section 3 |
+
+**THE LIVE RISK IS SMALL AND THE CITATION RISK IS NOT.** Pull request 143 is
+CLOSED and its branch will never merge, so within `main` each id means exactly one
+thing and `npm run check:unique-ids` exits 0 today. What is damaged is reading:
+anything written on 2026-09-01 that cites R-087 means the gate audit, and a reader
+who looks it up on `main` finds a ruling about the Telegram allocator.
+
+**THE ACCEPTANCE CHANGES SIGN.** Clause 2 now asserts the grep prints **3** and
+requires the pull request to quote the three headings on `main` beside the three
+on the closed branch, so the collision is recorded where somebody will find it.
+Clause 1 now requires the disposal comment to say **which meaning is canonical**,
+which is the thing the original comment on #143 does not do: it names the salvage
+pull request and no ruling id at all. **CLAUDE.md 8b is followed exactly**: no id
+is renumbered to make a check pass, and history is not rewritten.
+
+**Unblocks:** nothing. RST-04 stays todo, with an acceptance that can now be met.
+**Supersedes:** none.
+
+---
+
+### R-168 - the stranded TRIAGE pull request backlog is six, thirty-five ruling ids are written and not on main, and no new card is authored because RST-02 is the cause and has been todo for eleven days
+**Date:** 2026-09-08
+**Asked on:** RST-02, RST-03, RST-05.
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md, section "State at the end", point 2:
+>
+> "**The open pull request backlog is 14 and at least two are `DIRTY`.** #249 and #223 are POC state pull requests conflicting with `main`."
+
+**Ruling:** **THE REPORT UNDERSTATES IT, AND THE CORRECTION IS THE FINDING.** The
+conflicting state pull requests are the visible half. The measured census today is
+15 open, and **six of them are TRIAGE rulings pull requests that nothing will ever
+come back for**:
+
+    #207 triage/20260904-220003  R-128 to R-134
+    #210 triage/20260905-010004  R-135 to R-141
+    #238 triage/20260906-220005  R-144 to R-148
+    #242 triage/20260907-010004  R-149 to R-153
+    #245 triage/20260907-040001  R-154 to R-157
+    #248 triage/20260907-070002  R-158 to R-162
+
+**THIRTY-FIVE RULING IDS ARE WRITTEN AND NOT ON `main`.** DOCTRINE-TRIAGE says a
+TRIAGE ratification is settled the moment it is committed. **None of these binds
+anything**, because ground truth here is committed files on `main` and a fresh
+session reads `main`. Six runs of ratifications, gate audits and card edits are
+sitting where no role can see them.
+
+**THREE MEASURED CONSEQUENCES, so this is a cost and not a tidiness complaint:**
+
+1. **`docs/poc/triage-latest.json` on `main` names run `20260904-071258`.** The
+   digest has been carrying a four-day-old triage outcome to the owner on every
+   fire since.
+2. **`decisions/NEXT-RULING-ID` reads `R-144` while the open branches have
+   consumed through `R-162`.** `npm run id:free -- R-144` answers CLAIMED and
+   names R-163, which is the id this run took. CLAUDE.md 8b step 2 is working, and
+   it is working because this card has not shipped.
+3. **The rate is one per run and the sweep fires four times a day**, so the
+   backlog grows faster than any single repair card can drain it.
+
+**WHY NOTHING PICKS THEM UP, AND THE SECOND HALF WAS NOT PREVIOUSLY WRITTEN
+DOWN.** RST-02 names the first half: `run.sh` selects leftovers on `poc/state-`
+and `poc/ruling-`, and TRIAGE opens on `triage/<run-id>`. The second half is that
+**TRIAGE cannot merge its own pull request either**: its cap is 30 minutes and
+`quality` takes about 22, so a run that opens its pull request at the end of its
+work is dead before the check goes green. CLAUDE.md 3.1 grants TRIAGE the merge
+and the clock takes it away.
+
+**NO NEW CARD IS AUTHORED.** DOCTRINE-TRIAGE section 5: *"Do not author a card for
+something already covered by an open card. Add the finding to that card's `notes`
+instead and say so in the ruling."* RST-02 is that card, it is the cause rather
+than an instance, and today's census plus the cap finding are appended to it.
+**Authoring a seventh card about six stranded pull requests would be the same
+mistake at one remove.**
+
+**THE THREE INSTANCE CARDS ARE MEASURED AND TWO OF THEM ARE ALREADY DONE BY OTHER
+HANDS.** RST-03's four acceptance clauses are all true at this commit and pull
+request 126 merged on 2026-08-31. RST-05's four named stranded pull requests, #157
+#172 #181 and #184, are all MERGED as of 2026-09-04, and its clauses 1 to 4 are
+true today. **Both cards are still `todo` and eligible**, so an EXECUTOR reaching
+either would spend a run rediscovering that. The measured clause-by-clause result
+is written into each card's `notes`, with the commands, so it costs minutes.
+
+**THIS IS NOT A SHIP AND TRIAGE HAS NOT SHIPPED THEM.** TRIAGE runs no acceptance.
+Whether a card whose subject landed by other hands is closed or shipped on that
+evidence belongs to whoever works it.
+
+**Unblocks:** nothing. RST-02, RST-03 and RST-05 stay todo.
+**Supersedes:** none.
+
+---
+
+### R-169 - AUT-3 has been `in_flight` for twelve days with no branch, which makes it unreachable by the board loop for ever, so it goes back to `todo` and the notes carry the truth the label cannot
+**Date:** 2026-09-08
+**Asked on:** AUT-3.
+**Answer, verbatim:**
+> from `docs/board/rc-board-phase2.json`, card AUT-3, `notes`:
+>
+> "--- WIRED 2026-08-27, ACCEPTANCE OUTSTANDING ---"
+
+**Ruling:** **`in_flight` BECOMES `todo`, AND THAT IS A STATEMENT ABOUT
+REACHABILITY, NOT ABOUT WHETHER THE WORK STARTED.**
+
+`scripts/poc/eligible.mjs` treats only `status: todo` as eligible. A card parked
+at `in_flight` with no branch and no open pull request is **invisible to the board
+loop for ever**: it is not eligible, so no run claims it, and nothing else in this
+repository moves a status. AUT-3 has been parked for twelve days. `git branch -r`
+carries no `card/aut-3` and no pull request names it. Nobody is working it and, at
+`in_flight`, nobody can be handed it.
+
+**THE LIFECYCLE HAS NO STATE FOR "BUILT, ACCEPTANCE NOT YET WRITTEN"**, which is
+what this card is: the wiring landed on 2026-08-27, `run.sh` carries step 2b, and
+TRIAGE has run on every scheduled sweep since, including this one. Between two
+imperfect labels the reachable one wins, and the notes carry what the label
+cannot.
+
+**THE CONSEQUENCE IS STATED RATHER THAN LEFT TO BE DISCOVERED.** `AUT` sorts
+before `GATE` on the card-order tuple, so **AUT-3 becomes the lowest-id eligible
+card and the next run takes it ahead of GATE-01.** That is a deliberate cost and
+it is small: the acceptance asks for a journal evidence ref naming a run id, the
+report path TRIAGE read and the pull request number it opened, and
+`docs/poc/triage-latest.json` plus `gh pr list` supply all three. It is minutes,
+not a run.
+
+**TRIAGE HAS NOT SHIPPED IT.** The `evidence` field is untouched and the status is
+`todo`, not `shipped`. Shipping needs an acceptance run and TRIAGE runs nothing.
+
+**Unblocks:** AUT-3, which becomes eligible for the first time since 2026-08-27.
+**Supersedes:** none.
+
+---
+
+### R-170 - nothing in this repository prints which STEP of `quality` failed, and that gap cost EXT-11 two of its five runs in opposite directions
+**Date:** 2026-09-08
+**Asked on:** EXT-11. Authors card CI-03 on the phase 2 board.
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md, section "Defects found":
+>
+> "`npm run checks:state` prints the merge state beside the check result, which closes the stale green trap; **nothing prints the STEP that failed**, which is the trap that actually caught this card four times. Reading the step list is currently a habit, not a check."
+
+**Ruling:** **THE REPORT CALLS THIS ITS META-DEFECT AND IT IS RIGHT. IT IS WORK,
+SO IT BECOMES A CARD RATHER THAN A LEARNING.**
+
+**THE COST IS COUNTED, NOT ASSERTED.** EXT-11 took five runs and `quality:
+failure` was misread twice, in opposite directions, each costing a run:
+
+- Run `20260907-040001` took a job that **stopped at the board-edit refusal** for
+  a before-result. `End to end` had been SKIPPED, so the cases the acceptance
+  names had never run in either state.
+- Run `20260908-010002` arrived at a red head that the card treated as a broken
+  feature. **One case out of 188** had failed, on its own setup, and the two cases
+  the acceptance names had PASSED on that same head.
+
+**Both reds are the identical string in `gh pr checks`.** One means the feature is
+unproven and the other means the feature is proven and a test is wrong. Nothing
+prints the difference, and the doctrine that turns on it is already written:
+CLAUDE.md 3.1 requires the two path-filtered applier proofs to have **RUN and
+PASSED, not skipped**, which is a distinction a session currently makes by hand
+against the GitHub API on its fourth attempt.
+
+**IT EXTENDS `npm run checks:state` RATHER THAN ADDING A SECOND TOOL.** That
+command was built for the neighbouring trap, a green belonging to a sha nobody
+proposes to merge, it already resolves the head sha and the run, and it stops one
+field short of the step list. **A second command is a second thing to remember and
+one of the two would not get run.** `scripts/poc-free/prove-pr-state.mjs` and
+`scripts/poc-free/pr-state-fixtures` already exist, so the proof has a home and
+the card's acceptance uses it: two new fixtures, one of each shape, and the proof
+**fails if both produce the same verdict**. The negative half is the half that
+matters.
+
+**WHAT THE CARD DOES NOT DO, so it stays one card.** It adds output, not a
+refusal: the exit code is unchanged and no merge is newly gated. Reading the step
+list stays the session's job; this is about the step list being printed at all.
+
+**Unblocks:** nothing. Authors **CI-03**, todo and eligible.
+**Supersedes:** none.
