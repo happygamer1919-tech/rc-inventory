@@ -1,48 +1,40 @@
 {
-  "run_id": "20260906-220005",
-  "report": "docs/reports/2026-09-06-executor-ext-10-supplier-packaging.md",
+  "run_id": "20260907-010004",
+  "report": "docs/reports/2026-09-07-executor-ext-11-before-half.md",
   "rulings_written": [
-    "R-144",
-    "R-145",
-    "R-146",
-    "R-147",
-    "R-148"
+    "R-149",
+    "R-150",
+    "R-151",
+    "R-152",
+    "R-153"
   ],
   "cards_resequenced": [
     {
-      "card_id": "EXT-22",
-      "change": "NEW JOB, AND IT IS THE POINT OF THE ONE THAT JUST FINISHED. Last night's work taught the system what a supplier's pallet or box is and how many sacks fit in one, but nothing yet uses that. This is the job that uses it: when a delivery document says two pallets, the stock goes up by the number of sacks in two pallets, and the screen shows both figures side by side before anyone presses confirm. Until this is done, the new fields sit there unread, and a document billed per pallet is still received as if it were two sacks. It needs nothing from the extraction supplier: the information it needs already arrives in what he sends us."
+      "card_id": "EXT-11",
+      "change": "The job about supplier invoice numbers was written as though the system already stored the supplier's invoice number. It does not, and never has: there is no such box in the database. A second job on the list was written the same way, each assuming the other had already built it. This job now builds it, together with the letter code that goes in front of it, because a letter code with no number attached identifies nothing."
     },
     {
-      "card_id": "GATE-04",
-      "change": "NEW JOB, FOUND BY COUNTING RATHER THAN BY READING A STATUS. One of the nine readiness lines for this phase asks that the budget screen be shown working in four situations: under budget, exactly on budget, over budget, and no budget set. The screen was built and tested, and the tests cover the awkward no-budget case and nothing about the other three. Three short tests close it. It is the cheapest readiness work left on this phase and four previous reviews recorded the line as having no evidence at all, which was true when they wrote it and stopped being true days ago."
+      "card_id": "P3-31",
+      "change": "The job that separates the supplier's document number from our own now formally waits for the job above, since it cannot start until the supplier's number exists. It keeps our own number and nothing else changes about it."
     },
     {
-      "card_id": "P2-13",
-      "change": "THE CREDENTIAL LOCKDOWN NOW WAITS ON TWO MORE THINGS, AND BOTH WERE ALREADY DECIDED AND NEVER WRITTEN DOWN. Two reviews on 2026-09-04 each said in writing that this job must wait for two others: the one that makes its own checklist name every temporary permission it revokes, and the open question about how database changes reach the live system. Neither instruction was ever carried onto the job itself, so it has been sitting there for three days looking simpler than it is. Both are now recorded. Nothing became newly blocked: this job was already waiting on the extraction supplier."
+      "card_id": "EXT-11",
+      "change": "The same job was also asked to prove its new checks fail before the fix and pass after, in two separate runs. That is impossible here: the overnight run's own safety checks reject the first of the two runs in under thirty seconds, before any test executes, and that is exactly what happened last night. The proof is now a permanent commit reference anybody can re-run at any time, which is stronger than a build log that expires."
     },
     {
-      "card_id": "P3-37",
-      "change": "HALF OF THIS JOB IS ALREADY DONE BY SOMETHING ELSE, SO IT IS CUT IN HALF RATHER THAN LEFT DESCRIBING A WORLD THAT ENDED. It asked somebody to switch on one piece of database work and then confirm the live system reported it. That happened on its own, through the automatic mechanism we discovered last week, and it was independently confirmed yesterday. What remains, and is kept, is the safety check that notices when a piece of database work is left with nobody responsible for it. The old wording is quoted on the job rather than deleted."
+      "card_id": "MIG-01",
+      "change": "The question waiting for you about the database integration overstated its own danger. It says a merged deletion could wipe production data. It cannot: the guard it asked for was built four days ago and runs on every change. The question is still yours to answer and still waiting, it is just smaller than it looked."
     },
     {
-      "card_id": "GATE-02",
-      "change": "THE WORK THIS JOB ASKED FOR HAS NOW BEEN DONE, BY THE REVIEW ROLE, WHICH IS NOT ALLOWED TO MARK IT FINISHED. It asked for the phase readiness scorecard to be re-checked, because every one of its nine lines blamed the same cause and that cause stopped existing a week ago. All nine have been re-checked and rewritten. The job is left open on purpose so that whoever picks it up records it as finished, and it now points at exactly where each piece of the answer already is, so nobody redoes the review."
-    },
-    {
-      "card_id": "P3-35",
-      "change": "A WARNING ADDED BEFORE SOMEBODY FLIPS A READINESS LINE ON A MEANINGLESS NUMBER. This job takes a read-only look at the live system to close four readiness lines. One of them asks for the count of material releases that are not attached to a job to be zero. It will be zero, because there are no material releases on the live system at all. A zero that comes from having nothing is not the zero that line is asking for, and the job now says so and says to write down the number and leave the line open."
+      "card_id": "GATE-03",
+      "change": "The job about the credential lockdown checklist now records a third gap in the same family: the lockdown removes the permission that forty-five unfinished jobs need in order to finish themselves, and it lists only one job as coming before it."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fifth time it has been raised.",
-      "recommendation": "Set both of them in the production environment, by name only, and reply that they are done. RECOMMENDED BECAUSE THEY COST NOTHING, TAKE TWO MINUTES, AND ARE ALREADY REQUIRED ITEMS ON THE CREDENTIAL LOCKDOWN CHECKLIST, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, STATED MORE PLAINLY THAN LAST TIME BECAUSE IT IS THE REASON THIS KEEPS COMING BACK UNANSWERED: this does NOT make the readiness line pass, and doing it will not move the score. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the credential lockdown, and the lockdown is still waiting on the extraction supplier. What your two minutes buy is two of three blockers removed, permanently, and one fewer thing to do on lockdown day. IF UNANSWERED: nothing breaks and nothing gets worse. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
-    },
-    {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, has been waiting on the extraction supplier since 2026-08-27. The advice given last time was to set a date and do it anyway. That advice is now withdrawn and replaced, because this review found two things it had to wait for that nobody had written down.",
-      "recommendation": "DO NOT SET A DATE YET. Do one thing first, and it is yours to do rather than the supplier's: answer the open question about how database changes reach the live system. RECOMMENDED BECAUSE THE LOCKDOWN REWRITES OUR OWN RULEBOOK TO SAY THAT NO OVERNIGHT SESSION CAN REACH THE DATABASE AT ALL, and that sentence would be false the day it is written. Database changes currently reach the live system automatically when work is published, with no session involved, which we discovered last week and proved twice. Locking down the credentials does not stop that, so the rulebook would be recording a protection we do not have. Answering the question costs you one decision and unblocks a job that is already written and waiting. THE SECOND THING is a small piece of work already on the list that makes the lockdown checklist name every temporary permission it revokes, rather than two of the three; it needs nobody but an overnight session. IF UNANSWERED: the lockdown keeps waiting, which is what it has been doing for eleven days, and the risk does not grow: the permissions it revokes are all held by sessions on this machine and none of them reaches real client data, because there is none yet. What does grow is the chance that somebody eventually runs the lockdown on the advice given last time and writes a false rule into the rulebook."
+      "title": "Two settings in the hosting console are the only things left between the low-stock warning emails and working for real, and they have not moved since 31 August. Nobody but you can set them.",
+      "recommendation": "Set both in the production environment in one sitting: the email service key, and the address the warnings are sent from. Ten minutes. RECOMMENDED BECAUSE THE REST IS ALREADY BUILT AND PROVEN: the warning logic passes four automated tests, so these two settings are the whole remaining gap on our side. THE HONEST CAVEAT, WHICH HAS BEEN STATED EVERY TIME AND IS STATED AGAIN: setting them does not finish this on its own. The system currently addresses the warning to an account on a domain that does not exist, and that address is replaced when the real client accounts are created at the handover job. So this is one of three things, not the last one. IF UNANSWERED: nothing breaks. Stock can fall below its threshold on the live site and no email is sent, silently, and the screen shows the warning as unsent. That has been the state for eleven days and will continue until you set them."
     }
   ]
 }
