@@ -15,7 +15,7 @@
 //   node scripts/poc/notify.mjs --test
 //
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyse, daysSince } from "./eligible.mjs";
@@ -40,6 +40,15 @@ const STATE_PATH = path.join(REPO_ROOT, "docs", "poc", "state.json");
 const REPO_SLUG = "happygamer1919-tech/rc-inventory";
 
 // Telegram rejects anything over 4096 characters outright.
+//
+// DIG-01. NOTHING USES THIS ANY MORE AND THE CONSTANT IS KEPT WITH THE REASON.
+// It was applied to the FULL digest, which is written to a file and never sent,
+// and it was never applied to the plain digest, which is the one that goes to
+// Telegram. So it capped the wrong string in both directions. It stays as a
+// named number for whoever adds the cap to send(), which is where it belongs and
+// where it still does not exist: a plain digest over 4096 characters is refused
+// by Telegram with an HTTP status this file reports, which is loud rather than
+// silent, and moving that guard is a decision for its own card.
 const TELEGRAM_MAX = 4096;
 
 // ---------------------------------------------------------------------------
@@ -104,13 +113,64 @@ function firstLine(text, limit = 240) {
   return line.length > limit ? line.slice(0, limit - 1) + "…" : line;
 }
 
+// ---------------------------------------------------------------------------
+// DIG-01. THE RECOMMENDATION IS RENDERED WHOLE, ACROSS LINES IF IT MUST BE.
+//
+// `firstLine` does two things to a recommendation and both of them are wrong for
+// this field: it keeps only the FIRST non-empty line, and it cuts that line at a
+// character limit. It cut at 160 in one place and 180 in another and 220 in a
+// third, so the same field was three different lengths depending on which block
+// rendered it, and the cut is INVISIBLE on the receiving end: a recommendation
+// of 800 characters and one of 160 look identical, with the alternative option
+// and the whole IF UNANSWERED line gone.
+//
+// WHY THIS FIELD AND NOT THE OTHERS. docs/DOCTRINE-TRIAGE.md's escalation rubric
+// says an escalation with no recommendation is not finished. The other truncated
+// fields are SUMMARIES of things that have a full text somewhere a reader can
+// reach: a title has a card, a question has a card. The recommendation has no
+// such elsewhere. The digest IS where it is read, so cutting it there destroys
+// the only copy.
+//
+// A message split over several lines is legible. A sentence that stops mid-word
+// is not, and the reader cannot tell which of the two happened to them.
+//
+// THE TRANSPORT-LIMIT CLAUSE OF THIS CARD'S DEFAULTS DOES NOT BITE HERE, and it
+// is worth saying why rather than leaving a reader to wonder. This block is only
+// ever rendered into the FULL digest, which is written to a file in
+// FULL_DIGEST_DIR and is never sent. A file has no 4096 character limit, so
+// there is nothing here for a splitter to split. The clause stands for whoever
+// later renders this field into a transport that does have one.
+export function wholeText(text, indent = "    ") {
+  if (text === undefined || text === null) return [];
+  const lines = String(text).split("\n").map((l) => l.trimEnd());
+  // Leading and trailing blank lines carry nothing; blank lines BETWEEN
+  // paragraphs do, so they are kept as bare indent rather than collapsed.
+  while (lines.length > 0 && lines[0].trim() === "") lines.shift();
+  while (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop();
+  if (lines.length === 0) return [];
+  return lines.map((l) => (l.trim() === "" ? indent.trimEnd() : indent + l));
+}
+
+// One recommendation, whole, under a label. Used by every block in this file
+// that renders a recommendation, so the field cannot go back to being three
+// different lengths in three places.
+export function recommendationLines(text, indent = "    ", label = "recommended:") {
+  const body = wholeText(text, indent);
+  if (body.length === 0) return [indent + label + " none stated"];
+  const first = body[0].slice(indent.length);
+  return [indent + label + " " + first, ...body.slice(1)];
+}
+
 // The card's own recommendation, pulled off the structured decision-needed text
 // that CLAUDE.md section 4 makes mandatory.
 function recommendationOf(card) {
   const question = String(card.question || "");
   const match = question.match(/RECOMMENDATION:\s*([\s\S]*?)(?:\n[A-Z][A-Z ]{3,}:|$)/);
-  if (match) return firstLine(match[1].trim(), 220);
-  if (card.defaults) return firstLine(String(card.defaults), 220);
+  // DIG-01. WHOLE, not firstLine(..., 220). This is the same field the two
+  // escalation blocks render and it was cut at a third length again. Its
+  // callers push it through recommendationLines, which does the wrapping.
+  if (match) return match[1].trim();
+  if (card.defaults) return String(card.defaults).trim();
   return "none stated on the card";
 }
 
@@ -149,6 +209,60 @@ function newestReport() {
     .filter((n) => /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$/.test(n))
     .sort();
   return dated.length > 0 ? "docs/reports/" + dated[dated.length - 1] : null;
+}
+
+/**
+ * The branches an earlier run PARKED instead of opening a pull request for.
+ * Card AUT-23.
+ *
+ * READ FROM THE SPOOL ON DISK, NOT FROM state.json, and the reason is the whole
+ * shape of a park. A park withholds the pull request that CARRIES state.json, so
+ * a record written into that file would ride on the branch that was parked and
+ * would reach main only once the park ended. The one fact that must survive a
+ * park is the one a state field would seal inside it.
+ *
+ * A CONSEQUENCE THAT IS STATED RATHER THAN HIDDEN: this digest is sent at step 4
+ * and the park decision is taken at step 5, so a run never reports its OWN park
+ * here. It reports every park still outstanding, which repeats until the queue
+ * clears, and that repetition is the point: a held pull request that went quiet
+ * would look exactly like one that was never held.
+ *
+ * READ DEFENSIVELY, like every other reader in this file. A digest that throws
+ * is a digest nobody gets, and the run it was reporting on then looks silent.
+ */
+const PARK_DIR = process.env.POC_PARK_DIR || "/Users/ivan/rc-poc-logs/parked";
+
+function readParked() {
+  let names;
+  try {
+    names = readdirSync(PARK_DIR);
+  } catch (error) {
+    if (error && error.code === "ENOENT") return [];
+    throw error;
+  }
+  const out = [];
+  for (const name of names.filter((n) => n.endsWith(".park")).sort()) {
+    let text;
+    try {
+      text = readFileSync(path.join(PARK_DIR, name), "utf8");
+    } catch {
+      continue;
+    }
+    const field = (key) => {
+      const line = text.split("\n").find((l) => l.startsWith(key + "="));
+      return line ? line.slice(key.length + 1) : null;
+    };
+    const branch = field("branch");
+    if (!branch) continue;
+    out.push({
+      branch,
+      openCount: field("open_count"),
+      threshold: field("threshold"),
+      runId: field("run_id"),
+      parkedAt: field("parked_at"),
+    });
+  }
+  return out;
 }
 
 /**
@@ -273,7 +387,7 @@ function buildDigest() {
       lines.push("- " + card.id + " (" + (daysSince(card.last_checkpoint, now) ?? "?") + "d)");
       const ask = firstLine(String(card.question || "").replace(/^DECISION NEEDED:\s*/, ""), 200);
       if (ask) lines.push("  ask: " + ask);
-      lines.push("  recommended: " + recommendationOf(card));
+      lines.push(...recommendationLines(recommendationOf(card), "  "));
       lines.push("  reply: R " + card.id + " default");
     }
     lines.push("");
@@ -290,6 +404,30 @@ function buildDigest() {
       const days = entry.days_outstanding === null ? "?" : entry.days_outstanding;
       lines.push("- " + entry.id + ": " + entry.owed_by + " owes this, " + days + "d outstanding");
       lines.push("  " + firstLine(entry.title, 90));
+    }
+    lines.push("");
+  }
+
+  // AUT-23. THE PARKED BRANCHES, BY NAME, WITH THE COUNT THAT CAUSED THE PARK.
+  //
+  // THIS IS THE DIGEST THAT CARRIES THE BRANCH NAME, and the plain one is not.
+  // CLAUDE.md 15 forbids branch names, pull request numbers and claim mechanics
+  // in the message Ivan receives; this full digest is written for POC-BUILDER
+  // reading the logs and is exactly where that vocabulary belongs. The plain
+  // digest says the same fact in the owner's terms, with no branch in it.
+  const parked = readParked();
+  if (parked.length > 0) {
+    lines.push("PARKED, NOT OPENED (producer gate, card AUT-23)");
+    for (const entry of parked) {
+      lines.push(
+        "- " + entry.branch + ": parked at " + (entry.parkedAt || "?") +
+          " by run " + (entry.runId || "?")
+      );
+      lines.push(
+        "  " + (entry.openCount || "?") + " pull request(s) were open against a threshold of " +
+          (entry.threshold || "?")
+      );
+      lines.push("  the work is committed and pushed; only the pull request is withheld");
     }
     lines.push("");
   }
@@ -407,10 +545,10 @@ function buildDigest() {
       lines.push("- needs Ivan:");
       for (const e of triage.escalations) {
         lines.push("  " + firstLine(e.title || "untitled", 160));
-        lines.push(
-          "    recommended: " +
-            firstLine(e.recommendation || "NONE GIVEN, which does not satisfy the rubric", 160),
-        );
+        lines.push(...recommendationLines(
+          e.recommendation || "NONE GIVEN, which does not satisfy the rubric",
+          "    ",
+        ));
       }
     } else {
       lines.push("- needs Ivan: none");
@@ -427,7 +565,7 @@ function buildDigest() {
     lines.push("ESCALATIONS");
     for (const e of escalations) {
       lines.push("- " + (e.card_id || "run") + ": " + firstLine(e.question, 180));
-      if (e.recommendation) lines.push("  recommended: " + firstLine(e.recommendation, 180));
+      if (e.recommendation) lines.push(...recommendationLines(e.recommendation, "  "));
     }
     lines.push("");
   } else {
@@ -471,11 +609,29 @@ function buildDigest() {
   lines.push("Answer a card with: R <card-id> default");
   lines.push("or: R <card-id>: your instruction");
 
-  let text = lines.join("\n");
-  if (text.length > TELEGRAM_MAX) {
-    text = text.slice(0, TELEGRAM_MAX - 40) + "\n… truncated, see the run log.";
-  }
-  return text;
+  // DIG-01. THE FULL DIGEST IS NOT CAPPED, BECAUSE IT IS NOT SENT.
+  //
+  // This used to be:
+  //
+  //     if (text.length > TELEGRAM_MAX) {
+  //       text = text.slice(0, TELEGRAM_MAX - 40) + "\n… truncated, see the run log.";
+  //     }
+  //
+  // and it was Telegram's 4096 character limit applied to a string Telegram
+  // never receives. renderBoth() sends the PLAIN digest and writes THIS one to a
+  // file under FULL_DIGEST_DIR, so the cap was cutting the log and telling the
+  // reader to "see the run log", which is the file they were already reading.
+  //
+  // MEASURED, not reasoned about: on 2026-09-06 the file for run dig01-check was
+  // 5428 bytes and the ESCALATIONS block, which is the last block in the digest,
+  // was cut after its first entry with that message underneath it. So the
+  // recommendation this card renders whole was landing past the cut, and fixing
+  // the field without this would have fixed nothing anyone could read.
+  //
+  // THE LIMIT BELONGS TO THE TRANSPORT AND THE TRANSPORT HERE IS A FILE. This
+  // card's defaults say a transport limit is a reason to SPLIT, never to
+  // silently shorten, and a file has nothing to split for.
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -583,7 +739,12 @@ async function sendTo(token, chatId, text) {
 }
 
 // ---------------------------------------------------------------------------
-const FULL_DIGEST_DIR = "/Users/ivan/rc-poc-logs";
+// DIG-01. OVERRIDABLE FOR A TEST, DEFAULT UNCHANGED. The same seam
+// POC_ASK_DIR, RC_IDS_GITROOT and RC_BOARD_EDIT_BASE already are: without it the
+// only way to read what this file renders is to read the operator's own log
+// directory, which does not exist on a CI runner, so the assertion that the
+// recommendation survives whole could not be made anywhere it would be checked.
+const FULL_DIGEST_DIR = process.env.POC_FULL_DIGEST_DIR || "/Users/ivan/rc-poc-logs";
 
 // AUT-5. Two digests, and only one of them is sent.
 //
@@ -596,7 +757,12 @@ function renderBoth() {
   const state = readJson(STATE_PATH, {});
   const runId = args["run-id"] || state.run_id || "manual";
 
-  const plain = buildPlainDigest(set, state, { cards: args.cards });
+  // AUT-23. The COUNT and not the branch names. See the note above readParked
+  // and CLAUDE.md 15: the plain digest carries no branch, no number, no path.
+  const plain = buildPlainDigest(set, state, {
+    cards: args.cards,
+    parkedCount: readParked().length,
+  });
   const full = buildDigest();
 
   try {
@@ -622,6 +788,33 @@ const testText = [
   "someone else owes. Nothing you cannot act on.",
 ].join("\n");
 
+// DIG-01. ONLY WHEN RUN DIRECTLY, which is the guard eligible.mjs already
+// carries and already explains: without it the block below fires ON IMPORT, so
+// a test that wants to call one exported renderer instead builds a whole digest,
+// reads the real state file, shells out to gh and then SENDS A TELEGRAM MESSAGE.
+// eligible.mjs records the same thing happening to plain-digest.mjs.
+//
+// Nothing imported this file before today, so the guard changes no behaviour for
+// any caller that exists: run.sh invokes it as a script and still does.
+// COMPARED AS REAL PATHS, AND THAT IS NOT PEDANTRY. `import.meta.url` is already
+// resolved through every symlink; `process.argv[1]` is the string the caller
+// typed. On macOS /var is a symlink to /private/var, so invoking this file under
+// a /var path made the two differ, RUN_DIRECTLY came out false, and the script
+// did nothing at all and exited 0. Measured while writing DIG-01's test: the
+// digest produced no output and wrote no file, which is indistinguishable from a
+// run with nothing to say.
+const RUN_DIRECTLY = (() => {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  const self = fileURLToPath(import.meta.url);
+  try {
+    return realpathSync(self) === realpathSync(invoked);
+  } catch {
+    return self === path.resolve(invoked);
+  }
+})();
+
+if (RUN_DIRECTLY) {
 const plainResult = isTest ? { text: testText, gaps: [], words: 0 } : renderBoth();
 const text = plainResult.text;
 
@@ -650,3 +843,4 @@ if (args["dry-run"] === "true") {
 }
 
 process.exit(await send(text));
+}

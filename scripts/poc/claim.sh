@@ -24,7 +24,10 @@
 set -u -o pipefail
 
 POC_STATE=docs/poc/state.json
-POC_CLAIM_TTL_SECONDS=21600   # 6 hours, matches run.sh and eligible.mjs
+# CLAIM-01. One file per claim, so two claims never land on one line. The TTL
+# itself lives in scripts/poc/claims.mjs, which is the only place that computes
+# it; run.sh names 21600 beside its own copy so a drift shows in a diff.
+POC_CLAIMS_DIR=docs/poc/claims
 
 # launchd hands over a minimal PATH, so the machine's own tool paths are named
 # here. THE INHERITED PATH IS KEPT ON THE END rather than replaced: this script
@@ -38,6 +41,12 @@ export PATH
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 cd "$REPO_ROOT" || { echo "FATAL: cannot enter $REPO_ROOT"; exit 1; }
+
+# The lease window, READ FROM THE MODULE THAT DEFINES IT rather than restated
+# here. It only ever appears in prose printed to a human, so a stale copy would
+# be a message that lies about the mechanism it is describing.
+POC_CLAIM_TTL_HOURS=$(node "$SCRIPT_DIR/claims.mjs" ttl-hours 2>/dev/null)
+POC_CLAIM_TTL_HOURS=${POC_CLAIM_TTL_HOURS:-6}
 
 ACTION=${1:-}
 CARD_TYPED=${2:-}
@@ -88,94 +97,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# All claim reading and writing goes through node, so the TTL arithmetic and the
-# JSON shape live in one place and match eligible.mjs exactly.
+# All claim reading and writing goes through scripts/poc/claims.mjs, so the TTL
+# arithmetic and the JSON shape live in ONE place and match eligible.mjs exactly.
+# eligible.mjs imports the same module.
+#
+# CARD CLAIM-01 MOVED THE STORE OUT OF ONE JSON OBJECT. A claim is now its own
+# file, docs/poc/claims/<CARD-ID>.json, so two claims taken at the same time on
+# two branches are two adds of DIFFERENT paths and git merges them without
+# overlap. The single `claims` object in docs/poc/state.json conflicted THROUGH
+# the JSON, and the resolution that deleted only the marker characters left a
+# claims map that did not parse. The module still READS that object, because
+# run.sh is a deployed copy that writes it until somebody reinstalls.
+#
+# This block used to be a node -e program written inline here. It moved so that
+# scripts/poc-free/prove-claim-merge.mjs can drive the SHIPPED writer rather than
+# a copy of it: a proof that exercises a re-statement of the logic proves only
+# that the proof agrees with itself.
 # ---------------------------------------------------------------------------
 claims_tool() {
-  node -e '
-    const fs = require("fs");
-    const [statePath, action, cardId, actor, ttlRaw] = process.argv.slice(1);
-    const ttl = Number(ttlRaw);
-    const now = Date.now();
-
-    let state;
-    try {
-      state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-    } catch {
-      console.error("FATAL: cannot read " + statePath);
-      process.exit(1);
-    }
-    state.claims = state.claims || {};
-
-    const live = (entry) => {
-      if (!entry || !entry.claimed_by || !entry.claimed_at) return false;
-      const at = Date.parse(entry.claimed_at);
-      if (Number.isNaN(at)) return false;
-      return (now - at) / 1000 <= ttl;
-    };
-    const ageOf = (entry) => Math.floor((now - Date.parse(entry.claimed_at)) / 60000);
-
-    // Expired claims are dropped whenever the file is touched, so the file does
-    // not accumulate leases nobody holds.
-    for (const [id, entry] of Object.entries(state.claims)) {
-      if (!live(entry)) delete state.claims[id];
-    }
-
-    if (action === "list") {
-      const ids = Object.keys(state.claims).sort();
-      if (ids.length === 0) console.log("no live claims");
-      for (const id of ids) {
-        const c = state.claims[id];
-        console.log(id + " claimed by " + c.claimed_by + " at " + c.claimed_at + " (" + ageOf(c) + " minutes ago)");
-      }
-      process.exit(0);
-    }
-
-    const held = state.claims[cardId];
-
-    if (action === "check") {
-      if (held) {
-        console.log(cardId + " is claimed by " + held.claimed_by + ", " + ageOf(held) + " minutes ago");
-        process.exit(3);
-      }
-      console.log(cardId + " is free");
-      process.exit(0);
-    }
-
-    if (action === "claim") {
-      if (held && held.claimed_by !== actor) {
-        console.log("REFUSED: " + cardId + " is claimed by " + held.claimed_by + ", " + ageOf(held) + " minutes ago");
-        console.log("A claim expires after " + Math.floor(ttl / 3600) + " hours. Wait, or have them release it.");
-        process.exit(3);
-      }
-      state.claims[cardId] = {
-        claimed_by: actor,
-        claimed_at: new Date(now).toISOString().replace(/\.\d{3}Z$/, "Z"),
-      };
-      fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n");
-      console.log(cardId + " claimed by " + actor);
-      process.exit(0);
-    }
-
-    if (action === "release") {
-      if (!held) {
-        console.log(cardId + " was not claimed, nothing to release");
-        process.exit(0);
-      }
-      if (held.claimed_by !== actor) {
-        console.log("REFUSED: " + cardId + " is claimed by " + held.claimed_by + ", not by " + actor);
-        console.log("Release it as that actor, or wait for the claim to expire.");
-        process.exit(3);
-      }
-      delete state.claims[cardId];
-      fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n");
-      console.log(cardId + " released by " + actor);
-      process.exit(0);
-    }
-
-    console.error("unknown action " + action);
-    process.exit(64);
-  ' "$POC_STATE" "$ACTION" "$CARD_ID" "$ACTOR" "$POC_CLAIM_TTL_SECONDS"
+  node "$SCRIPT_DIR/claims.mjs" "$ACTION" ${CARD_ID:+"$CARD_ID"} ${ACTOR:+"$ACTOR"} --state "$POC_STATE"
 }
 
 # list and check never write, so they never need a branch or a PR.
@@ -184,18 +124,46 @@ if [ "$ACTION" = "list" ] || [ "$ACTION" = "check" ]; then
   exit $?
 fi
 
-# claim and release change state.json, which lands through a PR like every other
-# change to that file.
+# claim and release change docs/poc/claims/, which lands through a PR like every
+# other change under docs/poc/.
 git fetch origin --prune --quiet
 
-BEFORE=$(git hash-object "$POC_STATE" 2>/dev/null)
+# WHERE THIS TERMINAL WAS BEFORE, so it can be put back. CLAIM-01's defaults name
+# the defect: this script used to leave the working tree ON the claim branch, so
+# a SECOND claim in the same session was cut from the first claim's tree and
+# carried the first claim in its diff. If the first pull request was then closed
+# unmerged, which is what happened to #86, merging the second silently
+# reinstated a claim the owner had declined.
+CLAIM_RETURN_TO=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse HEAD)
+
+# ON A TRAP AND NOT AT THE END, so it holds however this script stops. A caller
+# that pipes this into `head` closes the pipe early and the script dies on
+# SIGPIPE partway through, which would leave the tree on the claim branch and
+# re-create the defect for the next claim in that session. Measured: piping the
+# second claim of a session into `head -1` left the terminal on
+# poc/claim-bbb-02 until this trap existed.
+claim_return() {
+  [ -n "${CLAIM_RETURN_TO:-}" ] || return 0
+  [ "$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse HEAD)" = "$CLAIM_RETURN_TO" ] && return 0
+  if git rev-parse --verify --quiet "$CLAIM_RETURN_TO" >/dev/null 2>&1; then
+    git checkout --quiet "$CLAIM_RETURN_TO" 2>/dev/null \
+      || git checkout --quiet --detach "$CLAIM_RETURN_TO" 2>/dev/null
+  else
+    git checkout --quiet --detach origin/main 2>/dev/null
+  fi
+}
+trap claim_return EXIT PIPE TERM INT
+
+BEFORE=$(git status --porcelain -- "$POC_CLAIMS_DIR" "$POC_STATE" | sort)
 claims_tool
 TOOL_EXIT=$?
 if [ "$TOOL_EXIT" -ne 0 ]; then
   git checkout -- "$POC_STATE" 2>/dev/null
+  git clean -fdq "$POC_CLAIMS_DIR" 2>/dev/null
+  git checkout -- "$POC_CLAIMS_DIR" 2>/dev/null
   exit "$TOOL_EXIT"
 fi
-AFTER=$(git hash-object "$POC_STATE" 2>/dev/null)
+AFTER=$(git status --porcelain -- "$POC_CLAIMS_DIR" "$POC_STATE" | sort)
 
 if [ "$BEFORE" = "$AFTER" ]; then
   echo "state unchanged, no PR opened"
@@ -203,17 +171,26 @@ if [ "$BEFORE" = "$AFTER" ]; then
 fi
 
 CLAIM_BRANCH=poc/claim-$(echo "$CARD_ID" | tr '[:upper:]' '[:lower:]')-$(date +%Y%m%d-%H%M%S)
-STASHED=$POC_STATE.claim-tmp
-cp "$POC_STATE" "$STASHED"
+
+# THE EDIT IS CARRIED ACROSS THE CHECKOUT, NOT RE-DERIVED ON THE OTHER SIDE. It
+# is at most two paths: the claim file, and state.json only when a legacy entry
+# had to be dropped. A patch is used rather than a copy of one named file,
+# because a release DELETES a file and a copy cannot carry a deletion.
+CLAIM_PATCH=$(mktemp)
+git add -A -- "$POC_CLAIMS_DIR" "$POC_STATE"
+git diff --cached --binary -- "$POC_CLAIMS_DIR" "$POC_STATE" > "$CLAIM_PATCH"
+git reset -q -- "$POC_CLAIMS_DIR" "$POC_STATE"
 git checkout -- "$POC_STATE" 2>/dev/null
+git clean -fdq "$POC_CLAIMS_DIR" 2>/dev/null
+git checkout -- "$POC_CLAIMS_DIR" 2>/dev/null
 
 # A branch off origin/main so the PR is never BEHIND on arrival, which is the
 # state that stranded PR #44 for three runs.
 git checkout -b "$CLAIM_BRANCH" origin/main --quiet
-cp "$STASHED" "$POC_STATE"
-rm -f "$STASHED"
+git apply --index "$CLAIM_PATCH"
+rm -f "$CLAIM_PATCH"
 
-git add "$POC_STATE"
+git add -A -- "$POC_CLAIMS_DIR" "$POC_STATE"
 if git diff --cached --quiet; then
   echo "nothing staged, no PR opened"
   git checkout --detach --force origin/main --quiet
@@ -223,20 +200,21 @@ fi
 git -c user.name="POC" -c user.email="happygamer1919@gmail.com" \
   commit -q -m "POC: $ACTION $CARD_ID for $ACTOR
 
-Claim lease bookkeeping only. docs/poc/state.json and nothing else.
-No board file, no application code, no migration.
+Claim lease bookkeeping only. docs/poc/claims/ and, when a legacy entry had to
+be dropped, docs/poc/state.json. No board file, no application code, no
+migration.
 
-A claim is advisory and expires after $((POC_CLAIM_TTL_SECONDS / 3600)) hours."
+A claim is advisory and expires after $POC_CLAIM_TTL_HOURS hours."
 
 git push -q -u origin "$CLAIM_BRANCH"
 CLAIM_PR=$(gh pr create --base main --head "$CLAIM_BRANCH" \
   --title "POC: $ACTION $CARD_ID for $ACTOR" \
-  --body "Claim lease bookkeeping. \`docs/poc/state.json\` only.
+  --body "Claim lease bookkeeping. \`docs/poc/claims/\` only, unless a legacy entry in \`docs/poc/state.json\` had to be dropped.
 
 Actor: $ACTOR
 Card: $CARD_ID
 Action: $ACTION
-Lease: expires after $((POC_CLAIM_TTL_SECONDS / 3600)) hours.
+Lease: expires after $POC_CLAIM_TTL_HOURS hours.
 
 The harness reads this before it picks a card and skips anything claimed by
 another actor within the lease window.
@@ -247,3 +225,11 @@ Migration files added: none." 2>/dev/null | tail -1)
 echo "claim PR: $CLAIM_PR"
 echo "The claim is live locally as soon as that PR merges. Until then the harness"
 echo "still reads the old state from main."
+
+# BACK WHERE THIS TERMINAL WAS. Card CLAIM-01: leaving the tree on the claim
+# branch made the next claim in the same session carry this one in its diff, and
+# if the first claim's pull request was then closed unmerged, which is what
+# happened to #86, merging the second silently reinstated it. The move itself is
+# in the EXIT trap above; this line only reports it.
+claim_return
+echo "returned to ${CLAIM_RETURN_TO}"

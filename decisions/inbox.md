@@ -7408,6 +7408,173 @@ and who decided it.
 
 ---
 
+### R-142
+
+**APPLY-02 IS CANCELLED, NOT DELETED. Its acceptance describes a production state
+that no longer exists, and the work it was authored to do was done by a mechanism
+the card did not know about.**
+
+**Reason line, as the owner gave it:** superseded by the auto-apply mechanism
+established in R-124, verified at ledger 0034 with the register empty and the
+health route agreeing.
+
+**Asked by:** EXECUTOR, 2026-09-05, on the pull request that blocked the card.
+**Decided by:** the owner in the dispatch of 2026-09-06, in his own words.
+
+**WHAT THE CARD SAID.** APPLY-02 was authored on 2026-09-04 by TRIAGE under R-115
+to apply six merged migrations, `0028` through `0033`, to the production Supabase
+project through the assertion-bearing applier, and to journal all three phases.
+Its notes named it the single deciding cause for all nine phase 3 launch
+conditions reading 0 of 9.
+
+**WHY IT CANNOT BE DONE, AND IT IS NOT THAT ANYTHING IS BROKEN.** R-124 landed on
+2026-09-04, the same day the card was authored, and it records what this
+repository actually does: a Supabase GitHub integration applies merged migrations
+to the production project within about two minutes, with no terminal involved. The
+six were live before any card claimed them. The card's own notes rest on the
+sentence R-124 disproved, and under R-127 that sentence is left standing on the
+card with the correction beside it rather than edited away.
+
+**THE VERIFICATION, RE-RUN ON 2026-09-06 FOR THIS RULING RATHER THAN QUOTED FROM
+THE PULL REQUEST THAT ASKED FOR IT.** Read-only, under the single permitted
+secrets read of CLAUDE.md 8.3, with no value printed and nothing written:
+
+    AT                        2026-09-06T12:34:42.778Z
+    project ref               bwhzatwwjqmyfesfnisa
+    applied_ledger_version()  HTTP 200  "0034"
+    GET /api/health           HTTP 200  {"commit":"af9f592dea7a89f1ac2cf1a41a89663d0debc5f6",
+                                         "ledger_version":"0034",
+                                         "at":"2026-09-06T12:34:44.953Z"}
+    pending register entries  0 (empty)
+    highest migration file    0034_error_code_reconciliation_failed.sql
+    applier, RC_APPLY_TARGET=production
+                              "zero pending migrations. The register is empty, so
+                               production is already current. Nothing was executed
+                               and nothing was written."
+                              exit 0
+
+**THREE READERS AGREE AND ONE OF THEM IS NOT A REPOSITORY FILE.** The function
+answers 0034. The deployed application answers 0034 independently, and the commit
+it names, `af9f592`, is `main`'s tip, so the deployment is current as well as the
+schema. The highest migration file on `main` is 0034, so an empty register is
+consistent with every merged file being applied rather than with a register nobody
+maintained.
+
+**CANCELLED IS NOT DELETED, AND THE DIFFERENCE IS THE WHOLE POINT.** The card
+stays on the board with its question, its evidence and this ruling's id on it.
+Deleting it would remove the only record that six migrations reached production
+without a terminal, which is the fact the next reader most needs. It is the same
+reason R-127 keeps a false sentence quoted rather than removing it.
+
+**HOW A CANCELLED CARD IS RECORDED, AND THERE IS PRECEDENT.** `status: shipped`
+with `evidence.kind: journal`, whose `ref` opens by saying it was cancelled and by
+which ruling. That is exactly what P2-19 does: it was RETIRED, not completed, by
+R-054, and its evidence says so in its first line. **No new status value is
+invented.** `halted` is reserved by CLAUDE.md 10 for the failure ceiling and this
+is not a failure, `blocked` says somebody owes an answer and nobody does any more,
+and adding a sixth status would change the validator, the portal, the digest and
+the selector to record one card. The distinction lives where a reader will meet
+it, on the card, rather than in a schema.
+
+**WHAT THIS DOES NOT DECIDE.** The phase 3 gate conditions still read 0 of 9 and
+still name APPLY-02 in their notes as the deciding cause. That premise is now
+false and correcting it is a gate audit, which belongs to TRIAGE under
+DOCTRINE-TRIAGE section 4 and not to this ruling.
+
+**AND ONE THING IS STILL OPEN, NAMED HERE SO CANCELLING THE CARD DOES NOT CLOSE
+IT BY ACCIDENT.** Nothing notices when the integration applies a migration. It
+reads no register, runs no assertion, writes no journal row and asks nobody, which
+is why `0028` through `0031` had to be reconstructed after the fact rather than
+journalled. R-124 says so in terms and CLAUDE.md 8.8 names it as the third writer
+that journals nothing. Cancelling APPLY-02 removes the card that was pointing at
+that gap; it does not remove the gap.
+
+**Unblocks:** APPLY-02, by cancelling it.
+
+---
+
+### R-143
+
+**CLAUDE.md SECTION 13 STANDS. AUT-9's DEFAULTS ARE OVERTURNED, BOTH CLAUSES.
+A LOCK IS NOT HONOURED FOREVER BECAUSE ITS PID IS ALIVE, AND THE STALE MARGIN IS
+FIFTEEN MINUTES.**
+
+**Asked by:** EXECUTOR, 2026-09-05, on AUT-9, and re-asked on 2026-09-06 with both
+sides quoted verbatim on the card.
+**Decided by:** the owner in the dispatch of 2026-09-06, in his own words.
+
+**WHAT WAS IN DISPUTE.** AUT-9 carries acceptance case 4 and a defaults clause
+that say a `run.lock` whose recorded pid is alive is honoured **whatever its
+age**, and a second defaults clause that says the stale margin is **twice the
+cap**. CLAUDE.md section 13 says a lock older than its holder's declared
+`cap_seconds` plus **a fifteen minute margin** is wreckage and is reclaimed, after
+the holder is stopped and only once its identity is confirmed. Both texts were
+written on 2026-08-28 about the same incident, run `20260827-220052`, and they
+reached opposite conclusions.
+
+**THE DECISION, IN THREE PARTS.**
+
+1. **Section 13 stands, unamended.** A stale lock whose pid is alive **and is this
+   harness** is stopped, process group included, and reclaimed. A stale lock whose
+   pid is alive and is **not** this harness is left unsignalled and reclaimed
+   around. A lock inside its declared cap is still refused and still exits 0.
+2. **The card's defaults are overturned**, both the live-pid clause and the
+   twice-the-cap clause.
+3. **The margin is fifteen minutes**, which is what `POC_LOCK_STALE_MARGIN_SECONDS`
+   already is.
+
+**THE REASONS, IN THE ORDER THEY WEIGH.**
+
+**THE CARD'S OWN TITLE AGREES WITH SECTION 13 AND CONTRADICTS ITS OWN DEFAULTS.**
+The title reads *"a lock whose owner is gone is not honoured forever"*. An owner
+that is gone is exactly what section 13 reclaims. Under CLAUDE.md 5 a `defaults`
+field fills silence; it does not contradict speech, and here it contradicts both
+the standing rule and the sentence at the top of its own card. A card that
+disagrees with itself cannot be the authority over a file that does not.
+
+**A MARGIN OF TWICE THE CAP WOULD NOT HAVE CAUGHT THE INCIDENT THE CARD WAS
+WRITTEN ABOUT.** The lock advertises its holder's own `cap_seconds`, which is
+`POC_RUN_TOTAL_CAP_SECONDS = 2700 + 1800 + 900 * 2 = 6300s`. Under section 13 and
+the code a lock goes stale at `6300 + 900 = 7200s`, two hours, which fits inside
+the three hour gap between windows, so a run that dies holding the lock costs at
+most the window it died in. Under the card's defaults it would go stale at
+`6300 + 12600 = 18900s`, **five hours fifteen minutes**, which spans two windows
+before anything looked at it. On the night of 2026-08-27 the lock was held for
+**nine hours**. The card's margin would have missed it, and its live-pid clause
+would have refused to reclaim it at all, because the holder's pid was alive the
+whole time. A rule authored to fix an outage that would not have detected that
+outage is not the rule to keep.
+
+**THE CODE ALREADY IMPLEMENTS FIFTEEN MINUTES, SO SECTION 13 AND THE CODE AGREE
+AND ONLY THE DEFAULTS DISSENT.** `scripts/poc/run.sh` line 69 reads
+`POC_LOCK_STALE_MARGIN_SECONDS=900` with the reason written beside it: *"The sum
+is 7200s, two hours, which is inside the three hour gap between windows: a run
+that dies holding the lock costs at most the one window it died in."* The
+reclaim path, the process-group stop and the identity check are all live on
+`main` and are proved by `scripts/poc/test-harness-caps.sh` section 3 on every
+pull request. Upholding the card would mean turning green assertions red and
+re-opening a fixed nine hour outage to satisfy a sentence in a defaults field.
+
+**THE CARD'S DEFAULTS ARE CORRECTED ON THE BOARD RATHER THAN LEFT STANDING.** The
+two overturned clauses are rewritten to match this ruling, in the same commit, so
+the contradiction does not sit on the board waiting to be re-litigated by the next
+reader. **THE OLD TEXT IS QUOTED, NOT DELETED**, per R-127: the card keeps both
+overturned clauses verbatim under a heading that says they were overturned and by
+which ruling. That is the same treatment R-142 gave APPLY-02 and the same reason:
+the record of what was believed is the part a future reader needs.
+
+**WHAT THIS DOES NOT DECIDE.** It does not decide what AUT-9's acceptance should
+point at. Case 4 as written cannot be built, so the card's acceptance is rewritten
+under this ruling to the behaviour section 13 describes; whether the proof lives
+in `test-harness-caps.sh` or in a new `check:run-cap` is an implementation
+question for the card, not a decision for the owner. Nor does it touch the
+watchdog: the deadline-versus-countdown clause of the defaults was never in
+dispute and stands.
+
+**Unblocks:** AUT-9.
+
+---
+
 ### R-128 - the three deviations in the input report, ratified individually with the test that fired, and the rule for the next time a card's acceptance forbids quoting the sentence CLAUDE.md 9c says to quote
 **Date:** 2026-09-05
 **Asked on:** cards AUT-18 and AUT-19, CLAUDE.md section 9c, DOCTRINE-TRIAGE section 1
