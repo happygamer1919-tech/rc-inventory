@@ -50,6 +50,7 @@ versions is three products and a category.
 | 2026-09-01 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `ba36aecb6e4d6de759d9b6b7fee274ea0a1ce383f22dd6d05febb3476a8292fe` | **12 of 12 passed**, committed on all-pass | **0 rows deleted**, 1 migrations applied (0026 to 0026) | `docs/reports/2026-09-01-executor-p3-04b-drop.md` |
 | 2026-09-01 | **EXECUTOR terminal**, under R-082 | `scripts/apply-pending-migrations.mjs` | `a37407bb8a296aa3248497b6b8aa8d31452bd7b144605e367996f1b0508ca238` | **12 of 12 passed**, committed on all-pass | **0 rows deleted**, 1 migrations applied (0027 to 0027) | `docs/reports/2026-09-01-executor-p3-05b-drop.md` |
 | 2026-09-02 | **EXECUTOR terminal**, card EXT-08 | `scripts/ext/serve-sample-documents.mjs` | `f3f0ec96779b6ccb916ac5ec20ef4962a7073445931d0d9dce43bf14e8848404` | **none.** The script writes objects and reads back responses; the assertions for this card are `npm run check:document-url` (22 cases) and `tests/e2e/document-url.spec.ts` (8 cases), both in `quality` | **0 database rows.** 4 objects written to storage under `rc-docs/_samples/andre/`, plus one throwaway probe object written and deleted | `docs/reports/2026-09-02-executor-ext-08-sample-documents.md` |
+| 2026-09-08 | **EXECUTOR terminal**, card GATE-01 | `scripts/prove-anon-write-refused.mjs` | `c2e90696676fc18db23d0469ce543146ac99097561f26c4487b20d90f2a3e51c` | **3 of 3 passed.** The script decides: exit 0 only when all three inserts are refused with 42501 | **0 rows.** 3 INSERTs ATTEMPTED and 3 refused by PostgreSQL before any row existed | `docs/reports/2026-09-08-executor-gate-01-anon-write.md` |
 
 **Total written to production outside a migration: 1,241 rows, both on
 2026-08-28, both deletions, both against the Rapid Construct project
@@ -89,3 +90,22 @@ nobody was asked to approve it.
 **Neither row is a migration and neither belongs in `APPLY-LOG.md`.** The
 migration ledger still says `0009` while the schema is at `0012`; correcting that
 is a migration-path write and it is journalled over there, not here.
+
+## The attempted-write row, which is the first one that wrote nothing
+
+**2026-09-08 is the first row here for a run that was SUPPOSED to fail, and it is
+in this file for the same reason every other row is.** Card GATE-01 sends three
+INSERTs to production carrying the public anon key, and the whole point is that
+PostgreSQL refuses all three. Its `rows` field is 0 and always will be, on every
+future re-run.
+
+**Why log a write that did not happen.** This file answers "what has a terminal
+pointed at production", and a reader auditing that question is not helped by a
+log that silently omits the requests whose outcome was good. The row is also what
+makes the run REPEATABLE without alarm: somebody reading the access logs a month
+from now finds three POSTs from a terminal against `clients`, `contacts` and
+`suppliers`, and this row is where they find out what they were.
+
+**If the row count is ever not 0, that is an incident and not a bigger number.**
+A successful insert here means the anon grant is open on production. The script
+does not clean up after itself, prints the row it created, and exits non-zero.
