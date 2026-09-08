@@ -105,6 +105,21 @@ const NEUTRALISED = [
     what: 'case 6, the quiet baseline. Every card blocked on ivan is set back to todo before the digest is asked whether it should speak.',
     marker: 'neutralised " + n + " card(s) blocked on ivan for the quiet baseline',
   },
+  {
+    site: 'scripts/poc/test-ask-digest.sh::DT_DIR',
+    what:
+      'case 10, the restored-cap mutant. IT WAS AN EXEMPTION UNTIL 2026-09-08 AND THE EXEMPTION WAS TOO THIN TO KEEP. ' +
+      'The declared property was that the rendered digest exceeds 4096 characters, and the declared reason was that ' +
+      '"the length comes from the real boards plus four padding escalations the case writes itself". Measured with `gh` ' +
+      'unavailable, as it is on the runner, that digest was 4065 characters: THIRTY ONE SHORT, with the thirty one ' +
+      'supplied by whatever the boards happened to hold. A pull request that moved one card from blocked to todo took ' +
+      'more than thirty one characters of blocked-card text away and the case went red on a change that had nothing to ' +
+      'do with the digest. The loud failure worked exactly as an exemption promises; it just fired on every pull request ' +
+      'from then on. So the dependency is REMOVED rather than declared: the four padding escalations were lengthened ' +
+      'until the ESCALATIONS block clears 4096 on its own, and the case now ASSERTS that, so a board of any shape ' +
+      'satisfies it and a future shortening of the padding reports itself for the right reason.',
+    marker: 'so the padding carries the 4096 boundary and the boards do not',
+  },
 ];
 
 const EXEMPT = [
@@ -113,12 +128,6 @@ const EXEMPT = [
     property: 'at least one card on the phase 2 board is `todo` with `blocked_on: null`, so ask.sh has something whose transition to blocked is visible.',
     why: 'Neutralising would mean INJECTING a card, and the fixture runs the real validate-board.mjs over the result, so an injected card has to satisfy the whole planning contract. The property is cheap to state and the file already refuses loudly when it fails.',
     loud: 'no todo card on the fixture board to expire against',
-  },
-  {
-    site: 'scripts/poc/test-ask-digest.sh::DT_DIR',
-    property: 'the rendered full digest exceeds 4096 characters, so case 10s restored-cap mutant reaches the boundary it is about.',
-    why: 'The length comes from the real boards plus four padding escalations the case writes itself. Freezing the boards would make the case stop tracking the digest the product actually renders. The case asserts separately that the restored cap FIRED, so a board set that shrinks below the boundary reports itself.',
-    loud: 'so this digest is under 4096 and the case proves nothing',
   },
 ];
 
