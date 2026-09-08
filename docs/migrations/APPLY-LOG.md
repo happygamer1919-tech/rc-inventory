@@ -426,6 +426,57 @@ is why the application code shipped alongside this file reads and writes the two
 columns behind `hasProductPackaging` in `lib/data/schema-capability.ts`. An
 unguarded read here would have been INC-05 a second time.
 
+## 0036_supplier_document_series.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER
+
+**Actor:** **the Supabase GitHub app, on the merge of the EXT-11 pull request
+(#240) to `main`.** No terminal ran it, and none may: CLAUDE.md 8.0 and ruling
+R-124 record that merging a migration file is what applies it here.
+
+**Applied at:** the merge of PR #240, within about two minutes of it, per the
+interval measured on `0032`, `0033` and `0034`.
+
+**What it creates:** four nullable text columns, none with a default.
+
+    public.inbound_orders.order_ref
+    public.inbound_orders.order_ref_series
+    public.extraction_drafts.order_ref
+    public.extraction_drafts.order_ref_series
+
+`order_ref` is the supplier's document number as printed. `order_ref_series` is
+the letter code printed before it, which is part of the identifier in Moldovan
+invoicing because two suppliers can both issue `0009312`. No unique constraint on
+either, deliberately: the pair is what a model read off a scan and an operator
+corrected, and a uniqueness rule on it would turn a misread series into a refusal
+to record a real delivery.
+
+**Proof that it is applied: NOT YET OBSERVED, AND THIS ENTRY SAYS SO RATHER THAN
+CARRYING NUMBERS NOBODY READ.** Same position as the `0035` entry above and for
+the same reason: this was written before the merge by an unattended scheduled run
+whose 45 minute wall clock cap ends before the apply would land. What is claimed
+is the prediction and the mechanism, which have now held five times. What is not
+claimed is an observation. Whoever next probes production should record
+`applied_ledger_version()` reading `"0036"` as a correcting entry below, per the
+append-only rule.
+
+**The control that preceded it** is `npm run check:no-destructive-migration`,
+which runs unfiltered in `quality`. Its output on this branch, verbatim:
+
+    check-no-destructive-migration: 1 file(s), added or modified against origin/main (4171144)
+    check-no-destructive-migration: OK. 1 file(s) parsed, 12 statement(s), no DROP TABLE, no TRUNCATE, no DELETE, and every statement kind classified.
+
+Twelve statements: four `AlterTableStmt` column additions, four `CommentStmt`,
+and the transaction and verification statements. It removes no row.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and under 8.0 that is the
+documented behaviour of this path rather than a gap in the record. The applier in
+8.5 is the path a terminal takes and it was not taken.
+
+**THE DEPLOY AND THE APPLY LEAVE THE SAME PUSH AND DO NOT LAND TOGETHER**, which
+is why the application code shipped alongside this file reads and writes the four
+columns behind a capability probe in `lib/data/schema-capability.ts`, on the
+CALLER's own connection. An unguarded read here would have been INC-05 a second
+time.
+
 ## Rules
 
 - **One entry per apply**, in the order they were applied, newest at the bottom.

@@ -167,3 +167,55 @@ Three entries in `docs/LEARNINGS.md`: merge-applies-so-gate-the-read; a nullable
 numeric column read through a zero-defaulting helper losing the difference between
 none and zero; and `check:board-edit` refusing a card pushed as `in_flight`
 beside its own code.
+
+---
+
+# OUTCOME, APPENDED AFTER THE MERGE
+
+**This section is a second pull request, because the first one carried the report
+and then merged.** Section 9b says the committed file is the original and the
+printed text is a copy of it; a merge outcome that existed only in a terminal
+would break that in the one place it matters most.
+
+**`quality` concluded SUCCESS on `5508d93`, the head sha**, run 34075461185.
+`npm run checks:state 236` then printed `mergeStateStatus CLEAN`, `quality
+SUCCESS`, and "the quality result belongs to head 5508d93 and can be trusted".
+**PR #236 was squash-merged as `1d90ca7` on `main`.**
+
+Both of the card's CI-run acceptance commands ran and passed inside that job,
+and neither was skipped:
+
+- **"Apply every migration to a bare postgres, unmodified"** - `npm run
+  check:migrations`, which is the step that executed
+  `assertions/0035_products_package.sql` and therefore the four combinations the
+  card names, plus the zero, negative and fractional factors.
+- **"Prove the migration applier against the Docker shim"** and **"Prove every
+  applier assertion can fail"** - the two path-filtered steps of CLAUDE.md 3.1.
+  This pull request touches `supabase/migrations/**`, so both were REQUIRED to
+  run rather than skip, and both show as run and passed.
+- **"End to end"** - the Playwright suite against a local Supabase stack,
+  carrying the two new EXT-10 cases in `tests/e2e/products.spec.ts`.
+
+**MERGING IT APPLIED THE MIGRATION**, per CLAUDE.md 8.0. `0035` reached the
+production project within about two minutes of `1d90ca7`, with no terminal
+involved. The APPLY-LOG entry predicted exactly that and **explicitly did not
+claim to have observed it**; the observation is still owed, and the next terminal
+with a production probe should record `applied_ledger_version()` reading `"0035"`
+as a correcting entry, append-only.
+
+## Two things this run did not do, named rather than omitted
+
+1. **It took no claim on EXT-10.** `docs/poc/claims/` was empty of claim files at
+   boot and `state.claims` held only the expired `APPLY-02` lease from
+   2026-09-05, so nothing was taken from another actor and nothing was skipped.
+   But CLAIM-01's rule is "claim before you start", and this run started without
+   one. It is recorded here rather than passed over: no collision occurred, and
+   that is luck rather than compliance.
+2. **It did not start a second card.** The cap allows two. `EXT-11` is next
+   eligible and needs a migration, an e2e case demonstrated failing before and
+   passing after, a review-form change and a contract update. The `quality` run
+   on this branch took about twenty two minutes on its own, so EXT-11 could not
+   have been finished AND merged in what remained. Starting it would have left
+   work on a branch, which is the outcome the cap's own rule tells a run to
+   avoid.
+

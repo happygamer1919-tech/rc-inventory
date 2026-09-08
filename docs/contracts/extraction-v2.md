@@ -143,18 +143,26 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
 | `document_source` | enum or null | yes | `scan` or `digital`. **Declared by the extractor.** Null is accepted and read as `scan`. See section 4.2c. |
+| `order_ref` | string or null | yes | The **number** of the supplier's own document, verbatim as printed. Ours is the order reference we generate and is a different thing. Card EXT-11. |
+| `order_ref_series` | string or null | yes | The **series** of the supplier's own document: the letter code printed before the number. `TG`, `AV`. **Part of the identifier**, because two suppliers can both issue `0009312`. Null is accepted and is not an error: not every document carries one. Card EXT-11. |
 | `lines` | array | no | May be empty on `failed`. Never null. **One exception, and only one: a scan-sourced `failed` payload must not carry this key at all. Section 4.1a.** |
 | `_meta` | object | no | Section 4.3. |
 
 ### 4.1a A scan-sourced `failed` payload: the header, and NO `lines` key. Card EXT-20, 2026-09-04.
 
 When `document_source` is `scan` (or absent, which reads as `scan`) **and**
-`status` is `failed`, the payload is these **sixteen fields** and nothing else:
+`status` is `failed`, the payload is these **seventeen fields** and nothing else:
 
     order_id      status        error_code    reason
-    supplier      order_ref     client_ref    order_date
-    currency      currency_raw  prices_include_vat   vat_rate
-    subtotal      vat_amount    document_total       document_source
+    supplier      order_ref     order_ref_series     client_ref
+    order_date    currency      currency_raw  prices_include_vat
+    vat_rate      subtotal      vat_amount    document_total
+    document_source
+
+**IT WAS SIXTEEN UNTIL 2026-09-07** and `order_ref_series` is the one card EXT-11
+added. The count is stated rather than left implicit because this list is what a
+reader checks a real payload against, and a list whose stated count disagrees
+with its own rows is a list nobody trusts.
 
 **There is no `lines` key. Not an empty array. The key is absent.**
 
@@ -183,12 +191,51 @@ them. Only `scan` + `failed` is narrowed.
 | in the shape above | in this contract | note |
 |---|---|---|
 | `supplier` | `supplier_name` | same field, section 4.1's name is the one we read |
-| `order_ref` | **not in 4.1** | accepted and **ignored**, per the global rule in section 2 that a field not in this document is never guessed. `EXT-11` and `P3-31` are the cards that give it a shape. |
-| `client_ref` | **not in 4.1** | same: accepted and ignored today. No card claims it yet. |
+| `order_ref` | **in 4.1 since 2026-09-07** | **stored.** Card EXT-11 landed it, together with `order_ref_series`. |
+| `client_ref` | **not in 4.1** | accepted and ignored today. `P3-31` is the card that would give it a shape, and it has not shipped. |
 
-Sending them is harmless and is what happens in production. **We do not store
-them**, and this table exists so that nobody reads the sixteen-field list as a
-promise that we do.
+**THIS TABLE SAID SOMETHING ELSE UNTIL 2026-09-07 AND IT IS QUOTED RATHER THAN
+DELETED**, per CLAUDE.md section 9c, because the sixteen-field list above and
+card P3-31's own acceptance line were both written on top of it. It read:
+
+> *"`order_ref` | not in 4.1 | accepted and **ignored**, per the global rule in
+> section 2 that a field not in this document is never guessed. `EXT-11` and
+> `P3-31` are the cards that give it a shape."*
+>
+> *"Sending them is harmless and is what happens in production. **We do not store
+> them**, and this table exists so that nobody reads the sixteen-field list as a
+> promise that we do."*
+
+It was accurate when written and EXT-11 is the card that changed it. `order_ref`
+is now stored, on `extraction_drafts` and on `inbound_orders`, alongside the new
+`order_ref_series`. `client_ref` is untouched and the paragraph above still
+describes it exactly.
+
+### 4.1b The supplier's reference is TWO fields. Card EXT-11, 2026-09-07.
+
+`TG 0009312` is a series and a number, and it arrives as two fields and is stored
+in two columns. **It is never concatenated**, in the payload or in the database.
+
+Two facts glued together at write time cannot be pulled apart at read time: a
+screen that wants them together can join two columns, and a lookup by number
+cannot unglue a string somebody joined before storing it.
+
+**Neither field is required and neither absence is an error.** A payload that
+omits `order_ref_series`, or omits both, is accepted with the same `202` as one
+that carries them. Not every document carries a series, and a document without
+one is not a malformed document. This also means the previous version of the
+sender's payload, which does not know the field at all, keeps working: our side
+accepts the field before Andre emits it, and the landing is confirmed to him
+live.
+
+**There is no uniqueness rule on the pair.** Making the supplier's identifier
+complete is what this card does. Deciding what happens when two documents carry
+the same series and number is a different decision and is not made here by a
+constraint nobody wrote down.
+
+**Ours and theirs stay separate.** `inbound_orders.reference` is the reference
+this system generates and keeps its own unique constraint. `order_ref` and
+`order_ref_series` are what the supplier printed.
 
 ### 4.2 Line level
 
@@ -381,6 +428,190 @@ the mapping finds nothing and `category` comes back null.
 CRIT-11 residue and belongs to P2-15.
 
 ---
+
+### 4.4a The latency budget, and the three clocks it is not. Card EXT-12, 2026-09-07.
+
+**120 seconds above 20 lines, 60 seconds at or below.** The owner's numbers,
+relayed from Andre and confirmed by him: *"49.7 of 51 seconds is the model call,
+which neither side controls."* Almost the whole budget is the model, so this is a
+target the scenario is configured to meet and not a number either side can
+engineer down.
+
+**THE COUNT IS NOT KNOWABLE WHEN WE FIRE.** Section 3's payload carries exactly
+six fields and none of them is a line count: the count is the *result* of the
+extraction. So **in practice the longer budget applies to every document**, and
+this is written down rather than inferred. `size_bytes` is deliberately **not**
+used as a proxy: a one-page scan can be heavier than a three-page digital
+document, and a proxy invented here would become "the threshold" within six
+months without anybody having decided it.
+
+**THREE CLOCKS, AND ONLY THE SECOND ONE IS THIS BUDGET.**
+
+| clock | where | value | what it measures |
+|---|---|---|---|
+| acknowledgement | `lib/data/extraction-budget.ts`, `ACK_TIMEOUT_MS`, read by `lib/data/extraction-fire.ts` | 15s | whether Make **accepted** the job. The operator's screen waits on this one, so it stays short. |
+| **extraction** | `lib/data/extraction-budget.ts`, `extractionBudgetMs()` | **120s / 60s** | how long the model may take. **Make's own limit**, which is why `timeout` in section 5.2 reads "exceeded Make's own limit". Our code declares it; the scenario enforces it. |
+| document serving | `app/api/documents/[...path]/route.ts`, `UPSTREAM_TIMEOUT_MS` | 20s | how long **we** wait on storage when Make fetches the file. A third question, and it does not move to the budget module because it is not an extraction budget. |
+
+Raising the first clock to 120 seconds would hold an operator's screen for two
+minutes and would measure nothing about the model. The two numbers live in one
+file so that they cannot drift apart, and `npm run prove:extraction-budget`
+asserts both, the boundary at exactly 20, and that the acknowledgement clock is
+still a different number.
+
+---
+
+## 4b. The state endpoint. THE AUTHORITATIVE ANSWER TO "WHAT DO YOU ACCEPT NOW". Card EXT-21, 2026-09-07.
+
+    GET https://<host>/api/state
+
+**No credential. No session. No header.** It is public and unauthenticated on
+purpose: what it returns is a controlled vocabulary and an enum, both of which
+already reach you through this document, and a key would put the answer back
+behind the human step this endpoint exists to remove.
+
+### The shape
+
+```json
+{
+  "categories": ["Cimenturi și mortare", "Zidărie și cărămidă", "..."],
+  "units": [{ "code": "pcs", "label": "buc" }, { "code": "t", "label": "t" }],
+  "ledger_version": "0033",
+  "at": "2026-09-07T18:40:00.000Z"
+}
+```
+
+| field | what it is |
+|---|---|
+| `categories` | the **active** category names, in display order. This is the list section 4.4's `category` field is validated against, read live. |
+| `units` | the **active** unit codes with their Romanian labels, in display order. **You emit the `code`.** The label is ours and is presentational. |
+| `ledger_version` | the highest APPLIED migration version, read from the database and never from our repository. It answers *is the schema you are talking about the schema I am looking at*. `null` reads as **I do not know**, never as *none*. |
+| `at` | when this answer was produced. |
+
+**`503` with `{"error": "state_unavailable"}` when the endpoint cannot read.** It
+never answers `200` with empty lists, because a poller cannot tell *we accept
+nothing* from *I could not look*, and the first reading is the one that makes you
+hold back values that are already safe.
+
+**`cache-control: no-store`.** A cached answer to *what do you accept now* is the
+whole failure this endpoint removes, served with a success code.
+
+### It SUPERSEDES every hand-written status document
+
+**This endpoint wins.** Where it and any document disagree, including
+`ANDRE-STATUS.md` and including the snapshot in `docs/contracts/categories.json`,
+the endpoint is right and the document is commentary.
+
+**Why this section exists, stated rather than left as a preference.** On
+2026-09-03 our own migration register listed `0028` to `0031` as pending while
+production had already applied all four. The status document written for you was
+composed from that register, and it said the nineteenth category and the units
+`t` and `l` *"will land when the pending migration batch is applied to
+production, which is a separate owner-run step"*. That was false at the moment it
+was written, and it cost a day of holding back three values that were already
+safe to send.
+
+**Nothing went red.** No check failed, and both sides behaved correctly against
+the information they had. A rule saying *keep the status document accurate* would
+have been obeyed by everyone involved and would have changed nothing, because the
+person writing it believed it was accurate. The only thing that removes this
+class of failure is your being able to **ask production** rather than read what
+we wrote about it.
+
+### What it deliberately does not carry
+
+**No client data of any kind**, and that is enforced rather than reviewed:
+`npm run check:state-endpoint` refuses any query in the route that names a table
+other than `categories` and `units`, refuses a lost `active` filter, and refuses
+a cacheable or statically rendered response. `npm run prove:state-endpoint`
+shows every one of those refusals firing.
+
+**Not the error-code set.** Section 5.2a already requires a new code to be
+announced before it can be emitted or received, in both directions, which is a
+stronger guarantee than polling. Two answers to one question is worse than one.
+
+**Not a webhook.** You poll. A push needs a URL from you, a retry policy and a
+failure mode, and none of that is needed to answer a question whose answer
+changes about once a month.
+
+---
+
+## 4c. RETENTION OFF IS A REQUIRED CONDITION OF THIS INTEGRATION. Card EXT-13, 2026-09-07.
+
+**This is a condition, not a preference, and it is written here rather than only
+agreed in conversation.** A scenario rebuilt from scratch in six months restores
+the BEHAVIOUR and not the SETTING. The behaviour is what a test exercises; the
+setting is what nobody looks at again. So it is in the contract, where a rebuild
+reads.
+
+### The condition
+
+**The model provider's retention must be OFF for every request that carries a
+document from this integration**, and it must be off before the first REAL
+supplier document goes through. The four sample documents are synthetic and are
+already through; a real document is the line.
+
+**The owner has ruled: OFF.** This section does not weigh it again.
+
+### What is retained without it, and whose data it is
+
+Without retention off, the model provider keeps, on the extractor's account:
+
+- **the extracted CONTENT of the document** - supplier name, document reference,
+  dates, product names, quantities, unit prices and totals, and
+- **a conversation object per request**.
+
+**That is Mihai's commercial data and his suppliers'.** It is what he buys, from
+whom, in what quantity and at what price, which is the whole of a construction
+merchant's commercial position. It is not ours to leave sitting on a third
+account by default, and it reached that account because our own map did not have
+a row for it.
+
+### Who does what
+
+| | |
+|---|---|
+| **Andre** | sets the flag on his side. It is his account and his scenario, and nothing on our side can set it or read it. |
+| **Us** | record it HERE, as a required condition, and carry the row in `docs/DATA-MAP.md`. |
+| **Confirmation** | Andre confirms the flag is off. Until he does, `docs/DATA-MAP.md` row 5 reads **NOT KNOWN** and assumes it persists. |
+
+**We cannot verify this and we do not pretend to.** There is no `OPENAI_*` name
+anywhere in this repository, in `lib/env-required.ts` or on the strip list in
+`scripts/poc/secret-names.sh`: we hold no credential for that provider and reach
+it only from inside Andre's scenario. This section is a stated condition backed
+by his confirmation, which is exactly as strong as it sounds and is why it is
+written down instead of remembered.
+
+### The reasoning already existed in this document, one row along, and did not reach the model
+
+Section 9 has said since this contract was frozen, under ruling R-015:
+
+> *"No third-party conversion sub-processor. If Make's OpenAI file input cannot
+> read a format, the conversion is built inside our own application. A converter
+> sees every supplier invoice in full, so adding one is a data-sharing decision
+> about the client's commercial information and needs an owner ruling naming the
+> service."*
+
+**That is the same argument, and it was applied to a service we might have added
+while the service already in the path went unexamined.** A converter would see
+every supplier invoice in full. So does the model. The difference the reasoning
+turned on was that one was a NEW party and the other arrived with the extractor,
+which is a fact about how the integration was assembled and not about who ends up
+holding the data.
+
+Nothing in R-015 is retracted. It is quoted here because a reader who finds this
+section is owed the fact that the principle was already written down.
+
+### It is a SECOND DATA LOCATION and that is the part worth more than the flag
+
+When this contract was frozen the data map had one row for the extractor: Make.
+The model provider was not on it. **A map that is wrong about where data rests is
+worse than no map, because it is consulted**, and this one was.
+
+`docs/DATA-MAP.md` now lists every place supplier document content and client
+data come to rest, this one marked as **the location that was missing**. It also
+records, for every third party, what is retained and who owes the answer where we
+do not know it.
 
 ## 5. Status and error codes
 

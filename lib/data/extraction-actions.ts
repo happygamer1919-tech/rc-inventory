@@ -23,7 +23,7 @@ import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
 import { effectiveSource } from "./extraction-types";
-import { hasExtractionDocumentSource } from "./schema-capability";
+import { hasExtractionDocumentSource, hasSupplierDocumentRef } from "./schema-capability";
 import { safeFileName } from "./row";
 import { resolveSupplier } from "./suppliers";
 import {
@@ -49,6 +49,11 @@ export type ReviewedDraft = {
   currency: string;
   orderedAt: string;
   expectedAt: string;
+  /** EXT-11. Referinta documentului FURNIZORULUI, asa cum a corectat-o
+   *  operatorul pe ecran. Amandoua sunt siruri, si un sir gol inseamna "nu are",
+   *  fiindca asta trimite un `input` necompletat. */
+  orderRef: string;
+  orderRefSeries: string;
   lines: ReviewedLine[];
 };
 
@@ -354,6 +359,32 @@ export async function confirmExtractionDraft(
   });
 
   if (error) return translate(error.code, error.message);
+
+  // EXT-11. REFERINTA FURNIZORULUI SE MUTA PE COMANDA CREATA.
+  //
+  // PRINTR-UN UPDATE SI NU PRIN RPC, deliberat. confirm_extraction_draft este o
+  // functie SQL cu semnatura fixa, iar a-i adauga doi parametri inseamna a o
+  // inlocui intr-o migratie: o functie nu se modifica, se recreeaza. Cardul cere
+  // coloanele, nu o semnatura noua, si o schimbare de semnatura ar fi purtat
+  // riscul ei propriu pe calea prin care intra FIECARE document.
+  //
+  // POARTA ESTE ACEEASI CA PE CALEA DE CALLBACK, si pentru acelasi motiv: cat
+  // timp 0036 nu este aplicata, coloanele nu exista si un update care le numeste
+  // primeste 42703. Aici insa comanda ESTE DEJA CREATA, deci un esec al acestui
+  // update nu are voie sa desfaca confirmarea: referinta furnizorului este o
+  // informatie in plus pe o comanda reala, si a refuza comanda fiindca ea nu a
+  // putut fi scrisa ar pierde livrarea ca sa salveze eticheta ei.
+  const orderRef = input.orderRef.trim();
+  const orderRefSeries = input.orderRefSeries.trim();
+  if (await hasSupplierDocumentRef(supabase)) {
+    await supabase
+      .from("inbound_orders")
+      .update({
+        order_ref: orderRef.length === 0 ? null : orderRef,
+        order_ref_series: orderRefSeries.length === 0 ? null : orderRefSeries,
+      })
+      .eq("id", String(data));
+  }
 
   revalidatePath("/comenzi");
   revalidatePath("/inventar");
