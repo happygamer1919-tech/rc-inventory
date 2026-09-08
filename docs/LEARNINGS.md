@@ -4610,3 +4610,145 @@ instance: **a cited RED is not evidence until its step list has been read.** A r
 concluding `failure` proves only that something failed. Before naming a run as the
 before-result, run `gh run view <id> --json jobs` and confirm the step that was
 supposed to fail has conclusion `failure` and not `skipped`.
+### The check for a link that was missing in one direction was itself missing one
+**Tag:** infra
+**ERROR:** `check-grant-revocation` exists because R-082 declared `REVOKED BY
+P2-13` and P2-13's checklist did not name it back. The first version of its
+detector matched `REVOKED BY <card>`, `expires at <card>` and `<card> revokes`.
+**R-059 is written "Revoked with every other terminal grant at P2-13"** and
+matched none of them, so the check built to find grants covered by an
+unenumerated phrase was itself letting a grant through on an unenumerated phrase.
+It was found by reading R-059 while classifying the hits by hand, not by the
+check reporting anything.
+**SOLUTION:** a fourth pattern, and case 3 of the proof is that exact wording, so
+the next reader meets it as an executable case rather than as a comment. RULE:
+**when a check enumerates the shapes of a thing, the enumeration is the defect the
+check is about, one level up.** Read the corpus it will run against before
+trusting the patterns, and expect the corpus to use a phrasing the patterns do
+not.
+
+### A card can be satisfied by work that lands after it is authored, and it does not notice
+**Tag:** infra
+**ERROR:** GATE-03's notes said "Verified on main before authoring: P2-13's card
+carries no occurrence of the string R-082 anywhere in any field." That was true
+on 2026-09-02 when the card was authored. On 2026-09-04 a TRIAGE rulings pull
+request cut two days earlier merged, and R-095 added exactly the box GATE-03
+asks for, in almost GATE-03's words. The card then sat eligible for three days
+asking for work already done, and its stated verification read as current.
+**SOLUTION:** the note is quoted on the card under CLAUDE.md 9c with the date it
+stopped being true and the commit that ended it, and the card shipped on the half
+that was still undone. This is the second card in a week overtaken this way; AUT-9
+was the first. RULE: **a card's "verified on main" note is a measurement with a
+timestamp, not a standing fact.** Re-run the verification when you pick the card
+up, especially where a long-lived TRIAGE branch can land between authoring and
+working.
+
+### The tab strip already gave every panel its testid, and a second one broke strict mode
+**Tag:** frontend
+**ERROR:** `DevizComparisonPanel` was written with its own
+`<div data-testid="panel-comparatie">` wrapper. Every one of the nine new
+Playwright cases failed on `getByTestId('panel-comparatie') resolved to 2
+elements`, because `ProjectTabs` already wraps every tab body in
+``<div data-testid={`panel-${active}`}>``, which is where `panel-deviz` and
+`panel-consum` come from. The two nodes were **nested and identical**, which is
+why reading the source did not find it: the component really did render one
+wrapper, and the other came from a file nobody was looking at.
+**SOLUTION:** the panel returns its `Card` directly, like every other tab body.
+Found by putting a `data-mark` attribute on the component's own wrapper and
+asking the DOM which of the two carried it: the outer one did not, so it was not
+this component's. RULE: **when two identical nodes appear and the source has one,
+mark the one you wrote.** Reading harder finds the node you already know about;
+an attribute that only one of them can carry names the other one's owner in a
+single run.
+
+### A convention that is generated cannot be found by grepping for its result
+**Tag:** frontend
+**ERROR:** the testid above is built as a template, ``panel-${active}``, so
+`grep -rn "panel-comparatie"` over the whole repository returned only the new
+component and its spec. The existing convention was invisible to the search that
+would have prevented the mistake, and every other tab body demonstrates it by
+NOT having a wrapper, which is an absence and not something a grep finds.
+**SOLUTION:** the search that would have worked is for the SHAPE, `data-testid={`,
+in the file that renders the thing being added to. RULE: **before adding a
+testid, grep for `data-testid={` in the parent, not for the literal you are about
+to write.** A generated identifier has no literal to find.
+
+### The witness for "this case is included" must be a row the case can actually produce
+**Tag:** infra
+**ERROR:** P3-18's acceptance says in capitals that **a project in `active` with an
+accepted deviz IS included**, reversing what the authored card said. The fixture
+gave the `active` project one product, and that product was the over-issue case:
+estimate 6, issued 9, so its contribution is correctly **zero**. The clause was
+then untestable in the direction it was written, because a contribution of zero
+looks exactly like exclusion on screen.
+**SOLUTION:** the `active` project gained a **second** product it genuinely still
+needs, so the status breakdown shows a non-zero figure under `În lucru`. The
+over-issue case keeps the first product and is asserted separately. RULE: **a
+fixture that proves an inclusion needs a row the inclusion produces.** When the
+only case you gave a category is one whose correct answer is zero, you have built
+a fixture that cannot tell inclusion from exclusion.
+
+### A batch is not a number you can seed
+**Tag:** data
+**ERROR:** stock in this repository is `sum(batches.quantity) - sum(outbound_lines.quantity)`,
+so a fixture with a chosen stock level looked like one insert into `batches`. It
+is not: `batches` requires `inbound_order_id` **and** `order_line_id`, both NOT
+NULL with foreign keys, and `order_line_id` is unique per batch. A seeded stock
+level therefore needs an arrived inbound order, an order line per product, and a
+batch per line.
+**SOLUTION:** the seed builds that graph, and says in its own comment why the
+ceremony is not ceremony: it is the graph the inventory screen reads, and a stock
+figure written beside it would be a second truth about the same number. RULE:
+**before seeding a derived quantity, read the constraint graph of the table it is
+derived from.** The shape of the insert is the schema's answer to how that number
+is allowed to exist.
+
+### The card's first clause rested on a premise the card itself told me to test
+**Tag:** backend
+**ERROR:** EXT-12's acceptance asks that "the timeout in
+`lib/data/extraction-fire.ts` is derived from the line count threshold". Neither
+half of that is available: the fire happens **before** the extraction, so no line
+count exists yet, and the six-field payload carries none; and the 15 second
+timeout there is the **acknowledgement** clock, awaiting Make's 2xx on a POST
+that carries a `callback_url`, not the extraction budget, which is Make's own and
+which the contract already described as such.
+**SOLUTION:** the card's own defaults had pre-decided both: *"if the count is not
+knowable at fire time, the longer budget applies to every document and the PR says
+so plainly instead of inventing a proxy"*, and its notes named the clock question
+as *"the first thing this card establishes"*. So it shipped under CLAUDE.md 5 as a
+default applied, not under section 4 as a block: the two numbers get one source,
+the acknowledgement clock reads from that same file so it cannot drift, and the
+contract now carries a table of the three clocks. `size_bytes` was **not** used as
+a proxy. RULE: **when a card's notes name a premise as the first thing to
+establish, establish it before writing any code against it.** A card that
+predicts its own false premise has usually also pre-decided what to do about it.
+
+### A repository with no unit runner still has a unit idiom
+**Tag:** infra
+**ERROR:** the acceptance asks for "a named unit case". `npm run test:e2e` is
+Playwright and there is no vitest, jest or node:test harness anywhere, so the
+obvious move was to add one.
+**SOLUTION:** not adding one. Every unit-shaped assertion in this repository is a
+`scripts/poc-free/prove-*.mjs` wired into `quality` by name, and that is what the
+phrase means here. A second test framework for thirteen assertions is a
+dependency CLAUDE.md forbids taking without asking. RULE: **before adding a tool
+to satisfy a word in an acceptance, look for what the repository already calls by
+that word.** The idiom is usually there under a different name.
+
+### Node 22 strips types and node 20 does not, and CI is node 20
+**Tag:** ci
+**ERROR:** the extraction budget was written as `lib/data/extraction-budget.ts`
+and imported by `scripts/poc-free/prove-extraction-budget.mjs`. Thirteen
+assertions passed locally. CI went red on the first run with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+this Mac runs node 22, which strips type annotations natively, and the workflow
+pins `node-version: '20'`, which does not.
+**SOLUTION:** **the repository had already answered this.** EXT-08 hit the same
+error and created `lib/data/document-url-contract.mjs` with a `.d.mts` beside it,
+rejecting in terms the alternative of raising the workflow's node version, *"an
+environment change for all twenty-two steps of the job, made for a reason that has
+nothing to do with any of them."* EXT-12 follows that precedent rather than
+inventing a second answer. RULE: **when a runner rejects something your machine
+accepts, grep the repository for the error string before choosing a fix.** This
+one was already solved, with the reasoning written down, in a file two
+directories away.

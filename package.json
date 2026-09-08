@@ -44,6 +44,11 @@
     "prove:claim-merge": "node scripts/poc-free/prove-claim-merge.mjs",
     "check:live-fixtures": "node scripts/poc-free/check-live-fixtures.mjs",
     "prove:live-fixtures": "node scripts/poc-free/prove-live-fixtures.mjs",
+    "check:grant-revocation": "node scripts/poc-free/check-grant-revocation.mjs",
+    "prove:grant-revocation": "node scripts/poc-free/prove-grant-revocation.mjs",
+    "prove:extraction-budget": "node scripts/poc-free/prove-extraction-budget.mjs",
+    "check:state-endpoint": "node scripts/poc-free/check-state-endpoint.mjs",
+    "prove:state-endpoint": "node scripts/poc-free/prove-state-endpoint.mjs",
     "check:action-pins": "node scripts/poc-free/check-action-pins.mjs"
   },
   "dependencies": {

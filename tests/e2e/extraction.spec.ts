@@ -1377,3 +1377,140 @@ test.describe("Extragere documente", () => {
   });
 
 });
+
+// ---------------------------------------------------------------------------
+// EXT-21. RUTA DE STARE, /api/state.
+//
+// Patru cazuri, unul per clauza a acceptantei cardului. INAINTE DE ACEST CARD
+// TOATE PATRU PICA PE ACELASI MOTIV: ruta nu exista, deci raspunsul este 404 si
+// nici macar nu este JSON.
+//
+// NEAUTENTIFICAT INSEAMNA NEAUTENTIFICAT. Se foloseste fixture-ul `request`, care
+// este un context propriu, fara cookie-urile paginii, fiindca playwright.config
+// nu ii da niciun storageState. Cazul 3 il si dovedeste: aceeasi cerere fara
+// sesiune primeste 200, nu o redirectare catre ecranul de autentificare.
+// ---------------------------------------------------------------------------
+
+/**
+ * Cuvintele care NU au voie sa apara in raspuns, in engleza si in romana.
+ *
+ * LISTA DE INTERZICERI PESTE CORPUL BRUT, NU O CITIRE A LUI, fiindca asa cere
+ * cardul si fiindca o citire trece cu bine peste chiar campul pe care nimeni nu
+ * s-a gandit sa il caute. Al treilea camp adaugat aici este un nume de furnizor,
+ * si atunci acest test se face rosu inainte sa ajunga la Andre.
+ *
+ * Baza de date pe care ruleaza suita ARE toate aceste lucruri: seed-urile scriu
+ * clienti, proiecte, furnizori, produse si comenzi. Absenta lor din raspuns este
+ * deci o afirmatie despre ruta, nu despre o baza goala.
+ */
+const STATE_DENY = [
+  "supplier",
+  "furnizor",
+  "product",
+  "produs",
+  "order",
+  "comand",
+  "price",
+  "pret",
+  "preț",
+  "client",
+  "sku",
+  "quantity",
+  "cantitate",
+  "invoice",
+  "factur",
+  "batch",
+];
+
+test.describe("EXT-21 ruta de stare", () => {
+  test("1. o cerere NEAUTENTIFICATA primeste 200 cu categoriile active, unitatile si versiunea", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/state");
+
+    // 200 SI NU O REDIRECTARE. Fara linia din proxy.ts ruta ar raspunde 307
+    // catre /login, iar un client care urmareste redirectarile ar primi 200 si
+    // text/html, adica un cod de succes pentru o pagina de autentificare.
+    expect(response.status(), "ruta trebuie sa fie publica").toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/json");
+
+    const body = await response.json();
+
+    // TREI CAMPURI SI AL PATRULEA ESTE CEASUL. Comparatia este pe multimea de
+    // chei, nu pe prezenta lor: un camp adaugat face testul rosu, ceea ce este
+    // exact rostul lui.
+    expect(Object.keys(body).sort()).toEqual(["at", "categories", "ledger_version", "units"]);
+
+    expect(Array.isArray(body.categories)).toBe(true);
+    expect(body.categories.length).toBeGreaterThanOrEqual(19);
+    expect(body.categories).toContain("Cimenturi și mortare");
+    expect(body.categories).toContain("Vopsele, lacuri și solvenți");
+    for (const name of body.categories) expect(typeof name).toBe("string");
+
+    expect(Array.isArray(body.units)).toBe(true);
+    expect(body.units.length).toBeGreaterThanOrEqual(9);
+    for (const u of body.units) expect(Object.keys(u).sort()).toEqual(["code", "label"]);
+    const codes = body.units.map((u: { code: string }) => u.code);
+    // t si l sunt chiar cele doua valori pe care Andre le-a tinut pe loc o zi.
+    expect(codes).toEqual(expect.arrayContaining(["m2", "lm", "pcs", "bag", "kg", "roll", "m3", "t", "l"]));
+    expect(body.units.find((u: { code: string }) => u.code === "pcs")?.label).toBe("buc");
+
+    // VERSIUNEA REGISTRULUI, CITITA DIN BAZA DE DATE. null se citeste "nu stiu"
+    // si nu "niciuna", exact ca la /api/health, deci tipul este verificat si
+    // valoarea nu este presupusa.
+    expect(["string", "object"]).toContain(typeof body.ledger_version);
+    if (body.ledger_version !== null) expect(String(body.ledger_version).length).toBeGreaterThan(0);
+
+    expect(new Date(body.at).toString()).not.toBe("Invalid Date");
+  });
+
+  test("2. raspunsul NU poate fi pastrat in memorie intermediara", async ({ request }) => {
+    const response = await request.get("/api/state");
+    expect(response.status()).toBe(200);
+    // Un raspuns servit din cache la intrebarea "ce acceptati ACUM" ar raporta
+    // starea de dinaintea ultimei migratii, si ar face-o cu 200.
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("3. raspunsul nu poarta niciun camp de client, furnizor, produs, comanda sau pret", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/state");
+    expect(response.status()).toBe(200);
+    const raw = (await response.text()).toLowerCase();
+    for (const word of STATE_DENY) {
+      expect(raw, `raspunsul contine "${word}", deci poarta date care nu sunt vocabular`).not.toContain(
+        word,
+      );
+    }
+  });
+
+  test("4. o categorie adaugata din ecranul de setari apare in raspuns FARA o desfasurare", async ({
+    page,
+    request,
+  }) => {
+    // NUME UNIC PE RULARE, ca stadiul "inainte" sa fie o absenta reala si nu o
+    // ramasita de la o rulare anterioara pe o baza care nu a fost resetata.
+    const fresh = `TEST-Vocabular-${RUN}`;
+
+    // INAINTE: ruta nu il stie.
+    const before = await (await request.get("/api/state")).json();
+    expect(before.categories).not.toContain(fresh);
+
+    // Se adauga prin ECRAN, nu prin baza de date, fiindca asta cere cardul: ce
+    // se schimba este starea productiei, nu o unealta de test.
+    await signIn(page, ownerAccount());
+    await page.goto("/setari");
+    await page.getByTestId("category-name").fill(fresh);
+    await page.getByTestId("category-add").click();
+    await expect(
+      page.locator(`[data-testid="category-row"][data-name="${fresh}"]`),
+    ).toHaveCount(1, { timeout: 20_000 });
+
+    // DUPA: acelasi server, acelasi build, niciun restart intre cele doua
+    // cereri. Daca lista ar fi o constanta compilata, aceasta linie ar pica.
+    const after = await (await request.get("/api/state")).json();
+    expect(after.categories).toContain(fresh);
+    expect(after.categories.length).toBe(before.categories.length + 1);
+  });
+});
