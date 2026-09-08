@@ -56,6 +56,15 @@ export function ProductForm({
     product?.supplierId ?? product?.supplierName ?? "",
   );
 
+  // EXT-10: ambalajul furnizorului. Gol inseamna "factureaza in unitatea de
+  // stoc", care este cazul obisnuit, deci campurile pornesc goale si nu cu zero.
+  const [packageUnit, setPackageUnit] = React.useState(product?.packageUnit ?? "");
+  const [packageFactor, setPackageFactor] = React.useState(
+    product?.packageFactor === null || product?.packageFactor === undefined
+      ? ""
+      : String(product.packageFactor),
+  );
+
   const supplierOptions: ComboOption[] = suppliers.map((s) => ({
     value: s.id,
     label: s.name,
@@ -89,6 +98,8 @@ export function ProductForm({
       threshold,
       unitValueMdl: unitValue,
       supplier,
+      packageUnit,
+      packageFactor,
     };
     const result = editing ? await updateProduct(product.id, input) : await createProduct(input);
 
@@ -227,6 +238,39 @@ export function ProductForm({
               />
             </div>
           </Field>
+
+          {/* EXT-10. AMBALAJUL FURNIZORULUI, care nu este o unitate de masura.
+              Furnizorul factureaza pe palet, cutie sau set; Mihai numara saci si
+              bucati. Se scrie ce factureaza el si cate unitati de stoc incap
+              intr-unul, iar sistemul converteste in loc sa ghiceasca. */}
+          <div className="mt-1 mb-1 border-t border-rc-line pt-4">
+            <p className="text-[12.5px] font-semibold text-rc-black">Ambalajul furnizorului</p>
+            <p className="text-[12px] text-rc-muted mt-0.5 mb-3">
+              Doar dacă furnizorul facturează altfel decât unitatea de stoc. Lasă gol
+              dacă facturează la fel.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Ambalaj (opțional)">
+                <Input
+                  value={packageUnit}
+                  onChange={(e) => setPackageUnit(e.target.value)}
+                  placeholder="palet"
+                  className={fieldClass("packageUnit")}
+                  data-testid="field-package-unit"
+                />
+              </Field>
+              <Field label="Unități de stoc într-un ambalaj">
+                <Input
+                  value={packageFactor}
+                  onChange={(e) => setPackageFactor(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="48"
+                  className={fieldClass("packageFactor")}
+                  data-testid="field-package-factor"
+                />
+              </Field>
+            </div>
+          </div>
 
           {error ? (
             <p

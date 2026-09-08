@@ -49,10 +49,31 @@ The board is the work queue. Nothing is worked that is not a card.
 - every id in `depends_on` belongs to a card whose `status` is `shipped`
 - `blocked_on` is `null`
 
-**Pick.** Take the **lowest-id eligible card**. Ids sort lexically
-(`P2-01` before `P2-02` before `P2-10`), which is why they are zero-padded.
-Never skip an eligible card because a later one looks easier or more
-interesting.
+**Pick.** Take the **lowest-id eligible card**. **Ids sort on a TUPLE of
+(prefix, number, suffix), so the number is compared as a number**: `AUT-8` before
+`AUT-9` before `AUT-16`, and `P3-04` before `P3-04b` before `P3-05`. An id the
+key cannot parse falls back to the raw string and is never dropped. The
+comparator is `scripts/poc/card-order.mjs` and it is the only one; a second sort
+anywhere is a defect. Never skip an eligible card because a later one looks
+easier or more interesting.
+
+**THIS PARAGRAPH SAID SOMETHING ELSE UNTIL 2026-09-05 AND IT WAS FALSE ABOUT THE
+CODE**, corrected by card BOARD-03 under section 9c. It read:
+
+> *"Ids sort lexically (`P2-01` before `P2-02` before `P2-10`), which is why they
+> are zero-padded."*
+
+The description was accurate about `localeCompare`, which is what
+`scripts/poc/eligible.mjs` used, and the consequence it did not draw is the
+defect: **an id that is NOT zero-padded sorts by its characters.** `AUT-8` and
+`AUT-9` therefore queued behind every `AUT-1x` card authored days later, and a
+lane only ever grows, so nothing would ever have moved them back to the front. On
+2026-09-05 the eligible list on the phase 2 board began
+`AUT-21,AUT-22,AUT-23,AUT-8,AUT-9` and the session reading it worked AUT-21,
+AUT-22 and AUT-23 first, in that order, exactly as the defect dictated.
+
+**NOTHING WAS RENUMBERED**, per section 8b: `AUT-8` and `AUT-9` are cited in
+reports, rulings and pull requests. The sort changed; the ids did not.
 
 **One card, one branch, one PR.**
 
@@ -873,9 +894,39 @@ both.
 ### Allocating a ruling id
 
 1. Read `decisions/NEXT-RULING-ID`. It holds one id, `R-NNN`, and nothing else.
-2. Use that id.
-3. **Advance the file in the same commit as the ruling.** Not afterwards, not in
+2. **ASK WHETHER IT IS FREE, BEFORE YOU WRITE IT:**
+
+   ```
+   npm run id:free -- R-143
+   ```
+
+   Exit 0 means free across `main`, every open pull request branch and this
+   working tree. Exit 1 names every branch that holds it and names the lowest id
+   that is actually free. Exit 2 means a source could not be read, and that is
+   **not** permission to proceed.
+3. Use the id it accepted.
+4. **Advance the file in the same commit as the ruling.** Not afterwards, not in
    a follow-up.
+
+**STEP 2 DID NOT EXIST UNTIL 2026-09-07 AND THE SECTION SAID THE COUNTER WAS THE
+ALLOCATOR**, corrected by card RULE-09 under section 9c. It read:
+
+> *"1. Read `decisions/NEXT-RULING-ID`. It holds one id, `R-NNN`, and nothing
+> else. 2. Use that id."*
+
+**That produced four collisions**: R-096, R-098, the R-090/R-091 pair, and R-128.
+The counter on `main` only knows what has MERGED. A TRIAGE run writes a whole
+range of rulings and advances the counter **on its own branch**, so while that
+branch is open the counter on `main` is stale by however many ids that run took.
+On 2026-09-06 it read `R-128` while two open branches held `R-128` through
+`R-141`.
+
+**THE THIRD STEP IS STILL THE MECHANISM AND STEP 2 DOES NOT REPLACE IT.** The
+counter is one line, so two terminals allocating at the same time still produce a
+merge conflict on that line. Step 2 is **advisory**: it can stop being true the
+moment after it answers, and R-098 is the proof, having been swept correctly and
+collided anyway. It removes the case that has happened four times. The merge-time
+refusal in `check-open-branch-ids.mjs` still catches the residue.
 
 That third step is the whole mechanism. The counter is one line, so two terminals
 allocating at the same time produce a **merge conflict on that line**, which is
@@ -891,11 +942,37 @@ counter keeps one flat namespace and turns the collision into a conflict.
 
 ### Allocating a card id
 
-Card ids are allocated on the board, and the board is one file per phase, so two
-cards authored at once already conflict. What did not exist is a check that the
-ids are unique **across** boards, and that is now `npm run check:unique-ids`.
+**The same question, and the same command:**
 
-### What the check enforces, in `quality`, on every pull request
+```
+npm run id:free -- RULE-09
+```
+
+It reads every card id on all three boards, on `main` and on every open pull
+request branch, and names the next free id in that lane.
+
+**THIS SECTION SAID SOMETHING ELSE UNTIL 2026-09-07 AND IT WAS FALSE ABOUT
+BRANCHES**, corrected by card RULE-09 under section 9c. It read:
+
+> *"Card ids are allocated on the board, and the board is one file per phase, so
+> two cards authored at once already conflict. What did not exist is a check that
+> the ids are unique **across** boards, and that is now `npm run
+> check:unique-ids`."*
+
+The first sentence is true only of two cards that MERGE INTO EACH OTHER. Two
+branches cut from one `main` never conflict with each other at all, and until
+RULE-09 nothing looked across them: `check-open-branch-ids.mjs` read
+`decisions/` and never opened a board, so **card ids had no cross-branch check of
+any kind.** On 2026-09-06 `RULE-07` sat on one open branch and `RULE-08` on
+another, and a session taking the next `RULE` id from `main` alone would have
+taken `RULE-07` and collided on its first try.
+
+`npm run check:unique-ids` is unchanged and still enforces uniqueness within and
+across boards on one side.
+
+### What the checks enforce, in `quality`, on every pull request
+
+`npm run check:unique-ids`, within one side:
 
 - no card id twice, on one board or across all three
 - no ruling id twice in `decisions/inbox.md`
@@ -903,6 +980,18 @@ ids are unique **across** boards, and that is now `npm run check:unique-ids`.
   is the one that would have caught the incident, because within each side the
   ids were perfectly unique
 - `decisions/NEXT-RULING-ID` ahead of the highest ruling actually written
+
+`npm run check:open-branch-ids`, ACROSS open branches, at merge time:
+
+- no ruling id added by this branch carrying different heading text on another
+  open pull request branch
+- what each open branch HOLDS, printed: the ids it wrote beyond `main` and the
+  ceiling its counter sets. **That block used to be an equality test on the
+  counter and was a false green pointed at the wrong evidence**, naming three
+  branches that had written nothing while staying silent about two that held
+  fourteen ids. RULE-09.
+- every source read or REFUSED, with the count asserted against the INPUT, so
+  silence means nothing is claimed and never that it could not look
 
 **NO ID IS EVER RENUMBERED TO MAKE IT PASS.** History is not rewritten. Where two
 ids already collide, the pair goes in the check's `TOLERATED` list with its
@@ -1141,8 +1230,34 @@ worked P2-09 by hand in `/Users/ivan/rc-inventory` while the scheduled harness
 picked up the same card in its own worktree, four times a day, with neither able
 to tell. The lease is how they agree without talking.
 
-- Claims live in `docs/poc/state.json` under `claims`, as
-  `{"<card-id>": {"claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}}`.
+- **Claims live in `docs/poc/claims/`, one file per claim**, named for the card
+  as the board spells it: `docs/poc/claims/AUT-9.json`, holding
+  `{"card": "<card-id>", "claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}`.
+  A release DELETES the file. `scripts/poc/claims.mjs` is the only reader and the
+  only writer, and `scripts/poc/eligible.mjs` imports it.
+
+  **THIS BULLET SAID SOMETHING ELSE UNTIL 2026-09-06 AND IT DESCRIBED A STORE
+  THAT COULD NOT BE MERGED**, corrected by card CLAIM-01 under section 9c. It
+  read:
+
+  > *"Claims live in `docs/poc/state.json` under `claims`, as
+  > `{"<card-id>": {"claimed_by": "<actor>", "claimed_at": "<ISO 8601>"}}`."*
+
+  That was accurate about the code and it is the shape that failed. Two branches
+  cut from one base, each claiming a DIFFERENT card, each rewrote that one
+  object: the first merged clean, the second CONFLICTED, and the boundary ran
+  THROUGH the JSON, so a resolution that deleted only the marker characters left
+  a claims map that did not parse. **The mechanism failed in its design case**,
+  which is two actors claiming two cards at the same time. One file per claim
+  makes two claims two adds of different paths, and a release a deletion, which
+  git merges without overlap by construction.
+
+  **`state.claims` IS STILL READ, and the condition for stopping is written
+  down.** `run.sh` writes the harness's own claim there and `run.sh` is a
+  deployed copy that only changes when `scripts/poc/install.sh` is re-run, which
+  is an owner action. The reader is the union of the two, the directory winning.
+  When the harness has been reinstalled from a `run.sh` that writes to the
+  directory, the legacy read can go.
 - **A run never takes a card claimed by another actor inside the window**, even
   if it is the only eligible card. It logs the skip, escalates it, and moves on.
   Skipping is correct; skipping quietly is not.

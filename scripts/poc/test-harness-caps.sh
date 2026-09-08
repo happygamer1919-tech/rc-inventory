@@ -78,6 +78,14 @@ HELPERS=$2
 VICTIM_LOG=$3
 STYLE=$4
 
+# STYLE is <watchdog>[-stopped]. The `-stopped` half is AUT-9 case 2: the victim
+# is SIGSTOPped before the clock passes the deadline, so the watchdog is asked to
+# end a process that is not running.
+case "$STYLE" in
+  *-stopped) WATCHDOG_STYLE=${STYLE%-stopped}; SUSPEND=yes ;;
+  *)         WATCHDOG_STYLE=$STYLE;            SUSPEND=no  ;;
+esac
+
 # The wall clock the code under test sees. A real suspend moves this and does
 # not move `sleep`; so does this file.
 date() {
@@ -97,7 +105,7 @@ VICTIM=$!
 CAP=60
 DEADLINE=$(( $(date +%s) + CAP ))
 
-if [ "$STYLE" = new ]; then
+if [ "$WATCHDOG_STYLE" = new ]; then
   watchdog "$VICTIM" "$DEADLINE" "$VICTIM_LOG" "executor ${CAP}s" &
 else
   # The 2026-08-27 watchdog, verbatim in shape: count down to the deadline
@@ -112,19 +120,40 @@ else
 fi
 WD=$!
 
-# The machine suspends for an hour and comes back.
+# The child stops running. `kill -0` still succeeds on a stopped process, so the
+# pid existing says nothing about whether it is making progress, and the child
+# will never exit on its own for the watchdog to notice.
+[ "$SUSPEND" = yes ] && kill -STOP "$VICTIM" 2>/dev/null
+
+# The machine suspends for an hour and comes back. This is the instant the
+# deadline is crossed, so it is the instant the budget is measured from.
+DEADLINE_CROSSED_AT=$(command date +%s)
 echo 3600 > "$CLOCK_OFFSET_FILE"
 
-# Long enough for several polls of the new watchdog, far short of the 60s the
-# old one is counting down.
-command sleep 6
+# Poll for the victim rather than sleeping a fixed span, so the case reports HOW
+# LONG the stop took and not only whether it happened. The bound is deliberately
+# LONGER than the budget asserted upstream: a case that clipped at the budget
+# would report the same number for a stop that was late and one that never
+# happened. It stays far short of the 60s the old watchdog counts down.
+POLL_BOUND_SECONDS=8
+ELAPSED=0
+while [ "$ELAPSED" -lt "$POLL_BOUND_SECONDS" ]; do
+  kill -0 "$VICTIM" 2>/dev/null || break
+  command sleep 0.2
+  ELAPSED=$(( $(command date +%s) - DEADLINE_CROSSED_AT ))
+done
 
+echo "ELAPSED=$ELAPSED"
 if kill -0 "$VICTIM" 2>/dev/null; then
   echo ALIVE
 else
   echo DEAD
 fi
-kill "$WD" "$VICTIM" 2>/dev/null
+# CONT BEFORE KILL, AND KILL RATHER THAN TERM. A child left stopped would sit
+# there after this case returned, taking no TERM until something continued it.
+kill -CONT "$VICTIM" 2>/dev/null
+kill -KILL "$VICTIM" 2>/dev/null
+kill "$WD" 2>/dev/null
 wait 2>/dev/null
 CASE
 
@@ -158,6 +187,92 @@ if [ "$RESULT_OLD" = ALIVE ]; then
   pass "the 2026-08-27 sleep-based watchdog does NOT fire on the same input, which is the defect"
 else
   fail "the old watchdog fired, so this case no longer reproduces the defect and proves nothing"
+fi
+
+# ---------------------------------------------------------------------------
+# 1b. THE SUSPENDED CHILD. Card AUT-9 case 2, added 2026-09-06 under ruling R-143.
+#
+# Section 1 models a suspend by moving the CLOCK while the victim keeps running.
+# A real suspend does both: the clock jumps AND the process was not running while
+# it jumped. This case adds the second half. The victim is SIGSTOPped before the
+# deadline passes, so:
+#
+#   1. It will never exit on its own. `wait_for_exit` can only end by reaching
+#      the deadline, which is the property the whole card is about.
+#   2. `kill -0` keeps succeeding on it, so "does the pid exist" cannot answer
+#      "is this run still going".
+#   3. ENDING IT NEEDS SIGKILL ON LINUX, WHICH IS WHERE CI RUNS. A stopped
+#      process holds a pending SIGTERM and stays stopped until something
+#      continues it; SIGKILL takes effect regardless. So on ubuntu-latest this
+#      case exercises the grace-then-KILL escalation in `stop_pid`, which
+#      section 1 never reaches because its victim is running and dies on the
+#      TERM.
+#
+# THE TWO PLATFORMS GENUINELY DIFFER HERE AND IT IS WRITTEN DOWN RATHER THAN
+# ASSUMED AWAY. On macOS a stopped process IS terminated by SIGTERM, so the same
+# case finishes on the TERM and never reaches the KILL. That is why the elapsed
+# time this case reports is around 1s on a Mac and around 3s on Linux, and why a
+# mutation that deletes the KILL escalation is caught here on ubuntu-latest and
+# not on a developer's Mac. Both were measured on 2026-09-06, not assumed.
+#
+# THE BUDGET IS ASSERTED, NOT JUST THE OUTCOME. The card asks for a stop WITHIN
+# 5 SECONDS OF THE DEADLINE, so the case measures from the instant the clock is
+# moved past the deadline. An assertion that only asked "did it die eventually"
+# would pass on a watchdog that took an hour.
+#
+# THE CONTROL IS THE SAME 2026-08-27 WATCHDOG on the same suspended child, and it
+# MUST NOT fire.
+# ---------------------------------------------------------------------------
+echo
+echo "1b. a watchdog stops a SIGSTOPped child, and stops it within 5s of the deadline"
+
+STOP_BUDGET_SECONDS=5
+
+# Runs one watchdog case and leaves its stdout in $WORK/case-<tag>. Captured to a
+# FILE and not through $(...) for the reason section 1 already records: the
+# old-style case leaves a `sleep 60` holding the pipe.
+run_watchdog_case() {
+  RWC_TAG=$1
+  RWC_STYLE=$2
+  echo 0 > "$WORK/offset-$RWC_TAG"
+  : > "$WORK/vlog-$RWC_TAG"
+  bash "$WORK/watchdog-case.sh" "$WORK/offset-$RWC_TAG" "$HELPERS" "$WORK/vlog-$RWC_TAG" "$RWC_STYLE" \
+    > "$WORK/case-$RWC_TAG" 2>/dev/null
+}
+
+run_watchdog_case new-stopped new-stopped
+RESULT_STOPPED=$(tail -1 "$WORK/case-new-stopped")
+ELAPSED_STOPPED=$(sed -n 's/^ELAPSED=//p' "$WORK/case-new-stopped" | tail -1)
+
+if [ "$RESULT_STOPPED" = DEAD ]; then
+  pass "the shipped watchdog ended a SIGSTOPped child after the clock passed the deadline"
+else
+  fail "a SIGSTOPped child outlived its deadline: it took no TERM and was never KILLed"
+fi
+
+case "$ELAPSED_STOPPED" in
+  ''|*[!0-9]*)
+    fail "the case reported no elapsed time, so the ${STOP_BUDGET_SECONDS}s budget was not measured at all" ;;
+  *)
+    if [ "$ELAPSED_STOPPED" -le "$STOP_BUDGET_SECONDS" ]; then
+      pass "it ended it ${ELAPSED_STOPPED}s after the deadline, inside the ${STOP_BUDGET_SECONDS}s budget"
+    else
+      fail "it took ${ELAPSED_STOPPED}s after the deadline, outside the ${STOP_BUDGET_SECONDS}s budget"
+    fi ;;
+esac
+
+if grep -q '^\[watchdog\] executor .* cap reached, stopping$' "$WORK/vlog-new-stopped"; then
+  pass "it wrote its cap line into the process log for the suspended child too"
+else
+  fail "no watchdog line was written for the suspended child"
+fi
+
+run_watchdog_case old-stopped old-stopped
+RESULT_STOPPED_OLD=$(tail -1 "$WORK/case-old-stopped")
+if [ "$RESULT_STOPPED_OLD" = ALIVE ]; then
+  pass "the 2026-08-27 sleep-based watchdog does NOT fire on a suspended child either, which is the control"
+else
+  fail "the old watchdog fired on the suspended child, so this case proves nothing"
 fi
 
 # ---------------------------------------------------------------------------
@@ -571,6 +686,235 @@ if bash -n "$RUN_SH"; then
 else
   fail "bash -n run.sh is non-zero"
 fi
+
+
+# ===========================================================================
+# 5. AUT-22: A RUN DOES NOT START WORK IT CANNOT FINISH AND MERGE
+# ===========================================================================
+#
+# The required check costs between forty and fifty five percent of the whole
+# forty five minute budget: measured runs of 24m48s, 18m09s and 19m43s, and one
+# cancelled at 21m. Two consequences follow with no judgement involved, and both
+# happened on three consecutive runs: a run that builds a card from scratch
+# cannot also merge it, and a run that inherits a pushed branch can.
+#
+# THE DECISION IS LIFTED FROM run.sh VERBATIM by its EXTRACT fences, the same
+# mechanism the blocks above use. The three `work_*` seams are the only place the
+# clock, GitHub or the board is reached, and both are stubbed here. `gh`,
+# `gh_bounded` and `git` are shadowed as tripwires: this decision must reach none
+# of them directly, and the assertions below say so.
+#
+# NO NETWORK, NO CREDENTIALS, NO CLOCK DEPENDENCE. The clock is a stub, so the
+# case that refuses refuses at the same boundary on every machine and in a year.
+echo
+echo "5. AUT-22: what this run may start"
+
+# THE EXTRACTION IS CHECKED, AND THE REASON IS THAT extract's OWN `exit 1` DOES
+# NOT REACH HERE. `$(extract ...)` runs it in a SUBSHELL, so a missing fence kills
+# the subshell, leaves SELECTION empty, and every case below fails softly against
+# an empty file. That is seventeen confusing failures instead of one clear one,
+# and scripts/poc/test-pr-census.sh already carries the same warning in its own
+# words. Checked here rather than by rewriting extract, which the blocks above use
+# as it is.
+SELECTION=$(extract work-selection)
+if [ -z "$SELECTION" ] || [ ! -s "$SELECTION" ]; then
+  fail "no EXTRACT block named 'work-selection' in $RUN_SH. The fences are part of the contract."
+  echo
+  echo "$FAILURES assertion(s) failed"
+  exit 1
+fi
+
+# One case: a fixed now, a fixed deadline, a pull request table and an eligible
+# list. Prints the chosen kind, the target and the return code, one per line.
+selection_case() {
+  SC_DIR=$WORK/sel-$1
+  mkdir -p "$SC_DIR"
+  : > "$SC_DIR/log.txt"
+  : > "$SC_DIR/forbidden.txt"
+  printf '%s' "$3" > "$SC_DIR/prs.tsv"
+  cat > "$SC_DIR/case.sh" <<CASE
+set -u -o pipefail
+CASE_DIR=$SC_DIR
+ELIGIBLE_AT_START="$4"
+CASE
+  cat >> "$SC_DIR/case.sh" <<'CASE'
+log() { echo "$*" >> "$CASE_DIR/log.txt"; }
+CASE
+  cat >> "$SC_DIR/case.sh" <<CASE
+source "$SELECTION"
+work_now_seconds() { echo 1000000; }
+work_open_prs()    { cat "\$CASE_DIR/prs.tsv"; }
+gh()         { echo "gh \$*"         >> "\$CASE_DIR/forbidden.txt"; return 0; }
+gh_bounded() { echo "gh_bounded \$*" >> "\$CASE_DIR/forbidden.txt"; return 0; }
+git()        { echo "git \$*"        >> "\$CASE_DIR/forbidden.txt"; return 0; }
+work_selection $2
+SC_CODE=\$?
+echo "kind=\$WORK_KIND"
+echo "target=\$WORK_TARGET"
+echo "code=\$SC_CODE"
+echo "reason=\$WORK_REASON"
+CASE
+  bash "$SC_DIR/case.sh" > "$SC_DIR/out.txt" 2>&1
+  echo "$SC_DIR"
+}
+
+# now is 1000000. A deadline of 1002000 leaves 2000s; 1001000 leaves 1000s.
+# The requirement is 1500 + 300 = 1800s, so 2000 proceeds and 1000 refuses.
+PLENTY=1002000
+SCARCE=1001000
+
+# --- 5.1 REFUSES ------------------------------------------------------------
+S=$(selection_case refuse "$SCARCE" "" "AUT-22,AUT-8")
+if grep -q '^kind=none$' "$S/out.txt" && grep -q '^target=$' "$S/out.txt"; then
+  pass "with too little clock the decision returns NO card"
+else
+  fail "a card was chosen with too little clock: $(cat "$S/out.txt")"
+fi
+if grep -q '^code=3$' "$S/out.txt"; then
+  pass "and it returns the documented refuse code 3, which is not 0"
+else
+  fail "the refuse code is not 3: $(grep '^code=' "$S/out.txt")"
+fi
+if grep -q 'REFUSING to start a card. remaining 1000s, estimate 1500s, margin 300s, needed 1800s' "$S/log.txt"; then
+  pass "the line names the remaining seconds AND the estimate, both"
+else
+  fail "the refusal line does not name the remaining seconds and the estimate"
+  cat "$S/log.txt"
+fi
+if grep -q '^reason=1000s of wall clock remain' "$S/out.txt"; then
+  pass "the reason is carried out for the escalation, so a refusal is not a silent run"
+else
+  fail "the refusal carries no reason for the escalation: $(grep '^reason=' "$S/out.txt")"
+fi
+
+# --- 5.2 PROCEEDS -----------------------------------------------------------
+S=$(selection_case proceed "$PLENTY" "" "AUT-22,AUT-8")
+if grep -q '^kind=card$' "$S/out.txt" && grep -q '^target=AUT-22$' "$S/out.txt"; then
+  pass "with enough clock it returns the LOWEST ID eligible card, unchanged from today"
+else
+  fail "the wrong thing was chosen with plenty of clock: $(cat "$S/out.txt")"
+fi
+if grep -q '^code=0$' "$S/out.txt"; then
+  pass "and returns 0"
+else
+  fail "proceeding did not return 0"
+fi
+
+# THE BOUNDARY ITSELF, ON BOTH SIDES, because a >= that should be a > is the
+# defect this case exists to catch and neither case above sits on the edge.
+S=$(selection_case edge_exact "$(( 1000000 + 1800 ))" "" "AUT-22")
+if grep -q '^kind=card$' "$S/out.txt"; then
+  pass "at EXACTLY the requirement it proceeds"
+else
+  fail "at exactly 1800s remaining it refused"
+fi
+S=$(selection_case edge_under "$(( 1000000 + 1799 ))" "" "AUT-22")
+if grep -q '^kind=none$' "$S/out.txt"; then
+  pass "one second under the requirement it refuses"
+else
+  fail "at 1799s remaining it started a card"
+fi
+
+# --- 5.3 FINISHES BEFORE IT STARTS -----------------------------------------
+# An inherited pull request wins over a new card WHATEVER the clock says, so the
+# case is run with the SCARCE clock and again with the PLENTY clock and the
+# answer must be the same both times. The assertion is on WHICH of the two was
+# chosen, not merely that something was.
+INHERITED=$(printf '186\tcard/aut-16\tBEHIND\n')
+S=$(selection_case inherit_scarce "$SCARCE" "$INHERITED" "AUT-22,AUT-8")
+if grep -q '^kind=inherited-pr$' "$S/out.txt" && grep -q '^target=186$' "$S/out.txt"; then
+  pass "a BEHIND pull request this harness opened is preferred, on a clock too short for a card"
+else
+  fail "the inherited pull request was not chosen: $(cat "$S/out.txt")"
+fi
+S=$(selection_case inherit_plenty "$PLENTY" "$INHERITED" "AUT-22,AUT-8")
+if grep -q '^kind=inherited-pr$' "$S/out.txt" && grep -q '^target=186$' "$S/out.txt"; then
+  pass "and preferred over an eligible card on a clock long enough for one, which is the clause"
+else
+  fail "with plenty of clock a new card beat the inherited branch: $(cat "$S/out.txt")"
+fi
+
+CONFLICTING=$(printf '190\tcard/aut-17\tCONFLICTING\n')
+S=$(selection_case inherit_conflicting "$PLENTY" "$CONFLICTING" "AUT-22")
+if grep -q '^kind=inherited-pr$' "$S/out.txt" && grep -q '^target=190$' "$S/out.txt"; then
+  pass "CONFLICTING is preferred too, not only BEHIND"
+else
+  fail "a conflicting inherited branch was not preferred: $(cat "$S/out.txt")"
+fi
+
+# DIRTY is what the GitHub API actually answers for a conflicting pull request,
+# and CONFLICTING is what the field is called in the documentation. Both are
+# accepted, because accepting only the name in the docs would have made this
+# clause never fire against the real API.
+DIRTY=$(printf '191\tpoc/state-20260904\tDIRTY\n')
+S=$(selection_case inherit_dirty "$PLENTY" "$DIRTY" "AUT-22")
+if grep -q '^kind=inherited-pr$' "$S/out.txt"; then
+  pass "DIRTY, which is what the API actually returns for a conflict, is preferred too"
+else
+  fail "a DIRTY inherited branch was not preferred: $(cat "$S/out.txt")"
+fi
+
+# THE NEGATIVE HALF, WHICH IS THE HALF THAT MATTERS. A clean mergeable pull
+# request needs no terminal, and a branch this harness did not open is somebody
+# else's work. Neither may divert the run.
+CLEAN=$(printf '200\tcard/aut-99\tCLEAN\n')
+S=$(selection_case inherit_clean "$PLENTY" "$CLEAN" "AUT-22")
+if grep -q '^kind=card$' "$S/out.txt" && grep -q '^target=AUT-22$' "$S/out.txt"; then
+  pass "a CLEAN pull request does not divert the run"
+else
+  fail "a clean pull request was treated as inherited work: $(cat "$S/out.txt")"
+fi
+FOREIGN=$(printf '201\tsomebody/else\tBEHIND\n')
+S=$(selection_case inherit_foreign "$PLENTY" "$FOREIGN" "AUT-22")
+if grep -q '^kind=card$' "$S/out.txt"; then
+  pass "a BEHIND branch this harness did not open is left alone"
+else
+  fail "the run diverted onto a branch it does not own: $(cat "$S/out.txt")"
+fi
+
+# NOTHING ELIGIBLE AND NOTHING INHERITED IS NOT A REFUSAL. A dry board is a
+# normal outcome with its own handling in section 13, and reporting it as "no
+# clock" would be a false reason in the digest.
+S=$(selection_case dry "$SCARCE" "" "")
+if grep -q '^kind=none$' "$S/out.txt" && grep -q '^code=0$' "$S/out.txt"; then
+  pass "a dry board returns none with code 0, not the refuse code"
+else
+  fail "a dry board was reported as a clock refusal: $(cat "$S/out.txt")"
+fi
+
+# THE CONSTANTS ARE NAMED, AND WRITTEN ONCE EACH. A second copy at another call
+# site is how a threshold becomes two different numbers.
+for CONST in POC_CARD_ESTIMATE_SECONDS POC_CARD_MARGIN_SECONDS; do
+  ASSIGNED=$(grep -c "^$CONST=" "$SELECTION")
+  if [ "$ASSIGNED" = 1 ]; then
+    pass "$CONST is assigned exactly once"
+  else
+    fail "$CONST is assigned $ASSIGNED times"
+  fi
+done
+if grep -vE '^\s*#' "$SELECTION" | grep -qE '(-lt|-ge|-gt) 1[58]00'; then
+  fail "a comparison uses a bare literal instead of the named constant"
+else
+  pass "no comparison uses a bare 1500 or 1800 instead of the names"
+fi
+
+# THE CAP IS NOT TOUCHED BY THIS CARD AND MAY NOT BE. Forty five minutes is the
+# owner's number in CLAUDE.md section 13.
+if grep -q '^POC_MAX_SECONDS=2700' "$RUN_SH"; then
+  pass "the 45 minute cap is unchanged, which this card is forbidden to touch"
+else
+  fail "POC_MAX_SECONDS is no longer 2700"
+fi
+
+# THE DECISION REACHES NO SEAM IT DOES NOT OWN. Every case above shadows gh,
+# gh_bounded and git as tripwires; none of them may have been called.
+for D in "$WORK"/sel-*; do
+  if [ -s "$D/forbidden.txt" ]; then
+    fail "the decision called gh or git directly in $(basename "$D")"
+    cat "$D/forbidden.txt"
+  fi
+done
+pass "no case reached gh, gh_bounded or git outside the seams"
 
 echo
 if [ "$FAILURES" -eq 0 ]; then

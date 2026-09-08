@@ -631,3 +631,30 @@ footer.pf {
 }
 @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
 .toast button { font: inherit; font-size: 11.5px; font-weight: 700; background: none; border: 0; color: var(--brand); cursor: pointer; padding: 0; }
+
+/* BOARD-01. The plain field, on the three surfaces that show it.
+   Secondary on the tile and in the table, where the title wins; the lead line in
+   the drawer, where the owner is reading rather than building. */
+.card .plain {
+  margin: 2px 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+table.board td.t .plain {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.drawer-head h3.plain-lead {
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.drawer-head .sub.build {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
