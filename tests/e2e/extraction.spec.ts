@@ -1316,6 +1316,66 @@ test.describe("Extragere documente", () => {
       expect(d.lines).toHaveLength(1);
     }
   });
+
+  // -------------------------------------------------------------------------
+  // EXT-11. SERIA DOCUMENTULUI FURNIZORULUI, NU NUMAI NUMARUL LUI.
+  //
+  // In facturarea moldoveneasca seria face parte din identificator: doi
+  // furnizori pot emite amandoi numarul 0009312, iar `TG 0009312` si
+  // `AV 0009312` sunt doua documente diferite. Pana la acest card noi stocam
+  // NIMIC din referinta furnizorului: sectiunea 4.1a din contract spune ca
+  // `order_ref` soseste, este acceptat si este IGNORAT. Un identificator pe care
+  // il aruncam nu poate ciocni, si de aceea defectul nu se vedea nicaieri.
+  //
+  // ACESTE DOUA CAZURI PICA INAINTE DE SCHIMBARE, si asta este dovada ceruta de
+  // linia de acceptare a cardului: fara migratia 0036 coloanele nu exista, deci
+  // `d.order_ref` si `d.order_ref_series` sosesc `undefined` de pe GET.
+  // -------------------------------------------------------------------------
+
+  test("25. EXT-11: seria si numarul furnizorului se stocheaza separat si se citesc inapoi", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e11serie");
+
+    const r = await post(
+      request,
+      callbackBody(orderId, { order_ref: "0009312", order_ref_series: "TG" }),
+    );
+    expect(r.status(), "un payload cu serie este acceptat").toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.order_ref, "numarul documentului furnizorului").toBe("0009312");
+    expect(d.order_ref_series, "seria documentului furnizorului").toBe("TG");
+
+    // SERIA NU SE LIPESTE DE NUMAR. Doua fapte, doua coloane: un ecran care le
+    // vrea impreuna le poate alatura, iar unul care cauta dupa numar nu poate
+    // dezlipi ce a fost concatenat la scriere.
+    expect(d.order_ref, "seria nu are voie sa intre in numar").not.toContain("TG");
+  });
+
+  test("26. EXT-11: un callback FARA serie este acceptat si seria ramane goala", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e11faraserie");
+
+    // DEFAULTS, VERBATIM: nu orice document poarta o serie, iar un document fara
+    // serie nu este un document stricat. Si: partea lui Andre si a noastra nu se
+    // desfasoara in aceeasi secunda, deci payload-ul versiunii precedente, cel
+    // care nu cunoaste deloc campul, trebuie sa treaca neatins.
+    const r = await post(request, callbackBody(orderId, { order_ref: "0009312" }));
+    expect(r.status(), "absenta seriei nu este o eroare").toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.order_ref).toBe("0009312");
+    expect(d.order_ref_series, "seria absenta este NULL, nu un sir gol").toBeNull();
+  });
+
 });
 
 // ---------------------------------------------------------------------------

@@ -143,18 +143,26 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
 | `document_source` | enum or null | yes | `scan` or `digital`. **Declared by the extractor.** Null is accepted and read as `scan`. See section 4.2c. |
+| `order_ref` | string or null | yes | The **number** of the supplier's own document, verbatim as printed. Ours is the order reference we generate and is a different thing. Card EXT-11. |
+| `order_ref_series` | string or null | yes | The **series** of the supplier's own document: the letter code printed before the number. `TG`, `AV`. **Part of the identifier**, because two suppliers can both issue `0009312`. Null is accepted and is not an error: not every document carries one. Card EXT-11. |
 | `lines` | array | no | May be empty on `failed`. Never null. **One exception, and only one: a scan-sourced `failed` payload must not carry this key at all. Section 4.1a.** |
 | `_meta` | object | no | Section 4.3. |
 
 ### 4.1a A scan-sourced `failed` payload: the header, and NO `lines` key. Card EXT-20, 2026-09-04.
 
 When `document_source` is `scan` (or absent, which reads as `scan`) **and**
-`status` is `failed`, the payload is these **sixteen fields** and nothing else:
+`status` is `failed`, the payload is these **seventeen fields** and nothing else:
 
     order_id      status        error_code    reason
-    supplier      order_ref     client_ref    order_date
-    currency      currency_raw  prices_include_vat   vat_rate
-    subtotal      vat_amount    document_total       document_source
+    supplier      order_ref     order_ref_series     client_ref
+    order_date    currency      currency_raw  prices_include_vat
+    vat_rate      subtotal      vat_amount    document_total
+    document_source
+
+**IT WAS SIXTEEN UNTIL 2026-09-07** and `order_ref_series` is the one card EXT-11
+added. The count is stated rather than left implicit because this list is what a
+reader checks a real payload against, and a list whose stated count disagrees
+with its own rows is a list nobody trusts.
 
 **There is no `lines` key. Not an empty array. The key is absent.**
 
@@ -183,12 +191,51 @@ them. Only `scan` + `failed` is narrowed.
 | in the shape above | in this contract | note |
 |---|---|---|
 | `supplier` | `supplier_name` | same field, section 4.1's name is the one we read |
-| `order_ref` | **not in 4.1** | accepted and **ignored**, per the global rule in section 2 that a field not in this document is never guessed. `EXT-11` and `P3-31` are the cards that give it a shape. |
-| `client_ref` | **not in 4.1** | same: accepted and ignored today. No card claims it yet. |
+| `order_ref` | **in 4.1 since 2026-09-07** | **stored.** Card EXT-11 landed it, together with `order_ref_series`. |
+| `client_ref` | **not in 4.1** | accepted and ignored today. `P3-31` is the card that would give it a shape, and it has not shipped. |
 
-Sending them is harmless and is what happens in production. **We do not store
-them**, and this table exists so that nobody reads the sixteen-field list as a
-promise that we do.
+**THIS TABLE SAID SOMETHING ELSE UNTIL 2026-09-07 AND IT IS QUOTED RATHER THAN
+DELETED**, per CLAUDE.md section 9c, because the sixteen-field list above and
+card P3-31's own acceptance line were both written on top of it. It read:
+
+> *"`order_ref` | not in 4.1 | accepted and **ignored**, per the global rule in
+> section 2 that a field not in this document is never guessed. `EXT-11` and
+> `P3-31` are the cards that give it a shape."*
+>
+> *"Sending them is harmless and is what happens in production. **We do not store
+> them**, and this table exists so that nobody reads the sixteen-field list as a
+> promise that we do."*
+
+It was accurate when written and EXT-11 is the card that changed it. `order_ref`
+is now stored, on `extraction_drafts` and on `inbound_orders`, alongside the new
+`order_ref_series`. `client_ref` is untouched and the paragraph above still
+describes it exactly.
+
+### 4.1b The supplier's reference is TWO fields. Card EXT-11, 2026-09-07.
+
+`TG 0009312` is a series and a number, and it arrives as two fields and is stored
+in two columns. **It is never concatenated**, in the payload or in the database.
+
+Two facts glued together at write time cannot be pulled apart at read time: a
+screen that wants them together can join two columns, and a lookup by number
+cannot unglue a string somebody joined before storing it.
+
+**Neither field is required and neither absence is an error.** A payload that
+omits `order_ref_series`, or omits both, is accepted with the same `202` as one
+that carries them. Not every document carries a series, and a document without
+one is not a malformed document. This also means the previous version of the
+sender's payload, which does not know the field at all, keeps working: our side
+accepts the field before Andre emits it, and the landing is confirmed to him
+live.
+
+**There is no uniqueness rule on the pair.** Making the supplier's identifier
+complete is what this card does. Deciding what happens when two documents carry
+the same series and number is a different decision and is not made here by a
+constraint nobody wrote down.
+
+**Ours and theirs stay separate.** `inbound_orders.reference` is the reference
+this system generates and keeps its own unique constraint. `order_ref` and
+`order_ref_series` are what the supplier printed.
 
 ### 4.2 Line level
 
