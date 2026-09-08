@@ -273,3 +273,56 @@ export async function hasProductPackaging(client: ColumnProbe): Promise<boolean>
   }
   return cachedProductPackaging.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// EXT-11. Exista coloanele order_ref si order_ref_series?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU CELELALTE. Migratia 0036 este un fisier
+// separat si ajunge in productie pe fuziune, prin aplicatia GitHub a Supabase,
+// in aproximativ doua minute. Livrarea codului si aplicarea migratiei pleaca din
+// acelasi push si NU se termina in aceeasi secunda, deci exista o fereastra in
+// care codul nou ruleaza peste schema veche. O poarta comuna cu 0032 sau 0033 ar
+// lega soarta a doua migratii care sosesc separat si ar ascunde exact cazul in
+// care una este aplicata si cealalta nu.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Ruta de callback ar scrie o
+// coloana pe care baza nu o are inca, PostgREST intoarce 42703, iar raspunsul
+// catre Make devine 500. Make REINCEARCA pe 5xx, deci nu ar fi un esec singular
+// ci o bucla, si sectiunea 6 din contract spune ca un 5xx inseamna ca nu s-a
+// scris nimic, ceea ce nu ar mai fi adevarat: restul campurilor sunt in acelasi
+// update.
+//
+// O SINGURA SONDA PENTRU AMANDOUA COLOANELE, si aici este invers fata de
+// paragraful de mai sus, deliberat: 0036 le adauga pe amandoua in ACEEASI
+// tranzactie, deci nu exista stare in care una exista si cealalta nu. Doua sonde
+// ar pune de doua ori aceeasi intrebare si ar costa doua interogari pe minut ca
+// sa afle acelasi lucru.
+//
+// SE INTREABA order_ref_series SI NU order_ref, fiindca ea este coloana pe care
+// o adauga acest card si singura care nu putea exista dinainte sub alt nume.
+
+let cachedSupplierDocumentRef: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: politicile RLS de pe extraction_drafts sunt
+ *   "to authenticated", ruta de callback scrie cu cheia de service_role, si o
+ *   sonda care intreaba pe alta legatura decat cea care va lucra raspunde la
+ *   alta intrebare.
+ */
+export async function hasSupplierDocumentRef(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSupplierDocumentRef && now - cachedSupplierDocumentRef.at < TTL_MS) {
+    return cachedSupplierDocumentRef.value;
+  }
+  try {
+    const { error } = await client.from("extraction_drafts").select("order_ref_series").limit(1);
+    cachedSupplierDocumentRef = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
+    // incerce si sa se cada.
+    cachedSupplierDocumentRef = { value: false, at: now };
+  }
+  return cachedSupplierDocumentRef.value;
+}

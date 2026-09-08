@@ -97,6 +97,14 @@ export const NAV: NavGroup[] = [
         icon: "orders",
         description: "Intrări și ieșiri, cu istoricul stărilor",
       },
+      // P3-18. Un RAPORT sub Stoc, nu un grup nou in navigatie: cardul o cere in
+      // terminii aceia si ecranul raspunde la o intrebare despre stoc.
+      {
+        href: "/necesar",
+        label: "Necesar de materiale",
+        icon: "boxes",
+        description: "Ce mai trebuie cumpărat pentru șantierele cu deviz acceptat",
+      },
     ],
   },
   {
