@@ -1268,8 +1268,8 @@ write_state() {
     // instead of quietly passing.
     const pad = (n) => ({
       card_id: "PAD-0" + n,
-      question: "Padding escalation " + n + ". It exists to push this digest past the four thousand and ninety six characters at which the removed cap used to fire, so that the case below reaches the boundary it is about rather than reporting that the boundary was harmless. It is written out at length for exactly that reason and carries no meaning of its own beyond taking up the room a real escalation would have taken.",
-      recommendation: "Read the run log for padding escalation " + n + ". Silence on an eligible card is a defect, not a normal outcome, and the four reasons are distinguished: work left on a branch, the wall clock cap, a non-zero executor exit, and an executor that finished clean with nothing to show. This sentence is here to take up room and says nothing a reader needs.",
+      question: "Padding escalation " + n + ". It exists to push this digest past the four thousand and ninety six characters at which the removed cap used to fire, so that the case below reaches the boundary it is about rather than reporting that the boundary was harmless. It is written out at length for exactly that reason and carries no meaning of its own beyond taking up the room a real escalation would have taken. FIXTURE-02 LENGTHENED IT, and the reason is a measurement rather than a preference: on 2026-09-08 this digest rendered 4065 characters against a boundary of 4096, so the case was thirty one characters from proving nothing, and the thirty one were being supplied by whatever the live boards happened to contain that morning. A pull request that unblocked one card removed more than thirty one characters of blocked-card text and the case went red, correctly and uselessly. The padding now carries the boundary on its own so that the ESCALATIONS block alone clears it, which is the only arrangement in which this case measures the cap rather than measuring the board.",
+      recommendation: "Read the run log for padding escalation " + n + ". Silence on an eligible card is a defect, not a normal outcome, and the four reasons are distinguished: work left on a branch, the wall clock cap, a non-zero executor exit, and an executor that finished clean with nothing to show. This sentence is here to take up room and says nothing a reader needs. It is deliberately long, and a future reader who shortens it to tidy the file will turn the assertion below red rather than turn it silently accidental, which is the whole arrangement FIXTURE-01 asked for and which this fixture did not have until FIXTURE-02. The room has to come from the length of the five rendered escalations rather than from their number, because the block renders only the last five, so lengthening these four sentences is the only lever this case owns.",
       raised_at: "2026-09-06T13:0" + n + ":00Z",
       run_id: "digtest",
     });
@@ -1304,6 +1304,28 @@ run_notify() {
 
 SHIPPED_TREE=$(digest_tree dig-shipped)
 SHIPPED_OUT=$(run_notify "$SHIPPED_TREE" "$WORK/dig-out-shipped")
+
+# FIXTURE-02. THE BOUNDARY IS CARRIED BY THE PADDING AND BY NOTHING ELSE.
+#
+# Mutant B below restores a 4096 character cap and requires it to FIRE. Until
+# 2026-09-08 the digest cleared 4096 only with help from content this case does
+# not own: the live boards, and, on a developer machine, the open pull request
+# list notify.mjs reads through `gh`. Measured that morning, with `gh`
+# unavailable exactly as it is on the runner, the digest was 4065 characters.
+# THIRTY ONE SHORT. A pull request that moved one card from blocked to todo
+# removed more than thirty one characters of blocked-card text and this case went
+# red, correctly reporting that it could no longer prove anything, on a change
+# that had nothing to do with the digest.
+#
+# So the ESCALATIONS block is now required to clear the boundary BY ITSELF. That
+# block is written entirely by write_state above, so the property is owned by
+# this file and a board of any shape satisfies it.
+ESC_BLOCK=$(printf '%s' "$SHIPPED_OUT" | awk '/^ESCALATIONS/{f=1} f' | wc -c | tr -d ' ')
+if [ "$ESC_BLOCK" -gt 4096 ]; then
+  pass "the ESCALATIONS block alone is ${ESC_BLOCK} characters, so the padding carries the 4096 boundary and the boards do not"
+else
+  fail "the ESCALATIONS block is only ${ESC_BLOCK} characters, so this case is leaning on the boards again and mutant B may not reach its boundary"
+fi
 
 if printf '%s' "$SHIPPED_OUT" | grep -q "$REC_HEAD"; then
   pass "the escalation reaches the digest at all"
