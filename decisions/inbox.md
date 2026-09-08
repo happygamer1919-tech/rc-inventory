@@ -9676,3 +9676,335 @@ has been repeating for four days.
 
 **Also changes:** MIG-01 `question` and `last_checkpoint`.
 **Unblocks:** nothing. MIG-01 stays blocked on `ivan`.
+
+---
+
+### R-154 - EXT-11 is not shipped: `quality` concluded FAILURE on the head sha, and the end to end cases its acceptance names have never executed on either sha
+**Date:** 2026-09-07
+**Asked on:** EXT-11
+**Answer, verbatim:**
+> from docs/reports/2026-09-07-executor-ext-11-supplier-series.md, section 2:
+>
+> "`npx playwright test tests/e2e/extraction.spec.ts` cases 25 and 26, and the
+> named review.spec case | in `quality` | **the RED is run `34085557075` on sha
+> `788e381`; the GREEN is the run on this head sha, which had not concluded when
+> the cap arrived**"
+
+**Ruling: the `shipped` status EXT-11 carries on branch `card/ext-11` is
+OVERTURNED. PR #240 does not merge until the four conditions below hold. The test
+that decides it is DOCTRINE-TRIAGE section 1 test 2, committed evidence a stranger
+can re-verify, and for the deciding clause of the acceptance there is none.**
+
+**THE REPORT WAS TRUE WHEN IT WAS WRITTEN AND IS NOT AN ACCUSATION HERE.** The run
+had not concluded at minute 45. It has since, and it concluded failure. Recording
+that is the whole reason a stateless role reads a committed report against the
+repository rather than against itself.
+
+**THE RUN CONCLUDED, AND IT CONCLUDED FAILURE.**
+
+    gh run list --branch card/ext-11
+    34099011089  4e238298  quality  pull_request  failure    2026-09-07T08:08:34Z
+    34098964833  2f6e5767  quality  pull_request  cancelled  2026-09-07T08:08:03Z
+    34085557075  0211239d  quality  pull_request  failure    2026-09-07T05:06:58Z
+
+    gh pr view 240
+    headRefOid          4e238298f7180be008784a4bf9351da71f101781
+    mergeStateStatus    BLOCKED
+    quality             COMPLETED  FAILURE
+
+Three runs on that branch and no fourth. This is `npm run checks:state 240`'s
+pairing read by hand: the check result beside `mergeStateStatus`, which CLAUDE.md
+section 3 requires and which the report itself told the next run to read.
+
+**THE FAILING STEP IS THE BOARD CLOCK, AND IT IS THE CARD'S OWN TIMESTAMP.**
+
+    FAIL docs/board/rc-board-phase3.json: 1 of 122 timestamp(s) are AHEAD of the
+         commit that wrote them
+         card EXT-11.last_checkpoint = 2026-09-07T08:35:00Z, 27 minute(s) ahead
+
+The card and the board `as_of` were both stamped `08:35:00Z` on a commit made at
+`08:07:55Z`. That is a forecast, not a checkpoint, and `check:board-clock` exists
+to refuse one.
+
+**THAT IS THE SMALL HALF. THE DECIDING FINDING IS WHAT THE FAILURE COST.**
+`quality` fails fast. Step 38 failed, so steps 39 through 55 were **skipped**, and
+**step 55 is `End to end`**. The three cases the acceptance names did not run.
+
+**AND THE RED DID NOT RUN THEM EITHER, WHICH IS THE PART NOBODY HAD LOOKED AT.**
+Run `34085557075`, cited on the card as the RED, failed at **step 9, `Refuse a
+code pull request whose board edit is missing`**. `End to end` was skipped there
+too.
+
+**SO THE ACCEPTANCE CLAUSE IS SATISFIED BY NEITHER SIDE.** It reads "THAT CASE
+FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH RESULTS". The Playwright suite
+has never executed on this branch, at any sha. There is no red, there is no green,
+and there is no result. An absence is not a red.
+
+**WHAT IS ACTUALLY PROVEN, BECAUSE THE CARD IS NOT WORTHLESS AND SAYING SO
+MATTERS.** On run `34099011089`, against head sha `4e238298`, these steps ran and
+passed: `Typecheck` (acceptance clause 6), `Build`, `Validate boards`, `Refuse a
+migration that removes rows` (0036 carries no `DROP TABLE`, `TRUNCATE` or
+`DELETE`), `Apply every migration to a bare postgres, unmodified` (acceptance
+clause 2, `npm run check:migrations`, which is the clause the report correctly
+said it could not run locally for want of Docker), and both filtered applier
+proofs. Two of the six acceptance clauses are machine-proven, two are structural
+and readable in the diff, and the two that describe the BEHAVIOUR are the two with
+nothing behind them.
+
+**THE FOUR CONDITIONS, AND PR #240 DOES NOT MERGE UNTIL ALL FOUR HOLD:**
+
+1. **The board clock is corrected.** `as_of` and `EXT-11.last_checkpoint` are the
+   commit moment, never a time the committer expects to reach.
+2. **`quality` concludes SUCCESS on the head sha actually being merged**, with
+   `mergeStateStatus` read beside it in the same breath.
+3. **The `End to end` step RAN**, and the three named cases passed inside it:
+   `extraction.spec.ts` cases 25 and 26, and the `review.spec.ts` case
+   `EXT-11: seria furnizorului se vede in fisa si valoarea editata este cea
+   salvata`. A green overall check whose `End to end` step is skipped does not
+   satisfy this and is the exact shape this ruling exists to refuse.
+4. **The evidence is corrected** for the two defects R-155 and R-156 name: the sha
+   that does not exist, and a red-before that was never a red.
+
+**AND ONE THING RAISES THE BAR RATHER THAN LOWERING IT. MERGING #240 APPLIES
+`0036` TO PRODUCTION.** CLAUDE.md 8.0: a Supabase GitHub integration applies
+merged migrations to the production project within about two minutes, with no
+terminal involved and no journal row. The report says this correctly in its
+section 6. It means a merge taken on a check somebody ASSUMED was green is a write
+to the client's production schema. `0036` is additive and
+`check:no-destructive-migration` passed on it, so the risk here is bounded; the
+principle is not, and it is why condition 2 is written as a conclusion rather than
+as an expectation.
+
+**THE CARD'S FIELDS ARE DELIBERATELY NOT EDITED BY THIS RULING, UNDER R-120.**
+EXT-11 lives on `docs/board/rc-board-phase3.json` and PR #240 rewrites that same
+card object: `lane`, `status`, `last_checkpoint`, `evidence` and `notes`, plus the
+board's top level `as_of`. A board edit from this rulings branch would put a
+conflict between a rulings pull request and the card pull request it is trying to
+help, in a JSON file, which is the exact failure `555b725` already paid for once.
+R-120 met this and settled it: the ruling IS the delivery and the card is left
+alone. **This is the second TRIAGE run to record that DOCTRINE-TRIAGE section 5
+gives no guidance for a card whose pull request is open.** R-120 named it on
+2026-09-04 and the rubric still does not say it.
+
+**Unblocks:** nothing. It holds EXT-11 on its own branch until its acceptance has
+actually run.
+
+---
+
+### R-155 - the sha in EXT-11's evidence is not an object in this repository, and CI evidence names the RUN ID because a run id is the thing that can be looked up
+**Date:** 2026-09-07
+**Asked on:** EXT-11
+**Answer, verbatim:**
+> from docs/reports/2026-09-07-executor-ext-11-supplier-series.md, section 2:
+>
+> "**the RED is run `34085557075` on sha `788e381`**"
+
+**Ruling: upheld as a finding and settled as a standing rule. The run id is real
+and resolves. The sha is not an object in this repository and never was.**
+
+    git cat-file -t 788e381
+    fatal: Not a valid object name 788e381
+
+The branch has three commits and none of them is it:
+
+    git log --oneline origin/card/ext-11 -4
+    4e23829 EXT-11: bring card/ext-11 up to date with main
+    2f6e576 EXT-11: the supplier's document series and number, stored as two facts
+    5aed3a3 POC: run 20260907-010004 state (#243)
+    0211239 EXT-11: the failing case first, so the pull request can show both results
+
+Run `34085557075` is on `0211239d`. The same wrong sha is written into the card's
+`evidence.ref` on branch `card/ext-11`, so it is not a slip confined to a report.
+
+**WHY THIS IS NOT PEDANTRY.** CLAUDE.md section 6 says `ref` must let a stranger
+re-verify without asking anyone. A stranger handed `788e381` runs the command
+above, gets `fatal`, and now has to decide whether the evidence is wrong or the
+repository is. The run id in the same sentence would have taken them straight to
+the truth, which is that the run exists, is on a different commit, and did not
+prove what the sentence says it proved.
+
+**THE STANDING RULE, AND THIS ENTRY SAYS WHICH IT IS.** Under DOCTRINE-TRIAGE
+section 2 requirement 3, a ruling that unblocks nothing is either premature or
+belongs in `CLAUDE.md` as a standing rule. This one is a standing rule:
+
+**EVIDENCE THAT CITES A CONTINUOUS INTEGRATION RESULT CITES THE RUN ID. A COMMIT
+SHA APPEARS BESIDE IT ONLY WHEN IT HAS BEEN READ BACK OUT OF GIT**, by
+`git rev-parse HEAD`, `gh pr view --json headRefOid`, or the run's own
+`headSha`. A sha written from memory is a sixteenth of a hash that nothing
+checked.
+
+Folding the sentence into `CLAUDE.md` section 6 is not TRIAGE's to do: amending
+that file is not in this role's grant. **The enforceable half is carded instead**,
+as `GUARD-05` below, which can resolve every sha an evidence field names and
+refuse the ones that do not exist. A rule with a check outlives a rule with a
+paragraph.
+
+**Unblocks:** nothing. It is a standing rule, it names `GUARD-05` as its
+mechanism, and it names EXT-11's `evidence.ref` as the first correction, to be
+made by EXECUTOR on `card/ext-11` under R-120 rather than from this branch.
+
+---
+
+### R-156 - the "RED before, GREEN after, both on the pull request" acceptance clause cannot be satisfied on this repository, and this is how a red-before is evidenced instead
+**Date:** 2026-09-07
+**Asked on:** EXT-11
+**Answer, verbatim:**
+> from docs/reports/2026-09-07-executor-ext-11-supplier-series.md, section 2,
+> quoting the card notes the previous run left behind:
+>
+> "WHY ONLY THE FAILING TESTS ARE ON THE BRANCH SO FAR. The acceptance demands the
+> new case FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH RESULTS. The quality
+> check runs about 22 minutes and the workflow cancels in-progress runs on the
+> same ref, so the before-run and the after-run cannot both survive inside one 45
+> minute harness window. The tests are pushed alone so the check records the RED.
+> The next run pushes the implementation onto the same pull request and records
+> the GREEN."
+
+**Ruling: the plan was followed exactly as written and it could not have worked.
+The clause is unsatisfiable here, for two reasons that are properties of this
+repository rather than of that run, and the acceptance changes rather than the
+executor.**
+
+**REASON ONE: A TESTS-ONLY PUSH CAN NEVER REACH THE END TO END STEP.**
+`check:board-edit`, authored by card RULE-06, refuses a pull request that carries
+a card's CODE while that card's `status` has not moved to a terminal value. A
+Playwright spec is code. So the tests-only push is refused at step 9 of 56, and
+every step after it is skipped. That is precisely what happened:
+
+    run 34085557075, sha 0211239d
+      step  9  Refuse a code pull request whose board edit is missing  FAILURE
+      step 55  End to end                                              skipped
+
+The only way to get past step 9 with tests alone is to flip the card to `shipped`
+while only the failing tests exist, which is a board that lies, refused by
+CLAUDE.md section 6 and by R-154 above. **The two rules are not in tension by
+accident; between them there is no legal path to a red run.**
+
+**REASON TWO: `quality` FAILS FAST AND `End to end` IS STEP 55 OF 56.** Any one of
+the fifty-four steps in front of it turns the whole suite into an absence. The
+implementation push proved that half as well, on a one line timestamp defect:
+
+    run 34099011089, sha 4e238298
+      step 38  Refuse a board timestamp from the future  FAILURE
+      step 55  End to end                                skipped
+
+**AND THE THIRD, WHICH THE RUN NAMED ITSELF AND WAS RIGHT ABOUT.** The workflow
+cancels in-progress runs on the same ref, so two results cannot be live on one
+branch at once. Run `34098964833` on `2f6e5767` is `cancelled` for exactly that
+reason, twenty-nine seconds before the next push.
+
+**THE RULE, FROM NOW ON:**
+
+1. **A red is a run in which the step that executes the test CONCLUDED and the
+   named case FAILED.** A run in which that step was SKIPPED is not a red. It is
+   an absence, and an absence proves the same nothing whatever colour the overall
+   check reports.
+2. **An acceptance line MAY NOT require a red-before in the `quality` job**,
+   because the two paragraphs above show there is no legal way to produce one.
+   Existing cards carrying the clause keep the green-after and drop the
+   red-before.
+3. **THE RED-BEFORE IS NOT ABANDONED AS A PRACTICE**, because it is the only thing
+   that distinguishes a test from a test that would pass against an empty
+   implementation. It moves to where it can actually be run: **locally, before the
+   implementation lands**, as `npx playwright test <file> -g "<case name>"`
+   against the local Supabase stack, with the command, the case name and the
+   failure output quoted in the report. A run id is better and a quoted local
+   failure is honest; a skipped step is neither.
+4. **A CLAUSE NO HONEST RUN CAN SATISFY IS WORSE THAN NO CLAUSE**, because it does
+   not get dropped, it gets satisfied dishonestly by whoever is closest to a wall
+   clock cap at minute 36.
+
+**WHO APPLIES THIS TO EXT-11'S ACCEPTANCE, AND WHY NOT THIS BRANCH.** EXECUTOR, on
+`card/ext-11`, in the pull request that already owns that card object. This
+ruling deliberately declares no board edit it does not make: five rulings on PR
+#207 declared board edits that never arrived, and repeating that would cost more
+than the edit is worth. R-120 is the precedent and R-154 sets out the conflict in
+full.
+
+**Unblocks:** nothing. It changes what EXT-11 must show and what a future card may
+ask for. It is the second half of R-154 and neither is readable without the other.
+
+---
+
+### R-157 - P2-13 revokes a capability that every unshipped card needs, DOCTRINE-TRIAGE section 3 check 3 has no answer for that, and the edge is recorded as a precondition rather than as forty-five dependencies
+**Date:** 2026-09-07
+**Asked on:** P2-13
+**Answer, verbatim:**
+> from docs/DOCTRINE-TRIAGE.md, section 3, check 3, which this run is required to
+> apply over the whole board every time:
+>
+> "**A capability edge missing.** **This is the one that costs.** A card that
+> REMOVES a capability - a credential rotation, a grant revocation, a cleanup -
+> must depend on every card that needs that capability. The test: *ask what the
+> card takes away, list every card that needs it, and make those the
+> dependencies.*"
+
+**Ruling: the check fires on P2-13 and its prescribed remedy cannot be applied.
+The edge is recorded as a named precondition in the card's `notes`, which is a
+board edit this ruling MAKES rather than declares. The gap in the rubric is a
+defect in `docs/DOCTRINE-TRIAGE.md` and naming it is a legitimate TRIAGE output by
+that file's own words.**
+
+**WHAT P2-13 TAKES AWAY.** Per CLAUDE.md 8.7 its checklist revokes, as checkable
+items: the section 8 migration-apply grant, **the section 3.1 self-merge grant for
+every role on every path**, `SUPABASE_DB_PASSWORD`, and
+`SUPABASE_SERVICE_ROLE_KEY`. Ruling R-082's applier grant dies with section 8 and
+GATE-03 is the card that makes the checklist say so by name.
+
+**WHAT NEEDS IT.** Self-merge is needed by every card that has not shipped.
+Counted on `main` at the time of this run:
+
+    phase 2 board   13 todo,  1 in_flight,  3 blocked
+    phase 3 board   32 todo
+    eligible now    42 cards across the two boards
+
+**SO THE TEST AS WRITTEN PRODUCES FORTY-FIVE OR MORE DEPENDENCY EDGES ON ONE
+CARD, AND THAT IS NOT A BOARD, IT IS A DEADLOCK.** P2-13 is the handover card. G9
+is downstream of it through P2-14, and P2-14's own `depends_on` already names it.
+A P2-13 that cannot become eligible until the entire remaining backlog has shipped
+is a launch that cannot happen, and the edges would need re-deriving every time a
+card is authored, which is every day.
+
+**THE RUBRIC HAS NO CLAUSE FOR A UNIVERSAL CAPABILITY, AND IT SHOULD.** Check 3
+was written for a bounded dependent set: a credential three cards use, a cleanup
+two cards read. Self-merge is not that. Applied literally it deadlocks the
+board; applied not at all it leaves the real risk unrecorded, which is that
+P2-13 could execute while forty-five cards that need the grant are unbuilt.
+**Neither reading is available from the text**, so this run picks the third and
+writes down that it did.
+
+**THE RESOLUTION IS THE ONE THIS CARD ALREADY USES THREE TIMES, AND THAT IS WHY IT
+IS THE RIGHT ONE.** P2-13's `acceptance` already carries three capability
+preconditions as tickable runbook boxes rather than as edges: R-072 added the
+migrations-applied box, and R-095 added the R-082 grant box and the P3-35 box.
+R-072's own reason is written on the card and it is the same reason as here: **"a
+cross-board depends_on makes the validator red."** This ruling adds a **FOURTH
+BOX** in exactly that shape, and a paragraph in `notes` saying what the box is
+for. Both edits are made by this ruling's own pull request.
+
+**THE FOURTH BOX, IN FULL.** The runbook carries a box, ticked before any
+credential is rotated, recording **the count of cards still unshipped across all
+three boards, and confirming that the owner has been told that after this
+checklist every one of their pull requests comes back to him.** CLAUDE.md 8.7
+says it in terms: "Deleting section 3.1 returns every PR to Ivan." Today that
+number is forty-five and nobody has been told. It is machine-checkable by the same
+`grep -c` the rest of the acceptance uses, and it is a count rather than a
+threshold because the right number is the owner's to judge and not this role's.
+
+**THIS IS THE PRECEDENT GATE-03 ALREADY SET, AND FOLLOWING IT IS THE POINT.**
+GATE-03 met the same class of finding, a capability P2-13 revokes that its
+checklist does not name, and resolved it as a card that edits the checklist rather
+than as a dependency edge. DOCTRINE-TRIAGE's first rule is that two TRIAGE runs
+over the same report reach the same answer; departing from GATE-03's shape here
+would break that for no gain.
+
+**WHAT THIS DOES NOT DO.** It does not extend, widen or renew any grant, which
+would be item 5 of the closed escalation list and not this role's to decide. It
+records the cost of a revocation whose timing nobody has yet had to choose. P2-13
+is `todo` behind P2-08b, which is blocked on Andre, so the choice is not live
+today and this ruling does not make it live.
+
+**Unblocks:** nothing. It adds a fourth acceptance box and a `notes` paragraph to
+P2-13, both landed by this pull request, and it records a defect in
+`docs/DOCTRINE-TRIAGE.md` section 3 check 3.
+

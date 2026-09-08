@@ -1,40 +1,31 @@
 {
-  "run_id": "20260907-010004",
-  "report": "docs/reports/2026-09-07-executor-ext-11-before-half.md",
+  "run_id": "20260907-040001",
+  "report": "docs/reports/2026-09-07-executor-ext-11-supplier-series.md",
   "rulings_written": [
-    "R-149",
-    "R-150",
-    "R-151",
-    "R-152",
-    "R-153"
+    "R-154",
+    "R-155",
+    "R-156",
+    "R-157"
   ],
   "cards_resequenced": [
     {
       "card_id": "EXT-11",
-      "change": "The job about supplier invoice numbers was written as though the system already stored the supplier's invoice number. It does not, and never has: there is no such box in the database. A second job on the list was written the same way, each assuming the other had already built it. This job now builds it, together with the letter code that goes in front of it, because a letter code with no number attached identifies nothing."
+      "change": "The supplier invoice series work was marked finished overnight and it is not finished. The automated quality run on it came back failed, and the browser tests that were supposed to prove the feature works never ran at all, in either of the two attempts. Nothing is wrong with the work itself as far as anyone can tell; it is simply unproven. It stays open until the tests have actually run and passed, and it must not be approved before then, because approving it is what writes the change into the live database."
     },
     {
-      "card_id": "P3-31",
-      "change": "The job that separates the supplier's document number from our own now formally waits for the job above, since it cannot start until the supplier's number exists. It keeps our own number and nothing else changes about it."
-    },
-    {
-      "card_id": "EXT-11",
-      "change": "The same job was also asked to prove its new checks fail before the fix and pass after, in two separate runs. That is impossible here: the overnight run's own safety checks reject the first of the two runs in under thirty seconds, before any test executes, and that is exactly what happened last night. The proof is now a permanent commit reference anybody can re-run at any time, which is stronger than a build log that expires."
-    },
-    {
-      "card_id": "MIG-01",
-      "change": "The question waiting for you about the database integration overstated its own danger. It says a merged deletion could wipe production data. It cannot: the guard it asked for was built four days ago and runs on every change. The question is still yours to answer and still waiting, it is just smaller than it looked."
-    },
-    {
-      "card_id": "GATE-03",
-      "change": "The job about the credential lockdown checklist now records a third gap in the same family: the lockdown removes the permission that forty-five unfinished jobs need in order to finish themselves, and it lists only one job as coming before it."
+      "card_id": "P2-13",
+      "change": "The credential lockdown item now carries one more tick-box and the reason for it. After that lockdown runs, every piece of work waiting in the queue comes back to you for approval one by one, and there are forty-five of them. The box makes somebody count them and tell you the number before anything is switched off, rather than you discovering it the following morning."
     }
   ],
   "gates_flipped": [],
   "escalations": [
     {
-      "title": "Two settings in the hosting console are the only things left between the low-stock warning emails and working for real, and they have not moved since 31 August. Nobody but you can set them.",
-      "recommendation": "Set both in the production environment in one sitting: the email service key, and the address the warnings are sent from. Ten minutes. RECOMMENDED BECAUSE THE REST IS ALREADY BUILT AND PROVEN: the warning logic passes four automated tests, so these two settings are the whole remaining gap on our side. THE HONEST CAVEAT, WHICH HAS BEEN STATED EVERY TIME AND IS STATED AGAIN: setting them does not finish this on its own. The system currently addresses the warning to an account on a domain that does not exist, and that address is replaced when the real client accounts are created at the handover job. So this is one of three things, not the last one. IF UNANSWERED: nothing breaks. Stock can fall below its threshold on the live site and no email is sent, silently, and the screen shows the warning as unsent. That has been the state for eleven days and will continue until you set them."
+      "title": "The extraction supplier needs to be told that supplier invoices now have a second field, the letter code printed before the invoice number. Until he sends it, the system will keep storing it as blank and the work done overnight buys nothing.",
+      "recommendation": "Tell him, in the same message as the live document test you already owe him, that supplier documents should now be sent with the series letters and the number as two separate values rather than one. RECOMMENDED BECAUSE IT COSTS ONE SENTENCE AND THE ALTERNATIVE IS A FEATURE THAT SILENTLY DOES NOTHING: our side already accepts documents with or without it, so nothing breaks either way and there is no deadline pressure on him. THE REASON IT NEEDS YOU: nobody here writes to him directly, by standing rule. IF UNANSWERED: the field ships, stays permanently empty, and two different suppliers issuing the same invoice number keep looking like the same document to the system, which is the exact problem this was meant to fix."
+    },
+    {
+      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fifth time it has been raised and the first was seven days ago.",
+      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT, UNCHANGED: this does NOT make the readiness condition pass on its own. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody, and that third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
     }
   ]
 }
