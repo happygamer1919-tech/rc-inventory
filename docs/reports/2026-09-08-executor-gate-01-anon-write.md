@@ -170,8 +170,22 @@ SUCCEEDS, the card does not fail quietly and does not fix it in passing."
 
 ## Defects hit
 
-**None.** Nothing in `docs/LEARNINGS.md` was appended, per CLAUDE.md section 9,
-and this line is the "says so".
+**One, and it was this session's own.** Appended to `docs/LEARNINGS.md` as *"A
+board timestamp rounded forward is a timestamp from a clock that has not struck"*.
+
+The board edit was written by hand with `2026-09-08T08:12:00Z` on three fields,
+because the session rounded the current time up to the next convenient minute
+instead of reading it. `validate-board.mjs` passed, because the shape was fine.
+`npm run check:board-clock` refused: *"3 of 130 timestamp(s) are AHEAD of the
+commit that wrote them"*, four minutes ahead. That check is unfiltered in
+`quality`, so the pull request would have gone red on a board every other
+validator called correct. The three fields now read `2026-09-08T08:06:30Z`, after
+the probe they describe and before the commit that carries them.
+
+The rule that comes out of it: **a board timestamp is read from the clock, never
+composed**, and `check:board-clock` is run in the same breath as the board
+validator, because passing the validator says the JSON is well-shaped and says
+nothing about whether it is true.
 
 The card's own note is worth repeating because it is about a pattern rather than
 about this clause: this is the **second** gate condition found closeable with no
