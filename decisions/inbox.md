@@ -7572,3 +7572,621 @@ watchdog: the deadline-versus-countdown clause of the defaults was never in
 dispute and stands.
 
 **Unblocks:** AUT-9.
+
+---
+
+### R-175 - The GATE-02 audit recommends four cards, three of which are already carried in full by P3-35, which is open and eligible on the same board
+**Date:** 2026-09-08
+**Asked on:** GATE-02, P3-35
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md, section
+> "What this audit recommends, and does not do":
+>
+> "Four cards, none of them authored here, per the card's own defaults.
+> 1. An anon READ probe against `clients`, `contacts` and `suppliers` on
+> production [...] 2. A committed read of `public.unassigned_outbound_count()`
+> against production [...] 3. An authenticated production verification walk. One
+> instrument serves G3 clause 4, G4 clause 1, G5 clause 1 and G6 clause 1 [...]
+> 4. Repoint or retire `check-deployed-commit`'s default origin"
+
+**Ruling: recommendations 1, 2 and 3 are NOT authored as cards. All three are
+already the acceptance of P3-35, which is `todo` and eligible on the phase 3
+board. Recommendation 4 is authored, as GUARD-07 under R-178.**
+
+DOCTRINE-TRIAGE section 5 is the rule and it is not a preference: *"Do not author
+a card for something already covered by an open card. Add the finding to that
+card's `notes` instead and say so in the ruling. Two cards for one problem is how
+both get half-done."*
+
+**THE MAPPING, CLAUSE FOR CLAUSE, SO NOBODY HAS TO TAKE THIS ON TRUST.** P3-35's
+acceptance is four named sections and the report's three recommendations are
+three of them:
+
+| report recommendation | P3-35 acceptance section | condition it closes |
+|---|---|---|
+| 1, anon READ probe returning zero rows | (1) RLS REFUSAL | G1 clause 2 |
+| 2, `unassigned_outbound_count()` read and pasted | (2) UNASSIGNED COUNT | G2 clause 3 |
+| 3, authenticated production walk | (3) CROSS-LINK WALK and (4) DEPLOYED SCREENS | G4 clause 1, G3 clause 4 |
+
+**THE SECOND REASON, WHICH IS SPECIFIC TO THIS CARD AND IS THE ONE THAT WOULD
+HAVE COST SOMETHING.** DOCTRINE-TRIAGE section 3's third check asks what a card
+TAKES AWAY and requires every card that needs that capability to be named.
+**P2-13 takes away the production database connection**, and its acceptance names
+`P3-35` BY ID, under R-095, as a box that must be ticked before any credential is
+rotated. Three new cards needing the same connection would be three capabilities
+the revocation checklist does not name, and `npm run check:grant-revocation`,
+which GATE-03 shipped for exactly this, does not read card acceptances for
+production reads. The cheapest correct move is the one the rubric already
+mandates: keep it in the card the checklist already names.
+
+**WHY THE REPORT DID NOT SEE THIS, SAID PLAINLY AND WITHOUT BLAME.** GATE-02's
+own defaults told it to audit and not to build, and it obeyed them exactly. What
+it did not do is check the board for a card that already carried its
+recommendations, and nothing in the card told it to. **The gap is between an
+audit's recommendations and the board**, which is precisely the seam TRIAGE runs
+in. This is the role working, not a defect in the report.
+
+**THE ONE THING P3-35 DOES NOT ANSWER, AND IT IS NOT AUTHORED AWAY.** The report
+says of recommendation 3 that it is *"the hardest, because nothing in this project
+currently holds a production session"*, and P3-35's defaults say *"There is no
+migration here, no seed, no fixture and no test user created."* Both are true and
+together they do not say how a terminal signs in. Sections (1) and (2) need only
+the read-only connection CLAUDE.md 8.3 and 8.4 already govern. Sections (3) and
+(4) need an authenticated session that no ruling grants and no committed
+instrument holds.
+
+**THIS RULING DOES NOT REWRITE P3-35'S ACCEPTANCE TO REMOVE THEM.** Granting a
+terminal access to a production account is item 5 of the closed escalation list
+and is not TRIAGE's to decide. What it directs instead: **EXECUTOR runs sections
+(1) and (2), reports them, and blocks P3-35 on `ivan` for sections (3) and (4)**
+with the structured decision-needed text of CLAUDE.md section 4 naming the
+session as the missing thing. Half of four conditions evidenced beats none, and a
+card that waits for all four waits for a credential decision nobody has been
+asked for.
+
+**Also changes:** P3-35 `notes` carries the mapping and the split instruction.
+The evidence fields of phase 3 G1, G2, G3 and G4 each name P3-35 as the card that
+carries their missing clause.
+
+**Unblocks:** nothing directly. It stops three cards being authored and names
+P3-35 as the single card standing between four launch conditions and their
+evidence.
+
+---
+
+### R-176 - The client domain stopped serving this application on 2026-09-07 and phase 2 condition G8 still says it does
+**Date:** 2026-09-08
+**Asked on:** the phase 2 launch gate, condition G8
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md, section
+> "F4 IN FULL: www.rapidconstructmd.com is a GitHub Pages marketing site":
+>
+> "The apex and www hosts answer from GitHub Pages and serve a construction
+> company's marketing site. The inventory application answers from Vercel at
+> `rc-inventory-iota.vercel.app`. They are two different products on two
+> different hosts, and the domain the launch gates mean by 'production' is
+> currently the marketing one."
+
+**Ruling: the finding is upheld on TRIAGE's own re-measurement. The audit is
+written into G8's `evidence.ref`. THE `state` FIELD IS NOT FLIPPED, because
+DOCTRINE-TRIAGE does not authorise TRIAGE to flip a gate to `fail` and R-177
+escalates that gap rather than assuming it away. The domain decision is
+ESCALATED to Ivan.**
+
+**RE-MEASURED BY TRIAGE, NOT INHERITED**, at 2026-09-08T11:40:57Z, read-only, no
+credential:
+
+```
+GET https://rapidconstructmd.com/                    200, server: GitHub.com
+GET https://www.rapidconstructmd.com/api/health      301, ending 404
+GET https://rc-inventory-iota.vercel.app/api/health  200
+  {"commit":"edff96b...","ledger_version":"0036"}
+```
+
+`edff96b` is `main`'s head, which is the GATE-02 merge itself. **The application
+is live and healthy. The DOMAIN is serving somebody else's product.**
+
+**THIS IS THE THIRD INDEPENDENT SIGHTING AND THE RECORD ALREADY HELD TWO.**
+EXECUTOR measured it at 19:36Z on 2026-09-07 and wrote it into G8's own `notes`,
+including the DNS: the apex is on four GitHub Pages A records and `www` is a
+CNAME to `happygamer1919-tech.github.io`. The GATE-02 audit found it again today
+without looking for it. Nothing about this is in doubt.
+
+**WHAT G8's PASSING EVIDENCE ACTUALLY CLAIMS, AND WHICH CLAUSES ARE NOW FALSE.**
+The 2026-08-27 audit under R-023 recorded four clauses. Clause 1 (P2-12 shipped)
+and clause 2 (Ivan connected the domain) are historical facts and remain true.
+**Clause 3, "the production URL answers 200 over HTTPS with a valid
+certificate", and clause 4, "auth redirects land on that same host", are both
+false today on the host this condition names.** A gate is not a percentage:
+two of four is `fail` under section 4's own third step, if TRIAGE were permitted
+to say so.
+
+**WHY THE STATE IS LEFT AT `pass` AND WHY THAT IS NOT A JUDGEMENT THAT IT IS
+STILL TRUE.** DOCTRINE-TRIAGE's list of what TRIAGE may do reads *"flip a launch
+gate to `pass`, under section 4 below and never otherwise"*. Section 4 is written
+entirely as a procedure for a gate at `fail`. There is no procedure anywhere in
+that file for a condition whose `pass` evidence has been falsified by events, and
+section 1's third test sends a rule that needs widening to the owner rather than
+to a terminal's judgement. **R-177 records that as a defect in the rubric and
+escalates it.** Until it is answered, the honest record lives in `evidence.ref`
+and the `state` field is stale, and both of those sentences are written into the
+field itself so a reader of the board meets them together.
+
+**SO THE PHASE 2 COUNT OF 6 OF 9 IS OVERSTATED BY ONE AND THE BOARD SAYS SO IN
+THE ONLY PLACE TRIAGE MAY WRITE IT.** That is the cost of the gap and it is
+stated rather than smoothed over.
+
+**ESCALATED, WITH A RECOMMENDED DEFAULT.** Which host is meant to serve the
+inventory application is item 7 of the closed list, a DNS panel action in a
+console no terminal holds, and item 6, because it is the client's own domain and
+what Mihai is asked to open. It is not TRIAGE's and it is not EXECUTOR's. The
+recommendation is to point a host at the Vercel project and re-verify this
+condition; the full escalation with its options and its silence default is in
+`docs/reports/2026-09-08-triage-the-domain-that-left-and-the-card-already-written.md`.
+
+**WHAT IS BEING FIXED WITHOUT WAITING FOR HIM.** GUARD-07, under R-178, repoints
+the deployed-commit guard at the host that answers and makes it say when it has
+been aimed at the wrong one. That work is correct under either answer.
+
+**Also changes:** G8's `evidence.ref` and `evidence.at`. Phase 2 G9's evidence
+records the same obstacle, because Mihai's acceptance cycle happens on a host
+that has to serve the product first.
+
+**Unblocks:** nothing. It blocks G8 from being read as true.
+
+---
+
+### R-177 - DOCTRINE-TRIAGE section 4 has no procedure for a launch condition whose `pass` evidence has been falsified, and that is a defect in the rubric
+**Date:** 2026-09-08
+**Asked on:** DOCTRINE-TRIAGE section 4, arising from R-176
+**Answer, verbatim:**
+> from docs/DOCTRINE-TRIAGE.md, "What TRIAGE may do":
+>
+> "flip a launch gate to `pass`, under section 4 below and never otherwise"
+>
+> and from the same file's preamble:
+>
+> "If this file does not say how to decide something, **that is a defect in this
+> file**, and saying so is a legitimate TRIAGE output."
+
+**Ruling: the gap is real, it is named here as the rubric's own preamble invites,
+and the widening is ESCALATED rather than taken. The interim rule is stated so
+that two TRIAGE runs meeting this again reach the same answer.**
+
+**THE GAP, EXACTLY.** Section 4 is titled "Audit launch gates against committed
+evidence" and every one of its four numbered steps is written for *"each gate at
+`fail`"*. The grant above it is one-directional by its wording. The three kinds
+of gate it says can never be flipped are all about gates that cannot REACH
+`pass`. **Nothing in the file contemplates a gate that has LEFT `pass`**, and
+G8 has.
+
+**WHY THIS IS NOT A CASE OF READING THE GRANT GENEROUSLY.** DOCTRINE-TRIAGE's
+own overriding rule is *"Two TRIAGE runs over the same report must reach the same
+answer. A rubric that reads as advice produces a role that improvises, and an
+improvising role with commit rights is worse than no role at all."* A run that
+decides the grant is "obviously" symmetric and a run that reads it literally
+produce different boards. That is the failure the rule names, and taking the
+generous reading today would be an instance of it rather than an exception to it.
+
+**AND SECTION 1'S THIRD TEST DECIDES IT INDEPENDENTLY.** *"Did it widen a rule,
+or apply one? Widening a standing rule (CLAUDE.md, a gate, a grant) is a rule
+change. Widening: ESCALATE unless a ruling already authorised it."* No ruling
+authorises this. The file's closing note on TRIAGE's authority says the same
+thing in the same breath: recording that a rule needs widening is TRIAGE's,
+*"though widening it is item 5 or an escalation of its own under section 1's
+third test"*.
+
+**THE INTERIM RULE, BINDING UNTIL THE ESCALATION IS ANSWERED.** When TRIAGE finds
+committed evidence that a `pass` condition is no longer true:
+
+1. write the counter-evidence into that condition's `evidence.ref` in full, with
+   the measurement and its timestamp, which section 4's fourth step already
+   authorises and requires;
+2. leave `state` untouched and say IN THE FIELD that it is stale and why;
+3. do not adjust `readiness_passed`, because that number is counted from the
+   `state` fields and a count that disagrees with what it counts is worse than
+   one that is wrong;
+4. carry it to the owner as an escalation with a recommended default.
+
+**WHAT THE ESCALATION ASKS FOR.** That DOCTRINE-TRIAGE section 4 gain an explicit
+procedure for a falsified `pass`, and that TRIAGE be authorised to flip a
+condition from `pass` to `fail` when a clause it already names is disproven by
+committed evidence. **The recommendation is yes**, on the same reasoning the file
+already uses about narrowing: item 5 of the closed list says narrowing or
+revoking is not an escalation *"because the failure mode of narrowing is an
+outage and the failure mode of widening is a breach"*. A gate moved to `fail`
+delays a launch. A gate left at `pass` that is false launches on a claim nobody
+checked. **The safe direction is the one TRIAGE currently cannot take.**
+
+**WHAT IT DOES NOT ASK FOR, DELIBERATELY.** Nothing here proposes that TRIAGE
+gain any authority over launch TIMING. Item 10 of the closed list is untouched
+and stays untouched: a gate state is a statement about evidence, and deciding
+that the date has arrived is not.
+
+**Unblocks:** nothing. It is the reason R-176 stops where it does, and it is
+filed so the next run that meets a falsified `pass` does not have to re-derive
+the answer or improvise a different one.
+
+---
+
+### R-178 - The deployed-commit guard defaults to a host that can never satisfy it, so its next refusal will be spurious and will invite a workaround
+**Date:** 2026-09-08
+**Asked on:** GUARD-07 (authored by this ruling)
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md, section
+> "F4 IN FULL", under "WHY THIS IS NOT A COSMETIC FINDING":
+>
+> "Run today with its default origin it fetches a 404 HTML page from a marketing
+> site, fails to find a commit, and REFUSES. Its refusal is correct behaviour on
+> a wrong input: it fails closed, exactly as its header says it will. But the
+> guard is now pointed at a host that can never satisfy it, so the next removal
+> migration is blocked by a stale default rather than by a real risk, and whoever
+> hits it will be tempted to pass `--origin` and move on."
+
+**Ruling: upheld, and GUARD-07 is authored. The canonical origin for repository
+checks is the host that serves this application, which today is the Vercel
+origin. THAT IS A STATEMENT ABOUT A DEFAULT IN A SCRIPT AND NOT A DECISION ABOUT
+WHERE THE PRODUCT LIVES**, which is escalated under R-176 and is Ivan's.
+
+**THE FACT, RE-MEASURED BY TRIAGE** at 2026-09-08T11:40:57Z:
+`scripts/poc-free/check-deployed-commit.mjs` line 64 reads
+`args.origin || process.env.RC_HEALTH_ORIGIN || "https://www.rapidconstructmd.com"`.
+That host answers from GitHub Pages. `https://rc-inventory-iota.vercel.app/api/health`
+answers 200 with `commit` and `ledger_version`, and the commit is `main`'s head.
+
+**THE CARD'S REAL DELIVERABLE IS THE SHAPE ASSERTION AND NOT THE DEFAULT, AND
+THAT IS DELIBERATE.** A default goes stale the next time DNS moves; today is the
+proof. What does not go stale is a guard that distinguishes *"production is
+running an older commit"* from *"this origin does not serve this application"*.
+The first is the answer the guard exists to give. The second is what it is
+actually saying today, in the words of the first, and a refusal that says the
+wrong thing is what teaches an operator to reach for `--origin`. GUARD-07's
+acceptance therefore requires the negative cases to be proved to FAIL first
+against the current tree.
+
+**WHY THIS IS NOT SELF-INVENTED SCOPE FOR TRIAGE.** TRIAGE authored no code and
+ran nothing. It converted a finding the report explicitly declined to act on into
+a card with a machine-checkable acceptance, which is DOCTRINE-TRIAGE section 5
+and the only thing the role does with work-shaped findings.
+
+**`scripts/ext/serve-sample-documents.mjs` CARRIES THE SAME STALE DEFAULT AND IS
+DELIBERATELY OUT OF SCOPE.** It mints signed URLs that go to Andre, and P3-29c
+already owns that path. Named in GUARD-07's defaults so a reader does not think
+it was missed, and left there so it is not silently bundled into a card about a
+migration guard.
+
+**Also changes:** GUARD-07 authored on the phase 2 board, `todo`, no
+dependencies, eligible immediately.
+
+**Unblocks:** nothing today. The guard fails closed, so nothing is unsafe now.
+It removes the spurious refusal that the next removal migration would meet.
+
+---
+
+### R-179 - `#PENDING` is not an evidence reference, and thirteen shipped cards carry it
+**Date:** 2026-09-08
+**Asked on:** GUARD-08 (authored by this ruling), P3-12
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md, condition
+> G6:
+>
+> "DEFECT NOTED, NOT FIXED, NOT MINE: P3-12's evidence ref reads `e2e #PENDING`.
+> A stranger cannot re-verify `#PENDING`. Section 6 requires a ref that resolves
+> without asking anyone. Logged here rather than patched, per the
+> no-self-invented-scope rule."
+
+**Ruling: upheld, widened from one card to thirteen on TRIAGE's own sweep, and
+authored as GUARD-08. The report was right to log it and right not to patch it.**
+
+**THE REPORT FOUND ONE. A SWEEP OF `evidence.ref` OVER ALL THREE BOARDS FINDS
+THIRTEEN**, every one of them `shipped`:
+
+```
+phase 2   RULE-02, AUT-19
+phase 3   P3-11a, P3-11b, P3-11e, P3-12, P3-33, P3-34,
+          APPLY-01, PROVE-01, EXT-14, EXT-15
+```
+
+That is twelve plus P3-12. **Thirteen is a habit, not a slip.** The ref is
+written while the pull request is being opened, GitHub assigns the number
+afterwards, and nothing ever goes back.
+
+**THE NUMBERS ARE ALL RECOVERABLE, WHICH IS WHY THIS IS A SWEEP AND NOT AN
+ARCHAEOLOGY CARD.** `git log --oneline main --grep=P3-12` resolves in one command
+to `cbfc1b2 P3-12: buget, deviz acceptat si cost real, trei numere pe fisa
+(#166)`. The merge commit subject carries the number for every card that merged
+through a pull request.
+
+**WHY TRIAGE DID NOT SIMPLY FIX P3-12.** Two reasons and both are rules.
+`evidence` is not among the fields DOCTRINE-TRIAGE permits TRIAGE to edit, and
+patching the one card the report happened to name would have left twelve and
+taught nothing. **The check is the deliverable and the sweep is the smaller
+half**, which is why GUARD-08's acceptance lands the check whether or not every
+one of the thirteen numbers turns out to be recoverable.
+
+**THE CHECK IS SCOPED TO THE PLACEHOLDER AND NOT TO WELL-FORMEDNESS**, and
+GUARD-08's defaults say so in terms. CLAUDE.md section 6 legitimately admits run
+ids, journal text, sha256 values and named owner confirmations as refs. A check
+demanding every ref look like a pull request number would refuse most of the
+board. Refusing the literal string `#PENDING` is a rule with exactly one answer.
+
+**Also changes:** GUARD-08 authored on the phase 2 board. P3-12's `notes` records
+the finding and points at GUARD-08, since its `evidence` may not be touched here.
+
+**Unblocks:** nothing. It makes thirteen shipped cards re-verifiable by a
+stranger, which is what CLAUDE.md section 6 already required of them.
+
+---
+
+### R-180 - MIG-01 is blocked on an answer Ivan gave four days ago
+**Date:** 2026-09-08
+**Asked on:** MIG-01
+**Answer, verbatim:**
+> from `decisions/inbox.md`, R-124, and from CLAUDE.md section 8.0, which that
+> ruling wrote:
+>
+> "Card `MIG-01` carried the decision to keep it; this ruling records the owner
+> keeping it."
+
+**Ruling: `blocked_on: ivan` is cleared and MIG-01 goes to `todo`. The vendor
+decision it waits for is committed, and it is option (b), the one the card itself
+recommended.**
+
+**THIS IS DOCTRINE-TRIAGE SECTION 3, CHECK 2, EXACTLY.** *"Satisfied but
+blocking. Every id in `depends_on` is `shipped`, yet the card is still `blocked`
+on a person. Correct only when the person genuinely owes something now;
+otherwise clear `blocked_on` and set `todo`."* MIG-01 has no dependencies at all
+and is blocked on `ivan`. **He no longer owes anything here, because he already
+answered.**
+
+**WHAT THE CARD ASKED AND WHAT R-124 ANSWERED.** The question offered three
+options: (a) turn the Supabase integration off so the applier is the only path,
+(b) keep it and rewrite CLAUDE.md section 8 to describe it, (c) leave the
+contradiction, listed only to be refused. The card recommended (b) conditional on
+a pre-merge destructive-statement check existing first. **R-124 is (b)**:
+CLAUDE.md now opens section 8 with "MERGE IS APPLY. READ THIS BEFORE ANYTHING
+ELSE IN SECTION 8", enumerates the four consequences, and names the pre-merge
+check as the control that replaces the applier's stop.
+
+**THE CARD DID NOT HEAR IT BECAUSE NOTHING MAKES A CARD HEAR A RULING.** R-124
+was written into CLAUDE.md and into `decisions/inbox.md`. Nothing walked the
+board looking for a card whose question it had just answered, and no check does
+that today. **That is the general shape and it is why this ruling is worth its
+id**: a question can be answered in the place that binds every terminal while the
+card that asked it sits blocked on a person who has moved on.
+
+**WHAT REMAINS ON THE CARD IS AN ACCEPTANCE RUN, NOT A DECISION.** Every artefact
+its acceptance names appears to be on `main`: `npm run check:no-destructive-migration`
+and `npm run prove:no-destructive-migration` are in `package.json` with both files
+under `scripts/poc-free/`, CLAUDE.md 8.0 states which path writes production and
+what each guarantees, 3.1's false sentence is quoted and marked false per R-127
+rather than deleted, and `docs/migrations/APPLY-LOG.md` marks the integration
+applies as reconstructions. **TRIAGE HAS RUN NONE OF IT AND MAY NOT.** The four
+fixtures, the not-path-filtered assertion and `npx tsc --noEmit` are an EXECUTOR
+run, and this card ships on that run or names what is missing.
+
+**IT IS `todo` AND NOT `shipped`, AND THAT BOUNDARY IS THE POINT.** A card whose
+work looks done is exactly where a role that may not ship must not.
+
+**THE `question` FIELD IS CLEARED AND ITS TEXT IS NOT LOST.** It is in this
+file's git history and its substance is quoted above. CLAUDE.md 9c governs a
+doctrine sentence somebody relied on; a card question that has been answered is
+resolved, not falsified.
+
+**Also changes:** MIG-01 `status` `blocked` to `todo`, `blocked_on` `ivan` to
+`null`, `question` cleared, `notes` carries the resolution.
+
+**Unblocks:** MIG-01. Nothing else was waiting on it, as its own question said.
+
+---
+
+### R-181 - AUT-3 has been `in_flight` for twelve days waiting for an event that has now happened eight times
+**Date:** 2026-09-08
+**Asked on:** AUT-3
+**Answer, verbatim:**
+> from AUT-3's own `acceptance`:
+>
+> "THE NEXT SCHEDULED HARNESS RUN produces a rulings PR authored by TRIAGE with
+> no human input: EXECUTOR commits its report, TRIAGE boots, reads the newest
+> file in docs/reports/, applies the rubric, and opens a PR carrying
+> decisions/inbox.md entries and board edits. [...] No human starts the run and
+> no human is asked for anything."
+
+**Ruling: AUT-3 goes from `in_flight` to `todo`. The event it was parked on has
+occurred eight times and the card is now waiting for a terminal to write down
+evidence that already exists.**
+
+**WHY IT WAS `in_flight` AND WHY THAT REASONING HAS INVERTED.** R-036 moved it
+off `blocked_on: ivan` on 2026-08-27 and its notes give the reason for
+`in_flight` rather than `todo`: *"an unattended run would otherwise pick up a
+card whose code is already merged and whose only outstanding item is evidence
+that run itself produces."* **That was right on the day.** The evidence did not
+exist yet and a run picking the card up would have found nothing to record.
+**Today the evidence exists and what the card needs is precisely a run that picks
+it up.**
+
+**THE EVIDENCE, RE-VERIFIABLE BY A STRANGER WITH `gh pr list`.** Eight TRIAGE
+rulings pull requests exist on branches named `triage/<run-id>`, each opened by a
+scheduled run with no human input and each carrying `decisions/inbox.md` entries
+and board edits: **207, 210, 238, 242, 245, 248, 262, 265**, and the run writing
+this ruling opened the ninth. That is the acceptance, satisfied repeatedly.
+
+**WHY IT IS NOT SHIPPED HERE.** TRIAGE may not ship a card, ever. Shipping needs
+the acceptance to have been run and the `evidence` field written, and `evidence`
+is not a field TRIAGE may edit. Setting `todo` makes it claimable so an EXECUTOR
+can do both. **This is the same boundary R-180 respects on MIG-01 and it is worth
+the repetition: two cards this run look finished and neither is TRIAGE's to
+close.**
+
+**ONE THING THIS RULING DOES NOT CONCEDE.** R-183 records that those eight pull
+requests are all still OPEN. **That does not make this acceptance unmet.** The
+acceptance says the run PRODUCES a pull request; it does not say the pull request
+lands. Landing them is RST-02's problem and conflating the two would park AUT-3
+behind a harness defect it does not depend on.
+
+**Also changes:** AUT-3 `status` `in_flight` to `todo`, `notes` carries the eight
+pull request numbers.
+
+**Unblocks:** AUT-3.
+
+---
+
+### R-182 - The section 4 gate audit of both boards: nothing flips, one precondition is discharged, and five conditions are recorded as un-flippable so nobody chases them
+**Date:** 2026-09-08
+**Asked on:** the phase 2 and phase 3 launch gates
+**Answer, verbatim:**
+> from docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md, section
+> "The result, first":
+>
+> "PHASE 3 LAUNCH GATE: 0 of 9. The count did not move. It did not move, and the
+> reason it did not move is now completely different, on every single condition.
+> Not one of the nine still fails for the reason recorded against it on
+> 2026-08-31."
+
+**Ruling: no condition on either board flips, in either direction. Phase 2 stays
+6 of 9 and phase 3 stays 0 of 9, and this ruling records what each remaining
+condition is actually waiting for.**
+
+DOCTRINE-TRIAGE section 4 requires this audit **every run, over committed
+repository files, whether or not the report asked for it**, and requires the
+audit to be written into `evidence.ref` whether or not anything flips, *"because
+it says what is actually missing"*.
+
+**PHASE 3 IS ACCEPTED AS RE-AUDITED AND NOT RE-DERIVED A SECOND TIME.** GATE-02
+ran all nine conditions clause by clause today against facts it took today, and
+recorded MET, NOT MET or NOT ATTEMPTED with the evidence that decided each. TRIAGE
+verified two of its five facts independently (production health at
+2026-09-08T11:40:57Z returning `ledger_version` 0036 from the database, and the
+domain) and checked its conclusions against the board. **What TRIAGE ADDS is the
+thing an audit cannot see from inside itself: which open card carries each
+missing clause.** That is R-175 for G1 through G4 and this ruling for G5 and G7.
+
+**ONE PRECONDITION IS DISCHARGED, ON PHASE 2 G7.** That condition's notes name
+two things standing between P2-10's proven reminder logic and one real delivered
+email. **The second, "migration 0006 must be applied to the RC project", is
+done**: `docs/migrations/APPLY-LOG.md` carries `0006_reminder_recipients.sql`
+with its journal, and production reports `applied_ledger_version` 0036, read from
+the database itself by the function migration 0028 added. **The first is
+untouched**: `RESEND_API_KEY` in the production environment is a click in a
+console no terminal holds. G7 stays `fail`, stays `blocked_on: ivan`, and its
+evidence now says which half is left.
+
+**FIVE CONDITIONS ARE RECORDED AS UN-FLIPPABLE BY ANY TERMINAL**, under section
+4's own three kinds, and the record exists so that a reader counting them as
+remaining work does not send the next session hunting for a card that does not
+exist:
+
+| condition | kind | what it actually needs |
+|---|---|---|
+| phase 2 G4 | third party | Andre: one real document through the live path |
+| phase 2 G7 | production console | `RESEND_API_KEY`, then one real threshold crossing |
+| phase 2 G9 | the client, on production | Mihai completing one cycle himself |
+| phase 3 G5 clause 2 | the client | one real project to reconcile by hand |
+| phase 3 G7 clause 1 | the client | a deviz against a real project |
+
+**THE BUILD HALF OF THREE OF THOSE IS FINISHED AND THAT IS WORTH SAYING.** Phase
+3 G7's whole P3-13 chain shipped and `0025_deviz.sql` is applied. Phase 3 G5's
+0023 and 0024 are applied and P3-11 is deployed. Phase 2 G4 has a reachable half
+in P2-20, which is `todo`, eligible, and buildable today with no third party.
+**What is missing in every case is a person or a row, not a card.**
+
+**PHASE 2 G8 IS THE ONE CONDITION THIS AUDIT WOULD HAVE MOVED AND COULD NOT.**
+See R-176 and R-177. Its `evidence.ref` now carries the counter-measurement and
+says the `state` field is stale; `readiness_passed` is deliberately not adjusted,
+because it is counted from the `state` fields and a count disagreeing with what
+it counts is worse than one that is wrong.
+
+**Also changes:** `evidence` written on phase 2 G4, G7 and G9, which were all
+`null`; appended on phase 2 G8 and on phase 3 G1, G2, G3, G4, G5 and G7.
+
+**Unblocks:** nothing. It is the audit, and the audit that flips nothing is the
+most useful thing the next session can read.
+
+---
+
+### R-183 - Eight TRIAGE rulings pull requests are open and unmerged, thirty-one ruling ids are stranded outside `main`, and the card that fixes it is twenty-fifth in the pick order
+**Date:** 2026-09-08
+**Asked on:** RST-02
+**Answer, verbatim:**
+> from `decisions/inbox.md`, R-121, 2026-09-04:
+>
+> "**Six TRIAGE runs have completed since**, and not one of their
+> `triage-latest.json` files has merged: PR #157, #172, #184, #187, #190 and this
+> one. Five of those are open right now and several are `DIRTY`. The consumption
+> record is the one file in this repository that is written by a role whose pull
+> requests reliably do not land"
+
+**Ruling: the finding is upheld and the count has grown. RST-02 is the card and
+no second card is authored. The finding goes on RST-02's `notes`, per
+DOCTRINE-TRIAGE section 5.**
+
+**MEASURED 2026-09-08 with `gh pr list --state open`. Eight TRIAGE rulings pull
+requests are open**, the oldest four days old:
+
+```
+#207  triage/20260904-220003   R-128 to R-134
+#210  triage/20260905-010004   R-135 to R-141
+#238  triage/20260906-220005   R-144 to R-148
+#242  triage/20260907-010004   R-149 to R-153
+#245  triage/20260907-040001   R-154 to R-157
+#248  triage/20260907-070002   R-158 to R-162
+#262  triage/20260908-010002   R-163 to R-170
+#265  triage/20260908-040001   R-171 to R-174
+```
+
+**This run's pull request is the ninth.**
+
+**THE VISIBLE COST, IN ONE NUMBER.** `decisions/NEXT-RULING-ID` on `main` reads
+`R-144` while the real high water mark across open branches is `R-175`. **Thirty
+one ruling ids are allocated and invisible to `main`**, and `npm run id:free` is
+currently the only thing that knows. That is exactly the collision class CLAUDE.md
+8b describes, running continuously rather than occasionally.
+
+**THE MECHANISM IS IN `run.sh` AND IT IS NOT A LAPSE BY ANY MODEL SESSION.** The
+TRIAGE step polls GitHub for the mandated branch, writes a checkpoint line the
+moment the pull request exists, waits for the session, logs the exit, and ends.
+**Nothing in the run merges the pull request and nothing waits for its `quality`
+check.** CLAUDE.md 3.1 permits TRIAGE to self-merge on green, and `quality` takes
+minutes that a TRIAGE session does not have inside its 1800 second cap, so every
+run has chosen to finish its report rather than sit on a poll. **Both halves are
+behaving correctly and the outcome is eight stranded pull requests**, which is
+the signature of a missing step rather than a broken one.
+
+**THE SECOND-ORDER COST IS THE ONE THAT SHOWS UP IN THIS RUN'S INPUT.** PR #238's
+title is *"the dead premise on nine conditions"*. The GATE-02 report re-derived
+that same premise from scratch today, correctly and at length, because #238 never
+reached `main` and a stateless role can only read what merged. **Work is being
+done twice and nobody can see that it is.**
+
+**RST-02 IS THE FIX AND IT IS ALREADY AUTHORED.** Its title: *"The leftover pull
+request sweep learns every branch prefix a scheduled run can open, so a TRIAGE
+pull request abandoned by its own cap is merged by the next run instead of found
+by hand days later."* Its acceptance already requires `triage/<id>` to be
+SELECTED by the sweep's selector and card branches to be NOT selected, with the
+negative half named as the half that matters. **Nothing needs authoring. It needs
+working.**
+
+**AND THE HARNESS WILL NOT REACH IT, WHICH IS THE PART THAT NEEDS SAYING OUT
+LOUD.** `scripts/poc/eligible.mjs` orders the union by board and then by id,
+deliberately, with the reason written beside it under AUT-16: *"the eligible list
+is board one's eligible cards in id order, then board two's [...] pretending they
+sort against each other would let a namespace decide priority."* The phase 3
+board comes first and has twenty-four eligible cards. **RST-02 is twenty-fifth in
+the pick order**, and a lane only ever grows.
+
+**THIS RULING PROPOSES NO CHANGE TO THAT ORDER.** It is a deliberate documented
+rule and changing it is a widening under section 1's third test. **The remedy
+available without changing any rule is a human terminal claiming RST-02 by id**,
+and TRIAGE may not edit `priority` to make it louder. So it is written here, in
+RST-02's notes, and at the head of this run's report.
+
+**NOT ESCALATED, AND THAT IS A DELIBERATE READING OF THE CLOSED LIST.**
+DOCTRINE-TRIAGE section 6 is closed at ten items and this is on none of them.
+*"A list that ended in 'and anything else significant' would escalate everything
+on a cautious day and nothing on a confident one."* It is significant and it is
+still not an escalation.
+
+**Also changes:** RST-02 `notes`.
+
+**Unblocks:** nothing. It names RST-02 as the highest-value unclaimed card on
+either board and says why the harness will not find it.
