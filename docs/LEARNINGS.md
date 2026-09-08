@@ -4792,3 +4792,49 @@ and the round number is exactly the tell, because nothing that actually happened
 happened at `:00`. Run `npm run check:board-clock` after any board edit, in the
 same breath as the board validator; passing the validator says the JSON is
 well-shaped and says nothing about whether it is true.
+
+### The deployed-commit guard is aimed at a host that stopped being the app
+**Tag:** infra
+**ERROR:** `scripts/poc-free/check-deployed-commit.mjs` defaults to
+`https://www.rapidconstructmd.com/api/health`. On 2026-09-08 that host answers
+from GitHub Pages (`server: GitHub.com`, `last-modified 2026-09-07T21:28:04Z`)
+and serves a construction company's marketing site: `/api/health` returns 404
+and so does `/autentificare`. The inventory application answers from Vercel at
+`rc-inventory-iota.vercel.app`, where `/api/health` returns
+`{"commit":"49fef9a...","ledger_version":"0036"}`. Run with its default origin
+the guard fetches an HTML 404, finds no commit, and REFUSES. The refusal is
+correct behaviour on a wrong input, which is exactly why it is dangerous: the
+check that stands between a removal migration and INC-06 now blocks on a stale
+default rather than on a real risk, and the obvious workaround is to pass
+`--origin` and stop thinking about it.
+**SOLUTION:** Not fixed here. GATE-02 is an audit and repointing a safety check's
+default deserves its own card and its own decision about which origin is
+canonical. The rule that prevents the next instance: **a check whose default
+names a host is a check with a dependency nobody declared.** When a guard hard
+codes an origin, the origin belongs in one place that something asserts, the way
+`scripts/production-refs.mjs` holds the project ref, so that repointing a domain
+breaks one assertion loudly instead of every guard quietly.
+
+### A strict required check plus a 45 minute cap means one merge per run, whatever the backlog
+**Tag:** ci
+**ERROR:** unattended run `20260905-010004` booted onto three open pull requests
+(#205 AUT-19, #206 the previous run's report, #207 the TRIAGE rulings). All three
+read `quality SUCCESS` and all three were `mergeStateStatus BEHIND`, so all three
+were stale under CLAUDE.md section 3. `quality` costs about 20.5 minutes on this
+repository, measured across the four most recent completed runs, and `main`
+requires branches to be up to date. Updating all three at once is free and their
+runs go green in parallel, but the FIRST merge puts the other two back to
+`BEHIND`, and a second round of 20.5 minutes does not fit inside what is left of
+a 45 minute cap. The arithmetic is structural, not incidental: a scheduled run
+can land exactly ONE pull request per run no matter how many are ready, so a
+backlog of N stale pull requests needs N runs to drain and grows faster than it
+drains as soon as more than one run per day opens one.
+**SOLUTION:** this run updated all three branches first, so their runs went green
+concurrently rather than serially, then spent its single merge window on the card
+pull request. RULE: a scheduled run treats its merge window as a budget of ONE and
+spends it on the highest-value pull request already open, before it considers
+opening another. `gh pr update-branch` on every stale pull request is still worth
+doing on the way past, because it costs seconds and leaves the next run a green
+head sha instead of a stale one. AUT-23 covers the half of this that is about not
+opening a fourth pull request; the half that is about only ever being able to
+close one is this entry.
