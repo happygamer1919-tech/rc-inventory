@@ -4773,3 +4773,22 @@ o completeaza, oricare ar fi campul pe care il dovedeste.** Cand se scrie un caz
 o cale care are deja cazuri verzi, se citeste unul dintre ele pana la capat si se
 copiaza pasii de care depinde actiunea finala; un caz care pica pe ultimul `expect` al
 altcuiva nu spune nimic despre ce testeaza el.
+
+### A board timestamp rounded forward is a timestamp from a clock that has not struck
+**Tag:** ci
+**ERROR:** GATE-01. The board edit was written by hand with `2026-09-08T08:12:00Z`
+on three fields, `GATE-01.last_checkpoint`, `GATE-01.evidence.at` and the G1 gate
+`evidence.at`, because the session rounded the current time up to the next
+convenient minute instead of reading it. `node docs/board/validate-board.mjs`
+passed, because the shape was fine. `npm run check:board-clock` refused with
+`3 of 130 timestamp(s) are AHEAD of the commit that wrote them`, four minutes
+ahead, and that check is unfiltered in `quality`, so the pull request would have
+gone red on a board that every other validator called correct.
+**SOLUTION:** the three fields now read `2026-09-08T08:06:30Z`, after the probe
+they describe and before the commit that carries them. The rule: **a board
+timestamp is READ from the clock, with `date -u`, never composed.** A field
+recording when something happened cannot be later than the commit recording it,
+and the round number is exactly the tell, because nothing that actually happened
+happened at `:00`. Run `npm run check:board-clock` after any board edit, in the
+same breath as the board validator; passing the validator says the JSON is
+well-shaped and says nothing about whether it is true.
