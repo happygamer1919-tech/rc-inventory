@@ -78,6 +78,17 @@ function isPublic(pathname: string): boolean {
   // citi o pagina HTML de autentificare in loc de un commit. Ar refuza, ceea ce
   // este partea sigura, dar ar refuza PENTRU TOTDEAUNA si pentru motivul gresit.
   if (pathname === "/api/health") return true;
+  // EXT-21. RUTA DE STARE ESTE INTEROGATA DE EXTRACTOR, DE PE ALTA MASINA.
+  //
+  // Ea spune ce categorii si ce unitati acceptam ACUM, si cine intreaba este
+  // scenariul lui Andre, nu un ecran: nu are sesiune si nu poate avea una.
+  //
+  // Fara aceasta linie proxy-ul ar raspunde 307 catre /login si un client care
+  // urmareste redirectarile ar primi 200 si text/html. Asta este mai rau decat
+  // un refuz: raspunsul ar avea codul de succes, iar cel care il citeste ar
+  // trebui sa deduca dintr-o pagina de autentificare ca nu a primit lista. Chiar
+  // clasa de defect pentru care exista cardul, cu o zi pierduta la capatul ei.
+  if (pathname === "/api/state") return true;
   return false;
 }
 

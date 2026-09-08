@@ -33,6 +33,7 @@ import type { ProjectMaterials } from "@/lib/data/projects-list";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
 import type { CatalogProduct } from "@/lib/data/products";
 import type { Deviz, DevizSummary } from "@/lib/data/deviz";
+import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -51,6 +52,7 @@ export function ProjectDetailScreen({
   materials,
   cost,
   deviz,
+  comparison,
   products,
   clients,
   canWrite,
@@ -60,6 +62,7 @@ export function ProjectDetailScreen({
   materials: ProjectMaterials;
   cost: ProjectMaterialCost;
   deviz: { list: DevizSummary[]; open: Deviz | null };
+  comparison: DevizComparison;
   products: CatalogProduct[];
   clients: { id: string; name: string }[];
   canWrite: boolean;
@@ -214,6 +217,7 @@ export function ProjectDetailScreen({
           cost={cost}
           history={history}
           deviz={deviz}
+          comparison={comparison}
           products={products}
           canWrite={canWrite}
         />
