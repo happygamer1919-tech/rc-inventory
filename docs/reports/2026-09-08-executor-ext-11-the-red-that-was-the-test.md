@@ -134,7 +134,7 @@ success  End to end
 | PR | What | Outcome |
 |---|---|---|
 | **#240** `card/ext-11` | EXT-11, the supplier's document series and number stored as two facts | **MERGED** 2026-09-08T05:29:39Z, squash, merge commit `8011696` |
-| this one | this report | opened by this run |
+| **#261** `report/20260908-010002` | this report | opened by this run, left open for the next run to merge |
 
 **Merging #240 applied migration `0036` to production**, per CLAUDE.md 8.0 and ruling
 R-124: the Supabase GitHub integration applies a merged migration within about two
