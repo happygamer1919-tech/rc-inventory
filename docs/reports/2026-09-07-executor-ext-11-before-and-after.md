@@ -101,6 +101,30 @@ had.
 
 ---
 
+## A second defect this run found and fixed: the APPLY-LOG row was missing
+
+**The branch carried migration `0036` and no entry in
+`docs/migrations/APPLY-LOG.md`.**
+
+CLAUDE.md 8.8: *"The row goes in BEFORE the PR that performs the write is
+merged. Not after, not in a follow-up card."* And under 8.0 **the merge IS the
+write**: the Supabase GitHub app applies a merged migration to production within
+about two minutes, with no terminal involved. So merging #240 without that row
+would have been a production write with no journal, which section 8.8 calls a
+violation in those words.
+
+The entry directly above it in that file, for `0035` under EXT-10, exists for
+exactly this reason and was the template. The new one names the actor as the
+integration rather than a terminal, quotes the
+`check:no-destructive-migration` output verbatim as the control that precedes
+the apply, and says plainly that the apply is **predicted and not yet observed**,
+because this run's wall clock cap ends before it would land.
+
+**It cost a second `quality` cycle**, deliberately. The alternative was merging
+first and journalling after, which is the thing the rule forbids by name.
+
+---
+
 ## What the card actually lands
 
 Migration `0036_supplier_document_series.sql` adds **four** columns, all
@@ -146,6 +170,12 @@ Commands run in this worktree, all exit 0:
     npm run check:pending-schema-reads
     npm run check:no-destructive-migration
 
+`check:no-destructive-migration` on the branch, verbatim, because it is the
+control that stands in front of a production apply:
+
+    check-no-destructive-migration: 1 file(s), added or modified against origin/main (4171144)
+    check-no-destructive-migration: OK. 1 file(s) parsed, 12 statement(s), no DROP TABLE, no TRUNCATE, no DELETE, and every statement kind classified.
+
 **`npm run check:migrations` and the end to end suite could not be run here, and
 that is a property of this machine and not a gap in the card.** `docker` is not
 on this worktree's PATH at all, so the throwaway postgres container and the local
@@ -159,6 +189,11 @@ that run is the after-result the acceptance names.
 | card | before | after |
 |---|---|---|
 | `EXT-11` | `todo` | `shipped` on the green, PR #240 |
+
+**Pull requests:** #240 (the card, five commits added by this run), **#259** (this
+report). #240 was already open from earlier runs; this run made it mergeable,
+restored what the before-result had removed, added the missing APPLY-LOG row and
+wrote the board edit.
 
 One card, not two. The second card was not started: with a `quality` cycle
 measured at 19 to 23 minutes on this repository and a 45 minute cap, there was
