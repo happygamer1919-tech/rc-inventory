@@ -30,6 +30,7 @@
     "check:deployed-commit": "node scripts/poc-free/check-deployed-commit.mjs",
     "check:unique-ids": "node scripts/poc-free/check-unique-ids.mjs",
     "check:open-branch-ids": "node scripts/poc-free/check-open-branch-ids.mjs",
+    "id:free": "node scripts/poc-free/check-open-branch-ids.mjs --free",
     "prove:open-branch-ids": "node scripts/poc-free/prove-open-branch-ids.mjs",
     "prove:unique-ids": "node scripts/poc-free/prove-unique-ids.mjs",
     "prove:assertions": "node scripts/poc-free/prove-assertions-can-fail.mjs",
@@ -39,7 +40,17 @@
     "check:executor-env": "node scripts/poc-free/check-executor-env.mjs",
     "check:board-app": "node scripts/poc-free/check-board-app.mjs",
     "check:board-clock": "node scripts/poc-free/check-board-clock.mjs",
-    "check:card-order": "node scripts/poc-free/check-card-order.mjs"
+    "check:card-order": "node scripts/poc-free/check-card-order.mjs",
+    "prove:claim-merge": "node scripts/poc-free/prove-claim-merge.mjs",
+    "check:live-fixtures": "node scripts/poc-free/check-live-fixtures.mjs",
+    "prove:live-fixtures": "node scripts/poc-free/prove-live-fixtures.mjs",
+    "check:grant-revocation": "node scripts/poc-free/check-grant-revocation.mjs",
+    "prove:grant-revocation": "node scripts/poc-free/prove-grant-revocation.mjs",
+    "prove:extraction-budget": "node scripts/poc-free/prove-extraction-budget.mjs",
+    "check:state-endpoint": "node scripts/poc-free/check-state-endpoint.mjs",
+    "prove:state-endpoint": "node scripts/poc-free/prove-state-endpoint.mjs",
+    "check:action-pins": "node scripts/poc-free/check-action-pins.mjs",
+    "prove:anon-write-refused": "node scripts/prove-anon-write-refused.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

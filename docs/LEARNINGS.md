@@ -4194,3 +4194,647 @@ knew. RULE: **a rule that describes the mechanism is not the same as a rule that
 states the guarantee.** "Ids sort lexically" describes; "AUT-8 comes before AUT-16"
 guarantees. Only the second one is falsifiable by reading the board, which is why
 only the second one would have been noticed.
+
+### `version: latest` is two defects and the transient one is the smaller
+**Tag:** ci
+**ERROR:** `.github/workflows/quality.yml` pinned `supabase/setup-cli` to
+`version: latest`. On 2026-09-03, run 33810964883 failed at `Start local Supabase`
+with `Failed to resolve latest Supabase CLI release: rate limit exceeded`, before a
+single test ran; re-running it passed with no code change. **The rate limit is the
+lesser half.** `latest` also makes the workflow non-reproducible: the same commit
+can pass today and fail tomorrow because a release in between changed behaviour,
+and the failure presents as the pull request's fault. That is not theoretical here
+- P3-33 had to split migration 0030 from 0031 because `supabase db reset` wraps
+each file in one transaction, which is exactly the kind of behaviour a CLI release
+can change.
+**SOLUTION:** pin the version, do not add a token: a token removes the rate limit
+and leaves the reproducibility half untouched. `npm run check:action-pins` reads
+the workflow and refuses both shapes, a `uses:` on a tag rather than a sha and a
+`version:` set to a moving target, so the **next** floating reference is refused
+rather than discovered. RULE: **when a fix is offered for a flake, ask which of
+the two problems it solves.** The loud one is usually the smaller one, and the
+version that has to be resolved at run time is a dependency nobody wrote down.
+
+### The version that is green is a fact you can look up, not a version you choose
+**Tag:** ci
+**ERROR:** pinning invites picking the newest, which is a version the suite has
+never run. The card forbade it in terms and the temptation is real: `2.117.0`
+exists and looks like the obvious pin.
+**SOLUTION:** the pin was **derived**. `npm view supabase dist-tags` answers
+`latest = 2.116.0`, published 2026-08-26 and unchanged since, and this
+repository's lockfile carries no `supabase` package for the action to prefer, so
+every green run since that date resolved `latest` to exactly `2.116.0`. **Pinning
+it changes nothing about what runs**, which is what makes it the right pin, and
+`2.117.0` turned out to be a prerelease. The action sha was derived the same way,
+read out of a green run's own log rather than from the tag as it stands today.
+RULE: a pin is a claim about what has already worked. Look up what ran, do not
+choose what looks current, and say in the file which behaviours the pin is
+protecting so whoever raises it knows what to re-prove.
+
+### SIGTERM kills a stopped process on macOS and does not on Linux
+**Tag:** infra
+**ERROR:** AUT-9 case 2 asks for a stub child to be SIGSTOPped mid-run and still
+stopped at its deadline. The case was written with a comment asserting *"a stopped
+process does not take SIGTERM, it queues"*, and the mutation proof was built on
+that: delete the grace-then-KILL escalation from `stop_pid` and the case should go
+red. It did not. On this Mac the mutated harness still ended the suspended child
+in 1 second and every assertion stayed green, so **the case was passing for a
+reason that had nothing to do with what it claimed to test.** Run directly:
+`kill -STOP` then `kill -TERM` on a `sleep 120` reports `Terminated: 15` on
+Darwin, and reports `STILL ALIVE (state=T)` on `ubuntu:24.04`.
+**SOLUTION:** the difference is real and is now written into the case rather than
+assumed away. The elapsed time the case reports is about 1s on macOS, where the
+TERM ends it, and about 2 to 3s on Linux, where the KILL escalation is what ends
+it. The mutation proof was re-run in a Linux container, which is what
+`ubuntu-latest` gives CI: with the KILL removed the case reports
+`took 8s after the deadline` and `a SIGSTOPped child outlived its deadline`, while
+section 1 stays green, which is exactly the discrimination the new case exists to
+provide. RULE: **a test whose premise is a kernel behaviour must be run on the
+kernel CI uses before its mutation proof is believed.** A green case on the
+developer's machine and a green case on the runner can be green for two different
+reasons, and the one that matters is the runner's.
+
+### A mutation that changes nothing is a finding, not a nuisance
+**Tag:** infra
+**ERROR:** the natural reading of a mutation proof that comes back green is that
+the mutation was wrong or the anchor did not apply. Here the patch applied, the
+mutated file was correct, and the suite still passed.
+**SOLUTION:** treat an unmoved suite as the answer, not as a broken experiment.
+It said the assertion did not depend on the deleted code, which was true, and
+chasing that produced the platform fact above. It would also have been true of a
+case that tested nothing at all, which is the more common version of this. RULE:
+**when a deliberate break does not turn something red, the finding is about the
+test, not about the break.** The next question is never "why did my patch fail to
+apply", it is "what is this assertion actually resting on".
+
+### A JSON object is not a mergeable store, however small the writes are
+**Tag:** infra
+**ERROR:** claim leases lived in a single `claims` object inside
+`docs/poc/state.json`. Two branches cut from one base, each claiming a
+**different** card, each rewrote that object. The first merged clean; the second
+conflicted, and the boundary ran **through** the JSON: the `HEAD` side kept its
+claim's opening brace and the incoming side kept its claim's closing brace. So a
+resolution that deleted only the marker characters produced a claims map that did
+not parse, in the one file the harness reads before it picks a card. The writes
+were tiny and touched different keys, which is exactly why it looked safe.
+**SOLUTION:** one file per claim, `docs/poc/claims/<CARD-ID>.json`. Two claims are
+then two **adds of different paths**, which git merges without overlap by
+construction, with no merge driver for anybody to configure, and a release is a
+**deletion**, which merges the same way. `npm run prove:claim-merge` performs the
+real merges and runs the old shape beside the new one as a control that must
+still conflict. RULE: **if two authors can write to a file at the same time, the
+unit of concurrency has to be the unit git merges, which is the line and the
+path, not the key.** Disjoint keys inside one object share every brace around
+them.
+
+### The claim mechanism cannot protect work shorter than a CI cycle
+**Tag:** infra
+**ERROR:** `scripts/poc/claim.sh` writes the lease through a pull request, and it
+says so itself: *"The claim is live locally as soon as that PR merges. Until then
+the harness still reads the old state from main."* `quality` takes about twenty
+minutes here. AUT-9 was claimed at 15:39 local on 2026-09-06 and shipped in #230
+before the claim pull request had merged, so #229 was closed unmerged. That is
+the **fourth** instance: PR #86 was closed for the same reason with the owner's
+own note, R-063 measured a four second version of it, and R-078 measured a three
+hour one.
+**SOLUTION:** not fixed, and saying so is the point. CLAIM-01's own defaults
+permit shipping the collision half and recording why the latency half was not
+attempted, because closing it is a redesign of the lease and a different card.
+What is used instead is what R-063 already identified as the only signal that
+existed at the moment it was needed: **read the open pull request list before
+starting.** It is authoritative, needs no new file, and cannot go stale, because a
+branch is either open or it is not. RULE: **a protection that becomes true later
+protects nothing about now.** Before adding one, ask how long it takes to become
+true and compare that to how long the thing it guards actually lasts.
+
+### The script that fixes a session-scoped bug has to survive a killed session
+**Tag:** infra
+**ERROR:** `claim.sh` used to leave the working tree **on the claim branch**, so a
+second claim in the same session was cut from the first claim's tree and carried
+it in its diff. The fix was a `git checkout` back at the end of the script. It
+was verified working, and then the same test with the output piped into `head -1`
+left the terminal on `poc/claim-bbb-02`: `head` closes the pipe, the script dies
+on SIGPIPE partway through its closing `echo`s, and the last line never runs.
+**SOLUTION:** the return moved into `trap claim_return EXIT PIPE TERM INT`, and
+the final line only reports what the trap already did. Re-measured with the same
+`| head -1` and the terminal comes back to `card/x` both times, each branch
+carrying exactly its own claim file. RULE: **cleanup that matters belongs in a
+trap, not at the end of the script.** "The last line runs" is an assumption about
+how the process ends, and a caller you do not control decides that.
+
+### The cap was on the wrong string, in both directions
+**Tag:** infra
+**ERROR:** `notify.mjs` capped its output at `TELEGRAM_MAX = 4096` with the note
+*"… truncated, see the run log."* That output is the **full technical digest**,
+which `renderBoth()` writes to a file under `FULL_DIGEST_DIR` and never sends: the
+message that goes to Telegram is the **plain** digest, which was never capped at
+all. So Telegram's limit was cutting a file, and telling the reader to see the run
+log they were already reading, while the string that actually has to fit in a
+Telegram message had no guard. Measured on 2026-09-06: run `dig01-check` wrote
+5428 bytes and the `ESCALATIONS` block, the last block in the digest, was cut
+after its first entry.
+**SOLUTION:** the cap is gone from `buildDigest`. The constant stays, with the
+reason written next to it, for whoever puts the guard where it belongs, in
+`send()`. Without this the field fix in DIG-01 would have been invisible: the
+recommendation it renders whole was landing past the cut. RULE: **before adding a
+limit, name the transport it belongs to and check that the string you are
+capping actually travels on it.** A limit copied to the nearest string is a limit
+in the wrong place twice over, because it also is not where it is needed.
+
+### Two defects can mask each other and make the fixture look harmless
+**Tag:** infra
+**ERROR:** the fixture for DIG-01 was built to prove the 4096 cap ate the
+recommendation. Run against the pre-fix `notify.mjs` from `origin/main`, the cap
+never fired: `firstLine` had already shortened every escalation so much that the
+digest stayed under 4096. So on the real historical code the cap looked harmless,
+and on the fixed field renderer, with recommendations rendered whole, it was the
+thing eating them.
+**SOLUTION:** the case runs two mutants, not one, and each is separately proved to
+FIRE: mutant A restores the field truncation and must lose the tail, mutant B
+restores the cap and must both **fire** and lose the tail. The "did the cap
+actually fire" assertion is the one that matters, because without it a future
+change that shrinks the digest would make the case pass while measuring nothing.
+RULE: **when two guards can each hide the other, assert that the one you are
+testing was reached**, not only that the outcome was wrong.
+
+### `import.meta.url` is a real path and `process.argv[1]` is whatever was typed
+**Tag:** infra
+**ERROR:** the standard direct-run guard, `import.meta.url === pathToFileURL(process.argv[1]).href`,
+came out **false** when `notify.mjs` was invoked under a `/var/folders/...` path,
+because on macOS `/var` is a symlink to `/private/var`: `import.meta.url` is
+resolved through the symlink and `process.argv[1]` is not. The script then did
+nothing at all and **exited 0**, which is indistinguishable from a digest with
+nothing to say. It was found only because a test that expected a file found none.
+**SOLUTION:** compare real paths, `realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])`,
+falling back to a resolved-path comparison when either cannot be stat'd.
+`scripts/poc/eligible.mjs` carries the unhardened form and is exposed the same
+way; it was left alone because it is not this card, and it is named here so the
+next reader of that file knows. RULE: **an equality test between two paths is a
+test about symlinks.** Resolve both sides, or the guard is a coin flip decided by
+how the caller happened to spell the directory.
+
+### A count assertion that counts a derived list asserts nothing
+**Tag:** infra
+**ERROR:** the `--free` mode built a `sources` array from the open pull request
+list and then asserted `read + refused === sources.length + 1`. A mutant written
+to prove the assertion had teeth dropped one branch **while building that array**,
+and the assertion held: the mutation shrank both sides equally. So the check would
+have reported an id free after looking at one fewer branch than it was given, with
+its own guard reporting green. Found by the mutant, not by reading the code, and
+the mutant was written expecting the opposite result.
+**SOLUTION:** assert against the **input**, which is `openBranches.length + 2` for
+main and this working tree, counted before anything is derived from it. RULE:
+**a count assertion must have one side the code under test cannot move.** Comparing
+two numbers the same bug computes is a tautology dressed as a guard, and it reads
+exactly like a real assertion in a diff.
+
+### A mutant whose edit half applied reported itself applied
+**Tag:** infra
+**ERROR:** `mutantCheck` returns null when the edited source is identical to the
+original, which is the standard "the anchor no longer matches, so this case is
+stale" guard. The 7d mutant made **two** replacements. The check had been fixed
+underneath it, so the second anchor no longer existed and only the first
+replacement applied. The file still differed from the original, so the mutant was
+reported as applied, and the case it was supposed to prove quietly measured the
+wrong thing.
+**SOLUTION:** the edit function asserts **every** anchor is present before it
+makes **any** replacement, so a partly stale mutation is reported as stale rather
+than as a working mutant. RULE: **"the file changed" is not "the mutation
+happened."** A multi-part edit needs its anchors checked as a set.
+
+### A range measured from a shared baseline reads as a false accusation
+**Tag:** infra
+**ERROR:** the holdings report first said what each open branch had consumed as a
+range from `main`'s counter: `triage-a consumed R-128 to R-134` and
+`triage-b consumed R-128 to R-141`. Both statements are literally true, because
+both branches were cut from a `main` sitting at R-128 and both advanced past it.
+Read side by side they say the second branch took the first branch's ids, which it
+did not: it wrote R-135 to R-141 and its counter merely accounts for what somebody
+else had already taken.
+**SOLUTION:** report the **ceiling**, not the range: `counter R-142, so no id below
+R-142 is free`, with what the branch actually wrote listed beside it. The ceiling
+is what a reader can act on and it does not overlap. RULE: **when several actors
+advance past one baseline, a range from that baseline attributes every actor's
+work to each of them.** State the bound each one sets, not the distance each one
+travelled.
+
+### A neutralisation nobody guards is a comment
+**Tag:** infra
+**ERROR:** `test-ask-digest.sh` case 6 was fixed on 2026-09-04 by clearing every
+card blocked on Ivan out of the copied board before asserting the digest is
+silent. That fix was correct and it was **unguarded**: deleting those twelve lines
+would have restored the accidental dependency exactly, with every assertion still
+green and nothing to notice it. The same is true of the two sites that legitimately
+DO depend on live state and fail loudly when it moves: delete the loud failure and
+the exemption becomes the defect with a note attached.
+**SOLUTION:** `npm run check:live-fixtures` enumerates every copy of a live
+artefact into a fixture under `scripts/poc/` and `tests/`, and requires each to be
+declared **neutralised** with the marker string the file must still contain, or
+**exempt** with the property named in words and the loud-failure string the file
+must still print. A declaration whose string is gone is refused, and so is a
+declaration matching no copy. RULE: **a fix to a test is itself untested until
+something fails when it is removed.** The fix and the guard on the fix are two
+pieces of work, and only the second one survives the next editor.
+
+### The check for a defect found an instance in the work that built it
+**Tag:** infra
+**ERROR:** DIG-01's case 10, written the day before, copies all three live boards
+into a fixture tree and then asserts that a mutant restoring the 4096 cap makes
+that cap FIRE. Whether it fires depends on the rendered digest exceeding 4096
+characters, and the digest's length comes partly from the live boards. That is the
+same accidental-property dependency the check was being built to find, one day
+old, in the author's own work.
+**SOLUTION:** it is EXEMPT rather than neutralised, and the exemption is honest
+because the case already asserts separately that the cap fired: a board set that
+shrinks below the boundary reports itself instead of passing quietly. Freezing the
+boards there would stop the case tracking the digest the product actually renders,
+which the card's defaults forbid in terms. RULE: **run a new check against your own
+last week before you run it against anyone else's.** A rule worth writing is
+usually one you have already broken.
+
+### A merged migration applies itself, so the code that reads its columns races the apply
+**Tag:** data
+**ERROR:** EXT-10 adds `products.package_unit` and `products.package_factor` and
+the catalogue read has to name them. `listProducts` is called by the dashboard,
+by the inventory screen and by every form that picks a product, so a `select`
+naming a column PostgREST does not have yet answers 42703 and takes six screens
+down with it. Under CLAUDE.md 8.0 the migration lands on merge, in about two
+minutes, while the Vercel build that carries the reading code leaves the same
+push and finishes on its own schedule. The two are not ordered.
+**SOLUTION:** the columns are asked for behind `hasProductPackaging` in
+`lib/data/schema-capability.ts`, the third gate of that shape after EXT-09 and
+EXT-15, and the column list is built from its answer. The write path uses the
+same gate: with the columns absent and no packaging requested it writes exactly
+what it wrote yesterday, and with the columns absent and packaging requested it
+refuses in Romanian rather than saving the product and silently dropping the
+half the operator typed. The rule: a pull request that adds a column AND reads it
+in the same merge must gate the read, because "merged" and "applied" are two
+minutes apart and "deployed" is neither.
+
+### A nullable numeric column read through a zero-defaulting helper loses the difference between none and zero
+**Tag:** data
+**ERROR:** `lib/data/products.ts` has a `toNumber` helper that answers `0` for
+null and undefined, which is right for `threshold` and `unit_value_mdl` because
+both are `not null default 0`. `package_factor` is nullable and zero is the one
+value its constraint refuses, so passing it through the same helper would have
+turned "this product has no packaging" into "one package holds zero stock units",
+and every conversion computed from it into zero.
+**SOLUTION:** the null check happens before the conversion, and only a value that
+is genuinely present is converted. The rule: a helper that folds absent into a
+legal value may only be used on columns where that value is legal. Where the
+column's own constraint refuses the fold target, the fold is a defect.
+
+### A card cannot be pushed as in_flight beside its own code: check:board-edit demands a terminal status
+**Tag:** ci
+**ERROR:** EXT-10's first push carried the code with the card at `in_flight`, on
+the reasoning that `shipped` requires an acceptance that had not been observed
+yet and that claiming it early is the one failure section 6 has no recovery from.
+`quality` refused the whole pull request: `check:board-edit` resolves the card ids
+in the branch name and the commit subjects, and requires each one to reach a
+TERMINAL status at the head. `in_flight` is not terminal, so `satisfied 0 of 1
+card id(s)` and the job exited 1 before any other step could report.
+**SOLUTION:** the flip to `shipped` goes in the same pull request as the code, and
+the honesty it seemed to cost is recovered somewhere else: the acceptance commands
+RUN IN `quality`, so the green check on the head sha IS the acceptance passing,
+and the merge is the single moment at which both halves of section 5b are true.
+The rule: a code pull request is authored to land in one terminal state, and a
+board left mid-flight is a pull request the check reads as unfinished, not as
+cautious. If the acceptance genuinely cannot be run, the terminal status is
+`blocked`, not `in_flight`.
+
+### A card whose acceptance names a column that no migration ever created
+**Tag:** data
+**ERROR:** EXT-11's acceptance reads "adds the series to the supplier document
+reference wherever order_ref is stored, on orders and on extraction drafts", and
+its notes say P3-31 already split order_ref into theirs and ours. Neither is true
+of the schema. `order_ref` exists in no migration: `extraction_drafts` has no
+such column, `inbound_orders.reference` is OUR reference under its own unique
+constraint, and contract section 4.1a states in terms that `order_ref` arrives
+from Andre, is accepted and is IGNORED. P3-31 is still `todo` and its own
+acceptance line ("a nullable client_ref column alongside the EXISTING order_ref")
+assumes the same column. Two cards each built on a field the other was assumed to
+have landed.
+**SOLUTION:** The card that needs the column creates it, and says so in its notes
+rather than in a new card. EXT-11 lands `order_ref` and `order_ref_series`
+together because a series with nothing to qualify is not an identifier. The rule
+that prevents the next instance: a card whose acceptance names an existing column
+names the migration that created it. `grep -rn "<column>" supabase/migrations/`
+is one command and it is the difference between a card that can be worked and one
+that discovers its own premise is false halfway through.
+
+### The before-and-after proof does not fit in one harness window
+**Tag:** ci
+**ERROR:** EXT-11 requires the new e2e case "FAILING BEFORE THE CHANGE AND THE PR
+SHOWING BOTH RESULTS". `quality` takes about 22 minutes and
+`.github/workflows/quality.yml` sets `concurrency.cancel-in-progress: true` on
+`quality-${{ github.ref }}`, so a second push inside that window CANCELS the
+first run. A harness run capped at 45 minutes cannot produce a completed red run
+and a completed green run on the same branch: the red is cancelled before it
+concludes, and a cancelled run proves nothing.
+**SOLUTION:** Split the two results across two runs. The first push carries the
+tests alone and is left to conclude red. The next run pushes the implementation
+onto the same pull request and records the green. The rule: when a card's
+acceptance demands both a failing and a passing run on one branch, budget two CI
+cycles, not two commits.
+
+### A capability gate per migration FILE, not per column
+**Tag:** data
+**ERROR:** EXT-11 adds two columns and the four gates already in
+`lib/data/schema-capability.ts` each guard one column, so the obvious move was
+two more probes. Two probes for two columns added in the same `begin/commit` of
+the same file spend two PostgREST queries a minute to learn one fact, and worse,
+they imply a state that cannot exist: a reader of the code is told that
+`order_ref` might be present while `order_ref_series` is not.
+**SOLUTION:** One gate per migration FILE. Columns added in one transaction
+arrive together, so one probe answers for all of them; columns in different files
+reach production separately and need separate probes, which is why 0032 and 0033
+correctly have their own. The rule: the unit a gate guards is the unit that lands
+atomically, and that unit is the file.
+
+### A card's acceptance quietly assumed a column that no migration created
+**Tag:** data
+**ERROR:** EXT-11's acceptance says "wherever `order_ref` is stored, on orders
+and on extraction drafts", and its notes say P3-31 already split `order_ref` into
+theirs and ours. `grep -rn order_ref supabase/migrations/` returns nothing.
+`extraction_drafts` had no such column, `inbound_orders.reference` is OUR
+reference, and contract section 4.1a said in terms that `order_ref` arrives, is
+accepted and is IGNORED. P3-31's own acceptance line assumes the column too and
+P3-31 has not shipped. Two cards each built on a field the other was assumed to
+have landed, and neither creates it.
+**SOLUTION:** The card that needs the column creates it and records that it did.
+EXT-11 landed `order_ref` with `order_ref_series`, because a series with nothing
+to qualify is not an identifier. The rule that prevents the next instance: before
+working a card whose acceptance names an existing column, run
+`grep -rn "<column>" supabase/migrations/`. It is one command and it is the
+difference between a card that can be worked and one that discovers its premise
+is false halfway through.
+
+### Adding a field to a fixed-signature SQL function is not the cheap path
+**Tag:** backend
+**ERROR:** Carrying the supplier reference onto the created order looked like two
+new parameters on `confirm_extraction_draft`. A PostgreSQL function is not
+altered, it is dropped and recreated, so that is a migration replacing the
+function every confirmed document passes through, to add two columns the card
+asked for and a signature the card did not.
+**SOLUTION:** The RPC returns the new row's id, so the two fields go on in a
+gated `update` immediately after it, and that update's failure is deliberately
+not fatal: the order already exists, and refusing a real delivery because its
+supplier label could not be written loses the delivery to save the label. The
+rule: adding a column does not require changing the function that inserts the
+row, and the write with the smaller blast radius wins when both produce the same
+stored state.
+
+### A "must fail before the change" acceptance cannot be honoured by a tests-only push
+**Tag:** ci
+**ERROR:** EXT-11's acceptance names a clause that is a fact about history rather
+than about the tree: "THAT CASE FAILING BEFORE THE CHANGE AND THE PR SHOWING BOTH
+RESULTS". Two runs tried to satisfy it and neither produced a before-result. Run
+20260907-010004 pushed the two new extraction.spec cases alone, with the card
+honestly left at `todo`, and the quality job stopped at "Refuse a code pull
+request whose board edit is missing"; every step after it, the whole end to end
+suite included, reported `skipped`. Run 20260907-040001 then pushed the
+implementation, wrote `shipped` on the card, and cited that same failed run in the
+evidence field as the RED. It was not a RED for the cases. Cases 25 and 26 had
+never been executed in either state, so the checks the card adds had never been
+seen to fail, which the phase 3 board doctrine refuses in terms. The card was one
+merge away from shipping on a suite that never ran.
+**SOLUTION:** `scripts/poc-free/check-board-edit.mjs` classifies `tests/` as CODE,
+so ANY push carrying a test must have its card at a finished status or the job is
+refused before the end to end step is reached. That is not a bug in either rule;
+it means the intermediate push in a before-and-after sequence has to carry the
+card at `shipped` while the code is still absent. That is legitimate on an
+UNMERGED branch, which proposes a board state rather than asserting one about
+main, and it is only legitimate when the evidence field and the pull request body
+both say at the top that the card is not finished. The rule that prevents the next
+instance: **a cited RED is not evidence until its step list has been read.** A run
+concluding `failure` proves only that something failed. Before naming a run as the
+before-result, run `gh run view <id> --json jobs` and confirm the step that was
+supposed to fail has conclusion `failure` and not `skipped`.
+### The check for a link that was missing in one direction was itself missing one
+**Tag:** infra
+**ERROR:** `check-grant-revocation` exists because R-082 declared `REVOKED BY
+P2-13` and P2-13's checklist did not name it back. The first version of its
+detector matched `REVOKED BY <card>`, `expires at <card>` and `<card> revokes`.
+**R-059 is written "Revoked with every other terminal grant at P2-13"** and
+matched none of them, so the check built to find grants covered by an
+unenumerated phrase was itself letting a grant through on an unenumerated phrase.
+It was found by reading R-059 while classifying the hits by hand, not by the
+check reporting anything.
+**SOLUTION:** a fourth pattern, and case 3 of the proof is that exact wording, so
+the next reader meets it as an executable case rather than as a comment. RULE:
+**when a check enumerates the shapes of a thing, the enumeration is the defect the
+check is about, one level up.** Read the corpus it will run against before
+trusting the patterns, and expect the corpus to use a phrasing the patterns do
+not.
+
+### A card can be satisfied by work that lands after it is authored, and it does not notice
+**Tag:** infra
+**ERROR:** GATE-03's notes said "Verified on main before authoring: P2-13's card
+carries no occurrence of the string R-082 anywhere in any field." That was true
+on 2026-09-02 when the card was authored. On 2026-09-04 a TRIAGE rulings pull
+request cut two days earlier merged, and R-095 added exactly the box GATE-03
+asks for, in almost GATE-03's words. The card then sat eligible for three days
+asking for work already done, and its stated verification read as current.
+**SOLUTION:** the note is quoted on the card under CLAUDE.md 9c with the date it
+stopped being true and the commit that ended it, and the card shipped on the half
+that was still undone. This is the second card in a week overtaken this way; AUT-9
+was the first. RULE: **a card's "verified on main" note is a measurement with a
+timestamp, not a standing fact.** Re-run the verification when you pick the card
+up, especially where a long-lived TRIAGE branch can land between authoring and
+working.
+
+### The tab strip already gave every panel its testid, and a second one broke strict mode
+**Tag:** frontend
+**ERROR:** `DevizComparisonPanel` was written with its own
+`<div data-testid="panel-comparatie">` wrapper. Every one of the nine new
+Playwright cases failed on `getByTestId('panel-comparatie') resolved to 2
+elements`, because `ProjectTabs` already wraps every tab body in
+``<div data-testid={`panel-${active}`}>``, which is where `panel-deviz` and
+`panel-consum` come from. The two nodes were **nested and identical**, which is
+why reading the source did not find it: the component really did render one
+wrapper, and the other came from a file nobody was looking at.
+**SOLUTION:** the panel returns its `Card` directly, like every other tab body.
+Found by putting a `data-mark` attribute on the component's own wrapper and
+asking the DOM which of the two carried it: the outer one did not, so it was not
+this component's. RULE: **when two identical nodes appear and the source has one,
+mark the one you wrote.** Reading harder finds the node you already know about;
+an attribute that only one of them can carry names the other one's owner in a
+single run.
+
+### A convention that is generated cannot be found by grepping for its result
+**Tag:** frontend
+**ERROR:** the testid above is built as a template, ``panel-${active}``, so
+`grep -rn "panel-comparatie"` over the whole repository returned only the new
+component and its spec. The existing convention was invisible to the search that
+would have prevented the mistake, and every other tab body demonstrates it by
+NOT having a wrapper, which is an absence and not something a grep finds.
+**SOLUTION:** the search that would have worked is for the SHAPE, `data-testid={`,
+in the file that renders the thing being added to. RULE: **before adding a
+testid, grep for `data-testid={` in the parent, not for the literal you are about
+to write.** A generated identifier has no literal to find.
+
+### The witness for "this case is included" must be a row the case can actually produce
+**Tag:** infra
+**ERROR:** P3-18's acceptance says in capitals that **a project in `active` with an
+accepted deviz IS included**, reversing what the authored card said. The fixture
+gave the `active` project one product, and that product was the over-issue case:
+estimate 6, issued 9, so its contribution is correctly **zero**. The clause was
+then untestable in the direction it was written, because a contribution of zero
+looks exactly like exclusion on screen.
+**SOLUTION:** the `active` project gained a **second** product it genuinely still
+needs, so the status breakdown shows a non-zero figure under `În lucru`. The
+over-issue case keeps the first product and is asserted separately. RULE: **a
+fixture that proves an inclusion needs a row the inclusion produces.** When the
+only case you gave a category is one whose correct answer is zero, you have built
+a fixture that cannot tell inclusion from exclusion.
+
+### A batch is not a number you can seed
+**Tag:** data
+**ERROR:** stock in this repository is `sum(batches.quantity) - sum(outbound_lines.quantity)`,
+so a fixture with a chosen stock level looked like one insert into `batches`. It
+is not: `batches` requires `inbound_order_id` **and** `order_line_id`, both NOT
+NULL with foreign keys, and `order_line_id` is unique per batch. A seeded stock
+level therefore needs an arrived inbound order, an order line per product, and a
+batch per line.
+**SOLUTION:** the seed builds that graph, and says in its own comment why the
+ceremony is not ceremony: it is the graph the inventory screen reads, and a stock
+figure written beside it would be a second truth about the same number. RULE:
+**before seeding a derived quantity, read the constraint graph of the table it is
+derived from.** The shape of the insert is the schema's answer to how that number
+is allowed to exist.
+
+### The card's first clause rested on a premise the card itself told me to test
+**Tag:** backend
+**ERROR:** EXT-12's acceptance asks that "the timeout in
+`lib/data/extraction-fire.ts` is derived from the line count threshold". Neither
+half of that is available: the fire happens **before** the extraction, so no line
+count exists yet, and the six-field payload carries none; and the 15 second
+timeout there is the **acknowledgement** clock, awaiting Make's 2xx on a POST
+that carries a `callback_url`, not the extraction budget, which is Make's own and
+which the contract already described as such.
+**SOLUTION:** the card's own defaults had pre-decided both: *"if the count is not
+knowable at fire time, the longer budget applies to every document and the PR says
+so plainly instead of inventing a proxy"*, and its notes named the clock question
+as *"the first thing this card establishes"*. So it shipped under CLAUDE.md 5 as a
+default applied, not under section 4 as a block: the two numbers get one source,
+the acknowledgement clock reads from that same file so it cannot drift, and the
+contract now carries a table of the three clocks. `size_bytes` was **not** used as
+a proxy. RULE: **when a card's notes name a premise as the first thing to
+establish, establish it before writing any code against it.** A card that
+predicts its own false premise has usually also pre-decided what to do about it.
+
+### A repository with no unit runner still has a unit idiom
+**Tag:** infra
+**ERROR:** the acceptance asks for "a named unit case". `npm run test:e2e` is
+Playwright and there is no vitest, jest or node:test harness anywhere, so the
+obvious move was to add one.
+**SOLUTION:** not adding one. Every unit-shaped assertion in this repository is a
+`scripts/poc-free/prove-*.mjs` wired into `quality` by name, and that is what the
+phrase means here. A second test framework for thirteen assertions is a
+dependency CLAUDE.md forbids taking without asking. RULE: **before adding a tool
+to satisfy a word in an acceptance, look for what the repository already calls by
+that word.** The idiom is usually there under a different name.
+
+### Node 22 strips types and node 20 does not, and CI is node 20
+**Tag:** ci
+**ERROR:** the extraction budget was written as `lib/data/extraction-budget.ts`
+and imported by `scripts/poc-free/prove-extraction-budget.mjs`. Thirteen
+assertions passed locally. CI went red on the first run with
+`TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`, because
+this Mac runs node 22, which strips type annotations natively, and the workflow
+pins `node-version: '20'`, which does not.
+**SOLUTION:** **the repository had already answered this.** EXT-08 hit the same
+error and created `lib/data/document-url-contract.mjs` with a `.d.mts` beside it,
+rejecting in terms the alternative of raising the workflow's node version, *"an
+environment change for all twenty-two steps of the job, made for a reason that has
+nothing to do with any of them."* EXT-12 follows that precedent rather than
+inventing a second answer. RULE: **when a runner rejects something your machine
+accepts, grep the repository for the error string before choosing a fix.** This
+one was already solved, with the reasoning written down, in a file two
+directories away.
+
+### Un caz nou de confirmare care nu completeaza data estimata pica pe alt motiv decat cel testat
+**Tag:** ci
+**ERROR:** EXT-11, run 34179242898 pe PR #240. Un singur caz rosu din 188:
+`tests/e2e/review.spec.ts` "EXT-11: seria furnizorului se vede in fisa si valoarea
+editata este cea salvata", cazut pe `expect(getByTestId('review-created')).toBeVisible()`
+dupa 30 de secunde, "element(s) not found". Implementarea era corecta: cele doua
+campuri ale seriei se afisau si se editau, iar clauza 1 a cazului trecuse. Ce nu
+trecea era confirmarea: `confirmExtractionDraft` in `lib/data/extraction-actions.ts`
+refuza cu "Completeaza data estimata de livrare" cand `expectedAt` este gol, mesajul
+aterizeaza in `review-error`, si `review-created` nu se randeaza niciodata. Cazul nou
+era singurul de pe calea de confirmare care nu completa `review-expected-at`. Costul:
+un ciclu de quality de 22 de minute si o fereastra de harness intreaga, pentru un camp
+care nu are nimic de a face cu ce dovedeste cazul.
+**SOLUTION:** `await page.getByTestId("review-expected-at").fill("2026-12-05")` inainte
+de `review-confirm`, cu motivul scris langa el. Regula: **data estimata de livrare nu
+vine din extragere si este obligatorie, deci orice caz nou care apasa `review-confirm`
+o completeaza, oricare ar fi campul pe care il dovedeste.** Cand se scrie un caz nou pe
+o cale care are deja cazuri verzi, se citeste unul dintre ele pana la capat si se
+copiaza pasii de care depinde actiunea finala; un caz care pica pe ultimul `expect` al
+altcuiva nu spune nimic despre ce testeaza el.
+
+### A board timestamp rounded forward is a timestamp from a clock that has not struck
+**Tag:** ci
+**ERROR:** GATE-01. The board edit was written by hand with `2026-09-08T08:12:00Z`
+on three fields, `GATE-01.last_checkpoint`, `GATE-01.evidence.at` and the G1 gate
+`evidence.at`, because the session rounded the current time up to the next
+convenient minute instead of reading it. `node docs/board/validate-board.mjs`
+passed, because the shape was fine. `npm run check:board-clock` refused with
+`3 of 130 timestamp(s) are AHEAD of the commit that wrote them`, four minutes
+ahead, and that check is unfiltered in `quality`, so the pull request would have
+gone red on a board that every other validator called correct.
+**SOLUTION:** the three fields now read `2026-09-08T08:06:30Z`, after the probe
+they describe and before the commit that carries them. The rule: **a board
+timestamp is READ from the clock, with `date -u`, never composed.** A field
+recording when something happened cannot be later than the commit recording it,
+and the round number is exactly the tell, because nothing that actually happened
+happened at `:00`. Run `npm run check:board-clock` after any board edit, in the
+same breath as the board validator; passing the validator says the JSON is
+well-shaped and says nothing about whether it is true.
+
+### The deployed-commit guard is aimed at a host that stopped being the app
+**Tag:** infra
+**ERROR:** `scripts/poc-free/check-deployed-commit.mjs` defaults to
+`https://www.rapidconstructmd.com/api/health`. On 2026-09-08 that host answers
+from GitHub Pages (`server: GitHub.com`, `last-modified 2026-09-07T21:28:04Z`)
+and serves a construction company's marketing site: `/api/health` returns 404
+and so does `/autentificare`. The inventory application answers from Vercel at
+`rc-inventory-iota.vercel.app`, where `/api/health` returns
+`{"commit":"49fef9a...","ledger_version":"0036"}`. Run with its default origin
+the guard fetches an HTML 404, finds no commit, and REFUSES. The refusal is
+correct behaviour on a wrong input, which is exactly why it is dangerous: the
+check that stands between a removal migration and INC-06 now blocks on a stale
+default rather than on a real risk, and the obvious workaround is to pass
+`--origin` and stop thinking about it.
+**SOLUTION:** Not fixed here. GATE-02 is an audit and repointing a safety check's
+default deserves its own card and its own decision about which origin is
+canonical. The rule that prevents the next instance: **a check whose default
+names a host is a check with a dependency nobody declared.** When a guard hard
+codes an origin, the origin belongs in one place that something asserts, the way
+`scripts/production-refs.mjs` holds the project ref, so that repointing a domain
+breaks one assertion loudly instead of every guard quietly.
+
+### A strict required check plus a 45 minute cap means one merge per run, whatever the backlog
+**Tag:** ci
+**ERROR:** unattended run `20260905-010004` booted onto three open pull requests
+(#205 AUT-19, #206 the previous run's report, #207 the TRIAGE rulings). All three
+read `quality SUCCESS` and all three were `mergeStateStatus BEHIND`, so all three
+were stale under CLAUDE.md section 3. `quality` costs about 20.5 minutes on this
+repository, measured across the four most recent completed runs, and `main`
+requires branches to be up to date. Updating all three at once is free and their
+runs go green in parallel, but the FIRST merge puts the other two back to
+`BEHIND`, and a second round of 20.5 minutes does not fit inside what is left of
+a 45 minute cap. The arithmetic is structural, not incidental: a scheduled run
+can land exactly ONE pull request per run no matter how many are ready, so a
+backlog of N stale pull requests needs N runs to drain and grows faster than it
+drains as soon as more than one run per day opens one.
+**SOLUTION:** this run updated all three branches first, so their runs went green
+concurrently rather than serially, then spent its single merge window on the card
+pull request. RULE: a scheduled run treats its merge window as a budget of ONE and
+spends it on the highest-value pull request already open, before it considers
+opening another. `gh pr update-branch` on every stale pull request is still worth
+doing on the way past, because it costs seconds and leaves the next run a green
+head sha instead of a stale one. AUT-23 covers the half of this that is about not
+opening a fourth pull request; the half that is about only ever being able to
+close one is this entry.

@@ -1169,4 +1169,64 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(page.getByTestId("review-line-price-0")).toHaveValue("76.72");
   });
 
+  // -------------------------------------------------------------------------
+  // EXT-11. FISA ARATA SI EDITEAZA SERIA DOCUMENTULUI FURNIZORULUI.
+  //
+  // Seria este partea identificatorului pe care operatorul o vede tiparita pe
+  // hartie inaintea numarului. Daca ea ajunge in baza si nu pe ecran, atunci
+  // singurul om care poate corecta o citire gresita nu stie ca exista ce sa
+  // corecteze. ACEST CAZ PICA INAINTE DE SCHIMBARE: campul nu exista in fisa.
+  // -------------------------------------------------------------------------
+
+  test("EXT-11: seria furnizorului se vede in fisa si valoarea editata este cea salvata", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "e11serie");
+
+    expect(
+      (await post(request, callbackBody(orderId, {
+        order_ref: "0009312",
+        order_ref_series: "TG",
+      }))).status(),
+    ).toBe(202);
+
+    await page.goto(UPLOAD);
+    await openReview(page, orderId);
+
+    // CLAUZA 1: ce a extras modelul ajunge pe ecran, in doua campuri separate.
+    await expect(page.getByTestId("review-order-ref-series")).toHaveValue("TG");
+    await expect(page.getByTestId("review-order-ref")).toHaveValue("0009312");
+
+    // CLAUZA 2: operatorul corecteaza seria, si valoarea lui este cea salvata.
+    await page.getByTestId("review-order-ref-series").fill("AV");
+    // Data estimata de livrare este OBLIGATORIE la confirmare, si nu vine din
+    // extragere: confirmExtractionDraft refuza cu "Completeaza data estimata de
+    // livrare" cand lipseste. Fara randul asta confirmarea nu creeaza nimic si
+    // acest caz pica pe review-created, adica pe alt motiv decat seria.
+    await page.getByTestId("review-expected-at").fill("2026-12-05");
+    await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
+    await page.getByTestId("review-confirm").click();
+
+    const created = page.getByTestId("review-created");
+    await expect(created).toBeVisible({ timeout: 30_000 });
+    const reference = (await created.getAttribute("data-reference")) ?? "";
+    expect(reference.length).toBeGreaterThan(0);
+
+    const rest = restAdmin();
+    const saved = await fetch(
+      `${rest.origin}/rest/v1/inbound_orders` +
+        `?reference=eq.${encodeURIComponent(reference)}&select=order_ref,order_ref_series`,
+      { headers: rest.auth },
+    );
+    expect(saved.ok, "comanda creata se poate citi inapoi").toBe(true);
+    const [order] = (await saved.json()) as {
+      order_ref: string | null;
+      order_ref_series: string | null;
+    }[];
+    expect(order.order_ref_series, "seria editata de operator").toBe("AV");
+    expect(order.order_ref, "numarul ramane neatins").toBe("0009312");
+  });
+
 });

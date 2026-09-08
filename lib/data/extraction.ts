@@ -16,7 +16,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { inBatches } from "./id-list";
 import { isDocumentSource } from "./extraction-types";
-import { hasExtractionDocumentSource } from "./schema-capability";
+import { hasExtractionDocumentSource, hasSupplierDocumentRef } from "./schema-capability";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
 
 /** EXT-15. Aceeasi lista, plus coloana pe care 0032 o adauga.
@@ -29,6 +29,28 @@ const DRAFT_COLUMNS_WITH_SOURCE =
 
 const DRAFT_COLUMNS =
   "order_id, document_path, document_filename, mime_type, size_bytes, status, error_code, reason, supplier_name, order_date, subtotal, vat_amount, document_total, prices_include_vat, vat_rate, currency, currency_raw, fired_at, callback_at, confirmed_at, confirmed_inbound_order_id";
+
+/** EXT-11. Aceleasi liste, plus perechea pe care 0036 o adauga.
+ *
+ *  O A TREIA LISTA SI NU O CONCATENARE INLINE, din acelasi motiv pentru care
+ *  exista deja doua: tipurile lui supabase-js parseaza sirul de select ca
+ *  literal, iar o expresie conditionala le da o uniune si parserul renunta cu o
+ *  eroare de tip. Alegerea se face in draftColumnsFor si rezultatul se tine
+ *  intr-un `string` larg, care il face sa intoarca forma generica, exact ce vrea
+ *  mapDraft: el citeste campurile pe nume dintr-un Record. */
+const SUPPLIER_REF_COLUMNS = ", order_ref, order_ref_series";
+
+/** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
+ *
+ *  DOUA INTREBARI SEPARATE SI NU UNA, fiindca 0033 si 0036 sunt fisiere separate
+ *  si ajung in productie separat. O poarta comuna ar lega soarta lor si ar
+ *  ascunde exact starea in care una este aplicata si cealalta nu. */
+async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocumentSource>[0] & Parameters<typeof hasSupplierDocumentRef>[0]): Promise<string> {
+  const base = (await hasExtractionDocumentSource(supabase))
+    ? DRAFT_COLUMNS_WITH_SOURCE
+    : DRAFT_COLUMNS;
+  return (await hasSupplierDocumentRef(supabase)) ? base + SUPPLIER_REF_COLUMNS : base;
+}
 
 const LINE_COLUMNS =
   "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw";
@@ -82,6 +104,12 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // prin effectiveSource, si niciuna nu este rescrisa aici intr-o afirmatie pe
     // care nimeni nu a facut-o.
     documentSource: isDocumentSource(row.document_source) ? row.document_source : null,
+    // EXT-11. Doua coloane, doua campuri, si nimic nu le lipeste aici. Cand 0036
+    // nu este inca aplicata coloanele lipsesc din select si amandoua sunt null,
+    // ceea ce este comportamentul de pana acum: referinta furnizorului nu era
+    // stocata deloc.
+    orderRef: (row.order_ref as string | null) ?? null,
+    orderRefSeries: (row.order_ref_series as string | null) ?? null,
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),
@@ -105,9 +133,7 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   // parserul renunta cu o eroare de tip in loc sa produca forma. Un `string`
   // larg il face sa intoarca forma generica, care este exact ce vrea mapDraft:
   // el citeste campurile pe nume dintr-un Record si nu depinde de inferenta.
-  const draftColumns: string = (await hasExtractionDocumentSource(supabase))
-    ? DRAFT_COLUMNS_WITH_SOURCE
-    : DRAFT_COLUMNS;
+  const draftColumns: string = await draftColumnsFor(supabase);
 
   // P3-38. LINIILE VIN IMBRICATE, INTR-O SINGURA CERERE, FARA NICIO LISTA DE
   // ID-URI.

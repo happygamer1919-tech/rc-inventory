@@ -32,7 +32,15 @@ async function ensureTestCategory(page: import("@playwright/test").Page) {
 
 async function createProduct(
   page: import("@playwright/test").Page,
-  opts: { sku: string; name: string; unit?: string; threshold?: string; supplier?: string },
+  opts: {
+    sku: string;
+    name: string;
+    unit?: string;
+    threshold?: string;
+    supplier?: string;
+    packageUnit?: string;
+    packageFactor?: string;
+  },
 ) {
   await page.goto("/inventar");
   await page.getByTestId("product-new").click();
@@ -43,6 +51,8 @@ async function createProduct(
   if (opts.unit) await page.getByTestId("field-unit").selectOption(opts.unit);
   if (opts.threshold) await page.getByTestId("field-threshold").fill(opts.threshold);
   if (opts.supplier) await comboType(page, "field-supplier", opts.supplier);
+  if (opts.packageUnit) await page.getByTestId("field-package-unit").fill(opts.packageUnit);
+  if (opts.packageFactor) await page.getByTestId("field-package-factor").fill(opts.packageFactor);
   await page.getByTestId("form-submit").click();
   await settled(page);
 }
@@ -226,6 +236,54 @@ test.describe("Catalog de produse", () => {
     // operatorul a doua oara: randul B arata scrierea reconciliata.
     const rowB = page.locator(`[data-testid="product-row"][data-sku="${skuB}"]`);
     await expect(rowB).toContainText(supplier);
+  });
+
+  // EXT-10. Ambalajul furnizorului: se scrie pe ecran si se citeste inapoi.
+  test("ambalajul furnizorului se salvează prin ecran și se citește înapoi", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    const sku = testSku("pachet");
+    await createProduct(page, {
+      sku,
+      name: "Saci pe palet",
+      packageUnit: "palet",
+      packageFactor: "48",
+    });
+    await expect(rowForSku(page, sku)).toHaveCount(1);
+
+    // Reincarcare completa: daca ar fi ramas in starea formularului, ar dispărea.
+    await page.reload();
+    await rowForSku(page, sku).click();
+    await expect(page.getByTestId("product-panel")).toBeVisible();
+    await expect(page.getByTestId("panel-package")).toContainText("palet");
+    await expect(page.getByTestId("panel-package")).toContainText("48");
+
+    // Si valorile revin IN CAMPURI, nu doar intr-o propozitie: cine deschide
+    // formularul din nou trebuie sa poata corecta factorul, nu sa il rescrie.
+    await page.getByTestId("panel-edit").click();
+    await expect(page.getByTestId("product-form")).toBeVisible();
+    await expect(page.getByTestId("field-package-unit")).toHaveValue("palet");
+    await expect(page.getByTestId("field-package-factor")).toHaveValue("48");
+  });
+
+  // EXT-10. Jumatatea de pereche este refuzata, si romaneste.
+  test("un ambalaj fără factor este refuzat cu mesaj românesc", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    const sku = testSku("pachet-partial");
+    await createProduct(page, { sku, name: "Ambalaj fara factor", packageUnit: "cutie" });
+
+    const error = page.getByTestId("form-error");
+    await expect(error).toBeVisible();
+    await expect(error).toContainText("câte unități de stoc încap");
+    // Niciun text brut de Postgres pe ecran.
+    await expect(error).not.toContainText(/violates|constraint|check/i);
+
+    // Si nimic nu s-a salvat pe jumatate.
+    await page.goto("/inventar");
+    await expect(rowForSku(page, sku)).toHaveCount(0);
   });
 
   test("căutarea ignoră diacriticele", async ({ page }) => {
