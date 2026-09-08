@@ -227,14 +227,21 @@ deviation and the next run should not read this as precedent.
 green `quality` run existing for its own head sha under CLAUDE.md 3.1. No other
 card was touched, no card was blocked, and nothing was escalated.
 
-**`GATE-02` was the next eligible card and was deliberately not started.** It is
-an audit of all nine phase 3 gate conditions, and its own defaults forbid the
-only version of it that fits in the time that was left: "EVERY CONDITION IS
-RE-DERIVED, NONE IS DECLARED UNCHANGED". Nine conditions, each needing a live
-probe and a rewritten evidence field, against a 45 minute cap that was roughly
-half spent. Section 13 says do not start work that cannot be finished and merged,
-and a half-audit that carries seven conditions forward as "obviously unchanged"
-is precisely the failure that card exists to correct.
+**`GATE-02` was the next eligible card and was deliberately not started, and the
+arithmetic is written out rather than asserted.** It is an audit of all nine phase
+3 gate conditions, and its own defaults forbid the only version of it that would
+fit: "EVERY CONDITION IS RE-DERIVED, NONE IS DECLARED UNCHANGED". Nine
+conditions, each needing a live probe and a rewritten evidence field.
+
+What was left when this card merged was on the order of twenty-five minutes of a
+forty-five minute cap, and **a `quality` cycle on this repository is about ten of
+them**, which is the number that decides it: the audit would have had roughly a
+quarter of an hour to re-derive nine conditions and would then have had to survive
+a full check before it could merge. Section 13 says do not start work that cannot
+be finished and merged. A half-audit that carries seven conditions forward as
+"obviously unchanged" is precisely the failure `GATE-02` exists to correct, and
+producing one under a deadline would have been worse than leaving the card
+untouched.
 
 **Nothing else was claimed and nothing was skipped for being hard.** The lease
 file `docs/poc/claims/` was empty of card claims, and the only entry in
