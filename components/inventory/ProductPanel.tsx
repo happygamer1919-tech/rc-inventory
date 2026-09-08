@@ -161,6 +161,21 @@ export function ProductPanel({
           ))}
         </div>
 
+        {/* EXT-10. AMBALAJUL FURNIZORULUI, aratat doar cand exista. Un produs
+            facturat in unitatea in care este stocat nu are ambalaj, si un rand
+            care spune "fara ambalaj" pe majoritatea catalogului este zgomot. */}
+        {product.packageUnit && product.packageFactor !== null ? (
+          <p
+            className="mx-6 -mt-2 mb-4 rounded-[10px] border border-rc-line bg-rc-paper px-3.5 py-2.5 text-[12.5px] text-rc-black"
+            data-testid="panel-package"
+          >
+            Furnizorul facturează pe{" "}
+            <span className="font-semibold">{product.packageUnit}</span>:{" "}
+            <span className="rc-num font-semibold">{formatNumber(product.packageFactor)}</span>{" "}
+            {unitLabel(product.unit)} într-un {product.packageUnit}.
+          </p>
+        ) : null}
+
         <section className="px-6 pb-2">
           <h3 className="text-[13.5px] font-bold text-rc-black mb-2">
             Loturi <span className="font-normal text-rc-muted">({batches.length})</span>

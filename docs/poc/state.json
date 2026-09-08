@@ -1,22 +1,12 @@
 {
   "schema_version": 2,
-  "last_run": "2026-09-05T03:00:13Z",
-  "run_id": "20260904-220003",
+  "last_run": "2026-09-08T09:27:26Z",
+  "run_id": "20260908-040001",
   "cards_touched": [
     {
-      "card_id": "AUT-18",
+      "card_id": "GATE-01",
       "status": "shipped",
-      "run_id": "20260904-220003"
-    },
-    {
-      "card_id": "AUT-18",
-      "status": "branch",
-      "run_id": "20260904-220003"
-    },
-    {
-      "card_id": "AUT-19",
-      "status": "branch",
-      "run_id": "20260904-220003"
+      "run_id": "20260908-040001"
     }
   ],
   "escalations": [
@@ -180,14 +170,466 @@
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260904-071258.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-09-04T11:54:48Z",
       "run_id": "20260904-071258"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260906-220005: its head commit predates this run and quality on that head sha is FAILURE, so no merge may rest on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260906-220005: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260906-220005: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260906-220005: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T03:11:08Z",
+      "run_id": "20260906-220005"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260907-010004: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260907-010004: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260907-010004: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260907-010004: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T05:29:50Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "EXT-11,EXT-12,EXT-13,EXT-21,GATE-01,GATE-02,P3-13c,P3-14,P3-15,P3-16,P3-17,P3-19,P3-20,P3-21,P3-22,P3-23,P3-24,P3-25,P3-26,P3-28,P3-29,P3-29a,P3-29b,P3-29c,P3-30,P3-31,P3-32,P3-35,P3-36,P3-37,P3-39,GATE-03,LEARN-01,MIG-02,P2-20,RESTORE-01,RST-02,RST-03,RST-04,RST-05,RULE-03,RULE-05",
+      "question": "Eligible card(s) EXT-11,EXT-12,EXT-13,EXT-21,GATE-01,GATE-02,P3-13c,P3-14,P3-15,P3-16,P3-17,P3-19,P3-20,P3-21,P3-22,P3-23,P3-24,P3-25,P3-26,P3-28,P3-29,P3-29a,P3-29b,P3-29c,P3-30,P3-31,P3-32,P3-35,P3-36,P3-37,P3-39,GATE-03,LEARN-01,MIG-02,P2-20,RESTORE-01,RST-02,RST-03,RST-04,RST-05,RULE-03,RULE-05 were not shipped by this run. work is on a branch and was not merged: EXT-11:branch:in_flight. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so.",
+      "recommendation": "Read /Users/ivan/rc-poc-logs/20260907-010004.log. Silence on an eligible card is a defect, not a normal outcome.",
+      "raised_at": "2026-09-07T05:47:52Z",
+      "run_id": "20260907-010004"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260907-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260907-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260907-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260907-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T08:32:32Z",
+      "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "PR-248",
+      "question": "Pull request #248 on branch triage/20260907-070002 (head 2b7207b02c3df6e3962542fbef37ab25fb264843) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-245",
+      "question": "Pull request #245 on branch triage/20260907-040001 (head 3b0daeb78b849d99b549104cee2af4ea93a5a0f1) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-242",
+      "question": "Pull request #242 on branch triage/20260907-010004 (head efb33214a905a47f173d1febd3f5fbae67e567e5) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-238",
+      "question": "Pull request #238 on branch triage/20260906-220005 (head 8827cfac2dee7cf094d9ca18a9519c3989a7bdda) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260907-220001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T02:54:24Z",
+      "run_id": "20260907-220001"
+    },
+    {
+      "card_id": "PR-249",
+      "question": "Pull request #249 on branch poc/state-20260907-070002 (head e83a75c41ad7a8b709b979b16ba7721b3b0667a0) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-248",
+      "question": "Pull request #248 on branch triage/20260907-070002 (head 2b7207b02c3df6e3962542fbef37ab25fb264843) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-245",
+      "question": "Pull request #245 on branch triage/20260907-040001 (head 3b0daeb78b849d99b549104cee2af4ea93a5a0f1) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-242",
+      "question": "Pull request #242 on branch triage/20260907-010004 (head efb33214a905a47f173d1febd3f5fbae67e567e5) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-238",
+      "question": "Pull request #238 on branch triage/20260906-220005 (head 8827cfac2dee7cf094d9ca18a9519c3989a7bdda) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260908-010002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T05:52:40Z",
+      "run_id": "20260908-010002"
+    },
+    {
+      "card_id": "PR-262",
+      "question": "Pull request #262 on branch triage/20260908-010002 (head a8aa3c892db5561b9d32766ba005c9fa28e48e60) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-249",
+      "question": "Pull request #249 on branch poc/state-20260907-070002 (head e83a75c41ad7a8b709b979b16ba7721b3b0667a0) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-248",
+      "question": "Pull request #248 on branch triage/20260907-070002 (head 2b7207b02c3df6e3962542fbef37ab25fb264843) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-245",
+      "question": "Pull request #245 on branch triage/20260907-040001 (head 3b0daeb78b849d99b549104cee2af4ea93a5a0f1) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-242",
+      "question": "Pull request #242 on branch triage/20260907-010004 (head efb33214a905a47f173d1febd3f5fbae67e567e5) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-238",
+      "question": "Pull request #238 on branch triage/20260906-220005 (head 8827cfac2dee7cf094d9ca18a9519c3989a7bdda) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260908-040001: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-08T09:08:31Z",
+      "run_id": "20260908-040001"
     }
   ],
-  "digest_last_sent": "2026-09-05T03:00:12Z",
+  "digest_last_sent": "2026-09-08T09:08:30Z",
   "claims": {
-    "APPLY-02": {
+    "EXT-11": {
       "claimed_by": "harness",
-      "claimed_at": "2026-09-05T03:00:13Z"
+      "claimed_at": "2026-09-08T06:11:32Z"
+    },
+    "GATE-01": {
+      "claimed_by": "harness",
+      "claimed_at": "2026-09-08T09:27:26Z"
     }
   },
-  "report_path": "docs/reports/2026-09-04-executor-aut-16-board-set.md"
+  "report_path": "docs/reports/2026-09-08-executor-gate-01-anon-write.md"
 }

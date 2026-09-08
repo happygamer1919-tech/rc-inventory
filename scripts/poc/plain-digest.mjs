@@ -228,6 +228,28 @@ export function buildPlainDigest(boards, state, opts = {}) {
     }
   }
 
+  // 4b. HELD BACK. Card AUT-23.
+  //
+  // The producer gate withholds finished work when a queue is already waiting,
+  // and the owner has to be told, because held work that went quiet looks
+  // exactly like work that was never done. It repeats every message until the
+  // queue clears, for the same reason an unanswered question does.
+  //
+  // NO BRANCH NAME AND NO COUNT OF PULL REQUESTS. CLAUDE.md 15 keeps this
+  // message free of branches, numbers and mechanics, and the full digest under
+  // /Users/ivan/rc-poc-logs carries both for whoever is reading the logs. What
+  // the owner needs here is that something finished is waiting on him, and why.
+  const parkedCount = Number(opts.parkedCount || 0);
+  if (parkedCount > 0) {
+    lines.push("");
+    lines.push("HELD BACK");
+    lines.push(
+      "- " + plural(parkedCount, "batch of finished work is", "batches of finished work are") +
+        " being held until the work already waiting for you is accepted. Nothing is lost;" +
+        " it is sent as soon as the queue clears."
+    );
+  }
+
   // 5. Progress, ONE LINE PER BOARD.
   //
   // AUT-16. Two launch gates are never summed. 6 of 9 and 0 of 9 is not 6 of
