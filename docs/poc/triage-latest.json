@@ -1,27 +1,12 @@
 {
-  "run_id": "20260904-071258",
-  "report": "docs/reports/2026-09-04-executor-aut-17-triage-selector.md",
-  "rulings_written": [
-    "R-118",
-    "R-119",
-    "R-120",
-    "R-121"
-  ],
+  "run_id": "20260908-040001",
+  "report": "docs/reports/2026-09-08-executor-gate-01-anon-write.md",
+  "rulings_written": ["R-171", "R-172", "R-173", "R-174"],
   "cards_resequenced": [
-    {
-      "card_id": "AUT-6",
-      "change": "The check that proves our Telegram assistant only listens to you has been failing, and we now know why: the check was pointed at the live message folder instead of a scratch one, so it read a real unanswered question of yours and, worse, wrote a fake reply into that folder in your name. The assistant itself is fine and stays marked done. The written record on this item now says all of that, and the repair job already on the list has been told exactly what to fix."
-    }
+    {"card_id": "P2-13", "change": "depends_on SHOULD read P2-08b, APPLY-02, P3-35, P3-37 and stays at P2-08b because the validator refuses cross-board ids; the three edges are written into notes with the refusal quoted, per R-173"},
+    {"card_id": "RULE-10", "change": "acceptance replay list now refuses GATE-01 as well as DIG-01, P3-18 and EXT-12"},
+    {"card_id": "GATE-02", "change": "acceptance now puts each gate audit in the condition notes and sets evidence to null on any condition that does not flip"}
   ],
   "gates_flipped": [],
-  "escalations": [
-    {
-      "title": "The credential lockdown, the one action that closes off every temporary permission the overnight sessions hold, is still waiting on the extraction supplier and has been since 2026-08-27. Raised again because the review that raised it is itself still unpublished.",
-      "recommendation": "Set a date and do the lockdown on it, rather than waiting for him. RECOMMENDED BECAUSE THE ONLY THING HIS ANSWER BUYS IS ONE TEST: the item waiting on him is a single live document run through the supplier's system, and that is the only thing that genuinely needs the current credentials in place. Everything else the lockdown removes has nothing to do with him. THE HONEST TRADEOFF: doing the lockdown first means that live document run needs fresh credentials afterwards, which is half an hour of setup, not a rebuild. IF UNANSWERED: nothing breaks and nothing gets worse, which is the problem. The temporary permissions stay live indefinitely on somebody else's schedule, and the client acceptance walk stays behind them, exactly as it has for eight days."
-    },
-    {
-      "title": "Two settings in the live hosting environment for the low-stock warning email have been recorded as missing since 2026-08-26 and are still not confirmed set. This is the fourth time it has been raised.",
-      "recommendation": "Set RESEND_API_KEY and RESEND_FROM in the production environment, by name only, and reply that they are set. RECOMMENDED BECAUSE THEY COST NOTHING AND ARE ON THE CRITICAL PATH ANYWAY: both are already required items on the credential lockdown checklist, so doing them now removes two items from that day rather than adding any. THE HONEST CAVEAT: this does NOT make the readiness condition pass. The warning email is currently addressed to an account on a domain that does not exist, so even with both settings in place it would be sent to nobody. That third piece lands with the real staff accounts at the lockdown. IF UNANSWERED: nothing breaks. The warning email keeps recording its reason on screen and not sending, which is the designed behaviour, and both settings simply wait to be done on lockdown day instead."
-    }
-  ]
+  "escalations": []
 }
