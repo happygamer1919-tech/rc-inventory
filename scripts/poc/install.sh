@@ -84,6 +84,33 @@ $POC_CHAT_LABEL|$REPO_ROOT/docs/poc/com.ai.rc-poc-chat.plist.template|$POC_CHAT_
 $POC_DIGEST_LABEL|$REPO_ROOT/scripts/poc/digest.sh|$POC_BIN_DIR/digest.sh|755|the scheduled digest
 $POC_DIGEST_LABEL|$REPO_ROOT/docs/poc/com.ai.rc-poc-digest.plist.template|$POC_DIGEST_PLIST|644|its agent"
 
+# AUT-21. `--manifest` PRINTS THE MANIFEST AND INSTALLS NOTHING.
+#
+# WHY IT LIVES HERE AND NOT IN THE CALLER. scripts/poc/run.sh has to compare the
+# DEPLOYED copy of each script against the repository copy, and to do that it
+# needs the pairs. The card's defaults forbid the obvious shortcut in terms:
+# "Take the list from install.sh itself rather than writing a fourth copy of it.
+# AUT-16 removed three copies of a path list for this reason and a new hardcoded
+# list here re-creates the same defect in a smaller place."
+#
+# A FLAG RATHER THAN A REGEX OVER THIS FILE. The caller could scrape the rows out
+# of the text above, and it would work until somebody reformatted them. A flag
+# makes the derivation exact: adding a fourth agent to the manifest adds it to the
+# drift check with no second edit anywhere.
+#
+# IT PRINTS EXPANDED, ABSOLUTE PATHS, because $REPO_ROOT and $POC_BIN_DIR are
+# resolved by the time this line runs and re-resolving them in the caller would be
+# the fourth copy again.
+#
+# IT EXITS BEFORE ANYTHING IS CREATED OR CHECKED. Above this point nothing has
+# been written: no directory made, no lock read, no file installed. That ordering
+# is the whole safety of the flag and it is why this block sits here rather than
+# further down.
+if [ "${1:-}" = "--manifest" ]; then
+  printf '%s\n' "$POC_MANIFEST"
+  exit 0
+fi
+
 # THE SPOOL DIRECTORIES, ALSO A LIST AND ALSO DERIVED.
 #
 # asks/ is the ASK-01 spool and rulings/ is the P3-11a spool. Both are created

@@ -111,6 +111,32 @@ jobs:
       - name: Prove the board-edit check refuses
         run: npm run prove:board-edit
 
+      # EXT-21. THE PUBLIC STATE ENDPOINT READS TWO TABLES AND NEVER A THIRD.
+      #
+      # /api/state is read by Andre's scenario, without a session and from
+      # another machine. app/api/health/route.ts already says that a health route
+      # is the endpoint everyone adds one more field to; the same sentence binds
+      # harder here, because this response leaves the company. The first extra
+      # field is always harmless and the third one is a supplier name.
+      #
+      # So the allow-list is the control: every `.from(...)` must name
+      # `categories` or `units` and every `.rpc(...)` must name
+      # `applied_ledger_version`. It also guards the three properties that fail
+      # SILENTLY and still return 200: the `active` filter, `no-store`, and
+      # `force-dynamic`.
+      #
+      # NOT PATH FILTERED. It reads one file as text: no container, no database,
+      # no network, no credential, and the defect class it catches is a field
+      # added in good faith on a pull request about something else.
+      - name: Refuse a state endpoint that reads a third table
+        run: npm run check:state-endpoint
+
+      # And the proof that it refuses. Nine assertions, every refusing case built
+      # by MUTATING the shipped route rather than by writing a fixture that looks
+      # like it, each paired with the real file passing on the same harness.
+      - name: Prove the state-endpoint check refuses
+        run: npm run prove:state-endpoint
+
       # EXT-08. THE DOCUMENT URL'S FAILURE CONTRACT, ON BODIES CI CANNOT PRODUCE.
       #
       # tests/e2e/document-url.spec.ts proves the three failure paths end to end,
@@ -451,6 +477,196 @@ jobs:
       - name: Prove the pull request census  # AUT-18-CENSUS-PROOF
         run: bash scripts/poc/test-pr-census.sh
 
+      # AUT-23. THE PRODUCER GATE. The harness withholds its own pull request
+      # when the queue is already at the threshold, and every clause of that
+      # fails SILENTLY when it breaks: a gate stuck open looks like a queue that
+      # happens to be short, a gate stuck shut looks like a harness that did no
+      # work, and a park nobody releases looks exactly like a branch nobody
+      # pushed. It lifts the fenced block out of run.sh and drives it against
+      # fixtures, with a tripwire on git and gh so "without redoing the work" is
+      # an assertion rather than a claim.
+      #
+      # NOT PATH FILTERED, deliberately, for the same reason as the census proof
+      # above: no container, no database, and the defect class it catches is a
+      # report going quiet.
+      - name: Prove the producer gate  # AUT-23-PRODUCER-GATE-PROOF
+        run: bash scripts/poc/test-producer-gate.sh
+
+      # AUT-8. THE MODEL PROCESS CARRIES NO CREDENTIAL IT DOES NOT NEED.
+      #
+      # It does not read the strip list and compare it to another list, which
+      # would be two lists agreeing. It SETS every name on the list to a dummy
+      # value, spawns a child through the same env -u arguments run.sh spawns the
+      # executor with, and reads back what the model would have carried.
+      #
+      # It also proves its own assertions are load bearing: with one name removed
+      # from the list, that name reaches the child and the check goes red.
+      #
+      # NAMES ONLY, NEVER VALUES, per CLAUDE.md section 7. The dummy values are
+      # generated in the check, are not secrets, and are still never printed.
+      #
+      # NOT PATH FILTERED. It needs no container and no network, and the failure
+      # it catches is a credential quietly surviving, which is the class a skipped
+      # step hides best.
+      - name: Refuse a model child that carries a credential  # AUT-8-EXECUTOR-ENV-PROOF
+        run: npm run check:executor-env
+
+      # BOARD-01. THE PORTAL SHOWS plain AND ITS SAVE PATH KEEPS EVERY FIELD.
+      #
+      # It loads the real docs/board/board-app.js, which render-board.mjs inlines
+      # verbatim into the rendered HTML, so the thing under test is the thing that
+      # ships. It drives the real save path and then hands what that path produced
+      # to docs/board/validate-board.mjs, which is the property that matters: what
+      # the portal exports must be committable.
+      #
+      # It also reads the save path's SHAPE from the source, so a version with no
+      # export seam still reports which of the five contract fields it drops by
+      # name rather than merely failing to load.
+      #
+      # NOT PATH FILTERED. No container, no browser, no network, and the defect it
+      # catches is a save that reports itself clean.
+      - name: Refuse a portal save that deletes fields  # BOARD-01-BOARD-APP-PROOF
+        run: npm run check:board-app
+      # BOARD-02. A BOARD TIMESTAMP AHEAD OF THE COMMIT THAT WROTE IT.
+      #
+      # The phase 3 board's as_of drifted 3, 21, 62, 150, 226, 300, 398, 467, 521,
+      # 557 and 554 minutes ahead across eleven consecutive commits, because each
+      # session read the PREVIOUS as_of instead of a clock and moved it forward a
+      # little. Correcting it makes the number jump backwards, which is why no
+      # session wanted to be the one to do it. A check ends that argument.
+      #
+      # AHEAD ONLY. A board written before its own commit is normal. Sixty minutes
+      # of slack on as_of, for a long commit sequence; ZERO on every per-card
+      # timestamp, because a checkpoint in the future has no honest reading.
+      #
+      # It PRINTS which commit it compared against on every run, because a check
+      # whose basis is invisible produces a failure nobody can reproduce locally.
+      #
+      # NOT PATH FILTERED. It reads git and three JSON files and needs nothing
+      # else, and it must run on every pull request because every pull request
+      # that touches a board writes one of these values.
+      - name: Refuse a board timestamp from the future  # BOARD-02-BOARD-CLOCK-PROOF
+        run: npm run check:board-clock
+
+      # BOARD-03. THE NEXT-CARD PICK COUNTS NUMBERS AS NUMBERS.
+      #
+      # localeCompare on the raw id put AUT-16 before AUT-8, so two cards authored
+      # days earlier queued behind every AUT-1x card and would have stayed there
+      # for ever: a lane only ever grows, so nothing removes the newer ids from in
+      # front of them. On 2026-09-05 the eligible list began
+      # AUT-21,AUT-22,AUT-23,AUT-8,AUT-9 and the session reading it worked them in
+      # that order.
+      #
+      # It drives scripts/poc/eligible.mjs AS A PROCESS, because the defect was
+      # never in a comparator: it was in what the selector returned, and the
+      # selector is what the harness reads.
+      #
+      # NOT PATH FILTERED. Three fixtures and a grep, no container and no network.
+      - name: Refuse a card pick that sorts numbers as text  # BOARD-03-CARD-ORDER-PROOF
+        run: npm run check:card-order
+
+      # CLAIM-01. TWO CLAIMS CUT FROM ONE BASE MUST MERGE.
+      #
+      # Claims used to live in a single `claims` object inside
+      # docs/poc/state.json. Two branches cut from one base, each claiming a
+      # DIFFERENT card, each rewrote that object: the first merged clean and the
+      # second CONFLICTED, with the boundary running THROUGH the JSON, so a
+      # resolution that deleted only the marker characters left a claims map that
+      # did not parse. That is the file the harness reads before it picks a card.
+      #
+      # It performs REAL GIT MERGES in throwaway repositories, drives the shipped
+      # writer in scripts/poc/claims.mjs rather than a restatement of it, and runs
+      # the OLD SHAPE beside the new one as a control that MUST still conflict.
+      #
+      # NOT PATH FILTERED. Throwaway repositories only: no container, no network,
+      # no database, no gh.
+      - name: Prove two claims from one base merge  # CLAIM-01-CLAIM-MERGE-PROOF
+        run: npm run prove:claim-merge
+
+      # FIXTURE-01. A TEST WHOSE FIXTURE IS LIVE STATE PASSES ON AN ACCIDENTAL
+      # PROPERTY OF THAT STATE.
+      #
+      # test-ask-digest.sh case 6 asserted the digest is silent with nothing
+      # outstanding, and built its fixture by copying the LIVE phase 2 board. It
+      # held only while the board happened to contain no card blocked on Ivan,
+      # which was zero cards and nothing else. On 2026-09-03 MIG-01 was authored
+      # blocked on Ivan, exactly as CLAUDE.md section 4 requires, and three
+      # assertions turned red. The card was right, the digest was right, the
+      # fixture was wrong, and a gate that goes red when the doctrine is obeyed
+      # teaches terminals not to obey it.
+      #
+      # Every copy of a live artefact into a fixture under scripts/poc/ or tests/
+      # must be NEUTRALISED, or EXEMPT with the property it depends on written
+      # out and the loud failure it prints when that property fails. A stale
+      # declaration is refused too.
+      #
+      # NOT PATH FILTERED. It reads text files and needs no container and no
+      # network, and every pull request can add the next undeclared copy.
+      - name: Refuse a fixture built from live state  # FIXTURE-01-LIVE-FIXTURES
+        run: npm run check:live-fixtures
+
+      # The same file proved to REFUSE, including against scripts/poc/test-ask-digest.sh
+      # as it ACTUALLY STOOD on 2026-09-03, read out of this repository's history
+      # at 4b2b853 rather than approximated.
+      #
+      # NOT PATH FILTERED, for the same reason.
+      - name: Prove the live-fixture check refuses  # FIXTURE-01-LIVE-FIXTURES-PROOF
+        run: npm run prove:live-fixtures
+
+      # GATE-03. A GRANT THAT NAMES ITS REVOKING CARD MUST BE NAMED BACK.
+      #
+      # R-072 wrote P2-13's capability clause. R-082 created a NEW grant of
+      # exactly the class that clause exists to revoke, AFTER it was written, so
+      # the clause could not have known about it, and section 8.7 covered it only
+      # by the blanket phrase "reverting section 8". A checklist that names two
+      # grants by id and leaves the third to a blanket phrase will revoke two.
+      #
+      # The edge was never missing in both directions: R-082 ends "REVOKED BY
+      # P2-13". The CHECKLIST did not point back, and that asymmetry is what this
+      # reads, which is why it never has to guess whether a ruling is a grant.
+      #
+      # NOT PATH FILTERED. It reads decisions/inbox.md and the three boards, needs
+      # no container and no network, and every pull request that adds a ruling can
+      # add the next unnamed grant.
+      - name: Refuse a grant no revocation checklist names  # GATE-03-GRANT-REVOCATION
+        run: npm run check:grant-revocation
+
+      # The same file proved to REFUSE, on the defect reconstructed as a fixture.
+      # NOT PATH FILTERED, for the same reason.
+      - name: Prove the grant-revocation check refuses  # GATE-03-GRANT-REVOCATION-PROOF
+        run: npm run prove:grant-revocation
+
+      # EXT-12. THE EXTRACTION LATENCY BUDGET, 120 SECONDS ABOVE 20 LINES AND 60
+      # BELOW, ASSERTED WHERE IT IS DEFINED.
+      #
+      # It also asserts that the ACKNOWLEDGEMENT clock is still a different
+      # number. If those two ever became equal, somebody would have raised the
+      # operator's screen wait to two minutes while measuring nothing about the
+      # model, which is the mistake the card was written to prevent.
+      #
+      # NOT PATH FILTERED. Pure arithmetic over three constants, no container and
+      # no network.
+      - name: Prove the extraction latency budget  # EXT-12-BUDGET-PROOF
+        run: npm run prove:extraction-budget
+
+      # CI-01. NOTHING IN THIS FILE FLOATS WITHOUT A WRITTEN REASON.
+      #
+      # It reads this workflow rather than a list of what is in it, so the NEXT
+      # unpinned action is refused rather than discovered on the day it breaks a
+      # run. Both shapes are covered: a `uses:` on a tag rather than a commit sha,
+      # and a `version:` input set to a moving target such as latest or beta.
+      #
+      # The allow-list in the check carries its reasons, the way EXEMPT in
+      # check-pending-schema-reads.mjs does, and a STALE entry is a failure rather
+      # than a pass: an exemption for something the file no longer uses would sit
+      # there covering whatever took its place.
+      #
+      # NOT PATH FILTERED. It reads one file and needs no container and no
+      # network, and it must run on every pull request because every pull request
+      # that edits this workflow can add the next floating reference.
+      - name: Refuse a floating action reference  # CI-01-ACTION-PINS-PROOF
+        run: npm run check:action-pins
+
       # ASK-01 and DIGEST-01. Both cards are about the system being honest when
       # nobody is watching, and every guarantee in them fails SILENTLY when it
       # breaks: a deadline that never fires looks like a question nobody
@@ -492,6 +708,26 @@ jobs:
 
       - name: Prove the question channel and the scheduled digest  # ASK-01-DIGEST-01-PROOF
         run: bash scripts/poc/test-ask-digest.sh
+
+      # AUT-20. THE RESPONDER CLASSIFIER, WHICH HAD A TEST AND NO RUNNER.
+      #
+      # scripts/poc/test-chat-classify.sh is AUT-6's acceptance and it decides
+      # what an incoming Telegram message IS. CLAUDE.md section 13 makes the
+      # narrowness of that decision the whole security model of the channel:
+      # identity is checked before the text is read, two exact forms are
+      # accepted, everything else is logged and never acted on.
+      #
+      # It was red on main and named in no step of this workflow, so nothing
+      # measured it and nothing would have said so. Its four siblings above were
+      # each wired in on the day they were written; this one was not, and the gap
+      # is not detectable from a green run log, only from reading the file.
+      #
+      # IT IS NOT PATH-FILTERED AND MUST NOT BECOME SO. CLAUDE.md section 3.1
+      # permits exactly two filtered steps, names both, and says a third is a
+      # change to that section rather than an application of it. This step needs
+      # no container, no database and no network, so there is nothing to trade.
+      - name: Prove the responder classifier  # AUT-6-AUT-20-CLASSIFY-PROOF
+        run: bash scripts/poc/test-chat-classify.sh
 
       # AUT-16. THE BOARD SET, AND EVERY COMPONENT THAT RESOLVES AGAINST IT.
       #
@@ -545,10 +781,46 @@ jobs:
       # fixed, published demo keys, and they open nothing outside the runner.
       # ----------------------------------------------------------------------
 
+      # CI-01. PINNED, BOTH HALVES: THE ACTION TO A COMMIT SHA AND THE CLI TO AN
+      # EXACT VERSION. `version: latest` failed run 33810964883 on 2026-09-03 with
+      # "Failed to resolve latest Supabase CLI release: rate limit exceeded",
+      # before a single test ran, and re-running it passed with no code change.
+      #
+      # THE RATE LIMIT IS THE LESSER HALF. `latest` also makes this workflow
+      # NON-REPRODUCIBLE: the same commit can pass today and fail tomorrow because
+      # a CLI released in between changed behaviour, and the failure presents as
+      # the pull request's fault. A token would have fixed only the rate limit.
+      #
+      # WHICH BEHAVIOURS THIS SUITE DEPENDS ON, so whoever raises the version
+      # knows what to re-prove rather than finding out from a red run:
+      #
+      #   - `supabase db reset` WRAPS EACH MIGRATION FILE IN ONE TRANSACTION.
+      #     P3-33 had to split 0030 from 0031 for exactly this: PostgreSQL refuses
+      #     to let a newly added enum label be USED in the transaction that added
+      #     it, so the two statements cannot share a file. If a release changed
+      #     that boundary, 0030 and 0031 would need re-examining, and the applier's
+      #     enum pre-phase in scripts/apply-pending-migrations.mjs with it.
+      #   - `supabase db reset` replays supabase/migrations from empty in FILE
+      #     ORDER, which is what makes the next step a proof rather than a smoke
+      #     test.
+      #   - `supabase status -o env` prints API_URL, ANON_KEY and SERVICE_ROLE_KEY
+      #     under those names. The export step below reads them by name.
+      #   - the services started are decided by supabase/config.toml, not by flags
+      #     here, and `max_rows` in that file is load bearing for P3-38's
+      #     reconciliation and for card P3-39.
+      #
+      # 2.116.0 IS THE VERSION THAT IS GREEN, NOT THE NEWEST. It has been npm's
+      # `latest` for the `supabase` package since 2026-08-26, so every green run
+      # of this workflow since then installed it, this repository's lockfile
+      # carries no `supabase` package for the action to prefer, and pinning it
+      # changes nothing about what runs. 2.117.0 exists only as a prerelease.
+      #
+      # THE SHA IS THE ONE THE GREEN RUN OF 2026-09-05 RESOLVED `@v1` TO, read
+      # from that run's own log rather than from the tag today.
       - name: Start local Supabase
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
         with:
-          version: latest
+          version: 2.116.0
 
       - name: Launch database, auth and storage
         # Which services run is decided by supabase/config.toml, not by flags
@@ -603,6 +875,20 @@ jobs:
           # non-draft deviz and the header is frozen after it is sent, so
           # neither row can be built through the screen. Fixed ids, no DELETE.
           node scripts/seed-test-deviz.mjs
+          # P3-13c. The comparison needs a deviz that is ALREADY ACCEPTED with
+          # lines on it, issues dated in the past, and a deviz with no lines at
+          # all on a project that does have issues. The trigger in 0025 refuses a
+          # line on a non-draft deviz, the issue form has no date field, and the
+          # empty-deviz case cannot be built by a screen that always adds a line.
+          # Fixed ids, no DELETE.
+          node scripts/seed-test-deviz-comparison.mjs
+          # P3-18. The procurement report needs projects in five different
+          # statuses, one whose only deviz stayed a draft, one with no deviz at
+          # all, and stock batches with chosen quantities so the shortfall is a
+          # number that can be checked by hand. A batch needs an arrived inbound
+          # order and an order line, which the screens build one at a time.
+          # Fixed ids, no DELETE.
+          node scripts/seed-test-procurement.mjs
           # .env.local is what both the dev server and the Playwright runner
           # read. It is gitignored and exists only on this runner.
           {

@@ -160,6 +160,174 @@ watchdog() {
 # EXTRACT-END deadline-helpers
 
 # ---------------------------------------------------------------------------
+# THE DEPLOYED-COPY DRIFT CHECK. Card AUT-21.
+#
+# WHAT IT IS FOR. Three scripts run from copies under /Users/ivan/rc-poc-bin,
+# installed by scripts/poc/install.sh. The .mjs modules beside them are read out
+# of a worktree pinned at origin/main and upgrade with every merge; the three
+# deployed copies upgrade only when a human re-runs the installer. So the two
+# halves of this harness do not move together, and NOTHING NOTICED.
+#
+# R-120 is the instance. Merging a fix to the selector did not fix the selector,
+# because run.sh is a deployed copy, and the run that discovered it discovered it
+# from its own dispatch rather than from anything in its log.
+#
+# IT REPORTS, IT NEVER RE-INSTALLS. A run that reinstalled its own harness would
+# be rewriting the script it is currently executing, and bash reads a script
+# incrementally from disk by byte offset, so the failure mode is a run that
+# changes behaviour halfway through with nothing in the log to say so.
+# install.sh stays a human-invoked command and CLAUDE.md 15 stays as written.
+#
+# A DRIFT IS AN ESCALATION, NOT A REFUSAL. The run continues. A stale run that
+# says it is stale is strictly better than no run, and refusing to start would
+# turn a reporting gap into an outage the first time somebody edited a script and
+# forgot the reinstall, which is the exact situation this card was written about.
+#
+# THE LIST IS DERIVED, NOT TYPED. `install.sh --manifest` prints the pairs with
+# absolute paths already resolved. A fourth agent added to that manifest joins
+# this check with no second edit. AUT-16 removed three copies of a path list for
+# this reason and a hardcoded list here would re-create the same defect smaller.
+#
+# BYTES, NOT MTIMES. install.sh gives every file it copies a new mtime and
+# identical content, and a file that was edited and copied has both, so mtime
+# answers a different question than the one being asked.
+#
+# HOW IT IS TESTED. The four `drift_*` seams below are the only place the
+# manifest, the hasher or the clock is reached. scripts/poc/test-install.sh lifts
+# this block verbatim by its fences and drives it against a CONSTRUCTED install
+# root, never /Users/ivan/rc-poc-bin.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN drift-check
+
+# Seam 1. The manifest, from install.sh itself. One row per deployed artefact,
+# `LABEL|SOURCE|DESTINATION|MODE|DESCRIPTION`, absolute paths, nothing written.
+drift_manifest() {
+  bash "$1" --manifest 2>/dev/null
+}
+
+# Seam 2. The sha256 of a file, or nothing when it cannot be read.
+#
+# TWO BINARIES BECAUSE TWO OPERATING SYSTEMS. macOS ships `shasum` and no
+# `sha256sum`; ubuntu-latest ships both. Picked once, per call, rather than
+# assumed, because a missing hasher must read as "cannot tell" and not as "the
+# files match".
+drift_sha256() {
+  [ -f "$1" ] || return 1
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" 2>/dev/null | awk '{print $1}'
+  else
+    return 1
+  fi
+}
+
+drift_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# THE COMPARISON.
+#
+# Sets DRIFT_REPORT to one line per drifted file, empty when nothing drifted, and
+# DRIFT_COUNT to the number of files compared. Both are read by drift_escalate.
+#
+# ONLY THE SCRIPTS ARE COMPARED, WHICH IS THE CARD'S OWN LIST OF THREE, and the
+# manifest's 644 rows are the plists. They are selected by MODE rather than by
+# name so a fourth script joins automatically. The plists are deployed copies too
+# and can drift in exactly the same way; that is recorded on the card as a finding
+# rather than built here, because the card names three files.
+#
+# A FILE THAT CANNOT BE HASHED IS REPORTED, NOT SKIPPED. A missing deployed copy
+# means the installer never ran for it, which is a louder version of the same
+# fault, and docs/LEARNINGS.md already names the class: a matcher whose empty
+# result means "nothing to do" has to assert its input count against its match
+# count. This one does, below.
+drift_detect() {
+  DD_INSTALL_SH=$1
+  DRIFT_REPORT=""
+  DRIFT_COUNT=0
+  DD_ROWS=0
+
+  DD_MANIFEST=$(drift_manifest "$DD_INSTALL_SH")
+  if [ -z "$DD_MANIFEST" ]; then
+    log "drift check: install.sh printed no manifest, so nothing could be compared"
+    return 0
+  fi
+
+  while IFS='|' read -r DD_LABEL DD_SRC DD_DEST DD_MODE DD_DESC; do
+    [ -z "${DD_MODE:-}" ] && continue
+    DD_ROWS=$(( DD_ROWS + 1 ))
+    [ "$DD_MODE" = 755 ] || continue
+
+    DD_A=$(drift_sha256 "$DD_SRC" || true)
+    DD_B=$(drift_sha256 "$DD_DEST" || true)
+    DRIFT_COUNT=$(( DRIFT_COUNT + 1 ))
+
+    if [ -z "$DD_A" ]; then
+      log "drift check: DRIFT $DD_DEST repo=unreadable deployed=${DD_B:0:12}"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=unreadable deployed=${DD_B:0:12}; "
+      continue
+    fi
+    if [ -z "$DD_B" ]; then
+      log "drift check: DRIFT $DD_DEST repo=${DD_A:0:12} deployed=absent"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=${DD_A:0:12} deployed=absent; "
+      continue
+    fi
+    if [ "$DD_A" != "$DD_B" ]; then
+      log "drift check: DRIFT $DD_DEST repo=${DD_A:0:12} deployed=${DD_B:0:12}"
+      DRIFT_REPORT="$DRIFT_REPORT$DD_DEST repo=${DD_A:0:12} deployed=${DD_B:0:12}; "
+    fi
+  done <<< "$DD_MANIFEST"
+
+  # THE COUNT ASSERTION. A manifest that parsed to zero comparable rows would
+  # report "no drift" about work it never did, which is indistinguishable in
+  # every log from a clean installation.
+  if [ "$DRIFT_COUNT" -eq 0 ]; then
+    log "drift check: the manifest has $DD_ROWS row(s) and NONE were comparable, so nothing was checked"
+    return 0
+  fi
+
+  if [ -z "$DRIFT_REPORT" ]; then
+    log "drift check: $DRIFT_COUNT deployed script(s) match the repository byte for byte"
+  else
+    log "drift check: the deployed harness DIFFERS from the repository. Re-run scripts/poc/install.sh."
+  fi
+  return 0
+}
+
+# THE ESCALATION, WRITTEN INTO state.json.
+#
+# SEPARATE FROM THE DETECTION, AND THE REASON IS THE RUN ORDER. The comparison has
+# to happen while the worktree is at origin/main, early, so the run log carries it
+# even if the run is killed later. state.json is edited much later, on the state
+# branch, and step 3 hard resets the worktree in between: an escalation written
+# early would be discarded by that reset without a word.
+drift_escalate() {
+  DE_STATE=$1
+  [ -n "${DRIFT_REPORT:-}" ] || return 0
+  [ -f "$DE_STATE" ] || { log "drift check: $DE_STATE is not there, escalation not written"; return 0; }
+
+  node -e '
+    const fs = require("fs");
+    const [path, report, runId, at] = process.argv.slice(1);
+    const state = JSON.parse(fs.readFileSync(path, "utf8"));
+    state.escalations = (state.escalations || []).concat([{
+      card_id: "AUT-21",
+      question: "The harness copies installed on this machine differ from the ones in the repository: "
+        + report.replace(/;\s*$/, "") + ". This run followed the installed copies.",
+      recommendation: "Re-run scripts/poc/install.sh on the machine. Nothing here re-installs itself, "
+        + "on purpose: a run that rewrote the script it is executing would change behaviour halfway through.",
+      raised_at: at,
+      run_id: runId,
+    }]);
+    fs.writeFileSync(path, JSON.stringify(state, null, 2) + "\n");
+  ' "$DE_STATE" "$DRIFT_REPORT" "${RUN_ID:-unknown}" "$(drift_now)"
+
+  log "drift check: escalation appended to $DE_STATE"
+  return 0
+}
+# EXTRACT-END drift-check
+
+# ---------------------------------------------------------------------------
 # The lock. A run never starts while another holds it, unless the lock is stale.
 # CLAUDE.md section 13.
 # ---------------------------------------------------------------------------
@@ -377,10 +545,51 @@ git reset --hard origin/main --quiet
 git clean -fd --quiet
 log "run worktree at $(git rev-parse --short HEAD) detached from origin/main"
 
+# AUT-21. THE DRIFT CHECK RUNS HERE, AS EARLY AS IT CAN.
+#
+# The worktree is at origin/main and nothing else has happened yet, so the log
+# carries the comparison even if this run is killed before it reaches the state
+# pull request. The escalation is appended much later, at step 5, because step 3
+# hard resets this worktree and would discard anything written to state.json now.
+#
+# THE BLOCK ITSELF IS DEFINED ABOVE, WITH THE DEADLINE HELPERS, and not next to
+# this call. bash resolves a function from what it has already read, so a block
+# defined further down the file is a command not found here.
+if [ -f "$POC_RUN_WORKTREE/scripts/poc/install.sh" ]; then
+  drift_detect "$POC_RUN_WORKTREE/scripts/poc/install.sh"
+else
+  log "drift check: the checked out commit has no scripts/poc/install.sh, nothing compared"
+fi
+
 # AUT-16. Fill the board set now that the worktree holds the commit this run
 # works from, so the list comes from that commit's boards.mjs rather than from a
 # constant written here. A set that cannot be read is fatal: working a subset of
 # the boards in silence is the exact defect this card removed.
+# AUT-8. THE STRIP LIST, FROM THE ONE PLACE THAT DEFINES IT.
+#
+# Read out of the run worktree at origin/main, the same way boards.mjs and every
+# other module here is read, so run.sh and responder.sh cannot drift apart about
+# what a model process may hold.
+#
+# A MISSING LIST IS FATAL, and that is the safe direction rather than a strict
+# one. The alternative is a fallback list written here, which would be the second
+# copy this file exists to prevent, and its failure mode is a credential quietly
+# surviving. A run that refuses is recoverable; a credential in a process that had
+# no reason to hold it is not.
+if [ ! -r "$POC_RUN_WORKTREE/scripts/poc/secret-names.sh" ]; then
+  log "FATAL: $POC_RUN_WORKTREE/scripts/poc/secret-names.sh is missing, so the strip list cannot be read."
+  log "Refusing to invoke a model with an environment nothing has vetted."
+  EXIT_CODE=1
+  exit 1
+fi
+# shellcheck disable=SC1091
+. "$POC_RUN_WORKTREE/scripts/poc/secret-names.sh"
+POC_STRIP_ARGS=()
+while IFS= read -r POC_STRIP_LINE; do
+  POC_STRIP_ARGS+=("$POC_STRIP_LINE")
+done < <(poc_secret_strip_args)
+log "model environment: $(( ${#POC_STRIP_ARGS[@]} / 2 )) credential name(s) will be stripped from every model child"
+
 POC_BOARDS=$(node "$POC_RUN_WORKTREE/scripts/poc/boards.mjs" --paths 2>/dev/null | tr '\n' ' ')
 POC_BOARDS=${POC_BOARDS% }
 
@@ -463,6 +672,170 @@ checkpoint_pr() {
   fi
 }
 # EXTRACT-END checkpoint
+
+# ---------------------------------------------------------------------------
+# WHAT THIS RUN MAY START. Card AUT-22.
+#
+# THE ARITHMETIC, FROM COMMITTED RUN HISTORY AND NOT FROM AN IMPRESSION. The
+# measured `quality` runs took 24m48s, 18m09s and 19m43s, and one was cancelled
+# at 21m. The cap is 45 minutes. So the required check costs between forty and
+# fifty five percent of the entire budget, and two consequences follow with no
+# judgement involved: a run can merge at most one pull request, and only if its
+# head sha is pushed inside the first twenty minutes; and a run that builds a
+# card from scratch cannot also merge it.
+#
+# IT HAPPENED ON THREE CONSECUTIVE RUNS. 20260904-010000 built AUT-16 in full and
+# ran out of clock with PR #186 open. 20260904-040001 merged it, having inherited
+# finished work and pushed at minute two, and then could not start AUT-17 for the
+# same reason and said so. That reads in the reports as three runs each failing
+# to finish. It is not: it is the harness meeting an arithmetic constraint
+# nobody had written down.
+#
+# THIS IS NOT AN ARGUMENT FOR A LONGER CAP AND MUST NOT BE READ AS ONE. Making
+# the run longer moves the boundary; making the run KNOW where the boundary is
+# removes the class. THE CAP IS NOT TOUCHED BY THIS BLOCK. Forty five minutes is
+# the owner's number in CLAUDE.md section 13 and changing it is his decision.
+#
+# THE ESTIMATE IS A COMMITTED CONSTANT AND NOT A LIVE QUERY. A run that had to
+# call the GitHub API to decide whether it may start work would have added a
+# network failure mode to the decision that protects it from network failure.
+#
+# A RUN THAT REFUSES TO START A CARD IS NOT A SILENT RUN. Section 13 says silence
+# about an eligible card is a defect and never a normal outcome, and names four
+# reasons a run can ship nothing. This adds a fifth, "not enough clock left to
+# merge it", written to the log and carried into the escalation exactly like the
+# other four.
+#
+# BOUNDARY WITH AUT-9: that card owns the MEASUREMENT of the clock and the stale
+# lock. This owns the DECISION taken given a clock. Neither touches the other's
+# code path, and this block reads the clock exactly the way run.sh reads it now.
+#
+# BOUNDARY WITH AUT-18: that card makes every open pull request VISIBLE and
+# merges nothing. Clause 3 here PREFERS an inherited branch, which is a selection
+# decision rather than a census. Neither substitutes for the other.
+#
+# HOW IT IS TESTED. The three `work_*` seams below are the only place the clock,
+# GitHub or the board is reached. scripts/poc/test-harness-caps.sh lifts this
+# block verbatim by its fences and drives it against fixtures.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN work-selection
+
+# THE ESTIMATE, ONE NAMED CONSTANT, BESIDE THE CAP IN SPIRIT AND IN THIS BLOCK IN
+# FACT. 1500 seconds is the observed maximum of the last eight quality runs.
+POC_CARD_ESTIMATE_SECONDS=${POC_CARD_ESTIMATE_SECONDS:-1500}
+
+# THE MARGIN, ALSO ONE NAMED CONSTANT AND ALSO WRITTEN ONCE. It is separate from
+# the estimate because they answer different questions: the estimate is what the
+# check costs and is measured, the margin is what everything else costs and is
+# chosen. Folding them into a single 1800 would make raising one look like
+# raising the other.
+POC_CARD_MARGIN_SECONDS=${POC_CARD_MARGIN_SECONDS:-300}
+
+# The documented return codes. THE CODES ARE THE INTERFACE, arranged so the lazy
+# reading is the safe one: only 0 means "something was chosen".
+POC_WORK_CHOSE=0    # WORK_KIND and WORK_TARGET carry what to do
+POC_WORK_REFUSE=3   # not enough clock; start nothing
+
+# Seam 1. Now, in epoch seconds. The same clock run.sh reads everywhere else, and
+# a DEADLINE COMPARISON rather than a countdown, for the reason the deadline
+# helpers above give at length: nanosleep does not advance across a suspend.
+work_now_seconds() { date +%s; }
+
+# Seam 2. One line per OPEN pull request: number, head branch, mergeStateStatus,
+# tab separated. Empty output means none, and an unreadable answer means none
+# too, which is the safe direction here: failing to notice an inherited branch
+# costs a duplicated decision, while inventing one would park the run on nothing.
+work_open_prs() {
+  gh_bounded pr list --state open --limit 50 \
+    --json number,headRefName,mergeStateStatus \
+    -q '.[] | [.number, .headRefName, .mergeStateStatus] | @tsv'
+}
+
+# Seam 3. The eligible cards, lowest id first, comma separated. run.sh has
+# already computed this; the seam exists so the test can drive the decision
+# without a board.
+work_eligible_ids() { echo "${ELIGIBLE_AT_START:-}"; }
+
+# A BRANCH THIS HARNESS OPENED. `poc/` is the harness's own state and report
+# branches; `card/` is what the EXECUTOR inside a run opens for a card. Both are
+# this loop's output and both are work an earlier run left behind. Anything else
+# belongs to somebody the harness must not act for.
+work_is_ours() {
+  case "$1" in
+    card/*|poc/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# THE DECISION.
+#
+# Sets three globals and returns one of the two codes above. It prints NOTHING of
+# its own, because log() in this file writes to stdout and a function that both
+# logs and prints its answer hands the caller its log lines as the answer:
+#
+#   WORK_KIND     inherited-pr | card | none
+#   WORK_TARGET   the pull request number, or the card id, or empty
+#   WORK_REASON   one line, already written to the log, kept for the escalation
+#
+# THE ORDER IS THE WHOLE POINT. Finishing what an earlier run left comes FIRST,
+# before the clock is consulted at all, because landing an inherited branch is
+# the cheap half of the arithmetic: its head sha is already pushed, so the check
+# can start at minute two instead of minute twenty five.
+work_selection() {
+  WORK_KIND=none
+  WORK_TARGET=""
+  WORK_REASON=""
+
+  WS_DEADLINE=$1        # epoch seconds this run must be finished by
+  WS_REMAINING=$(( WS_DEADLINE - $(work_now_seconds) ))
+  WS_NEEDED=$(( POC_CARD_ESTIMATE_SECONDS + POC_CARD_MARGIN_SECONDS ))
+
+  # 3. FINISH BEFORE YOU START, WHATEVER THE CLOCK SAYS.
+  #
+  # BEHIND and CONFLICTING are the two states that need a terminal rather than
+  # time: one needs main merged in, the other needs a resolution, and under
+  # `required_status_checks.strict` neither clears itself. A run that started a
+  # new card instead would leave that branch to rot for another six hours and
+  # add a second branch beside it.
+  while IFS=$'\t' read -r WS_NUM WS_BRANCH WS_STATE; do
+    [ -z "${WS_STATE:-}" ] && continue
+    work_is_ours "$WS_BRANCH" || continue
+    case "$WS_STATE" in
+      BEHIND|DIRTY|CONFLICTING) ;;
+      *) continue ;;
+    esac
+    WORK_KIND=inherited-pr
+    WORK_TARGET=$WS_NUM
+    WORK_REASON="pull request #$WS_NUM on $WS_BRANCH is $WS_STATE and was opened by this harness. Landing it comes before starting anything new, whatever the clock says: its head sha is already pushed, so the check can start now instead of after a build."
+    log "work selection: INHERITED #$WS_NUM branch=$WS_BRANCH state=$WS_STATE, remaining ${WS_REMAINING}s"
+    return "$POC_WORK_CHOSE"
+  done <<< "$(work_open_prs)"
+
+  WS_ELIGIBLE=$(work_eligible_ids)
+  if [ -z "$WS_ELIGIBLE" ]; then
+    WORK_REASON="no eligible card and no inherited pull request."
+    log "work selection: nothing eligible and nothing inherited, remaining ${WS_REMAINING}s"
+    return "$POC_WORK_CHOSE"
+  fi
+
+  # 1. REFUSE. Not enough clock to build a card AND get its check green.
+  if [ "$WS_REMAINING" -lt "$WS_NEEDED" ]; then
+    WORK_KIND=none
+    WORK_TARGET=""
+    WORK_REASON="${WS_REMAINING}s of wall clock remain and a card needs ${WS_NEEDED}s (a ${POC_CARD_ESTIMATE_SECONDS}s check plus a ${POC_CARD_MARGIN_SECONDS}s margin), so no card was started. The work would have been built and left unmergeable."
+    log "work selection: REFUSING to start a card. remaining ${WS_REMAINING}s, estimate ${POC_CARD_ESTIMATE_SECONDS}s, margin ${POC_CARD_MARGIN_SECONDS}s, needed ${WS_NEEDED}s"
+    return "$POC_WORK_REFUSE"
+  fi
+
+  # 2. PROCEED, unchanged from before this card: the lowest id eligible card.
+  WORK_KIND=card
+  WORK_TARGET=$(echo "$WS_ELIGIBLE" | cut -d, -f1)
+  WORK_REASON="$WORK_TARGET was started with ${WS_REMAINING}s remaining against a ${WS_NEEDED}s requirement."
+  log "work selection: starting card $WORK_TARGET, remaining ${WS_REMAINING}s, needed ${WS_NEEDED}s"
+  return "$POC_WORK_CHOSE"
+}
+# EXTRACT-END work-selection
 
 # ---------------------------------------------------------------------------
 # THE PULL REQUEST CENSUS. Card AUT-18.
@@ -703,6 +1076,217 @@ RPC_BR_EOF
   return 0
 }
 # EXTRACT-END pr-census
+
+# ---------------------------------------------------------------------------
+# THE PRODUCER GATE. Card AUT-23.
+#
+# WHAT IT IS FOR. This harness opens a pull request four times a day whether or
+# not the previous batch has been accepted, and the queue drains SERIALLY. The
+# drain is serial by construction and correctly so: branch protection carries
+# `required_status_checks.strict`, so a branch must be up to date with main
+# before it can merge, and every pull request behind main at merge time costs a
+# rebase and a full check run. THAT SETTING IS CORRECT AND DOES NOT CHANGE. The
+# owner said so in the dispatch that authored this card, in those words.
+#
+# THE OBSERVED COST, which is why the card exists: thirteen pull requests merged
+# one at a time, taking hours rather than minutes, with ELEVEN OF THIRTEEN behind
+# main at merge time. Two independent rates with no feedback between them is the
+# shape of it, and a producer gate is the smallest thing that couples them.
+#
+# PARK, NEVER DISCARD. The work is committed and the branch is PUSHED. Only the
+# pull request is withheld. A harness that threw the work away to keep the queue
+# short would have traded a slow queue for lost work, which is a worse trade than
+# the one it was asked to make.
+#
+# IT FAILS OPEN INTO OPENING. When the open count cannot be obtained the gate
+# opens exactly as it did before this card. An unopened pull request is invisible
+# work; a queue that is one too long is merely slow. The dispatch names this
+# direction explicitly and the fail-open case is asserted in the test rather than
+# left to be read off the code.
+#
+# WHAT IT IS NOT. It is not AUT-22, which stops a run STARTING a card it cannot
+# finish, and it is not AUT-18, which makes a run REPORT the open pull requests
+# it did not merge. This is the third question, whether to add to the queue at
+# all, and all three hold at once without subsuming one another.
+#
+# HOW IT IS TESTED. The three `gate_*` seams below are the only place gh or git
+# is touched. scripts/poc/test-producer-gate.sh lifts this block verbatim by its
+# fences, replaces the seams with fixtures, and asserts each of the card's four
+# clauses with a case that fails against the pre-change run.sh.
+# ---------------------------------------------------------------------------
+
+# EXTRACT-BEGIN producer-gate
+
+# THE THRESHOLD. ONE NAMED CONSTANT, IN ONE FILE, READ FROM ONE PLACE.
+#
+# Three, recommended on the card rather than left open, and ratified by the owner
+# in the dispatch that ordered this build. Three is roughly one drain cycle at
+# the observed check cost, so a run that finds three already open is a run whose
+# output would land behind three rebases. It is a constant and changing it is a
+# one line diff; what must not happen is a SECOND copy of it at another call
+# site, which is why every reader below goes through this name.
+POC_PR_DEPTH_THRESHOLD=${POC_PR_DEPTH_THRESHOLD:-3}
+
+# The parked spool. OUTSIDE THE REPOSITORY, and that is the whole reason it is a
+# directory of files rather than a field in docs/poc/state.json.
+#
+# A park withholds the pull request that carries state.json. A record of the park
+# written INTO state.json would therefore ride on the branch that was parked, and
+# would reach main only when the park ended. The one fact that must survive a
+# park is the one that would have been sealed inside it.
+POC_PARK_DIR=${POC_PARK_DIR:-${POC_LOG_DIR:-/Users/ivan/rc-poc-logs}/parked}
+
+# Seam 1. HOW MANY PULL REQUESTS ARE OPEN, ASKED AT THE MOMENT OF THE DECISION.
+#
+# Never a cached number and never one carried over from the census: a closed or
+# merged pull request costs the queue nothing, and the census ran earlier in this
+# run. Prints a non-negative integer, or NOTHING when it cannot tell, and the
+# difference between those two is what the fail-open rule turns on.
+gate_open_pr_count() {
+  GOPC=$(gh_bounded pr list --state open --limit 100 --json number -q 'length' | tr -d '[:space:]')
+  case "$GOPC" in
+    ''|*[!0-9]*) echo "" ;;
+    *) echo "$GOPC" ;;
+  esac
+}
+
+# Seam 2. Open a pull request for a branch that is ALREADY PUSHED. Prints the
+# number, or nothing. It never pushes and never commits: by the time the gate
+# runs, the work is on the remote either way.
+gate_open_pr() {
+  gh pr create --base main --head "$1" --title "$2" --body "$3" 2>/dev/null \
+    | tail -1 | grep -oE '[0-9]+$'
+}
+
+# Seam 3. Does this branch still exist on the remote? A parked branch whose
+# remote copy is gone was merged or deleted by somebody else, and opening a pull
+# request for it would fail every run forever.
+gate_branch_exists() {
+  [ -n "$(git ls-remote --heads origin "$1" 2>/dev/null)" ]
+}
+
+# Write the park record. One file per parked branch, named after the branch with
+# the slashes flattened, carrying the branch, the count that caused the park, the
+# threshold in force and the run that parked it.
+gate_park() {
+  GP_BRANCH=$1
+  GP_COUNT=$2
+  GP_RUN=$3
+  GP_TITLE=$4
+  GP_BODY=$5
+  mkdir -p "$POC_PARK_DIR" 2>/dev/null
+  GP_FILE=$POC_PARK_DIR/$(echo "$GP_BRANCH" | tr '/' '_').park
+  {
+    echo "branch=$GP_BRANCH"
+    echo "open_count=$GP_COUNT"
+    echo "threshold=$POC_PR_DEPTH_THRESHOLD"
+    echo "run_id=$GP_RUN"
+    echo "parked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "title=$GP_TITLE"
+    echo "body_first_line=$(echo "$GP_BODY" | head -1)"
+  } > "$GP_FILE"
+  log "producer gate: PARKED branch=$GP_BRANCH open=$GP_COUNT threshold=$POC_PR_DEPTH_THRESHOLD record=$GP_FILE"
+  log "producer gate: the work is committed and pushed. Only the pull request is withheld."
+}
+
+# THE DECISION, AND IT IS THE ONLY PLACE THE THRESHOLD IS COMPARED.
+#
+# SETS TWO GLOBALS RATHER THAN PRINTING, and that is not a style preference.
+# log() in this file writes to stdout, because the run's stdout IS the run log.
+# A decision function that printed its verdict would therefore have its verdict
+# and its own log lines captured together by `$(...)`, and the fail-open branch,
+# which is the branch that logs, would parse as a timestamp. The caller reads:
+#
+#   GATE_VERDICT   open | park
+#   GATE_COUNT     the number of open pull requests, or ? when it could not be read
+gate_decision() {
+  GATE_COUNT=$(gate_open_pr_count)
+  if [ -z "$GATE_COUNT" ]; then
+    log "producer gate: the open pull request count could not be obtained, FAILING OPEN"
+    GATE_VERDICT=open
+    GATE_COUNT="?"
+    return 0
+  fi
+  if [ "$GATE_COUNT" -ge "$POC_PR_DEPTH_THRESHOLD" ]; then
+    GATE_VERDICT=park
+  else
+    GATE_VERDICT=open
+  fi
+  return 0
+}
+
+# RELEASE WHAT AN EARLIER RUN PARKED, BEFORE THIS RUN ASKS ABOUT ITS OWN OUTPUT.
+#
+# Oldest record first, so the queue drains in the order the work was done rather
+# than in the order the runs happen to wake up.
+#
+# WITHOUT REDOING THE WORK. The branch is already pushed with its commit on it,
+# so releasing is one `gh pr create` against a ref that already exists. Nothing
+# is rebuilt, recommitted or regenerated, and a record whose branch has since
+# been merged or deleted is dropped rather than retried forever.
+#
+# Each release is decided on a FRESH count, because each release it performs
+# makes the next one less likely to be allowed. Stopping at the first refusal
+# leaves the rest parked, in order, for the next tick.
+gate_release_parked() {
+  GRP_RELEASED=0
+  GRP_KEPT=0
+  [ -d "$POC_PARK_DIR" ] || { log "producer gate: no parked branches"; return 0; }
+
+  for GRP_FILE in $(ls -1 "$POC_PARK_DIR"/*.park 2>/dev/null | sort); do
+    GRP_BRANCH=$(grep '^branch=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    GRP_TITLE=$(grep '^title=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    GRP_WHEN=$(grep '^parked_at=' "$GRP_FILE" | head -1 | cut -d= -f2-)
+    if [ -z "$GRP_BRANCH" ]; then
+      log "producer gate: park record $GRP_FILE names no branch, dropping it"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    if ! gate_branch_exists "$GRP_BRANCH"; then
+      log "producer gate: parked branch $GRP_BRANCH is gone from the remote, dropping the record"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    if [ -n "$(pr_for_branch "$GRP_BRANCH")" ]; then
+      log "producer gate: parked branch $GRP_BRANCH already has a pull request, dropping the record"
+      rm -f "$GRP_FILE"
+      continue
+    fi
+
+    gate_decision
+    if [ "$GATE_VERDICT" = park ]; then
+      log "producer gate: $GRP_BRANCH stays parked, $GATE_COUNT open at or above the threshold of $POC_PR_DEPTH_THRESHOLD"
+      GRP_KEPT=$(( GRP_KEPT + 1 ))
+      break
+    fi
+
+    GRP_PR=$(gate_open_pr "$GRP_BRANCH" "$GRP_TITLE" \
+      "Parked by the producer gate at $GRP_WHEN and released now that the queue has room.
+
+The work was committed and pushed when it was parked. Nothing was rebuilt.
+
+Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,
+no application code, no migration.
+
+Acceptance: the file parses and keeps its five fields.
+Migration files added: none.")
+    if [ -n "$GRP_PR" ]; then
+      log "producer gate: RELEASED $GRP_BRANCH as pull request #$GRP_PR, $GATE_COUNT open before it"
+      rm -f "$GRP_FILE"
+      GRP_RELEASED=$(( GRP_RELEASED + 1 ))
+    else
+      log "WARNING: producer gate could not open a pull request for parked branch $GRP_BRANCH, leaving it parked"
+      GRP_KEPT=$(( GRP_KEPT + 1 ))
+      break
+    fi
+  done
+
+  log "producer gate: released $GRP_RELEASED parked branch(es), $GRP_KEPT still parked"
+  return 0
+}
+# EXTRACT-END producer-gate
 
 # ---------------------------------------------------------------------------
 # WHICH REPORT THE REVIEW STEP IS HANDED. Card AUT-17.
@@ -953,11 +1537,40 @@ fi
 # the protection that matters in the other direction works fully: a human claims
 # through scripts/poc/claim.sh before starting, that claim is on main, and the
 # next run reads it and skips the card.
+# AUT-22. WHAT THIS RUN MAY START, decided by the fenced block above rather than
+# by taking the head of the eligible list unconditionally.
+#
+# THE DEADLINE IS THIS RUN'S OWN, computed once from the moment it started and the
+# cap it declared. A deadline and not a countdown, for the reason the deadline
+# helpers give: nanosleep does not advance across a suspend and this machine
+# sleeps every night.
+POC_RUN_DEADLINE=$(( RUN_STARTED_AT + POC_MAX_SECONDS ))
+
 HARNESS_CARD=""
-if [ -n "$ELIGIBLE_AT_START" ]; then
-  HARNESS_CARD=$(echo "$ELIGIBLE_AT_START" | cut -d, -f1)
-  log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
-fi
+INHERITED_PR=""
+WORK_REFUSAL=""
+
+work_selection "$POC_RUN_DEADLINE"
+WORK_CODE=$?
+
+case "$WORK_KIND" in
+  inherited-pr)
+    INHERITED_PR=$WORK_TARGET
+    log "intending to land inherited pull request #$INHERITED_PR before starting any card"
+    ;;
+  card)
+    HARNESS_CARD=$WORK_TARGET
+    log "intending to work $HARNESS_CARD, claim recorded in the end-of-run state PR"
+    ;;
+  *)
+    # A REFUSAL IS NOT SILENCE. Section 13 names four reasons a run can ship
+    # nothing; this is the fifth and it is escalated exactly like the other four.
+    if [ "$WORK_CODE" -eq "$POC_WORK_REFUSE" ]; then
+      WORK_REFUSAL=$WORK_REASON
+      log "no card started this run: $WORK_REASON"
+    fi
+    ;;
+esac
 
 # The claim lease is computed BEFORE the prompt is written, because the prompt
 # interpolates $CLAIM_SKIPPED to tell EXECUTOR which cards are off limits. With
@@ -965,10 +1578,42 @@ fi
 # zero byte prompt file and an EXECUTOR invocation with no prompt at all:
 # "Error: Input must be provided either through stdin or as a prompt argument".
 # The run reported exit 1 having never actually started work.
+# AUT-22. THE SELECTION, TURNED INTO ONE PARAGRAPH THE MODEL READS.
+#
+# Computed BEFORE the heredoc, because with set -u an unset variable aborts a
+# heredoc, and on 2026-08-27 that produced a zero byte prompt file and an
+# EXECUTOR invocation with no prompt at all. The variable is always set below,
+# whichever branch the selection took.
+case "$WORK_KIND" in
+  inherited-pr)
+    WORK_DIRECTIVE="FIRST, LAND PULL REQUEST #$INHERITED_PR. An earlier run opened it and it is
+  behind main or conflicting, so it cannot merge itself. Bring main into that
+  branch locally, resolve any conflict against the full tree, run the validator
+  before committing, wait for a quality run that exists for the NEW head sha,
+  and merge it. Only after that, and only if the clock allows, start a card.
+  Its head sha is already pushed, which is why it is cheaper than a new card."
+    ;;
+  card)
+    WORK_DIRECTIVE="Work the lowest id eligible card. There is enough wall clock left to build it
+  and get its check green."
+    ;;
+  *)
+    WORK_DIRECTIVE="DO NOT START A NEW CARD THIS RUN. $WORK_REASON
+  Building work this run cannot merge is what this instruction exists to stop.
+  If there is finished work to land, land it. Otherwise write your report and
+  finish early, and say in the report that the clock is why."
+    ;;
+esac
+
 PROMPT_FILE=$POC_LOG_DIR/$RUN_ID.prompt.txt
 cat > "$PROMPT_FILE" <<PROMPT_EOF
 You are EXECUTOR. Boot per CLAUDE.md.
 Work the board.
+
+WHAT THIS RUN MAY START, decided by the harness from the clock and from what an
+earlier run left open. This is not advice:
+
+  $WORK_DIRECTIVE
 
 This is an unattended scheduled run, run id $RUN_ID. CLAUDE.md section 13 binds
 you. Restated so there is no ambiguity:
@@ -1039,10 +1684,22 @@ log "invoking EXECUTOR, cap ${POC_MAX_SECONDS}s, cards $POC_MAX_CARDS"
 
 EXECUTOR_LOG=$POC_LOG_DIR/$RUN_ID.executor.log
 EXECUTOR_STARTED_AT=$(date +%s)
-claude -p "$(cat "$PROMPT_FILE")" \
-  --permission-mode bypassPermissions \
-  --add-dir "$POC_RUN_WORKTREE" \
-  > "$EXECUTOR_LOG" 2>&1 &
+# AUT-8. THE SECRETS ARE STRIPPED FROM THE MODEL PROCESS.
+#
+# env -u removes them from the child: the model cannot read what the process does
+# not carry. The list is the one in scripts/poc/secret-names.sh, shared with
+# responder.sh, which solved the identical problem first and whose comment states
+# the same reason.
+#
+# THIS DOES NOT NARROW CLAUDE.md 8.3. The secrets FILE is still readable, and a
+# step that genuinely needs a credential re-sources it under `set -o allexport`
+# exactly as that section authorises. What is removed is the credential sitting in
+# the model process on every run REGARDLESS of whether a migration is in scope.
+env "${POC_STRIP_ARGS[@]}" \
+  claude -p "$(cat "$PROMPT_FILE")" \
+    --permission-mode bypassPermissions \
+    --add-dir "$POC_RUN_WORKTREE" \
+    > "$EXECUTOR_LOG" 2>&1 &
 CLAUDE_PID=$!
 
 # macOS ships no timeout(1), so the cap is enforced here. The deadline is
@@ -1375,6 +2032,10 @@ if [ -n "$ELIGIBLE_AT_START" ]; then
     # different failures and must never share a message.
     if [ -n "$CARDS_ON_BRANCH" ]; then
       SILENCE_REASON="work is on a branch and was not merged: $CARDS_ON_BRANCH. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so."
+    elif [ -n "$WORK_REFUSAL" ]; then
+      # AUT-22. THE FIFTH REASON. Section 13 named four and this is the one it
+      # could not name, because until this card the run had no way to know it.
+      SILENCE_REASON="$WORK_REFUSAL"
     elif [ "$CAPPED" = yes ]; then
       SILENCE_REASON="the executor ran ${EXECUTOR_ELAPSED}s against a ${POC_MAX_SECONDS}s cap and was stopped before it could ship."
     elif [ "$EXECUTOR_EXIT" != "0" ]; then
@@ -1429,6 +2090,12 @@ fi
 log "writing $POC_STATE on $STATE_BRANCH"
 
 git checkout -b "$STATE_BRANCH" origin/main --quiet
+
+# AUT-21. The escalation lands HERE, on the state branch, so it rides to main in
+# the state pull request like every other escalation. drift_detect ran at the top
+# of this run and already put the comparison in the log; this writes it where the
+# digest and the owner will see it.
+drift_escalate "$POC_STATE"
 
 # ---------------------------------------------------------------------------
 # The pull request census, card AUT-18. It runs HERE, after every merge this run
@@ -1522,9 +2189,19 @@ Log: $LOG_FILE
 
 Harness bookkeeping only. No board file and no application code is touched."
     git push -q -u origin "$STATE_BRANCH"
-    STATE_PR=$(gh pr create --base main --head "$STATE_BRANCH" \
-      --title "POC: run $RUN_ID state" \
-      --body "Unattended run $RUN_ID.
+
+    # AUT-23. THE WORK IS COMMITTED AND PUSHED ABOVE, BEFORE THE GATE IS ASKED
+    # ANYTHING. That order is the "park, never discard" rule expressed as code:
+    # whatever the gate decides, the branch is on the remote with its commit on
+    # it, and the only thing the decision can change is whether a pull request
+    # points at it today or on the next tick.
+    #
+    # Earlier parks are released FIRST, so the queue drains oldest work first
+    # rather than letting this run jump the branch it parked last night.
+    gate_release_parked
+
+    STATE_PR_TITLE="POC: run $RUN_ID state"
+    STATE_PR_BODY="Unattended run $RUN_ID.
 
 Cards touched: ${CARDS_TOUCHED:-none}
 Executor: exit $EXECUTOR_EXIT, ${EXECUTOR_ELAPSED}s of ${POC_MAX_SECONDS}s, capped $CAPPED
@@ -1536,14 +2213,24 @@ Harness bookkeeping only. docs/poc/state.json and nothing else. No board file,
 no application code, no migration.
 
 Acceptance: the file parses and keeps its five fields.
-Migration files added: none." 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+Migration files added: none."
 
-    if [ -n "$STATE_PR" ]; then
-      log "state PR #$STATE_PR opened"
-      merge_when_green "$STATE_PR" "$STATE_BRANCH" || \
-        log "state PR #$STATE_PR left open, the next run will merge it"
+    gate_decision
+
+    if [ "$GATE_VERDICT" = park ]; then
+      gate_park "$STATE_BRANCH" "$GATE_COUNT" "$RUN_ID" "$STATE_PR_TITLE" "$STATE_PR_BODY"
+      STATE_PR=""
     else
-      log "WARNING: state PR was not created"
+      log "producer gate: opening, $GATE_COUNT open pull request(s) against a threshold of $POC_PR_DEPTH_THRESHOLD"
+      STATE_PR=$(gate_open_pr "$STATE_BRANCH" "$STATE_PR_TITLE" "$STATE_PR_BODY")
+
+      if [ -n "$STATE_PR" ]; then
+        log "state PR #$STATE_PR opened"
+        merge_when_green "$STATE_PR" "$STATE_BRANCH" || \
+          log "state PR #$STATE_PR left open, the next run will merge it"
+      else
+        log "WARNING: state PR was not created"
+      fi
     fi
   fi
   git checkout --detach --force origin/main --quiet 2>/dev/null
