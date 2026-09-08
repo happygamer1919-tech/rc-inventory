@@ -207,6 +207,26 @@ deviation and the next run should not read this as precedent.
 
 ---
 
+## The run itself: one card, and why not two
+
+**Cards touched: one.** `GATE-01`, shipped, on pull request **#264**, merged on a
+green `quality` run existing for its own head sha under CLAUDE.md 3.1. No other
+card was touched, no card was blocked, and nothing was escalated.
+
+**`GATE-02` was the next eligible card and was deliberately not started.** It is
+an audit of all nine phase 3 gate conditions, and its own defaults forbid the
+only version of it that fits in the time that was left: "EVERY CONDITION IS
+RE-DERIVED, NONE IS DECLARED UNCHANGED". Nine conditions, each needing a live
+probe and a rewritten evidence field, against a 45 minute cap that was roughly
+half spent. Section 13 says do not start work that cannot be finished and merged,
+and a half-audit that carries seven conditions forward as "obviously unchanged"
+is precisely the failure that card exists to correct.
+
+**Nothing else was claimed and nothing was skipped for being hard.** The lease
+file `docs/poc/claims/` was empty of card claims, and the only entry in
+`docs/poc/state.json` was a harness claim on `EXT-11`, a card that has already
+shipped.
+
 ## Next run picks up
 
 **`GATE-02`**, and it is now cheaper than it was this morning. It re-runs the
