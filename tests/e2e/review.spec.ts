@@ -1201,6 +1201,11 @@ test.describe("Verificare si confirmare extragere", () => {
 
     // CLAUZA 2: operatorul corecteaza seria, si valoarea lui este cea salvata.
     await page.getByTestId("review-order-ref-series").fill("AV");
+    // Data estimata de livrare este OBLIGATORIE la confirmare, si nu vine din
+    // extragere: confirmExtractionDraft refuza cu "Completeaza data estimata de
+    // livrare" cand lipseste. Fara randul asta confirmarea nu creeaza nimic si
+    // acest caz pica pe review-created, adica pe alt motiv decat seria.
+    await page.getByTestId("review-expected-at").fill("2026-12-05");
     await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
     await page.getByTestId("review-confirm").click();
 

@@ -4752,3 +4752,24 @@ inventing a second answer. RULE: **when a runner rejects something your machine
 accepts, grep the repository for the error string before choosing a fix.** This
 one was already solved, with the reasoning written down, in a file two
 directories away.
+
+### Un caz nou de confirmare care nu completeaza data estimata pica pe alt motiv decat cel testat
+**Tag:** ci
+**ERROR:** EXT-11, run 34179242898 pe PR #240. Un singur caz rosu din 188:
+`tests/e2e/review.spec.ts` "EXT-11: seria furnizorului se vede in fisa si valoarea
+editata este cea salvata", cazut pe `expect(getByTestId('review-created')).toBeVisible()`
+dupa 30 de secunde, "element(s) not found". Implementarea era corecta: cele doua
+campuri ale seriei se afisau si se editau, iar clauza 1 a cazului trecuse. Ce nu
+trecea era confirmarea: `confirmExtractionDraft` in `lib/data/extraction-actions.ts`
+refuza cu "Completeaza data estimata de livrare" cand `expectedAt` este gol, mesajul
+aterizeaza in `review-error`, si `review-created` nu se randeaza niciodata. Cazul nou
+era singurul de pe calea de confirmare care nu completa `review-expected-at`. Costul:
+un ciclu de quality de 22 de minute si o fereastra de harness intreaga, pentru un camp
+care nu are nimic de a face cu ce dovedeste cazul.
+**SOLUTION:** `await page.getByTestId("review-expected-at").fill("2026-12-05")` inainte
+de `review-confirm`, cu motivul scris langa el. Regula: **data estimata de livrare nu
+vine din extragere si este obligatorie, deci orice caz nou care apasa `review-confirm`
+o completeaza, oricare ar fi campul pe care il dovedeste.** Cand se scrie un caz nou pe
+o cale care are deja cazuri verzi, se citeste unul dintre ele pana la capat si se
+copiaza pasii de care depinde actiunea finala; un caz care pica pe ultimul `expect` al
+altcuiva nu spune nimic despre ce testeaza el.
