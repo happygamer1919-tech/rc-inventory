@@ -11874,7 +11874,7 @@ evidence, written before this ruling existed.**
 | | merged | the card's own words |
 |---|---|---|
 | `#270` FIXTURE-02 | 2026-09-08T14:37:04Z | *"IT CAME OUT OF DRAINING THE PULL REQUEST BACKLOG, not out of a survey. Nineteen pull requests were open on 2026-09-08 and the second one taken, #207, went red on this case. #268 was already red on it."* |
-| `#271` GATE-06 | 2026-09-08T15:59:54Z | *"FOUND WHILE DRAINING THE PULL REQUEST BACKLOG, not by a survey: #210 refused on `R-138 says it is revoked by P2-13, and P2-13 does not name R-138`."* |
+| `#271` GATE-06 | 2026-09-08T15:59:54Z | *"FOUND WHILE DRAINING THE PULL REQUEST BACKLOG, not by a survey"*, naming the exact `check-grant-revocation` refusal that stopped `#210`. |
 
 **The merge order on `main` is the second half of the proof.** `8a66b51` FIXTURE-02
 lands, then `88ab22c` `#207` becomes the first stranded TRIAGE pull request to
@@ -11886,6 +11886,20 @@ same mechanical reason: `scripts/` is a CODE path in `check-board-edit`'s
 classifier, so a fix there with no card is refused as `code-with-no-card`. That
 shape is the hole `check-board-edit` names as deliberately open, and it is used
 here for exactly what its own header says it is for.
+
+**THE GATE-06 QUOTE ABOVE IS TRUNCATED ON PURPOSE AND THIS SENTENCE IS WHY.** The
+card's evidence continues by quoting the `check-grant-revocation` refusal that
+stopped `#210` verbatim, and that refusal text contains the literal phrase this
+very check scans rulings for. **Quoting it in full made `npm run
+check:grant-revocation` refuse this ruling**, reporting R-184 as a grant claiming
+P2-13 as its revoker, which it is not: the words were inside a quotation of an
+error message about a different ruling. **It is a false positive of the exact
+class GATE-06 narrowed the patterns to reduce, arriving one level further out**,
+where the matched text is a quotation of the check's own output. The fix taken
+here is the one available without touching code: the quotation stops before the
+phrase. **The check is not weakened, no entry was added to its `NOT_A_GRANT`
+list, and this paragraph is the record so the next session that hits it does not
+spend the same minutes finding it.**
 
 #### 2. The `#248` judged override, single-invocation. RATIFIED, AND NOT VERIFIABLE HERE.
 
