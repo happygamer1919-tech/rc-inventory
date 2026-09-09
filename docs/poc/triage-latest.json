@@ -1,12 +1,36 @@
 {
-  "run_id": "20260908-040001",
-  "report": "docs/reports/2026-09-08-executor-gate-01-anon-write.md",
-  "rulings_written": ["R-171", "R-172", "R-173", "R-174"],
+  "run_id": "20260908-070003",
+  "report": "docs/reports/2026-09-08-executor-gate-02-phase3-gate-audit.md",
+  "rulings_written": [
+    "R-175",
+    "R-176",
+    "R-177",
+    "R-178",
+    "R-179",
+    "R-180",
+    "R-181",
+    "R-182",
+    "R-183"
+  ],
   "cards_resequenced": [
-    {"card_id": "P2-13", "change": "depends_on SHOULD read P2-08b, APPLY-02, P3-35, P3-37 and stays at P2-08b because the validator refuses cross-board ids; the three edges are written into notes with the refusal quoted, per R-173"},
-    {"card_id": "RULE-10", "change": "acceptance replay list now refuses GATE-01 as well as DIG-01, P3-18 and EXT-12"},
-    {"card_id": "GATE-02", "change": "acceptance now puts each gate audit in the condition notes and sets evidence to null on any condition that does not flip"}
+    {
+      "card_id": "MIG-01",
+      "change": "blocked_on ivan cleared and status blocked to todo: the vendor question it waited on was answered by ruling R-124 on 2026-09-04 and nothing walked the board to tell it"
+    },
+    {
+      "card_id": "AUT-3",
+      "change": "status in_flight to todo: the scheduled run it was parked on has produced a triage rulings pull request eight times, so the card now waits for a terminal to record evidence that already exists"
+    }
   ],
   "gates_flipped": [],
-  "escalations": []
+  "escalations": [
+    {
+      "title": "The company web address now serves a marketing website instead of the inventory system, so the address the client was given no longer reaches the product.",
+      "recommendation": "Point a web address at the inventory system, or say which address it should live at, and the readiness line that says the client can reach it gets re-checked against that address. Doing nothing means the system is reachable only at a temporary address, the client cannot be asked to start using it there, and one readiness line stays recorded as met when it is not."
+    },
+    {
+      "title": "The reviewing step is allowed to mark a readiness line as met, but not to mark one as no longer met, so a line whose proof has been overtaken by events stays recorded as met.",
+      "recommendation": "Allow the reviewing step to mark a readiness line as not met when committed evidence disproves what it was passed on. The risk of allowing it is a delay; the risk of not allowing it is going live on a readiness score that counts a line which stopped being true. One line is in exactly that state today."
+    }
+  ]
 }
