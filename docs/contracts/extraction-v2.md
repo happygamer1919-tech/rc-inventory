@@ -775,11 +775,36 @@ whoever enters it needs it.
 come from text rather than from a reading, and a mismatch means something else.
 
 **WHY IT IS ARITHMETIC AND NOT AN INSTRUCTION TO THE MODEL.** One 7-line document
-with a printed total of `50336.40` excluding VAT returned three different line
-sums across three runs: `49035.40`, `39242.00`, `38429.40`, every one of them with
-`status: extracted` and `reason: null`. They disagree with **each other** by
-`10606.00`, against a tolerance of `0.07`. A control that depends on the model
-noticing it has misread is not a layer.
+with a printed total of `50336.40` excluding VAT returned four different line
+sums across four runs: `49035.40`, `48060.40`, `39242.00`, `38429.40`, every one
+of them with `status: extracted` and `reason: null`. A control that depends on the
+model noticing it has misread is not a layer.
+
+**AMENDED 2026-09-09 BY RULING R-185, AND THE ORIGINAL SENTENCE IS QUOTED BELOW
+RATHER THAN DELETED.** The spread between those sums was read here as the
+justification, and **the spread is not the failure**. Andre measured the same
+document at the LINE level across four passes: **one unit price moves, three lines
+are byte-identical and correct every pass, and one line is byte-identical and
+wrong every pass.** One field walking produces four distinct totals, so the
+totals moved while the reading did not. **The failure is a deterministic misread,
+not variance.**
+
+**THIS IS A CONTRACT-LEVEL PROHIBITION AND NOT ONLY A CORRECTION.** Because the
+wrong line is byte-identical on every pass, **multi-pass comparison and majority
+voting across passes are ruled out permanently**: a vote agrees with itself on a
+deterministically wrong line and reports it as unanimous. No amendment to this
+contract may propose running the extraction more than once and comparing the
+results.
+
+**The superseded sentence, kept verbatim:**
+
+> *"One 7-line document with a printed total of `50336.40` excluding VAT returned
+> three different line sums across three runs: `49035.40`, `39242.00`, `38429.40`,
+> every one of them with `status: extracted` and `reason: null`. They disagree
+> with **each other** by `10606.00`, against a tolerance of `0.07`."*
+
+It was accurate about what had been measured when it was written. The fourth run
+and the line-level comparison are what changed it.
 
 **`reconciliation_failed` IS NEW AND ANDRE IS TOLD BEFORE IT IS EMITTED**, which
 is ruling **R-123** and not a courtesy: section 5.2 makes any value outside the

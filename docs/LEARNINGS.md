@@ -3446,11 +3446,38 @@ shape meaning "read cleanly, nothing to report".
 The tolerance for a 7-line document is `max(0.05, 0.01 * 7)` = **0.07**. The three
 miss it by **1300.93**, **11094.33** and **11906.93**.
 
-**The three runs disagree with EACH OTHER by up to 10606.00**, on one unchanged
-page, against a tolerance of 0.07. That is five orders of magnitude past the
-tolerance, and it is the part that matters: a reading that drifted would cluster.
-Three readings of the same page that disagree with each other by that much are
-not one reading with noise on it, they are three separate fabrications.
+**AMENDED 2026-09-09 BY RULING R-185. THE FAILURE IS DETERMINISTIC, NOT VARIANCE
+ACROSS PASSES, AND THE ORIGINAL TEXT IS KEPT BELOW RATHER THAN DELETED**, per
+`CLAUDE.md` section 9c. **Andre measured a fourth run at the LINE level, and the
+lines say something the totals hid:** across the passes **one unit price moves,
+three lines are byte-identical and correct every pass, and one line is
+byte-identical and wrong every pass.** One field walking is enough to produce four
+distinct sums, and four distinct sums is what the paragraph below saw and read as
+four separate acts of invention. **A line that is byte-identical and wrong on
+every pass is not a fabrication that happened to recur; it is a deterministic
+misread.**
+
+**THE CONSEQUENCE, AND R-185 MAKES IT PERMANENT: MULTI-PASS COMPARISON AND
+MAJORITY VOTING ACROSS PASSES ARE RULED OUT.** Three passes over the
+byte-identical wrong line return the same wrong value three times and a vote
+reports it as unanimous. **The mechanism does not merely fail to catch that line,
+it certifies it**, with the strongest signal a voting scheme has. Voting looked
+like an escape from the generalisation below, because no single pass is asked to
+notice anything; it is not an escape, because it asks the AGGREGATE to notice and
+the aggregate knows exactly what one pass knows.
+
+**WHAT IS NOT AMENDED: THE NUMBERS, AND THE SOLUTION.** The four observed sums are
+real, distinct, and asserted by `npm run check:reconciliation` today. EXT-16's
+arithmetic reconciliation is untouched and still caught the wrong line on every
+pass, precisely because it does not care whether the passes agree.
+
+**The superseded text, kept verbatim:**
+
+> *"**The three runs disagree with EACH OTHER by up to 10606.00**, on one unchanged
+> page, against a tolerance of 0.07. That is five orders of magnitude past the
+> tolerance, and it is the part that matters: a reading that drifted would cluster.
+> Three readings of the same page that disagree with each other by that much are
+> not one reading with noise on it, they are three separate fabrications."*
 
 **THIS IS THE SECOND CONTROL OF THIS SHAPE TO FAIL, AND THAT IS THE ENTRY.** The
 first was `confidence`, which returned **1.0** on a document with four invented
