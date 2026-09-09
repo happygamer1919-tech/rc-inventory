@@ -11842,3 +11842,456 @@ still not an escalation.
 
 **Unblocks:** nothing. It names RST-02 as the highest-value unclaimed card on
 either board and says why the harness will not find it.
+
+---
+
+### R-184 - The four drain deviations, ratified by the owner, with the two premises this repository cannot see named rather than assumed
+**Date:** 2026-09-09
+**Asked on:** FIXTURE-02, GATE-06, RESTORE-01, RST-04
+**Answer, verbatim:**
+> STEP 2 - RATIFICATIONS. Record these. All ratified.
+>   #270 FIXTURE-02 and #271 GATE-06 as load-bearing prerequisites
+>   the #248 judged override, single-invocation, not a standing allow-list
+>   the #262 hand-authored RESTORE-01.acceptance and RST-04.acceptance, on the
+>     stated grounds that R-166 governed and no mechanical choice was correct
+>   the seven conflict classes fixed in the resolver rather than by hand-editing
+
+**Ruling: all four are ratified. This entry is what makes them ratified**, per
+`docs/DOCTRINE-TRIAGE.md`: *"A ratification is not a ratification until it is a
+committed line with an id. Chat is not authority."* The owner's ratification
+arrived as chat. Until this line merged it did not exist.
+
+**TWO OF THE FOUR ARE VERIFIABLE IN THIS REPOSITORY AND WERE VERIFIED. TWO ARE
+NOT, AND THAT IS SAID HERE RATHER THAN LEFT FOR A LATER READER TO DISCOVER.** A
+ruling that presents an unverifiable premise in the same voice as a measured one
+teaches the next session that both were checked.
+
+#### 1. `#270` FIXTURE-02 and `#271` GATE-06 as load-bearing prerequisites. VERIFIED.
+
+Both merged inside the drain window and **both cards say so in their own committed
+evidence, written before this ruling existed.**
+
+| | merged | the card's own words |
+|---|---|---|
+| `#270` FIXTURE-02 | 2026-09-08T14:37:04Z | *"IT CAME OUT OF DRAINING THE PULL REQUEST BACKLOG, not out of a survey. Nineteen pull requests were open on 2026-09-08 and the second one taken, #207, went red on this case. #268 was already red on it."* |
+| `#271` GATE-06 | 2026-09-08T15:59:54Z | *"FOUND WHILE DRAINING THE PULL REQUEST BACKLOG, not by a survey: #210 refused on `R-138 says it is revoked by P2-13, and P2-13 does not name R-138`."* |
+
+**The merge order on `main` is the second half of the proof.** `8a66b51` FIXTURE-02
+lands, then `88ab22c` `#207` becomes the first stranded TRIAGE pull request to
+merge; `1a2e54f` GATE-06 lands, then `bc2aed3` `#210` becomes the second. Each
+card unblocked the pull request that had just gone red on it.
+
+**Both were authored AND shipped in one pull request**, and both notes give the
+same mechanical reason: `scripts/` is a CODE path in `check-board-edit`'s
+classifier, so a fix there with no card is refused as `code-with-no-card`. That
+shape is the hole `check-board-edit` names as deliberately open, and it is used
+here for exactly what its own header says it is for.
+
+#### 2. The `#248` judged override, single-invocation. RATIFIED, AND NOT VERIFIABLE HERE.
+
+`#248` is real: `TRIAGE 20260907-070002`, merged 2026-09-08T19:37:37Z as `70e8c08`,
+carrying R-158 to R-162 and touching five files.
+
+**Nothing in this repository contains the words "judged override", "single
+invocation", or any record of one.** `git grep` over `main` returns nothing for
+any of them, and `#248`'s own body describes no override. The override was a
+judgement made while draining, in a session whose working notes did not merge.
+
+**It is ratified on the owner's authority and its scope is fixed by his own
+sentence: SINGLE-INVOCATION, NOT A STANDING ALLOW-LIST.** A future session that
+finds a similar case does not inherit this. It is not a precedent, it is not a
+pattern, and citing this ruling as permission to repeat it is a misreading that
+this paragraph exists to refuse in advance.
+
+#### 3. The `#262` hand-authored `RESTORE-01.acceptance` and `RST-04.acceptance`. VERIFIED IN PART.
+
+**The two acceptance fields are real and both changed in `#262`**, merged
+2026-09-08T21:15:05Z as `8045c7d`, under two rulings that are on `main` today:
+
+- **R-166** deleted RESTORE-01's `extraction-v2.md` clause, on the ground that
+  satisfying it would now be a defect.
+- **R-167** changed the sign of RST-04's clause 2, because the three ruling ids
+  it asserted were never reused had been reused five days earlier.
+
+**What is NOT verifiable here is the conflict.** That those two fields arrived at
+a merge conflict, that no mechanical resolution was correct for either, and that
+R-166 was the governing authority for the hand-authored text: none of that is in
+the repository, because the resolution happened in a working tree and only its
+result merged.
+
+**Ratified on the stated grounds.** The grounds are the owner's and are recorded
+verbatim above rather than restated in this session's words.
+
+#### 4. The seven conflict classes fixed in the resolver rather than by hand-editing. RATIFIED, AND THE RESOLVER IS NOT IN THIS REPOSITORY.
+
+**No resolver is committed.** There is no file under `scripts/` that resolves
+merge conflicts, and nothing on `main` enumerates seven conflict classes. The
+tool was scratch and did not land.
+
+**The ratification is of the METHOD, and the method is the right one**, which is
+why it is worth a line rather than a shrug: a conflict class fixed in a resolver
+is fixed once and is re-runnable; the same class fixed by hand is fixed as many
+times as it appears, differently each time, by whoever is tired. `GUARD-01` and
+`npm run check:conflict-residue` exist in this repository because a hand
+resolution once left conflict residue behind, and `docs/LEARNINGS.md` carries the
+class where a resolution that deletes only the marker characters leaves the tails
+as file content.
+
+**THE RESIDUE THIS LEAVES, NAMED AND NOT CARDED IN THIS PASS.** The next drain
+starts from zero, because the resolver that handled seven classes is gone and
+nothing in this repository knows what the seven were. That is a real cost and it
+is deliberately not turned into a card here: this session was instructed to
+author three cards and no more, and this is not one of the three. It is written
+here so the next session that hits the same conflicts finds out that somebody
+already solved them, rather than finding out nothing.
+
+**Unblocks:** nothing. Four deviations are settled and none of them was holding a
+card.
+**Supersedes:** none.
+
+---
+
+### R-185 - The extraction failure is DETERMINISTIC, not variance across passes, and that kills multi-pass voting permanently
+**Date:** 2026-09-09
+**Asked on:** EXT-16, EXT-17, EXT-18
+**Answer, verbatim:**
+> STEP 3 - AMENDMENT, not deletion. Per R-R.
+>   the recorded finding that extraction failure is variance across passes is
+>   superseded by Andre's four-run measurement: one unit price moves, three lines
+>   are byte-identical and correct every pass, one is byte-identical and wrong
+>   every pass. Amend inline naming this ruling. Do not delete the original text.
+>   Record the consequence: multi-pass comparison and majority voting across
+>   passes are ruled out permanently, because a vote agrees with itself on a
+>   deterministically wrong line.
+
+**Ruling: the finding is AMENDED, not deleted, and the amendment names this
+ruling at every site it lands.** `CLAUDE.md` section 9c: the false statement is
+quoted, marked false in the same breath, and left where it was, with the true one
+above it. That section is written for `CLAUDE.md` sentences and the reasoning
+binds here exactly, because its third reason is the deciding one: a deleted false
+sentence looks exactly like a sentence that was never there, and the record would
+then claim this project always knew the failure was deterministic.
+
+#### What was recorded, and it was the honest reading of what was measured
+
+`docs/LEARNINGS.md`, entry *"Second instance: an instruction not to invent a
+self-consistent total was ignored three runs of three"*:
+
+> *"The three runs disagree with EACH OTHER by up to 10606.00, on one unchanged
+> page, against a tolerance of 0.07. That is five orders of magnitude past the
+> tolerance, and it is the part that matters: a reading that drifted would
+> cluster. Three readings of the same page that disagree with each other by that
+> much are not one reading with noise on it, they are three separate
+> fabrications."*
+
+**Nothing in that paragraph was wrong about the numbers.** The four observed line
+sums are 49035.40, 48060.40, 39242.00 and 38429.40 against a printed 50336.40,
+they are distinct, and `npm run check:reconciliation` asserts all four and their
+spread today. **What is superseded is the INFERENCE drawn from the spread**: that
+because the totals move, the reading itself is what moves.
+
+#### What Andre measured, four runs, at the LINE level
+
+The earlier finding compared **totals**. Andre's four-run measurement compares
+**lines**, and the totals were hiding what the lines say:
+
+| | across the four passes |
+|---|---|
+| one unit price | **moves** |
+| three lines | **byte-identical every pass, and correct** |
+| one line | **byte-identical every pass, and wrong** |
+
+**A line that is byte-identical and wrong on every pass is not a fabrication that
+happened to recur. It is a deterministic misread**, and the model is reading the
+same wrong thing off the same page every time with the same confidence it reads
+the correct ones.
+
+**THE TOTALS MOVED BECAUSE ONE FIELD MOVED.** A single unit price walking is
+enough to produce four distinct sums, and four distinct sums is what the earlier
+finding saw and read as four separate acts of invention. **One moving field and
+five stationary ones is a different failure from six fields all moving**, and it
+is the difference this ruling exists to record.
+
+#### THE CONSEQUENCE, AND IT IS PERMANENT: MULTI-PASS COMPARISON AND MAJORITY VOTING ARE RULED OUT
+
+**No card, no ruling and no contract change may propose running the extraction
+more than once and comparing or voting on the results.**
+
+**The reason is one sentence: a vote agrees with itself on a deterministically
+wrong line.** Three passes over the byte-identical wrong line return the same
+wrong value three times, and a majority vote reports it as unanimous. **The
+mechanism does not merely fail to catch that line. It certifies it**, and it
+certifies it with a signal that reads stronger than anything else on the
+document, because unanimity across passes is exactly what a voting scheme is
+built to trust.
+
+**This is the third control of the same shape to be ruled out on this project**,
+and the shape is now named rather than rediscovered:
+
+| the control | what it asks | what it returned |
+|---|---|---|
+| `confidence` | report how sure you are | `1.0`, on four invented lines. Removed by EXT-14. |
+| *"do not construct a self-consistent total you cannot read"* | notice you are inventing, and stop | four fabrications in four runs, all `extracted`, all `reason: null`. |
+| multi-pass voting | let repetition find the error | **unanimity on the wrong line.** Ruled out here, before it was built. |
+
+**The generalisation in `docs/LEARNINGS.md` already covered the first two and it
+covers this one**: a control that depends on the model noticing it has misread is
+not a layer. Voting looked like an escape from that rule because no single pass is
+asked to notice anything. **It is not an escape. It asks the AGGREGATE to notice,
+and the aggregate knows exactly what one pass knows.**
+
+**WHAT SURVIVES UNCHANGED, because this ruling narrows nothing else.** EXT-16's
+arithmetic reconciliation is untouched and is still the layer: it compares the
+line sum against a printed total, on our side of the wire, asking the model
+nothing. It caught the byte-identical wrong line on every one of the four passes
+precisely because it does not care whether the passes agree.
+
+#### Where the amendment landed in this pull request
+
+- `docs/LEARNINGS.md`, in the entry quoted above, inline, naming R-185, with the
+  original paragraph kept verbatim underneath.
+- `docs/contracts/extraction-v2.md` section 5.3, in the paragraph *"WHY IT IS
+  ARITHMETIC AND NOT AN INSTRUCTION TO THE MODEL"*, which carries the same
+  disagree-with-each-other sentence as the contract's own justification.
+
+#### Where it did NOT land, named rather than left to be found
+
+**Two source files still carry the superseded inference in their headers:**
+
+- `lib/data/reconciliation.ts` lines 10 to 21: *"Cele trei rulari difera INTRE ELE
+  cu pana la 10606.00 [...] trei care se contrazic atat de mult sunt trei
+  fabricatii separate."*
+- `scripts/poc-free/check-reconciliation.mjs` lines 26 to 28: *"FIVE DISTINCT
+  NUMBERS NOW SIT ON ONE UNCHANGED FILE [...] spread across 10606.00 against a
+  tolerance of 0.07."*
+
+**They are not edited here, and the reason is mechanical rather than a
+preference.** `lib/` and `scripts/` are CODE paths in `check-board-edit`'s
+classifier. A pull request touching either must name a card id whose status moves
+to a terminal status, or it is refused as `code-with-no-card`. This pull request
+carries no card's code and authors three cards it does not work, so touching
+those two files would force this session either to fail `quality` or to author a
+card at `shipped` having run nothing. **Neither is acceptable for a comment.**
+
+**The assertions in `check-reconciliation.mjs` are NOT affected and must not be
+changed.** The spread is a true measurement and the check asserting it is correct.
+Only the inference drawn from the spread is superseded.
+
+**Unblocks:** nothing.
+**Supersedes:** the inference in the `docs/LEARNINGS.md` entry *"Second instance:
+an instruction not to invent a self-consistent total was ignored three runs of
+three"* and in `docs/contracts/extraction-v2.md` section 5.3. It supersedes no
+ruling id: the finding was recorded in LEARNINGS and in the contract, never as a
+ruling.
+
+---
+
+### R-186 - The delta is not a quality measure: it measures how badly two errors failed to cancel, and no screen, email or log may present it as closeness
+**Date:** 2026-09-09
+**Asked on:** EXT-16, EXT-18, P2-09
+**Answer, verbatim:**
+> STEP 4 - NEW RULING. Delta magnitude is not a quality measure.
+>   measured case: two lines wrong by 4920 under and 5240 over, residue 342,
+>   against tolerance 0.07. The delta measures how badly errors failed to cancel.
+>   Consequences to record: tolerance 0.07 is fixed and may not be widened by any
+>   card or ruling; no interface, email or log may present the delta as an
+>   indication of how close an extraction was.
+
+**Ruling: the delta between the line sum and the printed total is a REFUSAL
+SIGNAL and nothing else. It carries no information about how nearly correct an
+extraction was, and treating it as if it did is now forbidden in both of the
+directions it could go wrong.**
+
+#### The measured case, and what it proves
+
+Two lines wrong: one **4920 under**, one **5240 over**. The residue reaching the
+reconciliation is **342**, against a tolerance of **0.07**.
+
+**A document with two four-figure errors in it produced a three-figure delta**,
+because the errors ran in opposite directions and cancelled most of each other.
+**The delta did not shrink because the reading got better. It shrank because two
+wrongs pointed at each other.**
+
+**THE THREE FIGURES AS DICTATED DO NOT CLOSE, AND THAT IS FLAGGED RATHER THAN
+SILENTLY REPAIRED.** 5240 minus 4920 is 320, not 342. At least one of the three is
+rounded, and this session did not measure any of them and will not invent a
+reconciliation between them. **The ruling does not depend on which**: whether the
+residue is 320 or 342, it is four orders of magnitude below the errors that
+produced it and four orders of magnitude above the tolerance, and every sentence
+below holds identically. The owner's figures are recorded verbatim above and are
+the record.
+
+#### CONSEQUENCE ONE. The tolerance is FIXED at 0.07 and may not be widened by any card or ruling.
+
+**No card, no ruling, no contract amendment and no defaults field may raise it.**
+A future session that finds the tolerance inconvenient is reading this paragraph,
+not negotiating with it.
+
+**The mechanism, so the number and the rule stay in one place.** The 0.07 is the
+value `toleranceFor(7)` returns for the seven-line Matnord document, from
+`max(0.05, 0.01 * line_count)` in `lib/data/reconciliation.ts`, which is the only
+place in this repository where a tolerance is written and which
+`npm run check:reconciliation` asserts is not duplicated anywhere. **Widening the
+formula is widening the 0.07 and is forbidden by the same sentence.**
+
+**WHY WIDENING IS THE TEMPTATION THIS RULING EXPECTS.** The pressure will not
+arrive as "let us accept worse readings". It will arrive as a real document that
+refuses for a reason somebody believes is spurious, with a delta that looks small
+next to the numbers on the page. **The measured case above is what that looks like
+from the inside**: a residue of a few hundred on a document carrying tens of
+thousands reads as a rounding argument, and it was two four-figure fabrications.
+
+#### CONSEQUENCE TWO. No interface, email or log may present the delta as an indication of how close an extraction was.
+
+**Not a screen, not a Resend email, not a log line, not a board field, not a
+report sentence.** Showing "off by 342" invites exactly one thought from whoever
+reads it, and it is the wrong one: *that was nearly right*. The measured case is
+the counter-example and it is not exotic, it is the ordinary behaviour of two
+errors with opposite signs.
+
+**A REFUSAL MAY SAY THAT THE NUMBERS DO NOT ADD UP. IT MAY NOT SAY BY HOW MUCH.**
+The Romanian sentence already shipped says the first and not the second:
+`reconciliation_failed` renders *"Suma liniilor citite nu se potrivește cu totalul
+tipărit pe document. Documentul trebuie introdus manual."* **No figure, no
+formula, no delta.** That is the shape, and this ruling is what stops the next
+card from "improving" it.
+
+**MEASURED TODAY: THE DELTA HAS ZERO READERS AND THIS RULING IS PREVENTIVE.**
+`reconcile()` returns `sum`, `target` and `tolerance`; `headerConsistency()`
+returns two `diff` values. In `app/api/extraction/callback/route.ts` the only
+thing read off either is `.ok`, at line 340. Nothing is stored, nothing is
+serialised, nothing is rendered: `grep` for `tolerance` across `app/`,
+`components/` and `lib/` outside `reconciliation.ts` returns nothing. **The rule
+is written while it costs nothing to obey**, which is the only time a rule like
+this is ever written cheaply.
+
+**WHAT IS NOT FORBIDDEN.** The delta may be computed, and is. It may appear in a
+committed report as evidence of a measurement, as it does in this ruling. What it
+may not do is reach an operator, an email, or a log that anybody reads as a
+quality score.
+
+**Unblocks:** nothing.
+**Supersedes:** none. It is a new constraint on surfaces that do not exist yet
+and on a tolerance that already exists.
+
+---
+
+### R-187 - The shipped code emits `reconciliation_failed` on FOUR of the five ruled arms, including the one whose own comment argues for it, and the argument does not survive the ruling
+**Date:** 2026-09-09
+**Asked on:** EXT-16, EXT-18, EXT-19
+**Answer, verbatim:**
+> STEP 5 - VERIFY THE SPLIT MATCHES THE RULING.
+>   ruled split: unreadable_document when no trustworthy anchor exists, meaning
+>   zero lines, a null selected total under prices_include_vat, a null flag where
+>   neither total matches, or the header failing its own arithmetic.
+>   reconciliation_failed when the check ran against internally sound printed
+>   totals and the line sum missed.
+>   if the code diverges from that, card the fix. Do not change it in this pass.
+
+**Ruling: the code DIVERGES on four of the five arms. Nothing is changed in this
+pass and this entry is the derivation, arm by arm, from the shipped source at
+`0bc71d0`.**
+
+#### The one line that decides everything
+
+`app/api/extraction/callback/route.ts:339`:
+
+```
+  const reconciliationFailed =
+    ((verdict !== null && !verdict.ok) || (headerVerdict !== null && !headerVerdict.ok)) &&
+    canFlagReconciliation;
+  const effectiveStatus = reconciliationFailed ? "failed" : status;
+  const effectiveErrorCode = reconciliationFailed ? "reconciliation_failed" : errorCodeRaw;
+```
+
+**There is no second branch.** Every refusal this platform generates, from either
+check, for any reason, carries `reconciliation_failed`. `unreadable_document`
+exists in `lib/data/extraction-types.ts:19` and in the contract's section 5.2 set,
+and **our validator never emits it**: it arrives only from Make.
+
+#### Arm by arm, against `lib/data/reconciliation.ts`
+
+| # | ruled arm | ruled code | what the shipped code does | |
+|---|---|---|---|---|
+| a | **zero lines** | `unreadable_document` | `reconcile()` has NO zero-line branch. `[].some()` is false at :167, `sum` is `0` at :171, `toleranceFor(0)` is `0.05` at :172. A non-zero target then returns `out_of_tolerance` at :195; no target returns `target_missing` at :187. **Both become `reconciliation_failed`.** | **DIVERGES** |
+| b | **null selected total under `prices_include_vat`** | `unreadable_document` | `:178` and `:181`: the flag selects one total and a null one yields `targets: []`, so `:187` returns `target_missing`. **`reconciliation_failed`.** | **DIVERGES** |
+| c | **null flag where neither total matches** | `unreadable_document` | `:185` makes both totals candidates; `:195` returns `out_of_tolerance` when neither lands, `:187` returns `target_missing` when both are null. **`reconciliation_failed`.** | **DIVERGES** |
+| d | **the header failing its own arithmetic** | `unreadable_document` | `headerConsistency()` at `:130` returns `ok: false`, `route.ts:340` folds it into the same boolean. **`reconciliation_failed`.** | **DIVERGES** |
+| e | **sound printed totals, line sum missed** | `reconciliation_failed` | `out_of_tolerance` at `:195` with a non-null target and a passing header. | **MATCHES** |
+
+**AND THERE IS A THIRD OUTCOME ON ARM (a) THAT THE RULING DOES NOT ANTICIPATE.** A
+zero-line payload whose selected total is itself `0` reconciles at `:191`, because
+`|0 - 0| <= 0.05`. **It is not refused at all**: it is stored `extracted`, with no
+lines, as a clean read. A document that produced no lines and printed a zero total
+is exactly the shape the "no trustworthy anchor" arm is about, and today it is the
+one shape that passes.
+
+#### The route argues for its own behaviour, in writing, and the argument does not survive
+
+`route.ts:313`:
+
+> *"ESECUL POARTA `reconciliation_failed` SI NU UN COD NOU, din aceeasi hotarare:
+> un cod nou ar trebui comunicat celeilalte parti INAINTE sa poata fi emis, in
+> amandoua directiile, iar el nu a fost."*
+
+**That reasoning is correct and it does not apply to the ruled split, because
+`unreadable_document` IS NOT A NEW CODE.** It has been in the contract's section
+5.2 set since v2 was frozen under R-014, it has a shipped Romanian sentence at
+`extraction-types.ts:63`, and Make emits it today. **R-098 governs a NINTH code
+joining the set. This is the platform emitting an EXISTING one.**
+
+**THE ANDRE-FACING QUESTION IS DIFFERENT AND IT IS REAL.** Section 5.2a sorts the
+codes into three groups by who produces them, and `unreadable_document` sits in
+Make's group. Our validator emitting it changes what a reader may infer from
+seeing it: today it means *the extractor could not read the document*, and after
+the fix it would also mean *the platform did not trust the anchor*. **That is a
+contract-semantics change, it is item 6 of the closed escalation list in
+`DOCTRINE-TRIAGE` section 6, and it belongs to the card, not to this ruling.**
+
+#### One arm the ruling does not classify, named rather than guessed
+
+`reconcile()` refuses at `:167` when **any line carries a null `line_total`**,
+returning `line_total_missing`. The ruled split has no home for it: the printed
+totals may be perfectly sound, so it is not "no trustworthy anchor", and the check
+did not run, so it is not "the line sum missed". **It is `reconciliation_failed`
+today and this ruling does not move it.** The card carries the question rather
+than a session's guess, per `CLAUDE.md` section 4.
+
+#### Two conditions that sit above all five arms and are unchanged by any of this
+
+1. **`route.ts:287` and `:318`.** Neither check runs unless `document_source`
+   resolves to `scan` AND `status` is `extracted`. A digital payload is untouched,
+   deliberately, and `extraction.spec` case 14 asserts it. The ruled split says
+   nothing about source and does not disturb this.
+2. **`route.ts:341`, `canFlagReconciliation`.** If the database does not know the
+   enum label, `reconciliationFailed` is false and the payload is stored **as it
+   arrived**, `extracted`, with its lines. Migration `0034` is applied (
+   `docs/migrations/APPLY-LOG.md` line 355, `applied_ledger_version()` reads
+   `0034`), so the gate is open today. **It is orthogonal to the split and a fix
+   must not remove it.**
+
+#### THE CARD THIS RULING CALLS FOR WAS NOT AUTHORED, AND THAT IS A FLAGGED DEVIATION RATHER THAN A JUDGEMENT
+
+**The dispatch instructs both of these:**
+
+> STEP 5: *"if the code diverges from that, card the fix."*
+> STEP 7: *"do not author scope beyond step 6"*, where step 6 is three named
+> cards and the split fix is none of them.
+
+**The condition in step 5 fired. Step 7 forbids the card it asks for.** This
+session obeyed the narrower instruction, authored the three named cards and no
+fourth, and **did not resolve the conflict on its own authority**, per
+`CLAUDE.md`: never guess a product decision.
+
+**The derivation above is complete enough that the card is an hour of writing, not
+a re-investigation.** The recommendation, for whoever authors it: one card in the
+`EXT` lane on the phase 3 board, `depends_on: ["EXT-23"]`, because the Romanian
+sentence has to be able to carry the widened meaning before the router starts
+sending documents to it. It must decide the `line_total_missing` arm, must keep
+the capability gate, must keep the digital path untouched, and must answer the
+section 5.2a question above before it writes a line.
+
+**Unblocks:** nothing.
+**Supersedes:** none. It records a divergence between shipped code and a ruled
+split; it does not overturn `route.ts:313`'s reasoning, it narrows it to the case
+that reasoning is actually about.
