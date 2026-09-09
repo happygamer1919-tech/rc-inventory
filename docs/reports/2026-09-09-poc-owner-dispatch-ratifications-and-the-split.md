@@ -24,9 +24,10 @@ no production read, no secret read.**
 `~/rc-inventory` was 52 commits behind and was not used; all work happened in a
 sibling worktree cut from `origin/main`.
 
-**Zero open pull requests is itself worth recording.** R-183, merged four hours
-before this session started, found eight stranded TRIAGE pull requests and
-thirty-one ruling ids that had never reached `main`. **The drain closed all of
+**Zero open pull requests is itself worth recording.** R-183, merged at
+2026-09-09T13:54:07Z and therefore under three hours before this session started,
+found eight stranded TRIAGE pull requests and thirty-one ruling ids that had never
+reached `main`. **The drain closed all of
 them.** `decisions/NEXT-RULING-ID` read `R-184` and `npm run id:free` confirmed
 it free, which is the first time in days those two have agreed.
 
@@ -350,10 +351,11 @@ rather than a third paragraph.
 
 ## 6. State at the end
 
-**The pick order is unchanged by this session.** Phase 2: 6 of 9 gate, 29
-eligible, next is **AUT-3**. Phase 3: 0 of 9 gate, now 30 eligible, next is
-**P3-14**. The three new cards are authored, not queued ahead of anything:
-`EXT-23` and `CI-04` join the tail of the phase 3 lane and `EXT-24` is blocked.
+**The pick order is unchanged by this session.** Phase 2: 6 of 9 gate, 100
+cards, 29 eligible, next is **AUT-3**. Phase 3: 0 of 9 gate, 79 cards (76 before
+this session), 29 eligible (27 before), next is still **P3-14**. The three new
+cards are authored, not queued ahead of anything: `EXT-23` and `CI-04` join the
+phase 3 lane and `EXT-24` is blocked and therefore not eligible at all.
 
 **What the next session should know first:**
 
