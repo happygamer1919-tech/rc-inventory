@@ -10823,3 +10823,404 @@ list stays the session's job; this is about the step list being printed at all.
 
 **Unblocks:** nothing. Authors **CI-03**, todo and eligible.
 **Supersedes:** none.
+
+---
+
+### R-171 - the todo-to-in_flight flip GATE-01 skipped is OVERTURNED under section 1 test 4, and it is the FOURTH instance of RULE-10's defect rather than a new card
+
+**Date:** 2026-09-08
+**Asked on:** GATE-01 (shipped), RULE-10
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-08-executor-gate-01-anon-write.md`, section "Board":
+>
+> "ONE PROCESS DEVIATION, STATED RATHER THAN LEFT TO BE NOTICED. CLAUDE.md
+> section 2 says the `todo` -> `in_flight` flip is committed first, so the board
+> never shows a card being worked as untouched. This run did not commit that flip
+> separately: the card went from `todo` to `shipped` in a single commit. The rule
+> exists so that two actors cannot start the same card, and the exposure here was
+> the few minutes between the branch being cut and the ship. It is still a
+> deviation and the next run should not read this as precedent."
+
+**Ruling:** **OVERTURNED**, and the four tests of DOCTRINE-TRIAGE section 1 are
+named in order rather than summarised.
+
+**TEST 1, IRRECOVERABLE DATA: DOES NOT FIRE.** The deviation is a missing commit.
+It touched no row, no credential and no environment.
+
+**TEST 2, COMMITTED EVIDENCE A STRANGER CAN RE-VERIFY: PASSES, AND IT WAS
+RE-VERIFIED RATHER THAN READ.** Branch `card/gate-01` carries five commits, and
+the first of them, `357f53c4`, changes `scripts/prove-anon-write-refused.mjs`,
+`package.json`, `docs/PRODUCTION-WRITES.md`, the report and the board **in one
+commit**, and the board hunk in that same commit reads:
+
+    -      "status": "todo",
+    +      "status": "shipped",
+
+No commit precedes it. The branch is deleted from the remote and the commits are
+still readable through `gh pr view 264 --json commits` and
+`gh api repos/:owner/:repo/commits/357f53c4`, which is the same route RULE-10's
+own defaults say the check will take.
+
+**TEST 3, WIDENED A RULE OR APPLIED ONE: NEITHER, SO IT DOES NOT DECIDE.** The
+run did not claim an exemption and did not read one into anything. It omitted a
+step and said so. Nothing here is a rule change and nothing is escalated.
+
+**TEST 4, WOULD THE ALTERNATIVE HAVE BEEN WORSE: NO, AND THIS IS WHAT DECIDES
+IT.** Named concretely, as the test requires: the alternative is one commit
+containing a two-character board edit, pushed before the script was written. The
+card would have shipped the same script, the same probe output, the same journal
+row and the same report. The deviation bought nothing and the alternative cost
+one commit. **OVERTURN.**
+
+**THE OVERTURN'S CARD ALREADY EXISTS AND IS `RULE-10`, SO NO CARD IS AUTHORED.**
+DOCTRINE-TRIAGE section 1 says an overturn is a ruling **and** a card because an
+overturn with no card is a complaint, and section 5 says not to author a card for
+something an open card already covers. RULE-10 is open, `todo`, and is exactly
+this: *"CLAUDE.md 2's todo-to-in_flight flip is a rule about COMMIT ORDER and
+check:board-edit reads base..head, so it fires at the wrong moment and has been
+broken three times."*
+
+**IT HAS NOW BEEN BROKEN FOUR TIMES, AND THE FOURTH CONFIRMS THE DIAGNOSIS RATHER
+THAN COMPLICATING IT.** RULE-10's notes quote EXT-12 on what separates the three
+failures from the two that were correct: *"where the work STARTED by editing the
+board, the flip happened; where it started by READING CODE to verify a premise,
+the flip was never reached, because by the time the board was touched the work was
+done."* GATE-01 started by writing a probe script and firing it at production. By
+the time it opened the board it had an exit code and a transcript, and the board
+edit it then made was the finished one. Same shape, fourth instance, and the first
+one to occur AFTER the card naming the pattern was authored, which is the argument
+for a mechanism restated by the defect itself.
+
+**RULE-10 GAINS GATE-01 IN ITS REPLAY LIST, WHICH IS AN ACCEPTANCE EDIT AND IS
+MADE UNDER THIS RULING.** Its acceptance required a replay refusing DIG-01, P3-18
+and EXT-12 and passing GATE-03 and P3-13c; it now requires GATE-01 refused as
+well. Adding a case to a proof harness is not new scope for that card, it is one
+more row in a list the card already carries, and it is added because a case
+discovered after authoring and left out of the harness is a case the harness was
+never asked about.
+
+**WHAT IS NOT A DEVIATION AND IS RECORDED SO IT IS NOT LATER MISTAKEN FOR ONE.**
+GATE-01 sent three INSERT requests to the production project. That is a terminal
+pointing a write at production, and it was **pre-authorised by the card's own
+committed acceptance line**, which says in terms: *"a script that issues a WRITE
+against the production project with the PUBLIC anon key and no session."* It is
+not a DELETE-class statement, so CLAUDE.md 8.6 does not reach it; it carries a row
+in `docs/PRODUCTION-WRITES.md` with the script sha256 and `rows: 0`, so 8.8 is
+satisfied; and the script asserts the target ref, the JWT `role` claim and the
+key-to-URL match before it sends anything. Applying a card's acceptance is test
+3's "applying", not its "widening". Nothing about it is ratified here because
+nothing about it needed ratifying.
+
+**Unblocks:** nothing. RULE-10 was already eligible and remains so.
+
+---
+
+### R-172 - a launch gate at `fail` does not carry an audit in the field the owner's portal labels as its proof, and the phase 3 board has done exactly that on all nine conditions since before R-117 said otherwise
+
+**Date:** 2026-09-08
+**Asked on:** GATE-02, and all nine launch gate conditions on `docs/board/rc-board-phase3.json`
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-08-executor-gate-01-anon-write.md`, section "Board":
+>
+> "`launch_gate.conditions[G1].evidence` rewritten to record clause 3 as MET with
+> the command named, to record what the same run says about clause 1, and to keep
+> the 2026-08-31 audit text verbatim underneath it rather than deleting a
+> superseded premise. CLAUDE.md 9c. `state` on G1 left at `fail`. The gate count
+> is unchanged at 0/9."
+
+**Ruling:** the executor did **exactly what its card told it to do**, its card's
+acceptance line says `evidence`, and the resulting board is at odds with ruling
+**R-117**. The rule is restated, GATE-02's acceptance is amended to carry it, and
+card **GATE-05** enforces it afterwards. **Nothing is overturned and nobody is at
+fault: R-117 was written about one board and is being read on two.**
+
+**WHAT R-117 ACTUALLY RULED, QUOTED SO IT IS NOT PARAPHRASED INTO SOMETHING
+WIDER:**
+
+> "THE AUDITS ARE WRITTEN INTO `notes`, NOT INTO `evidence.ref`, AND THAT IS A
+> DELIBERATE DEPARTURE FROM DOCTRINE-TRIAGE SECTION 4 STEP 4. [...]
+> `docs/board/board-app.js` renders `evidenceBit(g.evidence)` beside every gate,
+> so an audit placed there appears in the owner's portal, next to a failing
+> condition, in the slot labelled as its proof. The owner does not read code and
+> that is the standing condition this project is built around, so a field that
+> reads as 'here is the proof' beside something that has not passed is the one
+> place an audit must not go."
+
+**THE MEASUREMENT, TAKEN ON `main` AT `9b6b6b1` AND NOT REASONED ABOUT.** The two
+open boards use **opposite conventions**, and R-117 did not notice because it was
+editing the phase 2 one:
+
+| board | conditions at `pass` | conditions at `fail` | what a failing condition carries |
+|---|---|---|---|
+| `rc-board-phase2.json` | 6, all with `evidence` | G4, G7, G9 | `evidence: null`, audits in `notes` |
+| `rc-board-phase3.json` | 0 | all 9 | a populated `evidence` object, 970 to 2330 characters, audits in `evidence.ref` |
+
+**SO THE HARM R-117 NAMES IS ALREADY LIVE, AND HAS BEEN SINCE BEFORE R-117 WAS
+WRITTEN.** `board-app.js` calls `evidenceBit(g.evidence)` at three sites, one of
+them the owner's focus column and one the gate table, and it truncates to 34
+characters with the full text in a `title` attribute. On the phase 3 board that
+puts a clipped audit string in the proof slot beside nine `FAIL` badges. G1's now
+opens *"CLAUSE 3 IS MET AS OF 2026-09-08"*, which truncates to a sentence
+fragment asserting that something is met, rendered next to a condition that
+reads FAIL.
+
+**THE RULE, STATED ONCE SO IT BINDS BOTH BOARDS AND ANY LATER ONE:**
+
+- a condition at **`pass`** carries its proof in `evidence`, which is what that
+  field is for and what the six passing phase 2 conditions do,
+- a condition at **`fail`** carries `evidence: null` and its audit in `notes`,
+  however good the audit is and however much of a clause is met.
+
+**WHY THE FIX IS GATE-02'S AND NOT THIS RUN'S, WHICH IS A DELIBERATE CHOICE AND
+NOT A DEFERRAL.** GATE-02 is `todo`, is the next eligible card, and its acceptance
+**already requires all nine evidence fields to be rewritten**. Moving nine audits
+is therefore zero additional work inside a card that is going to touch all nine
+anyway, whereas doing it here would mean this run rewriting nine fields hours
+before GATE-02 rewrites the same nine, and a conflict between them on the file
+they both edit. GATE-01's G1 text is likewise left exactly where the executor put
+it: it is accurate, it is four hours old, and it is one of the nine.
+
+**GATE-02'S ACCEPTANCE IS AMENDED UNDER THIS RULING**, which DOCTRINE-TRIAGE
+permits as *"acceptance when a ruling changes it"*. The clause "the evidence field
+of every one of the nine conditions is rewritten with a new at timestamp" becomes:
+the audit for each of the nine goes in `notes`, and `evidence` is set to `null`
+for every condition that does not flip to `pass`, and carries the proof for any
+that does. The rest of the acceptance is untouched, including
+`readiness_passed` being the counted number.
+
+**GATE-05 IS AUTHORED TO MAKE IT MECHANICAL, AND IT DEPENDS ON GATE-02 FOR THE
+REASON GUARD-02 DEPENDS ON RESTORE-01.** A validator rule refusing `evidence` on a
+condition at `fail`, run today, goes red against `main` on nine conditions. Built
+after GATE-02 it is green from its first commit. Built before it, it forces either
+a red `main` or an allow-list excusing the exact nine rows it exists to catch.
+
+**DOCTRINE-TRIAGE SECTION 4 STEP 4 IS STILL WRONG FOR THIS REPOSITORY AND THIS
+RULING DOES NOT FIX IT.** It says "write the audit into `evidence.ref` whether or
+not it flips", R-117 departed from it, this ruling extends that departure to the
+second board, and the document still says the other thing. **That is a defect in
+`docs/DOCTRINE-TRIAGE.md`**, which its own opening calls a legitimate TRIAGE
+output, and it is named here rather than edited because that file is AUTHOR's to
+write and a TRIAGE run editing its own rubric is the one edit nobody else would
+review. It is a documentation item and it does not block GATE-02 or GATE-05, both
+of which are governed by this ruling and by R-117 rather than by the document.
+
+**Unblocks:** nothing. GATE-02 was already eligible and remains so, with a
+narrower acceptance than it had.
+
+---
+
+### R-173 - the capability edge is STILL unexpressible four days after R-116 said it would not be, because the card R-116 authored to fix it was never authored: its id was already taken
+
+**Date:** 2026-09-08
+**Asked on:** P2-13, P3-35, P3-37, APPLY-02, and ruling R-116
+**Answer, verbatim:**
+
+> from `node docs/board/validate-board.mjs docs/board/rc-board-phase2.json`, run
+> by this TRIAGE session after writing the three edges R-116 said would become
+> writeable:
+>
+> "FAIL  docs/board/rc-board-phase2.json  (3 violations)
+>   - cards (P2-13).depends_on: "APPLY-02" is not a card id on this board.
+>   - cards (P2-13).depends_on: "P3-35" is not a card id on this board.
+>   - cards (P2-13).depends_on: "P3-37" is not a card id on this board."
+
+**Ruling:** the edges are **correct and are not written**, because the validator
+still refuses them. **The reason is not the validator. It is that R-116's card
+does not exist**, and this ruling establishes that from the git history rather
+than asserting it. Card **BOARD-04** is R-116's card, re-authored under a free
+id. Until it ships the edges live in `P2-13`'s notes, which is exactly what R-116
+itself instructed for the interval.
+
+**THE THREE EDGES, EACH WITH THE CLAUSE THAT PUTS IT THERE.** DOCTRINE-TRIAGE
+section 3 check 3: ask what the card takes away, list every card that needs it,
+make those the dependencies. P2-13 takes away the permitted read of
+`/Users/ivan/rc-secrets/phase2.env` and with it any database connection from any
+terminal, the section 3.1 self-merge grant, `SUPABASE_DB_PASSWORD`,
+`SUPABASE_SERVICE_ROLE_KEY`, and the two dev accounts.
+
+- **`P3-35`**, whose acceptance says *"against production, an UNAUTHENTICATED
+  request to clients, contacts and suppliers returns ZERO rows"* and *"run
+  read-only against production"*.
+- **`P3-37`**, whose acceptance opens *"`node scripts/apply-pending-migrations.mjs`
+  against the phase 2 Supabase project"* and requires *"Connectivity proved first
+  with SELECT 1 per 8.4"*.
+- **`APPLY-02`**, ruled onto this array by R-116 and shipped since, so the edge is
+  inert for eligibility and is owed to the record anyway.
+
+**WHAT R-116 SAID WOULD HAPPEN, QUOTED, BECAUSE THE WHOLE FINDING IS THAT IT DID
+NOT:**
+
+> "**Unblocks:** nothing. BOARD-03 is authored `todo` with no dependency, and
+> P2-13's array gains `APPLY-02` in the pull request that ships it."
+
+**BOARD-03 ON `main` IS A DIFFERENT CARD ENTIRELY.** It reads *"The next-card pick
+sorts on lane then number, not on the raw string"*, it was authored by TRIAGE run
+`20260903-070005` under ruling **R-125**, it shipped as PR #222, and CLAUDE.md
+section 2 cites it by name for the sort correction. It has nothing to do with
+cross-board `depends_on`.
+
+**THE MEASUREMENT, FROM THE MERGE COMMIT OF R-116's OWN PULL REQUEST.** Commit
+`eebb7d9`, *"TRIAGE 20260904-040001: R-108 to R-117, the capability edge the board
+cannot hold"*, PR #190. Diffing the card id sets across it:
+
+    docs/board/rc-board-phase2.json   added AUT-20, AUT-21, AUT-22, RULE-05
+    docs/board/rc-board-phase3.json   added APPLY-02
+
+**No card for the cross-board validator was added, on either board, and `BOARD-03`
+was already present as the sort card in that same commit.** R-116 wrote a ruling
+naming a card, the id it named was taken by a card from a run whose ruling ids are
+HIGHER and whose pull request merged FIRST, and the card R-116 intended went
+nowhere. Nothing was red. R-116 reads today as though the work is queued.
+
+**THIS IS THE GAP RULE-09 CLOSED, AND IT IS THE FIRST CONFIRMED CASE OF A CARD
+LOST TO IT RATHER THAN MERELY COLLIDING.** CLAUDE.md 8b records the correction:
+until 2026-09-07 *"card ids had no cross-branch check of any kind"*, because
+`check-open-branch-ids.mjs` read `decisions/` and never opened a board. The
+mechanism now works and this run watched it work: allocating this run's ids
+returned `R-144 IS NOT FREE. Take R-171.` and `GATE-04 IS NOT FREE. Take
+GATE-05.` Under the old rule this run would have taken R-144 and GATE-04 and
+repeated R-116's failure twice in one pull request.
+
+**BOARD-04 IS R-116's CARD AND IS NOT RENUMBERED FROM BOARD-03.** CLAUDE.md 8b
+forbids renumbering an id that has landed, and BOARD-03 landed as something else.
+BOARD-04 is a new id for a card that was never written, allocated with
+`npm run id:free -- BOARD-04`, which answered `BOARD-04 is FREE` against `main`,
+sixteen open pull requests and this working tree. Its notes cite R-116 so the
+trail from that ruling to this card is readable from either end.
+
+**`P2-13.depends_on` IS UNCHANGED AT `["P2-08b"]` AND THE THREE EDGES ARE IN ITS
+NOTES**, at the top of the addition with the validator's exact refusal quoted, per
+R-116's own instruction: *"UNTIL BOARD-03 SHIPS, THE EDGE LIVES IN P2-13's NOTES,
+at the top rather than the bottom, with the validator's exact refusal quoted so
+the next reader does not re-derive why the array looks incomplete."* That
+instruction now points at BOARD-04.
+
+**FOUR CARDS THAT MENTION PRODUCTION AND ARE DELIBERATELY NOT EDGES**, because a
+false edge parks a card for nothing and is worse than a missing one. `P2-20` is
+Playwright cases and a clause count. `P3-29` is `check:migrations` with a local
+assertions file. `P3-39` is a named test against the environment it runs in.
+`P3-29c` says "the production signing path", which names a code path rather than
+the production project.
+
+**GATE-02 IS NOT AN EDGE EITHER, AND THE REASON IS ITS OWN ACCEPTANCE LINE.** It
+was the strongest candidate: it re-derives nine conditions that all say "on
+production". But its acceptance admits **NOT ATTEMPTED** as a recorded outcome, so
+an audit with no production access is a completed audit that says so, and the edge
+would park the next eligible card on a premise its own card refutes.
+
+**THE SELF-MERGE GRANT GETS NO EDGES AND THIS IS NOT AN OVERSIGHT.** Every
+unshipped card on every board needs it, so an edge to each would be an edge to all
+thirty-odd and would say nothing an ordering cannot. It is a phase boundary, and
+P2-13's notes already carry it: *"Ordered after P2-12 and before P2-14 on
+purpose."*
+
+**ONE CONSEQUENCE ADDED TO P2-13's CHECKLIST, AND IT IS A NOTE RATHER THAN A
+BLOCKER.** `npm run prove:anon-write-refused` is named on phase 3 G1 as
+*"committed and re-runnable"* proof of clause 3, and it sources the secrets file,
+so **the flip makes it un-runnable by any terminal.** That is correct and
+intended: the evidence stays valid and stops being reproducible on demand. The
+checklist should say so, so a later reader does not conclude the proof is broken.
+Item 5 of the closed escalation list says narrowing access is TRIAGE's to rule, so
+this is ruled and not escalated.
+
+**Unblocks:** nothing. BOARD-04 is authored `todo` with no dependency. P2-13 was
+already ineligible behind P2-08b and stays there.
+
+---
+
+### R-174 - eighteen gate conditions audited on committed evidence, nothing flipped, and the phase 3 nine are handed to GATE-02 with two clauses already answered
+
+**Date:** 2026-09-08
+**Asked on:** all nine conditions on `docs/board/rc-board-phase2.json` and all nine on `docs/board/rc-board-phase3.json`, and GATE-02
+**Answer, verbatim:**
+
+> from `docs/reports/2026-09-08-executor-gate-01-anon-write.md`, section "What the
+> refusal actually proves, and what it does not":
+>
+> "A SECOND FINDING, RECORDED AND NOT ACTED ON. A `42501` is an answer *from the
+> table*. PostgREST replies `404` with `PGRST205` for a relation it cannot find in
+> its schema cache, so these three responses are also proof that `clients`,
+> `contacts` and `suppliers` **exist on production**. That is clause 1 of the same
+> condition, which the 2026-08-31 audit recorded as unevidenced on the premise
+> that no phase 3 migration had reached production."
+
+**Ruling:** DOCTRINE-TRIAGE section 4 was run over all eighteen conditions on the
+two open boards. **Nothing flipped. Phase 2 stays 6 of 9, phase 3 stays 0 of 9.**
+The finding above is real, is not claimed by this run either, and is written into
+GATE-02's notes so the card that owns the clause starts from it.
+
+**PHASE 2, THREE FAILING CONDITIONS, ALL THREE OF THE KINDS SECTION 4 SAYS NO
+TERMINAL MAY FLIP, AND NOTHING HAS MOVED SINCE R-117.**
+
+- **G4** needs P2-08b, one real document through Andre's scenario on production.
+  P2-08b is blocked on `andre`, a **third party**. Its other half is card P2-20,
+  which is eligible, unclaimed, and is the only piece of the phase 2 gate that is
+  genuinely backlog.
+- **G7** needs a real delivered email from a real threshold crossing. Three things
+  stand in front of it and none moved: `RESEND_API_KEY` and `RESEND_FROM` in the
+  production environment, both **panel actions**, and a recipient that is not on
+  `rc-inventory.local`, which lands at P2-13. **It is NOT re-escalated here.** Run
+  `20260831-040003` put the two panel items in front of the owner under R-080 with
+  a recommended default, that question is unanswered, and asking it again in the
+  same words is how a channel teaches its reader to skim. This audit read the
+  gate's full note rather than its first paragraph, which matters: the note opens
+  by saying migration `0006` is unapplied and then **corrects itself in the same
+  field**, under R-007, with a read-only verification. `0006` is applied. A reader
+  stopping at the first paragraph would card a migration that exists.
+- **G9** needs Mihai to complete a cycle himself. **The client.** It is also
+  downstream of G4, so it cannot move first.
+
+**No database read was performed for this audit and none is claimed.** TRIAGE
+holds no grant to source the secrets file; CLAUDE.md 8.3 gives that to EXECUTOR.
+Every statement above is read from committed board fields, rulings and reports.
+
+**PHASE 3, NINE FAILING CONDITIONS, AND THE AUDIT THIS RUN CAN HONESTLY PERFORM
+IS SMALLER THAN THE ONE THE BOARD NEEDS.** All nine were last written against the
+premise *"no phase 3 migration has been applied"*. **That premise is dead**: R-124
+established that merging a migration applies it, P3-27 and APPLY-02 have shipped,
+and `docs/migrations/APPLY-LOG.md` records `0013` through `0036` applied. Every
+one of the nine therefore names a blocker that stopped existing, which is exactly
+what GATE-02 was authored to repair, and GATE-02 is the next eligible card.
+
+**THIS RUN DOES NOT PRE-EMPT IT AND THE REASON IS GATE-02'S OWN DEFAULTS:**
+*"EVERY CONDITION IS RE-DERIVED, NONE IS DECLARED UNCHANGED."* Re-deriving a
+clause that says "on production" needs a live probe. TRIAGE cannot run one. A
+TRIAGE run writing nine verdicts from committed files alone would produce exactly
+the carried-forward audit that card exists to correct, and would do it in the
+field GATE-02 is about to rewrite.
+
+**WHAT IS HANDED FORWARD INSTEAD, INTO GATE-02's NOTES, IS THE PART THIS RUN CAN
+VERIFY FROM COMMITTED FILES:**
+
+1. **G1 clause 3 is MET and needs no probe from GATE-02.** `npm run
+   prove:anon-write-refused` exited 0 on 2026-09-08T08:05:52Z with three `42501`
+   refusals quoted verbatim in the card evidence and in the report.
+2. **G1 clause 1 is answered by the same three responses and the reasoning is
+   recorded rather than re-derived.** PostgREST answers `404` / `PGRST205` for a
+   relation absent from its schema cache; a `42501` is a privilege answer from an
+   existing relation. GATE-02 may take the clause on that reasoning or re-probe
+   it, and either is a result, but it should not spend the run rediscovering the
+   argument.
+3. **`P3-35` is the card that produces the live evidence for four conditions, and
+   GATE-02 is not it.** GATE-02's own defaults say *"Where a condition turns out
+   to be one command short of passing, that command is a NEW CARD, not work done
+   inside this one"*, and P3-35 is already that card, authored earlier and
+   `todo`. The boundary is: **P3-35 produces the production evidence, GATE-02
+   records the verdict.** No dependency edge is written between them, because
+   GATE-02 may record NOT ATTEMPTED and a card that can finish should not be
+   parked behind one that has not started.
+
+**THE PATTERN THE REPORT NAMES IS REAL AND IT NOW HAS TWO INSTANCES AND ONE
+CARD.** Its words: *"this is the second gate condition found closeable with no
+card behind it, after the phase 2 G4 on 2026-08-31. Both times the audit correctly
+recorded what was missing and nobody converted the cheap half into work."*
+Correct, and the gap it points at is in the rubric: DOCTRINE-TRIAGE section 4 step
+4 requires an audit to record what is missing and requires nothing to be done with
+it. **That is the second defect in `docs/DOCTRINE-TRIAGE.md` this run found**, it
+is named here for the same reason as the first in R-172, and it is not carded
+separately because GATE-02's defaults already carry the correct behaviour for the
+audit that is about to happen: a clause one command short becomes a new card.
+
+**Unblocks:** nothing. No gate flipped and no card was blocked on one.

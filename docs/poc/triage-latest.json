@@ -1,43 +1,12 @@
 {
-  "run_id": "20260908-010002",
-  "report": "docs/reports/2026-09-08-executor-ext-11-the-red-that-was-the-test.md",
-  "rulings_written": [
-    "R-163",
-    "R-164",
-    "R-165",
-    "R-166",
-    "R-167",
-    "R-168",
-    "R-169",
-    "R-170"
-  ],
+  "run_id": "20260908-040001",
+  "report": "docs/reports/2026-09-08-executor-gate-01-anon-write.md",
+  "rulings_written": ["R-171", "R-172", "R-173", "R-174"],
   "cards_resequenced": [
-    {
-      "card_id": "P2-13",
-      "change": "The credential lockdown now formally waits on the open question about who is allowed to change the database, as well as on the extraction supplier. That was decided four days ago and the plan never recorded it, so the plan has been quietly disagreeing with a decision already made."
-    },
-    {
-      "card_id": "AUT-3",
-      "change": "The job that added the overnight review step was marked as being worked on, by nobody, since 27 August. In that state the system can never hand it to anyone. It is back in the queue, and it is a few minutes of paperwork rather than real work."
-    },
-    {
-      "card_id": "RESTORE-01",
-      "change": "A restore job was still asking for two things to be put back that were deliberately taken out afterwards. Putting them back would undo two decisions. Those two are struck from what the job has to do, and the rest of it turns out to already be done."
-    },
-    {
-      "card_id": "RST-04",
-      "change": "A tidy-up job was checking that three reference numbers had never been reused. They were reused five days ago. The check now records the clash instead of pretending it did not happen, because renumbering history is not allowed here."
-    }
+    {"card_id": "P2-13", "change": "depends_on SHOULD read P2-08b, APPLY-02, P3-35, P3-37 and stays at P2-08b because the validator refuses cross-board ids; the three edges are written into notes with the refusal quoted, per R-173"},
+    {"card_id": "RULE-10", "change": "acceptance replay list now refuses GATE-01 as well as DIG-01, P3-18 and EXT-12"},
+    {"card_id": "GATE-02", "change": "acceptance now puts each gate audit in the condition notes and sets evidence to null on any condition that does not flip"}
   ],
   "gates_flipped": [],
-  "escalations": [
-    {
-      "title": "The stock reminder emails still cannot reach anybody, and two of the three reasons are settings only you can change in the hosting console. This was raised on 31 August and has gone eight days without an answer.",
-      "recommendation": "Set the email sending key and the sender address in the live environment this week, in one sitting. RECOMMENDED BECAUSE IT IS TEN MINUTES AND IT IS ONE OF THE THREE LAUNCH CONDITIONS STILL OPEN. THE HONEST CAVEAT, SO YOU ARE NOT SURPRISED: doing it does not switch the reminders on by itself. The third reason is that the only address the system knows belongs to a test account on a domain that does not exist, and that gets fixed when the real client accounts are created at the credential lockdown. IF UNANSWERED: nothing breaks, and the reminders keep silently addressing nobody for as long as it takes. That has been true for thirteen days."
-    },
-    {
-      "title": "The question of whether the database keeps updating itself automatically whenever work is published has been waiting on you since 3 September, and as of today the whole credential lockdown waits behind it, which means the client acceptance walk does too.",
-      "recommendation": "Leave the automatic updating switched on, and say so, so the rules can be rewritten to describe what actually happens. RECOMMENDED BECAUSE IT IS ALREADY HOW THE SYSTEM BEHAVES and because the safety check that catches a dangerous change before it is published is built, running on every piece of work, and proven to refuse. Turning it off instead means every future database change needs a session to run it by hand, which is slower and has more ways to go wrong. IF UNANSWERED: the lockdown cannot proceed, and it is the single action that closes off every temporary permission the overnight sessions hold. That has now been waiting five days and it is no longer only about you."
-    }
-  ]
+  "escalations": []
 }
