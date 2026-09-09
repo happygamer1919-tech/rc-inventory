@@ -16,6 +16,20 @@
   ],
   "escalations": [
     {
+      "at": "2026-08-31T11:45:00Z",
+      "run_id": "20260830-220004",
+      "card": "P3-04b, P3-05b",
+      "kind": "card_held_by_another_actor",
+      "detail": "Both were the lowest-id eligible cards at boot and neither was taken. PR #123 was opened at 02:00:00Z, four seconds before this run started, and it carried board edits to exactly these two cards, blocking both on ivan. It has since merged as 942b6bf. The claims map was empty and could not have prevented the overlap: a claim protects a card only once its pull request is on main. Skipped per CLAUDE.md section 13 and logged here rather than skipped quietly. Nothing was lost, because #123 reached the same conclusion this run would have."
+    },
+    {
+      "run_id": "20260831-010005",
+      "at": "2026-08-31T05:10:17Z",
+      "card": "P3-13",
+      "kind": "harness_defect",
+      "text": "The harness reads docs/board/rc-board-phase2.json (POC_BOARD, scripts/poc/run.sh line 23) while every run since 2026-08-30 has worked docs/board/rc-board-phase3.json. Its eligible-card line, the CLAIM_SKIPPED set it puts in the prompt, and the claim it writes at the end of a run are all computed against a board nobody is working. Visible right now in this file: a claim on AUT-10 by harness, written at the end of a run that worked P3-11. Nothing was lost today because the session reads both boards at boot, but the lease is protecting the wrong card and the lease exists because a human terminal and the harness collided once already. Needs a card against scripts/poc/run.sh. See docs/reports/2026-08-31-executor-p3-13-deviz-schema.md section 3b."
+    },
+    {
       "card_id": "AUT-1 (claimed by executor), P2-15 (claimed by executor), P2-18 (claimed by executor)",
       "question": "Eligible card(s) AUT-1 (claimed by executor), P2-15 (claimed by executor), P2-18 (claimed by executor) were not shipped by this run. skipped because another actor holds the claim. This is the lease working, not a fault. The card is worked when the claim is released or expires after 6 hours.",
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260827-112248.log. Silence on an eligible card is a defect, not a normal outcome.",
@@ -58,25 +72,11 @@
       "run_id": "20260830-070005"
     },
     {
-      "at": "2026-08-31T11:45:00Z",
-      "run_id": "20260830-220004",
-      "card": "P3-04b, P3-05b",
-      "kind": "card_held_by_another_actor",
-      "detail": "Both were the lowest-id eligible cards at boot and neither was taken. PR #123 was opened at 02:00:00Z, four seconds before this run started, and it carried board edits to exactly these two cards, blocking both on ivan. It has since merged as 942b6bf. The claims map was empty and could not have prevented the overlap: a claim protects a card only once its pull request is on main. Skipped per CLAUDE.md section 13 and logged here rather than skipped quietly. Nothing was lost, because #123 reached the same conclusion this run would have."
-    },
-    {
       "card_id": "AUT-10,AUT-8,AUT-9,BOARD-01,CLAIM-01,LEARN-01,RST-02",
       "question": "Eligible card(s) AUT-10,AUT-8,AUT-9,BOARD-01,CLAIM-01,LEARN-01,RST-02 were not shipped by this run. work is on a branch and was not merged: P3-11:branch:unknown. Most likely the acceptance had not passed, which is correct behaviour under CLAUDE.md section 6, but the card is not shipped and the run must say so.",
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260830-220004.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-08-31T02:48:59Z",
       "run_id": "20260830-220004"
-    },
-    {
-      "run_id": "20260831-010005",
-      "at": "2026-08-31T05:10:17Z",
-      "card": "P3-13",
-      "kind": "harness_defect",
-      "text": "The harness reads docs/board/rc-board-phase2.json (POC_BOARD, scripts/poc/run.sh line 23) while every run since 2026-08-30 has worked docs/board/rc-board-phase3.json. Its eligible-card line, the CLAIM_SKIPPED set it puts in the prompt, and the claim it writes at the end of a run are all computed against a board nobody is working. Visible right now in this file: a claim on AUT-10 by harness, written at the end of a run that worked P3-11. Nothing was lost today because the session reads both boards at boot, but the lease is protecting the wrong card and the lease exists because a human terminal and the harness collided once already. Needs a card against scripts/poc/run.sh. See docs/reports/2026-08-31-executor-p3-13-deviz-schema.md section 3b."
     },
     {
       "card_id": "AUT-10,AUT-8,AUT-9,BOARD-01,CLAIM-01,LEARN-01,RST-02",
@@ -175,6 +175,20 @@
       "recommendation": "Read /Users/ivan/rc-poc-logs/20260904-071258.log. Silence on an eligible card is a defect, not a normal outcome.",
       "raised_at": "2026-09-04T11:54:48Z",
       "run_id": "20260904-071258"
+    },
+    {
+      "card_id": null,
+      "question": "The executor ran 3294s against its 2700s wall clock cap and was stopped there.",
+      "recommendation": "Read the run log before assuming the work is complete.",
+      "raised_at": "2026-09-06T10:05:29Z",
+      "run_id": "20260906-040016"
+    },
+    {
+      "card_id": "EXT-10,EXT-11,EXT-12,EXT-13,EXT-21,GATE-01,GATE-02,P3-13c,P3-14,P3-15,P3-16,P3-17,P3-19,P3-20,P3-21,P3-22,P3-23,P3-24,P3-25,P3-26,P3-28,P3-29,P3-29a,P3-29b,P3-29c,P3-30,P3-31,P3-32,P3-35,P3-36,P3-37,CI-01,CLAIM-01,DIG-01,FIXTURE-01,GATE-03,LEARN-01,MIG-02,P2-20,RESTORE-01,RST-02,RST-03,RST-04,RST-05,RULE-03,RULE-05",
+      "question": "Eligible card(s) EXT-10,EXT-11,EXT-12,EXT-13,EXT-21,GATE-01,GATE-02,P3-13c,P3-14,P3-15,P3-16,P3-17,P3-19,P3-20,P3-21,P3-22,P3-23,P3-24,P3-25,P3-26,P3-28,P3-29,P3-29a,P3-29b,P3-29c,P3-30,P3-31,P3-32,P3-35,P3-36,P3-37,CI-01,CLAIM-01,DIG-01,FIXTURE-01,GATE-03,LEARN-01,MIG-02,P2-20,RESTORE-01,RST-02,RST-03,RST-04,RST-05,RULE-03,RULE-05 were not shipped by this run. the executor ran 3294s against a 2700s cap and was stopped before it could ship.",
+      "recommendation": "Read /Users/ivan/rc-poc-logs/20260906-040016.log. Silence on an eligible card is a defect, not a normal outcome.",
+      "raised_at": "2026-09-06T10:05:29Z",
+      "run_id": "20260906-040016"
     },
     {
       "card_id": "PR-223",
@@ -350,6 +364,62 @@
       "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
       "raised_at": "2026-09-07T08:32:32Z",
       "run_id": "20260907-040001"
+    },
+    {
+      "card_id": "PR-223",
+      "question": "Pull request #223 on branch poc/state-20260906-040016 (head 46ce263ace9e2bcbb7812996a72a6553cde0aef3) was left open by run 20260907-070002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "PR-210",
+      "question": "Pull request #210 on branch triage/20260905-010004 (head d13cb129223f8267871d0d1ce1b34c2540f7a925) was left open by run 20260907-070002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "PR-209",
+      "question": "Pull request #209 on branch poc/report-20260905-010004 (head 17388dc8d3aeb64abc0e77c7efbf1d146c59658d) was left open by run 20260907-070002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "PR-207",
+      "question": "Pull request #207 on branch triage/20260904-220003 (head 44cb6afd09621dff8fe9d4bd8da5f98fc684c6f2) was left open by run 20260907-070002: it conflicts with main, so no workflow runs on its head sha and nothing may merge on it.",
+      "recommendation": "Resolve it locally per CLAUDE.md section 3: a conflicting pull request is rebuilt on a fresh branch by EXECUTOR, and a red or absent quality run is re-run and read on the head sha before anything merges. Doing nothing leaves the work unpublished.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "BRANCH-poc/claim-ext-16-20260903-182358",
+      "question": "Branch poc/claim-ext-16-20260903-182358 (head 4db5bbe986e4676a4528e3d183d802f77f2269b2, 2 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260901-011629",
+      "question": "Branch poc/state-20260901-011629 (head d16c84156a7c977a52993d446d51024cd499d8b1, 6 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "BRANCH-poc/state-20260904-040001",
+      "question": "Branch poc/state-20260904-040001 (head d01d202528f5352e00c6e49028d880ddff93fe46, 3 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
+    },
+    {
+      "card_id": "BRANCH-triage/20260901-070544",
+      "question": "Branch triage/20260901-070544 (head c35ee07bf2528fe1b8fd6f04eae8f63276d7291d, 5 days old) is pushed to origin, is not merged into main, and has no open pull request, so no check has ever run on it and nothing reports it.",
+      "recommendation": "Open a pull request for it, or confirm the work is abandoned and say so in a report. Never delete the branch from a scheduled run: unpublished work is exactly what would be lost.",
+      "raised_at": "2026-09-07T11:33:10Z",
+      "run_id": "20260907-070002"
     },
     {
       "card_id": "PR-248",

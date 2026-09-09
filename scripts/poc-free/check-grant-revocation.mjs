@@ -78,7 +78,25 @@ const BOARDS = [...WORKING_BOARDS, ...CLOSED_BOARDS].map((b) => b.path);
 const DECLARES = [
   /\bREVOKED\s+BY\s+([A-Z][A-Z0-9]*-\d+)/gi,
   /\bexpires?\s+at\s+([A-Z][A-Z0-9]*-\d+)/gi,
-  /\b([A-Z][A-Z0-9]*-\d+)\s+revokes\b/g,
+  // NARROWED 2026-09-08 BY GATE-06, AND THE OLD FORM IS KEPT HERE UNDER
+  // CLAUDE.md 9c RATHER THAN DELETED:
+  //
+  //     /\b([A-Z][A-Z0-9]*-\d+)\s+revokes\b/g
+  //
+  // IT HAD ZERO TRUE POSITIVES AND SIX FALSE ONES. "X revokes" names the card
+  // DOING the revoking, which is how every TRIAGE audit refers to P2-13 in
+  // passing, and a grant declares itself the other way round: "revoked at X",
+  // "expires at X", "granted until X". Measured on 2026-09-08 across `main` and
+  // the eight open TRIAGE branches: it matched R-024, R-101, R-138, R-147 and
+  // R-157, every one of them prose ABOUT a revocation, and it caught no grant
+  // that the other three patterns did not already catch. R-001, R-007, R-012,
+  // R-047, R-049, R-056, R-059, R-072 and R-082 are all found without it.
+  //
+  // THE SHAPE IS KEPT RATHER THAN DROPPED, because a grant COULD be written
+  // "P2-13 revokes this grant" and that sentence should still be caught. What is
+  // removed is the reading in which any mention of a card revoking anything
+  // becomes a declaration.
+  /\b([A-Z][A-Z0-9]*-\d+)\s+revokes\s+(?:this|the present)\s+grant\b/gi,
   // "Revoked with every other terminal grant AT P2-13." R-059 is written that
   // way and the first three patterns did not match it, which was this check
   // failing at the thing the card is about: a grant covered by a phrase nobody
@@ -91,14 +109,21 @@ const DECLARES = [
 // is NOT a grant, with the reason it is not.
 // ---------------------------------------------------------------------------
 const NOT_A_GRANT = [
-  {
-    id: 'R-024',
-    why: 'A RESEQUENCING ruling: it moves P2-15 and P2-13 behind the build tail. Its matched sentence, "P2-13 revokes the migration-apply grant, rotates every credential", DESCRIBES what P2-13 does and hands nobody anything. R-001 is the grant it is describing, and R-001 is named in its own right.',
-  },
-  {
-    id: 'R-101',
-    why: 'A TRIAGE gate audit. It DISCUSSES P2-13s capability edges, in the sentence "P2-13 revokes every ...", and hands nobody anything. A gate audit that names the revoking card is reporting on the checklist, not joining it.',
-  },
+  // R-024 AND R-101 WERE EXCUSED HERE UNTIL 2026-09-08 AND NO LONGER NEED TO BE,
+  // because the pattern that flagged them is narrowed above. Their reasons are
+  // kept, under CLAUDE.md 9c, because they are the evidence for the narrowing:
+  //
+  //   R-024  'A RESEQUENCING ruling: it moves P2-15 and P2-13 behind the build
+  //          tail. Its matched sentence, "P2-13 revokes the migration-apply
+  //          grant, rotates every credential", DESCRIBES what P2-13 does and
+  //          hands nobody anything.'
+  //   R-101  'A TRIAGE gate audit. It DISCUSSES P2-13s capability edges, in the
+  //          sentence "P2-13 revokes every ...", and hands nobody anything. A
+  //          gate audit that names the revoking card is reporting on the
+  //          checklist, not joining it.'
+  //
+  // Both are now simply not matched, which is the same answer arrived at one
+  // layer earlier and without a list that grows by one on every TRIAGE run.
   {
     id: 'R-126',
     why: 'A TRIAGE gate audit, and the matched sentence is a NEGATION: "neither is a credential and neither is revoked by P2-13." It says the opposite of what the pattern reads.',

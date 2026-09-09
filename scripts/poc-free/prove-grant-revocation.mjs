@@ -61,12 +61,16 @@ function tree({ rulings, p213 = 'nothing here', extra = {} }) {
 }
 
 const R = (id, heading, body) => `### ${id} - ${heading}\n\n${body}\n`;
-// The three rulings the shipped NOT_A_GRANT table excuses. Every fixture carries
-// them, because a table entry matching no hit is itself a failure and would make
-// every case below red for a reason none of them is about.
+// The ruling the shipped NOT_A_GRANT table excuses. Every fixture carries it,
+// because a table entry matching no hit is itself a failure and would make every
+// case below red for a reason none of them is about.
+//
+// IT WAS THREE UNTIL 2026-09-08. R-024 and R-101 were excused because the
+// "X revokes" pattern flagged prose ABOUT a revocation; GATE-06 narrowed that
+// pattern and they are simply not matched any more. Only R-126 still needs
+// excusing, and it needs it for a different reason: its sentence is a NEGATION,
+// "neither is revoked by P2-13", which pattern 4 reads as a declaration.
 const EXCUSED = [
-  R('R-024', 'resequencing', 'P2-13 revokes the migration-apply grant, rotates every credential.'),
-  R('R-101', 'gate audit', 'P2-13 revokes every terminal grant, and this audit reports on it.'),
   R('R-126', 'gate audit', 'Neither is a credential and neither is revoked by P2-13.'),
 ];
 
@@ -145,9 +149,9 @@ console.log('\n4. A HIT THAT IS NOT A GRANT MUST BE DECLARED, NOT SILENTLY DROPP
 console.log('\n5. A STALE NOT_A_GRANT ENTRY IS REFUSED');
 // ===========================================================================
 {
-  // R-024, R-101 and R-126 are excused by the shipped table. A tree where none of
-  // them says this any more must refuse, because an exemption for a ruling that
-  // no longer matches sits there covering whatever takes its place.
+  // R-126 is excused by the shipped table. A tree where it no longer says this
+  // must refuse, because an exemption for a ruling that no longer matches sits
+  // there covering whatever takes its place.
   const dir = tree({
     rulings: [R('R-082', 'a grant', 'REVOKED BY P2-13.')],
     p213: 'a box confirming the R-082 grant is revoked.',
@@ -155,8 +159,8 @@ console.log('\n5. A STALE NOT_A_GRANT ENTRY IS REFUSED');
   try {
     const r = run(dir);
     record('a declaration matching no hit is refused', r.status === 1, `exit ${r.status}: ${r.out.slice(0, 400)}`);
-    record('  ...naming all three stale entries',
-      /R-024 is listed in NOT_A_GRANT/.test(r.out) && /R-101 is listed in NOT_A_GRANT/.test(r.out) && /R-126 is listed in NOT_A_GRANT/.test(r.out),
+    record('  ...naming the stale entry',
+      /R-126 is listed in NOT_A_GRANT/.test(r.out),
       r.out.slice(0, 800));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
@@ -240,6 +244,43 @@ console.log('\n9. THE LIVE REPOSITORY PASSES');
   record('the tree as it stands is accepted', r.status === 0, `exit ${r.status}: ${r.out.slice(0, 600)}`);
   record('  ...with every declared grant named by the checklist that revokes it',
     /named by the checklist   7 of 7/.test(r.out), r.out.slice(0, 600));
+}
+
+// ===========================================================================
+console.log('\n10. GATE-06: THE NARROWED "revokes" PATTERN, BOTH HALVES');
+// ===========================================================================
+{
+  // THE HALF THAT MUST STILL FIRE. A grant CAN be written the other way round,
+  // and that sentence is still a declaration.
+  const dir = tree({
+    rulings: [...EXCUSED, R('R-201', 'a grant written the other way round',
+      'A terminal may do the thing.\n\nP2-13 revokes this grant, with every other terminal grant.')],
+    p213: 'a box confirming nothing in particular.',
+  });
+  try {
+    const r = run(dir);
+    record('"P2-13 revokes this grant" is still read as a declaration',
+      r.status === 1 && /R-201 says it is revoked by P2-13/.test(r.out), `exit ${r.status}: ${r.out.slice(0, 500)}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // THE HALF THAT MUST NOT. Prose ABOUT a revocation is not a declaration, and
+  // this is the exact shape that produced five false positives and needed a
+  // hand-written excuse for each one.
+  const prose = tree({
+    rulings: [...EXCUSED,
+      R('R-202', 'a board sweep', 'P2-13 revokes every terminal grant, including R-082s migration apply.'),
+      R('R-203', 'a gate audit', 'GATE-03 revokes a grant its checklist does not enumerate.'),
+      R('R-204', 'a finding', 'P2-13 revokes a capability that every unshipped card needs.')],
+    p213: 'a box confirming nothing in particular.',
+  });
+  try {
+    const r = run(prose);
+    record('prose about a card revoking things is NOT a declaration', r.status === 0,
+      `exit ${r.status}: ${r.out.slice(0, 600)}`);
+    record('  ...and none of the three is named as a grant',
+      !/R-202 says it is revoked/.test(r.out) && !/R-203 says it is revoked/.test(r.out) && !/R-204 says it is revoked/.test(r.out),
+      r.out.slice(0, 600));
+  } finally { rmSync(prose, { recursive: true, force: true }); }
 }
 
 const failed = results.filter((r) => !r.pass).length;
