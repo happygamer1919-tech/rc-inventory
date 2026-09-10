@@ -12309,3 +12309,102 @@ section 5.2a question above before it writes a line.
 **Supersedes:** none. It records a divergence between shipped code and a ruled
 split; it does not overturn `route.ts:313`'s reasoning, it narrows it to the case
 that reasoning is actually about.
+
+---
+
+### R-188 - The six flagged deviations ratified, two of them defects in the dispatch rather than in the session, and an arithmetic correction that runs upward
+**Date:** 2026-09-10
+**Asked on:** EXT-23, EXT-24, CI-04
+**Answer, verbatim:**
+> STEP 1 - RATIFICATIONS, record them.
+>   all six of your deviations ratified.
+>   deviation 1 and 3 were defects in my dispatch: step 5 required carding while
+>     step 7 forbade it, and one role was named for two roles' work.
+>   deviation 5: you are right and I was wrong. 5240 minus 4920 is 320. The 342
+>     came from Andre and I carried it unchecked. Record that the arithmetic in
+>     R-186's dispatch was mine and did not close, that the measured figure stands
+>     as he reported it, and that the ruling holds at either value.
+>   deviation 6: a ruling that quotes a refusal contains the string the check
+>     scans for, so recording the finding tripped the check that produced it.
+>     Record this as an instance of the doctrine pattern, one line, no new check.
+
+**Ruling: all six are ratified. Three of them are settled and closed; three carry
+something the next session has to keep.**
+
+#### 1 and 3 were defects in the DISPATCH, and that is the part worth recording
+
+The owner names them as his own: **step 5 required a card that step 7 forbade**,
+and **one role was named for two roles' work.** Neither was a judgement the
+session got wrong.
+
+**THE SESSION'S HANDLING OF BOTH IS UPHELD AS THE CORRECT ONE.** Faced with two
+instructions that could not both be obeyed, it obeyed the narrower, delivered
+everything else in full, and flagged the conflict rather than picking a side
+quietly. `CLAUDE.md` section 4: never guess a product decision. **A session that
+had silently chosen one of the two would have produced the same artefacts and
+taught the next session that the conflict did not exist.**
+
+**AND THE COST OF THE CONFLICT IS NOW VISIBLE.** The card step 5 asked for is the
+one step 3 of the 2026-09-10 dispatch orders authored, a day later, with R-187
+carrying the derivation so nothing is re-investigated. **The flag is what made
+that recoverable in one day rather than in a rediscovery.**
+
+#### 5. The arithmetic in R-186's dispatch was the owner's and it did not close
+
+**Recorded exactly as instructed, in three parts:**
+
+1. **The arithmetic was the owner's.** 5240 minus 4920 is **320**. The dispatch
+   said the residue was 342.
+2. **The 342 came from Andre and was carried unchecked.** It is a measured figure
+   reported by the person who measured it, and **it stands as he reported it.**
+   Nothing here says Andre is wrong; it says the two deltas and the residue as
+   they reached this repository do not close against each other, and at least one
+   of the three is rounded.
+3. **R-186 holds at either value.** Whether the residue is 320 or 342, it is four
+   orders of magnitude below the errors that produced it and four above the
+   0.07 tolerance, and every consequence R-186 records is identical.
+
+**THE CORRECTION RAN UPWARD, AND THAT IS THE ENTRY.** The session flagged a
+three-figure arithmetic slip in a dispatch from the person who sets its scope,
+recorded the owner's numbers verbatim instead of repairing them silently, and
+was right. **A session that had quietly written 320 into the ruling would have
+produced a correct number and a false record**, because the record would then say
+the dispatch closed when it did not, and nobody would know which figure came from
+Andre. `R-186` is not amended: it already carries both readings and says the
+ruling holds at either.
+
+#### 6. A ruling that quotes a refusal contains the string the check scans for
+
+**Recorded as an instance of the doctrine pattern, one line, and no new check is
+built:**
+
+**A record OF a refusal contains the refusal, so writing the record down can
+trip the thing that produced it.** R-184 quoted GATE-06's evidence, which quotes
+`check-grant-revocation`'s own output, and `quality` then read R-184 as an
+unlisted grant.
+
+**NO NEW CHECK, ON THE OWNER'S INSTRUCTION, AND THE REASON IS THE PATTERN'S OWN
+SHAPE.** A guard against this would have to distinguish a sentence from a
+quotation of a sentence, in prose, which is a harder problem than the one being
+guarded. **The available fix is the one already taken: truncate the quotation and
+say why in the ruling.** One instance is a paragraph. A second is a card against
+the check, not a third paragraph.
+
+#### 2 and 4, ratified without further comment
+
+**2. The boot status report came after `launchctl disable`**, because the disable
+was step 1 of the dispatch and the report is step 1 of `CLAUDE.md` section 1. It
+changed nothing in this repository.
+
+**4. Two source-file comments still carry the inference R-185 superseded**,
+`lib/data/reconciliation.ts` lines 10 to 21 and
+`scripts/poc-free/check-reconciliation.mjs` lines 26 to 28, because both are CODE
+paths under `check-board-edit` and a rulings pull request cannot touch them.
+**They are still uncorrected as of this ruling.** EXT-23 is the first card whose
+pull request legitimately touches `lib/data/reconciliation.ts`, and it corrects
+them there.
+
+**Unblocks:** nothing. It settles six deviations and hands EXT-23 the correction
+that deviation 4 named.
+**Supersedes:** none. R-186 is not amended: its own text already records both
+readings of the residue and states that the ruling holds at either.

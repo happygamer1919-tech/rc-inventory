@@ -849,7 +849,11 @@ test.describe("Extragere documente", () => {
       expect(r.status()).toBe(202);
       const d = await draftState(request, orderId);
       expect(d.status, "tinta null trebuie sa REFUZE").toBe("failed");
-      expect(d.error_code).toBe("reconciliation_failed");
+      // EXT-23, BRATUL target_missing. ASERTIUNEA S-A MUTAT, NU A FOST STEARSA:
+      // pana la EXT-23 astepta `reconciliation_failed`. prices_include_vat este
+      // false, deci reperul ESTE subtotalul, si subtotalul lipseste: nu exista
+      // nimic fata de care suma liniilor sa poata rata.
+      expect(d.error_code).toBe("unreadable_document");
       expect(d.lines).toHaveLength(0);
     }
 
@@ -864,7 +868,10 @@ test.describe("Extragere documente", () => {
       expect(r.status()).toBe(202);
       const d = await draftState(request, orderId);
       expect(d.status, "un line_total null trebuie sa REFUZE").toBe("failed");
-      expect(d.error_code).toBe("reconciliation_failed");
+      // EXT-23, BRATUL line_total_missing, CLASIFICAT DE PROPRIETAR IN ACEST
+      // CARD fiindca hotararea R-187 l-a gasit neclasificat: o linie fara total
+      // nu poate fi reconciliata, si actiunea este o copie mai buna.
+      expect(d.error_code).toBe("unreadable_document");
       expect(d.lines).toHaveLength(0);
     }
 
@@ -891,7 +898,133 @@ test.describe("Extragere documente", () => {
       expect(r.status()).toBe(202);
       const d = await draftState(request, orderId);
       expect(d.status, "prices_include_vat null si niciuna nu se potriveste").toBe("failed");
-      expect(d.error_code).toBe("reconciliation_failed");
+      // EXT-23, BRATUL anchor_unknown. ASERTIUNEA S-A MUTAT, NU A FOST STEARSA.
+      // Steagul lipseste, deci NU SE STIE CARE dintre cele doua totaluri este
+      // reperul. Cand niciunul nu se potriveste, nu se poate spune ca suma a
+      // ratat un reper: nu s-a stabilit niciun reper.
+      expect(d.error_code).toBe("unreadable_document");
+      expect(d.lines).toHaveLength(0);
+    }
+
+    // 4. STEAGUL LIPSESTE SI AMANDOUA TOTALURILE LIPSESC. Nu exista candidat
+    //    deloc, ceea ce este bratul target_missing si nu anchor_unknown. Cele
+    //    doua duc la acelasi cod si sunt cazuri diferite, deci fiecare are
+    //    cazul ei.
+    {
+      const { orderId } = await orderWithDocument(page, "recvatnone");
+      const r = await post(
+        request,
+        matnord(orderId, 38429.4, {
+          prices_include_vat: null,
+          subtotal: null,
+          document_total: null,
+        }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "niciun total tiparit deloc").toBe("failed");
+      expect(d.error_code).toBe("unreadable_document");
+      expect(d.lines).toHaveLength(0);
+    }
+
+    // 5. STEAGUL ESTE true SI document_total LIPSESTE. Simetricul sub-cazului
+    //    1, pe cealalta ramura a lui prices_include_vat, fiindca o ramura
+    //    testata pe o singura valoare a steagului este o ramura jumatate
+    //    testata.
+    {
+      const { orderId } = await orderWithDocument(page, "rectgttrue");
+      const r = await post(
+        request,
+        matnord(orderId, 50336.4, { prices_include_vat: true, document_total: null }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "reperul ales de steag lipseste").toBe("failed");
+      expect(d.error_code).toBe("unreadable_document");
+      expect(d.lines).toHaveLength(0);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // EXT-23. ZERO LINII, SI CELE DOUA SUB-CAZURI CARE NU SUNT ACELASI CAZ.
+  //
+  // Hotararea R-187 a gasit ca un payload cu ZERO linii al carui total ales este
+  // chiar 0 SE RECONCILIAZA astazi si nu este refuzat deloc: |0 - 0| <= 0.05.
+  // Se stocheaza `extracted`, fara linii, ca o citire curata. Proprietarul l-a
+  // hotarat in acest card: suma a nimic care da zero nu este dovada pentru
+  // nimic.
+  // -------------------------------------------------------------------------
+
+  test("15b. EXT-23: zero linii este unreadable_document", async ({ page, request }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // 1. ZERO LINII, TOTALURI TIPARITE NORMALE. Extractorul nu a intors nimic
+    //    de pe o pagina care are cifre pe ea.
+    {
+      const { orderId } = await orderWithDocument(page, "zerolines");
+      const r = await post(request, matnord(orderId, 50336.4, { lines: [] }));
+      expect(r.status(), "un payload fara linii respecta contractul").toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "zero linii trebuie sa REFUZE").toBe("failed");
+      expect(d.error_code).toBe("unreadable_document");
+      expect(d.lines).toHaveLength(0);
+      // ANTETUL RAMANE, ca la orice refuz de scanare: cine bate documentul de
+      // mana are nevoie de furnizor, data si totaluri.
+      expect(d.supplier_name).not.toBeNull();
+      expect(Number(d.subtotal)).toBe(50336.4);
+    }
+
+    // 2. CONTROLUL DIGITAL. Acelasi payload fara linii, declarat digital, este
+    //    NEATINS, exact ca la cazurile 14 si 20.3. EXT-23 nu largeste suprafata
+    //    pe care se aplica reconcilierea; schimba numai codul pe care il emite.
+    {
+      const { orderId } = await orderWithDocument(page, "zerodig");
+      const r = await post(
+        request,
+        matnord(orderId, 50336.4, { lines: [], document_source: "digital" }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(d.status, "calea digitala ramane neatinsa").toBe("extracted");
+      expect(d.error_code).toBeNull();
+    }
+  });
+
+  test("15c. EXT-23: zero linii SI totalul tiparit chiar 0 este unreadable_document, si acesta este cazul pe care R-187 l-a gasit trecand", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // CAZUL ARE PROPRIUL TEST SI NU ESTE UN SUB-CAZ AL LUI 15b, fiindca 15b
+    // cade primul si un sub-caz care nu se executa nu dovedeste nimic. Acesta
+    // este exact defectul pe care R-187 l-a raportat: |0 - 0| <= 0.05, deci
+    // payload-ul SE RECONCILIA si nu era refuzat deloc. O implementare care
+    // refuza zero linii NUMAI cand totalul este diferit de zero trece 15b in
+    // intregime si lasa gaura exact unde era.
+    {
+      const { orderId } = await orderWithDocument(page, "zerozero");
+      const r = await post(
+        request,
+        matnord(orderId, 50336.4, {
+          lines: [],
+          prices_include_vat: false,
+          subtotal: 0,
+          vat_amount: 0,
+          document_total: 0,
+          vat_rate: 20.0,
+        }),
+      );
+      expect(r.status()).toBe(202);
+      const d = await draftState(request, orderId);
+      expect(
+        d.status,
+        "suma a nimic care este de acord cu zero nu este dovada pentru nimic",
+      ).toBe("failed");
+      expect(d.error_code).toBe("unreadable_document");
+      expect(d.error_code, "nu se accepta si nu se raporteaza ca reconciliat").not.toBeNull();
       expect(d.lines).toHaveLength(0);
     }
   });
@@ -1052,7 +1185,16 @@ test.describe("Extragere documente", () => {
     expect(r.status()).toBe(202);
     const d = await draftState(request, orderId);
     expect(d.status, "un antet care nu se aduna trebuie sa REFUZE").toBe("failed");
-    expect(d.error_code).toBe("reconciliation_failed");
+    // EXT-23, BRATUL header_inconsistent. ASERTIUNEA S-A MUTAT, NU A FOST
+    // STEARSA: pana la EXT-23 acest caz astepta `reconciliation_failed`, si
+    // hotararea R-187 a numit-o o abatere de la impartirea hotarata. Un antet
+    // care nu se aduna cu el insusi nu are niciun reper de incredere, deci suma
+    // liniilor nu a ratat nimic: nu se stie fata de ce ar fi trebuit sa se
+    // adune.
+    expect(d.error_code).toBe("unreadable_document");
+    expect(d.error_code, "un antet care se contrazice nu este o suma care a ratat").not.toBe(
+      "reconciliation_failed",
+    );
     expect(d.lines, "o scanare refuzata nu pastreaza nicio linie").toHaveLength(0);
   });
 
@@ -1074,7 +1216,9 @@ test.describe("Extragere documente", () => {
     expect(r.status()).toBe(202);
     const d = await draftState(request, orderId);
     expect(d.status, "un TVA care nu iese din cota trebuie sa REFUZE").toBe("failed");
-    expect(d.error_code).toBe("reconciliation_failed");
+    // EXT-23, BRATUL header_inconsistent, a doua verificare. Aceeasi mutare ca
+    // la cazul 18 si din acelasi motiv.
+    expect(d.error_code).toBe("unreadable_document");
     expect(d.lines).toHaveLength(0);
   });
 

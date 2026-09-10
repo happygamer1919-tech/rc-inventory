@@ -689,6 +689,14 @@ than to an assumed one.
 | **download path** | failures BEFORE the model runs. The subject is our signed URL and our storage. | `download_failed`, `url_expired` |
 | **payload path** | failures OF the extraction. The subject is the document and the model. | `unsupported_format`, `unreadable_document`, `extraction_failed`, `invalid_output`, `timeout` |
 
+**`unreadable_document` IS EMITTED BY BOTH SIDES SINCE 2026-09-10, and this note
+is here because the table above would otherwise say it is Andre's alone.** Card
+EXT-23 gave our own validator four conditions under which it emits that code, all
+of them "no trustworthy anchor exists": section 5.3b has the six arms. **It is
+not a new code and this is not an addition under the four requirements below.**
+It is a value that now has two emitters and therefore two meanings on the wire,
+and a reader of this table who assumed one emitter would be wrong.
+
 **A THIRD SURFACE EXISTS AND HAS NO MEMBERS YET, AND IT IS DECLARED HERE SO IT IS
 NOT DISCOVERED LATER.** Our own validator can refuse a payload that is
 well-formed. That is neither a download failure nor an extraction failure: the
@@ -762,7 +770,7 @@ The payload is **accepted** with the contract's success code: it satisfies this
 contract, and what failed is its arithmetic. The stored draft becomes:
 
     status        failed
-    error_code    reconciliation_failed
+    error_code    unreadable_document  OR  reconciliation_failed, section 5.3b
     lines         none stored
     header        supplier, dates and printed totals all KEPT
 
@@ -770,6 +778,75 @@ The lines are dropped under EXT-15's rule, because line values that do not add u
 to the printed total are exactly the values that must not reach a confirmation
 screen. The header is kept because the document now has to be entered by hand and
 whoever enters it needs it.
+
+**THE `error_code` LINE READ `reconciliation_failed` AND NOTHING ELSE UNTIL
+2026-09-10, AND THAT WAS THE WHOLE BEHAVIOUR**, corrected by card EXT-23 under
+ruling R-187 and quoted here rather than deleted:
+
+> *"`error_code`    `reconciliation_failed`"*
+
+It was an accurate description of the code, which emitted that one value for
+every refusal it could produce. **Section 5.3b below is which code a refusal now
+carries, and it is not a free choice: the two codes send a person to do different
+things.**
+
+### 5.3b Which code the refusal carries. Card EXT-23, 2026-09-10, ruling R-187.
+
+**THE PRINCIPLE, IN ONE LINE: `reconciliation_failed` means the numbers did not
+add up TO SOMETHING. If there was nothing trustworthy to add up to, the document
+is `unreadable_document` instead.**
+
+The two codes send the operator to do different things, which is card EXT-19's
+finding and the reason this distinction is worth a section:
+
+| code | what it means | what the operator does |
+|---|---|---|
+| `unreadable_document` | **no trustworthy anchor exists.** The document cannot be used as it stands. | check the paper: a better scan if the text will not read, the supplier if the document's own totals disagree |
+| `reconciliation_failed` | the check **ran**, against printed totals that are sound among themselves, and the line sum **missed** | enter it by hand against the printed total |
+
+#### The six arms, and each is its own case
+
+| # | condition | code |
+|---|---|---|
+| 1 | the header fails its own arithmetic, section 5.3a check A or B | `unreadable_document` |
+| 2 | **zero lines returned**, whatever the printed totals say | `unreadable_document` |
+| 3 | any line has a null `line_total` | `unreadable_document` |
+| 4 | `prices_include_vat` selects a total and that total is null, or no total is printed at all | `unreadable_document` |
+| 5 | `prices_include_vat` is null and **neither** total matches | `unreadable_document` |
+| 6 | anchor known, header sound, lines complete, and the sum **missed** | `reconciliation_failed` |
+
+**ARM 1 IS EVALUATED FIRST AND DOMINATES.** A document whose header does not add
+up AND whose line sum missed is `unreadable_document`. Without a fixed order the
+same document would get different codes depending on which check happened to run
+first.
+
+**ARM 2 INCLUDES THE CASE WHERE THE PRINTED TOTAL IS ITSELF `0`.** Until EXT-23 a
+zero-line payload against a printed total of `0` **reconciled and was not refused
+at all**, because `|0 - 0|` is inside the floor of `0.05`. It was stored
+`extracted`, with no lines, as a clean read. **The sum of nothing agreeing with
+zero is not evidence of anything.**
+
+**ARM 5 IS NOT ARM 6 WITH A NULL FLAG.** With the flag absent, nobody knows which
+of the two printed totals was the anchor. When neither matches, it cannot be said
+that the sum missed an anchor, because no anchor was ever established.
+
+**A `not_run` HEADER CHECK IS NOT ARM 1.** Section 5.3a already says a missing
+figure means the check DID NOT RUN and does not reject on its own. Such a payload
+falls through to the anchor test exactly as before this card.
+
+#### This changes what a code MEANS on the wire, and Andre is told before his next delivery
+
+**`unreadable_document` was a payload-path code in section 5.2a, emitted by the
+extractor.** After this card **our validator emits it too**. Seeing it no longer
+implies the extractor could not read the document; it may equally mean the
+platform found no trustworthy anchor in a payload the extractor delivered
+happily.
+
+**NO NEW CODE IS ADDED, so section 5.2a's four requirements for adding one do not
+bind here.** What does bind is its reasoning: the two sides must not hold
+different copies of what a value means. The group table in 5.2a carries this as a
+note in the same pull request, and it is a communication item on EXT-23 rather
+than an assumption.
 
 **A DIGITAL-SOURCED PAYLOAD IS NOT TOUCHED BY THIS SECTION.** There the numbers
 come from text rather than from a reading, and a mismatch means something else.

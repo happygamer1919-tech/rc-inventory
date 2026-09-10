@@ -4,8 +4,11 @@ import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn, signOut } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 import {
+  ACTION_CHECK_DOCUMENT,
   ACTION_ENTER_BY_HAND,
   ACTION_RESCAN,
+  REMEDY_RESCAN,
+  REMEDY_SUPPLIER,
   EXTRACTION_ERROR_CODES,
   EXTRACTION_ERROR_LABEL,
   SCAN_LINE_NOTICE,
@@ -1024,10 +1027,36 @@ test.describe("Verificare si confirmare extragere", () => {
     // 1. LA NIVEL DE SURSA: fiecare propozitie poarta instructiunea EI si NU o
     //    poarta pe a celeilalte. Aceasta este afirmatia care cade prima daca
     //    cineva colapseaza cele doua texte intr-unul singur.
-    expect(EXTRACTION_ERROR_LABEL.unreadable_document).toContain(ACTION_RESCAN);
+    //
+    // EXT-23 A MUTAT TREI DINTRE ASERTIUNILE DE MAI JOS, NU LE-A STERS, si
+    // mutarea este tot cardul. Pana la EXT-23 aceasta linie citea
+    // `toContain(ACTION_RESCAN)`, adica unreadable_document purta o instructiune
+    // NECONDITIONATA de rescanare. Codul acopera acum si un document perfect
+    // lizibil ale carui totaluri tiparite se contrazic, si acolo nicio scanare
+    // nu schimba nimic.
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).toContain(ACTION_CHECK_DOCUMENT);
+    // A DOUA JUMATATE, SI ESTE CEA CARE CONTEAZA: instructiunea neconditionata
+    // de rescanare NU MAI ESTE ACOLO.
+    expect(
+      EXTRACTION_ERROR_LABEL.unreadable_document,
+      "un document care se contrazice nu se repara cu o scanare mai buna",
+    ).not.toContain(ACTION_RESCAN);
     expect(EXTRACTION_ERROR_LABEL.unreadable_document).not.toContain(ACTION_ENTER_BY_HAND);
+    // AMANDOUA REMEDIILE SUNT NUMITE, fiindca propozitia acopera acum doua
+    // situatii si un cititor trebuie sa gaseasca in ea situatia lui.
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).toContain(REMEDY_RESCAN);
+    expect(EXTRACTION_ERROR_LABEL.unreadable_document).toContain(REMEDY_SUPPLIER);
+    // SI RESCANAREA ESTE CONDITIONATA, NU ORDONATA. `daca` apare INAINTEA ei in
+    // propozitie, ceea ce este forma verificabila mecanic a afirmatiei ca
+    // nimeni nu este trimis la scanner pentru un document care se contrazice.
+    expect(
+      EXTRACTION_ERROR_LABEL.unreadable_document.indexOf("dacă"),
+      "remediul de rescanare este conditionat de o situatie, nu dat ca ordin",
+    ).toBeLessThan(EXTRACTION_ERROR_LABEL.unreadable_document.indexOf(REMEDY_RESCAN));
+
     expect(EXTRACTION_ERROR_LABEL.reconciliation_failed).toContain(ACTION_ENTER_BY_HAND);
     expect(EXTRACTION_ERROR_LABEL.reconciliation_failed).not.toContain(ACTION_RESCAN);
+    expect(EXTRACTION_ERROR_LABEL.reconciliation_failed).not.toContain(ACTION_CHECK_DOCUMENT);
     expect(EXTRACTION_ERROR_LABEL.unreadable_document).not.toBe(
       EXTRACTION_ERROR_LABEL.reconciliation_failed,
     );
@@ -1035,6 +1064,8 @@ test.describe("Verificare si confirmare extragere", () => {
     // mai sus s-ar putea satisface una pe alta fara ca ecranul sa spuna nimic
     // diferit.
     expect(ACTION_RESCAN).not.toBe(ACTION_ENTER_BY_HAND);
+    expect(ACTION_CHECK_DOCUMENT).not.toBe(ACTION_ENTER_BY_HAND);
+    expect(REMEDY_RESCAN).not.toBe(REMEDY_SUPPLIER);
 
     // 2. PE ECRAN, care este singurul loc unde conteaza. Aceeasi ciorna, pe rand
     //    cu fiecare cod, si de fiecare data se citeste propozitia randata.
@@ -1042,8 +1073,10 @@ test.describe("Verificare si confirmare extragere", () => {
 
     const rendered: Record<string, string> = {};
     for (const [code, mine, theirs] of [
-      ["unreadable_document", ACTION_RESCAN, ACTION_ENTER_BY_HAND],
-      ["reconciliation_failed", ACTION_ENTER_BY_HAND, ACTION_RESCAN],
+      // EXT-23. `mine` pentru unreadable_document este acum instructiunea
+      // largita; `theirs` ramane instructiunea celuilalt cod.
+      ["unreadable_document", ACTION_CHECK_DOCUMENT, ACTION_ENTER_BY_HAND],
+      ["reconciliation_failed", ACTION_ENTER_BY_HAND, ACTION_CHECK_DOCUMENT],
     ] as const) {
       expect(
         (

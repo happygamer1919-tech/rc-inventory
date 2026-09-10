@@ -4865,3 +4865,71 @@ doing on the way past, because it costs seconds and leaves the next run a green
 head sha instead of a stale one. AUT-23 covers the half of this that is about not
 opening a fourth pull request; the half that is about only ever being able to
 close one is this entry.
+
+### A sub-case that never executes proves nothing, and the one that mattered was second
+**Tag:** test
+**ERROR:** EXT-23's zero-line arm was written as one test with two sub-cases in
+one block: zero lines against normal printed totals, then zero lines against a
+printed total of `0`. **Only the second one was the defect ruling R-187 had
+found.** The first sub-case failed, the test stopped there, and the second never
+ran. The red-before output named the case and proved nothing about the finding
+the card existed for.
+**SOLUTION:** They are now two tests, `15b` and `15c`, and `15c` carries the
+finding in its own name. Run in isolation against the unchanged tree it prints
+`Expected: "failed"  Received: "extracted"`, which is the defect exactly: the
+payload was not refused at all. **The rule: when a case exists to prove a
+specific finding, it gets its own test, not a position inside one.** A block of
+sub-cases is an ordered list where everything after the first failure is
+invisible, and the interesting case is usually not first. This is the same class
+as the register defect above, one layer out: a check whose passing path is
+reachable without the condition being true is not a check, and a case that does
+not execute is not a case.
+
+### A regex over a source list forgets the last element, because the last element is punctuated differently
+**Tag:** tooling
+**ERROR:** `check-reconciliation.mjs` section 9 reads the `ScanArm` union out of
+`lib/data/reconciliation.ts` with `/^\s*\|\s*"([a-z_]+)"$/gm` and asserts every
+arm is declared. It reported `arm line_sum_missed is not declared in ScanArm`
+while the arm was plainly there. **The last member of a TypeScript union carries
+a trailing `;` and the others do not**, so the anchored regex matched five of six.
+The check was correct about everything except its own parser, and it failed
+loudly rather than quietly only because the missing arm happened to be asserted
+by name.
+**SOLUTION:** `;?` before the anchor, with the reason written beside it. **The
+general rule: any regex that enumerates the members of a list in source must be
+run against a list of at least three, and the FIRST and LAST members checked by
+hand**, because separators, terminators and indentation all differ at the ends. A
+parser tested on the middle of a list passes on every list and is wrong on all of
+them.
+
+### A symlinked node_modules makes Turbopack refuse the project, and the error says "Failed to type check"
+**Tag:** tooling
+**ERROR:** Running the Playwright suite from a git worktree whose `node_modules`
+was a symlink to the main clone's failed at `Process from config.webServer was
+not able to start`. The real message was several screens up:
+`Symlink [project]/node_modules is invalid, it points out of the filesystem
+root`, a Turbopack panic, because the worktree lives under `/private/tmp` and the
+target under `/Users`. A second run, after a spec was edited to import a constant
+that did not exist yet, failed at the SAME surface with a different cause and the
+single line `[WebServer] Failed to type check.`
+**SOLUTION:** `npm ci` in the worktree; the install took three seconds off the
+local cache and the symlink shortcut saved nothing. **Two rules, and the second
+is the one that costs time.** A git worktree used for end-to-end work gets its
+own real `node_modules`. And **`config.webServer was not able to start` is not a
+diagnosis**: the dev server type-checks the whole project including the specs, so
+ANY spec that does not compile stops EVERY spec, including specs in other files
+that have nothing to do with it. Read the `[WebServer]` lines above the Playwright
+error before believing anything about the test you were trying to run.
+
+### Next rewrites tsconfig.json while the end-to-end suite is running, and it lands in the commit
+**Tag:** tooling
+**ERROR:** `git diff --stat` after a full local suite run showed
+`tsconfig.json | 4 +-` beside the seven files the card actually changed. `npm run
+dev` on the `productie` Playwright project appends `.next-prod/types/**/*.ts` and
+`.next-prod/dev/types/**/*.ts` to `include` while the webServer is up. It was
+committed once before it was noticed, and a build-configuration change nobody
+decided is exactly what a reviewer reading a plain-language summary cannot see.
+**SOLUTION:** `git checkout origin/main -- tsconfig.json` and a second commit
+saying why. **The rule: after any local run that starts the dev server, read
+`git status` against the files the card meant to touch and revert the rest.** The
+tool that edits your tree while you work is not going to tell you it did.

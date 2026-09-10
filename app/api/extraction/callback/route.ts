@@ -33,7 +33,7 @@ import {
   hasSupplierDocumentRef,
   hasReconciliationFailedCode,
 } from "@/lib/data/schema-capability";
-import { headerConsistency, reconcile } from "@/lib/data/reconciliation";
+import { classifyScan, headerConsistency } from "@/lib/data/reconciliation";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -283,17 +283,6 @@ export async function POST(request: Request) {
       .eq("error_code", "reconciliation_failed")
       .limit(1),
   );
-  const verdict =
-    documentSource === "scan" && status === "extracted"
-      ? reconcile({
-          lineTotals: (rawLines as unknown[]).map(
-            (l): number | null => num((l as Record<string, unknown>).line_total),
-          ),
-          subtotal: num(body.subtotal),
-          documentTotal: num(body.document_total),
-          pricesIncludeVat: bool(body.prices_include_vat),
-        })
-      : null;
 
   // --- EXT-18. AUTOCONSISTENTA ANTETULUI, PE ACEEASI POARTA -----------------
   //
@@ -314,16 +303,33 @@ export async function POST(request: Request) {
   // un cod nou ar trebui comunicat celeilalte parti INAINTE sa poata fi emis, in
   // amandoua directiile, iar el nu a fost. Propozitia romaneasca a codului
   // vorbeste despre cifre care nu se potrivesc, ceea ce este adevarat si aici.
-  const headerVerdict =
+  // --- EXT-23. CELE DOUA VERIFICARI, SI CARE COD POARTA REFUZUL --------------
+  //
+  // ACEEASI POARTA CA INAINTE: numai scanari, numai `extracted`. EXT-23 NU
+  // LARGESTE SUPRAFATA. Calea digitala ramane neatinsa si cazurile 14, 20.3 si
+  // 15b.2 o afirma; ce se schimba este NUMAI codul emis pe cazurile care erau
+  // deja refuzate, plus bratul zero-linii pe care R-187 l-a gasit trecand.
+  //
+  // ANTETUL SE CALCULEAZA AICI SI SE DA MAI DEPARTE, ca `classifyScan` sa fie
+  // pura si ca fiecare verificare sa fie chemata dintr-un singur loc.
+  const scanVerdict =
     documentSource === "scan" && status === "extracted"
-      ? headerConsistency({
+      ? classifyScan({
+          lineTotals: (rawLines as unknown[]).map(
+            (l): number | null => num((l as Record<string, unknown>).line_total),
+          ),
           subtotal: num(body.subtotal),
-          vatAmount: num(body.vat_amount),
           documentTotal: num(body.document_total),
-          vatRate: num(body.vat_rate),
-          // Numarul de linii AL DOCUMENTULUI, ca toleranta sa fie aceeasi cu cea
-          // pe care o foloseste reconcilierea liniilor de deasupra.
-          lineCount: rawLines.length,
+          pricesIncludeVat: bool(body.prices_include_vat),
+          header: headerConsistency({
+            subtotal: num(body.subtotal),
+            vatAmount: num(body.vat_amount),
+            documentTotal: num(body.document_total),
+            vatRate: num(body.vat_rate),
+            // Numarul de linii AL DOCUMENTULUI, ca toleranta sa fie aceeasi cu
+            // cea pe care o foloseste reconcilierea liniilor.
+            lineCount: rawLines.length,
+          }),
         })
       : null;
 
@@ -333,14 +339,24 @@ export async function POST(request: Request) {
   // nu o cunoaste, comportamentul este cel de astazi: payload-ul se pastreaza asa
   // cum a sosit, fiindca a refuza fara a putea spune DE CE ar fi mai rau decat a
   // nu refuza.
-  // EXT-16 SI EXT-18 IMPART ACELASI REFUZ. Oricare dintre ele care cade respinge
-  // payload-ul, si nu se cere ca amandoua sa cada: fiecare raspunde la o
-  // intrebare pe care cealalta nu o pune.
-  const reconciliationFailed =
-    ((verdict !== null && !verdict.ok) || (headerVerdict !== null && !headerVerdict.ok)) &&
-    canFlagReconciliation;
-  const effectiveStatus = reconciliationFailed ? "failed" : status;
-  const effectiveErrorCode = reconciliationFailed ? "reconciliation_failed" : errorCodeRaw;
+  //
+  // EXT-23 INGUSTEAZA POARTA LA CODUL PENTRU CARE A FOST FACUTA, SI ACEASTA
+  // ESTE O CORECTIE. `reconciliation_failed` este eticheta pe care 0034 a
+  // adaugat-o; `unreadable_document` este in enum de la 0008, adica baza a
+  // cunoscut-o dintotdeauna. A pune si bratele noi in spatele acestei porti ar
+  // insemna sa intrebam baza daca stie o eticheta pe care nu o scriem. Daca
+  // poarta ar fi vreodata inchisa, un document fara niciun reper de incredere
+  // este in continuare refuzat, ceea ce este strict mai bine.
+  //
+  // R-187 CERE IN TERMS CA POARTA SA NU FIE SCOASA. Nu este.
+  const refusalCode =
+    scanVerdict !== null && scanVerdict.refuse
+      ? scanVerdict.code === "reconciliation_failed" && !canFlagReconciliation
+        ? null
+        : scanVerdict.code
+      : null;
+  const effectiveStatus = refusalCode !== null ? "failed" : status;
+  const effectiveErrorCode = refusalCode !== null ? refusalCode : errorCodeRaw;
 
   const dropLines =
     canStoreSource && documentSource === "scan" && effectiveStatus === "failed";
