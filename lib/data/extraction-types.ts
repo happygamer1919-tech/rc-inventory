@@ -49,6 +49,36 @@ export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 export const ACTION_RESCAN = "Încarcă o scanare mai bună.";
 export const ACTION_ENTER_BY_HAND = "Documentul trebuie introdus manual.";
 
+/** EXT-23. CELE DOUA REMEDII, NUMITE SEPARAT, fiindca propozitia lui
+ *  `unreadable_document` le poarta acum pe amandoua si o proba trebuie sa poata
+ *  arata catre fiecare in parte.
+ *
+ *  Litera mica si fara punct: ele sunt CLAUZE intr-o fraza, nu propozitii. Asa
+ *  raman distincte de ACTION_RESCAN, care este instructiunea NECONDITIONATA de
+ *  rescanare si care nu mai este ce spune acest cod. */
+export const REMEDY_RESCAN = "încarcă o scanare mai bună";
+export const REMEDY_SUPPLIER = "cere furnizorului un document corectat";
+
+/** EXT-23. INSTRUCTIUNEA PENTRU UN DOCUMENT CARE NU POATE FI FOLOSIT ASA CUM A
+ *  FOST CITIT, si fiecare remediu este CONDITIONAT de situatia care il cere.
+ *
+ *  DE CE NU MAI ESTE ACTION_RESCAN. `unreadable_document` acopera de la EXT-23
+ *  si un document PERFECT LIZIBIL ale carui totaluri tiparite se contrazic intre
+ *  ele. Acolo nicio scanare nu schimba nimic: hartia este gresita, iar omul are
+ *  de vorbit cu furnizorul. A-l trimite la scanner il pune sa retrimita la
+ *  nesfarsit o poza buna a unui document stricat.
+ *
+ *  TENSIUNEA CU EXT-19 ESTE REALA SI ESTE REZOLVATA, NU IGNORATA. EXT-19 cere ca
+ *  fiecare cod sa poarte O SINGURA instructiune, fiindca a-i da omului pe cea
+ *  gresita ii pierde timpul. Un cod care acopera doua situatii cu doua actiuni
+ *  nu poate pastra forma aceea neschimbata. Forma aleasa este a treia din
+ *  `defaults`-ul cardului: O SINGURA propozitie care NUMESTE amandoua situatiile
+ *  si da actiunea corecta pentru fiecare. Nimeni nu primeste instructiunea
+ *  celuilalt caz ca ordin; fiecare isi gaseste situatia in ea. */
+export const ACTION_CHECK_DOCUMENT =
+  `Verifică documentul pe hârtie: dacă textul nu se poate citi, ${REMEDY_RESCAN}; ` +
+  `dacă totalurile lui nu se potrivesc între ele, ${REMEDY_SUPPLIER}.`;
+
 /** Propozitia romaneasca a fiecarui cod. Un token brut pe ecran ar fi un sir
  *  englezesc ajuns in interfata, ceea ce sectiunea 11 din CLAUDE.md interzice.
  *  Ecranul apartine lui P2-09; textele stau aici ca sa existe un singur loc. */
@@ -56,11 +86,25 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   download_failed: "Documentul nu a putut fi descărcat de serviciul de extragere.",
   url_expired: "Legătura semnată a expirat înainte să fie folosită. Retrimite documentul.",
   unsupported_format: "Formatul fișierului nu poate fi citit de serviciul de extragere.",
-  // EXT-19. PROPOZITIA ISI POARTA INSTRUCTIUNEA, si pana la acest card nu o
-  // purta pe niciuna: spunea ce s-a intamplat si il lasa pe operator sa
-  // ghiceasca ce sa faca. Instructiunea este COMPUSA din constanta de mai sus,
-  // nu copiata, ca proba sa verifice exact sirul care ajunge pe ecran.
-  unreadable_document: `Documentul este într-un format acceptat, dar conținutul nu este lizibil. ${ACTION_RESCAN}`,
+  // EXT-19. PROPOZITIA ISI POARTA INSTRUCTIUNEA, si pana la acel card nu o purta
+  // pe niciuna: spunea ce s-a intamplat si il lasa pe operator sa ghiceasca ce
+  // sa faca. Instructiunea este COMPUSA din constanta de mai sus, nu copiata, ca
+  // proba sa verifice exact sirul care ajunge pe ecran.
+  //
+  // EXT-23 A LARGIT-O, SI PROPOZITIA DINAINTE ESTE PASTRATA MAI JOS, NU STEARSA,
+  // dupa CLAUDE.md sectiunea 9c. Ea citea:
+  //
+  //   "Documentul este intr-un format acceptat, dar continutul nu este lizibil.
+  //    Incarca o scanare mai buna."
+  //
+  // Era adevarata cat timp singurul emitent al codului era Make si codul insemna
+  // "extractorul nu a putut citi". De la EXT-23 validatorul NOSTRU il emite si
+  // pentru un document PERFECT LIZIBIL care nu are niciun reper de incredere:
+  // zero linii, niciun total tiparit fata de care sa se reconcilieze, sau un
+  // antet care nu se aduna cu el insusi. Pe acela din urma o scanare mai buna nu
+  // schimba nimic, si a-l trimite pe om la scanner il pune sa retrimita la
+  // nesfarsit o poza buna a unui document stricat.
+  unreadable_document: `Documentul nu poate fi folosit așa cum a fost citit: fie conținutul nu se poate citi, fie cifrele tipărite pe el nu se potrivesc între ele. ${ACTION_CHECK_DOCUMENT}`,
   extraction_failed: "Extragerea a rulat și nu a produs nimic utilizabil.",
   invalid_output: "Serviciul a răspuns cu date care nu respectă contractul.",
   timeout: "Extragerea a depășit timpul maxim al serviciului.",

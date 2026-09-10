@@ -24,8 +24,25 @@
 // actually happened is evidence; a number chosen to round the set out is not.
 //
 // FIVE DISTINCT NUMBERS NOW SIT ON ONE UNCHANGED FILE: the printed 50336.40 and
-// four model readings of it, none equal to another, spread across 10606.00
-// against a tolerance of 0.07.
+// four model readings of it, none equal to another.
+//
+// AMENDED 2026-09-09 BY RULING R-185, AND THE ORIGINAL CLAUSE IS KEPT BELOW
+// RATHER THAN DELETED, per CLAUDE.md section 9c. The spread was read as evidence
+// that the READING moves. It is not. Andre measured the same document at the
+// LINE level across four passes: ONE UNIT PRICE MOVES, THREE LINES ARE
+// BYTE-IDENTICAL AND CORRECT EVERY PASS, AND ONE IS BYTE-IDENTICAL AND WRONG
+// EVERY PASS. One walking field produces four distinct totals. The failure is a
+// DETERMINISTIC MISREAD, not variance, and multi-pass comparison and majority
+// voting are ruled out permanently by R-185: a vote agrees with itself on a
+// deterministically wrong line and reports it as unanimous.
+//
+// The superseded clause, kept verbatim:
+//
+//   "spread across 10606.00 against a tolerance of 0.07."
+//
+// THE ASSERTIONS BELOW ARE NOT AMENDED AND MUST NOT BE. The spread is a true
+// measurement and section 4 asserting it is correct. Only the inference drawn
+// from it was wrong.
 
 import { readFileSync } from 'node:fs';
 
@@ -227,6 +244,138 @@ console.log('\n7. EXT-18: both header checks hold on ALL FOUR sample documents')
   const bx = round2(Math.abs(round2((89609.38 * 20) / 100) - round2(17921.87)));
   if (bx > 0) ok(`Betonmix check B misses by ${bx.toFixed(2)}, so the tolerance is load-bearing here and not decoration`);
   else bad('Betonmix check B now lands at zero, and no sample exercises the tolerance');
+}
+
+// ===========================================================================
+// EXT-23, SECTION 9. WHICH CODE CARRIES THE REFUSAL, ARM BY ARM.
+//
+// WHY THIS IS A SPECIFICATION AND NOT A CALL. Same limit as the rest of this
+// file and it is stated in the header: the implementation is TypeScript, this
+// check is not compiled, so it cannot import classifyScan. The decision table
+// below is a SPECIFICATION of what that function must do, and the source-text
+// assertions beside it are what tie the two together.
+//
+// WHAT ACTUALLY PROVES "NO INPUT REACHES THE DEFAULT". Not this file: it is
+// `npx tsc --noEmit`, which runs as its own step in `quality`. The default
+// branch of classifyScan assigns `verdict` to a `const unreachable: never`, and
+// that assignment only compiles while typescript has exhausted the union. Add a
+// fourth ReconcileVerdict reason and the build stops. This section asserts the
+// guard is STILL THERE, because a guard somebody quietly deleted proves nothing
+// and typescript would then be silent.
+// ===========================================================================
+
+console.log('\n9. EXT-23: which code carries the refusal, arm by arm');
+{
+  // The six arms, and the code each one carries. Copied from the ruled split in
+  // R-187 plus the two arms the owner classified in EXT-23, NOT from the
+  // implementation: a table read out of the thing it checks asserts nothing.
+  const ARMS = [
+    ['header_inconsistent', 'unreadable_document'],
+    ['no_lines', 'unreadable_document'],
+    ['line_total_missing', 'unreadable_document'],
+    ['target_missing', 'unreadable_document'],
+    ['anchor_unknown', 'unreadable_document'],
+    ['line_sum_missed', 'reconciliation_failed'],
+  ];
+
+  const IMPL = readFileSync(`${ROOT}/lib/data/reconciliation.ts`, 'utf8');
+
+  // 9a. EVERY ARM IN THE TYPE IS PRODUCED, AND EVERY ARM PRODUCED IS IN THE
+  //     TYPE. An arm declared and never returned is dead vocabulary; an arm
+  //     returned and never declared does not compile, but the set comparison is
+  //     what notices the first one.
+  const declared = new Set(
+    // The trailing `;` is optional: the LAST member of the union carries one and
+    // the others do not, and a regex that forgets it reports the last arm as
+    // undeclared. It did, on the first run of this section.
+    [...IMPL.matchAll(/^\s*\|\s*"([a-z_]+)";?$/gm)].map((m) => m[1]),
+  );
+  const produced = new Set(
+    [...IMPL.matchAll(/arm:\s*"([a-z_]+)"/g)].map((m) => m[1]),
+  );
+  const want = new Set(ARMS.map(([a]) => a));
+  for (const arm of want) {
+    if (declared.has(arm)) ok(`arm ${arm.padEnd(20)} is declared in ScanArm`);
+    else bad(`arm ${arm} is not declared in ScanArm`);
+    if (produced.has(arm)) ok(`arm ${arm.padEnd(20)} is returned by classifyScan`);
+    else bad(`arm ${arm} is never returned by classifyScan`);
+  }
+  for (const arm of produced) {
+    if (!want.has(arm)) bad(`classifyScan returns arm ${arm}, which the ruled split does not name`);
+  }
+  if (produced.size === want.size) ok(`exactly ${want.size} arms, no more`);
+  else bad(`classifyScan returns ${produced.size} arms and the ruled split names ${want.size}`);
+
+  // 9b. EACH ARM CARRIES THE CODE THE SPLIT GIVES IT, read off the source as the
+  //     pair that appears in one return statement.
+  const pairs = [...IMPL.matchAll(/code:\s*"([a-z_]+)",\s*arm:\s*"([a-z_]+)"/g)].map(
+    (m) => [m[2], m[1]],
+  );
+  for (const [arm, code] of ARMS) {
+    const found = pairs.filter(([a]) => a === arm).map(([, c]) => c);
+    if (found.length === 0) bad(`no return in classifyScan pairs arm ${arm} with a code`);
+    else if (found.every((c) => c === code)) ok(`${arm.padEnd(20)} -> ${code}`);
+    else bad(`arm ${arm} carries ${found.join(', ')} and the split says ${code}`);
+  }
+
+  // 9c. EXACTLY ONE ARM CARRIES reconciliation_failed. This is the whole shape
+  //     of the ruling: a refusal means "the numbers do not add up" only when
+  //     there was a trustworthy anchor for them to fail to add up TO.
+  const recon = pairs.filter(([, c]) => c === 'reconciliation_failed');
+  if (recon.length === 1 && recon[0][0] === 'line_sum_missed') {
+    ok('exactly one arm carries reconciliation_failed, and it is line_sum_missed');
+  } else {
+    bad(`reconciliation_failed is carried by ${recon.length} arm(s): ${recon.map(([a]) => a).join(', ') || 'none'}`);
+  }
+
+  // 9d. THE HEADER ARM IS FIRST AND IT DOMINATES. The ORDER is the only part of
+  //     this that is observable from outside: a document whose header does not
+  //     add up AND whose line sum missed would otherwise get a different code
+  //     depending on which check happened to be evaluated first.
+  const iHeader = IMPL.indexOf('arm: "header_inconsistent"');
+  const iNoLines = IMPL.indexOf('arm: "no_lines"');
+  const iReconcileCall = IMPL.indexOf('const verdict = reconcile(input)');
+  if (iHeader > 0 && iNoLines > iHeader && iReconcileCall > iNoLines) {
+    ok('the header arm is evaluated first, then zero lines, then reconcile()');
+  } else {
+    bad('the arm order changed: header must dominate, and zero lines must be asked before reconcile()');
+  }
+
+  // 9e. ZERO LINES IS ASKED BEFORE reconcile(), AND THIS IS THE DEFECT R-187
+  //     MEASURED. reconcile() on an empty list returns matched against a printed
+  //     total of 0, because |0 - 0| <= 0.05. A zero-line payload was therefore
+  //     stored `extracted` and never refused at all.
+  {
+    const sum = round2([].reduce((a, b) => a + b, 0));
+    const tol = toleranceFor(0);
+    if (sum === 0 && tol === 0.05 && Math.abs(sum - 0) <= tol) {
+      ok('reconcile() alone WOULD accept zero lines against a printed 0, which is why the arm is ordered before it');
+    } else {
+      bad('the zero-line arithmetic changed, and this assertion no longer describes the defect it guards');
+    }
+  }
+
+  // 9f. THE EXHAUSTIVENESS GUARD IS STILL THERE. tsc is what enforces it; this
+  //     is what notices it being deleted.
+  if (/const unreachable: never = verdict;/.test(IMPL)) {
+    ok('the never-guard on the default branch is present, so tsc proves no input reaches it');
+  } else {
+    bad('the never-guard is gone from classifyScan, and nothing now proves the default is unreachable');
+  }
+
+  // 9g. THE CAPABILITY GATE IS NOT REMOVED, AND IT IS NARROWED TO THE ONE CODE
+  //     MIGRATION 0034 ADDED. R-187 asks in terms that a fix must not remove it.
+  const ROUTE = readFileSync(`${ROOT}/app/api/extraction/callback/route.ts`, 'utf8');
+  if (/scanVerdict\.code === "reconciliation_failed" && !canFlagReconciliation/.test(ROUTE)) {
+    ok('the 0034 capability gate still guards reconciliation_failed, and only it');
+  } else {
+    bad('the capability gate no longer guards reconciliation_failed on its own');
+  }
+  if (/documentSource === "scan" && status === "extracted"/.test(ROUTE)) {
+    ok('the surface is unchanged: scan-sourced and extracted only, so the digital path stays untouched');
+  } else {
+    bad('the gate on document_source or status moved, which EXT-23 does not authorise');
+  }
 }
 
 console.log('\n8. EXT-18: what the header checks do NOT do');

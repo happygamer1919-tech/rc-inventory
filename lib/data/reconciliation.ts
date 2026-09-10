@@ -8,12 +8,32 @@ import "server-only";
 // un stoc inventat."
 //
 // CE A PRODUS SCANAREA LUI ANDRE, SI DE CE UN CONTROL DE MODEL NU AJUTA. Acelasi
-// document de 7 linii, cu totalul tiparit 50336.40 fara TVA, a intors trei sume
-// diferite in trei rulari: 49035.40, 39242.00 si 38429.40. TOATE TREI au sosit cu
-// status extracted si reason null, adica forma care inseamna "citit curat, nimic
-// de raportat". Cele trei rulari difera INTRE ELE cu pana la 10606.00 pe aceeasi
-// pagina neschimbata, la o toleranta de 0.07. O citire care ar fi derapat s-ar fi
-// grupat; trei care se contrazic atat de mult sunt trei fabricatii separate.
+// document de 7 linii, cu totalul tiparit 50336.40 fara TVA, a intors patru sume
+// diferite in patru rulari: 49035.40, 48060.40, 39242.00 si 38429.40. TOATE au
+// sosit cu status extracted si reason null, adica forma care inseamna "citit
+// curat, nimic de raportat".
+//
+// AMENDAT 2026-09-09 PRIN HOTARAREA R-185, SI TEXTUL ORIGINAL ESTE PASTRAT MAI
+// JOS, NU STERS, dupa CLAUDE.md sectiunea 9c. Andre a masurat acelasi document
+// LA NIVEL DE LINIE, pe patru treceri: UN PRET UNITAR SE MISCA, TREI LINII SUNT
+// IDENTICE OCTET CU OCTET SI CORECTE LA FIECARE TRECERE, IAR UNA ESTE IDENTICA
+// OCTET CU OCTET SI GRESITA LA FIECARE TRECERE. Un singur camp care se plimba
+// produce patru sume diferite, deci totalurile s-au miscat iar citirea nu.
+// ESECUL ESTE O CITIRE GRESITA DETERMINISTA, NU VARIANTA.
+//
+// CONSECINTA, PERMANENTA PRIN R-185: COMPARAREA MAI MULTOR TRECERI SI VOTUL
+// MAJORITAR SUNT EXCLUSE. Trei treceri peste linia gresita identica intorc
+// aceeasi valoare gresita de trei ori si un vot o raporteaza ca unanima. Nu doar
+// ca nu prinde linia: o CERTIFICA.
+//
+// Propozitia inlocuita, pastrata verbatim:
+//
+//   "Cele trei rulari difera INTRE ELE cu pana la 10606.00 pe aceeasi pagina
+//    neschimbata, la o toleranta de 0.07. O citire care ar fi derapat s-ar fi
+//    grupat; trei care se contrazic atat de mult sunt trei fabricatii separate."
+//
+// Cifrele erau si raman corecte. Ce s-a schimbat este ce se poate deduce din
+// imprastierea lor.
 //
 // UN CONTROL CARE DEPINDE DE MODEL SA OBSERVE CA A CITIT GRESIT NU ESTE UN
 // STRAT. Este a doua oara cand un control de forma aceasta cade: confidence a
@@ -193,4 +213,139 @@ export function reconcile(input: ReconcileInput): ReconcileVerdict {
     }
   }
   return { ok: false, reason: "out_of_tolerance" };
+}
+
+
+// ===========================================================================
+// EXT-23. CARE DINTRE CELE DOUA CODURI POARTA REFUZUL.
+//
+// PANA LA ACEST CARD RASPUNSUL ERA MEREU `reconciliation_failed`, PENTRU ORICE
+// INTRARE. Hotararea R-187 a derivat impartirea brat cu brat din sursa si a
+// gasit ca PATRU din cele cinci brate hotarate erau gresite. Fisierul de ruta
+// isi argumenta comportamentul in scris, sub R-098: un cod NOU trebuie comunicat
+// celeilalte parti inainte sa poata fi emis. Argumentul este corect si NU se
+// aplica: `unreadable_document` nu este un cod nou. Este in multimea sectiunii
+// 5.2 de cand contractul v2 a fost inghetat prin R-014, are propozitia lui
+// romaneasca, si Make il emite astazi.
+//
+// IMPARTIREA HOTARATA, in cuvintele proprietarului:
+//
+//   unreadable_document    cand NU EXISTA NICIUN REPER DE INCREDERE
+//   reconciliation_failed  cand verificarea A RULAT fata de totaluri tiparite
+//                          sanatoase intre ele SI suma liniilor a ratat
+//
+// DE CE ESTE ACEASTA DIFERENTA SI NU O ALTA. Cele doua coduri il trimit pe om sa
+// faca lucruri diferite, si aceea este intreaga miza a lui EXT-19. Un refuz care
+// spune "cifrele nu se aduna" il pune sa bata documentul de mana fata de un
+// total cunoscut. Daca nu exista niciun total cunoscut, sau daca documentul se
+// contrazice pe el insusi, nu are fata de ce sa il bata: nu suma a ratat, ci
+// reperul lipseste.
+//
+// ORDINEA BRATELOR ESTE O DECIZIE SI ESTE SINGURA PARTE OBSERVABILA. Antetul se
+// evalueaza PRIMUL si domina: un antet care nu se aduna cu el insusi face
+// `unreadable_document` chiar daca suma liniilor ar fi ratat si ea. Fara acea
+// ordine, acelasi document ar primi coduri diferite dupa cum se intampla sa cada
+// a doua verificare.
+//
+// `not_run` NU ESTE UN REFUZ, SI NU ESTE INVENTAT AICI. Cardul EXT-18 o spune in
+// terms: o cifra absenta nu respinge singura, iar "regula tintei nule a lui
+// EXT-16 este cea care respinge un document care nu poate fi reconciliat deloc".
+// Un antet ale carui intrari lipsesc cade prin acest brat si ajunge la testul de
+// reper, exact ca inainte de acest card.
+// ===========================================================================
+
+/** Cele doua coduri pe care validatorul NOSTRU le poate emite. */
+export type RefusalCode = "unreadable_document" | "reconciliation_failed";
+
+/** Bratul care a decis, numit, fiindca un cod fara bratul lui nu se poate
+ *  proba: doua brate care duc la acelasi cod sunt cazuri diferite si o proba
+ *  trebuie sa poata cere fiecare brat pe nume. */
+export type ScanArm =
+  /** Antetul nu se aduna cu el insusi. Domina, si vezi antetul de mai sus. */
+  | "header_inconsistent"
+  /** Zero linii intoarse. Include cazul in care totalul ales este chiar 0:
+   *  suma a nimic care este de acord cu zero nu este dovada pentru nimic. */
+  | "no_lines"
+  /** O linie fara `line_total`. Suma este incompleta prin constructie. */
+  | "line_total_missing"
+  /** Steagul alege un total si acel total lipseste, sau nu exista niciun total
+   *  tiparit deloc. */
+  | "target_missing"
+  /** `prices_include_vat` lipseste SI niciunul dintre cele doua totaluri nu se
+   *  potriveste, deci nu s-a stabilit niciun reper fata de care sa fi ratat. */
+  | "anchor_unknown"
+  /** Reper cunoscut, antet sanatos, linii complete, si suma a ratat. SINGURUL
+   *  brat care poarta `reconciliation_failed`. */
+  | "line_sum_missed";
+
+export type ScanClassification =
+  | { refuse: false }
+  | { refuse: true; code: RefusalCode; arm: ScanArm };
+
+export type ScanInput = ReconcileInput & {
+  /** Verdictul EXT-18 pentru ACELASI payload. Se primeste gata calculat, nu se
+   *  calculeaza aici, ca ruta sa aiba un singur loc unde cheama fiecare
+   *  verificare si ca aceasta functie sa fie pura fata de amandoua. */
+  header: HeaderVerdict;
+};
+
+/**
+ * Ce cod poarta refuzul unei scanari, sau niciunul.
+ *
+ * FIECARE INTRARE CADE PE EXACT UN BRAT SI FIECARE BRAT SE INTOARCE. Nu exista
+ * cale implicita: ultimul `switch` de mai jos este exhaustiv peste
+ * `ReconcileVerdict["reason"]` si `never` il dovedeste la compilare. Acesta este
+ * lucrul pe care acceptanta cardului cere sa fie probat.
+ */
+export function classifyScan(input: ScanInput): ScanClassification {
+  // 1. ANTETUL, PRIMUL SI DOMINANT. `not_run` nu este `failed` si nu respinge.
+  if (!input.header.ok) {
+    return { refuse: true, code: "unreadable_document", arm: "header_inconsistent" };
+  }
+
+  // 2. ZERO LINII. Se pune INAINTEA reconcilierii fiindca reconcilierea nu are
+  //    ce sa raspunda aici: suma unei liste goale este 0, iar 0 se potriveste cu
+  //    un total tiparit de 0 la o toleranta de 0.05 si intoarce `matched`.
+  //    R-187 a masurat exact acel caz trecand pe productie.
+  if (input.lineTotals.length === 0) {
+    return { refuse: true, code: "unreadable_document", arm: "no_lines" };
+  }
+
+  const verdict = reconcile(input);
+  if (verdict.ok) return { refuse: false };
+
+  switch (verdict.reason) {
+    case "line_total_missing":
+      // O linie fara total nu poate fi reconciliata, si actiunea este o copie
+      // mai buna. Clasificat de proprietar in EXT-23; R-187 l-a gasit neacoperit
+      // de impartirea hotarata.
+      return { refuse: true, code: "unreadable_document", arm: "line_total_missing" };
+    case "target_missing":
+      return { refuse: true, code: "unreadable_document", arm: "target_missing" };
+    case "out_of_tolerance":
+      // AICI ESTE SINGURA BIFURCATIE CARE DECIDE INTRE CELE DOUA CODURI.
+      //
+      // Cu steagul absent, `reconcile` a incercat AMANDOUA totalurile si niciunul
+      // nu s-a potrivit. Nu se stie care dintre ele era reperul, deci nu se poate
+      // spune ca suma a ratat un reper: nu s-a stabilit niciun reper.
+      //
+      // Cu steagul prezent, reperul este cunoscut, totalul lui exista, antetul se
+      // aduna cu el insusi si liniile sunt complete. Verificarea a rulat si suma
+      // a ratat. Acesta este exact `reconciliation_failed`.
+      return input.pricesIncludeVat === null
+        ? { refuse: true, code: "unreadable_document", arm: "anchor_unknown" }
+        : { refuse: true, code: "reconciliation_failed", arm: "line_sum_missed" };
+    default: {
+      // NICIO INTRARE NU AJUNGE AICI SI COMPILATORUL O DOVEDESTE. In aceasta
+      // ramura `verdict` este `never`, adica typescript a epuizat uniunea. Daca
+      // `ReconcileVerdict` capata un al patrulea motiv, `verdict` inceteaza sa
+      // fie `never`, atribuirea de mai jos nu mai compileaza, si cardul care a
+      // adaugat motivul trebuie sa spuna ce cod poarta. Aceasta este forma
+      // verificabila a clauzei de acceptanta "nicio intrare nu ajunge la cazul
+      // implicit": nu este un test care ruleaza, este un test care refuza sa
+      // compileze.
+      const unreachable: never = verdict;
+      throw new Error(`motiv de reconciliere neclasificat: ${JSON.stringify(unreachable)}`);
+    }
+  }
 }
