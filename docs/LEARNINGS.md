@@ -5083,3 +5083,29 @@ eye: `python3 -c "import uuid; uuid.UUID(x)"` costs nothing and settles it. And
 column you remember is the one in the error you have seen before, and the three
 you have never hit are the three that are about to fail. Both were caught by the
 gate that exists for them; neither was caught by reading the file again.
+
+### Four CI runs, four defects, and every one was a gate I had not run locally
+**Tag:** process
+**ERROR:** One pull request burned four `quality` runs, roughly eighty minutes of
+CI, on four separate defects of mine. Each was caught by a gate that exists
+precisely for it, and **each of those gates was one I had skipped locally**:
+
+| run | gate | what it caught |
+|---|---|---|
+| 1 | `check:board-edit` | the card was still `in_flight` while the PR body, the report and the commit messages all said `shipped` |
+| 2 | `check:reconciliation` | the previous card's own surface assertion, firing correctly on this card's deliberate widening |
+| 3 | `check:migrations` | a uuid containing non-hex characters, then an insert missing three of four `not null` columns |
+| 4 | `headers.spec` case 5 | the migration had **no `APPLY-LOG.md` entry at all** |
+
+The pattern is not carelessness about any one of them. **It is that "I ran the
+gates" meant "I ran the gates that are cheap on this machine."** `check:migrations`
+needs Docker. `headers.spec` needs a production build. Both were skipped while the
+machine was loaded, and both held a defect.
+**SOLUTION:** **The gates that are expensive to run locally are the ones most
+worth running, because they are the ones nobody else has run either.** Before
+pushing, enumerate what `quality` runs and diff it against what was run locally,
+out loud, rather than trusting a loop over the convenient subset. Specifically in
+this repository: a pull request that adds a migration must run `check:migrations`
+AND `tests/e2e/headers.spec.ts`, because the journal requirement from ruling R-013
+lives in a Playwright case in the `productie` project and in nothing else. **A
+twenty-minute CI run is not a cheaper way to find out.**

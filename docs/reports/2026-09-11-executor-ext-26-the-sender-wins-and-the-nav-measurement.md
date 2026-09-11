@@ -214,6 +214,12 @@ overwritten. It is a proof of the precedence, not a red-to-green.
 
 **GREEN after:** all five EXT-26 cases pass.
 
+**CI, run 4, `e8b3dae`: 194 passed, 1 failed, 19.7m.** Every EXT-26 case passed,
+including case 27. The single failure was `headers.spec` case 5 refusing the
+unjournalled migration. `APPLY-LOG.md` now carries the `0037` entry, written
+before the merge in the shape `0035` and `0036` use, and `headers.spec` passes
+5 of 5 locally against a production build.
+
 **Gates:** `validate-board.mjs` 0 violations on three boards;
 `check:no-destructive-migration` 1 file, 10 statements, every kind classified;
 `check:unique-ids`, `check:grant-revocation`, `check:conflict-residue`,
@@ -247,15 +253,23 @@ overwritten. It is a proof of the precedence, not a red-to-green.
    **Two runs with disjoint random failure sets is resource starvation, not a
    defect**, and the authority for the suite is the `End to end` step of
    `quality` on a clean runner.
-6. **Three CI runs were spent on three defects of mine, and every one was caught
-   by a gate that exists for it.** `check:board-edit` refused a card still at
-   `in_flight` while the pull request body and this report said `shipped`.
-   `check:reconciliation` went red on EXT-23's own assertion, correctly, because
-   this card widens the surface that assertion pinned. `check:migrations` found
-   an invented uuid containing non-hex characters and an insert missing three of
-   the four `not null` columns `0008` declares. **The third was avoidable by
-   running the gate**, which was skipped because it needs Docker and the machine
-   was saturated. Four `LEARNINGS` entries carry the classes.
+6. **Four CI runs were spent on four defects of mine, and the pattern is the
+   finding rather than any one of them.** Each was caught by a gate that exists
+   for it, and **each of those gates was one I had skipped locally**:
+
+   | run | gate | what it caught |
+   |---|---|---|
+   | 1 | `check:board-edit` | the card still `in_flight` while the PR body and this report said `shipped` |
+   | 2 | `check:reconciliation` | EXT-23's own surface assertion, firing correctly on this card's deliberate widening |
+   | 3 | `check:migrations` | a uuid containing non-hex characters, then an insert missing three of four `not null` columns |
+   | 4 | `headers.spec` case 5 | the migration had **no `APPLY-LOG.md` entry at all** |
+
+   **"I ran the gates" meant "I ran the gates that are cheap on this machine."**
+   `check:migrations` needs Docker; `headers.spec` needs a production build. Both
+   were skipped while the machine was loaded and both held a defect. The fourth
+   run's failure is the one that matters on its own terms: an unjournalled
+   migration is what ruling R-013 was written for, after `0006` was found applied
+   with nobody able to say by whom. Five `LEARNINGS` entries carry the classes.
 7. **I pushed a card that the board still called `in_flight`, and said `shipped`
    in the pull request body and in this report before the board said it.**
    `check:board-edit` refused the pull request at step 9 of 56 on run
