@@ -61,7 +61,31 @@ for (let i = 2; i < process.argv.length; i += 1) {
   }
 }
 
-const ORIGIN = (args.origin || process.env.RC_HEALTH_ORIGIN || "https://www.rapidconstructmd.com")
+// THE PLATFORM HOST, AND IT IS NOT THE MARKETING DOMAIN.
+//
+// `https://app.rapidconstruct.md` is where this application is served. It was
+// repointed here on 2026-09-11 by card GATE-07 on the owner's instruction, and
+// verified on the wire the same day: `/api/health` answered 200 with the commit
+// equal to `main`'s head.
+//
+// THIS DEFAULT WAS `https://www.rapidconstructmd.com` UNTIL 2026-09-11 AND THAT
+// HOST CANNOT SATISFY THIS CHECK. Kept here rather than deleted, per CLAUDE.md
+// section 9c, because rulings R-176, R-177 and R-178 were all written about it:
+//
+//   const ORIGIN = (args.origin || process.env.RC_HEALTH_ORIGIN || "https://www.rapidconstructmd.com")
+//
+// R-176 measured that domain serving somebody else's product on 2026-09-07, and
+// R-178 recorded the consequence in terms: the guard "defaults to a host that can
+// never satisfy it, so its next refusal will be spurious and will invite a
+// workaround". A guard whose refusals are known to be wrong is a guard people
+// learn to pass with `--origin`, which is the failure mode that matters.
+//
+// TWO DOMAINS, ONE LETTER APART IN CONVERSATION AND NOT THE SAME THING.
+// `rapidconstructmd.com` is Rapid Construct's MARKETING site and is correct as it
+// is; nothing in this repository touches it. `rapidconstruct.md` is the company
+// domain and `app.` on it is this platform. Anybody changing this line reads that
+// sentence first.
+const ORIGIN = (args.origin || process.env.RC_HEALTH_ORIGIN || "https://app.rapidconstruct.md")
   .replace(/\/+$/, "");
 const HEALTH_URL = `${ORIGIN}/api/health`;
 const EXPECT = args.commit || "HEAD";

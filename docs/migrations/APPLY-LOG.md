@@ -1711,13 +1711,33 @@ conclude, and it should be visible in a diff rather than appear in a text column
 column we read. Ruling R-189's emitter rule binds a value we EMIT, and this is
 not one.
 
-**Proof that it is applied: NOT YET OBSERVED, AND THIS ENTRY SAYS SO RATHER THAN
-CARRYING NUMBERS NOBODY READ.** Same position as the `0035` and `0036` entries
-above and for the same reason: this terminal may not read the production database,
-so the apply is predicted here and the observation belongs to whoever next has
-cause to look. What can be said is what was proved on a bare `postgres:16`:
+**Proof that it is applied: OBSERVED, AND THIS IS THE FIRST ENTRY IN THIS FILE
+THAT COULD BE.** The prediction above was written before the merge, in the shape
+`0035` and `0036` use, and both of those say `NOT YET OBSERVED` because no
+terminal knew a host it could ask. **On 2026-09-11 the owner named it,
+`app.rapidconstruct.md`, and the question became answerable with a read-only GET
+and no credential:**
+
+    before the merge   GET /api/health   commit 6ca0ded...  ledger_version "0036"
+    after  the merge   GET /api/health   commit fd1964a...  ledger_version "0037"
+
+PR #274 merged at `2026-09-11T15:37:05Z` as `fd1964a`. The health route reported
+`0037` at `2026-09-11T15:37:45Z`: **forty seconds**, inside the "about two
+minutes" this entry predicted and consistent with the interval measured on `0032`,
+`0033` and `0034`.
+
+**THE PROBE IS A `GET` ON A PUBLIC ROUTE AND WRITES NOTHING**, which is form 1 of
+the three shapes ruling R-122 permits. No credential was read and no signed URL or
+token was generated.
+
+**What was also proved, before any of that, on a bare `postgres:16`:**
 `npm run check:migrations` applied all 37 files unmodified and ran 20 assertion
 files, `0037`'s among them.
+
+**THE `0035` AND `0036` ENTRIES ABOVE STAY AS THEY ARE.** Their observations were
+genuinely not available when they were written, and back-filling them now would
+make this file say those sessions knew something they did not. Whoever next has
+cause to look can add an observation block to either.
 
 **Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and under 8.0 that is the
 documented behaviour of this path rather than a gap in the record. The control

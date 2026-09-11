@@ -1057,6 +1057,72 @@ not have shown that the tolerance is reachable at all.
 
 ---
 
+## 5.4 The counterparty position: transport, retry, and the signed URL. Ruling R-194, 2026-09-11.
+
+**Recorded by ruling R-194. Three positions, and section 6's table below describes
+what happens today rather than what these say should happen. Where they differ,
+the difference is a communication item and not a defect in either.**
+
+### 5.4a A TRANSPORT FAILURE IS NOT A STATUS, AND NOBODY RECORDS IT
+
+**DNS failure, connection refused, TLS failure and timeout against our callback
+host are not HTTP statuses.** They reach no branch on the extractor's side today,
+produce no `4xx` and no `5xx`, and **leave no record at either end**: none here,
+because nothing arrived, and none there, because the handler closes it.
+
+**WE DEPEND ON THAT HANDLER AND THIS PARAGRAPH IS THE RECORD OF THE DEPENDENCY.**
+Section 6 is a table of four codes and every row describes a case in which **we
+answered**. It says nothing about the case in which we were not reachable.
+
+**In practice: if our host is down when an extraction finishes, the document is
+not retried, not queued and not reported. It is gone**, and the first anybody
+knows is that a draft never appeared.
+
+### 5.4b A RETRY MAY ONLY RESEND BYTES THAT ALREADY EXIST
+
+> **A retry resends a result that was already computed. A retry that RECOMPUTES
+> the result is not a retry: it is a second extraction wearing the first one's
+> identity.**
+
+**If the extraction platform re-runs the scenario on retry, then automatic retry
+is refused** and a `5xx` from us is **a notified manual resend** rather than an
+automatic one.
+
+**THE REASON IS MEASURED: seven extractions of one file returned seven distinct
+unit prices on one line.** A re-run retry therefore delivers a **different
+document under the identity of the first**, and `order_id` is the idempotency key
+under R-014, so the second payload REPLACES the first draft. The operator would
+see numbers that never came from the reading that was acknowledged.
+
+**This corroborates ruling R-185 rather than disturbing it.** That ruling recorded
+one unit price moving while three lines stayed byte-identical and correct and one
+stayed byte-identical and wrong. Seven runs and seven distinct values on one line
+is **the same moving field with three more data points**, and multi-pass
+comparison and majority voting stay ruled out permanently.
+
+**WHETHER THE RE-RUN HAPPENS IS THE COUNTERPARTY'S TO CONFIRM**, and section 6's
+`5xx -> retry` row stands until it is.
+
+### 5.4c THE SIGNED URL TTL IS A SECURITY POSITION, NOT A TUNABLE
+
+> **No retry schedule may drive the signed document URL TTL upward.** A TTL
+> lengthened so that a retry hours later still finds the document is a decision to
+> leave client documents reachable for hours, taken for a scheduling reason, by
+> whoever was closest to the retry bug.
+
+**The values, read from source and unchanged by this section:**
+
+| path | value | |
+|---|---|---|
+| `lib/data/extraction-fire.ts` | **fifteen minutes** | the real supplier document carried to the extractor |
+| `lib/data/inbound-actions.ts` | **fifteen minutes** | named by R-096 as unchanged |
+| `scripts/ext/serve-sample-documents.mjs` | **twenty-four hours** | the four `_samples/andre` fixtures only, R-096 |
+
+**NO VALUE IS CHANGED HERE.** Ruling R-194 records that the dispatch which set this
+position named "two hours", which is the value the sample script used **until the
+owner's own ruling R-096 raised it to twenty-four** on 2026-09-03, and which no
+signing path carries today. The number is owed; the direction binds now.
+
 ## 6. Callback response codes
 
 Our callback endpoint answers with exactly one of these. Make retries on `5xx`
