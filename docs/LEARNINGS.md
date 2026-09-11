@@ -4995,3 +4995,23 @@ overwritten, it is refused before it is stored. **The rule: a dispatch's rationa
 is checked against the source exactly as hard as a card's premise is, and when it
 fails the ruling records both the decision and the correction.** A ruling that
 carries a false rationale teaches every future reader the wrong mechanism.
+
+### Writing "shipped" in three places does not flip the card, and the check that says so is step 9 of 56
+**Tag:** process
+**ERROR:** A card was authored at `in_flight`, worked to completion, and pushed.
+The pull request body said `shipped`. The session report said `shipped`. The
+commit messages said the work was done. **The board said `in_flight`**, and
+`check:board-edit` refused the pull request with
+`EXT-26: status is "in_flight" at the head, which means the work is still in
+hand.` Everything after step 9 of 56 was skipped, so a twenty-minute run bought
+one line of output.
+**SOLUTION:** Flip the card in the same commit that finishes the work, not in a
+commit that comes after the push. **The general rule, and it is about where a
+fact lives rather than about remembering: prose is not state.** A pull request
+body, a report and a commit message are all things a session writes about itself,
+and all three can say a card shipped while the one field a machine reads says
+otherwise. `RULE-06`'s own header records this being broken twice on 2026-09-04
+by terminals that believed they were obeying it; this is the third. **The tell is
+that the three statements agreeing with each other feels like confirmation.** It
+is not: they have a single author and a single belief behind them. The board is
+the only one of the four that another process reads back.

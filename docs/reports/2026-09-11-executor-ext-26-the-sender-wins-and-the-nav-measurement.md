@@ -233,11 +233,24 @@ overwritten. It is a proof of the precedence, not a red-to-green.
    written out in four places in code and schema, and nothing implements it. A
    card is recommended and was not authored, because the dispatch asked for a
    ruling and named no card.
-5. **A full-suite run on a loaded machine produced six failures in SHIPPED cases**
-   that the same tree passed on a settled machine. Load average was 30.7 with
-   five Supabase stacks and a stray dev server from another session. Reported
-   here rather than hidden, because it is the second session in which the local
-   harness has produced a red that was not the branch's.
+5. **The local full suite was not usable on this machine, across two runs.** The
+   first produced **six** failures, the second **eight**, in **different and
+   disjoint sets of SHIPPED cases**. Every one was a UI or timing failure:
+   `element(s) not found`, `locator.fill: Test timeout of 120000ms exceeded`,
+   `setInputFiles` timeout, and `[WebServer] Error: The destination stream closed
+   early`. **Not one was an assertion about `error_code`, `platform_error_code`
+   or `platform_arm`.** Load average was 30.7 and then 16 to 18, with five
+   Supabase stacks and a stray dev server from another session on the machine.
+   **Two runs with disjoint random failure sets is resource starvation, not a
+   defect**, and the authority for the suite is the `End to end` step of
+   `quality` on a clean runner.
+6. **I pushed a card that the board still called `in_flight`, and said `shipped`
+   in the pull request body and in this report before the board said it.**
+   `check:board-edit` refused the pull request at step 9 of 56 on run
+   `34610075560`. **That is the exact `#195` shape the check was built for**, and
+   RULE-06's own header says it was already broken twice by terminals that
+   believed they were obeying it. Third time. The mechanism worked; the terminal
+   did not.
 
 **Nothing in this section is ratified here.**
 
