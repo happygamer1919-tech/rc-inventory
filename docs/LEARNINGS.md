@@ -5059,3 +5059,27 @@ the check working, and the response is to write down what is invariant NOW rathe
 than to loosen the assertion until it passes.** An assertion edited to accommodate
 a change stops being evidence about the change. One rewritten to state the new
 invariant, with the old one quoted beside it, is a record of both.
+
+### The migration gate was the one gate not run locally, and it held both defects
+**Tag:** tooling
+**ERROR:** Every non-docker gate was run before pushing. `check:migrations` was
+skipped, because it needs Docker's postgres shim and the machine was already
+saturated. It held **two** defects in one new assertions file, and `quality`
+found them one CI run each:
+
+    ERROR: invalid input syntax for type uuid: "00000000-0000-4000-8000-0000ext26001"
+    ERROR: null value in column "document_filename" violates not-null constraint
+
+The first is a uuid invented by pattern-matching the SHAPE, `8-4-4-4-12`, without
+checking the ALPHABET: `ext` are not hex digits and no amount of correct grouping
+makes them one. The second is an insert that supplied `document_path` and forgot
+the other three `not null` columns `0008` declares beside it.
+**SOLUTION:** Run `check:migrations` before pushing a migration, always, and wait
+for the machine if it is busy. **Two rules fall out and the second is the general
+one.** A synthetic identifier is validated by the parser that will read it, not by
+eye: `python3 -c "import uuid; uuid.UUID(x)"` costs nothing and settles it. And
+**an insert written against a table you did not author is written against its
+`not null` columns, read from the migration that created them**, because the
+column you remember is the one in the error you have seen before, and the three
+you have never hit are the three that are about to fail. Both were caught by the
+gate that exists for them; neither was caught by reading the file again.

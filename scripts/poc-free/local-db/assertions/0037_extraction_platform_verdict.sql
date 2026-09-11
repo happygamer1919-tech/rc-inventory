@@ -51,14 +51,19 @@ begin
   -- This is the card. The sender says one thing, we say another, both are
   -- stored, and NOTHING refuses the row. If a constraint is ever added that
   -- couples the two, this assertion is what stops it.
-  insert into public.extraction_drafts (order_id, document_path, status, error_code,
+  -- THE FOUR NOT NULL COLUMNS OF 0008 ARE SUPPLIED IN FULL. document_path,
+  -- document_filename, mime_type and size_bytes have no defaults, and an insert
+  -- that omits one fails for a reason that has nothing to do with this card.
+  insert into public.extraction_drafts (order_id, document_path, document_filename,
+                                        mime_type, size_bytes, status, error_code,
                                         platform_error_code, platform_arm)
-  values ('00000000-0000-4000-8000-0000ext26001', 'assert/ext-26-disagree.pdf', 'partial',
+  values ('00000000-0000-4000-8000-000000260001', 'assert/ext-26-disagree.pdf',
+          'ext-26-disagree.pdf', 'application/pdf', 1024, 'partial',
           'unreadable_document', 'reconciliation_failed', 'line_sum_missed');
 
   select count(*) into n
   from public.extraction_drafts
-  where order_id = '00000000-0000-4000-8000-0000ext26001'
+  where order_id = '00000000-0000-4000-8000-000000260001'
     and error_code = 'unreadable_document'
     and platform_error_code = 'reconciliation_failed'
     and platform_arm = 'line_sum_missed';
@@ -71,9 +76,11 @@ begin
   -- The second door. The first is the ScanArm union and the typescript
   -- exhaustiveness guard on it; this one is for a writer that is not that route.
   begin
-    insert into public.extraction_drafts (order_id, document_path, status, error_code,
+    insert into public.extraction_drafts (order_id, document_path, document_filename,
+                                          mime_type, size_bytes, status, error_code,
                                           platform_error_code, platform_arm)
-    values ('00000000-0000-4000-8000-0000ext26002', 'assert/ext-26-badarm.pdf', 'partial',
+    values ('00000000-0000-4000-8000-000000260002', 'assert/ext-26-badarm.pdf',
+            'ext-26-badarm.pdf', 'application/pdf', 1024, 'partial',
             'unreadable_document', 'reconciliation_failed', 'vibes');
     raise exception 'EXT-26: platform_arm accepted the value ''vibes'', so the constraint does not bind';
   exception
@@ -89,7 +96,7 @@ begin
                              'target_missing', 'anchor_unknown', 'line_sum_missed'] loop
     update public.extraction_drafts
        set platform_arm = arm
-     where order_id = '00000000-0000-4000-8000-0000ext26001';
+     where order_id = '00000000-0000-4000-8000-000000260001';
     if not found then
       raise exception 'EXT-26: the arm % was refused by the constraint', arm;
     end if;

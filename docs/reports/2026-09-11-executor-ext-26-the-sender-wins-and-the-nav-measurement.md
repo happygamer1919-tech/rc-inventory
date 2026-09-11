@@ -233,9 +233,12 @@ overwritten. It is a proof of the precedence, not a red-to-green.
    written out in four places in code and schema, and nothing implements it. A
    card is recommended and was not authored, because the dispatch asked for a
    ruling and named no card.
-5. **The local full suite was not usable on this machine, across two runs.** The
-   first produced **six** failures, the second **eight**, in **different and
-   disjoint sets of SHIPPED cases**. Every one was a UI or timing failure:
+5. **The local full suite was not usable on this machine, across three runs.**
+   They produced **six**, then **eight**, then **thirteen** failures, in
+   **different and disjoint sets of SHIPPED cases**, degrading as the machine
+   loaded up. The third run took 21.5 minutes against the 2.4 minutes the same
+   two specs took earlier in the day, and **none of the thirteen was an EXT-26
+   case**. Every one was a UI or timing failure:
    `element(s) not found`, `locator.fill: Test timeout of 120000ms exceeded`,
    `setInputFiles` timeout, and `[WebServer] Error: The destination stream closed
    early`. **Not one was an assertion about `error_code`, `platform_error_code`
@@ -244,7 +247,16 @@ overwritten. It is a proof of the precedence, not a red-to-green.
    **Two runs with disjoint random failure sets is resource starvation, not a
    defect**, and the authority for the suite is the `End to end` step of
    `quality` on a clean runner.
-6. **I pushed a card that the board still called `in_flight`, and said `shipped`
+6. **Three CI runs were spent on three defects of mine, and every one was caught
+   by a gate that exists for it.** `check:board-edit` refused a card still at
+   `in_flight` while the pull request body and this report said `shipped`.
+   `check:reconciliation` went red on EXT-23's own assertion, correctly, because
+   this card widens the surface that assertion pinned. `check:migrations` found
+   an invented uuid containing non-hex characters and an insert missing three of
+   the four `not null` columns `0008` declares. **The third was avoidable by
+   running the gate**, which was skipped because it needs Docker and the machine
+   was saturated. Four `LEARNINGS` entries carry the classes.
+7. **I pushed a card that the board still called `in_flight`, and said `shipped`
    in the pull request body and in this report before the board said it.**
    `check:board-edit` refused the pull request at step 9 of 56 on run
    `34610075560`. **That is the exact `#195` shape the check was built for**, and
