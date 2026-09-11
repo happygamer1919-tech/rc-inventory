@@ -4933,3 +4933,65 @@ decided is exactly what a reviewer reading a plain-language summary cannot see.
 saying why. **The rule: after any local run that starts the dev server, read
 `git status` against the files the card meant to touch and revert the rest.** The
 tool that edits your tree while you work is not going to tell you it did.
+
+### `supabase db reset` leaves rest and kong pointing at a database that no longer exists, and the failure surfaces in the AUTH seed
+**Tag:** tooling
+**ERROR:** After `supabase db reset` on a long-lived local stack, every seed
+script failed at the first one with
+`seed: nu s-a putut crea contul owner@rc-inventory.local: An invalid response was
+received from the upstream server`. The auth container was `Up (healthy)` and its
+`/auth/v1/health` returned 200. Polling the health endpoint and retrying five
+times changed nothing, because nothing was wrong with auth. **`supabase_rest` and
+`supabase_kong` had been up for 31 minutes across a reset that dropped and
+rebuilt the database**, so they were serving a schema cache for a database that
+no longer existed, and the gateway turned that into a 502 attributed to whatever
+service the request was for.
+**SOLUTION:** `docker restart supabase_rest_<project> supabase_kong_<project>`
+after every `db reset`, then wait for `/rest/v1/` to answer 200 or 401. **The
+general rule, and it is the expensive half: a healthcheck answers for the process,
+not for the state the process is holding.** A container that is `healthy` after
+its database was replaced underneath it is reporting on itself and telling you
+nothing about whether it can serve a request. When a restart fixes something a
+healthcheck said was fine, the healthcheck was asking the wrong question.
+
+### Measuring the thing the owner reports is not the same as reproducing it, and saying so is the finding
+**Tag:** data
+**ERROR:** A dispatch reported sidebar navigation at 2 to 4 seconds and asked
+where the time goes. Measured on this machine in a **production build against a
+local database**, click-to-content on all eleven sidebar routes was **45 to
+113ms**, and most clicks issued **zero** requests because Next had already
+prefetched the RSC payload. Dev mode was 63 to 241ms warm. **Neither reproduces
+2 to 4 seconds.** The temptation at that point is to optimise the slowest thing
+found and report an improvement against a number nobody asked about.
+**SOLUTION:** Report the gap as the result. The measurement did find something
+real and general, **about 32 database round trips per authenticated render,
+identical on every route, against 2 to 3 anonymous** - a page that displays
+almost nothing costs the same as the heaviest one. That is worth fixing whatever
+the owner's environment turns out to be, and the arithmetic projects it onto a
+remote database honestly: 32 sequential round trips at a 40ms RTT is 1.3
+seconds. **The rule: when a measurement does not reproduce the report, the card's
+FIRST acceptance clause is reproduction, and every optimisation clause is
+conditional on it.** An improvement measured in the wrong environment is a number,
+not an answer.
+
+### A premise in a dispatch is still a premise, and this one was the opposite of the code
+**Tag:** doctrine
+**ERROR:** A dispatch ruled that the sender's `error_code` must win because *"our
+looser answer was overwriting their stricter one silently"*. It is not true of the
+shipped code. `errorCodeRaw` is non-null **exactly** when the status is `failed`
+or `partial`, the platform's classifier ran **only** on `extracted`, and
+`route.ts:139` answers `400` to an `error_code` on an `extracted` payload. The
+two paths are disjoint, and migration `0008`'s
+`extraction_drafts_error_code_matches_status` enforces the same disjointness in
+the database. **No input reached the behaviour the ruling was written to stop.**
+**SOLUTION:** The ruling is adopted and the premise is corrected in the same
+entry, R-190, rather than carried. The card is still worth shipping for reasons
+the corrected premise supports: the precedence becomes a stated expression
+instead of a side effect of a neighbouring `400`, and the recording did not exist
+at all. **And naming the premise correctly found the real gap**, which is a
+different one: Andre has no way to report a concern on a payload he considers
+`extracted`, because the contract forbids an `error_code` there. It is not
+overwritten, it is refused before it is stored. **The rule: a dispatch's rationale
+is checked against the source exactly as hard as a card's premise is, and when it
+fails the ruling records both the decision and the correction.** A ruling that
+carries a false rationale teaches every future reader the wrong mechanism.

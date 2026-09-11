@@ -326,3 +326,45 @@ export async function hasSupplierDocumentRef(client: ColumnProbe): Promise<boole
   }
   return cachedSupplierDocumentRef.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// EXT-26. Exista coloanele extraction_drafts.platform_error_code si platform_arm?
+//
+// ACEEASI FORMA CA EXT-09 SI EXT-15, SI DIN ACELASI MOTIV. 0037 este o migratie
+// separata. Codul fuzioneaza in aceeasi secunda in care fisierul fuzioneaza, iar
+// integrarea Supabase aplica migratia dupa vreo doua minute: in fereastra aceea
+// coloanele nu exista. Un update care le numeste primeste 42703 de la PostgREST,
+// ruta raspunde 500, si Make REINCEARCA pe 5xx. Aceea este INC-05.
+//
+// O SINGURA POARTA PENTRU AMANDOUA COLOANELE, si aici asta ESTE corect, spre
+// deosebire de 0032 si 0033 care au primit porti separate. Motivul este ca
+// diferă: cele doua coloane sosesc IN ACELASI FISIER DE MIGRATIE, deci nu pot
+// fi aplicate una fara cealalta. Doua porti ar sugera unui cititor ca exista o
+// stare in care una este prezenta si cealalta nu, si acea stare nu exista.
+//
+// SONDA CERE AMANDOUA COLOANELE INTR-UN SINGUR SELECT, ca raspunsul sa fie
+// despre perechea pe care o scriem si nu despre una dintre ele.
+// ---------------------------------------------------------------------------
+
+let cachedPlatformVerdict: { value: boolean; at: number } | null = null;
+
+export async function hasExtractionPlatformVerdict(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedPlatformVerdict && now - cachedPlatformVerdict.at < TTL_MS) {
+    return cachedPlatformVerdict.value;
+  }
+
+  try {
+    const { error } = await client
+      .from("extraction_drafts")
+      .select("platform_error_code, platform_arm")
+      .limit(1);
+    cachedPlatformVerdict = { value: !error, at: now };
+  } catch {
+    // O sonda care arunca inseamna ca nu se stie, si "nu se stie" se trateaza ca
+    // "nu": se scrie fara coloane, in loc sa se incerce si sa se cada.
+    cachedPlatformVerdict = { value: false, at: now };
+  }
+  return cachedPlatformVerdict.value;
+}

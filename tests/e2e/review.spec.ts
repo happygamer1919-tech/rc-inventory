@@ -1112,6 +1112,59 @@ test.describe("Verificare si confirmare extragere", () => {
     expect(rendered.unreadable_document).not.toBe(rendered.reconciliation_failed);
   });
 
+  test("15. EXT-26: cand cele doua verdicte nu sunt de acord, ECRANUL arata propozitia CODULUI EXPEDITORULUI", async ({
+    page,
+    request,
+  }) => {
+    // ACEASTA ESTE JUMATATEA PE CARE ACCEPTANTA O CERE PE NUME: "prove theirs is
+    // what Mihai sees". Randul stocat este o afirmatie despre baza de date;
+    // ecranul este locul unde afirmatia costa ceva, fiindca propozitia il trimite
+    // pe om sa faca un lucru sau altul.
+    //
+    // Cele doua verdicte trimit catre actiuni DIFERITE, si tocmai de aceea
+    // conteaza care ajunge pe ecran:
+    //   unreadable_document   -> verifica documentul, scanare sau furnizor
+    //   reconciliation_failed -> bate-l de mana fata de totalul tiparit
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "ext26seen");
+
+    // SCAN si PARTIAL, ca liniile sa ajunga la clasificarea noastra: EXT-20
+    // ingusteaza numai `scan` plus `failed`. Liniile nu se aduna la subtotalul
+    // tiparit, deci verdictul nostru este reconciliation_failed, iar expeditorul
+    // trimite unreadable_document.
+    const r = await post(
+      request,
+      callbackBody(orderId, {
+        status: "partial",
+        error_code: "unreadable_document",
+        reason: `Scanare partiala ${RUN}`,
+        document_source: "scan",
+      }),
+    );
+    expect(r.status()).toBeLessThan(300);
+
+    await page.goto(UPLOAD);
+    const card = draftCard(page, orderId);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    const sentence = card.getByTestId("draft-error-sentence");
+
+    // ECRANUL POARTA CODUL LUI.
+    await expect(sentence).toHaveAttribute("data-error-code", "unreadable_document");
+    await expect(sentence, "propozitia de pe ecran este a codului expeditorului").toHaveText(
+      EXTRACTION_ERROR_LABEL.unreadable_document,
+    );
+    // SI NU PE A NOASTRA, care este afirmatia care cade daca cineva inverseaza
+    // vreodata precedenta.
+    await expect(sentence).not.toHaveText(EXTRACTION_ERROR_LABEL.reconciliation_failed);
+    await expect(card, "tokenul brut nu ajunge niciodata pe ecran").not.toContainText(
+      "unreadable_document",
+    );
+    // SI VERDICTUL NOSTRU NU AJUNGE PE ECRAN DELOC. Este date pentru noi, nu o a
+    // doua propozitie care sa il puna pe operator sa aleaga intre doua
+    // instructiuni contradictorii.
+    await expect(card).not.toContainText("reconciliation_failed");
+  });
+
   test("9. catalogul nu ii ofera operatorului nicio cale directa, iar administratorul creeaza in continuare nemarcat", async ({
     page,
   }) => {

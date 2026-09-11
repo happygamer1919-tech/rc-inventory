@@ -12676,3 +12676,112 @@ its own `question` field, which is not erased.
 **Supersedes:** the seventeen-field claim in `docs/contracts/extraction-v2.md`
 section 4.1a, added 2026-09-07 by card EXT-11. The superseded text is quoted in
 place and marked, never deleted.
+
+---
+
+### R-192 - Four currencies not three, one currency per document with no FX anywhere, and the CRM phase opens while P2-13 stays parked
+**Date:** 2026-09-11
+**Asked on:** P2-13, P2-14, P3-43
+**Answer, verbatim:**
+> OWNER DECISIONS, record as a ruling.
+>   a. Currency set is USD, EUR, RON, MDL. Four, not three. RON stays.
+>      This supersedes the three-currency constant in project doctrine. Quote the
+>      superseded text, mark it superseded, name this ruling. Do not delete.
+>   b. Single currency per document. Totals sum only within one currency. No FX
+>      source exists and none is being added. Any cross-currency total is a defect.
+>   c. The wider CRM scope is approved as a phase starting now, and P2-14
+>      acceptance slips accordingly. Record that P2-13 stays parked and terminal
+>      grants stay live, which holds only while no real client data is entered.
+
+**Ruling: all three are adopted. (a) and (b) are standing rules that bind every
+future card. (c) changes what two cards mean and is recorded on both.**
+
+#### (a) FOUR CURRENCIES: `USD`, `EUR`, `RON`, `MDL`
+
+**`RON` STAYS, said explicitly because the obvious reading of "add USD" is that
+something was being traded for it.** Nothing is removed. The set grows by one.
+
+**WHERE THE THREE-CURRENCY CONSTANT LIVES, ENUMERATED RATHER THAN ASSUMED**, so
+that nobody believes this ruling changed more than it did:
+
+| | | |
+|---|---|---|
+| `docs/contracts/extraction-v2.md` section 4.1 | *"Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three."* | **corrected in this pull request**, superseded text quoted in place |
+| `supabase/migrations/0001_phase2_schema.sql` | `create type public.currency_code as enum ('EUR', 'RON', 'MDL');` | **NOT edited.** CLAUDE.md 8.1: a migration file is never edited after it has been applied. `USD` arrives as a new numbered file. |
+| `lib/data/inbound-types.ts` | `export type Currency = "EUR" \| "RON" \| "MDL";` | code |
+| `lib/data/inbound-actions.ts`, `lib/data/extraction-actions.ts` | `["EUR", "RON", "MDL"].includes(...)` | code, two copies |
+
+**THE DOCTRINE IS CORRECTED HERE AND THE CODE IS NOT, AND THAT IS DELIBERATE.**
+This ruling records a decision. Adding an enum label is a migration, three code
+edits and an acceptance, and merging a migration applies it to production within
+about two minutes under section 8.0. **That is a card, and it was not authored in
+this pull request because the dispatch that carried these decisions asked for a
+ruling and named no card.** It is flagged in the session report with a
+recommended shape: one card in the `EXT` or `P3` lane, a migration adding the
+label, the three constants moved to ONE place rather than three, and a case
+proving a `USD` document round-trips.
+
+**THE THREE COPIES ARE THE FINDING WORTH KEEPING.** `["EUR", "RON", "MDL"]` is
+written out three times in two files plus a type. **A set that is stated in four
+places has four chances to disagree**, and the card that adds `USD` should reduce
+it to one rather than make it four places saying four things.
+
+#### (b) ONE CURRENCY PER DOCUMENT. ANY CROSS-CURRENCY TOTAL IS A DEFECT.
+
+**This is a standing rule, not a card, and it binds every screen, report, export
+and card that has not been written yet.**
+
+- **A document carries exactly one currency.** Lines in a second currency on one
+  document are not a feature to support; they are a document to refuse.
+- **Totals sum only within one currency.** A figure that adds `MDL` to `EUR` is
+  wrong whatever the numbers are.
+- **No FX source exists and none is being added.** Not a table, not an API, not a
+  hard-coded rate, not a rate "just for display".
+
+**WHY THIS IS WORTH A RULING RATHER THAN A PREFERENCE, AND THE REASON IS ALREADY
+IN THIS REPOSITORY.** `supabase/migrations/0001_phase2_schema.sql` says it at the
+type: *"No FX rates and no runtime conversion: a stored total in a stored
+currency, exactly as phase 1 did it."* `supabase/migrations/0016_projects.sql`
+says a project budget is `MDL` only *"because a second currency changes every
+computation in wave 3."* **Both were already true and neither was a rule anybody
+could cite.** With four currencies live, a report that quietly sums a mixed set
+becomes reachable, and the failure is silent: a number appears, it is wrong, and
+nothing on the screen says which currencies it mixed.
+
+**THE TEST TO APPLY, one question, before writing any total:** *could the rows
+being added carry different `currency` values?* If yes, the total is either
+grouped by currency or it is not produced. **An "approximate" total is the
+forbidden thing**, because it is the shape an FX rate arrives in.
+
+#### (c) THE CRM PHASE OPENS, `P2-14` SLIPS, `P2-13` STAYS PARKED
+
+**THE WIDER CRM SCOPE IS APPROVED AS A PHASE STARTING NOW.** `P3-43`, authored in
+this pull request as a field and a filter with the wider scope explicitly
+excluded, is no longer the boundary it was authored as. **Its own `defaults` still
+bind it**: that card stays a field and a filter, and the wider work is authored
+separately rather than grown inside it.
+
+**`P2-14` ACCEPTANCE SLIPS ACCORDINGLY.** Mihai's four-step acceptance cycle is no
+longer the next thing that happens. The card stays `blocked` on `client`, and its
+notes record that the slip is an owner decision with a reason rather than a card
+nobody got to.
+
+**`P2-13` STAYS PARKED AND EVERY TERMINAL GRANT STAYS LIVE.** That card is the
+credential firewall: it rotates every credential and revokes every terminal
+grant. It is not worked, so the grants in CLAUDE.md 3.1 and the secrets read in
+R-012 remain in force.
+
+**AND THE CONDITION IS THE WHOLE OF IT, IN THE OWNER'S OWN WORDS: this holds
+ONLY WHILE NO REAL CLIENT DATA IS ENTERED.** The moment a real client, a real
+supplier, a real delivery or a real price is in that database, the parking
+expires and `P2-13` becomes the next card, ahead of everything. **Nothing
+mechanical enforces this.** No check reads the database to ask whether the rows
+are real, and none is being built, because a check that tried would have to
+decide what "real" means about a row. **The control is this paragraph and the
+owner knowing it.**
+
+**Unblocks:** nothing. It sets two standing rules and records the state of three
+cards.
+**Supersedes:** the three-currency constant, quoted in place in
+`docs/contracts/extraction-v2.md` section 4.1 and enumerated above wherever else
+it is written.
