@@ -32,6 +32,7 @@ import {
   hasExtractionPageCount,
   hasSupplierDocumentRef,
   hasReconciliationFailedCode,
+  hasExtractionPlatformVerdict,
 } from "@/lib/data/schema-capability";
 import { classifyScan, headerConsistency } from "@/lib/data/reconciliation";
 import {
@@ -312,8 +313,20 @@ export async function POST(request: Request) {
   //
   // ANTETUL SE CALCULEAZA AICI SI SE DA MAI DEPARTE, ca `classifyScan` sa fie
   // pura si ca fiecare verificare sa fie chemata dintr-un singur loc.
+  //
+  // --- EXT-26. SUPRAFATA SE LARGESTE PENTRU INREGISTRARE, NU PENTRU DECIZIE ---
+  //
+  // PANA LA EXT-26 CONDITIA ERA `status === "extracted"`. Acum clasificarea
+  // ruleaza pe ORICE scanare, oricare ar fi statusul, fiindca hotararea R-190
+  // spune: "Our classification runs anyway and is recorded, never substituted."
+  //
+  // CE NU SE SCHIMBA, SI ESTE JUMATATEA CARE CONTEAZA. Verdictul nostru NU are
+  // voie sa aleaga un cod pe un payload care a venit cu unul, sa mute un status
+  // sau sa scoata o linie. Singurul lucru nou pe care il face este sa fie SCRIS.
+  // Calea digitala ramane in afara: acolo cifrele vin din text si o nepotrivire
+  // inseamna altceva, iar cazurile 14, 20.3 si 15b.2 o afirma.
   const scanVerdict =
-    documentSource === "scan" && status === "extracted"
+    documentSource === "scan"
       ? classifyScan({
           lineTotals: (rawLines as unknown[]).map(
             (l): number | null => num((l as Record<string, unknown>).line_total),
@@ -349,14 +362,41 @@ export async function POST(request: Request) {
   // este in continuare refuzat, ceea ce este strict mai bine.
   //
   // R-187 CERE IN TERMS CA POARTA SA NU FIE SCOASA. Nu este.
-  const refusalCode =
+  //
+  // CE AM FI SCRIS NOI, indiferent daca il si scriem. Poarta lui 0034 se aplica
+  // numai lui `reconciliation_failed`, exact ca la EXT-23.
+  const platformCode =
     scanVerdict !== null && scanVerdict.refuse
       ? scanVerdict.code === "reconciliation_failed" && !canFlagReconciliation
         ? null
         : scanVerdict.code
       : null;
-  const effectiveStatus = refusalCode !== null ? "failed" : status;
-  const effectiveErrorCode = refusalCode !== null ? refusalCode : errorCodeRaw;
+  const platformArm = scanVerdict !== null && scanVerdict.refuse ? scanVerdict.arm : null;
+
+  // --- EXT-26. CINE CASTIGA, SI ESTE O PROPOZITIE, NU O CONSECINTA ------------
+  //
+  // HOTARAREA R-190, IN CUVINTELE PROPRIETARULUI: "when the payload carries an
+  // error_code, it is authoritative". Expeditorul vede lucruri pe care noi nu le
+  // vedem: el testeaza `line_count` inaintea comparatiei sumelor si vede numarul
+  // de pagini. Noi nu vedem niciunul: `line_count` nu este in sectiunea 4.1 a
+  // contractului, iar numarul de pagini soseste numai in `_meta`, pe care cardul
+  // EXT-24 l-a masurat ca absent din forma care conteaza.
+  //
+  // ASTA ERA ADEVARAT SI INAINTE DE ACEST CARD, DIN INTAMPLARE, SI DE ACEEA
+  // ESTE SCRIS ACUM. `errorCodeRaw` este ne-null exact cand statusul este
+  // `failed` sau `partial`, iar clasificarea noastra alegea un cod numai pe
+  // `extracted`, unde linia 139 refuza orice `error_code` cu 400. Cele doua cai
+  // nu se intalneau. O precedenta care exista ca efect secundar al unei reguli
+  // vecine se inverseaza in ziua in care regula vecina se schimba, fara ca
+  // nimeni sa fi decis asta. Aici este o propozitie.
+  //
+  // NU SE RELAXEAZA LINIA 139. Sa il lasam pe Andre sa trimita un `error_code`
+  // pe un payload `extracted` este o schimbare de contract care ajunge la el, si
+  // este punctul 6 din lista inchisa de escaladari. R-190 numeste gaura si
+  // deliberat nu o inchide aici.
+  const effectiveErrorCode = errorCodeRaw !== null ? errorCodeRaw : platformCode;
+  const effectiveStatus =
+    errorCodeRaw === null && platformCode !== null ? "failed" : status;
 
   const dropLines =
     canStoreSource && documentSource === "scan" && effectiveStatus === "failed";
@@ -453,6 +493,23 @@ export async function POST(request: Request) {
     meta: body._meta ?? null,
     callback_at: new Date().toISOString(),
   };
+
+  // EXT-26. VERDICTUL NOSTRU, SCRIS ALATURI DE AL LUI, IN SPATELE PROPRIEI PORTI.
+  //
+  // 0037 este o migratie separata si codul ajunge in productie inaintea
+  // coloanelor. Fara poarta, un update care le numeste primeste 42703, ruta
+  // raspunde 500, si Make reincearca pe 5xx: INC-05 din nou.
+  //
+  // AMANDOUA SE SCRIU SAU NICIUNA. Un cod fara bratul lui nu poate fi citit:
+  // cinci din cele sase brate poarta acelasi cod.
+  //
+  // NULL INSEAMNA "NU A RULAT", nu "nu a gasit nimic". Pe o cale digitala
+  // `scanVerdict` este null si amandoua raman null, ceea ce este exact adevarul:
+  // nu am judecat acel document.
+  if (await hasExtractionPlatformVerdict(supabase)) {
+    draftUpdate.platform_error_code = platformCode;
+    draftUpdate.platform_arm = platformArm;
+  }
 
   if (await hasExtractionPageCount(supabase)) {
     draftUpdate.page_count = pageCount(body._meta);

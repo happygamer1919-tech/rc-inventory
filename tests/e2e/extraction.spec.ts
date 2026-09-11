@@ -1276,6 +1276,128 @@ test.describe("Extragere documente", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // EXT-26. CODUL EXPEDITORULUI ESTE AUTORITAR, AL NOSTRU SE INREGISTREAZA.
+  //
+  // HOTARAREA R-190, IN CUVINTELE PROPRIETARULUI: "when the payload carries an
+  // error_code, it is authoritative. Our classification runs anyway and is
+  // recorded, never substituted." Expeditorul testeaza `line_count` inaintea
+  // comparatiei sumelor si vede numarul de pagini; noi nu vedem niciunul.
+  //
+  // DEZACORDUL ESTE DATE, NU O EROARE. Doi cititori cu dovezi diferite vor
+  // ajunge la concluzii diferite, iar perechea stocata este singurul set de date
+  // pe care il va avea cineva vreodata despre care cititor este mai bun.
+  // -------------------------------------------------------------------------
+
+  test("27. EXT-26: cand al nostru spune reconciliation_failed si al lui spune unreadable_document, AL LUI se stocheaza si al nostru se scrie alaturi", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "ext26dis");
+
+    // PARTIAL, SI ACEASTA ESTE SINGURA FORMA IN CARE DEZACORDUL POATE EXISTA.
+    // EXT-20 ingusteaza numai `scan` plus `failed`, deci un `partial` isi pastreaza
+    // liniile citite, expeditorul isi trimite codul odata cu ele, iar aritmetica
+    // noastra poate ajunge la alta concluzie despre acele linii.
+    //
+    // Suma 38429.40 rateaza subtotalul tiparit 50336.40 cu 11907.00, la o
+    // toleranta de 0.07, iar ANTETUL SE ADUNA CU EL INSUSI: 50336.40 + 10067.28
+    // este exact 60403.68 si 50336.40 ori 20% este exact 10067.28. Deci bratul
+    // nostru este line_sum_missed si codul nostru este reconciliation_failed.
+    const r = await post(
+      request,
+      matnord(orderId, 38429.4, { status: "partial", error_code: "unreadable_document" }),
+    );
+    expect(r.status(), "payload-ul respecta contractul").toBe(202);
+
+    const d = await draftState(request, orderId);
+    // 1. AL LUI ESTE CE SE PASTREAZA.
+    expect(d.error_code, "codul expeditorului este autoritar").toBe("unreadable_document");
+    expect(d.status, "statusul lui nu este mutat de verdictul nostru").toBe("partial");
+    // 2. AL NOSTRU ESTE SCRIS ALATURI, NU IN LOC.
+    expect(d.platform_error_code, "verdictul nostru se inregistreaza").toBe(
+      "reconciliation_failed",
+    );
+    // 3. SI BRATUL, fiindca cinci din cele sase brate poarta acelasi cod si
+    //    codul singur nu poate spune DE CE.
+    expect(d.platform_arm).toBe("line_sum_missed");
+    // 4. CELE DOUA CHIAR NU SUNT DE ACORD, altfel cazul nu dovedeste nimic.
+    expect(d.platform_error_code).not.toBe(d.error_code);
+    // LINIILE UNUI `partial` RAMAN. EXT-15 scoate liniile unei SCANARI ESUATE, si
+    // acesta nu este esuat: verdictul nostru nu are voie sa mute statusul.
+    expect(d.lines.length, "un partial isi pastreaza liniile citite").toBe(7);
+  });
+
+  test("28. EXT-26: clasificarea noastra RULEAZA pe un payload care a venit cu un cod, ceea ce inainte nu se intampla", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "ext26runs");
+
+    // Antetul EXT-20, fara cheia lines. Pana la EXT-26 clasificarea noastra nu
+    // rula deloc aici, fiindca poarta cerea `status === "extracted"`.
+    const r = await post(request, scanFailureHeader(orderId));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.error_code, "codul lui, neatins").toBe("unreadable_document");
+    // Zero linii, deci bratul nostru este no_lines. Se NIMERESTE sa fie acelasi
+    // cod, si tocmai de aceea bratul este campul care spune ceva: fara el nu s-ar
+    // putea distinge un acord de o coincidenta.
+    expect(d.platform_arm, "clasificarea a rulat").toBe("no_lines");
+    expect(d.platform_error_code).toBe("unreadable_document");
+  });
+
+  test("29. EXT-26: un payload DIGITAL nu poarta niciun verdict al nostru, si null inseamna NU A RULAT", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "ext26dig");
+
+    // Aceeasi aritmetica gresita ca la cazul 27, declarata digital. Acolo cifrele
+    // vin din text si o nepotrivire inseamna altceva, deci nu judecam nimic.
+    const r = await post(request, matnord(orderId, 38429.4, { document_source: "digital" }));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status, "calea digitala ramane neatinsa").toBe("extracted");
+    expect(d.error_code).toBeNull();
+    // AMANDOUA NULL. Daca una ar fi scrisa si cealalta nu, un cititor nu ar putea
+    // spune daca am judecat documentul si nu am gasit nimic, sau nu l-am judecat.
+    expect(d.platform_error_code, "null inseamna nu a rulat").toBeNull();
+    expect(d.platform_arm).toBeNull();
+  });
+
+  test("30. EXT-26: fara niciun cod trimis, al nostru il furnizeaza in continuare, exact ca la EXT-23", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "ext26ours");
+
+    // Scanare `extracted`, deci contractul interzice un error_code si nu vine
+    // niciunul. Comportamentul EXT-23 este neschimbat, si acest caz este ce
+    // dovedeste ca EXT-26 nu l-a inlocuit cu precedenta expeditorului.
+    const r = await post(request, matnord(orderId, 38429.4));
+    expect(r.status()).toBe(202);
+
+    const d = await draftState(request, orderId);
+    expect(d.status, "al nostru muta statusul cand nu exista niciunul al lui").toBe("failed");
+    expect(d.error_code, "al nostru furnizeaza codul").toBe("reconciliation_failed");
+    expect(d.platform_error_code, "si este inregistrat si ca al nostru").toBe(
+      "reconciliation_failed",
+    );
+    expect(d.platform_arm).toBe("line_sum_missed");
+    expect(d.lines).toHaveLength(0);
+  });
+
   test("21. EXT-19: un esec de reconciliere se stocheaza ca reconciliation_failed si NU ca unreadable_document", async ({
     page,
     request,

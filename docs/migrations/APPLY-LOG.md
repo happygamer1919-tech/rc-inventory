@@ -1669,3 +1669,68 @@ Verified from a fresh connection after the commit:
 
 `supplier_id` stays NULLABLE deliberately: a product may genuinely have no
 supplier, which is not true of an outbound issue and its project.
+
+## 0037_extraction_platform_verdict.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER
+
+**Actor:** **the Supabase GitHub app, on the merge of the EXT-26 pull request
+(#274) to `main`.** No terminal ran it, and none may: CLAUDE.md 8.0 and ruling
+R-124 record that merging a migration file is what applies it here.
+
+**Applied at:** the merge of PR #274, within about two minutes of it, per the
+interval measured on `0032`, `0033` and `0034`.
+
+**What it creates:** two nullable columns with no default, and one check
+constraint.
+
+    public.extraction_drafts.platform_error_code   public.extraction_error_code
+    public.extraction_drafts.platform_arm          text
+    constraint extraction_drafts_platform_arm_known
+
+`platform_error_code` is the `error_code` **our own validator would have
+written**, recorded even when the sender supplied one. It is never substituted for
+`error_code`: ruling R-190 makes the sender authoritative, because he tests
+`line_count` before the sums comparison and sees the page count, and we see
+neither. `platform_arm` is which of EXT-23's six arms produced it, and it exists
+because **five of the six arms carry the same code**, so the code alone cannot say
+why.
+
+**Both nullable, deliberately, and NULL means OUR CLASSIFIER DID NOT RUN** rather
+than "it found nothing". That is a real state for every digital payload and for
+every row written before this migration. A `NOT NULL` would have forced a default,
+and a default would rewrite old rows into a claim nobody made.
+
+**THE CONSTRAINT IS A SECOND DOOR AND IT IS NOT THE FIRST.** The first is the
+`ScanArm` union in `lib/data/reconciliation.ts` and the typescript exhaustiveness
+guard on it, which `npm run check:reconciliation` asserts is still present. This
+constraint is for a writer that is not that route. **A seventh arm therefore costs
+a migration, on purpose**: adding one is a decision about what the platform can
+conclude, and it should be visible in a diff rather than appear in a text column.
+
+**NOT A NEW ERROR CODE AND NOT A NEW EMITTER.** `platform_error_code` reuses
+`public.extraction_error_code` unchanged and is never sent to anybody; it is a
+column we read. Ruling R-189's emitter rule binds a value we EMIT, and this is
+not one.
+
+**Proof that it is applied: NOT YET OBSERVED, AND THIS ENTRY SAYS SO RATHER THAN
+CARRYING NUMBERS NOBODY READ.** Same position as the `0035` and `0036` entries
+above and for the same reason: this terminal may not read the production database,
+so the apply is predicted here and the observation belongs to whoever next has
+cause to look. What can be said is what was proved on a bare `postgres:16`:
+`npm run check:migrations` applied all 37 files unmodified and ran 20 assertion
+files, `0037`'s among them.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, and under 8.0 that is the
+documented behaviour of this path rather than a gap in the record. The control
+that precedes this apply is `npm run check:no-destructive-migration`, which ran in
+`quality` and passed: one file, ten statements, every kind classified, no
+`DROP TABLE`, no `TRUNCATE`, no `DELETE`, and no row removed.
+
+**WHY THIS ENTRY EXISTS ONLY ON THE FOURTH CI RUN OF THIS PULL REQUEST, recorded
+because the gap is the lesson.** The migration was authored, proved against the
+local shim, and pushed with **no journal entry at all**. `headers.spec` case 5,
+which ruling R-013 added after `0006` was found applied with nobody able to say by
+whom, refused it: *"migratia 0037_extraction_platform_verdict.sql nu are nici
+intrare in APPLY-LOG.md, nici linie in registrul de asteptare"*. That case is in
+the `productie` Playwright project, which needs a production build, and the
+session's local runs covered `extraction.spec` and `review.spec` only. **The gate
+that catches an unjournalled migration was the gate not run.**

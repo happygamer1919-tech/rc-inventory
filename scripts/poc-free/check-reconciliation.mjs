@@ -371,10 +371,54 @@ console.log('\n9. EXT-23: which code carries the refusal, arm by arm');
   } else {
     bad('the capability gate no longer guards reconciliation_failed on its own');
   }
-  if (/documentSource === "scan" && status === "extracted"/.test(ROUTE)) {
-    ok('the surface is unchanged: scan-sourced and extracted only, so the digital path stays untouched');
+  // 9h. THE DIGITAL PATH IS STILL UNTOUCHED, AND THE SENDER STILL WINS.
+  //
+  // THIS ASSERTION SAID SOMETHING ELSE UNTIL 2026-09-11 AND IT WAS RIGHT WHEN IT
+  // WAS WRITTEN. Kept here under CLAUDE.md 9c rather than deleted, because it is
+  // what CAUGHT card EXT-26 widening the surface and a reader should see that it
+  // fired rather than find a softer assertion in its place. It read:
+  //
+  //   if (/documentSource === "scan" && status === "extracted"/.test(ROUTE)) {
+  //     ok('the surface is unchanged: scan-sourced and extracted only, so the digital path stays untouched');
+  //   } else {
+  //     bad('the gate on document_source or status moved, which EXT-23 does not authorise');
+  //   }
+  //
+  // EXT-26 WIDENED THE SURFACE ON PURPOSE, under ruling R-190: the classifier now
+  // runs on EVERY scan-sourced payload so that its verdict can be RECORDED beside
+  // the sender's. What may not widen is what the verdict DECIDES, and that is
+  // what the three assertions below pin instead of the one above.
+  if (/documentSource === "scan"\n?\s*\?\s*classifyScan\(\{/.test(ROUTE)
+      || /documentSource === "scan"$/m.test(ROUTE)) {
+    ok('the classifier is still gated on scan-sourced payloads, so the digital path stays untouched');
   } else {
-    bad('the gate on document_source or status moved, which EXT-23 does not authorise');
+    bad('the classifier no longer asks document_source, so a digital payload may now be judged');
+  }
+
+  // THE SENDER WINS, AS ONE EXPRESSION. Ruling R-190. Before EXT-26 this was true
+  // only as a side effect of the 400 at route.ts:139, which refuses an error_code
+  // on an `extracted` payload; a precedence that exists as a consequence of a
+  // neighbouring rule reverses itself the day that rule changes.
+  if (/const effectiveErrorCode = errorCodeRaw !== null \? errorCodeRaw : platformCode;/.test(ROUTE)) {
+    ok("the sender's error_code wins, stated rather than inherited from the 400 at :139");
+  } else {
+    bad("the sender's error_code is no longer the first branch of effectiveErrorCode");
+  }
+
+  // AND OUR VERDICT MAY NOT MOVE A STATUS THE SENDER SET. `effectiveStatus` flips
+  // to `failed` ONLY when the sender sent no code at all.
+  if (/errorCodeRaw === null && platformCode !== null \? "failed" : status/.test(ROUTE)) {
+    ok('our verdict moves the status only when the sender sent no code');
+  } else {
+    bad('effectiveStatus no longer requires errorCodeRaw to be null before it moves a status');
+  }
+
+  // BOTH COLUMNS ARE WRITTEN TOGETHER OR NEITHER IS. A code without its arm
+  // cannot be read: five of the six arms carry the same code.
+  if (/draftUpdate\.platform_error_code = platformCode;\s*\n\s*draftUpdate\.platform_arm = platformArm;/.test(ROUTE)) {
+    ok('platform_error_code and platform_arm are written together, behind one gate');
+  } else {
+    bad('the two platform columns are no longer written together');
   }
 }
 

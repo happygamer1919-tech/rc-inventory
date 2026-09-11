@@ -4933,3 +4933,179 @@ decided is exactly what a reviewer reading a plain-language summary cannot see.
 saying why. **The rule: after any local run that starts the dev server, read
 `git status` against the files the card meant to touch and revert the rest.** The
 tool that edits your tree while you work is not going to tell you it did.
+
+### `supabase db reset` leaves rest and kong pointing at a database that no longer exists, and the failure surfaces in the AUTH seed
+**Tag:** tooling
+**ERROR:** After `supabase db reset` on a long-lived local stack, every seed
+script failed at the first one with
+`seed: nu s-a putut crea contul owner@rc-inventory.local: An invalid response was
+received from the upstream server`. The auth container was `Up (healthy)` and its
+`/auth/v1/health` returned 200. Polling the health endpoint and retrying five
+times changed nothing, because nothing was wrong with auth. **`supabase_rest` and
+`supabase_kong` had been up for 31 minutes across a reset that dropped and
+rebuilt the database**, so they were serving a schema cache for a database that
+no longer existed, and the gateway turned that into a 502 attributed to whatever
+service the request was for.
+**SOLUTION:** `docker restart supabase_rest_<project> supabase_kong_<project>`
+after every `db reset`, then wait for `/rest/v1/` to answer 200 or 401. **The
+general rule, and it is the expensive half: a healthcheck answers for the process,
+not for the state the process is holding.** A container that is `healthy` after
+its database was replaced underneath it is reporting on itself and telling you
+nothing about whether it can serve a request. When a restart fixes something a
+healthcheck said was fine, the healthcheck was asking the wrong question.
+
+### Measuring the thing the owner reports is not the same as reproducing it, and saying so is the finding
+**Tag:** data
+**ERROR:** A dispatch reported sidebar navigation at 2 to 4 seconds and asked
+where the time goes. Measured on this machine in a **production build against a
+local database**, click-to-content on all eleven sidebar routes was **45 to
+113ms**, and most clicks issued **zero** requests because Next had already
+prefetched the RSC payload. Dev mode was 63 to 241ms warm. **Neither reproduces
+2 to 4 seconds.** The temptation at that point is to optimise the slowest thing
+found and report an improvement against a number nobody asked about.
+**SOLUTION:** Report the gap as the result. The measurement did find something
+real and general, **about 32 database round trips per authenticated render,
+identical on every route, against 2 to 3 anonymous** - a page that displays
+almost nothing costs the same as the heaviest one. That is worth fixing whatever
+the owner's environment turns out to be, and the arithmetic projects it onto a
+remote database honestly: 32 sequential round trips at a 40ms RTT is 1.3
+seconds. **The rule: when a measurement does not reproduce the report, the card's
+FIRST acceptance clause is reproduction, and every optimisation clause is
+conditional on it.** An improvement measured in the wrong environment is a number,
+not an answer.
+
+### A premise in a dispatch is still a premise, and this one was the opposite of the code
+**Tag:** doctrine
+**ERROR:** A dispatch ruled that the sender's `error_code` must win because *"our
+looser answer was overwriting their stricter one silently"*. It is not true of the
+shipped code. `errorCodeRaw` is non-null **exactly** when the status is `failed`
+or `partial`, the platform's classifier ran **only** on `extracted`, and
+`route.ts:139` answers `400` to an `error_code` on an `extracted` payload. The
+two paths are disjoint, and migration `0008`'s
+`extraction_drafts_error_code_matches_status` enforces the same disjointness in
+the database. **No input reached the behaviour the ruling was written to stop.**
+**SOLUTION:** The ruling is adopted and the premise is corrected in the same
+entry, R-190, rather than carried. The card is still worth shipping for reasons
+the corrected premise supports: the precedence becomes a stated expression
+instead of a side effect of a neighbouring `400`, and the recording did not exist
+at all. **And naming the premise correctly found the real gap**, which is a
+different one: Andre has no way to report a concern on a payload he considers
+`extracted`, because the contract forbids an `error_code` there. It is not
+overwritten, it is refused before it is stored. **The rule: a dispatch's rationale
+is checked against the source exactly as hard as a card's premise is, and when it
+fails the ruling records both the decision and the correction.** A ruling that
+carries a false rationale teaches every future reader the wrong mechanism.
+
+### Writing "shipped" in three places does not flip the card, and the check that says so is step 9 of 56
+**Tag:** process
+**ERROR:** A card was authored at `in_flight`, worked to completion, and pushed.
+The pull request body said `shipped`. The session report said `shipped`. The
+commit messages said the work was done. **The board said `in_flight`**, and
+`check:board-edit` refused the pull request with
+`EXT-26: status is "in_flight" at the head, which means the work is still in
+hand.` Everything after step 9 of 56 was skipped, so a twenty-minute run bought
+one line of output.
+**SOLUTION:** Flip the card in the same commit that finishes the work, not in a
+commit that comes after the push. **The general rule, and it is about where a
+fact lives rather than about remembering: prose is not state.** A pull request
+body, a report and a commit message are all things a session writes about itself,
+and all three can say a card shipped while the one field a machine reads says
+otherwise. `RULE-06`'s own header records this being broken twice on 2026-09-04
+by terminals that believed they were obeying it; this is the third. **The tell is
+that the three statements agreeing with each other feels like confirmation.** It
+is not: they have a single author and a single belief behind them. The board is
+the only one of the four that another process reads back.
+
+### A verification loop that prints FAIL and returns 0 is not a gate, and it let a red check reach a push
+**Tag:** tooling
+**ERROR:** Every non-docker gate was run before pushing, with a shell loop that
+printed a line per failure and then `&&`-chained into `git push`:
+
+    for c in check:a check:b ...; do npm run --silent $c >/dev/null 2>&1; code=$?; \
+      [ $code -ne 0 ] && printf "... FAIL(%s)\n" "$code"; done; echo done
+    npx tsc --noEmit && echo TSC_OK && git push
+
+`check:reconciliation` **printed `FAIL(1)` and the push happened anyway**, because
+the loop's own exit status is the status of its last command, not of the worst
+thing it saw. The output said the right thing and the control flow ignored it.
+**This is the same class the register defect above names, one layer out: a check
+whose passing path is reachable without the condition being true is not a check,
+and a verification loop that cannot fail is not a verification.**
+**SOLUTION:** Accumulate and exit on it:
+
+    fails=0
+    for c in ...; do npm run --silent $c >/dev/null 2>&1 || { echo "FAIL $c"; fails=1; }; done
+    [ $fails -eq 0 ] || exit 1
+
+**The rule: anything that gates a push must END in a non-zero exit, not in a
+printed word.** A human reading the scrollback is not a gate either, which is
+exactly what was being relied on.
+
+### The assertion that caught the next card was the one the previous card wrote
+**Tag:** doctrine
+**ERROR:** Card EXT-23 added `check:reconciliation` section 9h asserting *"the
+surface is unchanged: scan-sourced and extracted only"*, pinning the condition
+under which the classifier runs. Card EXT-26, one day later, **widened exactly
+that condition on purpose** so the classifier's verdict could be recorded on every
+scan payload. The check went red on a change that was correct.
+**SOLUTION:** The assertion was **replaced, not deleted, and the old one is quoted
+in the file** where it stood, so a reader sees that it fired rather than finding a
+softer assertion in its place. What replaced it is three narrower assertions
+pinning what actually must not move: the digital path is still gated, the sender's
+code is still the first branch of `effectiveErrorCode`, and our verdict moves a
+status only when the sender sent no code. Each was proved to fail with a mutant.
+**The rule, and it is the useful half: a check going red on a deliberate change is
+the check working, and the response is to write down what is invariant NOW rather
+than to loosen the assertion until it passes.** An assertion edited to accommodate
+a change stops being evidence about the change. One rewritten to state the new
+invariant, with the old one quoted beside it, is a record of both.
+
+### The migration gate was the one gate not run locally, and it held both defects
+**Tag:** tooling
+**ERROR:** Every non-docker gate was run before pushing. `check:migrations` was
+skipped, because it needs Docker's postgres shim and the machine was already
+saturated. It held **two** defects in one new assertions file, and `quality`
+found them one CI run each:
+
+    ERROR: invalid input syntax for type uuid: "00000000-0000-4000-8000-0000ext26001"
+    ERROR: null value in column "document_filename" violates not-null constraint
+
+The first is a uuid invented by pattern-matching the SHAPE, `8-4-4-4-12`, without
+checking the ALPHABET: `ext` are not hex digits and no amount of correct grouping
+makes them one. The second is an insert that supplied `document_path` and forgot
+the other three `not null` columns `0008` declares beside it.
+**SOLUTION:** Run `check:migrations` before pushing a migration, always, and wait
+for the machine if it is busy. **Two rules fall out and the second is the general
+one.** A synthetic identifier is validated by the parser that will read it, not by
+eye: `python3 -c "import uuid; uuid.UUID(x)"` costs nothing and settles it. And
+**an insert written against a table you did not author is written against its
+`not null` columns, read from the migration that created them**, because the
+column you remember is the one in the error you have seen before, and the three
+you have never hit are the three that are about to fail. Both were caught by the
+gate that exists for them; neither was caught by reading the file again.
+
+### Four CI runs, four defects, and every one was a gate I had not run locally
+**Tag:** process
+**ERROR:** One pull request burned four `quality` runs, roughly eighty minutes of
+CI, on four separate defects of mine. Each was caught by a gate that exists
+precisely for it, and **each of those gates was one I had skipped locally**:
+
+| run | gate | what it caught |
+|---|---|---|
+| 1 | `check:board-edit` | the card was still `in_flight` while the PR body, the report and the commit messages all said `shipped` |
+| 2 | `check:reconciliation` | the previous card's own surface assertion, firing correctly on this card's deliberate widening |
+| 3 | `check:migrations` | a uuid containing non-hex characters, then an insert missing three of four `not null` columns |
+| 4 | `headers.spec` case 5 | the migration had **no `APPLY-LOG.md` entry at all** |
+
+The pattern is not carelessness about any one of them. **It is that "I ran the
+gates" meant "I ran the gates that are cheap on this machine."** `check:migrations`
+needs Docker. `headers.spec` needs a production build. Both were skipped while the
+machine was loaded, and both held a defect.
+**SOLUTION:** **The gates that are expensive to run locally are the ones most
+worth running, because they are the ones nobody else has run either.** Before
+pushing, enumerate what `quality` runs and diff it against what was run locally,
+out loud, rather than trusting a loop over the convenient subset. Specifically in
+this repository: a pull request that adds a migration must run `check:migrations`
+AND `tests/e2e/headers.spec.ts`, because the journal requirement from ruling R-013
+lives in a Playwright case in the `productie` project and in nothing else. **A
+twenty-minute CI run is not a cheaper way to find out.**

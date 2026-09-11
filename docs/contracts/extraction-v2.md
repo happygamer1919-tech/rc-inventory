@@ -140,7 +140,7 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `document_total` | number or null | yes | The total as stated on the document. |
 | `prices_include_vat` | boolean or null | yes | Whether the line prices already carry VAT. Decides whether `subtotal` or `document_total` reconciles against the lines. |
 | `vat_rate` | number or null | yes | Percentage, as a number. `20.0`, not `"20%"`, not `0.2`. |
-| `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the three. |
+| `currency` | enum or null | yes | Mapped to `currency_code`: `USD`, `EUR`, `RON`, `MDL`. Null when the document's currency is not one of the four. **Ruling R-192, 2026-09-11.** See 4.2d. |
 | `currency_raw` | string or null | yes | Verbatim, as printed. `lei`, `MDL`, `EUR`, whatever it said. |
 | `document_source` | enum or null | yes | `scan` or `digital`. **Declared by the extractor.** Null is accepted and read as `scan`. See section 4.2c. |
 | `order_ref` | string or null | yes | The **number** of the supplier's own document, verbatim as printed. Ours is the order reference we generate and is a different thing. Card EXT-11. |
@@ -148,21 +148,98 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 | `lines` | array | no | May be empty on `failed`. Never null. **One exception, and only one: a scan-sourced `failed` payload must not carry this key at all. Section 4.1a.** |
 | `_meta` | object | no | Section 4.3. |
 
+### 4.2d Currency: four values, ONE PER DOCUMENT, and no FX anywhere. Ruling R-192, 2026-09-11.
+
+**THE SET IS `USD`, `EUR`, `RON`, `MDL`. FOUR, NOT THREE. `RON` STAYS**, said
+explicitly because the obvious reading of "add USD" is that something was traded
+for it. Nothing was removed.
+
+**THIS TABLE SAID THREE UNTIL 2026-09-11 AND THE SUPERSEDED TEXT IS QUOTED RATHER
+THAN DELETED**, per CLAUDE.md section 9c, because the code, the enum in migration
+`0001` and a card's defaults were all written on top of it. Section 4.1 read:
+
+> *"| `currency` | enum or null | yes | Mapped to `currency_code`: `EUR`, `RON`,
+> `MDL`. Null when the document's currency is not one of the three. |"*
+
+**THE ENUM IN THE DATABASE STILL HOLDS THREE LABELS AS THIS IS WRITTEN.**
+`supabase/migrations/0001_phase2_schema.sql` created `public.currency_code` with
+`EUR`, `RON`, `MDL`, and a migration file is never edited after it has been
+applied. `USD` arrives as a new numbered file, in its own card. **Until that card
+ships, a `USD` document is a document whose `currency` we map to null** and whose
+`currency_raw` still carries what it printed. That is the existing behaviour for
+an unrecognised currency and it is not a new failure.
+
+#### ONE CURRENCY PER DOCUMENT, AND ANY CROSS-CURRENCY TOTAL IS A DEFECT
+
+**A document carries exactly one currency.** Lines in a second currency on one
+document are not a shape to support; they are a document to refuse.
+
+**Totals sum only within one currency.** A figure that adds `MDL` to `EUR` is
+wrong whatever the arithmetic says.
+
+**NO FX SOURCE EXISTS AND NONE IS BEING ADDED.** Not a table, not an API, not a
+hard-coded rate, and not a rate "just for display". This is not a gap waiting to
+be filled; it is a decision.
+
+**The reason is already written in this repository twice and was never a rule
+anybody could cite.** Migration `0001` says at the type: *"No FX rates and no
+runtime conversion: a stored total in a stored currency, exactly as phase 1 did
+it."* Migration `0016` says a project budget is `MDL` only *"because a second
+currency changes every computation."*
+
+**THE TEST TO APPLY BEFORE WRITING ANY TOTAL, one question:** *could the rows
+being added carry different `currency` values?* If yes, the total is grouped by
+currency or it is not produced. **An "approximate" total is the forbidden thing**,
+because approximate is the shape an FX rate arrives in.
+
 ### 4.1a A scan-sourced `failed` payload: the header, and NO `lines` key. Card EXT-20, 2026-09-04.
 
 When `document_source` is `scan` (or absent, which reads as `scan`) **and**
-`status` is `failed`, the payload is these **seventeen fields** and nothing else:
+`status` is `failed`, the payload is these **sixteen fields** and nothing else:
 
     order_id      status        error_code    reason
-    supplier      order_ref     order_ref_series     client_ref
+    supplier      order_ref     client_ref
     order_date    currency      currency_raw  prices_include_vat
     vat_rate      subtotal      vat_amount    document_total
     document_source
 
-**IT WAS SIXTEEN UNTIL 2026-09-07** and `order_ref_series` is the one card EXT-11
-added. The count is stated rather than left implicit because this list is what a
-reader checks a real payload against, and a list whose stated count disagrees
-with its own rows is a list nobody trusts.
+The count is stated rather than left implicit because this list is what a reader
+checks a real payload against, and a list whose stated count disagrees with its
+own rows is a list nobody trusts.
+
+**THIS LIST SAID SEVENTEEN FROM 2026-09-07 TO 2026-09-11 AND IT WAS WRONG ABOUT
+WHAT ANDRE SENDS**, corrected by ruling **R-191** under CLAUDE.md section 9c and
+quoted here rather than deleted, because the shipped fixture, card EXT-24's
+question and a session report were all written on top of it. It read:
+
+> *"the payload is these **seventeen fields** and nothing else:*
+>
+>     order_id      status        error_code    reason
+>     supplier      order_ref     order_ref_series     client_ref
+>     order_date    currency      currency_raw  prices_include_vat
+>     vat_rate      subtotal      vat_amount    document_total
+>     document_source
+>
+> *"**IT WAS SIXTEEN UNTIL 2026-09-07** and `order_ref_series` is the one card
+> EXT-11 added."*
+
+**THE EVIDENCE THAT SETTLED IT, FROM ANDRE.** `order_ref` is **series-inclusive
+by design**: the extractor returns the series and the number as one printed
+string, deliberately. **Five Matnord runs return `DN 0021884` as one string.** The
+single Tehnocom counter-example, `TG 0009312` split into two, **predates the
+prompt revision** that added `document_source` and removed `confidence`, so it is
+evidence about a prompt that no longer runs.
+
+**THE DISAGREEMENT WAS FOUND BY A FIXTURE, AND THE FIXTURE WAS RIGHT.**
+`scanFailureHeader` in `tests/e2e/extraction.spec.ts` has enumerated sixteen keys
+since card EXT-20 wrote it, and it has never carried `order_ref_series`. Card
+EXT-24 asked which record bound. This one did not.
+
+**WHAT IS NOT REVERSED.** Card EXT-11 is untouched and migration `0036` keeps
+both columns on `extraction_drafts` and on `inbound_orders`. `order_ref_series`
+is still a field of the **full** payload in section 4.1 and is still stored when
+it arrives. What was wrong was the claim that **this one narrowed shape** carries
+it as a separate field.
 
 **There is no `lines` key. Not an empty array. The key is absent.**
 
@@ -191,7 +268,7 @@ them. Only `scan` + `failed` is narrowed.
 | in the shape above | in this contract | note |
 |---|---|---|
 | `supplier` | `supplier_name` | same field, section 4.1's name is the one we read |
-| `order_ref` | **in 4.1 since 2026-09-07** | **stored.** Card EXT-11 landed it, together with `order_ref_series`. |
+| `order_ref` | **in 4.1 since 2026-09-07** | **stored.** Card EXT-11 landed it, together with `order_ref_series`. **On THIS shape it is series-inclusive**: Andre returns the series and the number as one printed string, `DN 0021884`, and there is no separate `order_ref_series` field here. Ruling R-191. |
 | `client_ref` | **not in 4.1** | accepted and ignored today. `P3-31` is the card that would give it a shape, and it has not shipped. |
 
 **THIS TABLE SAID SOMETHING ELSE UNTIL 2026-09-07 AND IT IS QUOTED RATHER THAN
