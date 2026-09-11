@@ -12408,3 +12408,271 @@ them there.
 that deviation 4 named.
 **Supersedes:** none. R-186 is not amended: its own text already records both
 readings of the residue and states that the ruling holds at either.
+
+---
+
+### R-189 - The five EXT-23 deviations ratified, and the one that mattered is a class: a contract-semantics change shipped ahead of the counterparty
+**Date:** 2026-09-11
+**Asked on:** EXT-23, EXT-25, EXT-26
+**Answer, verbatim:**
+> STEP 1 - RATIFICATIONS, record them.
+>   all five of your EXT-23 deviations ratified.
+>   deviation 3: EXT-25 is not what I meant by the router card and I described it
+>     badly. EXT-25 as authored, telling Andre, is correct work and stays. The
+>     routing item is superseded by step 2 below.
+>   deviation 5 is the one that mattered: a contract-semantics change shipped ahead
+>     of the counterparty. Record that as the finding, not the apology.
+
+**Ruling: all five are ratified. Four are closed. The fifth is a named class and
+it is written here as a rule rather than as an incident.**
+
+#### Deviation 3, settled by the owner naming his own words as the defect
+
+**`EXT-25` stays exactly as authored.** The owner's sentence: *"EXT-25 is not what
+I meant by the router card and I described it badly. EXT-25 as authored, telling
+Andre, is correct work and stays."*
+
+**THE ROUTING ITEM IS SUPERSEDED, NOT DROPPED.** What he meant by "the router
+card" is `EXT-26`, the card of the same dispatch's step 2: the sender's own
+`error_code` is authoritative and our classification is recorded beside it rather
+than substituted for it. That is a different question from the one `EXT-23`
+answered, and `EXT-25` is a third.
+
+**THE SESSION'S HANDLING IS UPHELD AND SO IS THE SHAPE IT USED.** It authored the
+card for the only open item it could identify, wrote the ambiguity into that
+card's own notes in terms, and said in the report that if the owner meant
+something else the card is corrected rather than worked. **He did mean something
+else, and the correction cost one reading of one note.** A session that had
+guessed silently would have produced the same card and no way to find out.
+
+#### Deviation 5. THE FINDING, AND IT IS NOT AN APOLOGY
+
+**A CHANGE TO WHAT A VALUE MEANS ON THE WIRE REACHED PRODUCTION BEFORE THE
+COUNTERPARTY WAS TOLD.** `unreadable_document` was a payload-path code in contract
+section 5.2a, emitted by the extractor and meaning *the extractor could not read
+the document*. `EXT-23` gave our own validator four conditions under which it
+emits the same value, meaning *the platform found no trustworthy anchor*. **Both
+sides now read one value and it carries two different claims.**
+
+**THIS IS NOT THE CASE SECTION 5.2a WAS WRITTEN FOR, AND THAT IS THE POINT.** That
+section governs ADDING a code, and its four requirements are all about a value
+that does not exist yet. **No code was added here.** Every requirement it states
+was satisfied vacuously, and the thing that actually changed, the MEANING of an
+existing value, is not one of the four.
+
+**THE RULE, AND IT IS NEW:**
+
+> **A value's set of EMITTERS is part of the contract, exactly as much as the
+> set of values is. Adding an emitter to an existing value is a contract change
+> and is announced before it can be emitted, in both directions, on the same
+> terms as adding a value.**
+
+**WHY THE OMISSION WAS INVISIBLE RATHER THAN CARELESS.** Every check in this
+repository that guards the contract asks about the SET of codes.
+`isExtractionErrorCode` asks whether a value is in the set. Section 5.2's `400`
+asks whether a value is in the set. Migration `0008`'s enum is the set.
+**Nothing anywhere asks who is allowed to emit which member**, so a change that
+kept the set identical passed every gate that exists and was caught only by a
+person reading the pull request afterwards.
+
+**NO CHECK IS BUILT FOR THIS AND THAT IS DELIBERATE.** A guard would have to know
+which side emits which value, which is a fact that lives in a prose table in the
+contract and nowhere a parser can reach. **The control is the rule above, written
+in the place a card author reads.** Contract section 5.2a carries it in the same
+pull request as `EXT-26`.
+
+**WHAT IT COST, MEASURED RATHER THAN FEARED.** Nothing yet. `EXT-23` merged
+2026-09-10, and Andre's next delivery has not landed. **`EXT-25` is the card that
+closes it and it is now the highest-value unworked item on either board**, which
+is the only sentence in this ruling that is about scheduling.
+
+#### 1, 2 and 4, ratified without further comment
+
+**1. `EXT-23` was worked out of the board's pick order**, on a dispatch that named
+it. **2. The card shipped wider than it was authored**, and the overridden
+`defaults` sentence was kept rather than deleted. **4. EXECUTOR wrote a ruling**,
+which is POC's work, instructed, and the same role-crossing the owner had
+ratified as a defect in his own dispatch one step earlier.
+
+**Unblocks:** nothing. It settles five deviations, keeps `EXT-25` as authored,
+and states one new rule that binds every future card.
+**Supersedes:** none. It ADDS the emitter rule to section 5.2a rather than
+changing anything that section already said.
+
+---
+
+### R-190 - The sender's error_code is authoritative, ours is recorded beside it, and the premise that ours was overwriting his is false about the shipped code
+**Date:** 2026-09-11
+**Asked on:** EXT-26
+**Answer, verbatim:**
+> STEP 2 - CARD: HONOUR THE SENDER'S ERROR CODE. Author and ship. Blocks Andre.
+>   ruled: when the payload carries an error_code, it is authoritative. Our
+>     classification runs anyway and is recorded, never substituted.
+>   when no error_code is sent, our classification supplies one, per EXT-23.
+>   when ours and theirs disagree, persist theirs, record both plus the arm name.
+>     The disagreement is data, not an error.
+>   rationale to record: the sender tests line_count before the sums comparison and
+>     sees page count. We see neither. Our looser answer was overwriting their
+>     stricter one silently.
+>   acceptance must include a case where ours says reconciliation_failed and theirs
+>     says unreadable_document, and prove theirs is what Mihai sees.
+
+**Ruling: the four clauses are adopted exactly as written and `EXT-26` ships
+them. The RATIONALE's last sentence is false about the code at `6ca0ded`, and it
+is corrected here rather than carried, because the owner asked for this to be
+verified rather than guessed.**
+
+#### THE PREMISE THAT DOES NOT HOLD, AND WHY IT LOOKED TRUE
+
+> *"Our looser answer was overwriting their stricter one silently."*
+
+**No input reaches that behaviour. The two paths are disjoint by construction and
+the disjointness is enforced twice.**
+
+`app/api/extraction/callback/route.ts:359` is where a code is chosen:
+
+    const effectiveErrorCode = refusalCode !== null ? refusalCode : errorCodeRaw;
+
+`refusalCode` is non-null only when `scanVerdict` is, and `scanVerdict` is
+computed at `:315` only when **`documentSource === "scan" && status ===
+"extracted"`**. And `:139` refuses, with `400`, any payload where
+`status === "extracted"` carries an `error_code` at all:
+
+    if (status === "extracted" && errorCodeRaw !== null) {
+      return NextResponse.json({ error: "error_code interzis la extracted" }, ...);
+    }
+
+while `:136` requires one whenever the status is `failed` or `partial`. **So
+`errorCodeRaw` is non-null if and only if the status is `failed` or `partial`,
+and our classifier runs only on `extracted`.** Migration `0008`'s constraint
+`extraction_drafts_error_code_matches_status` enforces the same shape in the
+database, so the two would have to be changed together for an overwrite to become
+possible.
+
+**THE TABLE, EXHAUSTIVE, AT `6ca0ded`:**
+
+| payload | sender's code | persisted |
+|---|---|---|
+| `failed` or `partial`, scan or digital | non-null, required | **the sender's, always** |
+| `extracted`, digital | null, forbidden | null |
+| `extracted`, scan, reconciles | null, forbidden | null |
+| `extracted`, scan, refused | null, forbidden | **ours** |
+| `extracted`, scan, refused, `0034` gate shut | null | null, stored as sent |
+
+**WHAT IS PROBABLY BEHIND THE REPORT, AND IT IS NOT THE SAME COMPLAINT.** Andre
+has **no way to report a concern on a payload he considers extracted**. The
+contract forbids an `error_code` on `extracted`, so his stricter reading cannot
+reach us at all on exactly the payloads our classifier judges. It is not
+overwritten; **it is refused with a `400` before it is stored.** That is a real
+gap, it is a different gap, and naming it correctly is what lets a card fix the
+right thing.
+
+#### WHAT THE CARD THEREFORE IS
+
+**The four ruled clauses are adopted unchanged. Three of them are new behaviour
+and one is today's behaviour made explicit:**
+
+1. **The sender's code is authoritative.** True today by accident, as a
+   consequence of a `400` on a neighbouring rule. **It becomes a stated
+   precedence in one expression**, so that a future change to `:139` cannot
+   silently reverse it.
+2. **Our classification runs anyway.** New. Today it does not run at all on a
+   payload that carries a code. It now runs on **every scan-sourced payload**,
+   whatever the status, and never decides anything it did not decide before.
+3. **It is recorded.** New. Two columns, the code and **the arm name**, because
+   an arm is the thing that says WHY and two arms can share a code.
+4. **Disagreement is data.** New, and it is only reachable at all because of 2.
+
+**WHERE A DISAGREEMENT CAN ACTUALLY ARISE, NAMED SO THE ACCEPTANCE IS NOT A
+FICTION.** On a scan-sourced **`partial`**: card EXT-20 narrows only `scan` plus
+`failed`, so a `partial` payload still carries its read lines, the sender sends
+his own code with it, and our arithmetic can reach a different conclusion about
+those lines. That is the case the acceptance demands, it is producible, and it is
+where the card's proof lives.
+
+#### THE RATIONALE THAT DOES HOLD, AND IT IS THE WHOLE JUSTIFICATION
+
+**The sender sees things we do not.** He tests `line_count` before the sums
+comparison and he sees the page count. **We see neither**: `line_count` is not in
+section 4.1, and the page count arrives only inside `_meta`, which card EXT-24
+measured as absent from the shape that matters. **Two readers with different
+evidence will disagree, and the one with more evidence is not ours.**
+
+**THAT IS AN ARGUMENT FOR PRECEDENCE, NOT FOR SILENCE.** Our verdict is not
+discarded: a platform that stops recording what it concluded cannot later show
+that it was right, and the disagreements are the only dataset anybody will ever
+have about which reader is better.
+
+**Unblocks:** `EXT-26`, authored and shipped in the same pull request as this
+ruling.
+**Supersedes:** none. It corrects a premise in its own dispatch, not a ruling.
+
+---
+
+### R-191 - Contract section 4.1a is stale: order_ref is series-inclusive by design, the sixteen-key fixture is correct, and EXT-24 closes
+**Date:** 2026-09-11
+**Asked on:** EXT-24
+**Answer, verbatim:**
+> STEP 3 - EXT-24, unblock and close it.
+>   Andre supplied evidence: order_ref is series-inclusive by design, five Matnord
+>   runs return DN 0021884 as one string, the single Tehnocom counter-example
+>   predates the prompt revision that added document_source and removed confidence.
+>   Ruled: contract 4.1a is stale, the sixteen-key fixture is correct. Correct 4.1a
+>   to sixteen fields, remove order_ref_series, quote the superseded text, mark it
+>   superseded, name this ruling. Do not delete.
+
+**Ruling: the FIXTURE is authoritative and the contract is corrected to match it.
+Section 4.1a returns to SIXTEEN fields and `order_ref_series` leaves that list.
+`EXT-24` is unblocked and closed.**
+
+#### The evidence, as the owner relayed it
+
+1. **`order_ref` is series-inclusive by design.** The extractor returns the
+   series and the number as one printed string, deliberately.
+2. **Five Matnord runs return `DN 0021884` as one string.** Five, not one.
+3. **The single Tehnocom counter-example predates the prompt revision** that added
+   `document_source` and removed `confidence`. It is evidence about a prompt that
+   no longer runs.
+
+**THE COUNTER-EXAMPLE IS THE PART WORTH KEEPING.** `TG 0009312` split into a
+series and a number is the observation card EXT-11 was built on, and EXT-11 is
+shipped: migration `0036` added `order_ref_series` to `extraction_drafts` and to
+`inbound_orders`, and two end-to-end cases assert the pair. **None of that is
+reversed here and no column is dropped.** What is corrected is the claim in
+section 4.1a that the header-only failed payload CARRIES a separate
+`order_ref_series` field. It does not, it never did, and the shipped fixture has
+always said sixteen.
+
+#### What changes, and what does not
+
+| | |
+|---|---|
+| **Section 4.1a** | seventeen fields becomes **sixteen**; `order_ref_series` leaves the list; the superseded text is quoted and marked, per CLAUDE.md 9c |
+| `scanFailureHeader` in `tests/e2e/extraction.spec.ts` | **unchanged.** It was right. |
+| Migration `0036` | **unchanged.** The columns stay. |
+| Section 4.1's field table | **unchanged.** `order_ref_series` is still a field of the FULL payload; 4.1a is about one narrowed shape. |
+| EXT-11 | **not reopened.** |
+
+#### THE PAGE-COUNT HALF OF EXT-24 IS NOT ANSWERED BY THIS RULING AND THE CARD CLOSES ANYWAY
+
+**Said plainly because closing a card silences its question.** `EXT-24` asked two
+things. This ruling answers the second, which the previous session added. **The
+first, and the card's own title, is unanswered: the header-only failed shape
+carries no page count, so the one payload a human must key by hand is the one
+payload whose page count we never learn.**
+
+**Measured and still true at `6ca0ded`:** `page_count` is read only from
+`_meta.page_count`, and the shape has no `_meta`. Null by construction, every
+time, for every document.
+
+**NO CARD IS AUTHORED FOR IT HERE**, because the dispatch that ordered this
+closure authored three cards by name and none is this one, and authoring a fourth
+is scope this session was told not to take. **It is recorded in `EXT-24`'s notes,
+in this ruling and in the session report so that closing the card does not delete
+the finding.** The three options and the recommendation the card carried are in
+its own `question` field, which is not erased.
+
+**Unblocks:** `EXT-24`. `blocked_on` cleared, status `shipped`.
+**Supersedes:** the seventeen-field claim in `docs/contracts/extraction-v2.md`
+section 4.1a, added 2026-09-07 by card EXT-11. The superseded text is quoted in
+place and marked, never deleted.
