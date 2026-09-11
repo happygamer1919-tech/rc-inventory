@@ -5015,3 +5015,47 @@ by terminals that believed they were obeying it; this is the third. **The tell i
 that the three statements agreeing with each other feels like confirmation.** It
 is not: they have a single author and a single belief behind them. The board is
 the only one of the four that another process reads back.
+
+### A verification loop that prints FAIL and returns 0 is not a gate, and it let a red check reach a push
+**Tag:** tooling
+**ERROR:** Every non-docker gate was run before pushing, with a shell loop that
+printed a line per failure and then `&&`-chained into `git push`:
+
+    for c in check:a check:b ...; do npm run --silent $c >/dev/null 2>&1; code=$?; \
+      [ $code -ne 0 ] && printf "... FAIL(%s)\n" "$code"; done; echo done
+    npx tsc --noEmit && echo TSC_OK && git push
+
+`check:reconciliation` **printed `FAIL(1)` and the push happened anyway**, because
+the loop's own exit status is the status of its last command, not of the worst
+thing it saw. The output said the right thing and the control flow ignored it.
+**This is the same class the register defect above names, one layer out: a check
+whose passing path is reachable without the condition being true is not a check,
+and a verification loop that cannot fail is not a verification.**
+**SOLUTION:** Accumulate and exit on it:
+
+    fails=0
+    for c in ...; do npm run --silent $c >/dev/null 2>&1 || { echo "FAIL $c"; fails=1; }; done
+    [ $fails -eq 0 ] || exit 1
+
+**The rule: anything that gates a push must END in a non-zero exit, not in a
+printed word.** A human reading the scrollback is not a gate either, which is
+exactly what was being relied on.
+
+### The assertion that caught the next card was the one the previous card wrote
+**Tag:** doctrine
+**ERROR:** Card EXT-23 added `check:reconciliation` section 9h asserting *"the
+surface is unchanged: scan-sourced and extracted only"*, pinning the condition
+under which the classifier runs. Card EXT-26, one day later, **widened exactly
+that condition on purpose** so the classifier's verdict could be recorded on every
+scan payload. The check went red on a change that was correct.
+**SOLUTION:** The assertion was **replaced, not deleted, and the old one is quoted
+in the file** where it stood, so a reader sees that it fired rather than finding a
+softer assertion in its place. What replaced it is three narrower assertions
+pinning what actually must not move: the digital path is still gated, the sender's
+code is still the first branch of `effectiveErrorCode`, and our verdict moves a
+status only when the sender sent no code. Each was proved to fail with a mutant.
+**The rule, and it is the useful half: a check going red on a deliberate change is
+the check working, and the response is to write down what is invariant NOW rather
+than to loosen the assertion until it passes.** An assertion edited to accommodate
+a change stops being evidence about the change. One rewritten to state the new
+invariant, with the old one quoted beside it, is a record of both.
