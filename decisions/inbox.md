@@ -12785,3 +12785,221 @@ cards.
 **Supersedes:** the three-currency constant, quoted in place in
 `docs/contracts/extraction-v2.md` section 4.1 and enumerated above wherever else
 it is written.
+
+---
+
+### R-193 - A control that has never executed is not a control, and three instances of the same shape landed in one week
+**Date:** 2026-09-11
+**Asked on:** EXT-23, EXT-26, GATE-07
+**Answer, verbatim:**
+> STEP 2 - RECORD THE DOCTRINE. One ruling, three instances.
+>   a control that has never executed is not a control, and reading correctly in an
+>   editor or existing in an enum is not evidence that it fires.
+>   instances: four counterparty alert modules that rejected every bundle only on
+>     execution; our unreadable_document present in the enum, copy and UI with no
+>     branch emitting it; our derivation silently overriding the sender's code.
+>   consequence to record: any card claiming a control must show it failing, not
+>     only passing. Four mutants is the existing bar and it stays.
+
+**Ruling: adopted as a standing rule. It binds every card on both boards, and it
+is the fifth control of a related shape this project has had to rule out.**
+
+> **A CONTROL THAT HAS NEVER EXECUTED IS NOT A CONTROL. Reading correctly in an
+> editor is not evidence that it fires, and existing in an enum is not evidence
+> that anything writes it.**
+
+#### The three instances, with what this repository can and cannot say about each
+
+**INSTANCE 1, ANDRE'S SIDE: four alert modules that rejected every bundle, and
+only execution revealed it.** **Not verifiable here**, and it is recorded as the
+owner's report rather than as a measurement. Nothing in this repository observes
+the counterparty's scenario. It is the instance that makes the rule general
+rather than local, and it is the one this project cannot check.
+
+**INSTANCE 2, OURS, AND IT IS MEASURED.** `unreadable_document` was a label on
+`public.extraction_error_code` from migration `0008`, had a shipped Romanian
+sentence at `lib/data/extraction-types.ts`, was rendered by the review screen, and
+was asserted by end-to-end cases. **No branch in our validator emitted it.** Every
+refusal we produced carried `reconciliation_failed`, on every input. Ruling R-187
+derived the split arm by arm and found four of five arms wrong; card EXT-23
+shipped the branch on 2026-09-10.
+
+**The part worth keeping is how long it survived.** The code was in the enum, in
+the copy, on the screen and in the tests. **Four kinds of evidence that a thing
+exists, and none that it fires.**
+
+**INSTANCE 3, OURS, AND IT IS THE INVERSE OF HOW IT READS.** The owner's words are
+*"our derivation silently overriding the sender's code"*. **Measured at `6ca0ded`,
+our derivation never overrode anything**, and ruling R-190 records the derivation:
+`errorCodeRaw` is non-null exactly when the status is `failed` or `partial`, our
+classifier ran only on `extracted`, and migration `0008`'s
+`extraction_drafts_error_code_matches_status` enforces the same disjointness in
+the database.
+
+**THAT IS NOT A CORRECTION TO THE INSTANCE, IT IS THE INSTANCE.** Somebody read
+the route, traced `effectiveErrorCode`, and concluded the override happened.
+**Reading it correctly in an editor was not evidence that it fired, and it did
+not.** The belief survived until an execution settled it, which is precisely the
+rule this ruling states. Under either reading of the sentence, it belongs on this
+list.
+
+**AND THE REAL DEFECT UNDERNEATH IT IS A DIFFERENT ONE**, also from R-190: Andre
+has no way to report a concern on a payload he considers `extracted`, because the
+contract forbids an `error_code` there. It is refused with a `400` before it is
+stored, not overwritten. **Naming the premise correctly is what found it.**
+
+#### THE CONSEQUENCE, AND IT IS A BAR RATHER THAN A SENTIMENT
+
+> **ANY CARD CLAIMING A CONTROL MUST SHOW IT FAILING, NOT ONLY PASSING. FOUR
+> MUTANTS IS THE EXISTING BAR AND IT STAYS.**
+
+**The bar is already met in this repository and this ruling fixes it rather than
+inventing it.** `npm run check:reconciliation` was shipped with three mutants by
+card EXT-16, extended to four by EXT-23, and extended again by EXT-26 with three
+more. `check:no-destructive-migration`, `check:board-edit`,
+`check:grant-revocation`, `check:live-fixtures`, `check:unique-ids` and
+`check:open-branch-ids` each ship a `prove:` sibling whose whole job is to watch
+the check refuse.
+
+**WHAT CHANGES IS THAT IT IS NOW A REQUIREMENT RATHER THAN A HABIT.** A card that
+adds an assertion and shows only a green run has not met its acceptance, and the
+reviewer's question is one sentence: **what did you break to watch this fail?**
+
+**AND A PASSING CHECK IS NOT THE SAME CLAIM AS A CHECK THAT CAN FAIL.**
+`docs/LEARNINGS.md` already carries the general form from card PROVE-01, found
+three times in one day: *"any check whose passing path is reachable without the
+condition being true is not a check."* This ruling is that sentence applied to
+controls rather than to assertions, and the two are the same sentence.
+
+**THE ONE THING THIS RULING DOES NOT SAY.** It does not say a control must be
+exercised in production. `check:reconciliation`'s mutants run against a working
+tree, not against a database, and that is sufficient: what has to execute is the
+REFUSAL PATH, not the deployment.
+
+**Unblocks:** nothing. It sets a bar that every future card's acceptance must
+meet.
+**Supersedes:** none. It generalises `docs/LEARNINGS.md`'s PROVE-01 entry from
+assertions to controls and gives it a ruling id to cite.
+
+---
+
+### R-194 - The counterparty contract position: transport failures leave no record, a retry may only resend bytes that exist, and the signed URL TTL is a security position
+**Date:** 2026-09-11
+**Asked on:** EXT-25, P2-08b
+**Answer, verbatim:**
+> STEP 3 - RECORD THE COUNTERPARTY CONTRACT POSITION.
+>   transport failures against our host, DNS, timeout, connection refused, TLS,
+>     are not HTTP statuses, reach no branch on their side today, and leave no
+>     record. Their handler closes it. Record that we depend on it.
+>   a retry may only resend bytes that already exist. If their platform re-runs the
+>     scenario on retry, automatic retry is refused and 5xx is a notified manual
+>     resend. Record the reason: seven extractions of one file returned seven
+>     distinct unit prices on one line, so a re-run retry delivers a different
+>     document under the identity of the first.
+>   signed document URL TTL stays at two hours. Record that it is a security
+>     position, not a tunable, and that no retry schedule may drive it upward.
+
+**Ruling: all three are adopted as the project's position. Two are recorded
+exactly as given. The third names a number this repository does not have, and
+that is reported rather than resolved.**
+
+#### (a) A TRANSPORT FAILURE IS NOT A STATUS, AND NOBODY RECORDS IT
+
+**DNS failure, connection refused, TLS failure and timeout against our callback
+host are not HTTP statuses.** They reach no branch on the counterparty's side
+today, they produce no `4xx` and no `5xx`, and **they leave no record anywhere:
+not in our logs, because nothing arrived, and not in theirs, because their
+handler closes it.**
+
+**WE DEPEND ON THAT HANDLER AND THIS RULING IS THE RECORD OF THE DEPENDENCY.**
+Section 6 of the contract is a table of four response codes and it describes
+every case in which **we answered**. It has nothing to say about the case in which
+we were not reachable, and that case is invisible from both ends.
+
+**WHAT IT MEANS IN PRACTICE, said plainly because the table hides it.** If our
+host is down when an extraction finishes, the document is not retried, not
+queued, and not reported. **It is simply gone**, and the first anybody knows is
+that a draft never appeared. `docs/LEARNINGS.md` already carries the neighbouring
+class: an absence and a clean result must never render the same, and here they
+do.
+
+**NO CARD IS AUTHORED FOR IT HERE.** Closing it is a change on the counterparty's
+side, which is item 6 of the closed escalation list, and this dispatch asked for
+the position to be recorded rather than for work. **It is a communication item and
+it belongs with `EXT-25`**, which already owes Andre a message.
+
+#### (b) A RETRY MAY ONLY RESEND BYTES THAT ALREADY EXIST
+
+> **A retry resends a result that was already computed. A retry that RECOMPUTES
+> the result is not a retry: it is a second extraction wearing the first one's
+> identity.**
+
+**THE CONDITION, AND IT IS THE COUNTERPARTY'S TO CONFIRM.** *If* their platform
+re-runs the scenario on retry, then **automatic retry is refused**, and a `5xx`
+from us becomes **a notified manual resend** rather than an automatic one.
+
+**THE REASON, AND IT IS MEASURED RATHER THAN FEARED: seven extractions of one
+file returned seven distinct unit prices on one line.** A re-run retry therefore
+delivers **a different document under the identity of the first**. `order_id` is
+the idempotency key under R-014, so the second payload REPLACES the first draft:
+the operator sees numbers that never came from the reading that was acknowledged.
+
+**THIS CORROBORATES R-185 AND DOES NOT DISTURB IT.** That ruling recorded Andre's
+four-run line-level measurement: one unit price MOVES, three lines are
+byte-identical and correct every pass, one is byte-identical and wrong every
+pass. **Seven runs and seven distinct values on one line is the same moving field
+with three more data points.** The failure is still a deterministic misread with
+one unstable element, and multi-pass comparison and majority voting stay ruled
+out permanently by R-185.
+
+**IT CONTRADICTS SECTION 6 OF THE CONTRACT AS WRITTEN**, which says in terms
+*"Make retries on `5xx`"* and gives `5xx` the behaviour `retry`. That table is
+correct about what Make does today and this ruling is the position on what it
+should do. **The contract carries both, and the card that reaches Andre is what
+closes the gap between them.**
+
+#### (c) THE SIGNED URL TTL IS A SECURITY POSITION, AND THE NUMBER IN THE DISPATCH IS NOT IN THIS REPOSITORY
+
+**THE POSITION IS ADOPTED WITHOUT QUALIFICATION AND BINDS EVERY SIGNING PATH:**
+
+> **The signed document URL TTL is a SECURITY POSITION, not a tunable. NO RETRY
+> SCHEDULE MAY DRIVE IT UPWARD.** A TTL lengthened so that a retry hours later
+> still finds the document is a decision to leave client documents reachable for
+> hours, made for a scheduling reason, by whoever was closest to the retry bug.
+
+**THE NUMBER IS THE PROBLEM AND IT IS REPORTED RATHER THAN GUESSED.** The dispatch
+says the TTL *"stays at two hours"*. **No signing path in this repository is at two
+hours, and none has been since 2026-09-03.** Read from source at `6ca0ded`:
+
+| path | value | |
+|---|---|---|
+| `lib/data/extraction-fire.ts:27` | `15 * 60`, **fifteen minutes** | the real supplier document carried to the extractor |
+| `lib/data/inbound-actions.ts` | **fifteen minutes** | named by R-096 as unchanged |
+| `scripts/ext/serve-sample-documents.mjs:39` | `24 * 60 * 60`, **twenty-four hours** | the four `_samples/andre` fixtures only |
+
+**TWO HOURS IS THE VALUE THE SAMPLE SCRIPT USED UNTIL THE OWNER'S OWN RULING
+R-096 RAISED IT TO TWENTY-FOUR**, on 2026-09-03, for the four test documents only.
+That ruling says in terms: *"NO OTHER SIGNING PATH CHANGES... A real supplier
+document carried to the extractor still expires in fifteen minutes. Anyone reading
+this ruling as a general TTL increase has read it wrong."*
+
+**SO "STAYS AT TWO HOURS" IS TRUE OF NOTHING TODAY**, and there are two candidate
+readings with different consequences:
+
+- **the production TTL**, which is fifteen minutes and would be RAISED to two
+  hours by that sentence, which is the direction the rest of the clause forbids;
+- **the sample TTL**, which is twenty-four hours and would be LOWERED to two,
+  reversing R-096 whose stated reason was that a TTL shorter than the
+  counterparty response cycle produces repeat handoffs through the owner.
+
+**THE SESSION DID NOT CHOOSE.** `CLAUDE.md` section 4: never guess a product
+decision. **The security position above is recorded and binds now, whatever the
+number turns out to be**, because it is about direction and authority rather than
+about a value. The number is escalated, with the recommended default that **no
+value changes**: fifteen minutes in production, twenty-four hours on the samples,
+exactly as R-096 left them.
+
+**Unblocks:** nothing. Two positions bind immediately; the third binds as a
+direction with its number owed.
+**Supersedes:** none. It does not amend section 6's retry table, which remains a
+true description of today's behaviour, and it does not change any TTL value.

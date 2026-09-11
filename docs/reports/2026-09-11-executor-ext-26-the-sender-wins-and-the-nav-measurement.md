@@ -151,15 +151,38 @@ round trips is 1.3 seconds and 65 is 2.6.** That lands inside 2 to 4 seconds.
 acceptance clause is reproduction and every optimisation clause is conditional
 on it.
 
-### Why the owner's own environment was not measured
+### Why the owner's own environment was not measured, AND THE CORRECTION
 
 **Both hosts this repository knows answered 404**, consistent with ruling R-176:
 
     https://www.rapidconstructmd.com/api/health      404
     https://rc-inventory.vercel.app/api/health       404
 
-There is no deployed instance this session could reach, and signing in to one
-would need a production credential this session may not read.
+**THE SENTENCE THAT FOLLOWED THIS WAS FALSE AND IS CORRECTED RATHER THAN
+DELETED**, per CLAUDE.md section 9c. It read:
+
+> *"There is no deployed instance this session could reach, and signing in to one
+> would need a production credential this session may not read."*
+
+**The first clause is false and the second is true.** There IS a deployed
+instance: **`app.rapidconstruct.md`**, which the owner named later the same day
+and which card `GATE-07` repointed `check:deployed-commit` at. The error was not
+that the two hosts answered 404; it was concluding from two hosts that the world
+had none.
+
+**Measured against the live host on 2026-09-11, read-only, no sign-in:**
+
+    GET https://app.rapidconstruct.md/api/health      0.38 to 0.69s TTFB, ten samples
+    GET https://app.rapidconstruct.md/autentificare   0.16 to 0.47s TTFB, five samples
+
+`/autentificare` is a static prerender and touches no database; `/api/health`
+reads `applied_ledger_version()`, which is **one** round trip. The client-to-edge
+leg is common to both and subtracts out, leaving **roughly 0.25s** for that round
+trip plus the endpoint's own work. **It confirms the direction of the local
+finding and does not license multiplying 32 by 0.25**: round trips inside one
+invocation do not each pay a fresh connection and some may overlap. The
+authenticated measurement is still owed and `P3-40`'s first acceptance clause is
+still reproduction.
 
 **The measurement tool is not committed**, deliberately: `scripts/` is a CODE
 path under `check-board-edit`, so a tool there needs a card whose status moves.
