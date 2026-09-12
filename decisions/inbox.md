@@ -12848,6 +12848,58 @@ has no way to report a concern on a payload he considers `extracted`, because th
 contract forbids an `error_code` there. It is refused with a `400` before it is
 stored, not overwritten. **Naming the premise correctly is what found it.**
 
+#### INSTANCE 3 IS REPLACED, 2026-09-12, BY RULING R-195, AND THE ORIGINAL STAYS EXACTLY WHERE IT IS
+
+**The owner's dispatch of 2026-09-12, step 1:** *"deviation 3: replace R-193's
+false third instance with a true one: check:deployed-commit targeted a host that
+had moved, so for four days it was green about something other than what it
+claimed. Keep both readings of the original."*
+
+**THE REPLACEMENT INSTANCE, MEASURED, AND THE ONE WORD IN THE DISPATCH THAT HAD
+TO BE PINNED DOWN BEFORE IT COULD BE WRITTEN DOWN.**
+
+`www.rapidconstructmd.com` stopped serving this application on **2026-09-07**,
+recorded the same day in commit `4171144` and ruled on 2026-09-08 by R-176.
+`scripts/poc-free/check-deployed-commit.mjs` kept that host as its default origin
+until **2026-09-11**, when card GATE-07 repointed it at
+`app.rapidconstruct.md` in commit `404c5ab`. **Four days.**
+
+**WHAT WAS GREEN IN THOSE FOUR DAYS WAS NOT THE CHECK, AND THE DISTINCTION IS THE
+INSTANCE RATHER THAN A QUIBBLE ABOUT IT.** `check-deployed-commit.mjs` never runs
+in `quality`, by design, and the workflow says why in its own comment: a pull
+request branch is not deployed, so the check would fail on every green run and be
+switched off within a week. What runs on every pull request is
+`prove:deployed-commit`, **and it drives the check against a fake health route on
+`127.0.0.1`**, which overrides the origin constant on every one of its eleven
+refusals and their eleven controls. So the proof was green on every run for four
+days, and **the thing it was green about was the refusal logic, never the host**.
+The wrong default was invisible to the only thing that executed.
+
+**THE CHECK ITSELF, MEANWHILE, HAD NOT EXECUTED AT ALL.** Its caller is the
+migration applier, and migrations reach this production database by MERGE, per
+R-124 and CLAUDE.md section 8.0. **A control that has never executed is not a
+control**, which is this ruling's own sentence, and here it applies to the
+control and to its proof at the same time and for different reasons: the check
+did not run, and the proof that ran could not see what was wrong with it.
+
+**HAD THE CHECK RUN, IT WOULD HAVE REFUSED AND NOT PASSED**, and that is stated
+because the dispatch's phrasing could be read as a false green. Its header says
+in terms: *"EVERY FAILURE IS A REFUSAL. Unreachable, not JSON, no commit, a
+commit git has never heard of, a commit that is not a descendant: all exit
+non-zero."* R-178 named the consequence correctly on 2026-09-08 before GATE-07
+fixed it: *"its next refusal will be spurious and will invite a workaround"*. A
+spurious refusal is the danger, because the thing a person does with a guard that
+refuses wrongly is turn it off.
+
+**THE ORIGINAL INSTANCE 3 IS NOT DELETED AND BOTH ITS READINGS STAND**, per
+CLAUDE.md section 9c and on the owner's instruction. It is the block immediately
+above this one. What changes is its standing: it was listed as an instance of
+this doctrine under either reading, and R-195 replaces it in that role with the
+four days above, which needs no second reading to qualify. **What it found is not
+withdrawn**: the defect it uncovered, that the counterparty has no machine
+readable way to report a concern on a payload he considers `extracted`, is now
+card `EXT-31`.
+
 #### THE CONSEQUENCE, AND IT IS A BAR RATHER THAN A SENTIMENT
 
 > **ANY CARD CLAIMING A CONTROL MUST SHOW IT FAILING, NOT ONLY PASSING. FOUR
@@ -13003,3 +13055,132 @@ exactly as R-096 left them.
 direction with its number owed.
 **Supersedes:** none. It does not amend section 6's retry table, which remains a
 true description of today's behaviour, and it does not change any TTL value.
+
+---
+
+### R-195 - The 2026-09-12 ratifications: deviation 1 is the owner's and records as his, R-193's third instance is replaced with a measured one, the TTL does not move, and the nine cannot be enumerated from anything committed
+
+**Date:** 2026-09-12
+**Asked on:** the deviations flagged by the two reports of 2026-09-11
+**Answer, verbatim:**
+> STEP 1 - RATIFICATIONS. All nine ratified, recorded as in my previous dispatch.
+>   deviation 1 is mine and records as mine.
+>   deviation 3: replace R-193's false third instance with a true one:
+>     check:deployed-commit targeted a host that had moved, so for four days it was
+>     green about something other than what it claimed. Keep both readings of the
+>     original.
+>   TTL: your recommendation accepted, nothing changes. Production 15 minutes,
+>   samples 24 hours, R-096 not reversed. Record that my two-hour figure matched
+>   nothing in the repo.
+
+**Ruling: the three named dispositions are adopted exactly as given. The
+ratification of "all nine" is recorded as GRANTED and is NOT enumerated here,
+because the list of nine is not in this repository and reconstructing it would be
+this terminal inventing the owner's numbering.**
+
+#### (a) DEVIATION 1 IS THE OWNER'S AND IS RECORDED AS HIS
+
+The deviation, in the words of the session that flagged it, `docs/reports/2026-09-11-executor-ext-26-the-sender-wins-and-the-nav-measurement.md`
+section 6, item 1:
+
+> **"The dispatch's rationale for STEP 2 was false about the shipped code**, and
+> the card shipped anyway on a corrected premise. `R-190`."
+
+**It is a defect in the dispatch and not in the session, and the owner has said
+so.** This matters beyond the bookkeeping: R-193's original third instance was
+built on the same false premise, and part (b) below is the consequence. **R-188
+set the precedent** on 2026-09-11, ratifying six deviations of which *"two of
+them defects in the dispatch rather than in the session"*. This is the second
+time, and both times the session shipped the card on a corrected premise rather
+than on the stated one, which is the behaviour the record should encourage.
+
+#### (b) R-193's THIRD INSTANCE IS REPLACED, AND THE REPLACEMENT WAS MEASURED BEFORE IT WAS WRITTEN
+
+The amendment is written into R-193 itself, under the heading **INSTANCE 3 IS
+REPLACED, 2026-09-12, BY RULING R-195**, immediately below the original, which
+stays where it is with both its readings intact, per CLAUDE.md section 9c and on
+the owner's instruction.
+
+**THE DISPATCH'S SENTENCE WAS CHECKED AGAINST THE CODE BEFORE IT WAS ADOPTED, AND
+ONE CLAUSE OF IT NEEDED PINNING DOWN.** The dispatch says the guard *"was green
+about something other than what it claimed"*. `check-deployed-commit.mjs` cannot
+be green about anything: it never runs in `quality`, its header says **EVERY
+FAILURE IS A REFUSAL**, and the workflow comment explains that running it on a
+pull request branch would fail every green run. **What WAS green for four days is
+`prove:deployed-commit`**, which runs on every pull request and drives the check
+against a fake health route on `127.0.0.1`, overriding the origin on all eleven
+refusals and all eleven controls. The proof was green about the refusal logic and
+was structurally incapable of seeing the host. **The instance is true, the window
+is four days, 2026-09-07 to 2026-09-11, and the subject is the proof.**
+
+**THE ALTERNATIVE READING WAS CONSIDERED AND REJECTED ON EVIDENCE.** Had the check
+run with the moved host, it would have REFUSED, not passed, and R-178 named that
+consequence on 2026-09-08: *"its next refusal will be spurious and will invite a
+workaround"*. A false green and a spurious red are different failures with
+different remedies, and writing the wrong one into a ruling that exists to make
+people distrust unexecuted controls would have been the ruling's own failure mode.
+
+**THIS IS THE SECOND CONSECUTIVE DISPATCH WHOSE PROPOSED INSTANCE WAS THE INVERSE
+OF THE SHIPPED CODE**, and both were caught the same way: by reading the code
+before writing the sentence. That is flagged rather than smoothed over, because
+the pattern is the finding.
+
+#### (c) THE TTL DOES NOT MOVE, AND THE TWO-HOUR FIGURE MATCHED NOTHING
+
+**ADOPTED WITHOUT CHANGE. Production is FIFTEEN MINUTES. The four sample
+documents are TWENTY-FOUR HOURS. R-096 is not reversed.** The recommendation
+R-194(c) escalated with is accepted in full: no value changes.
+
+**AND THE OWNER HAS RECORDED THAT HIS OWN FIGURE MATCHED NOTHING IN THIS
+REPOSITORY**, which R-194(c) had reported and could not itself ratify. Re-read at
+`404c5ab` on 2026-09-12:
+
+| path | value | what it signs |
+|---|---|---|
+| `lib/data/extraction-fire.ts` | `15 * 60` | the real supplier document carried to the extractor |
+| `lib/data/inbound-actions.ts` | fifteen minutes | named by R-096 as unchanged |
+| `scripts/ext/serve-sample-documents.mjs` | `24 * 60 * 60` | the four sample fixtures only |
+
+**Two hours is the value the sample script used until R-096 raised it on
+2026-09-03, and it has been true of nothing since.** The security position from
+R-194(c) is unchanged and still binds: the TTL is a security position, not a
+tunable, and no retry schedule may drive it upward.
+
+#### (d) "ALL NINE" IS RATIFIED AND IS NOT ENUMERATED, AND THAT IS A GAP IN THE RECORD RATHER THAN A REFUSAL
+
+**The grant is recorded: the owner has ratified every deviation the two
+2026-09-11 reports flagged.** What cannot be recorded is WHICH NINE, because the
+dispatch that carried the numbered list is superseded and was never committed,
+and **the two reports between them flag twelve, not nine**:
+
+| source | count | |
+|---|---|---|
+| `2026-09-11-executor-ext-26-the-sender-wins-and-the-nav-measurement.md` section 6 | 7 | dispatch rationale false; EXECUTOR wrote four rulings; EXT-24 closed with its own question unanswered; USD ruled and not carded; the local suite unusable across three runs; four CI runs spent on four defects; a card pushed while the board still said `in_flight` |
+| `2026-09-11-executor-gate-07-the-host-that-was-there-all-along.md` section 5 | 5 | the TTL figure matches nothing; R-193's instance is the inverse of its sentence; EXECUTOR wrote two more rulings; two committed artefacts of the session's own corrected; `check:deployed-commit` run bare, manufacturing a red |
+
+**Nine is reachable from twelve by more than one deduplication and this terminal
+picked none of them.** The two "EXECUTOR wrote rulings" items are plainly one
+class, and the TTL item and the R-193 item are separately dispositioned in this
+ruling, but which of the remainder the owner counted is a question about his
+list, not about the reports. **CLAUDE.md section 4: never guess.**
+
+**WHAT A READER SHOULD TAKE FROM THIS.** Every item in the table above is
+ratified. If the owner's nine excluded any of them, that exclusion is not in the
+record and this ruling is where somebody would look for it.
+
+#### THE ROLE DEVIATION IS NAMED HERE RATHER THAN ONLY IN A REPORT
+
+**An EXECUTOR wrote this ruling, and writing rulings is POC's work under CLAUDE.md
+section 1.** It was instructed, as it was for the previous four sessions, and this
+is the fifth consecutive session in which it happens. Four separate reports now
+flag it. It is recorded in the ruling itself because a deviation that only ever
+appears in the reports of the sessions committing it is a deviation whose
+frequency nobody can see from the decisions.
+
+**Unblocks:** nothing. Three dispositions bind immediately and the fourth records
+a gap.
+**Supersedes:** none. R-193 is AMENDED in place, not superseded: its heading,
+its rule, its consequence and its first two instances are untouched, and its
+original third instance stays where it was with both readings. R-194(c) is not
+amended either; its escalation is answered here and its security position stands
+as written.

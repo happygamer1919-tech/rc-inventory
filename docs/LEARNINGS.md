@@ -5109,3 +5109,37 @@ this repository: a pull request that adds a migration must run `check:migrations
 AND `tests/e2e/headers.spec.ts`, because the journal requirement from ruling R-013
 lives in a Playwright case in the `productie` project and in nothing else. **A
 twenty-minute CI run is not a cheaper way to find out.**
+
+### An option ruled out on a premise nobody measured stays ruled out forever
+**Tag:** process
+**ERROR:** Card `EXT-24` asked how a page count could reach the one payload shape
+that carries none, listed three options, and ruled out option C, counting the
+pages ourselves, with this reason in its `question` field: *"Needs nobody's
+agreement about the contract, and needs a PDF library this repository does not
+have, which is a vendor decision under item 4 of the closed escalation list. NOT
+recommended on those grounds alone."* The card's `notes` repeat it: *"The one
+option that avoids him needs a PDF library this repository does not have."* On
+that reasoning the only option that needed no counterparty was dropped, the card
+went to the owner with two options that both changed what Andre sends, and it
+closed on 2026-09-11 with its own title question unanswered.
+
+**THE PREMISE WAS NEVER MEASURED.** A PDF page count is the `/Count` on the page
+tree root, and on a modern file that object sits inside a `FlateDecode` object
+stream, which Node's built-in `zlib` inflates with no package at all. Measured on
+2026-09-12 against 1535 real PDF files with `pdfinfo` as ground truth: **1526
+counted correctly, 2 returned no answer, 7 were wrong**, in about forty lines,
+averaging 0.2ms per file over 423 MB. On the 137 of those files that use
+compressed object streams, a plain text scan answers 52 and the inflate fallback
+answers 136 with zero wrong. The seven failures are all undercounts from taking
+the largest `/Count` visible rather than resolving the catalogue's root.
+
+**SOLUTION:** **"We do not have a library for that" is a claim about a
+dependency, not about a capability, and the two are only the same claim if
+somebody checked.** When an option is dropped for a missing dependency, the note
+that drops it must say what was TRIED, in one line, with a number. The cost here
+was not the forty lines; it was that the ruled-out option was the only one that
+did not need a counterparty, so ruling it out on an unchecked premise put a
+contract change on the critical path of a page count. The general form is already
+in this file from `PROVE-01` for assertions and in ruling `R-193` for controls:
+**reading something in an editor is not evidence about what it does.** This is the
+same sentence applied to an option nobody executed.
