@@ -5284,3 +5284,20 @@ test's own scaffolding as well.
 `Content-Range`. **RULE: a red-before is also a test of the test.** Read every failure
 message of a red arm, not only the count: a case that fails for a reason other than the
 missing feature will fail again on the implementation head.
+
+### A new file is invisible to check:conflict-residue until it is staged, and a lone wrapped word reads as a marker tail
+**Tag:** ci
+**ERROR:** The G5 CRITIC report, `docs/reports/2026-09-13-critic-crm-narrow-scope.md`,
+passed `npm run check:conflict-residue` locally and then failed `quality` run
+34781729691 on pull request #281 at "Check for conflict residue", in 46 seconds, with
+`CHECK 2 stripped markers: FAIL` on line 122, whose whole content was the wrapped word
+`Europe/Chisinau.` indented by two spaces. Two things combined. The prose wrap had left
+one ref-shaped token alone on a line, which is exactly the tail a deleted conflict
+marker leaves behind. And the local run had checked nothing: the script lists files
+with `git ls-files`, and the report was still untracked when it ran.
+**SOLUTION:** Rewrapped the sentence so no line is a single token, staged the file,
+and ran the check again before committing. The check was not touched; its signature is
+right and the line really did look like residue. **RULE: run check:conflict-residue
+after `git add`, never before, because a new file does not exist for it until then.
+And when wrapping prose, never leave a word containing a dot or a slash alone on a
+line.**
