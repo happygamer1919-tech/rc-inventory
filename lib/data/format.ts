@@ -56,6 +56,43 @@ export function formatDate(iso: string | null): string {
   return `${d}.${m}.${y}`;
 }
 
+// Locale-ul este ro-MD, acelasi ca la numere, ca fisierul sa aiba unul singur.
+// Pentru o data scrisa in cuvinte scrie identic cu ro-RO, cu t si s cu virgula
+// (verificat in Node si in Chromium). Fusul este UTC la construire si la
+// formatare, deci nicio ora locala nu poate muta ziua.
+const DATE_WORDS = new Intl.DateTimeFormat("ro-MD", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** Data scrisa in cuvinte, in romana: "marti, 1 decembrie 2026".
+ *
+ *  Primeste sirul YYYY-MM-DD al unui camp de data si intoarce "" cand campul
+ *  este gol sau cand ziua nu exista. Nu schimba ce se salveaza: doar il arata.
+ *
+ *  P3-41. Campul nativ de data aseaza ziua si luna dupa limba browserului, nu
+ *  dupa pagina. Pe un browser in engleza, tastele 01122026 pastreaza 12
+ *  ianuarie. Textul acesta spune ziua care chiar se salveaza, inainte de
+ *  salvare. */
+export function formatDateWords(iso: string | null): string {
+  if (!iso) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return "";
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  // setUTCFullYear, nu Date.UTC: Date.UTC muta anii 0-99 in 1900-1999.
+  const date = new Date(0);
+  date.setUTCFullYear(year, month, day);
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) {
+    return "";
+  }
+  return DATE_WORDS.format(date);
+}
+
 /** Cautare fara diacritice si fara majuscule.
  *
  *  Operatorul scrie repede si aproape niciodata cu diacritice, asa ca o cautare
