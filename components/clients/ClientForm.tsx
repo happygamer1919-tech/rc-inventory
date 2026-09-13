@@ -14,14 +14,23 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { createClientRecord, updateClientRecord } from "@/lib/data/client-actions";
-import { CLIENT_TYPE_LABEL, type ClientDetail } from "@/lib/data/clients-types";
+import {
+  CLIENT_STAGES,
+  CLIENT_STAGE_LABEL,
+  CLIENT_TYPE_LABEL,
+  type ClientDetail,
+} from "@/lib/data/clients-types";
 
 export function ClientForm({
   client,
+  stageAvailable,
   onClose,
   onSaved,
 }: {
   client?: ClientDetail;
+  /** P3-43. Fals cat timp coloana de etapa nu exista pe baza. Atunci formularul
+   *  nu ofera etapa si nu o trimite, exact ca inainte de card. */
+  stageAvailable: boolean;
   onClose: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -36,6 +45,8 @@ export function ClientForm({
   const [email, setEmail] = React.useState(client?.email ?? "");
   const [notes, setNotes] = React.useState(client?.notes ?? "");
   const [active, setActive] = React.useState(client?.active ?? true);
+  const [stage, setStage] = React.useState<string>(client?.stage ?? "cold");
+  const [followUpDate, setFollowUpDate] = React.useState(client?.followUpDate ?? "");
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -55,7 +66,17 @@ export function ClientForm({
     setErrorField(undefined);
     setPending(true);
 
-    const input = { name, type, fiscalCode, address, phone, email, notes, active };
+    const input = {
+      name,
+      type,
+      fiscalCode,
+      address,
+      phone,
+      email,
+      notes,
+      active,
+      ...(stageAvailable ? { stage, followUpDate } : {}),
+    };
     const result = editing
       ? await updateClientRecord(client!.id, input)
       : await createClientRecord(input);
@@ -136,6 +157,40 @@ export function ClientForm({
               />
             </Field>
           </div>
+
+          {stageAvailable ? (
+            // P3-43. ORICE ETAPA SE POATE ALEGE DIN ORICARE ALTA: nu este o
+            // masina de stari, la fel ca starea proiectului din 0016. Optiunile
+            // vin din CLIENT_STAGES, deci ordinea de aici este ordinea din baza.
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Etapă">
+                <Select
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                  className={fieldClass("stage")}
+                  data-testid="field-client-stage"
+                >
+                  {CLIENT_STAGES.map((s) => (
+                    <option key={s} value={s}>
+                      {CLIENT_STAGE_LABEL[s]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              {stage === "follow_up" ? (
+                <Field label="Data de reluare" required>
+                  <Input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className={fieldClass("followUpDate")}
+                    data-testid="field-client-follow-up"
+                  />
+                </Field>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Telefon">
