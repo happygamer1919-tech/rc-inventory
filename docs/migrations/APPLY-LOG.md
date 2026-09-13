@@ -1754,3 +1754,82 @@ intrare in APPLY-LOG.md, nici linie in registrul de asteptare"*. That case is in
 the `productie` Playwright project, which needs a production build, and the
 session's local runs covered `extraction.spec` and `review.spec` only. **The gate
 that catches an unjournalled migration was the gate not run.**
+
+## 0038_status_entity_client.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER, MERGE HELD FOR OWNER APPROVAL
+
+**Actor:** **the Supabase GitHub app, on the merge of the P3-43 pull request from
+branch `card/p3-43-schema` to `main`.** No terminal runs it, and none may:
+CLAUDE.md 8.0 and ruling R-124 record that merging a migration file is what
+applies it here.
+
+**Applied at:** the merge of that pull request, within about two minutes of it.
+`0037` took forty seconds. **THE MERGE IS HELD UNTIL THE OWNER APPROVES IT.** This
+is the first migration worked by the new operator's task queue, and that queue's
+task for this card says in terms that the pull request stops at green and waits
+for the owner. Until the owner says yes, this entry is a prediction about a merge
+that has not been decided.
+
+**What it creates:** one enum label, and nothing else.
+
+    public.status_entity   + 'client'   (after inbound_order, outbound_issue, project)
+
+It lets a client's stage change be recorded in `public.status_history`, which is
+polymorphic on that enum. It is in a file of its own because a new enum label
+cannot be used in the transaction that added it, the reason `0015` gives, and the
+next file uses it. The file holds only `ALTER TYPE ... ADD VALUE IF NOT EXISTS` and
+a `SELECT`, which is the shape the applier's enum pre-phase admits.
+
+**It removes no row and changes no row.**
+
+**Proof that it is applied: NOT YET OBSERVED.** After the merge, a read-only
+`GET https://app.rapidconstruct.md/api/health` should report `ledger_version`
+`"0039"`, since this file and the next arrive in the same merge. That is the
+observation R-122's form 1 permits: a GET on a public route, no credential.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, as for every file applied by
+merge. The control that precedes this apply is
+`npm run check:no-destructive-migration`, which must run in `quality` and pass.
+
+## 0039_client_stage.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER, MERGE HELD FOR OWNER APPROVAL
+
+**Actor:** **the Supabase GitHub app, on the same merge as `0038`.** No terminal
+runs it.
+
+**Applied at:** the merge of the P3-43 pull request, within about two minutes of
+it, and **not before the owner approves that merge**, for the reason in the `0038`
+entry above.
+
+**What it creates:**
+
+    type      public.client_stage              cold, nurture, follow_up, quoted, client
+    column    public.clients.stage             not null, default 'cold'
+    column    public.clients.follow_up_date    date, nullable
+    check     clients_follow_up_date_required  stage <> 'follow_up' or follow_up_date is not null
+    function  public.set_client_stage(uuid, public.client_stage, date)
+    function  public.client_stage_history(uuid)
+
+**WHAT HAPPENS TO THE ROWS ALREADY IN `public.clients`, stated plainly because it
+is the only effect on existing data.** The stage column is added `NOT NULL` with
+the default `client`, so every existing row reads `client` from that statement on:
+they are real customers, per the owner's handover part 4.2. A `DO` block straight
+after it raises, and rolls the whole file back, if any existing row carries
+anything else. Only then is the default moved to `cold`, so a client created
+afterwards starts as a cold lead. **No UPDATE runs, no row is removed, and no
+existing column changes value.** `follow_up_date` is null on every existing row,
+which the constraint accepts because none of them is at `follow_up`.
+
+**THE APPLICATION DOES NOT BREAK IN THE MINUTES BEFORE THIS LANDS.** The code that
+reads the new columns ships in the same merge and asks first, through
+`hasClientStage` in `lib/data/schema-capability.ts`. Until the columns exist the
+client screens behave exactly as before the card.
+
+**Proof that it is applied: NOT YET OBSERVED.** The same health read as `0038`:
+`ledger_version` `"0039"` after the merge.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, as for every file applied by
+merge. What was proved before the merge is in the pull request's `quality` run:
+`check:migrations` applies every file unmodified to a bare `postgres:16` and runs
+`scripts/poc-free/local-db/assertions/0038_status_entity_client.sql` and
+`0039_client_stage.sql`; `check:no-destructive-migration` parses both files. **No
+`check:migrations` ran on the machine that authored these files**, because it has
+no Docker; the run in `quality` is the only one.

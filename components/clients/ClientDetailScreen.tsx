@@ -14,15 +14,52 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
-import { CLIENT_TYPE_LABEL, type ClientDetail } from "@/lib/data/clients-types";
+import {
+  CLIENT_STAGE_COLOUR,
+  CLIENT_STAGE_LABEL,
+  CLIENT_TYPE_LABEL,
+  type ClientDetail,
+  type ClientStage,
+} from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
 import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
 
-function Row({ label, value }: { label: string; value: string | null }) {
+/** P3-43. Eticheta etapei, cu culoarea ALATURI de ea si niciodata in locul ei:
+ *  cine nu deosebeste rosul de verde citeste tot eticheta. Tokenul brut nu ajunge
+ *  pe ecran; `data-colour` este un atribut, nu text. */
+function StageMark({ stage }: { stage: ClientStage }) {
+  const colour = CLIENT_STAGE_COLOUR[stage];
   return (
-    <div className="flex gap-4 py-2.5 border-b border-rc-line last:border-0">
+    <span className="inline-flex items-center gap-2" data-testid="client-stage">
+      <span
+        aria-hidden="true"
+        data-testid="client-stage-colour"
+        data-colour={colour.name}
+        className={`inline-block w-2.5 h-2.5 rounded-full ${colour.className}`}
+      />
+      <span data-testid="client-stage-label" className="text-[13.5px] text-rc-black">
+        {CLIENT_STAGE_LABEL[stage]}
+      </span>
+    </span>
+  );
+}
+
+function Row({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string | null;
+  testId?: string;
+}) {
+  return (
+    <div
+      className="flex gap-4 py-2.5 border-b border-rc-line last:border-0"
+      data-testid={testId}
+    >
       <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
         {label}
       </span>
@@ -81,6 +118,21 @@ export function ClientDetailScreen({
         <div className="px-5 py-3" data-testid="client-detail">
           <Row label="Denumire" value={client.name} />
           <Row label="Tip" value={CLIENT_TYPE_LABEL[client.type]} />
+          {client.stage !== null ? (
+            <>
+              <div className="flex gap-4 py-2.5 border-b border-rc-line">
+                <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
+                  Etapă
+                </span>
+                <StageMark stage={client.stage} />
+              </div>
+              <Row
+                label="Data de reluare"
+                value={client.followUpDate ? formatDate(client.followUpDate) : null}
+                testId="client-follow-up"
+              />
+            </>
+          ) : null}
           <Row label="IDNO" value={client.fiscalCode} />
           <Row label="Telefon" value={client.phone} />
           <Row label="Email" value={client.email} />
@@ -109,7 +161,11 @@ export function ClientDetailScreen({
       </div>
 
       {editing ? (
-        <ClientForm client={client} onClose={() => setEditing(false)} />
+        <ClientForm
+          client={client}
+          stageAvailable={client.stage !== null}
+          onClose={() => setEditing(false)}
+        />
       ) : null}
     </>
   );

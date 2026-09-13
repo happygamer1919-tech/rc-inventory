@@ -17,6 +17,45 @@ export function isClientType(value: unknown): value is ClientType {
   return value === "company" || value === "individual";
 }
 
+/** Cele cinci etape din enum-ul public.client_stage, migratia 0039, IN ORDINEA
+ *  DECLARATA. Ordinea este a datelor, nu a ecranului: baza sorteaza enum-ul dupa
+ *  declaratie, iar lista aceasta este aceeasi ordine scrisa o singura data, ca
+ *  selectorul sa nu poata sa se abata de la ea. Nici tokenurile nici etichetele
+ *  nu sunt in ordine alfabetica. */
+export const CLIENT_STAGES = ["cold", "nurture", "follow_up", "quoted", "client"] as const;
+
+export type ClientStage = (typeof CLIENT_STAGES)[number];
+
+/** Etichetele romanesti, din predarea proprietarului, partea 4.2. "În cultivare"
+ *  poarta diacritica pe care predarea nu o scrie: regulile depozitului castiga. */
+export const CLIENT_STAGE_LABEL: Record<ClientStage, string> = {
+  cold: "Lead rece",
+  nurture: "În cultivare",
+  follow_up: "De reluat",
+  quoted: "Ofertat",
+  client: "Client",
+};
+
+/** Culoarea fiecarei etape, ALATURI de eticheta si niciodata in locul ei.
+ *  `name` este culoarea din predare, pe care o citeste testul; `className` este
+ *  cum se deseneaza. Violetul nu are un ton rc-, deci vine din paleta Tailwind. */
+export const CLIENT_STAGE_COLOUR: Record<ClientStage, { name: string; className: string }> = {
+  cold: { name: "red", className: "bg-rc-danger" },
+  nurture: { name: "blue", className: "bg-rc-info" },
+  follow_up: { name: "amber", className: "bg-rc-warn" },
+  quoted: { name: "purple", className: "bg-purple-600" },
+  client: { name: "green", className: "bg-rc-ok" },
+};
+
+export function isClientStage(value: unknown): value is ClientStage {
+  return (CLIENT_STAGES as readonly unknown[]).includes(value);
+}
+
+/** Propozitia pentru De reluat fara data. Aceeasi pe calea formularului si pe
+ *  calea constrangerii, ca operatorul sa nu vada niciodata eroarea bruta. */
+export const FOLLOW_UP_DATE_REQUIRED =
+  "Pentru etapa De reluat trebuie completată data de reluare.";
+
 /** Un rand din lista de clienti.
  *
  *  CINCI CAMPURI, PENTRU CINCI COLOANE. P3-06 fixeaza lista la Denumire, Tip,
@@ -44,6 +83,13 @@ export type ClientDetail = {
   notes: string | null;
   active: boolean;
   createdAt: string;
+  /** P3-43. NULL NUMAI CAND COLOANA NU EXISTA INCA pe baza catre care arata
+   *  aplicatia, adica hasClientStage a raspuns nu. Coloana este NOT NULL, deci pe
+   *  o baza care o are nu exista client fara etapa. Ecranul citeste null ca "nu
+   *  arata etapa", nu ca o etapa. */
+  stage: ClientStage | null;
+  /** Data de reluare, `YYYY-MM-DD`. Nu se sterge cand etapa trece mai departe. */
+  followUpDate: string | null;
 };
 
 /** Filtrele listei, toate in sirul de interogare din URL.

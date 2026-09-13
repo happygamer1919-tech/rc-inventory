@@ -368,3 +368,49 @@ export async function hasExtractionPlatformVerdict(client: ColumnProbe): Promise
   }
   return cachedPlatformVerdict.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-43. Exista coloanele clients.stage si clients.follow_up_date?
+//
+// DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar
+// public.projects, deci raspunde "da" si pe o baza fara etapa clientului. 0039
+// este un fisier separat si ajunge in productie pe fuziune, prin aplicatia GitHub
+// a Supabase, in aproximativ doua minute. Codul pleaca din acelasi push si NU
+// aterizeaza in aceeasi secunda, deci exista o fereastra in care codul nou
+// ruleaza peste schema veche.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Fisa clientului ar cere `stage`,
+// PostgREST ar intoarce 42703, getClient ar intoarce null, si fiecare fisa de
+// client ar raspunde 404 pana cand migratia ateriza. Formularul ar scrie o
+// coloana care nu exista si fiecare salvare ar esua.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI. Cand coloanele lipsesc,
+// fisa nu arata etapa, formularul nu o ofera, iar scrierile nu o ating.
+//
+// O SINGURA POARTA PENTRU AMANDOUA COLOANELE, din motivul scris la EXT-26: sosesc
+// in acelasi fisier de migratie, deci nu exista stare in care una exista si
+// cealalta nu. Sonda le cere pe amandoua intr-un singur select.
+// ---------------------------------------------------------------------------
+
+let cachedClientStage: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: o sonda care intreaba pe alta legatura decat
+ *   cea care va lucra raspunde la alta intrebare.
+ */
+export async function hasClientStage(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedClientStage && now - cachedClientStage.at < TTL_MS) {
+    return cachedClientStage.value;
+  }
+  try {
+    const { error } = await client.from("clients").select("stage, follow_up_date").limit(1);
+    cachedClientStage = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedClientStage = { value: false, at: now };
+  }
+  return cachedClientStage.value;
+}

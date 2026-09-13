@@ -8,8 +8,10 @@ import "server-only";
 // oricum o minciuna daca randurile ar fi deja toate aduse.
 
 import { createClient } from "@/lib/supabase/server";
+import { hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
+  isClientStage,
   isClientType,
   type ClientDetail,
   type ClientListQuery,
@@ -103,26 +105,36 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
   };
 }
 
+const CLIENT_COLUMNS = "id, name, type, fiscal_code, address, phone, email, notes, active, created_at";
+
 /** Un client, pentru ruta de detaliu. Null cand id-ul nu exista. */
 export async function getClient(id: string): Promise<ClientDetail | null> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select("id, name, type, fiscal_code, address, phone, email, notes, active, created_at")
-    .eq("id", id)
-    .maybeSingle();
+
+  // P3-43. ETAPA SE CERE NUMAI DACA EXISTA COLOANA. Functia aceasta inghite
+  // eroarea si intoarce null, deci un `select` care ar numi `stage` inainte ca
+  // 0039 sa fie aplicata ar face din fiecare fisa de client un 404, iar din
+  // filtrul de client de pe /comenzi un filtru care dispare. Poarta intreaba
+  // intai, pe aceeasi legatura.
+  const withStage = await hasClientStage(supabase);
+  const columns: string = withStage ? `${CLIENT_COLUMNS}, stage, follow_up_date` : CLIENT_COLUMNS;
+
+  const { data } = await supabase.from("clients").select(columns).eq("id", id).maybeSingle();
 
   if (!data) return null;
+  const row = data as unknown as Record<string, unknown>;
   return {
-    id: data.id as string,
-    name: data.name as string,
-    type: isClientType(data.type) ? data.type : "company",
-    fiscalCode: (data.fiscal_code as string | null) ?? null,
-    address: (data.address as string | null) ?? null,
-    phone: (data.phone as string | null) ?? null,
-    email: (data.email as string | null) ?? null,
-    notes: (data.notes as string | null) ?? null,
-    active: Boolean(data.active),
-    createdAt: data.created_at as string,
+    id: row.id as string,
+    name: row.name as string,
+    type: isClientType(row.type) ? row.type : "company",
+    fiscalCode: (row.fiscal_code as string | null) ?? null,
+    address: (row.address as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
+    email: (row.email as string | null) ?? null,
+    notes: (row.notes as string | null) ?? null,
+    active: Boolean(row.active),
+    createdAt: row.created_at as string,
+    stage: withStage && isClientStage(row.stage) ? row.stage : null,
+    followUpDate: withStage ? ((row.follow_up_date as string | null) ?? null) : null,
   };
 }

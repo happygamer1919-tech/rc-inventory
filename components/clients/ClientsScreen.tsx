@@ -41,6 +41,7 @@ export function ClientsScreen({
   pageCount,
   query,
   canWrite,
+  stageAvailable,
 }: {
   rows: ClientRow[];
   total: number;
@@ -48,6 +49,8 @@ export function ClientsScreen({
   pageCount: number;
   query: ClientListQuery;
   canWrite: boolean;
+  /** P3-43. Daca formularul de client nou poate oferi etapa. */
+  stageAvailable: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -223,6 +226,7 @@ export function ClientsScreen({
 
       {creating ? (
         <ClientForm
+          stageAvailable={stageAvailable}
           onClose={() => setCreating(false)}
           onSaved={(id) => {
             setCreating(false);

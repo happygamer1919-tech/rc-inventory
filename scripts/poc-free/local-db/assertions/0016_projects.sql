@@ -12,13 +12,24 @@ declare
   txt text;
 begin
   -- --- 0015: the status_entity value, IN ORDER ----------------------------
-  select string_agg(e.enumlabel, ',' order by e.enumsortorder) into txt
-  from pg_type t
-  join pg_namespace ns on ns.oid = t.typnamespace
-  join pg_enum e on e.enumtypid = t.oid
-  where ns.nspname = 'public' and t.typname = 'status_entity';
+  -- The FIRST THREE labels, not the whole set. These assertions run after every
+  -- migration, so pinning the whole set here failed the day a later file
+  -- appended a label (0038 appended client, card P3-43). What 0015 did is still
+  -- pinned exactly: project exists, in third place, after the two labels it
+  -- followed. The whole set is pinned by the assertion of the newest migration
+  -- that appends to it, today assertions/0038_status_entity_client.sql.
+  select string_agg(l.enumlabel, ',' order by l.enumsortorder) into txt
+  from (
+    select e.enumlabel, e.enumsortorder
+    from pg_type t
+    join pg_namespace ns on ns.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where ns.nspname = 'public' and t.typname = 'status_entity'
+    order by e.enumsortorder
+    limit 3
+  ) l;
   if txt is distinct from 'inbound_order,outbound_issue,project' then
-    raise exception 'P3-03: expected status_entity to be (inbound_order, outbound_issue, project), found %', txt;
+    raise exception 'P3-03: expected status_entity to begin (inbound_order, outbound_issue, project), found %', txt;
   end if;
 
   -- --- 0016: the pipeline enum, SIX VALUES IN DECLARATION ORDER -----------

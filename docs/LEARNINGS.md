@@ -5143,3 +5143,82 @@ contract change on the critical path of a page count. The general form is alread
 in this file from `PROVE-01` for assertions and in ruling `R-193` for controls:
 **reading something in an editor is not evidence about what it does.** This is the
 same sentence applied to an option nobody executed.
+
+### A shipped card's lane is derived, and flipping only the status is refused
+**Tag:** process
+**ERROR:** Card `P3-43` was moved from `in_flight` to `shipped` by editing
+`status` alone. `validate-board.mjs` refused the board before the commit:
+*"cards[84] (P3-43).lane: is derived and must be "shipped" (from status="shipped",
+home_lane="in_flight", blocked_on=null), found "in_flight"."* The flip to
+`in_flight` one commit earlier had passed with the lane untouched, because on that
+status the derived lane happens to equal `home_lane`, so nothing warned that the
+field was coupled.
+
+**SOLUTION:** `lane` is a function of `status`, `home_lane` and `blocked_on`, and
+every status edit carries its lane in the same edit. Run the validator after the
+edit and before staging, as CLAUDE.md section 2 already requires; it named the
+exact field and the exact value, which is what made this a one-line fix rather
+than a reverted commit.
+
+### A red-before in CI has to survive every step in front of End to end
+**Tag:** ci
+**ERROR:** Card `P3-43`'s acceptance requires its new cases to be "proved to fail
+first", and the machine working it had no Docker and no local Supabase, so the
+local red arm that ruling `R-156` let `EXT-26` use was not available. The red arm
+had to be a pushed head. But `quality` stops at the first failing step, and
+`check:board-edit` refuses a code pull request whose card is not at a terminal
+status. A red arm pushed with the card at `in_flight` would have gone red at that
+step, skipped End to end, and proved nothing, the exact loss `EXT-11`'s evidence
+records twice.
+
+**SOLUTION:** The red-arm head carries the card at `shipped`, with an `evidence.ref`
+whose first words are "RED ARM ONLY, NOT THE SHIP HEAD", and no migration and no
+application code. It passes every step up to End to end and fails only there, on
+the new cases. The evidence is rewritten on the implementation head. **A
+before-result is a run that reached the step the cases live in; any earlier red is
+a failure of the scaffolding, not of the feature.**
+
+### A task brief that defers the board flip until after the apply cannot hold here
+**Tag:** process
+**ERROR:** The operator's task for `P3-43` said not to flip the card's `status`
+until the migration was applied, and to stop before merging. In this repository
+those two instructions cannot both be obeyed with a green `quality`:
+`check:board-edit` refuses the pull request unless the card reaches a terminal
+status in the SAME pull request as its code, and CLAUDE.md section 2 forbids
+landing the board edit separately.
+
+**SOLUTION:** The repository's rules win, as the operator's own standing rules say
+they do. The card flips in the pull request that carries the code, and under
+CLAUDE.md 8.0 that is also correct about the database: the board reads `shipped`
+on `main` at the moment of the merge, and the merge IS the apply. Holding the merge
+for the owner holds both at once. **When a brief and a mechanised check disagree,
+follow the check and say so in the report and in the question to the owner**,
+rather than shipping a red pull request to honour the brief.
+
+### An old assertion that pins a whole enum set fails the day a later migration appends a label
+**Tag:** data
+**ERROR:** `P3-43` pushed `0038_status_entity_client.sql`, which appends `client` to
+`public.status_entity`. `quality` run 34768243619 applied all 39 migrations and then
+failed in "Apply every migration to a bare postgres, unmodified" on a file this card
+never wrote:
+
+```
+FAILED: assertions/0016_projects.sql
+ERROR:  P3-03: expected status_entity to be (inbound_order, outbound_issue, project), found inbound_order,outbound_issue,project,client
+```
+
+`apply.mjs` runs EVERY assertion file against the finished schema, after the last
+migration, not against the schema its own migration left. 0016's file compared the
+whole label list to a literal, so it was true only until the next addition. No local
+gate catches it: `check:migrations` needs Docker. And CI stops at the first failing
+file, so every assertion after 0016 went unrun on that head.
+
+**SOLUTION:** 0016's file now pins the FIRST THREE labels in sort order, which is
+exactly what 0015 did (`project`, in third place), and says why in a comment. The
+whole set stays pinned, by `assertions/0038_status_entity_client.sql`, the newest
+migration that appends to it. Nothing is checked less: the old file checks its own
+migration, the new file checks the full set. **RULE: an assertion pins what its own
+migration did. The whole set of an enum is pinned only by the assertion of the
+newest migration that changed it.** Before pushing a migration that appends an enum
+label, grep `scripts/poc-free/local-db/assertions/` for the type name and fix every
+whole-set pin in the same pull request.

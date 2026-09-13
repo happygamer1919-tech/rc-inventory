@@ -1,7 +1,7 @@
 // P3-06 Clienti, lista.
 
-import { getSessionUser } from "@/lib/supabase/server";
-import { hasPhase3Schema } from "@/lib/data/schema-capability";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { hasClientStage, hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import { listClients, parseClientQuery } from "@/lib/data/clients";
 import { ClientsScreen } from "@/components/clients/ClientsScreen";
@@ -25,7 +25,14 @@ export default async function ClientsPage({
   }
 
   const query = parseClientQuery(await searchParams);
-  const [user, result] = await Promise.all([getSessionUser(), listClients(query)]);
+  // P3-43. Etapa se ofera in formularul de client nou numai cand coloana exista.
+  // hasPhase3Schema sondeaza public.projects si nu poate spune asta.
+  const supabase = await createClient();
+  const [user, result, stageAvailable] = await Promise.all([
+    getSessionUser(),
+    listClients(query),
+    hasClientStage(supabase),
+  ]);
 
   return (
     <ClientsScreen
@@ -38,6 +45,7 @@ export default async function ClientsPage({
       // sunt owner-only, si un buton pe care baza il refuza este defectul, nu
       // politica.
       canWrite={user?.role === "owner"}
+      stageAvailable={stageAvailable}
     />
   );
 }
