@@ -118,8 +118,8 @@ Every case name below was read from the spec file on `main` at `62772e3` and fou
   and no stored value changed (P3-43) or no row was created (P3-45). The database also
   refuses a direct write with `23514`.
 - **Line 5.** Names deliberately sort opposite to dates; overdue, today, upcoming, no
-  date, in that order; only the overdue row is marked; today is computed in
-  Europe/Chisinau.
+  date, in that order; only the overdue row is marked; today is computed in the
+  Europe/Chisinau time zone.
 - **Line 6.** A fixture with one row at every stage; each of the four lead chips
   returns exactly its row, stage read from the database; the fifth stage, `client`, is
   reached through the Clienți view and returns exactly the client row. Scoped by a
@@ -253,8 +253,16 @@ results of runs that already happened.
 
 ## Defects found, cross-referenced to docs/LEARNINGS.md
 
-No entry appended. F1 to F3 are gaps in coverage and record-keeping on shipped cards, not
-errors this session hit and solved; they are recorded here and in the owner's mailbox.
+One entry appended, from this session's own pull request: "A new file is invisible to
+check:conflict-residue until it is staged, and a lone wrapped word reads as a marker
+tail". The first `quality` run on #281, 34781729691, failed at "Check for conflict
+residue" because a wrapped line of this report held one time zone name alone. The local
+run had passed only because the report was not yet staged, and the script reads
+`git ls-files`. Fixed by rewrapping the sentence, not by touching the check, and the
+signature was added to the factory's `KNOWN-FAILURES.md`.
+
+F1 to F3 are gaps in coverage and record-keeping on shipped cards, not errors this
+session hit and solved; they are recorded here and in the owner's mailbox.
 
 ## State at the end
 
