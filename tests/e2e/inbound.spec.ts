@@ -248,3 +248,91 @@ test.describe("Comenzi de intrare", () => {
     await expect(page.getByTestId("doc-done")).toHaveCount(0);
   });
 });
+
+// P3-41. ZIUA ALEASA, SCRISA IN CUVINTE LANGA FIECARE CAMP DE DATA.
+//
+// Campul nativ <input type="date"> aseaza ziua si luna dupa LIMBA BROWSERULUI, nu
+// dupa locale-ul paginii si nici dupa lang="ro". Masurat in Chromium cu locale
+// ro-RO: tastele 01122026 pastreaza 2026-01-12 cand browserul este in engleza si
+// 2026-12-01 cand este lansat cu --lang=ro-RO. Un operator cu browser in engleza
+// poate deci salva alta zi decat cea la care se gandeste, fara sa vada nimic.
+//
+// De aceea cazul NU foloseste browserul din configuratie: lanseaza el unul in
+// engleza, explicit, si verifica intai ca divergenta chiar exista. Daca un mediu
+// ar aseza campul in ordinea romaneasca, cazul cade pe acea verificare, nu trece
+// fara sa fi dovedit ceva. Un browser lansat aici nu se poate cere prin
+// test.use intr-un grup, fiindca optiunile de lansare tin de proces, iar la
+// nivelul fisierului ar schimba limba pentru toate celelalte cazuri.
+test.describe("Data aleasă, scrisă în cuvinte", () => {
+  test("fiecare câmp de dată arată în română ziua care se salvează", async ({
+    playwright,
+    baseURL,
+  }) => {
+    const browser = await playwright.chromium.launch({ args: ["--lang=en-US"] });
+    try {
+      const context = await browser.newContext({
+        baseURL,
+        locale: "ro-RO",
+        viewport: { width: 1440, height: 900 },
+      });
+      const page = await context.newPage();
+
+      await signIn(page, ownerAccount());
+      await ensureTestCategory(page);
+      const sku = await makeProduct(page, "data");
+
+      await page.goto("/adauga-manual");
+      await expect(page.getByTestId("inbound-form")).toBeVisible();
+
+      const orderedAt = page.getByTestId("order-ordered-at");
+      const expectedAt = page.getByTestId("order-expected-at");
+      const orderedWords = page.getByTestId("order-ordered-at-words");
+      const expectedWords = page.getByTestId("order-expected-at-words");
+
+      // Fara nicio data aleasa nu se scrie nicio data, nici una de umplutura.
+      await expect(orderedAt).toHaveValue("");
+      await expect(expectedAt).toHaveValue("");
+      await expect(orderedWords).toHaveCount(0);
+      await expect(expectedWords).toHaveCount(0);
+
+      // DIVERGENTA, REPRODUSA. Operatorul tasteaza 01122027 gandind 1 decembrie;
+      // browserul in engleza citeste intai luna si pastreaza 12 ianuarie.
+      await expectedAt.pressSequentially("01122027");
+      await expect(expectedAt).toHaveValue("2027-01-12");
+
+      // Textul scris se vede si spune ziua care chiar se va salva, nu cea gandita.
+      await expect(expectedWords).toBeVisible();
+      await expect(expectedWords).toHaveText("marți, 12 ianuarie 2027");
+      await expect(orderedWords).toHaveCount(0);
+
+      // Al doilea camp, alta data, tot tastata: fiecare text isi urmeaza campul lui.
+      await orderedAt.pressSequentially("09102026");
+      await expect(orderedAt).toHaveValue("2026-09-10");
+      await expect(orderedWords).toBeVisible();
+      await expect(orderedWords).toHaveText("joi, 10 septembrie 2026");
+      await expect(expectedWords).toHaveText("marți, 12 ianuarie 2027");
+
+      // Golirea campului optional sterge textul lui si nu atinge celalalt.
+      await orderedAt.fill("");
+      await expect(orderedAt).toHaveValue("");
+      await expect(orderedWords).toHaveCount(0);
+      await expect(expectedWords).toHaveText("marți, 12 ianuarie 2027");
+
+      // INTRODUCEREA MERGE CA INAINTE: comanda se salveaza cu data campului
+      // optional goala si cu exact ziua scrisa sub livrarea estimata.
+      await page.getByTestId("order-supplier").fill(`TEST Furnizor ${RUN}`);
+      const option = page.getByTestId("line-product-0").locator("option").filter({ hasText: sku });
+      await page.getByTestId("line-product-0").selectOption((await option.getAttribute("value")) ?? "");
+      await page.getByTestId("line-quantity-0").fill("4");
+      await page.getByTestId("line-price-0").fill("5");
+      await page.getByTestId("order-confirm").click();
+      await expect(page.getByTestId("order-created")).toBeVisible({ timeout: 20_000 });
+      const reference = (await page.getByTestId("created-reference").innerText()).trim();
+
+      await page.goto("/comenzi");
+      await expect(orderItem(page, reference)).toContainText("estimat 12.01.2027");
+    } finally {
+      await browser.close();
+    }
+  });
+});
