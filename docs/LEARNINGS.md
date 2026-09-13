@@ -5324,3 +5324,19 @@ set the segment order of a native date input, so a case that asserts Romanian or
 one proves the CI browser's language, not the operator's. Assert rendered text the
 application writes itself. And check the premise of a card authored from an
 observation before writing its red-first case.**
+
+### Clicking a native date field and then typing stores nothing
+**Tag:** frontend
+**ERROR:** While re-measuring the date field for `P3-41`, a throwaway Chromium script
+did `locator.click()` on an `<input type="date">` and then `page.keyboard.type("01122026")`.
+`inputValue()` came back `""` under both an English and a default browser language, which
+reads exactly like "typing does not work on this control". It does: the click lands on
+whichever segment sits under the centre of the box, not on the first one, so the
+keystrokes fill the wrong segments and the value stays incomplete, and an incomplete
+native date has the value `""`.
+**SOLUTION:** Put the caret on the first segment before typing: `locator.focus()` then
+`keyboard.type`, or `locator.pressSequentially(...)`, which focuses first. Both stored
+`2026-01-12` in English and `2026-12-01` with `--lang=ro-RO`. The new case in
+`tests/e2e/inbound.spec.ts` uses `pressSequentially`. **RULE: never click a native date
+field to type into it in a test; focus it. An empty value after typing means the
+segments were never completed, not that typing is refused.**

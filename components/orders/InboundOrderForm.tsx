@@ -25,10 +25,31 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
-import { DISPLAY_CURRENCY, formatMoney, formatNumber } from "@/lib/data/format";
+import {
+  DISPLAY_CURRENCY,
+  formatDateWords,
+  formatMoney,
+  formatNumber,
+} from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createInboundOrder } from "@/lib/data/inbound-actions";
+
+// P3-41. Ziua aleasa, scrisa in cuvinte sub campul de data.
+//
+// Campul nativ aseaza ziua si luna dupa limba browserului, deci pe un browser in
+// engleza aceleasi taste pot pastra alta zi decat cea gandita. Textul arata ziua
+// care se va salva, se schimba odata cu campul si lipseste cand campul este gol:
+// o data de umplutura sub un camp optional ar parea aleasa.
+function DateInWords({ value, testId }: { value: string; testId: string }) {
+  const words = formatDateWords(value);
+  if (!words) return null;
+  return (
+    <span className="block text-[12px] text-rc-muted mt-1" data-testid={testId}>
+      {words}
+    </span>
+  );
+}
 
 export type FormLine = {
   key: string;
@@ -211,6 +232,7 @@ export function InboundOrderForm({
               onChange={(e) => setOrderedAt(e.target.value)}
               data-testid="order-ordered-at"
             />
+            <DateInWords value={orderedAt} testId="order-ordered-at-words" />
           </Field>
           <Field label="Livrare estimată" required>
             <Input
@@ -219,6 +241,7 @@ export function InboundOrderForm({
               onChange={(e) => setExpectedAt(e.target.value)}
               data-testid="order-expected-at"
             />
+            <DateInWords value={expectedAt} testId="order-expected-at-words" />
           </Field>
         </div>
       </Card>
