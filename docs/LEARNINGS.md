@@ -5194,3 +5194,31 @@ on `main` at the moment of the merge, and the merge IS the apply. Holding the me
 for the owner holds both at once. **When a brief and a mechanised check disagree,
 follow the check and say so in the report and in the question to the owner**,
 rather than shipping a red pull request to honour the brief.
+
+### An old assertion that pins a whole enum set fails the day a later migration appends a label
+**Tag:** data
+**ERROR:** `P3-43` pushed `0038_status_entity_client.sql`, which appends `client` to
+`public.status_entity`. `quality` run 34768243619 applied all 39 migrations and then
+failed in "Apply every migration to a bare postgres, unmodified" on a file this card
+never wrote:
+
+```
+FAILED: assertions/0016_projects.sql
+ERROR:  P3-03: expected status_entity to be (inbound_order, outbound_issue, project), found inbound_order,outbound_issue,project,client
+```
+
+`apply.mjs` runs EVERY assertion file against the finished schema, after the last
+migration, not against the schema its own migration left. 0016's file compared the
+whole label list to a literal, so it was true only until the next addition. No local
+gate catches it: `check:migrations` needs Docker. And CI stops at the first failing
+file, so every assertion after 0016 went unrun on that head.
+
+**SOLUTION:** 0016's file now pins the FIRST THREE labels in sort order, which is
+exactly what 0015 did (`project`, in third place), and says why in a comment. The
+whole set stays pinned, by `assertions/0038_status_entity_client.sql`, the newest
+migration that appends to it. Nothing is checked less: the old file checks its own
+migration, the new file checks the full set. **RULE: an assertion pins what its own
+migration did. The whole set of an enum is pinned only by the assertion of the
+newest migration that changed it.** Before pushing a migration that appends an enum
+label, grep `scripts/poc-free/local-db/assertions/` for the type name and fix every
+whole-set pin in the same pull request.

@@ -132,7 +132,16 @@ The red arm was watched to completion before the implementation was pushed,
 because `quality.yml` sets `cancel-in-progress: true` and a push to the branch
 would have cancelled it and lost the red-before.
 
-**Implementation head:** pushed after the red arm concluded. Its `quality` run id,
+**Implementation head, first attempt, run 34768243619** on `48fd30c`: `quality`
+failure in "Apply every migration to a bare postgres, unmodified". All 39
+migrations applied; the older `assertions/0016_projects.sql` then failed because
+it pinned the whole `status_entity` label list and 0038 appends `client`. Repaired
+at the cause: 0016's file now pins the first three labels in order (what 0015 did),
+and the whole four-label set stays pinned by `assertions/0038_status_entity_client.sql`.
+Nothing is checked less. LEARNINGS entry "An old assertion that pins a whole enum set
+fails the day a later migration appends a label".
+
+**Implementation head, after the repair:** pushed in the same session. Its `quality` run id,
 conclusion and the applier proof steps are recorded in the pull request and in the
 owner's merge question, `q003-approve-g2-merge.md`, because writing them here would
 move the head sha away from the run that proved it.
@@ -163,6 +172,7 @@ move the head sha away from the run that proved it.
 - "A shipped card's lane is derived, and flipping only the status is refused"
 - "A red-before in CI has to survive every step in front of End to end"
 - "A task brief that defers the board flip until after the apply cannot hold here"
+- "An old assertion that pins a whole enum set fails the day a later migration appends a label"
 
 ## Left for the owner
 
