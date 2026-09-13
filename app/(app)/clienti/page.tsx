@@ -1,9 +1,14 @@
-// P3-06 Clienti, lista.
+// P3-06 Clienti, lista. P3-45 ii adauga vederile Leaduri si Clienți.
 
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientStage, hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
-import { listClients, parseClientQuery } from "@/lib/data/clients";
+import {
+  countClientsByStage,
+  listClientOwnerChoices,
+  listClients,
+  parseClientQuery,
+} from "@/lib/data/clients";
 import { ClientsScreen } from "@/components/clients/ClientsScreen";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +16,14 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tip?: string; stare?: string; pagina?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    tip?: string;
+    stare?: string;
+    pagina?: string;
+    vedere?: string;
+    etapa?: string;
+  }>;
 }) {
   // Migratiile fazei 3 sunt scrise si NEAPLICATE pana la cardul P3-27. Fara
   // aceasta poarta, ecranul cere tabele care nu exista si raspunde 500.
@@ -27,12 +39,21 @@ export default async function ClientsPage({
   const query = parseClientQuery(await searchParams);
   // P3-43. Etapa se ofera in formularul de client nou numai cand coloana exista.
   // hasPhase3Schema sondeaza public.projects si nu poate spune asta.
+  //
+  // P3-45. countClientsByStage intoarce null cand migratia 0040 nu exista inca,
+  // prin hasClientLeaduri, si null inseamna "fara vederi, fara cipuri, fara
+  // formular de lead": ecranul de dinainte de card.
   const supabase = await createClient();
-  const [user, result, stageAvailable] = await Promise.all([
+  const [user, result, stageAvailable, counts] = await Promise.all([
     getSessionUser(),
     listClients(query),
     hasClientStage(supabase),
+    countClientsByStage(query),
   ]);
+
+  // Lista de responsabili se cere numai pentru cine poate crea un lead.
+  const owners =
+    counts !== null && user?.role === "owner" ? await listClientOwnerChoices() : [];
 
   return (
     <ClientsScreen
@@ -46,6 +67,7 @@ export default async function ClientsPage({
       // politica.
       canWrite={user?.role === "owner"}
       stageAvailable={stageAvailable}
+      leaduri={counts ? { counts, owners } : null}
     />
   );
 }

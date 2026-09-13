@@ -5222,3 +5222,65 @@ migration did. The whole set of an enum is pinned only by the assertion of the
 newest migration that changed it.** Before pushing a migration that appends an enum
 label, grep `scripts/poc-free/local-db/assertions/` for the type name and fix every
 whole-set pin in the same pull request.
+
+### An assertion that counts a function by name breaks the day a later migration overloads it
+**Tag:** data
+**ERROR:** Card `P3-45` needed `set_client_stage` to record a lead's FIRST stage,
+from no stage, and added a four-parameter form of it in `0040`.
+`assertions/0039_client_stage.sql` asserted its functions with
+
+```
+select count(*) ... where p.proname in ('set_client_stage', 'client_stage_history');
+if n <> 2 then raise exception ...
+```
+
+which reads 3 once the overload exists. It was found by reading the older assertion
+files before the push, not by CI, but it is the same class as the enum-set entry
+above: every assertion file runs after the LAST migration, so a count by name is
+true only until the next overload, and `check:migrations` needs Docker, so no local
+gate would have caught it.
+
+**SOLUTION:** `0039`'s file now pins its two functions by the exact signature `0039`
+created, with `to_regprocedure('public.set_client_stage(uuid, public.client_stage,
+date)')`, and `0040`'s file pins the new form the same way. **RULE: pin a function by
+its signature, never by a count of its name.** Before pushing a migration that adds a
+function whose name already exists, grep `scripts/poc-free/local-db/assertions/` for
+that name.
+
+### A history row "from no stage" cannot come from a trigger when an existing case pins zero rows on create
+**Tag:** data
+**ERROR:** `P3-45`'s acceptance says creating a lead writes its first history row
+from no stage to the chosen one. `P3-43`'s case 4 in `tests/e2e/clients.spec.ts`
+creates a client through the existing client form and asserts ZERO history rows, and
+`P3-45` requires that case to pass unmodified. An insert trigger writing the row would
+have satisfied the new card and broken the old one. The existing writer could not
+write it either: a new row already stores `cold` from the column default, so choosing
+`cold` wrote nothing and choosing `quoted` wrote `cold -> quoted`. A second function
+writing the stage was refused by both cards' defaults.
+
+**SOLUTION:** The one writer gained a fourth parameter, `p_first boolean`, with NO
+default, and the three-parameter form now delegates to it with `false`. Without a
+default, a three-argument call can only resolve to the three-parameter form in
+PostgreSQL and in PostgREST, so every existing caller is untouched; with one, both
+forms would match and PostgREST would answer `PGRST203`. Only the add-lead form asks
+for the first-stage row, so "create" writes history exactly when the card that asks for
+it is the caller. **RULE: when a new acceptance line needs a behaviour an older pinned
+case forbids, make the behaviour opt-in at the one call site that needs it, and keep
+the shared writer single by overloading with a required flag rather than by adding a
+second writer or a trigger.**
+
+### PostgREST answers 206, not 200, to a count=exact read whose range is partial
+**Tag:** ci
+**ERROR:** `tests/e2e/leaduri.spec.ts` counts every row of `public.clients` with
+`GET /rest/v1/clients?select=id&limit=1` and `Prefer: count=exact`, reading the total
+from `Content-Range`, and asserted status 200. On `P3-45`'s red arm, `quality` run
+34772991914, case (2) failed on that line, with the one returned row as the message:
+`Error: [{"id":"7e57c11e-0000-4000-8000-000000000001"}]`. The read had worked; the
+status was 206 Partial Content, which PostgREST sends whenever the returned range does
+not cover the whole counted set. The red arm was run for the feature and caught the
+test's own scaffolding as well.
+
+**SOLUTION:** Accept 200 or 206 on a counted read and take the number from
+`Content-Range`. **RULE: a red-before is also a test of the test.** Read every failure
+message of a red arm, not only the count: a case that fails for a reason other than the
+missing feature will fail again on the implementation head.

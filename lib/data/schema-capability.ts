@@ -414,3 +414,50 @@ export async function hasClientStage(client: ColumnProbe): Promise<boolean> {
   }
   return cachedClientStage.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-45. Exista migratia 0040: coloanele clients.source, interest si owner_id, si
+// functiile listei de leaduri?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasClientStage. Aceea raspunde despre
+// 0039, care este deja aplicata. 0040 este un fisier separat si ajunge in
+// productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua
+// minute. Codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda, deci
+// exista o fereastra in care codul nou ruleaza peste schema veche.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Lista de clienti ar chema
+// search_clients_by_stage, PostgREST ar raspunde ca functia nu exista, listClients
+// ar arunca, si /clienti ar raspunde 500 pana cand migratia ateriza. Formularul de
+// lead ar scrie coloane care nu exista.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI. Cand poarta spune nu,
+// lista merge prin search_clients din 0020, fara vederi si fara cipuri, iar
+// butonul de lead nou nu apare.
+//
+// O SINGURA SONDA PENTRU TOT FISIERUL, din motivul scris la EXT-26: coloanele si
+// functiile sosesc in aceeasi tranzactie, deci nu exista stare in care unele
+// exista si celelalte nu. Sonda cere cele trei coloane intr-un singur select.
+// ---------------------------------------------------------------------------
+
+let cachedClientLeaduri: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: o sonda care intreaba pe alta legatura decat
+ *   cea care va lucra raspunde la alta intrebare.
+ */
+export async function hasClientLeaduri(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedClientLeaduri && now - cachedClientLeaduri.at < TTL_MS) {
+    return cachedClientLeaduri.value;
+  }
+  try {
+    const { error } = await client.from("clients").select("source, interest, owner_id").limit(1);
+    cachedClientLeaduri = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": lista merge pe calea de azi, in loc sa cada.
+    cachedClientLeaduri = { value: false, at: now };
+  }
+  return cachedClientLeaduri.value;
+}

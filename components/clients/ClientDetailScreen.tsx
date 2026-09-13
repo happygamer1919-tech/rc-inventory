@@ -14,37 +14,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
-import {
-  CLIENT_STAGE_COLOUR,
-  CLIENT_STAGE_LABEL,
-  CLIENT_TYPE_LABEL,
-  type ClientDetail,
-  type ClientStage,
-} from "@/lib/data/clients-types";
+import { CLIENT_TYPE_LABEL, type ClientDetail } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
 import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
+import { StageMark } from "./StageMark";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
-
-/** P3-43. Eticheta etapei, cu culoarea ALATURI de ea si niciodata in locul ei:
- *  cine nu deosebeste rosul de verde citeste tot eticheta. Tokenul brut nu ajunge
- *  pe ecran; `data-colour` este un atribut, nu text. */
-function StageMark({ stage }: { stage: ClientStage }) {
-  const colour = CLIENT_STAGE_COLOUR[stage];
-  return (
-    <span className="inline-flex items-center gap-2" data-testid="client-stage">
-      <span
-        aria-hidden="true"
-        data-testid="client-stage-colour"
-        data-colour={colour.name}
-        className={`inline-block w-2.5 h-2.5 rounded-full ${colour.className}`}
-      />
-      <span data-testid="client-stage-label" className="text-[13.5px] text-rc-black">
-        {CLIENT_STAGE_LABEL[stage]}
-      </span>
-    </span>
-  );
-}
 
 function Row({
   label,
