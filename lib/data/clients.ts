@@ -6,16 +6,26 @@ import "server-only";
 // toata tabela si o filtreaza in memorie merge perfect pana in ziua in care nu
 // mai merge, si ziua aceea vine fara sa anunte. Paginarea la 25 din P3-06 ar fi
 // oricum o minciuna daca randurile ar fi deja toate aduse.
+//
+// P3-45. LEADURI ESTE O VEDERE A ACESTEI LISTE, NU O A DOUA LISTA. Vederea Leaduri
+// si vederea Clienți trec prin aceeasi functie de aici, listClients, cu un
+// parametru in plus. O a doua functie de date pentru leaduri ar fi exact deriva pe
+// care cardul o numeste: doua ecrane care citesc clientii prin doua interogari si
+// care, intr-o zi, nu mai sunt de acord asupra unui rand.
 
 import { createClient } from "@/lib/supabase/server";
-import { hasClientStage } from "./schema-capability";
+import { hasClientLeaduri, hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
+  CLIENT_STAGES,
   isClientStage,
   isClientType,
+  isClientView,
   type ClientDetail,
   type ClientListQuery,
+  type ClientOwnerChoice,
   type ClientRow,
+  type ClientStageCounts,
 } from "./clients-types";
 
 /** Ce a cerut ecranul, si cate randuri exista in total pentru acele filtre. */
@@ -36,8 +46,25 @@ export function parseClientQuery(params: {
   tip?: string;
   stare?: string;
   pagina?: string;
+  vedere?: string;
+  etapa?: string;
 }): ClientListQuery {
   const page = Number(params.pagina);
+
+  // P3-45. ETAPA HOTARASTE VEDEREA. O etapa de lead se afla in Leaduri, iar
+  // `client` in Clienți, deci o legatura care poarta doar `etapa` ajunge in
+  // vederea potrivita in loc sa arate o combinatie imposibila, cum ar fi etapa
+  // `client` in vederea Leaduri, care ar fi mereu goala.
+  const stage = isClientStage(params.etapa) ? params.etapa : "";
+  const view =
+    stage === ""
+      ? isClientView(params.vedere)
+        ? params.vedere
+        : ""
+      : stage === "client"
+        ? "clienti"
+        : "leaduri";
+
   return {
     q: (params.q ?? "").trim(),
     type: isClientType(params.tip) ? params.tip : "",
@@ -46,8 +73,23 @@ export function parseClientQuery(params: {
         ? params.stare
         : "active",
     page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
+    view,
+    stage,
   };
 }
+
+type SearchRow = {
+  id: string;
+  name: string;
+  type: string;
+  phone: string | null;
+  active: boolean;
+  active_projects: number | string;
+  total_count: number | string;
+  stage?: string;
+  follow_up_date?: string | null;
+  overdue?: boolean;
+};
 
 /**
  * Lista de clienti, filtrata si paginata.
@@ -61,29 +103,34 @@ export function parseClientQuery(params: {
  * este exact defectul pe care faza 1 l-a gasit pe ecran si l-a scris in
  * docs/LEARNINGS.md. Aceeasi functie o foloseste si backfill-ul, deci ce
  * gaseste cautarea si ce potriveste o migratie nu pot sa se contrazica.
+ *
+ * P3-45. DOUA CAI, O SINGURA FUNCTIE. Cand migratia 0040 exista, lista trece prin
+ * public.search_clients_by_stage, care stie vederile, etapa si ordinea dupa data
+ * de reluare. Pana atunci trece prin public.search_clients din 0020, exact ca
+ * inainte de card, iar vederea si etapa sunt ignorate: ecranul nici nu le ofera.
  */
 export async function listClients(query: ClientListQuery): Promise<ClientListResult> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.rpc("search_clients", {
+  const common = {
     p_q: query.q,
     p_type: query.type === "" ? null : query.type,
     p_status: query.status,
     p_limit: CLIENTS_PAGE_SIZE,
     p_offset: (query.page - 1) * CLIENTS_PAGE_SIZE,
-  });
+  };
+
+  const { data, error } = (await hasClientLeaduri(supabase))
+    ? await supabase.rpc("search_clients_by_stage", {
+        ...common,
+        p_view: query.view === "" ? null : query.view,
+        p_stage: query.stage === "" ? null : query.stage,
+      })
+    : await supabase.rpc("search_clients", common);
 
   if (error) throw new Error(`Nu s-au putut citi clienții: ${error.message}`);
 
-  const rows = (data ?? []) as {
-    id: string;
-    name: string;
-    type: string;
-    phone: string | null;
-    active: boolean;
-    active_projects: number | string;
-    total_count: number | string;
-  }[];
+  const rows = (data ?? []) as SearchRow[];
 
   // ZERO RANDURI INSEAMNA ZERO IN TOTAL PENTRU FILTRELE ACESTEA, si nu "nu stiu".
   // Totalul vine dintr-o functie de fereastra peste multimea filtrata, deci
@@ -98,11 +145,63 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
       phone: r.phone,
       activeProjects: Number(r.active_projects) || 0,
       active: Boolean(r.active),
+      stage: isClientStage(r.stage) ? r.stage : null,
+      followUpDate: r.follow_up_date ?? null,
+      overdue: r.overdue === true,
     })),
     total,
     page: query.page,
     pageCount: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)),
   };
+}
+
+/**
+ * P3-45. Cati clienti sunt la fiecare etapa, sub aceeasi cautare, acelasi tip si
+ * aceeasi stare ca lista, dar NU sub vederea sau etapa aleasa: numarul de langa un
+ * cip spune cate randuri ar arata acel cip.
+ *
+ * Null cand migratia 0040 nu exista inca. Ecranul citeste null ca "nu arata
+ * vederile", nu ca zero.
+ */
+export async function countClientsByStage(query: ClientListQuery): Promise<ClientStageCounts | null> {
+  const supabase = await createClient();
+  if (!(await hasClientLeaduri(supabase))) return null;
+
+  const { data, error } = await supabase.rpc("client_stage_counts", {
+    p_q: query.q,
+    p_type: query.type === "" ? null : query.type,
+    p_status: query.status,
+  });
+  if (error) throw new Error(`Nu s-au putut număra clienții pe etape: ${error.message}`);
+
+  // FIECARE ETAPA ARE UN NUMAR, zero inclus. Functia le intoarce pe toate cinci;
+  // pornirea de la zero aici este plasa pentru o etapa care ar lipsi din raspuns.
+  const counts = Object.fromEntries(CLIENT_STAGES.map((s) => [s, 0])) as ClientStageCounts;
+  for (const r of (data ?? []) as { stage: string; total: number | string }[]) {
+    if (isClientStage(r.stage)) counts[r.stage] = Number(r.total) || 0;
+  }
+  return counts;
+}
+
+/**
+ * P3-45. Cine poate primi un lead: profilurile active, dupa numele complet.
+ *
+ * Politica de select de pe profiles (0001) arata toate randurile doar
+ * administratorului, si doar administratorul poate crea clienti. Pentru oricine
+ * altcineva lista ar avea un singur rand, al lui, deci ecranul nici nu o cere.
+ * Un profil fara nume complet se arata prin email, ca optiunea sa nu fie goala.
+ */
+export async function listClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("active", true);
+  if (error || !data) return [];
+
+  return (data as { id: string; full_name: string | null; email: string | null }[])
+    .map((p) => ({ id: p.id, fullName: p.full_name?.trim() || p.email?.trim() || "Fără nume" }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ro"));
 }
 
 const CLIENT_COLUMNS = "id, name, type, fiscal_code, address, phone, email, notes, active, created_at";

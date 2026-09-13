@@ -78,11 +78,16 @@ begin
     raise exception 'P3-43: clients_follow_up_date_required is missing (found %)', n;
   end if;
 
-  select count(*) into n
-  from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
-  where ns.nspname = 'public' and p.proname in ('set_client_stage', 'client_stage_history');
-  if n <> 2 then
-    raise exception 'P3-43: expected set_client_stage and client_stage_history, found % functions', n;
+  -- PINNED BY SIGNATURE, NOT BY A COUNT OF NAMES. This read `count(*) ... in
+  -- ('set_client_stage', 'client_stage_history')` and required 2. Card P3-45's
+  -- 0040 adds a four-parameter form of set_client_stage, and every assertion file
+  -- runs after the LAST migration, so a count by name was true only until the next
+  -- overload: the failure KNOWN-FAILURES and docs/LEARNINGS.md record for a whole
+  -- enum set pinned by an old file. This file pins what 0039 created, by the exact
+  -- signature 0039 gave it, and 0040's file pins the new form.
+  if to_regprocedure('public.set_client_stage(uuid, public.client_stage, date)') is null
+     or to_regprocedure('public.client_stage_history(uuid)') is null then
+    raise exception 'P3-43: expected set_client_stage(uuid, client_stage, date) and client_stage_history(uuid)';
   end if;
 end
 $$;

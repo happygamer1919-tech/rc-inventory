@@ -56,6 +56,45 @@ export function isClientStage(value: unknown): value is ClientStage {
 export const FOLLOW_UP_DATE_REQUIRED =
   "Pentru etapa De reluat trebuie completată data de reluare.";
 
+/** P3-45. Etapele de lead: toate in afara de `client`, in ordinea declarata. Sunt
+ *  cipurile vederii Leaduri; `client` se atinge prin vederea Clienți. */
+export const LEADURI_STAGES = CLIENT_STAGES.filter(
+  (s): s is Exclude<ClientStage, "client"> => s !== "client",
+);
+
+/** P3-45. Cele cinci valori din enum-ul public.client_source, migratia 0040, in
+ *  ordinea din predarea proprietarului, partea 4.4. */
+export const CLIENT_SOURCES = ["recomandare", "telefon", "site", "vizita", "altul"] as const;
+
+export type ClientSource = (typeof CLIENT_SOURCES)[number];
+
+/** Cu diacritice, dupa CLAUDE.md sectiunea 11: predarea scrie "vizita". */
+export const CLIENT_SOURCE_LABEL: Record<ClientSource, string> = {
+  recomandare: "Recomandare",
+  telefon: "Telefon",
+  site: "Site",
+  vizita: "Vizită",
+  altul: "Altul",
+};
+
+export function isClientSource(value: unknown): value is ClientSource {
+  return (CLIENT_SOURCES as readonly unknown[]).includes(value);
+}
+
+/** P3-45. Cele doua vederi ale aceleiasi liste. Sirul vid este lista nefiltrata,
+ *  care arata fiecare client, exact ca inainte de card. */
+export type ClientView = "leaduri" | "clienti";
+
+export function isClientView(value: unknown): value is ClientView {
+  return value === "leaduri" || value === "clienti";
+}
+
+/** Numarul de clienti pe fiecare etapa, sub aceeasi cautare si aceeasi stare. */
+export type ClientStageCounts = Record<ClientStage, number>;
+
+/** Un membru al echipei care poate primi un lead, din profilurile active. */
+export type ClientOwnerChoice = { id: string; fullName: string };
+
 /** Un rand din lista de clienti.
  *
  *  CINCI CAMPURI, PENTRU CINCI COLOANE. P3-06 fixeaza lista la Denumire, Tip,
@@ -69,6 +108,12 @@ export type ClientRow = {
   phone: string | null;
   activeProjects: number;
   active: boolean;
+  /** P3-45. Pentru coloanele vederii Leaduri, Etapă si Data de reluare. NULL cand
+   *  lista merge pe calea de dinainte de 0040, care nu le citeste. */
+  stage: ClientStage | null;
+  followUpDate: string | null;
+  /** Data de reluare este inainte de azi IN CHISINAU. Calculat in baza, nu aici. */
+  overdue: boolean;
 };
 
 /** Un client cu tot ce stie sistemul despre el, pentru ruta de detaliu. */
@@ -103,6 +148,10 @@ export type ClientListQuery = {
   type: ClientType | "";
   status: "active" | "inactive" | "toate";
   page: number;
+  /** P3-45, `vedere`. NU `stare`, care inseamna activ sau inactiv. */
+  view: ClientView | "";
+  /** P3-45, `etapa`. O etapa de lead implica vederea Leaduri, `client` vederea Clienți. */
+  stage: ClientStage | "";
 };
 
 /** P3-06 fixeaza paginarea la 25 si spune ca lista nu randeaza niciodata un
