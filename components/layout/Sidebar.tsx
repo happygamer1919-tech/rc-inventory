@@ -3,11 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { NAV } from "@/lib/nav";
+import { NAV, pathMatches, type NavItem } from "@/lib/nav";
 import { Icon } from "@/components/ui/Icon";
 
-function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+// P3-46. O intrare este activa si pe rutele care tin de ea: CRM ramane marcat pe
+// /clienti si pe /proiecte, care nu mai au intrare proprie in meniu.
+function isActive(pathname: string, item: NavItem) {
+  return [item.href, ...(item.activeFor ?? [])].some((href) => pathMatches(pathname, href));
 }
 
 export function Sidebar() {
@@ -41,7 +43,7 @@ export function Sidebar() {
             </p>
             <ul className="px-2.5 space-y-0.5">
               {group.items.map((item) => {
-                const active = isActive(pathname, item.href);
+                const active = isActive(pathname, item);
                 return (
                   <li key={item.href}>
                     <Link

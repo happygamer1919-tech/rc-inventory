@@ -7,6 +7,8 @@ export type NavItem = {
   label: string;
   icon: IconName;
   description: string;
+  /** P3-46. Alte rute care tin de aceasta intrare si o marcheaza activa in meniu. */
+  activeFor?: string[];
 };
 
 export type NavGroup = {
@@ -26,6 +28,30 @@ export type IconName =
   // P3-06 si P3-07: grupul Relatii.
   | "clients"
   | "projects";
+
+/**
+ * P3-46. Ecranele la care se ajunge prin CRM si nu direct din meniu. Adresele lor
+ * nu s-au schimbat si nicio ruta nu s-a mutat.
+ *
+ * STAU AICI, SI NU DOAR IN ECRANUL CRM, PENTRU CEI DOI CITITORI AI LISTEI DE
+ * NAVIGATIE: titlul din bara de sus (labelForPath) si lista de rute pe care o
+ * parcurge tests/e2e/headers.spec.ts (ALL_ROUTES). Scoase din NAV fara lista
+ * aceasta, amandoua ar fi pierdut /clienti si /proiecte fara niciun semnal.
+ */
+export const CRM_SCREENS: NavItem[] = [
+  {
+    href: "/clienti",
+    label: "Clienți",
+    icon: "clients",
+    description: "Beneficiarii, cu datele lor de contact și proiectele lor",
+  },
+  {
+    href: "/proiecte",
+    label: "Proiecte",
+    icon: "projects",
+    description: "Șantierele, cu stadiul lor și cu bugetul lor",
+  },
+];
 
 export const NAV: NavGroup[] = [
   {
@@ -60,19 +86,18 @@ export const NAV: NavGroup[] = [
     // P3-06 si P3-07. Grupul apare INAINTE de Stoc pentru ca de aici incepe
     // orice intrebare de-a proprietarului: cine, apoi ce santier, apoi ce
     // material. Meniul citeste in ordinea in care se pun intrebarile.
+    //
+    // P3-46. O SINGURA INTRARE, CRM, in locul lui Clienți si Proiecte. Deschide
+    // ecranul cu cele trei carduri, iar pe listele de clienti si de proiecte ramane
+    // marcata, fiindca ele tin de CRM.
     title: "Relații",
     items: [
       {
-        href: "/clienti",
-        label: "Clienți",
+        href: "/crm",
+        label: "CRM",
         icon: "clients",
-        description: "Beneficiarii, cu datele lor de contact și proiectele lor",
-      },
-      {
-        href: "/proiecte",
-        label: "Proiecte",
-        icon: "projects",
-        description: "Șantierele, cu stadiul lor și cu bugetul lor",
+        description: "Clienți, leaduri și proiecte",
+        activeFor: CRM_SCREENS.map((s) => s.href),
       },
     ],
   },
@@ -126,15 +151,21 @@ export const NAV: NavGroup[] = [
   },
 ];
 
+/** Fiecare ecran cu nume: intrarile din meniu, apoi cele deschise prin CRM. */
+const SCREENS: NavItem[] = [...NAV.flatMap((g) => g.items), ...CRM_SCREENS];
+
 /** Lista plata a rutelor, folosita de verificarea din RC-11. */
-export const ALL_ROUTES: string[] = NAV.flatMap((g) => g.items.map((i) => i.href));
+export const ALL_ROUTES: string[] = SCREENS.map((i) => i.href);
+
+/** Daca adresa curenta este ecranul de la `href` sau o ruta de sub el. */
+export function pathMatches(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 /** Eticheta ecranului curent, pentru titlul din bara de sus. */
 export function labelForPath(pathname: string): string {
-  for (const g of NAV) {
-    for (const i of g.items) {
-      if (i.href === "/" ? pathname === "/" : pathname.startsWith(i.href)) return i.label;
-    }
+  for (const i of SCREENS) {
+    if (pathMatches(pathname, i.href)) return i.label;
   }
   return "Rapid Construct";
 }
