@@ -5301,3 +5301,26 @@ right and the line really did look like residue. **RULE: run check:conflict-resi
 after `git add`, never before, because a new file does not exist for it until then.
 And when wrapping prose, never leave a word containing a dot or a slash alone on a
 line.**
+
+### A native date field orders day and month by the browser's language, and a card said there was no picker at all
+**Tag:** frontend
+**ERROR:** Card `P3-41` was authored from an owner observation that the manual intake
+form had no calendar picker and a date was "typed blind into a text box". It was
+queued and dispatched on that premise. The form has rendered both of its date fields as
+`<input type="date">` since `P2-04`, so the requested case would have passed on the
+unchanged code and could not be proved to fail first. Checking what the owner might
+actually have seen found a real defect of a different shape: the native control orders
+day and month by the BROWSER'S UI language, not by the page. In Chromium with a
+Playwright context `locale: "ro-RO"` and `lang="ro"` on the page, the default launch
+displayed `01/12/2026` for the keystrokes `01122026` and stored `2026-01-12`, 12
+January; the same page launched with `--lang=ro-RO` displayed `01.12.2026` and stored
+`2026-12-01`. Nothing on the form spells out which day was chosen.
+**SOLUTION:** The card was set `blocked` with the disproving output pasted into its
+question and a recommended re-scope (spell the chosen date out in Romanian beside the
+field), rather than built on a guess. The same native control is on `ClientForm`,
+`LeaduriForm`, `ProjectForm` and `ExtractionReviewPanel`; that is recorded here and
+was not added to the card. **RULE: a Playwright `locale` and the page's `lang` do not
+set the segment order of a native date input, so a case that asserts Romanian order on
+one proves the CI browser's language, not the operator's. Assert rendered text the
+application writes itself. And check the premise of a card authored from an
+observation before writing its red-first case.**
