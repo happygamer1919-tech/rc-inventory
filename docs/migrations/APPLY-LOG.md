@@ -1833,3 +1833,60 @@ merge. What was proved before the merge is in the pull request's `quality` run:
 `0039_client_stage.sql`; `check:no-destructive-migration` parses both files. **No
 `check:migrations` ran on the machine that authored these files**, because it has
 no Docker; the run in `quality` is the only one.
+
+## 0040_client_leaduri.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER
+
+**Actor:** **the Supabase GitHub app, on the merge of the P3-45 pull request (#279)
+from branch `card/p3-45` to `main`.** No terminal runs it, and none may: CLAUDE.md
+8.0 and ruling R-124 record that merging a migration file is what applies it here.
+
+**Applied at:** the merge of #279, within about two minutes of it. Card P3-45 carries
+`green_self_merge` with no owner-approval carve-out, so the merge follows green
+`quality` on the head sha.
+
+**The state it lands on, observed before this entry was written, by a read-only GET
+on a public route:**
+
+    GET https://app.rapidconstruct.md/api/health
+    {"commit":"682f70dde8fcc75d1da9ff1f34cec7da2349ebde","ledger_version":"0039","at":"2026-09-13T17:59:22.699Z"}
+
+That is also the observation the `0038` and `0039` entries above said nobody had
+made yet: both are live, on the merge commit of P3-43's pull request (#278).
+
+**What it creates:**
+
+    type      public.client_source                recomandare, telefon, site, vizita, altul
+    column    public.clients.source               client_source, nullable, no default
+    column    public.clients.interest             text, nullable
+    column    public.clients.owner_id             uuid, nullable, references auth.users on delete set null
+    index     clients_owner_id_idx
+    function  public.set_client_stage(uuid, public.client_stage, date, boolean)
+    function  public.match_clients(text, text, text)
+    function  public.search_clients_by_stage(text, text, text, text, text, integer, integer)
+    function  public.client_stage_counts(text, text, text)
+
+**And it replaces the body of one existing function, keeping its signature:**
+`public.set_client_stage(uuid, public.client_stage, date)` from `0039` now delegates
+to the four-parameter form with `p_first` false, so one body writes `clients.stage`.
+Its behaviour is unchanged, and the `0039` assertions and every P3-43 end to end case
+run against it after this file. The fourth parameter has no default, so a
+three-argument call cannot be ambiguous between the two forms.
+
+**`public.search_clients` from `0020` is kept, unchanged.** The application calls it
+until `hasClientLeaduri` sees this file, which is the two minute window 8.0
+describes.
+
+**WHAT HAPPENS TO THE ROWS ALREADY IN `public.clients`:** the three new columns are
+null on every one of them. **No UPDATE runs, no row is removed, and no existing
+column changes value.**
+
+**Proof that it is applied: NOT YET OBSERVED when this entry was written.** After the
+merge, the same GET should report `ledger_version` `"0040"` and the merge commit.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, as for every file applied by
+merge. What was proved before the merge is in #279's `quality` run:
+`check:migrations` applies every file unmodified to a bare `postgres:16` and runs
+`scripts/poc-free/local-db/assertions/0040_client_leaduri.sql` with every other
+assertion file; `check:no-destructive-migration` parses the file. **No
+`check:migrations` ran on the machine that authored it**, because it has no Docker;
+the run in `quality` is the only one.

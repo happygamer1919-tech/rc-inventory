@@ -114,7 +114,10 @@ async function clientCount(rest: OwnerRest): Promise<number> {
   const response = await rest.api.get("/rest/v1/clients?select=id&limit=1", {
     headers: { ...rest.headers, Prefer: "count=exact" },
   });
-  expect(response.status(), await response.text()).toBe(200);
+  // 206 SI NU 200, si nu este o eroare: PostgREST raspunde "Partial Content" cand
+  // intervalul intors nu acopera tot numarul cerut cu count=exact, adica exact
+  // cazul unui limit=1. Rularea rosie 34772991914 a cazut aici pe un 206.
+  expect([200, 206], await response.text()).toContain(response.status());
   const range = response.headers()["content-range"] ?? "";
   const total = Number(range.split("/")[1]);
   expect(Number.isFinite(total), `Content-Range fara total: ${range}`).toBe(true);
@@ -376,7 +379,11 @@ test.describe("Leaduri (P3-45)", () => {
     await expect(error).not.toContainText("23514");
 
     expect(await clientCount(rest)).toBe(before);
-    expect(await storedByTag(rest, name)).toHaveLength(0);
+    // Dupa denumirea EXACTA: cautarea dupa eticheta cere un sufix dupa ea si nu ar
+    // gasi niciodata un rand cu numele acesta, deci ar trece si daca s-ar fi creat.
+    expect(
+      await restGet<unknown[]>(rest, `/rest/v1/clients?select=id&name=eq.${encodeURIComponent(name)}`),
+    ).toHaveLength(0);
 
     await rest.api.dispose();
   });
@@ -648,9 +655,10 @@ test.describe("Leaduri (P3-45)", () => {
       { name: `${tag} Gama`, stage: "nurture" },
     ]);
 
-    // O parte din nume, fara majuscule.
+    // O parte din nume, fara majuscule. Numele este "TEST Cautare <rulare> Alfa",
+    // deci bucata cautata este "<rulare> alfa", in ordinea din nume.
     await page.goto(listUrl({ vedere: "leaduri" }));
-    const needle = `alfa ${RUN}`;
+    const needle = `${RUN} alfa`;
     await page.getByTestId("clients-search").fill(needle);
     await expect.poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 }).toBe(needle);
     await expect.poll(() => rowIds(page), { timeout: 20_000 }).toEqual([ids[`${tag} Alfa`]]);
@@ -663,8 +671,8 @@ test.describe("Leaduri (P3-45)", () => {
       .poll(async () => sorted(await rowIds(page)), { timeout: 20_000 })
       .toEqual(sorted([ids[`${tag} Beta`]!, ids[`${tag} Gama`]!]));
 
-    await page.getByTestId("clients-search").fill(`beta ${RUN}`);
-    await expect.poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 }).toBe(`beta ${RUN}`);
+    await page.getByTestId("clients-search").fill(`${RUN} beta`);
+    await expect.poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 }).toBe(`${RUN} beta`);
     expect(new URL(page.url()).searchParams.get("etapa")).toBe("nurture");
     await expect.poll(() => rowIds(page), { timeout: 20_000 }).toEqual([ids[`${tag} Beta`]]);
 
