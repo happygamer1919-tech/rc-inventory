@@ -301,9 +301,22 @@ export async function updateClientRecord(
   if (!checked.ok) return checked;
   const stage = validateStage(input);
   if (!stage.ok) return stage;
+  // P3-48. ACEEASI VERIFICARE CA LA CREARE, inainte de prima scriere. Fara ea,
+  // sursa, interesul si responsabilul trimise din Modifică ar fi aruncate in tacere.
+  // Un camp netrimis lipseste din valoare si ramane cum era in baza.
+  const leaduri = validateLeaduri(input);
+  if (!leaduri.ok) return leaduri;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("clients").update(checked.value).eq("id", id);
+
+  // Coloanele din 0040 se scriu numai daca exista, din acelasi motiv ca la creare.
+  const leaduriAvailable =
+    Object.keys(leaduri.value).length > 0 ? await hasClientLeaduri(supabase) : false;
+
+  const { error } = await supabase
+    .from("clients")
+    .update(leaduriAvailable ? { ...checked.value, ...leaduri.value } : checked.value)
+    .eq("id", id);
   if (error) return translateWriteError(error.code, error.message);
 
   // Dupa update-ul generic si nu inainte: cel mai des refuz, IDNO-ul duplicat,

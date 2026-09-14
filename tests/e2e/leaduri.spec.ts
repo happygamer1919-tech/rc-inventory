@@ -679,3 +679,202 @@ test.describe("Leaduri (P3-45)", () => {
     await rest.api.dispose();
   });
 });
+
+// ---------------------------------------------------------------------------
+// P3-48. Interes, Sursă si Responsabil se vad dupa creare si se pot schimba
+// ---------------------------------------------------------------------------
+//
+// CAZUL ESTE AL CARDULUI P3-48 si sta in fisierul acesta fiindca acceptanta lui
+// il cere aici: leadul se creeaza prin formularul Lead nou pe care P3-45 il
+// testeaza deja. Cazurile P3-45 de mai sus raman neatinse.
+//
+// NUMELE RESPONSABILULUI SE CITESTE DIN public.profiles, nu din scriptul de seed:
+// randul stocat este adevarul, iar regula de afisare (numele complet, altfel
+// emailul) este scrisa aici si nu importata, din motivul din antetul fisierului.
+
+/** Liniuta pe care fisa o arata deja pentru o valoare lipsa. */
+const EMPTY = "-";
+
+type StoredProfile = { id: string; full_name: string | null; email: string | null };
+
+function shownName(p: StoredProfile): string {
+  return p.full_name?.trim() || p.email?.trim() || "";
+}
+
+type StoredLeaduri = { source: string | null; interest: string | null; owner_id: string | null };
+
+async function storedLeaduri(rest: OwnerRest, id: string): Promise<StoredLeaduri> {
+  const [row] = await restGet<StoredLeaduri[]>(
+    rest,
+    `/rest/v1/clients?id=eq.${id}&select=source,interest,owner_id`,
+  );
+  expect(row, `clientul ${id} nu exista`).toBeDefined();
+  return row!;
+}
+
+/** Valoarea randului din cardul Date de identificare a carui eticheta este EXACT aceasta. */
+function detailValue(page: Page, label: string) {
+  return page
+    .getByTestId("client-detail")
+    .locator(`xpath=./div[span[1][normalize-space(.)="${label}"]]/span[2]`);
+}
+
+/** Deschide Modifică pe fisa, completeaza, salveaza si reincarca fisa. */
+async function saveThroughEdit(page: Page, id: string, fill: () => Promise<void>) {
+  await page.goto(`/clienti/${id}`);
+  await page.getByTestId("client-edit").click();
+  await expect(page.getByTestId("client-form")).toBeVisible();
+  await fill();
+  await page.getByTestId("client-submit").click();
+  await expect(page.getByTestId("client-form")).toHaveCount(0, { timeout: 20_000 });
+  await page.reload();
+  await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 20_000 });
+}
+
+/** Interesul randului in vederea Leaduri, din coloana cu antetul Interes, imediat dupa Denumire. */
+async function expectLeaduriInterest(page: Page, name: string, interest: string | null) {
+  await page.goto(listUrl({ vedere: "leaduri", q: name }));
+  const row = page.locator(`[data-testid="client-row"][data-name="${name}"]`);
+  await expect(row).toHaveCount(1, { timeout: 20_000 });
+
+  const headers = (await page.locator("thead th").allTextContents()).map((t) => t.trim());
+  expect(headers.slice(0, 2)).toEqual(["Denumire", "Interes"]);
+
+  const cell = row.locator("td").nth(1);
+  await expect(cell).toHaveText(interest ?? EMPTY);
+  // Un text lung se taie pe un rand pe ecran, iar textul intreg sta in title.
+  if (interest !== null) {
+    await expect(cell.getByTestId("row-interest")).toHaveAttribute("title", interest);
+  }
+}
+
+test.describe("Leaduri (P3-48)", () => {
+  test.describe.configure({ timeout: 180_000 });
+
+  test("P3-48: Interes, Sursă și Responsabil se văd pe fișă și în lista Leaduri și se schimbă din Modifică", async ({
+    page,
+  }) => {
+    test.setTimeout(300_000);
+    await signIn(page, ownerAccount());
+    const rest = await ownerRest();
+    const name = `TEST Vizibil ${RUN}`;
+
+    // DOI RESPONSABILI, amandoi profiluri active, deci amandoi in lista pe care
+    // formularul o ofera: administratorul si un al doilea, ca Modifică sa aiba la
+    // cine schimba.
+    const profiles = await restGet<StoredProfile[]>(
+      rest,
+      "/rest/v1/profiles?select=id,full_name,email&active=eq.true",
+    );
+    const first = profiles.find((p) => p.id === rest.userId);
+    const second = profiles.find((p) => p.id !== rest.userId && shownName(p) !== "");
+    expect(first, "profilul administratorului lipseste").toBeDefined();
+    expect(second, "P3-48 are nevoie de un al doilea profil activ").toBeDefined();
+    expect(shownName(first!)).not.toBe("");
+    expect(shownName(first!)).not.toBe(shownName(second!));
+
+    // Etichetele scrise aici, nu importate. Tokenul si eticheta difera, ca o fisa
+    // care arata tokenul brut sa nu treaca.
+    const created = {
+      source: "vizita",
+      sourceLabel: "Vizită",
+      interest: `Acoperiș din țiglă ceramică, cu jgheaburi și burlane, pentru o casă de 140 de metri pătrați ${RUN}`,
+    };
+    const changed = {
+      source: "recomandare",
+      sourceLabel: "Recomandare",
+      interest: `Fațadă ventilată ${RUN}`,
+    };
+
+    // (1) LEADUL SE CREEAZA PRIN FORMULARUL LEAD NOU, cu responsabilul ales din
+    // lista pe care formularul o ofera.
+    await openLeaduriForm(page);
+    await page.getByTestId("field-leaduri-name").fill(name);
+    await page.getByTestId("field-leaduri-source").selectOption(created.source);
+    await page.getByTestId("field-leaduri-interest").fill(created.interest);
+    const leadOwner = page.getByTestId("field-leaduri-owner");
+    await expect(leadOwner.locator(`option[value="${first!.id}"]`)).toHaveText(shownName(first!));
+    await leadOwner.selectOption(first!.id);
+    await page.getByTestId("leaduri-submit").click();
+
+    const id = await createdClientId(page);
+    expect(await storedLeaduri(rest, id)).toEqual({
+      source: created.source,
+      interest: created.interest,
+      owner_id: first!.id,
+    });
+
+    // (2) FISA: trei randuri cu etichetele exacte, sursa ca eticheta romaneasca si
+    // responsabilul ca nume. Niciodata tokenul, niciodata id-ul.
+    await page.reload();
+    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 20_000 });
+    await expect(detailValue(page, "Interes")).toHaveText(created.interest);
+    await expect(detailValue(page, "Sursă")).toHaveText(created.sourceLabel);
+    await expect(detailValue(page, "Responsabil")).toHaveText(shownName(first!));
+    await expect(page.getByTestId("client-detail")).not.toContainText(first!.id);
+
+    // (3) LISTA LEADURI: coloana Interes, imediat dupa Denumire.
+    await expectLeaduriInterest(page, name, created.interest);
+
+    // Lista fara vedere isi pastreaza cele cinci coloane: Interes este numai al
+    // vederii Leaduri.
+    await page.goto(listUrl({ q: name }));
+    await expect(page.locator(`[data-testid="client-row"][data-name="${name}"]`)).toHaveCount(1, {
+      timeout: 20_000,
+    });
+    expect((await page.locator("thead th").allTextContents()).map((t) => t.trim())).toEqual([
+      "Denumire",
+      "Tip",
+      "Telefon",
+      "Proiecte active",
+      "Stare",
+    ]);
+
+    // (4) MODIFICĂ SCHIMBA TOATE TREI, iar valorile noi se citesc dupa reincarcare,
+    // pe fisa, in lista si in randul stocat.
+    await saveThroughEdit(page, id, async () => {
+      await page.getByTestId("field-client-source").selectOption(changed.source);
+      await page.getByTestId("field-client-interest").fill(changed.interest);
+      await page.getByTestId("field-client-owner").selectOption(second!.id);
+    });
+    await expect(detailValue(page, "Interes")).toHaveText(changed.interest);
+    await expect(detailValue(page, "Sursă")).toHaveText(changed.sourceLabel);
+    await expect(detailValue(page, "Responsabil")).toHaveText(shownName(second!));
+    expect(await storedLeaduri(rest, id)).toEqual({
+      source: changed.source,
+      interest: changed.interest,
+      owner_id: second!.id,
+    });
+    await expectLeaduriInterest(page, name, changed.interest);
+
+    // O modificare fara legatura cu cele trei nu le atinge.
+    await saveThroughEdit(page, id, async () => {
+      await page.getByTestId("field-client-notes").fill(`Notă P3-48 ${RUN}`);
+    });
+    expect(await storedLeaduri(rest, id)).toEqual({
+      source: changed.source,
+      interest: changed.interest,
+      owner_id: second!.id,
+    });
+
+    // (5) INTERES GOL SI RESPONSABIL NEALOCAT se stocheaza null si se arata ca
+    // liniuta. Sursa, neatinsa, ramane.
+    await saveThroughEdit(page, id, async () => {
+      await page.getByTestId("field-client-interest").fill("");
+      const owner = page.getByTestId("field-client-owner");
+      await expect(owner.locator('option[value=""]')).toHaveText("Nealocat");
+      await owner.selectOption("");
+    });
+    await expect(detailValue(page, "Interes")).toHaveText(EMPTY);
+    await expect(detailValue(page, "Responsabil")).toHaveText(EMPTY);
+    await expect(detailValue(page, "Sursă")).toHaveText(changed.sourceLabel);
+    expect(await storedLeaduri(rest, id)).toEqual({
+      source: changed.source,
+      interest: null,
+      owner_id: null,
+    });
+    await expectLeaduriInterest(page, name, null);
+
+    await rest.api.dispose();
+  });
+});

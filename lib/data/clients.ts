@@ -18,6 +18,7 @@ import { hasClientLeaduri, hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
   CLIENT_STAGES,
+  isClientSource,
   isClientStage,
   isClientType,
   isClientView,
@@ -120,7 +121,8 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
     p_offset: (query.page - 1) * CLIENTS_PAGE_SIZE,
   };
 
-  const { data, error } = (await hasClientLeaduri(supabase))
+  const withLeaduri = await hasClientLeaduri(supabase);
+  const { data, error } = withLeaduri
     ? await supabase.rpc("search_clients_by_stage", {
         ...common,
         p_view: query.view === "" ? null : query.view,
@@ -131,6 +133,22 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
   if (error) throw new Error(`Nu s-au putut citi clienții: ${error.message}`);
 
   const rows = (data ?? []) as SearchRow[];
+
+  // P3-48. INTERESUL SE CITESTE PENTRU RANDURILE PAGINII, printr-un select simplu
+  // pe aceleasi id-uri, si numai in vederea Leaduri, singura care il arata.
+  // search_clients_by_stage nu il intoarce, iar schimbarea functiei ar fi o
+  // migratie, pe care cardul nu o are. Cel mult o pagina de id-uri, o cerere.
+  const interestById = new Map<string, string | null>();
+  if (withLeaduri && query.view === "leaduri" && rows.length > 0) {
+    const { data: extra, error: extraError } = await supabase
+      .from("clients")
+      .select("id, interest")
+      .in("id", rows.map((r) => r.id));
+    if (extraError) throw new Error(`Nu s-au putut citi clienții: ${extraError.message}`);
+    for (const r of (extra ?? []) as { id: string; interest: string | null }[]) {
+      interestById.set(r.id, r.interest);
+    }
+  }
 
   // ZERO RANDURI INSEAMNA ZERO IN TOTAL PENTRU FILTRELE ACESTEA, si nu "nu stiu".
   // Totalul vine dintr-o functie de fereastra peste multimea filtrata, deci
@@ -148,6 +166,7 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
       stage: isClientStage(r.stage) ? r.stage : null,
       followUpDate: r.follow_up_date ?? null,
       overdue: r.overdue === true,
+      interest: interestById.get(r.id) ?? null,
     })),
     total,
     page: query.page,
@@ -200,8 +219,14 @@ export async function listClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
   if (error || !data) return [];
 
   return (data as { id: string; full_name: string | null; email: string | null }[])
-    .map((p) => ({ id: p.id, fullName: p.full_name?.trim() || p.email?.trim() || "Fără nume" }))
+    .map((p) => ({ id: p.id, fullName: ownerDisplayName(p) }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ro"));
+}
+
+/** P3-48. Cum se arata un responsabil, o singura data: numele complet, altfel
+ *  emailul. Lista de responsabili si fisa clientului il citesc amandoua de aici. */
+function ownerDisplayName(p: { full_name: string | null; email: string | null }): string {
+  return p.full_name?.trim() || p.email?.trim() || "Fără nume";
 }
 
 const CLIENT_COLUMNS = "id, name, type, fiscal_code, address, phone, email, notes, active, created_at";
@@ -216,12 +241,33 @@ export async function getClient(id: string): Promise<ClientDetail | null> {
   // filtrul de client de pe /comenzi un filtru care dispare. Poarta intreaba
   // intai, pe aceeasi legatura.
   const withStage = await hasClientStage(supabase);
-  const columns: string = withStage ? `${CLIENT_COLUMNS}, stage, follow_up_date` : CLIENT_COLUMNS;
+  // P3-48. Sursa, interesul si responsabilul, din 0040, sub poarta lor, din acelasi
+  // motiv: un select care le numeste pe o baza fara ele ar face fisa un 404.
+  const withLeaduri = await hasClientLeaduri(supabase);
+  let columns: string = withStage ? `${CLIENT_COLUMNS}, stage, follow_up_date` : CLIENT_COLUMNS;
+  if (withLeaduri) columns = `${columns}, source, interest, owner_id`;
 
   const { data } = await supabase.from("clients").select(columns).eq("id", id).maybeSingle();
 
   if (!data) return null;
   const row = data as unknown as Record<string, unknown>;
+
+  // P3-48. RESPONSABILUL SE ARATA CA NUME, NICIODATA CA ID. Se citeste profilul
+  // acestui responsabil si nu lista de responsabili: lista are numai profilurile
+  // active, iar un om dezactivat ramane responsabilul clientilor lui. Pentru un
+  // manager de cont, profiles_select din 0001 nu arata profilul altcuiva, deci
+  // numele ramane null si ecranul spune asta in cuvinte.
+  const ownerId = withLeaduri ? ((row.owner_id as string | null) ?? null) : null;
+  let ownerName: string | null = null;
+  if (ownerId) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", ownerId)
+      .maybeSingle();
+    if (profile) ownerName = ownerDisplayName(profile as { full_name: string | null; email: string | null });
+  }
+
   return {
     id: row.id as string,
     name: row.name as string,
@@ -235,5 +281,10 @@ export async function getClient(id: string): Promise<ClientDetail | null> {
     createdAt: row.created_at as string,
     stage: withStage && isClientStage(row.stage) ? row.stage : null,
     followUpDate: withStage ? ((row.follow_up_date as string | null) ?? null) : null,
+    leaduriAvailable: withLeaduri,
+    source: withLeaduri && isClientSource(row.source) ? row.source : null,
+    interest: withLeaduri ? ((row.interest as string | null) ?? null) : null,
+    ownerId,
+    ownerName,
   };
 }
