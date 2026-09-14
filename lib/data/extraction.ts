@@ -14,7 +14,7 @@ import "server-only";
 // mai e nimic de confirmat, si a o oferi spre confirmare ar produce un duplicat.
 
 import { createClient } from "@/lib/supabase/server";
-import { inBatches } from "./id-list";
+import { inBatches, readAllPages } from "./id-list";
 import { isDocumentSource } from "./extraction-types";
 import { hasExtractionDocumentSource, hasSupplierDocumentRef } from "./schema-capability";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
@@ -151,23 +151,40 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   // exprima jonctiunea singur. Un lot ar fi fost o marime aleasa, iar o marime
   // aleasa este un prag pe care cineva il intalneste din nou. Aici nu mai exista
   // niciun prag de intalnit.
-  const { data: drafts, error: draftsError } = await supabase
-    .from("extraction_drafts")
-    .select(`${draftColumns}, extraction_draft_lines(${LINE_COLUMNS})`)
-    // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
-    // catre comanda poarta on delete set null, deci poate redeveni null, iar o
-    // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
-    // confirmed_at nu il scrie nimic altceva decat o confirmare.
-    .is("confirmed_at", null)
-    .order("fired_at", { ascending: false, nullsFirst: false });
-
-  // P3-38. EROAREA SE CITESTE. O citire cazuta este un ESEC VIZIBIL, nu o lista
-  // goala: acesta este defectul, iar lungimea adresei a fost doar declansatorul.
-  if (draftsError) {
-    throw new Error(`Nu s-au putut citi ciornele de extragere: ${draftsError.message}`);
-  }
-
-  const rows = (drafts ?? []) as unknown as Record<string, unknown>[];
+  //
+  // P3-39. PAGINI CITITE PANA LA CAPAT, CU TOTALUL CERUT IN ACEEASI CERERE.
+  //
+  // Pana la P3-39 citirea nu avea nici interval, nici numar. PostgREST taie orice
+  // lista la limita lui de randuri fara sa spuna, iar ordinea de mai jos punea
+  // taietura pe coada: documentele care asteptau de cel mai mult timp dispareau
+  // de pe ecran, si un raspuns taiat era, pentru fiecare linie de dedesubt,
+  // aceeasi valoare ca unul intreg. readAllPages, in id-list.ts, cere totalul pe
+  // fiecare pagina si refuza un raspuns scurt. Liniile imbricate nu sunt atinse:
+  // limita le taie per ciorna, nu peste tot raspunsul (masurat la P3-38).
+  //
+  // order_id DUPA fired_at, fiindca paginile se leaga prin pozitie. Doua ciorne
+  // cu acelasi fired_at, sau amandoua fara el, nu au altfel o ordine stabila, si
+  // una s-ar putea vedea de doua ori iar alta niciodata.
+  //
+  // P3-38. EROAREA SE CITESTE, acum inauntrul lui readAllPages. O citire cazuta
+  // este un ESEC VIZIBIL, nu o lista goala.
+  const rows = await readAllPages<Record<string, unknown>>(
+    "ciornele de extragere",
+    async (from, to) => {
+      const { data, count, error } = await supabase
+        .from("extraction_drafts")
+        .select(`${draftColumns}, extraction_draft_lines(${LINE_COLUMNS})`, { count: "exact" })
+        // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
+        // catre comanda poarta on delete set null, deci poate redeveni null, iar o
+        // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
+        // confirmed_at nu il scrie nimic altceva decat o confirmare.
+        .is("confirmed_at", null)
+        .order("fired_at", { ascending: false, nullsFirst: false })
+        .order("order_id", { ascending: true })
+        .range(from, to);
+      return { data: data as unknown as Record<string, unknown>[] | null, count, error };
+    },
+  );
   if (rows.length === 0) return [];
 
   // Ciornele din cealalta lane, unde comanda exista deja. Vezi antetul.
