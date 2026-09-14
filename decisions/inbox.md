@@ -12990,6 +12990,14 @@ it belongs with `EXT-25`**, which already owes Andre a message.
 re-runs the scenario on retry, then **automatic retry is refused**, and a `5xx`
 from us becomes **a notified manual resend** rather than an automatic one.
 
+**NARROWED, 2026-09-14, BY RULING R-196. THE PARAGRAPH ABOVE IS KEPT AS WRITTEN.**
+The counterparty's callback delivery and its retries now run in a separate,
+permanently active scenario that does not extract. A retry of a DELIVERY therefore
+resends a payload already computed, which is the retry this section's rule permits,
+and the condition above no longer describes it. The condition still binds any
+re-run of the extracting scenario itself. Nothing else in this ruling changes; see
+R-196 for what is and is not narrowed, and for the reading of "held-retry".
+
 **THE REASON, AND IT IS MEASURED RATHER THAN FEARED: seven extractions of one
 file returned seven distinct unit prices on one line.** A re-run retry therefore
 delivers **a different document under the identity of the first**. `order_id` is
@@ -13186,6 +13194,99 @@ amended either; its escalation is answered here and its security position stands
 as written.
 
 ---
+
+### R-196 - The counterparty's callback delivery and its retries run in their own permanently active scenario, which narrows R-194(b); and what `_meta.model` and `prompt_version` carry on the two failure paths
+
+**Date:** 2026-09-14
+**Asked on:** EXT-28 (the ORANGE dispatch of 2026-09-14, step 4)
+**Answer, verbatim:**
+> STEP 4 - RECORD.
+>   the counterparty's callback delivery and its retries now live in a separate,
+>   permanently active scenario. This narrows the held-retry warning recorded in
+>   R-194. Quote the superseded text, mark it narrowed, name this ruling. Do not
+>   delete.
+>   record that _meta.model will carry the configured model as a literal on both
+>   failure paths, and that prompt_version is dated on a model refusal and null
+>   when the model was never called.
+
+**Ruling: both are recorded as the counterparty's stated position. Neither is
+observable from this repository, and this ruling says so rather than presenting
+either as measured.** Nothing here observes the counterparty's scenarios, which is
+the same limit R-193's first instance recorded.
+
+#### (a) DELIVERY IS SEPARATED FROM EXTRACTION, AND R-194(b) IS NARROWED, NOT WITHDRAWN
+
+**What changed on the counterparty's side:** the delivery of a result to our
+callback, and every retry of that delivery, run in a scenario of their own that is
+permanently active and does not extract.
+
+**The superseded text, R-194(b), quoted and left in place:**
+
+> **THE CONDITION, AND IT IS THE COUNTERPARTY'S TO CONFIRM.** *If* their platform
+> re-runs the scenario on retry, then **automatic retry is refused**, and a `5xx`
+> from us becomes **a notified manual resend** rather than an automatic one.
+
+**WHAT "NARROWED" MEANS HERE.** A retry of a delivery now runs in a scenario that
+does not extract, so it can only resend a payload that was already computed. That
+is exactly the retry R-194(b)'s rule permits: *"A retry resends a result that was
+already computed."* So the condition R-194(b) guarded against, a retry that re-runs
+the extraction, **no longer describes a retry of a callback delivery**, and for that
+case the refusal of automatic retry falls away.
+
+**WHAT IT STILL COVERS.** Any re-run of the EXTRACTING scenario itself is still a
+second extraction under the first one's identity, and the measurement behind
+R-194(b), seven extractions of one file returning seven distinct unit prices on one
+line, still binds that case. The rule sentence of R-194(b) is unchanged.
+
+**WHAT IT DOES NOT TOUCH.** R-194(a), transport failures that leave no record, is
+not narrowed by this dispatch: whether the delivery scenario's retries now catch a
+DNS failure, a refused connection or a timeout against our host is not stated, and
+it is not inferred here. R-194(c), the TTL position, is untouched.
+
+**ONE WORD IN THE DISPATCH MATCHES NOTHING, AND THE READING IS NAMED.** The dispatch
+calls it "the held-retry warning". The word "held" does not occur in R-194. This
+ruling reads the phrase as R-194(b), the only part of R-194 about retries, and says
+so, so that a different intended target is visible rather than silently missed.
+
+The same narrowing note is written into R-194(b) itself and into contract section
+5.4b, each quoting what it narrows. Section 6's `5xx -> retry` row stands.
+
+#### (b) `_meta.model` AND `prompt_version` ON THE TWO FAILURE PATHS
+
+**Recorded as given:** on both failure paths `_meta.model` carries the configured
+model as a literal. `prompt_version` is **dated** on a model refusal and **`null`**
+when the model was never called.
+
+**WHAT THAT MEANS FOR A READER OF A STORED DRAFT.** `_meta.model` on a failed draft
+is **not** evidence that the model ran, because it is present either way.
+`prompt_version` **is**: dated means the model was called and refused; `null` means
+it was never called.
+
+**WHAT OUR SIDE DOES WITH EITHER, READ FROM SOURCE ON 2026-09-14: NOTHING.**
+`app/api/extraction/callback/route.ts` stores `_meta` verbatim into
+`extraction_drafts.meta`, and the only key ever read out of it is `page_count`.
+Neither `model` nor `prompt_version` is parsed, validated, constrained or shown
+anywhere in `lib/`, `app/` or `components/`; the only readers are end-to-end cases
+that assert the stored value. A `null` `prompt_version` is therefore accepted and
+changes nothing. Contract section 4.3 said `prompt_version` is `string`; it now says
+`string or null` and names this ruling.
+
+**A TENSION, FLAGGED AND NOT RESOLVED.** Contract section 4.1a says a scan-sourced
+`failed` payload is sixteen fields "and nothing else", and `_meta` is not one of
+them. If either failure path is that shape, `_meta` on it contradicts 4.1a as
+written. The route would accept it, because on that shape it refuses only a `lines`
+key, and it would store `_meta` verbatim and read `page_count` from it. This ruling
+does not amend 4.1a; which record binds is the owner's call, as it was for R-191.
+
+#### THE ROLE DEVIATION IS NAMED HERE RATHER THAN ONLY IN A REPORT
+
+**An EXECUTOR wrote this ruling, and writing rulings is POC's work under CLAUDE.md
+section 1.** It was instructed. This is the sixth consecutive session in which it
+happens, and R-195 recorded the fifth.
+
+**Unblocks:** nothing.
+**Supersedes:** none. R-194(b) is NARROWED in place, with the narrowed text quoted
+beside the note and its rule sentence untouched.
 
 ### R-197 - A digital partial with no error_code and at least one line is valid and carries our reconciliation code, the two alternatives are rejected with their reasons, and a failure path's `_meta.model` names the configured model and never a snapshot
 

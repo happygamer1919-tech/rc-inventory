@@ -60,13 +60,17 @@ const server = createServer(async (req, res) => {
       // Antetul secret se raporteaza ca PREZENT SAU NU, niciodata ca valoare.
       // Un fisier de raport nu are ce face cu un secret, nici cu unul fals.
       hasSecretHeader: typeof req.headers["x-rc-secret"] === "string",
-      // Cheile primite, ca testul sa poata verifica "exact sase campuri si
+      // Cheile primite, ca testul sa poata verifica "exact sapte campuri si
       // nimic altceva" fara ca serverul sa pastreze URL-ul semnat.
       keys: body && typeof body === "object" ? Object.keys(body).sort() : [],
       orderId: body?.order_id ?? null,
       documentFilename: body?.document_filename ?? null,
       mimeType: body?.mime_type ?? null,
       sizeBytes: body?.size_bytes ?? null,
+      // EXT-28. Tipul, nu doar valoarea: garda celeilalte parti citeste
+      // size_bytes ca numar, iar un sir "1024" ar trece de un `?? null`.
+      sizeBytesType: body && typeof body === "object" ? typeof body.size_bytes : "absent",
+      pageCount: body?.page_count ?? null,
       hasDocumentUrl: typeof body?.document_url === "string" && body.document_url.length > 0,
       // EXT-30. Originea si prefixul caii legaturii, NICIODATA legatura: jetonul
       // ramane in afara oricarui raport. Asa testul verifica pe ce gazda si prin

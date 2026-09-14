@@ -5414,6 +5414,24 @@ pushed, and the implementation restored with `git checkout <implementation sha> 
 RULE: **a red arm is only a red arm once its run reaches the step its case lives in, and
 every step in front of that step runs locally first, including the ones no list names.**
 
+### A synthetic fixture the code passes is not proof the fixture is the shape you meant
+**Tag:** ci
+**ERROR:** EXT-28's check builds PDFs in memory to prove the page counter on shapes no
+committed file has. The case for the 2026-09-12 probe's failure, a root `/Count` hidden in
+a compressed object stream with the subtree counts visible in plain text, was built with
+`packIntermediates: false`, and the counter answered 7, the right number. The case looked
+green. It was not the shape: the builder wrote the plain objects from a list of PAGES, so
+the two intermediate `/Pages` nodes were never written at all. The counter passed because
+it reads the root's `/Count` and never walks the tree, so a file with no subtrees answers
+the same as a file with them. Only the witness assertion beside it, "the largest visible
+`/Count` is 4", failed, answering null, because there was no visible `/Count` to find.
+**SOLUTION:** the builder writes every object that is not packed, and every built shape was
+opened with `pdfinfo` before the check was trusted: 3, 5, 7, 7, 4, 99 and 100 pages, all
+agreeing. RULE: **when a fixture is built by code, prove the fixture with the ground-truth
+tool as well as the code under test with the fixture; and give each such case a witness
+that asserts the property that makes it hard, because the answer alone cannot tell the
+hard shape from an easy one.**
+
 ### A migration number held by another open branch is invisible to every id check
 **Tag:** data
 **ERROR:** P3-15's task named `0042` as the next free migration number, read off

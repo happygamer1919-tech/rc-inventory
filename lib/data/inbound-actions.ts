@@ -15,6 +15,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
+import { countPages } from "./page-count.mjs";
 import { one, safeFileName } from "./row";
 // Un fisier "use server" are voie sa exporte NUMAI functii async, deci
 // constantele si tipurile stau in ./inbound-types si se importa de acolo.
@@ -200,12 +201,17 @@ export async function uploadOrderDocument(
   // NU poate rasturna incarcarea, care s-a scris deja, si nici nu poate face
   // actiunea sa para esuata: motivul unui esec ajunge pe randul de ciorna si se
   // vede pe ecran la P2-09. Aceeasi regula ca la mementouri.
+  //
+  // EXT-28. Paginile se numara si aici, din acelasi motiv ca la startExtraction:
+  // aceasta este a treia cale care trimite, iar refuzul de la 100 de pagini si
+  // campul din webhook trebuie sa o acopere si pe ea.
   await fireExtraction({
     orderId,
     documentPath: path,
     documentFilename: file.name,
     mimeType: file.type,
     sizeBytes: file.size,
+    pageCount: countPages(await file.arrayBuffer(), file.type),
   });
 
   revalidatePath("/comenzi");

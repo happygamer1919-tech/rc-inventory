@@ -23,6 +23,7 @@
     "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs",
     "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
     "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs",
+    "check:page-count": "node scripts/poc-free/check-page-count.mjs",
     "check:reconciliation": "node scripts/poc-free/check-reconciliation.mjs",
     "check:no-destructive-migration": "node scripts/poc-free/check-no-destructive-migration.mjs",
     "prove:no-destructive-migration": "node scripts/poc-free/prove-no-destructive-migration.mjs",
