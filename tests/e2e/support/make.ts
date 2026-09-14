@@ -40,6 +40,10 @@ export type FiredRequest = {
   /** EXT-28. Tipul JSON al lui size_bytes, asa cum a sosit. */
   sizeBytesType: string;
   hasDocumentUrl: boolean;
+  /** EXT-30. Originea legaturii catre document, fara cale si fara jeton. */
+  documentUrlOrigin: string | null;
+  /** EXT-30. Legatura trece prin /api/documents/, adica prin ruta noastra. */
+  documentUrlViaRoute: boolean;
   callbackUrl: string | null;
 };
 

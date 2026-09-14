@@ -14,8 +14,18 @@ other side as the same event.
 ## 1. The URL
 
 ```
-https://www.rapidconstructmd.com/api/documents/<bucket>/<object path>?token=<jwt>
+https://app.rapidconstruct.md/api/documents/<bucket>/<object path>?token=<jwt>
 ```
+
+**The host is `app.rapidconstruct.md`, where the application is served. Card
+EXT-30, 2026-09-14.** The origin comes from `NEXT_PUBLIC_SITE_URL` and nothing
+else: when that variable is missing or is not a bare `http(s)` origin, no document
+is sent, and the draft records why. **Until EXT-30 this block showed
+`https://www.rapidconstructmd.com`**, which was also the application's silent
+fallback origin. That host is Rapid Construct's marketing site, served by GitHub
+Pages, and it answered `404` with an HTML page for this route on 2026-09-12.
+`scripts/poc-free/check-document-url-contract.mjs` now refuses the build if this
+block, the deployed-commit guard and the sample script name different hosts.
 
 Same bucket, same object path, same token and same TTL as the Supabase signed
 URL it is built from. Only the origin and the path prefix differ:

@@ -69,7 +69,7 @@ duplicate draft order that a human has to notice and delete.
   "mime_type": "application/pdf",
   "page_count": 2,
   "size_bytes": 184320,
-  "callback_url": "https://www.rapidconstructmd.com/api/extraction/callback"
+  "callback_url": "https://app.rapidconstruct.md/api/extraction/callback"
 }
 ```
 

@@ -25,6 +25,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { DOCS_BUCKET } from "./inbound-types";
 import { toDocumentUrl } from "./document-url";
+import { resolveSiteOrigin } from "./site-origin.mjs";
 // EXT-12. UN SINGUR IZVOR PENTRU FIECARE CEAS DE PE CALEA DE EXTRAGERE. Un timp
 // care exista in doua fisiere este un timp care va ajunge sa nu fie de acord cu
 // el insusi.
@@ -59,18 +60,20 @@ function webhookUrl(): string | null {
   return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
 }
 
-/** Originea noastra publica. Aceeasi pentru callback si pentru document. */
-function siteOrigin(): string {
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
-  return typeof site === "string" && site.trim().length > 0
-    ? site.trim().replace(/\/+$/, "")
-    : "https://www.rapidconstructmd.com";
+/** Originea noastra publica. Aceeasi pentru callback si pentru document.
+ *
+ *  EXT-30. FARA ADRESA DE REZERVA. Pana la acest card o variabila lipsa cadea pe
+ *  "https://www.rapidconstructmd.com", care serveste site-ul altcuiva; textul
+ *  vechi este citat in lib/data/site-origin.mjs. Acum null, iar fireExtraction
+ *  refuza trimiterea si scrie motivul pe ciorna. */
+function siteOrigin(): string | null {
+  return resolveSiteOrigin(process.env.NEXT_PUBLIC_SITE_URL);
 }
 
-function callbackUrl(): string {
+function callbackUrl(origin: string): string {
   const raw = process.env.RC_CALLBACK_URL;
   if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
-  return `${siteOrigin()}/api/extraction/callback`;
+  return `${origin}/api/extraction/callback`;
 }
 
 /**
@@ -186,7 +189,27 @@ export async function fireExtraction(input: {
     // documente de proba si fals pentru fiecare document real, ceea ce este mai
     // rau decat sa nu existe: cealalta parte l-ar programa si ar cadea in
     // productie.
-    const documentUrl = toDocumentUrl(signed.signedUrl, siteOrigin());
+    // EXT-30. FARA ORIGINE NU PLEACA NIMIC, SI SE SPUNE DE CE.
+    //
+    // Refuzul sta DUPA scrierea ciornei, deliberat: randul exista deja, deci
+    // apelantul il marcheaza failed cu motivul de mai jos si documentul apare pe
+    // ecran ca esuat, cu variabila numita. Un refuz inaintea scrierii nu ar lasa
+    // nicaieri nicio urma. Aceeasi origine face si adresa de callback, deci o
+    // valoare lipsa nu mai poate trimite nici legatura, nici raspunsul catre alta
+    // gazda.
+    const origin = siteOrigin();
+    if (origin === null) {
+      console.error(
+        "[extragere] NEXT_PUBLIC_SITE_URL lipseste sau nu este o origine http(s). Documentul nu a fost trimis.",
+      );
+      return {
+        ok: false,
+        reason:
+          "Variabila de mediu NEXT_PUBLIC_SITE_URL lipseste sau nu este o adresa valida. Documentul nu a fost trimis.",
+      };
+    }
+
+    const documentUrl = toDocumentUrl(signed.signedUrl, origin);
     if (documentUrl === null) {
       return {
         ok: false,
@@ -223,7 +246,7 @@ export async function fireExtraction(input: {
           // niciodata zero. Cealalta parte refuza pe el inainte sa descarce.
           page_count: input.pageCount,
           size_bytes: input.sizeBytes,
-          callback_url: callbackUrl(),
+          callback_url: callbackUrl(origin),
         }),
         signal: controller.signal,
       });
