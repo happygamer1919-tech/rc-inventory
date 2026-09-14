@@ -131,7 +131,7 @@ Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 |---|---|---|---|
 | `order_id` | uuid | no | Echoed from the fire. The idempotency key. |
 | `status` | enum | no | `extracted`, `partial`, `failed`. Section 5. |
-| `error_code` | enum or null | yes | Required when `status` is `failed`, optional when `partial`, null when `extracted`. Fixed set, section 5.2. |
+| `error_code` | enum or null | yes | Non-null when `status` is `failed` or `partial`. Fixed set, section 5.2. |
 | `reason` | string or null | yes | Free text, human-readable, shown to the operator. Never parsed by us. |
 | `supplier_name` | string or null | yes | As the document names it. |
 | `order_date` | date or null | yes | **The document's own date, not the delivery date.** See section 8.2. |
@@ -706,17 +706,8 @@ unreadable one is nine lines of typing the operator does not have to redo.
 
 ### 5.2 `error_code`, fixed set
 
-**Required on `failed`, optional on `partial`, forbidden on `extracted`.** Any
-value outside this set is a rejected payload, `400`, and so is a `failed` that
-carries none.
-
-**This sentence read "Non-null whenever `status` is `failed` or `partial`" until
-2026-09-14**, corrected by card P3-29a with migration `0041`. A `partial` is a
-success-shaped response: the document was read, something in it did not
-reconcile, and `reason` describes the delta. Demanding a code for it forced the
-sender to invent one that describes nothing real, so every `partial` without a
-code was a `400`. A `failed` still carries its code: a failure that omits the
-reason for its own failure is refused, by the route and by the database.
+Non-null whenever `status` is `failed` or `partial`. Any value outside this set
+is a rejected payload, `400`.
 
 | code | meaning |
 |---|---|

@@ -131,24 +131,11 @@ export async function POST(request: Request) {
   if (errorCodeRaw !== null && !isExtractionErrorCode(errorCodeRaw)) {
     return NextResponse.json({ error: "error_code in afara multimii" }, { status: CALLBACK_CODES.rejected });
   }
-  // Contractul, sectiunea 5.2: error_code este OBLIGATORIU pe failed, OPTIONAL pe
-  // partial si INTERZIS pe extracted. Aceeasi regula este constrangerea
-  // extraction_drafts_error_code_matches_status, pusa de 0008 si inlocuita de
-  // 0041; verificata aici ca sa raspundem 400 in loc de 500.
-  //
-  // P3-29a. PANA LA ACEST CARD CONDITIA DE MAI JOS ERA
-  // `status === "failed" || status === "partial"`, si fiecare partial fara cod
-  // primea 400. Un partial este un raspuns cu forma de succes: documentul a fost
-  // citit, ceva din el nu s-a potrivit, iar diferenta este descrisa in `reason`.
-  // A cere un cod pentru el il obliga pe expeditor sa inventeze unul.
-  //
-  // RUTA SI CONSTRANGEREA SE MUTA IMPREUNA. Numai ruta ar schimba un 400 intr-un
-  // 500 la scriere, iar Make reincearca un 5xx. In minutele dintre desfasurarea
-  // codului si aplicarea lui 0041, un partial fara cod primeste exact acel 500,
-  // cu nimic scris (update-ul este prima scriere si el este refuzat), iar
-  // reincercarea lui Make trece dupa ce 0041 ajunge.
-  if (status === "failed" && errorCodeRaw === null) {
-    return NextResponse.json({ error: "error_code obligatoriu la failed" }, { status: CALLBACK_CODES.rejected });
+  // Contractul: error_code este non-null exact cand statusul este failed sau
+  // partial. Aceeasi regula este si o constrangere in migratia 0008; verificata
+  // aici ca sa raspundem 400 in loc de 500.
+  if ((status === "failed" || status === "partial") && errorCodeRaw === null) {
+    return NextResponse.json({ error: "error_code obligatoriu la failed si partial" }, { status: CALLBACK_CODES.rejected });
   }
   if (status === "extracted" && errorCodeRaw !== null) {
     return NextResponse.json({ error: "error_code interzis la extracted" }, { status: CALLBACK_CODES.rejected });
@@ -402,16 +389,6 @@ export async function POST(request: Request) {
   // nu se intalneau. O precedenta care exista ca efect secundar al unei reguli
   // vecine se inverseaza in ziua in care regula vecina se schimba, fara ca
   // nimeni sa fi decis asta. Aici este o propozitie.
-  //
-  // P3-29a SCHIMBA PREMISA DE MAI SUS, SI PROPOZITIA DE MAI JOS RAMANE ADEVARATA.
-  // Un `partial` poate sosi acum FARA cod, deci "errorCodeRaw este ne-null exact
-  // cand statusul este failed sau partial" nu mai este adevarat pentru partial.
-  // Cand un partial de SCANARE fara cod ajunge la un refuz al verdictului nostru,
-  // al nostru furnizeaza codul si statusul devine `failed`, exact ca pe
-  // `extracted` in cazul 30: fara un cod al lui nu exista nimic autoritar in fata
-  // verdictului nostru. Pe calea digitala nu judecam nimic, deci partialul ramane
-  // partial. Cardul nu a mutat aceasta precedenta; ea este scrisa aici ca sa nu
-  // fie descoperita.
   //
   // NU SE RELAXEAZA LINIA 139. Sa il lasam pe Andre sa trimita un `error_code`
   // pe un payload `extracted` este o schimbare de contract care ajunge la el, si
