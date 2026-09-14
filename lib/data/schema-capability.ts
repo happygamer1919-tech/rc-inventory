@@ -461,3 +461,35 @@ export async function hasClientLeaduri(client: ColumnProbe): Promise<boolean> {
   }
   return cachedClientLeaduri.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-15. Exista migratia 0044: tabela public.documents?
+//
+// DE CE ARE POARTA EI. 0044 ajunge in productie pe fuziune, prin aplicatia GitHub
+// a Supabase, in aproximativ doua minute, iar codul filei Documente pleaca din
+// acelasi push. In fereastra aceea PostgREST ar raspunde ca tabela nu exista.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE: fila Documente spune romaneste ca
+// documentele nu sunt inca active, fara buton de incarcare. Restul fisei nu se
+// schimba. Tabela, jurnalul stergerilor si politicile sosesc in aceeasi
+// tranzactie, deci o singura sonda pe tabela ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedDocuments: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasDocuments(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedDocuments && now - cachedDocuments.at < TTL_MS) return cachedDocuments.value;
+  try {
+    const { error } = await client.from("documents").select("id").limit(1);
+    cachedDocuments = { value: !error, at: now };
+  } catch {
+    cachedDocuments = { value: false, at: now };
+  }
+  return cachedDocuments.value;
+}
