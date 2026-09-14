@@ -179,6 +179,47 @@ export async function hasExtractionPageCount(client: ColumnProbe): Promise<boole
 
 
 // ---------------------------------------------------------------------------
+// EXT-28. Exista coloana extraction_drafts.upload_page_count?
+//
+// POARTA PROPRIE, SI NU CEA DE MAI SUS. hasExtractionPageCount raspunde despre
+// 0032, adica despre numarul raportat DE MODEL. 0043 este un fisier separat, cu
+// numarul NUMARAT DE NOI, si ajunge in productie pe fuziune, prin aplicatia
+// GitHub a Supabase, in aproximativ doua minute. Codul pleaca din acelasi push si
+// nu aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU, SI MAI RAU DECAT UN ECRAN.
+// Upsert-ul din fireExtraction ar numi coloana, PostgREST ar raspunde 42703, si
+// niciun document nu ar mai pleca spre extragere; lista de verificare ar cere
+// coloana si /incarca-comanda ar raspunde 500.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: nu se stocheaza si nu
+// se arata niciun numar. Webhook-ul il poarta oricum, fiindca el vine din bytes.
+// ---------------------------------------------------------------------------
+
+let cachedUploadPageCount: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: o sonda care intreaba pe alta legatura decat
+ *   cea care va lucra raspunde la alta intrebare.
+ */
+export async function hasExtractionUploadPageCount(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedUploadPageCount && now - cachedUploadPageCount.at < TTL_MS) {
+    return cachedUploadPageCount.value;
+  }
+  try {
+    const { error } = await client.from("extraction_drafts").select("upload_page_count").limit(1);
+    cachedUploadPageCount = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": se lucreaza fara coloana, in loc sa se cada.
+    cachedUploadPageCount = { value: false, at: now };
+  }
+  return cachedUploadPageCount.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // EXT-16. Cunoaste baza eticheta reconciliation_failed?
 //
 // DE CE ARE NEVOIE DE O POARTA, SI DE CE NIMIC NU AR FI CERUT-O. Migratia 0034
@@ -229,6 +270,35 @@ export async function hasReconciliationFailedCode(probe: LabelProbe): Promise<bo
     cachedReconciliationCode = { value: false, at: now };
   }
   return cachedReconciliationCode.value;
+}
+
+
+// ---------------------------------------------------------------------------
+// EXT-28. Cunoaste baza eticheta document_too_large?
+//
+// ACEEASI FORMA CA POARTA DE MAI SUS SI ACELASI MOTIV. 0042 adauga o ETICHETA DE
+// ENUM, pe care check:pending-schema-reads nu o vede, iar scrierea ei inaintea
+// aplicarii da 22P02. Pe calea de incarcare asta ar insemna un refuz care nu se
+// poate scrie: ciorna ar ramane "in lucru" pentru totdeauna, fara motiv.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: documentul pleaca spre
+// extragere, iar plafonul celeilalte parti ramane singurul.
+// ---------------------------------------------------------------------------
+
+let cachedDocumentTooLargeCode: { value: boolean; at: number } | null = null;
+
+export async function hasDocumentTooLargeCode(probe: LabelProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedDocumentTooLargeCode && now - cachedDocumentTooLargeCode.at < TTL_MS) {
+    return cachedDocumentTooLargeCode.value;
+  }
+  try {
+    const { error } = await probe();
+    cachedDocumentTooLargeCode = { value: !error, at: now };
+  } catch {
+    cachedDocumentTooLargeCode = { value: false, at: now };
+  }
+  return cachedDocumentTooLargeCode.value;
 }
 
 

@@ -14,13 +14,15 @@ export const MAKE_WEBHOOK_URL = `${MAKE_MOCK_URL}/webhook`;
 export const MAKE_WEBHOOK_SECRET = "test-webhook-secret-not-a-credential";
 export const MAKE_CALLBACK_SECRET = "test-callback-secret-not-a-credential";
 
-/** Cele SASE campuri pe care contractul le permite in corpul trimiterii. */
+/** Cele SAPTE campuri pe care contractul le permite in corpul trimiterii.
+ *  EXT-28 a adaugat `page_count`; pana atunci erau sase. */
 export const FIRE_FIELDS = [
   "callback_url",
   "document_filename",
   "document_url",
   "mime_type",
   "order_id",
+  "page_count",
   "size_bytes",
 ].sort();
 
@@ -32,6 +34,11 @@ export type FiredRequest = {
   documentFilename: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  /** EXT-28. Valoarea trimisa, cu null pastrat ca null. Prezenta cheii se
+   *  verifica prin `keys`, fiindca null si cheie lipsa arata la fel aici. */
+  pageCount: number | null;
+  /** EXT-28. Tipul JSON al lui size_bytes, asa cum a sosit. */
+  sizeBytesType: string;
   hasDocumentUrl: boolean;
   callbackUrl: string | null;
 };

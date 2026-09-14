@@ -67,6 +67,7 @@ duplicate draft order that a human has to notice and delete.
   "document_url": "https://<signed-url>",
   "document_filename": "confirmare-comanda-bilka-BLK-2026-14507.pdf",
   "mime_type": "application/pdf",
+  "page_count": 2,
   "size_bytes": 184320,
   "callback_url": "https://www.rapidconstructmd.com/api/extraction/callback"
 }
@@ -78,8 +79,19 @@ duplicate draft order that a human has to notice and delete.
 | `document_url` | string | no | Short-lived signed URL into the private `rc-docs` bucket. Expires; see `url_expired`. |
 | `document_filename` | string | no | The operator's own filename, sanitised. Carried so a human-readable name appears in Make's logs and in ours. |
 | `mime_type` | string | no | One of `application/pdf`, `image/png`, `image/jpeg`. The bucket constraint in migration 0002 allows nothing else. |
-| `size_bytes` | integer | no | Actual byte size. The bucket cap is 10 MB. |
+| `page_count` | integer | **yes** | **Pages in the uploaded file AS COUNTED BY US**, from the bytes, at upload, before anything is sent. `null` when we could not count with certainty, which is not an error. Never below 1. A PNG or JPG is 1. **A document counted at 100 or more is never sent**: we refuse it first, with `document_too_large` (section 5.2). Not the model's report, which is `_meta.page_count`. Card EXT-28. |
+| `size_bytes` | integer | no | Actual byte size. The bucket cap is 10 MB. **Always present and always a JSON integer above zero, on every path that fires**: each one writes it to a `NOT NULL`, `> 0` column in the same request, before the webhook is sent, and a value that column refuses stops the fire. Verified from source 2026-09-14. |
 | `callback_url` | string | no | Where the result goes. Sent rather than configured, so a change of host does not need a change in Make. |
+
+**THE BODY IS SEVEN FIELDS SINCE 2026-09-14, CARD EXT-28. IT WAS SIX**, and
+`lib/data/extraction-fire.ts` said so in terms: *"Corpul poarta EXACT sase campuri
+si nimic altceva"*. `page_count` is the seventh. It is **always present**: absent
+is `null`, per rule 2.1, so the counterparty never has to tell a missing key from
+an unknown count. It lets him refuse a document before downloading it, and our own
+refusal at the same number means a document of 100 pages or more never reaches him
+at all. **A seventh field arriving at a scenario that does not expect it is a
+contract change, and telling him is the owner's act**, item 6 of the closed
+escalation list. The pull request that added it carries the sentence.
 
 Header: `X-RC-Secret: <MAKE_WEBHOOK_URL secret>`.
 
@@ -409,8 +421,8 @@ and EXT-16 reconciles **before** the source is consulted.
 
 | field | type | notes |
 |---|---|---|
-| `model` | string | The model that did the extraction. |
-| `prompt_version` | string | Bumped whenever the prompt changes. Lets a bad batch be traced to a prompt. |
+| `model` | string | The model that did the extraction. **On both failure paths it carries the configured model as a literal, whether or not the model ran.** Ruling R-196. |
+| `prompt_version` | string or null | Bumped whenever the prompt changes. Lets a bad batch be traced to a prompt. **On a model refusal it is dated. When the model was never called it is `null`.** Ruling R-196. |
 | `page_count` | integer or null | **Pages in the source document AS THE MODEL REPORTS THEM.** Null when it reports none, which is not an error. See 4.3a. |
 | `duration_ms` | integer | Wall clock for the extraction. |
 
@@ -466,9 +478,18 @@ and a signal no query can reach is not a signal.
 
 **COMPARING IT AGAINST THE REAL PAGE COUNT IS NOT PART OF THIS CONTRACT.** What
 happens when the model's number and the file's number disagree, and whether that
-blocks or flags, is separate work: it needs a page counter on our side, and there
-is not one. This contract carries the reported number and says where it is
-stored.
+blocks or flags, is separate work, and it is still not built. **The file's number
+now exists**: card EXT-28 counts the pages at upload, stores the count in
+`extraction_drafts.upload_page_count` (migration `0043`) and sends it as
+`page_count` in the section 3 body. This contract carries both numbers and says
+where each is stored.
+
+**THE PARAGRAPH ABOVE READ DIFFERENTLY UNTIL 2026-09-14**, corrected by card EXT-28
+under CLAUDE.md section 9c. It said the comparison *"needs a page counter on our
+side, and there is not one"*. The first half is still true; the second stopped
+being true with `0043`. Card EXT-24's `question` field ruled the counter out as
+needing a PDF library; the counter uses `node:zlib` and no package, measured
+against `pdfinfo` on 1735 files with 1734 correct, one `null` and none wrong.
 
 ### 4.4 The `category` caveat, recorded rather than hidden
 
@@ -728,6 +749,13 @@ reason for its own failure is refused, by the route and by the database.
 | `invalid_output` | The model produced output that does not satisfy this schema. |
 | `timeout` | The extraction exceeded Make's own limit. |
 | `reconciliation_failed` | **Ours, not Make's.** The payload arrived well-formed and OUR arithmetic refused it: the line sum does not reconcile against the total printed on the document, or the header does not agree with itself. Sections 5.3 and 5.3a. |
+| `document_too_large` | **Ours at upload, and accepted from the sender.** We counted 100 pages or more in the uploaded file and refused it BEFORE sending it: no URL was signed, nothing was downloaded, no model ran. The operator is told to split the document. Added by card EXT-28 with migration `0042`. The owner's dispatch of 2026-09-14 states the counterparty's own size guard also emits it; until this row, a callback carrying it was a `400`. |
+
+**The ninth row was added on 2026-09-14 by card EXT-28**, which also moves
+`document_too_large` into `EXTRACTION_ERROR_CODES`, so a callback carrying it is
+now accepted rather than refused as outside the set. Section 5.2a's four
+requirements bind the acceptance half: the pull request that adds it names the
+group (the third surface, below) and carries the sentence the owner sends.
 
 **The eighth row was a table of its own until 2026-09-04.** A blank line above it
 split the markdown, so it rendered as a separate headerless one-row table under
@@ -1111,6 +1139,15 @@ comparison and majority voting stay ruled out permanently.
 
 **WHETHER THE RE-RUN HAPPENS IS THE COUNTERPARTY'S TO CONFIRM**, and section 6's
 `5xx -> retry` row stands until it is.
+
+**NARROWED, 2026-09-14, BY RULING R-196. THE TWO PARAGRAPHS ABOVE ARE KEPT AS
+WRITTEN.** The counterparty's callback delivery and its retries now run in a
+separate, permanently active scenario that does not extract. A retry of a DELIVERY
+therefore resends a payload already computed, which is what the rule at the top of
+this section permits, and the refusal of automatic retry no longer applies to it.
+It still applies to any re-run of the extracting scenario itself. Section 5.4a is
+not narrowed by this: nothing states whether the delivery scenario catches a
+transport failure, and it is not inferred.
 
 ### 5.4c THE SIGNED URL TTL IS A SECURITY POSITION, NOT A TUNABLE
 

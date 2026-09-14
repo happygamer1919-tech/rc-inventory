@@ -3,8 +3,15 @@ import "server-only";
 // Trimiterea documentului catre scenariul Make.
 //
 // Contract: docs/contracts/extraction-v2.md sectiunea 3. Corpul poarta EXACT
-// sase campuri si nimic altceva, fiindca un camp in plus este un camp pe care
+// sapte campuri si nimic altceva, fiindca un camp in plus este un camp pe care
 // cealalta parte nu l-a acceptat.
+//
+// EXT-28. PANA LA ACEST CARD CORPUL PURTA EXACT SASE CAMPURI. Al saptelea este
+// `page_count`, numarul de pagini NUMARAT DE NOI la incarcare, iar tot aici se
+// refuza, INAINTEA oricarei trimiteri, un document cu 100 de pagini sau mai
+// multe. Refuzul sta in aceasta functie si nu la apelanti: trei apelanti o cheama
+// (incarcarea, retrimiterea si documentul atasat unei comenzi), iar o regula pusa
+// la un apelant pazeste un singur apelant.
 //
 // NU ARUNCA NICIODATA. Incarcarea documentului a reusit deja cand se ajunge
 // aici; daca trimiterea catre Make cade, documentul ramane incarcat si randul de
@@ -22,6 +29,8 @@ import { toDocumentUrl } from "./document-url";
 // care exista in doua fisiere este un timp care va ajunge sa nu fie de acord cu
 // el insusi.
 import { ACK_TIMEOUT_MS } from "./extraction-budget.mjs";
+import { DOCUMENT_PAGE_LIMIT, isTooManyPages } from "./page-count.mjs";
+import { hasDocumentTooLargeCode, hasExtractionUploadPageCount } from "./schema-capability";
 
 /** Cat traieste legatura semnata. Destul pentru o extragere, nu mai mult. */
 const SIGNED_URL_TTL_SECONDS = 15 * 60;
@@ -38,9 +47,12 @@ const SIGNED_URL_TTL_SECONDS = 15 * 60;
 // doua oara.
 const TIMEOUT_MS = ACK_TIMEOUT_MS;
 
+/** EXT-28. `errorCode` este prezent NUMAI pe refuzul nostru de dinaintea
+ *  trimiterii. Orice alt esec, de transport sau de configurare, vine fara el, iar
+ *  apelantii il scriu `download_failed`, exact ca pana la acest card. */
 export type FireResult =
   | { ok: true; orderId: string }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; errorCode?: "document_too_large" };
 
 function webhookUrl(): string | null {
   const raw = process.env.MAKE_WEBHOOK_URL;
@@ -75,6 +87,10 @@ export async function fireExtraction(input: {
   documentFilename: string;
   mimeType: string;
   sizeBytes: number;
+  /** EXT-28. Paginile numarate de noi din bytes, sau null cand nu am putut
+   *  numara cu siguranta. La retrimitere vine de pe rand, fiindca retrimiterea
+   *  nu tine bytes-ii documentului. */
+  pageCount: number | null;
 }): Promise<FireResult> {
   const url = webhookUrl();
   if (!url) {
@@ -84,19 +100,67 @@ export async function fireExtraction(input: {
   try {
     const supabase = await createClient();
 
-    const { error: draftError } = await supabase.from("extraction_drafts").upsert(
-      {
-        order_id: input.orderId,
-        document_path: input.documentPath,
-        document_filename: input.documentFilename,
-        mime_type: input.mimeType,
-        size_bytes: input.sizeBytes,
-        fired_at: new Date().toISOString(),
-      },
-      { onConflict: "order_id" },
-    );
+    // EXT-28. NUMARUL NOSTRU INTRA PE RAND NUMAI DACA BAZA ARE COLOANA. 0043 si
+    // acest cod pleaca din acelasi push si nu aterizeaza in aceeasi secunda; fara
+    // poarta, upsert-ul ar primi 42703 si niciun document nu ar mai pleca spre
+    // extragere pana cand migratia ateriza. Webhook-ul il poarta oricum, fiindca
+    // el vine din bytes si nu din baza.
+    const draft: Record<string, unknown> = {
+      order_id: input.orderId,
+      document_path: input.documentPath,
+      document_filename: input.documentFilename,
+      mime_type: input.mimeType,
+      size_bytes: input.sizeBytes,
+      fired_at: new Date().toISOString(),
+    };
+    if (await hasExtractionUploadPageCount(supabase)) {
+      draft.upload_page_count = input.pageCount;
+    }
+
+    const { error: draftError } = await supabase
+      .from("extraction_drafts")
+      .upsert(draft, { onConflict: "order_id" });
     if (draftError) {
       return { ok: false, reason: `Ciorna nu a putut fi creata: ${draftError.message}` };
+    }
+
+    // EXT-28. REFUZUL NOSTRU, INAINTEA ORICAREI TRIMITERI.
+    //
+    // 100 DE PAGINI SAU MAI MULT NU PLEACA. Plafonul este al celeilalte parti si
+    // al nostru este acelasi numar, deliberat: al lor ramane plasa de siguranta,
+    // al nostru este verificarea ieftina, fiindca nu costa o legatura semnata, o
+    // descarcare si un apel de model.
+    //
+    // UN NUMAR NECUNOSCUT NU REFUZA. null inseamna ca nu am putut numara cu
+    // siguranta, iar un document al carui numar de pagini nu il stim nu este un
+    // document mare.
+    //
+    // RANDUL SE SCRIE AICI, NU NUMAI LA APELANTI. Documentul atasat unei comenzi
+    // nu citeste rezultatul acestei functii, iar un refuz care nu ajunge pe rand
+    // ar lasa ciorna "in lucru" pentru totdeauna.
+    //
+    // POARTA ETICHETEI, din motivul lui hasReconciliationFailedCode: pana cand
+    // 0042 este aplicata baza nu cunoaste `document_too_large`, iar scrierea lui
+    // ar da 22P02. In fereastra aceea comportamentul este cel de astazi: documentul
+    // pleaca, si plafonul celeilalte parti ramane singurul.
+    if (
+      isTooManyPages(input.pageCount) &&
+      (await hasDocumentTooLargeCode(() =>
+        supabase
+          .from("extraction_drafts")
+          .select("order_id")
+          .eq("error_code", "document_too_large")
+          .limit(1),
+      ))
+    ) {
+      const reason =
+        `Documentul are ${input.pageCount} de pagini. Se trimit la extragere numai ` +
+        `documente cu mai puțin de ${DOCUMENT_PAGE_LIMIT} de pagini.`;
+      await supabase
+        .from("extraction_drafts")
+        .update({ status: "failed", error_code: "document_too_large", reason })
+        .eq("order_id", input.orderId);
+      return { ok: false, reason, errorCode: "document_too_large" };
     }
 
     const { data: signed, error: signError } = await supabase.storage
@@ -142,7 +206,7 @@ export async function fireExtraction(input: {
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-      // EXACT sase campuri. Contract sectiunea 3.
+      // EXACT sapte campuri. Contract sectiunea 3.
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -154,6 +218,10 @@ export async function fireExtraction(input: {
           document_url: documentUrl,
           document_filename: input.documentFilename,
           mime_type: input.mimeType,
+          // EXT-28. PREZENT MEREU, null CAND NU AM PUTUT NUMARA. Contractul,
+          // regula globala 2.1: absent inseamna null, niciodata o cheie lipsa si
+          // niciodata zero. Cealalta parte refuza pe el inainte sa descarce.
+          page_count: input.pageCount,
           size_bytes: input.sizeBytes,
           callback_url: callbackUrl(),
         }),

@@ -2,6 +2,8 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 import { FIRE_FIELDS, MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
+import { buildPdf } from "./support/pdf-builder.mjs";
+import { EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
 
 // extraction.spec - linia de acceptanta a cardului P2-08a.
 //
@@ -1067,23 +1069,29 @@ test.describe("Extragere documente", () => {
     page: Page,
     request: APIRequestContext,
     tag: string,
+    // EXT-28. Un document ales de caz si cate trimiteri se asteapta: un document
+    // refuzat inainte de trimitere nu pleaca deloc, si acela este un rezultat.
+    buffer?: Buffer,
+    expectedFires = 1,
   ): Promise<string> {
     const filename = `TEST-EXT17-${tag}-${RUN}.pdf`;
     await page.goto("/incarca-comanda");
     await page.getByTestId("extraction-input").setInputFiles({
       name: filename,
       mimeType: "application/pdf",
-      buffer: Buffer.from(
-        `%PDF-1.4\n% RC test ${tag}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`,
-        "utf8",
-      ),
+      buffer:
+        buffer ??
+        Buffer.from(
+          `%PDF-1.4\n% RC test ${tag}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`,
+          "utf8",
+        ),
     });
     const card = page.locator('[data-testid="draft-card"]').filter({ hasText: filename });
     await expect(card).toHaveCount(1, { timeout: 30_000 });
     const orderId = (await card.getAttribute("data-order-id")) ?? "";
     expect(orderId).toMatch(/^[0-9a-f-]{36}$/i);
-    // Trimiterea chiar a plecat catre transport cu acest order_id.
-    expect(await firedFor(request, orderId)).toHaveLength(1);
+    // Trimiterea chiar a plecat catre transport cu acest order_id, sau nu.
+    expect(await firedFor(request, orderId)).toHaveLength(expectedFires);
     return orderId;
   }
 
@@ -1749,6 +1757,124 @@ test.describe("Extragere documente", () => {
     expect(d5.reason, "motivul este stocat si pe failed").toBe(
       "Extragerea a depasit limita scenariului.",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // EXT-28. NUMARUL DE PAGINI, NUMARAT DE NOI LA INCARCARE.
+  //
+  // PDF-URILE SUNT CONSTRUITE IN MEMORIE, cu numarul de pagini ca argument, de
+  // tests/e2e/support/pdf-builder.mjs. scripts/poc-free/check-page-count.mjs
+  // dovedeste numaratorul pe formele grele; aici se dovedeste CABLAJUL: cele trei
+  // cai care trimit, campul din webhook, coloana si refuzul.
+  // -------------------------------------------------------------------------
+
+  test("32. EXT-28: webhook-ul poarta page_count numarat de noi si size_bytes ca numar, pe fiecare cale care trimite", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+
+    // CALEA 1, documentul atasat unei comenzi. Fixtura are o pagina, dupa pdfinfo.
+    const { orderId: attached } = await orderWithDocument(page, "pages-attached");
+    const a = await firedFor(request, attached);
+    expect(a).toHaveLength(1);
+    expect(a[0]!.keys).toEqual(FIRE_FIELDS);
+    expect(a[0]!.pageCount).toBe(1);
+    expect(a[0]!.sizeBytesType).toBe("number");
+
+    // CALEA 2, banda de extragere, cu un document de 7 pagini al carui catalog
+    // sta intr-un flux de obiecte arhivat.
+    const seven = await uploadForExtraction(
+      page,
+      request,
+      "pages7",
+      buildPdf(7, { objectStreams: true, tree: [4, 3] }),
+    );
+    const s = await firedFor(request, seven);
+    expect(s[0]!.keys).toEqual(FIRE_FIELDS);
+    expect(s[0]!.pageCount).toBe(7);
+    expect(s[0]!.sizeBytesType).toBe("number");
+    expect(s[0]!.sizeBytes).toBeGreaterThan(0);
+
+    const stored = await draftState(request, seven);
+    expect(stored.upload_page_count, "numarul nostru, pe coloana lui").toBe(7);
+    expect(stored.page_count, "coloana modelului ramane a modelului").toBeNull();
+
+    // CALEA 3, retrimiterea, care nu tine bytes-ii documentului: numarul vine de
+    // pe rand. Retrimiterea se ofera pe o ciorna esuata, deci intai un esec.
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(seven, {
+            status: "failed",
+            error_code: "url_expired",
+            reason: `Legatura a expirat ${RUN}`,
+            lines: [],
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${seven}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await card.getByTestId("draft-refire").click();
+    await expect
+      .poll(async () => (await firedFor(request, seven)).length, { timeout: 30_000 })
+      .toBe(2);
+    const refired = (await firedFor(request, seven))[1]!;
+    expect(refired.keys).toEqual(FIRE_FIELDS);
+    expect(refired.pageCount, "numarul de pe rand, fara bytes").toBe(7);
+    expect(refired.sizeBytesType).toBe("number");
+
+    // UN DOCUMENT PE CARE NU IL PUTEM NUMARA PLEACA, cu cheia prezenta si null.
+    const unknown = await uploadForExtraction(page, request, "pagesnull");
+    const u = await firedFor(request, unknown);
+    expect(u[0]!.keys).toEqual(FIRE_FIELDS);
+    expect(u[0]!.pageCount).toBeNull();
+    expect((await draftState(request, unknown)).upload_page_count).toBeNull();
+  });
+
+  test("33. EXT-28: 100 de pagini este REFUZAT inainte de trimitere, 99 pleaca, si retrimiterea nu ocoleste refuzul", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+
+    // CONTROLUL, 99: pleaca, si ciorna asteapta raspunsul.
+    const ninetyNine = await uploadForExtraction(page, request, "pages99", buildPdf(99));
+    expect((await firedFor(request, ninetyNine))[0]!.pageCount).toBe(99);
+    expect((await draftState(request, ninetyNine)).status).toBeNull();
+
+    // 100: NU PLEACA DELOC. Zero trimiteri este afirmatia, nu o descriere a ei.
+    const hundred = await uploadForExtraction(page, request, "pages100", buildPdf(100), 0);
+    const d = await draftState(request, hundred);
+    expect(d.status).toBe("failed");
+    expect(d.error_code).toBe("document_too_large");
+    expect(d.upload_page_count).toBe(100);
+    expect(d.reason).toContain("100 de pagini");
+
+    // Operatorul vede propozitia codului, nu tokenul.
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${hundred}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await expect(card.getByTestId("draft-error-sentence")).toHaveText(
+      EXTRACTION_ERROR_LABEL.document_too_large,
+    );
+
+    // RETRIMITEREA NU OCOLESTE REFUZUL. Ea sterge starea si cheama aceeasi
+    // functie, iar refuzul sta in functie, nu la apelant. Se asteapta ca starea sa
+    // fi fost rescrisa DUPA apasare, apoi se numara trimiterile.
+    const before = String(d.fired_at);
+    await card.getByTestId("draft-refire").click();
+    await expect
+      .poll(async () => String((await draftState(request, hundred)).fired_at), { timeout: 30_000 })
+      .not.toBe(before);
+    await expect
+      .poll(async () => (await draftState(request, hundred)).error_code, { timeout: 30_000 })
+      .toBe("document_too_large");
+    expect(await firedFor(request, hundred), "retrimiterea nu are voie sa trimita").toHaveLength(0);
   });
 
 });

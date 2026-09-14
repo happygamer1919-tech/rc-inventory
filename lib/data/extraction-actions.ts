@@ -23,7 +23,12 @@ import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
 import { effectiveSource } from "./extraction-types";
-import { hasExtractionDocumentSource, hasSupplierDocumentRef } from "./schema-capability";
+import { countPages } from "./page-count.mjs";
+import {
+  hasExtractionDocumentSource,
+  hasExtractionUploadPageCount,
+  hasSupplierDocumentRef,
+} from "./schema-capability";
 import { safeFileName } from "./row";
 import { resolveSupplier } from "./suppliers";
 import {
@@ -92,6 +97,11 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
     .upload(path, file, { upsert: true, contentType: file.type });
   if (uploadError) return { ok: false, message: `Încărcarea a eșuat. ${uploadError.message}` };
 
+  // EXT-28. PAGINILE SE NUMARA AICI, DIN BYTES-II PE CARE II TINEM DEJA. Acesta
+  // este singurul moment in care aplicatia are fisierul in mana: retrimiterea
+  // citeste numai randul, deci numarul ajunge pe rand prin fireExtraction.
+  const pageCount = countPages(await file.arrayBuffer(), file.type);
+
   // Trimiterea nu poate rasturna incarcarea. Motivul unui esec ajunge pe randul
   // de ciorna si se vede pe ecran, care este exact ce cere clauza 4.
   const fired = await fireExtraction({
@@ -100,12 +110,19 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
     documentFilename: file.name,
     mimeType: file.type,
     sizeBytes: file.size,
+    pageCount,
   });
 
   if (!fired.ok) {
+    // EXT-28. Codul refuzului nostru vine din rezultat. Orice alt esec ramane
+    // download_failed, exact ca pana la acest card.
     await supabase
       .from("extraction_drafts")
-      .update({ status: "failed", error_code: "download_failed", reason: fired.reason })
+      .update({
+        status: "failed",
+        error_code: fired.errorCode ?? "download_failed",
+        reason: fired.reason,
+      })
       .eq("order_id", orderId);
   }
 
@@ -128,11 +145,23 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
 
   const supabase = await createClient();
-  const { data: draft } = await supabase
+  // EXT-28. NUMARUL NOSTRU DE PAGINI SE CITESTE DE PE RAND, fiindca retrimiterea
+  // nu tine bytes-ii documentului. Coloana se cere numai daca exista, din motivul
+  // lui hasExtractionUploadPageCount; fara ea numarul este null, adica
+  // necunoscut, iar un numar necunoscut nu refuza nimic.
+  //
+  // UN `string` LARG SI NU UN LITERAL CONDITIONAL, din motivul scris la
+  // draftColumnsFor in lib/data/extraction.ts: parserul de tipuri al lui
+  // supabase-js renunta pe o uniune de literale.
+  const columns: string = (await hasExtractionUploadPageCount(supabase))
+    ? "order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at, upload_page_count"
+    : "order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at";
+  const { data } = await supabase
     .from("extraction_drafts")
-    .select("order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at")
+    .select(columns)
     .eq("order_id", orderId)
     .maybeSingle();
+  const draft = data as Record<string, unknown> | null;
 
   if (!draft) return { ok: false, message: "Documentul nu mai există." };
   // confirmed_at, NU cheia straina catre comanda: aceea poarta on delete set
@@ -161,18 +190,27 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
     .update({ status: null, error_code: null, reason: null })
     .eq("order_id", orderId);
 
+  const storedPages = draft.upload_page_count;
   const fired = await fireExtraction({
     orderId,
     documentPath: String(draft.document_path),
     documentFilename: String(draft.document_filename),
     mimeType: String(draft.mime_type),
     sizeBytes: Number(draft.size_bytes),
+    // EXT-28. Numarul stocat la incarcare, sau null. Refuzul de la 100 de pagini
+    // se reaplica inauntrul fireExtraction, deci butonul de retrimitere nu il
+    // poate ocoli.
+    pageCount: Number.isInteger(storedPages) && (storedPages as number) >= 1 ? (storedPages as number) : null,
   });
 
   if (!fired.ok) {
     await supabase
       .from("extraction_drafts")
-      .update({ status: "failed", error_code: "download_failed", reason: fired.reason })
+      .update({
+        status: "failed",
+        error_code: fired.errorCode ?? "download_failed",
+        reason: fired.reason,
+      })
       .eq("order_id", orderId);
     revalidatePath("/incarca-comanda");
     return { ok: false, message: fired.reason };
