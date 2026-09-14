@@ -98,8 +98,8 @@ export function ProjectTabs({
             data-active={active === t.id ? "true" : "false"}
             className={
               active === t.id
-                ? "px-4 py-2.5 text-[13.5px] font-semibold text-rc-black border-b-2 border-rc-orange -mb-px"
-                : "px-4 py-2.5 text-[13.5px] text-rc-muted hover:text-rc-black"
+                ? "px-4 py-2.5 text-[13.5px] font-semibold text-rc-white border-b-2 border-rc-orange -mb-px"
+                : "px-4 py-2.5 text-[13.5px] text-rc-muted-2 hover:text-rc-white"
             }
           >
             {t.label}
