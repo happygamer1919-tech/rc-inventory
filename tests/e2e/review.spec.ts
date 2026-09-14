@@ -348,6 +348,133 @@ async function topUpPendingDrafts(rest: Rest, target: number): Promise<number> {
   return await pendingDraftCount(rest);
 }
 
+// ---------------------------------------------------------------------------
+// P3-39. UNELTELE ULTIMULUI CAZ, CEL AL LIMITEI DE RANDURI.
+//
+// Aceeasi scriere prin HTTP cu cheia de service_role ca la P3-38, si din acelasi
+// motiv. Aceeasi regula a tintei: se completeaza pana la un numar, nu se adauga.
+// ---------------------------------------------------------------------------
+
+/** Plafonul SONDEI, nu limita. Cate ciorne trimise se seamana cel mult cautand
+ *  limita. Daca mediul nu taie lista nici aici, cazul cade si spune de ce, in loc
+ *  sa treaca fara sa fi dovedit nimic. */
+const ROW_LIMIT_PROBE_CEILING = 8_000;
+
+/** Cate ciorne trimise se asaza PESTE limita masurata, ca ciorna cea mai veche
+ *  sa nu stea chiar pe granita. */
+const BEYOND_LIMIT_MARGIN = 32;
+
+function contentRangeTotal(response: Response): number {
+  const range = response.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]);
+  if (!Number.isFinite(total)) {
+    throw new Error(`content-range nu poarta un total: "${range}"`);
+  }
+  return total;
+}
+
+/**
+ * Cate ciorne in asteptare AU fired_at.
+ *
+ * NUMAI ACESTEA IMPING CIORNA CEA MAI VECHE SPRE COADA. Aplicatia ordoneaza
+ * fired_at descrescator cu nullsFirst false, deci o ciorna fara fired_at, ca
+ * umplutura lui P3-38, sta DUPA orice ciorna trimisa si nu schimba pozitia
+ * celei mai vechi.
+ */
+async function firedPendingCount(rest: Rest): Promise<number> {
+  const response = await fetch(
+    `${rest.origin}/rest/v1/extraction_drafts?select=order_id&confirmed_at=is.null&fired_at=not.is.null&limit=1`,
+    { headers: { ...rest.auth, Prefer: "count=exact" } },
+  );
+  if (!response.ok) {
+    throw new Error(`numararea ciornelor trimise a raspuns ${response.status}`);
+  }
+  await response.arrayBuffer();
+  return contentRangeTotal(response);
+}
+
+async function insertDrafts(rest: Rest, rows: Record<string, unknown>[]): Promise<void> {
+  const response = await fetch(`${rest.origin}/rest/v1/extraction_drafts`, {
+    method: "POST",
+    headers: { ...rest.auth, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify(rows),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `semanatul ciornelor a raspuns ${response.status}: ${(await response.text()).slice(0, 200)}`,
+    );
+  }
+}
+
+function seededDraft(tag: string, firedAt: string) {
+  const orderId = randomUUID();
+  return {
+    order_id: orderId,
+    document_path: `test-p3-39/${RUN}-${orderId}.pdf`,
+    document_filename: `TEST-P3-39-${tag}-${RUN}.pdf`,
+    mime_type: "application/pdf",
+    size_bytes: 1024,
+    fired_at: firedAt,
+  };
+}
+
+async function topUpFiredDrafts(rest: Rest, target: number): Promise<number> {
+  const have = await firedPendingCount(rest);
+  if (have >= target) return have;
+  const firedAt = new Date().toISOString();
+  await insertDrafts(
+    rest,
+    Array.from({ length: target - have }, () => seededDraft("umplutura", firedAt)),
+  );
+  return await firedPendingCount(rest);
+}
+
+/**
+ * Limita de randuri a mediului, MASURATA si niciodata scrisa in test.
+ *
+ * O singura cerere fara limita, cu `Prefer: count=exact`: randurile care vin
+ * sunt cate lasa serverul, iar content-range spune cate exista, IN ACEEASI
+ * CERERE. Cat timp cele doua sunt egale lista nu a fost taiata inca, deci se
+ * dubleaza ciornele trimise si se intreaba din nou.
+ */
+async function measureRowLimit(rest: Rest): Promise<{ limit: number; total: number }> {
+  let fired = await firedPendingCount(rest);
+  for (;;) {
+    const response = await fetch(
+      `${rest.origin}/rest/v1/extraction_drafts?select=order_id&confirmed_at=is.null`,
+      { headers: { ...rest.auth, Prefer: "count=exact" } },
+    );
+    if (!response.ok) {
+      throw new Error(`sonda limitei de randuri a raspuns ${response.status}`);
+    }
+    const returned = ((await response.json()) as unknown[]).length;
+    const total = contentRangeTotal(response);
+    if (returned < total) return { limit: returned, total };
+
+    const next = Math.max(fired * 2, 256);
+    if (next > ROW_LIMIT_PROBE_CEILING) {
+      throw new Error(
+        `nicio limita de randuri pana la ${total} ciorne in asteptare, ` +
+          `deci cazul nu poate aseza o ciorna dincolo de ea pe acest mediu`,
+      );
+    }
+    fired = await topUpFiredDrafts(rest, next);
+  }
+}
+
+async function oldestFiredAt(rest: Rest): Promise<string> {
+  const response = await fetch(
+    `${rest.origin}/rest/v1/extraction_drafts?select=fired_at&confirmed_at=is.null&fired_at=not.is.null&order=fired_at.asc&limit=1`,
+    { headers: rest.auth },
+  );
+  if (!response.ok) {
+    throw new Error(`citirea celei mai vechi ciorne a raspuns ${response.status}`);
+  }
+  const [row] = (await response.json()) as { fired_at: string }[];
+  if (!row) throw new Error("nicio ciorna trimisa in asteptare dupa semanat");
+  return row.fired_at;
+}
+
 test.describe("Verificare si confirmare extragere", () => {
   test.describe.configure({ timeout: 180_000 });
 
@@ -1313,6 +1440,62 @@ test.describe("Verificare si confirmare extragere", () => {
     }[];
     expect(order.order_ref_series, "seria editata de operator").toBe("AV");
     expect(order.order_ref, "numarul ramane neatins").toBe("0009312");
+  });
+
+  // -------------------------------------------------------------------------
+  // P3-39. CIORNA CARE ASTEAPTA DE CEL MAI MULT TIMP SE VEDE SI PESTE LIMITA DE
+  // RANDURI.
+  //
+  // PostgREST taie orice lista la limita lui de randuri si NU SPUNE: raspunsul
+  // taiat arata exact ca unul intreg. Citirea ciornelor le ordoneaza dupa
+  // fired_at descrescator, deci taietura lua coada, adica documentele care
+  // asteptau de cel mai mult timp.
+  //
+  // LIMITA SE MASOARA, NU SE SCRIE IN TEST. supabase/config.toml o pune numai
+  // pentru stiva locala, iar proiectul gazduit poate raspunde altfel. Vezi
+  // measureRowLimit.
+  //
+  // ESTE ULTIMUL CAZ DIN FISIER, DELIBERAT. Lasa in urma mai multe ciorne in
+  // asteptare decat limita, si niciun caz de dupa el nu trebuie sa isi caute
+  // ciorna printre ele. Nu se sterge nimic si nu se marcheaza nimic confirmat:
+  // confirmed_at il scrie numai o confirmare.
+  // -------------------------------------------------------------------------
+  test("P3-39: ciorna cea mai veche in asteptare se vede si cand lista trece de limita de randuri", async ({
+    page,
+  }) => {
+    const rest = restAdmin();
+
+    // 1. Limita, masurata pe mediul acesta.
+    const measured = await measureRowLimit(rest);
+
+    // 2. Destule ciorne trimise cat ciorna cea mai veche sa cada DINCOLO de
+    //    limita, in ordinea aplicatiei.
+    const fired = await topUpFiredDrafts(rest, measured.limit + BEYOND_LIMIT_MARGIN);
+
+    // 3. Ciorna cea mai veche: cu o zi inaintea celei mai vechi care exista, deci
+    //    in ordinea aplicatiei are exact `fired` ciorne trimise inaintea ei.
+    const firedAt = new Date(Date.parse(await oldestFiredAt(rest)) - 86_400_000).toISOString();
+    const oldest = seededDraft("cea-mai-veche", firedAt);
+    await insertDrafts(rest, [oldest]);
+
+    test.info().annotations.push({
+      type: "P3-39",
+      description:
+        `limita masurata: ${measured.limit} randuri din ${measured.total} ciorne in asteptare; ` +
+        `ciorne trimise inaintea celei mai vechi: ${fired}`,
+    });
+    // Pozitia ei, numarata de la zero, este `fired`. Dincolo de limita inseamna
+    // cel putin `limit`.
+    expect(fired).toBeGreaterThanOrEqual(measured.limit);
+
+    // 4. Ecranul.
+    await signIn(page, ownerAccount());
+    await page.goto(UPLOAD);
+    const card = draftCard(page, oldest.order_id);
+    await expect(card, "documentul care asteapta de cel mai mult timp este pe ecran").toHaveCount(1, {
+      timeout: 60_000,
+    });
+    await expect(card).toContainText(oldest.document_filename);
   });
 
 });
