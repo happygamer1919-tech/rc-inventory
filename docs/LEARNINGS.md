@@ -5381,3 +5381,35 @@ total, same request. RULE: **a test that needs a row past a cap counts the rows 
 sort AHEAD of it in the application's order, not the rows that match its filter.** And
 paging by offset needs a unique tiebreaker (`order_id` after `fired_at`), or two rows
 with the same sort key can be seen twice and another never.
+
+### A staged migration is invisible to the destructive-statement check
+**Tag:** data
+**ERROR:** P3-29a wrote `supabase/migrations/0041_extraction_partial_error_code_optional.sql`,
+staged it, and ran `npm run check:no-destructive-migration` before committing. It printed
+`0 file(s), added or modified against origin/main` and `OK. 0 file(s) parsed`, a green
+result about a file it never opened. The check lists files with
+`git diff --name-only --diff-filter=AM <merge-base>...HEAD`, which compares commits and
+never reads the index or the working tree.
+**SOLUTION:** run it AFTER the commit, and read the file count, not only the OK. On the
+committed head it printed `1 file(s) parsed, 5 statement(s)`. Same class as the conflict
+residue check's `git ls-files` blind spot in the factory's known failures. RULE: **a check
+that reports a count is only evidence when the count names the file you meant it to read.**
+
+### A board time typed ahead of the commit stops quality before End to end
+**Tag:** ci
+**ERROR:** P3-29a's first red arm, quality run 34803074469 on `89854ff`, failed at "Refuse a
+board timestamp from the future" and skipped every step after it, End to end included, so it
+proved nothing about the new case. The card's `last_checkpoint` and `evidence.at` said
+`2026-09-14T03:36:00Z`, a rounded time typed a few minutes ahead, and the commit that wrote
+them was made at `03:32:31Z`. `check-board-clock` allows 60 minutes of slack on `as_of` and
+ZERO on a card's checkpoint and evidence time. It is not in the operator's local gate list,
+so nothing caught it before the push.
+**SOLUTION:** read the time from `date -u` just before the board edit and commit after it,
+and run `npm run check:board-clock` locally after the commit, before the push. The
+implementation commit had already been made locally on top of the red arm and was never
+pushed, so the red arm was rebuilt without a force push: the three edited files were
+restored from the red-arm commit, the two new files removed with
+`git restore --source=<red-arm sha> --staged --worktree`, the corrected board committed and
+pushed, and the implementation restored with `git checkout <implementation sha> -- <paths>`.
+RULE: **a red arm is only a red arm once its run reaches the step its case lives in, and
+every step in front of that step runs locally first, including the ones no list names.**

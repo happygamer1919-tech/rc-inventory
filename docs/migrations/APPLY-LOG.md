@@ -1890,3 +1890,60 @@ merge. What was proved before the merge is in #279's `quality` run:
 assertion file; `check:no-destructive-migration` parses the file. **No
 `check:migrations` ran on the machine that authored it**, because it has no Docker;
 the run in `quality` is the only one.
+
+## 0041_extraction_partial_error_code_optional.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER, MERGE HELD FOR OWNER APPROVAL
+
+**Actor:** **the Supabase GitHub app, on the merge of the P3-29a pull request from
+branch `card/p3-29a` to `main`.** No terminal runs it, and none may: CLAUDE.md 8.0
+and ruling R-124 record that merging a migration file is what applies it here.
+
+**Applied at:** the merge of that pull request, within about two minutes of it, and
+**not before the owner approves that merge**. The operator's task for this card
+(task G9) says to stop at green and ask, because merging applies it.
+
+**What it changes, and it creates nothing:**
+
+    drop      check extraction_drafts_error_code_matches_status   the 0008 rule
+    add       check extraction_drafts_error_code_matches_status   same name, wider rule
+    comment   on that constraint
+
+    before    (status in ('failed', 'partial') and error_code is not null)
+              or (status = 'extracted' and error_code is null)
+              or status is null
+    after     (status = 'failed' and error_code is not null)
+              or status = 'partial'
+              or (status = 'extracted' and error_code is null)
+              or status is null
+
+**The destructive-statement declaration, per 8.6:** the file contains one
+`ALTER TABLE ... DROP CONSTRAINT`, which removes a rule about rows and no row, and is
+in the permitted set. It is quoted verbatim:
+
+    alter table public.extraction_drafts
+      drop constraint if exists extraction_drafts_error_code_matches_status;
+
+Both `ALTER TABLE` statements run inside one `begin; ... commit;`, so the table never
+carries no rule. No DROP TABLE, no TRUNCATE, no DELETE, no UPDATE.
+
+**WHAT HAPPENS TO THE ROWS ALREADY IN `public.extraction_drafts`:** nothing. The new
+rule is strictly wider than the old one, so every existing row satisfies it and the
+validation that `ADD CONSTRAINT` runs cannot fail. **No row is removed and no column
+changes value.**
+
+**THE APPLICATION IN THE MINUTES BEFORE THIS LANDS.** The route change ships in the
+same merge. Until `0041` is applied, a partial without a code passes the route and is
+refused by the old constraint on the update, which is the route's first write, so the
+answer is a `500` with nothing stored. Make retries a `5xx`, and the retry succeeds
+once `0041` is applied. Every payload accepted before this change is still accepted.
+
+**Proof that it is applied: NOT YET OBSERVED.** After the merge,
+`GET https://app.rapidconstruct.md/api/health` should report `ledger_version` `"0041"`
+and the merge commit.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, as for every file applied by
+merge. What was proved before the merge is in the pull request's `quality` run:
+`check:migrations` applies every file unmodified to a bare `postgres:16` and runs
+`scripts/poc-free/local-db/assertions/0041_extraction_partial_error_code_optional.sql`
+with every other assertion file; `check:no-destructive-migration` parses the file.
+**No `check:migrations` ran on the machine that authored it**, because it has no
+Docker; the run in `quality` is the only one.

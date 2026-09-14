@@ -1642,6 +1642,115 @@ test.describe("Extragere documente", () => {
     expect(d.order_ref_series, "seria absenta este NULL, nu un sir gol").toBeNull();
   });
 
+  // -------------------------------------------------------------------------
+  // P3-29a. UN `partial` ESTE UN RASPUNS CU FORMA DE SUCCES.
+  //
+  // Citirea lui Andre: documentul A FOST citit, ceva din el nu s-a potrivit, iar
+  // diferenta este descrisa in `reason`. Nu este o eroare cu un cod, este un
+  // rezultat cu o rezerva. A cere un error_code pentru el il obliga pe expeditor
+  // sa inventeze unul care nu descrie nimic real.
+  //
+  // INAINTE DE ACEST CARD CAZUL PICA LA PRIMUL expect: ruta raspundea 400
+  // ("error_code obligatoriu la failed si partial") si nu scria nimic.
+  //
+  // DIGITAL, DIN FIXTURE-UL COMUN, SI ESTE O ALEGERE. Pe o scanare, aritmetica
+  // noastra (EXT-16, EXT-18, EXT-26) judeca documentul, iar un partial care nu
+  // poarta un cod al lui nu are nimic autoritar in fata verdictului nostru. Cazul
+  // acesta intreaba altceva: daca POARTA contractului lasa sa treaca un partial
+  // fara cod. Pe calea digitala raspunsul nu depinde de sume.
+  //
+  // CHEIA error_code LIPSESTE, NU ESTE null. Cardul spune ABSENT, iar fixture-ul
+  // comun trimite `error_code: null`, deci cheia este scoasa si absenta ei este
+  // verificata inainte de trimitere.
+  // -------------------------------------------------------------------------
+
+  test("31. P3-29a: un partial FARA error_code, cu motivul diferentei de TVA si cu linii, este acceptat si motivul se citeste inapoi", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "p329a");
+
+    const vatDelta =
+      "TVA calculat pe linii este 3690,47 lei, iar TVA tipărit pe document este 3690,00 lei: diferență de 0,47 lei.";
+    const body: Record<string, unknown> = callbackBody(orderId, {
+      status: "partial",
+      reason: vatDelta,
+      lines: [
+        { product_name: "Prima linie citita", quantity: 10, unit: "pcs", unit_raw: "buc" },
+        { product_name: "A doua linie citita", quantity: 20, unit: "pcs", unit_raw: "buc" },
+      ],
+    });
+    delete body.error_code;
+    expect(Object.prototype.hasOwnProperty.call(body, "error_code"), "cheia error_code lipseste").toBe(
+      false,
+    );
+
+    // 1. ACCEPTAT, CU CODUL DE SUCCES AL CONTRACTULUI (sectiunea 6: 202 prima data).
+    const r = await post(request, body);
+    expect(r.status(), "un partial fara cod este un succes, nu un 400").toBe(202);
+
+    // 2. CIORNA SE CITESTE INAPOI, CU MOTIVUL STOCAT.
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("partial");
+    expect(d.error_code, "niciun cod inventat la scriere").toBeNull();
+    expect(d.reason, "motivul este stocat exact cum a sosit").toBe(vatDelta);
+    expect(d.lines, "un partial isi pastreaza liniile citite").toHaveLength(2);
+
+    // 3. reason ESTE SIR SAU NULL PE UN partial. Acelasi order_id, fara motiv:
+    //    duplicat, 200, iar motivul absent se citeste null, nu sir gol.
+    const noReasonBody: Record<string, unknown> = { ...body };
+    delete noReasonBody.reason;
+    const r2 = await post(request, noReasonBody);
+    expect(r2.status(), "partial fara cod si fara motiv").toBe(200);
+    const d2 = await draftState(request, orderId);
+    expect(d2.status).toBe("partial");
+    expect(d2.reason, "motivul absent este null").toBeNull();
+
+    // 4. reason ESTE ACCEPTAT SI PE extracted. Cardul cere ca afirmatia "ruta
+    //    stocheaza motivul pe orice status" sa fie DOVEDITA, nu presupusa. Pe
+    //    failed o dovedeste pasul 5, cu codul lui.
+    const r3 = await post(
+      request,
+      callbackBody(orderId, { reason: "Documentul are o nota scrisa de mana pe margine." }),
+    );
+    expect(r3.status()).toBe(200);
+    const d3 = await draftState(request, orderId);
+    expect(d3.status).toBe("extracted");
+    expect(d3.reason).toBe("Documentul are o nota scrisa de mana pe margine.");
+
+    // 5. NUMAI partial SE MUTA. Un failed fara error_code este refuzat ca pana
+    //    acum, si nu scrie nimic: ciorna ramane cea de la pasul 4.
+    const failedNoCode: Record<string, unknown> = callbackBody(orderId, {
+      status: "failed",
+      reason: "Nu s-a putut citi.",
+      lines: [],
+    });
+    delete failedNoCode.error_code;
+    const r4 = await post(request, failedNoCode);
+    expect(r4.status(), "failed fara cod ramane 400").toBe(400);
+    const d4 = await draftState(request, orderId);
+    expect(d4.status, "refuzul nu a scris nimic").toBe("extracted");
+
+    const r5 = await post(
+      request,
+      callbackBody(orderId, {
+        status: "failed",
+        error_code: "timeout",
+        reason: "Extragerea a depasit limita scenariului.",
+        lines: [],
+      }),
+    );
+    expect(r5.status()).toBe(200);
+    const d5 = await draftState(request, orderId);
+    expect(d5.status).toBe("failed");
+    expect(d5.error_code).toBe("timeout");
+    expect(d5.reason, "motivul este stocat si pe failed").toBe(
+      "Extragerea a depasit limita scenariului.",
+    );
+  });
+
 });
 
 // ---------------------------------------------------------------------------
