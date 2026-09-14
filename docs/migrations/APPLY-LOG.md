@@ -1947,3 +1947,78 @@ merge. What was proved before the merge is in the pull request's `quality` run:
 with every other assertion file; `check:no-destructive-migration` parses the file.
 **No `check:migrations` ran on the machine that authored it**, because it has no
 Docker; the run in `quality` is the only one.
+
+## 0042_error_code_document_too_large.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER, MERGE HELD FOR OWNER APPROVAL
+
+**Actor:** **the Supabase GitHub app, on the merge of the EXT-28 pull request from
+branch `card/ext-28` to `main`.** No terminal runs it, and none may: CLAUDE.md 8.0
+and ruling R-124 record that merging a migration file is what applies it here.
+
+**Applied at:** the merge of that pull request, within about two minutes of it, and
+**not before the owner approves that merge**, as for 0041.
+
+**What it changes, and it creates no table, column or row:** one label,
+`document_too_large`, appended to `public.extraction_error_code` after
+`reconciliation_failed`. Nine labels afterwards.
+
+**The destructive-statement declaration, per 8.6:** none. One
+`ALTER TYPE ... ADD VALUE IF NOT EXISTS`, alone in its file, which is the shape the
+applier's enum pre-phase accepts. No DROP, no TRUNCATE, no DELETE, no UPDATE.
+
+**WHAT HAPPENS TO THE ROWS ALREADY IN `public.extraction_drafts`:** nothing.
+
+**THE APPLICATION IN THE MINUTES BEFORE THIS LANDS.** The upload refusal writes the
+label only behind `hasDocumentTooLargeCode`, so until the label exists a document
+of 100 pages or more is sent exactly as it is today. A callback carrying
+`document_too_large` in that window is refused by the database with `22P02`, the
+route answers `500`, and Make retries; before this change the same callback was
+answered `400` and dropped.
+
+**Proof that it is applied: NOT YET OBSERVED.** After the merge,
+`GET https://app.rapidconstruct.md/api/health` should report `ledger_version` `"0043"`,
+which requires this file too.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist**, as for every file applied by
+merge. **`npm run check:migrations` ran on the machine that authored it, 2026-09-14,
+exit 0**: every migration applied unmodified to a bare `postgres:16`, then 26
+assertion files passed, including
+`scripts/poc-free/local-db/assertions/0042_error_code_document_too_large.sql` and
+the narrowed `assertions/0034_error_code_reconciliation_failed.sql`, which no longer
+pins the whole set to eight.
+
+## 0043_extraction_upload_page_count.sql - APPLIED BY MERGE, PREDICTED IN ITS OWN HEADER, MERGE HELD FOR OWNER APPROVAL
+
+**Actor:** **the Supabase GitHub app, on the merge of the EXT-28 pull request from
+branch `card/ext-28` to `main`**, the same merge as 0042. No terminal runs it.
+
+**Applied at:** the merge of that pull request, within about two minutes of it, and
+**not before the owner approves that merge**.
+
+**What it changes, and it removes nothing:**
+
+    add       column extraction_drafts.upload_page_count integer, nullable, no default
+    add       check extraction_drafts_upload_page_count_positive   null or >= 1
+    comment   on upload_page_count
+    comment   on page_count, rewritten: the "page counter on our side that does not
+              exist yet" now exists, and the comparison is still not built
+
+**The destructive-statement declaration, per 8.6:** none. The constraint is declared
+with the column, so the file has no `DROP CONSTRAINT`. Both statements run inside one
+`begin; ... commit;`. No DROP, no TRUNCATE, no DELETE, no UPDATE.
+
+**WHAT HAPPENS TO THE ROWS ALREADY IN `public.extraction_drafts`:** each gains
+`upload_page_count` null, which is the truth about them: nobody counted. No column
+changes value.
+
+**THE APPLICATION IN THE MINUTES BEFORE THIS LANDS.** Every read and write of the
+column sits behind `hasExtractionUploadPageCount`: until it exists, no count is
+stored and none is shown. The webhook carries `page_count` regardless, because the
+count comes from the uploaded bytes and not from the database.
+
+**Proof that it is applied: NOT YET OBSERVED.** After the merge, `/api/health` should
+report `ledger_version` `"0043"` and the merge commit.
+
+**Phases 1, 2 and 3 of CLAUDE.md 8.5: none exist.** `npm run check:migrations` ran on
+the authoring machine, exit 0, with
+`scripts/poc-free/local-db/assertions/0043_extraction_upload_page_count.sql` among
+the 26 assertion files that passed.

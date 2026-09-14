@@ -16,7 +16,11 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { inBatches, readAllPages } from "./id-list";
 import { isDocumentSource } from "./extraction-types";
-import { hasExtractionDocumentSource, hasSupplierDocumentRef } from "./schema-capability";
+import {
+  hasExtractionDocumentSource,
+  hasExtractionUploadPageCount,
+  hasSupplierDocumentRef,
+} from "./schema-capability";
 import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
 
 /** EXT-15. Aceeasi lista, plus coloana pe care 0032 o adauga.
@@ -40,16 +44,23 @@ const DRAFT_COLUMNS =
  *  mapDraft: el citeste campurile pe nume dintr-un Record. */
 const SUPPLIER_REF_COLUMNS = ", order_ref, order_ref_series";
 
+/** EXT-28. Numarul de pagini NUMARAT DE NOI la incarcare, adaugat de 0043. Un
+ *  sufix separat, din acelasi motiv ca perechea de mai sus. */
+const UPLOAD_PAGE_COUNT_COLUMN = ", upload_page_count";
+
 /** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
  *
- *  DOUA INTREBARI SEPARATE SI NU UNA, fiindca 0033 si 0036 sunt fisiere separate
+ *  INTREBARI SEPARATE SI NU UNA, fiindca 0033, 0036 si 0043 sunt fisiere separate
  *  si ajung in productie separat. O poarta comuna ar lega soarta lor si ar
  *  ascunde exact starea in care una este aplicata si cealalta nu. */
 async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocumentSource>[0] & Parameters<typeof hasSupplierDocumentRef>[0]): Promise<string> {
   const base = (await hasExtractionDocumentSource(supabase))
     ? DRAFT_COLUMNS_WITH_SOURCE
     : DRAFT_COLUMNS;
-  return (await hasSupplierDocumentRef(supabase)) ? base + SUPPLIER_REF_COLUMNS : base;
+  const withRef = (await hasSupplierDocumentRef(supabase)) ? base + SUPPLIER_REF_COLUMNS : base;
+  return (await hasExtractionUploadPageCount(supabase))
+    ? withRef + UPLOAD_PAGE_COUNT_COLUMN
+    : withRef;
 }
 
 const LINE_COLUMNS =
@@ -110,6 +121,12 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // stocata deloc.
     orderRef: (row.order_ref as string | null) ?? null,
     orderRefSeries: (row.order_ref_series as string | null) ?? null,
+    // EXT-28. Cand 0043 nu este inca aplicata coloana lipseste din select si
+    // valoarea este null, ceea ce este adevarul: nimeni nu a numarat.
+    uploadPageCount:
+      Number.isInteger(row.upload_page_count) && (row.upload_page_count as number) >= 1
+        ? (row.upload_page_count as number)
+        : null,
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),

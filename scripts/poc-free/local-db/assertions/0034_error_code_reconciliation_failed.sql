@@ -45,11 +45,32 @@ begin
     raise exception 'EXT-16: the enum LOST pre-existing labels: %. An addition must add, never replace', missing;
   end if;
 
+  -- THE WHOLE SET IS NO LONGER PINNED HERE, AND THAT IS docs/LEARNINGS.md's RULE.
+  -- This block read, until card EXT-28 added 0042:
+  --
+  --   if n <> 8 then
+  --     raise exception 'EXT-16: extraction_error_code holds % labels, expected exactly 8', n;
+  --   end if;
+  --
+  -- apply.mjs runs every assertion file against the FINISHED schema, so that line
+  -- was true only until the next label arrived. An assertion pins what its own
+  -- migration did; the whole set is pinned by the assertion of the NEWEST
+  -- migration that changed it, which is now assertions/0042_error_code_document_too_large.sql.
+  -- What stays here is 0034's own fact: reconciliation_failed is the EIGHTH label.
   select count(*) into n
   from pg_enum e join pg_type t on t.oid = e.enumtypid
-  where t.typname = 'extraction_error_code';
-  if n <> 8 then
-    raise exception 'EXT-16: extraction_error_code holds % labels, expected exactly 8', n;
+  where t.typname = 'extraction_error_code'
+    and e.enumlabel = 'reconciliation_failed'
+    and e.enumsortorder = (
+      select min(e2.enumsortorder) from pg_enum e2
+      where e2.enumtypid = e.enumtypid
+        and e2.enumsortorder > (
+          select e3.enumsortorder from pg_enum e3
+          where e3.enumtypid = e.enumtypid and e3.enumlabel = 'timeout'
+        )
+    );
+  if n <> 1 then
+    raise exception 'EXT-16: reconciliation_failed is not the label immediately after timeout';
   end if;
 end $$;
 

@@ -27,6 +27,12 @@ export const EXTRACTION_ERROR_CODES = [
   // the three groups so the ninth code joins a stated set rather than a guessed
   // one.
   "reconciliation_failed",
+  // EXT-28. THE SECOND MEMBER OF THE THIRD SURFACE, and ours to emit like the one
+  // above: an upload whose page count WE measured at 100 or more, refused BEFORE
+  // it was sent, so nothing was downloaded and no model ran. Being in this set
+  // also means a callback carrying it is accepted rather than answered 400; the
+  // owner's dispatch of 2026-09-14 states the counterparty's size guard emits it.
+  "document_too_large",
 ] as const;
 export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 
@@ -115,6 +121,12 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   // fata de EXT-16; ce s-a schimbat este ca a doua propozitie vine acum din
   // constanta pe care proba o citeste.
   reconciliation_failed: `Suma liniilor citite nu se potrivește cu totalul tipărit pe document. ${ACTION_ENTER_BY_HAND}`,
+  // EXT-28. Textul propus in `defaults`-ul cardului EXT-27, luat ca atare. Spune
+  // ce s-a intamplat si ce are omul de facut, iar instructiunea lui nu este a
+  // niciunui alt cod: nu cere o scanare, nu cere o retrimitere si nu cere
+  // introducere manuala.
+  document_too_large:
+    "Documentul are prea multe pagini pentru serviciul de extragere. Împarte-l în părți mai mici și încarcă-le pe rând.",
 };
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
@@ -222,6 +234,10 @@ export type ExtractionDraft = {
    *  doi furnizori pot emite amandoi 0009312. null este legal: nu orice document
    *  poarta o serie. */
   orderRefSeries: string | null;
+  /** EXT-28. Paginile NUMARATE DE NOI la incarcare, din bytes. null inseamna ca
+   *  nu am putut numara cu siguranta, sau ca randul este de dinaintea migratiei
+   *  0043. Nu este numarul raportat de model, care ramane in `_meta`. */
+  uploadPageCount: number | null;
   firedAt: string | null;
   callbackAt: string | null;
   lines: ExtractionLine[];

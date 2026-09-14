@@ -191,6 +191,24 @@ function ReviewForm({
               </dd>
             </div>
           ))}
+          {/* EXT-28. CATE PAGINI ARE DOCUMENTUL, NUMARATE DE NOI LA INCARCARE.
+              Aceasta este forma pe care un om o bate de mana, si fara numar el nu
+              poate deosebi un aviz de o pagina de prima pagina din patru. Forma
+              nu poarta _meta, deci numarul modelului nu exista aici niciodata;
+              al nostru exista, fiindca vine din fisier. Eticheta spune de unde
+              vine, ca nimeni sa nu il citeasca drept ce a citit extractorul. */}
+          <div data-testid="review-unread-pages">
+            <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-rc-muted">
+              Pagini numărate la încărcare
+            </dt>
+            <dd className="text-[13.5px] text-rc-black">
+              {draft.uploadPageCount === null ? (
+                <span className="text-rc-muted">Nu s-au putut număra</span>
+              ) : (
+                draft.uploadPageCount
+              )}
+            </dd>
+          </div>
         </dl>
 
         {draft.reason ? (

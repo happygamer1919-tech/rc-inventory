@@ -154,6 +154,16 @@ jobs:
       - name: Prove the document URL failure contract
         run: npm run check:document-url
 
+      # EXT-28. The page counter, on files whose answer is known: the two
+      # committed fixtures, PDFs built in memory whose catalogue sits inside a
+      # compressed object stream, the nested shape the 2026-09-12 probe
+      # undercounted, an incremental update, and every shape it cannot read with
+      # certainty, where it must answer null rather than a wrong integer. No
+      # network, no database, no secret. NOT PATH-FILTERED, for the reason the
+      # reconciliation step below gives.
+      - name: Check the page counter
+        run: npm run check:page-count
+
       # EXT-16. The tolerance arithmetic, on its own, with no database and no
       # browser. NOT PATH-FILTERED: the end-to-end cases prove the rule is wired
       # in, this proves the arithmetic is right, and they fail for different

@@ -314,3 +314,25 @@ All honoured.
 - **Next extraction card by value:** EXT-27, whose remaining clauses are the
   instruction `download_failed` lacks, the sentence-uniqueness check and its
   mutants.
+
+---
+
+## AFTER THE REPORT WAS FIRST COMMITTED
+
+This section is added on the EXT-28 branch, because the copy above was committed
+into #292 before that pull request's own `quality` run could finish, and a commit
+can never contain its own pull request's result.
+
+- **#292, P3-55, MERGED** as `2dc18d2` at 2026-09-14T20:24:28Z. `quality` run
+  34889731416 passed on head `cf51863` (29m15s), with mergeStateStatus CLEAN.
+  Production `/api/health` reports commit `2dc18d2` and `ledger_version` `"0041"`.
+  This terminal merged it under CLAUDE.md 3.1: no migration, green on its head sha,
+  acceptance run locally.
+- **#290, EXT-28, STILL OPEN, MERGE HELD FOR THE OWNER.** `quality` passed on
+  `241310d`, the head after merging main post EXT-30. Main then moved again, when
+  #292 merged. Main was merged in at `3103e85`, with two conflicts resolved
+  locally: `decisions/NEXT-RULING-ID` takes R-198, and `decisions/inbox.md` keeps
+  R-196 and R-197 in id order. `tsc` and nine checks exit 0. Its `quality` run on
+  the final head was in progress when this section was committed.
+- **This terminal now has one pull request in flight, #290**, which meets dispatch
+  2's "one PR each" again.

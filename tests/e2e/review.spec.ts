@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn, signOut } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
+import { buildPdf } from "./support/pdf-builder.mjs";
 import {
   ACTION_CHECK_DOCUMENT,
   ACTION_ENTER_BY_HAND,
@@ -55,13 +56,15 @@ async function uploadForExtraction(
   page: Page,
   request: APIRequestContext,
   tag: string,
+  // EXT-28. Un document ales de caz, cand numarul lui de pagini conteaza.
+  buffer: Buffer = pdfBytes(tag),
 ): Promise<string> {
   const filename = `TEST-${tag}-${RUN}.pdf`;
   await page.goto(UPLOAD);
   await page.getByTestId("extraction-input").setInputFiles({
     name: filename,
     mimeType: "application/pdf",
-    buffer: pdfBytes(tag),
+    buffer,
   });
 
   const card = page.locator(`[data-testid="draft-card"]`).filter({ hasText: filename });
@@ -1160,6 +1163,54 @@ test.describe("Verificare si confirmare extragere", () => {
     ]) {
       await expect(page.getByTestId(t), `EXT-15: ${t} nu are voie sa existe`).toHaveCount(0);
     }
+  });
+
+  test("11b. EXT-28: forma antet fara linii arata cate pagini am numarat noi la incarcare, si spune cand nu am putut", async ({
+    page,
+    request,
+  }) => {
+    // EXT-28, clauza 3. Aceasta este forma pe care un om o bate de mana, si ea nu
+    // poarta _meta, deci numarul modelului nu exista aici niciodata. Al nostru
+    // exista, fiindca vine din fisier la incarcare.
+    await signIn(page, ownerAccount());
+
+    function headerOnly(orderId: string): Record<string, unknown> {
+      const body = callbackBody(orderId, {
+        status: "failed",
+        error_code: "unreadable_document",
+        reason: "Scanarea nu a putut fi citita.",
+        document_source: "scan",
+      }) as Record<string, unknown>;
+      delete body.lines;
+      delete body._meta;
+      return body;
+    }
+
+    async function pagesShownFor(orderId: string) {
+      expect((await post(request, headerOnly(orderId))).status()).toBe(202);
+      await page.goto(UPLOAD);
+      const card = draftCard(page, orderId);
+      await expect(card).toHaveCount(1, { timeout: 30_000 });
+      await card.getByTestId("draft-header").click();
+      await expect(card.getByTestId("review-unread-scan")).toBeVisible({ timeout: 15_000 });
+      const pages = card.getByTestId("review-unread-pages");
+      await expect(pages).toContainText("Pagini numărate la încărcare");
+      return pages;
+    }
+
+    const four = await uploadForExtraction(
+      page,
+      request,
+      "unread-pages4",
+      buildPdf(4, { objectStreams: true }),
+    );
+    await expect(await pagesShownFor(four)).toContainText("4");
+
+    // NULL SE SPUNE, NU SE ASCUNDE SI NU DEVINE ZERO.
+    const unknown = await uploadForExtraction(page, request, "unread-pagesnone");
+    const shown = await pagesShownFor(unknown);
+    await expect(shown).toContainText("Nu s-au putut număra");
+    await expect(shown).not.toContainText("0");
   });
 
   test("12. EXT-17: liniile unei scanari care SE ADUNA CORECT sunt marcate PE LINIE ca citite dintr-o imagine", async ({

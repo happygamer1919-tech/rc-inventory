@@ -33,7 +33,9 @@ URL it is built from. Only the origin and the path prefix differ:
 inside the token and nothing on our side changes it.
 
 `document_url` in the extraction fire payload (`docs/contracts/extraction-v2.md`
-section 3) is this URL. The six fields of that body are unchanged.
+section 3) is this URL. That body carries seven fields since card EXT-28 added
+`page_count` on 2026-09-14; this sentence said "The six fields of that body are
+unchanged" until then, which was true when EXT-08 wrote it.
 
 ## 2. Success
 
