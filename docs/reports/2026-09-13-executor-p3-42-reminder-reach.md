@@ -93,7 +93,15 @@ No Docker and no Supabase CLI on this machine, so the end to end suite and the a
 
 ## Defects met in this run
 
-None. Nothing broke in the application, the tests or the checks, so per CLAUDE.md section 9 nothing was appended to `docs/LEARNINGS.md`. One mistake was caught in review before it ran: the first draft of the account manager case opened a second browser with `browser.newContext()`, which does not inherit the configured `baseURL`; it was rewritten to sign out and sign in on the same page, the pattern `tests/e2e/support/auth.ts` already provides.
+**One defect, in the new test, not in the application. Appended to `docs/LEARNINGS.md` as "The first Next-Action request after a click is not necessarily the one the click sent".**
+
+The first implementation head, `a53c91b`, ran quality **34793382768**: failure at End to end only, **1 failed, 217 passed**. Cases 1, 2 and 4 passed, so the link worked and the threshold changed from the reminders row was read back from the stored row. Case 3 failed at `reminders.spec.ts:371`: the product sheet path captured action id `40232ba7...` and the reminders path `60f32376...`.
+
+Diagnosis, against the real run rather than a guess: the `playwright-report` artifact's trace for that case lists every POST with a `next-action` header. On the product sheet path, two `40232ba7...` requests (the panel's `loadProductDetail`, sent as it opened) went out after the capture began, then the save as `60f32376...`; on the reminders path, the save alone, `60f32376...`. **Both saves used the same action.** The helper took the first header it saw. The id's first byte agrees independently: `40` marks a one-argument action and `60` a two-argument one in every build, and `updateProduct(id, input)` takes two.
+
+Repair, attempt 1 of the 3 CLAUDE.md section 10 allows: the helper now selects the save request by its body, the POST carrying `"threshold":"<the value just typed>"`. Nothing was loosened: the ids are still asserted equal, and a second action writing the column would still carry a different id and fail.
+
+One mistake was caught in review before anything ran: the first draft of the account manager case opened a second browser with `browser.newContext()`, which does not inherit the configured `baseURL`; it was rewritten to sign out and sign in on the same page, the pattern `tests/e2e/support/auth.ts` already provides.
 
 ## State at the end
 

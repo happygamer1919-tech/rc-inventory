@@ -294,11 +294,20 @@ async function openSheetFromReminders(page: Page, sku: string) {
 }
 
 /** Scrie pragul in formularul deschis, salveaza, si intoarce id-ul server
- *  action-ului care a primit scrierea, citit din antetul Next-Action. */
+ *  action-ului care a primit scrierea, citit din antetul Next-Action.
+ *
+ *  CEREREA ESTE ALEASA DUPA CORP, NU DOAR DUPA ANTET. Panoul din Inventar isi
+ *  incarca detaliul tot printr-o server action, loadProductDetail, iar cererea
+ *  aceea poate pleca dupa ce asteptarea a inceput: prima rulare verde a luat-o
+ *  pe ea drept salvare (run 34793382768). Salvarea este singura cerere care
+ *  poarta pragul scris chiar acum. */
 async function saveThreshold(page: Page, value: string): Promise<string> {
   await page.getByTestId("field-threshold").fill(value);
   const posted = page.waitForRequest(
-    (r) => r.method() === "POST" && r.headers()["next-action"] !== undefined,
+    (r) =>
+      r.method() === "POST" &&
+      r.headers()["next-action"] !== undefined &&
+      (r.postData() ?? "").includes(`"threshold":"${value}"`),
     { timeout: 20_000 },
   );
   await page.getByTestId("form-submit").click();

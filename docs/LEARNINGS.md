@@ -5340,3 +5340,27 @@ native date has the value `""`.
 `tests/e2e/inbound.spec.ts` uses `pressSequentially`. **RULE: never click a native date
 field to type into it in a test; focus it. An empty value after typing means the
 segments were never completed, not that typing is refused.**
+
+### The first Next-Action request after a click is not necessarily the one the click sent
+**Tag:** ci
+**ERROR:** `P3-42` asserts that the product sheet and the new link from the reminders row
+save a threshold through the same server action, by comparing the `Next-Action` header of
+each save request. The helper waited for the first POST carrying that header. On the
+product sheet path it caught `40232ba7...` and on the reminders path `60f32376...`, and the
+case failed with `expect(received).toBe(expected)` at `reminders.spec.ts:371`, quality run
+34793382768, while the three other new cases passed. It read exactly like two write paths.
+The Playwright trace from that run showed otherwise: the Inventar panel loads its detail
+through a server action too, `loadProductDetail` in `lib/data/product-detail.ts`, and two of
+those requests went out after the wait began; the save that followed was `60f32376...` on
+both paths. The first two hex characters of an action id describe the arguments and are the
+same in every build, so `40` (one argument) versus `60` (two) already said the captured
+request was not `updateProduct(id, input)`.
+**SOLUTION:** Select the request by what it carries, not only by the header: the save is the
+POST whose body contains `"threshold":"<the value just typed>"`. The assertion is unchanged,
+two different actions writing the column still carry two different ids. To read which
+action a CI id is, open the run's `playwright-report` artifact trace and list the POSTs with
+a `next-action` header in its `.network` entry; a local build's
+`.next/server/server-reference-manifest.json` names functions but hashes ids differently
+from CI, so only the first byte carries over. **RULE: a test that captures a network request
+names it by its payload. Any screen that loads data through a server action on open will
+otherwise hand the capture a request nobody clicked.**
