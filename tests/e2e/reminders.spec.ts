@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
-import { ownerAccount } from "./support/accounts";
-import { signIn } from "./support/auth";
+import { expect, request as playwrightRequest, test, type APIRequestContext } from "@playwright/test";
+import { managerAccount, ownerAccount } from "./support/accounts";
+import { signIn, signOut } from "./support/auth";
 import { RESEND_FAIL_MARKER, refusedFor, sentFor } from "./support/resend";
 
 // reminders.spec - linia de acceptanta a cardului P2-10.
@@ -215,5 +215,186 @@ test.describe("Memento stoc", () => {
     await expect(row).toHaveCount(1);
     await expect(row).toContainText("Netrimis");
     await expect(row.getByTestId("alert-error")).toContainText("500");
+  });
+});
+
+// P3-42. PRAGUL SE AJUNGE DIN RANDUL CARE IL ARATA.
+//
+// CAPACITATEA EXISTA DEJA si cardul nu o adauga: pragul se editeaza in fisa
+// produsului din Inventar, prin updateProduct din lib/data/product-actions.ts.
+// Ce lipsea era drumul pana la ea de pe ecranul de memento, unde se vede ca
+// pragul este gresit. Cardul adauga o LEGATURA, nu un al doilea formular.
+//
+// PATRU CAZURI, cate unul pe clauza din acceptanta:
+//
+//   1. pornind din memento, pragul se schimba si se citeste din RANDUL STOCAT,
+//      prin PostgREST, nu din formular si nici din ecran;
+//   2. fisa produsului din Inventar editeaza in continuare acelasi camp;
+//   3. UN SINGUR DRUM DE SCRIERE: amandoua scriu prin aceeasi server action,
+//      dovedit prin antetul Next-Action pe care Next il pune pe cererea POST.
+//      Doua actiuni diferite ar avea doua id-uri diferite;
+//   4. operatorul, care nu putea schimba pragul, tot nu poate.
+
+type OwnerRest = { api: APIRequestContext; headers: Record<string, string> };
+
+/** O legatura directa la PostgREST, ca administratorul, fara ecran. */
+async function ownerRest(): Promise<OwnerRest> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  expect(url, "P3-42 are nevoie de NEXT_PUBLIC_SUPABASE_URL").not.toBe("");
+  expect(anonKey, "P3-42 are nevoie de NEXT_PUBLIC_SUPABASE_ANON_KEY").not.toBe("");
+
+  const api = await playwrightRequest.newContext({ baseURL: url });
+  const owner = ownerAccount();
+  const token = await api.post("/auth/v1/token?grant_type=password", {
+    headers: { apikey: anonKey, "Content-Type": "application/json" },
+    data: { email: owner.email, password: owner.password },
+  });
+  expect(token.ok()).toBe(true);
+  const body = (await token.json()) as { access_token: string };
+
+  return {
+    api,
+    headers: { apikey: anonKey, Authorization: `Bearer ${body.access_token}` },
+  };
+}
+
+/** Pragul din randul stocat in products, pentru SKU-ul dat. */
+async function storedThreshold(sku: string): Promise<number> {
+  const rest = await ownerRest();
+  const response = await rest.api.get(
+    `/rest/v1/products?sku=eq.${encodeURIComponent(sku)}&select=threshold`,
+    { headers: rest.headers },
+  );
+  expect(response.status(), await response.text()).toBe(200);
+  const rows = (await response.json()) as Array<{ threshold: number | string }>;
+  await rest.api.dispose();
+  expect(rows).toHaveLength(1);
+  return Number(rows[0]!.threshold);
+}
+
+/** Drumul care exista de la P2-03: randul din Inventar, panoul, Modifica. */
+async function openSheetFromInventory(page: Page, sku: string) {
+  await page.goto("/inventar");
+  await page.getByTestId("product-search").fill(sku);
+  await page.locator(`[data-testid="product-row"][data-sku="${sku}"]`).click();
+  await expect(page.getByTestId("product-panel")).toBeVisible();
+  await page.getByTestId("panel-edit").click();
+  await expect(page.getByTestId("product-form")).toBeVisible();
+}
+
+/** Drumul nou: legatura de pe pragul din randul de memento. */
+async function openSheetFromReminders(page: Page, sku: string) {
+  await page.goto("/memento");
+  const row = page.locator(`[data-testid="threshold-row"][data-sku="${sku}"]`);
+  await expect(row).toHaveCount(1);
+  await row.getByTestId("threshold-edit-link").click();
+  await page.waitForURL((url) => new URL(url).pathname === "/inventar", { timeout: 20_000 });
+  await expect(page.getByTestId("product-form")).toBeVisible({ timeout: 20_000 });
+}
+
+/** Scrie pragul in formularul deschis, salveaza, si intoarce id-ul server
+ *  action-ului care a primit scrierea, citit din antetul Next-Action. */
+async function saveThreshold(page: Page, value: string): Promise<string> {
+  await page.getByTestId("field-threshold").fill(value);
+  const posted = page.waitForRequest(
+    (r) => r.method() === "POST" && r.headers()["next-action"] !== undefined,
+    { timeout: 20_000 },
+  );
+  await page.getByTestId("form-submit").click();
+  const actionId = (await posted).headers()["next-action"] ?? "";
+  // Formularul se inchide doar la reusita; la esec ramane deschis cu eroarea.
+  await expect(page.getByTestId("product-form")).toHaveCount(0, { timeout: 20_000 });
+  return actionId;
+}
+
+test.describe("Memento stoc: pragul se modifică din rândul lui", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("pornind din memento, pragul se schimbă și se citește din rândul stocat", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { sku } = await productWithThreshold(page, "reach", "10");
+    expect(await storedThreshold(sku)).toBe(10);
+
+    await openSheetFromReminders(page, sku);
+
+    // Legatura duce la fisa produsului, direct pe campul pragului.
+    const url = new URL(page.url());
+    expect(url.searchParams.get("produs")).toBe(sku);
+    expect(url.searchParams.get("camp")).toBe("prag");
+    await expect(page.getByTestId("field-sku")).toHaveValue(sku);
+    await expect(page.getByTestId("field-threshold")).toHaveValue("10");
+    await expect(page.getByTestId("field-threshold")).toBeFocused();
+
+    await saveThreshold(page, "7");
+
+    // Din baza, nu din formular.
+    expect(await storedThreshold(sku)).toBe(7);
+
+    await page.goto("/memento");
+    const row = page.locator(`[data-testid="threshold-row"][data-sku="${sku}"]`);
+    await expect(row.getByTestId("threshold-edit-link")).toHaveText(/^7\s/);
+  });
+
+  test("fișa produsului din Inventar editează în continuare același prag", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { sku } = await productWithThreshold(page, "sheet", "10");
+
+    await openSheetFromInventory(page, sku);
+    await expect(page.getByTestId("field-threshold")).toHaveValue("10");
+    await saveThreshold(page, "13");
+
+    expect(await storedThreshold(sku)).toBe(13);
+  });
+
+  test("amândouă drumurile scriu pragul prin aceeași acțiune de server", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { sku } = await productWithThreshold(page, "one-path", "10");
+
+    await openSheetFromInventory(page, sku);
+    const fromSheet = await saveThreshold(page, "12");
+    expect(await storedThreshold(sku)).toBe(12);
+
+    await openSheetFromReminders(page, sku);
+    const fromReminders = await saveThreshold(page, "6");
+    expect(await storedThreshold(sku)).toBe(6);
+
+    // Acelasi id inseamna aceeasi functie: updateProduct, din
+    // lib/data/product-actions.ts. O a doua actiune care scrie coloana ar
+    // purta alt id si ar pica aici.
+    expect(fromSheet).not.toBe("");
+    expect(fromReminders).toBe(fromSheet);
+  });
+
+  test("operatorul nu poate schimba pragul nici pornind din memento", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { sku } = await productWithThreshold(page, "perm", "10");
+
+    // Produsul il face administratorul; restul cazului este al operatorului.
+    await signOut(page);
+    await signIn(page, managerAccount());
+
+    // Operatorul vede memento, dar randul nu ii ofera nicio cale de modificare.
+    await page.goto("/memento");
+    const row = page.locator(`[data-testid="threshold-row"][data-sku="${sku}"]`);
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText("10");
+    await expect(row.getByTestId("threshold-edit-link")).toHaveCount(0);
+
+    // Nici adresa legaturii, scrisa de mana, nu deschide formularul: deschide
+    // panoul de citire, exact ca legatura simpla catre produs.
+    await page.goto(`/inventar?produs=${encodeURIComponent(sku)}&camp=prag`);
+    await expect(page.getByTestId("product-panel")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("panel-edit")).toHaveCount(0);
+    await expect(page.getByTestId("product-form")).toHaveCount(0);
+    await expect(page.getByTestId("field-threshold")).toHaveCount(0);
+
+    expect(await storedThreshold(sku)).toBe(10);
   });
 });
