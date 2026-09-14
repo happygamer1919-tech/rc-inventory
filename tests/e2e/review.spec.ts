@@ -784,6 +784,116 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(page.getByTestId("review-line")).toHaveCount(kept);
   });
 
+  test("5b. P3-55: un partial DIGITAL fara error_code, cu linii care nu se aduna, se stocheaza cu reconciliation_failed si bratul lui, isi pastreaza liniile si arata propozitia deasupra lor", async ({
+    page,
+    request,
+  }) => {
+    // P3-55. Hotararea proprietarului din 2026-09-14: un partial este atins numai
+    // cand antetul se aduna, exista cel putin o linie, documentul nu este o scanare
+    // si aritmetica liniilor rateaza. Codul il furnizeaza clasificarea noastra;
+    // statusul ramane partial si liniile raman, fiindca ele sunt motivul pentru
+    // care partial exista.
+    //
+    // ANTETUL ESTE SCRIS AICI, NU LUAT DIN callbackBody, ca acest caz sa nu depinda
+    // de valorile implicite ale altui caz: 18450 + 3690 = 22140, iar 3690 este 20%
+    // din 18450, deci antetul se aduna cu el insusi. Liniile dau 18000, cu 450 sub
+    // subtotalul tiparit, deci suma rateaza.
+    const header = {
+      document_source: "digital",
+      subtotal: 18450.0,
+      vat_amount: 3690.0,
+      document_total: 22140.0,
+      vat_rate: 20.0,
+      prices_include_vat: false,
+    };
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "p355");
+
+    const partial: Record<string, unknown> = callbackBody(orderId, {
+      ...header,
+      status: "partial",
+      reason: `Suma liniilor nu da subtotalul tiparit ${RUN}`,
+      lines: [
+        extractedLine(`Prima linie P3-55 ${RUN}`, { quantity: 100, unit_price: 90, line_total: 9000 }),
+        extractedLine(`A doua linie P3-55 ${RUN}`, { quantity: 100, unit_price: 90, line_total: 9000 }),
+      ],
+    });
+    delete partial.error_code;
+
+    // 1. ACCEPTAT, CU CODUL DE SUCCES AL CONTRACTULUI.
+    expect((await post(request, partial)).status(), "un partial fara cod, cu linii, este valid").toBe(202);
+
+    // 2. STOCAT: status partial, codul nostru, bratul lui, si amandoua liniile.
+    const d = await draftState(request, orderId);
+    expect(d.status, "statusul ramane partial").toBe("partial");
+    expect(d.error_code, "codul il furnizeaza clasificarea noastra").toBe("reconciliation_failed");
+    expect(d.platform_error_code, "si este inregistrat ca al nostru").toBe("reconciliation_failed");
+    expect(d.platform_arm, "bratul este inregistrat").toBe("line_sum_missed");
+    expect(d.lines, "liniile raman, ele sunt motivul pentru care partial exista").toHaveLength(2);
+
+    // 3. ECRANUL: propozitia reconcilierii pe fisa, liniile dedesubt.
+    await page.goto(UPLOAD);
+    const card = draftCard(page, orderId);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-status", "partial");
+    await expect(card.getByTestId("draft-error-sentence")).toHaveText(
+      EXTRACTION_ERROR_LABEL.reconciliation_failed,
+    );
+    await expect(card).not.toContainText("reconciliation_failed");
+    await expect(card.getByTestId("draft-kept-lines")).toContainText("2");
+    await openReview(page, orderId);
+    await expect(page.getByTestId("review-line")).toHaveCount(2);
+    const sentenceBox = await card.getByTestId("draft-error-sentence").boundingBox();
+    const firstLineBox = await page.getByTestId("review-line").first().boundingBox();
+    expect(sentenceBox, "propozitia este pe ecran").not.toBeNull();
+    expect(firstLineBox, "liniile sunt pe ecran").not.toBeNull();
+    expect(sentenceBox!.y, "propozitia sta deasupra liniilor").toBeLessThan(firstLineBox!.y);
+
+    // 4. CONTROLUL CARE NU SE MUTA: un failed fara cod ramane 400 si nu scrie nimic.
+    const failedNoCode: Record<string, unknown> = callbackBody(orderId, {
+      ...header,
+      status: "failed",
+      reason: "Nu s-a putut citi.",
+      lines: [],
+    });
+    delete failedNoCode.error_code;
+    expect((await post(request, failedNoCode)).status(), "failed fara cod ramane 400").toBe(400);
+    expect((await draftState(request, orderId)).status, "refuzul nu a scris nimic").toBe("partial");
+
+    // 5. NUMAI PARTIALUL CU CEL PUTIN O LINIE DEVINE VALID. Fara cod si fara linii: 400.
+    const emptyPartial: Record<string, unknown> = callbackBody(orderId, {
+      ...header,
+      status: "partial",
+      reason: "Nicio linie citita.",
+      lines: [],
+    });
+    delete emptyPartial.error_code;
+    expect((await post(request, emptyPartial)).status(), "partial fara cod si fara linii").toBe(400);
+    const after = await draftState(request, orderId);
+    expect(after.lines, "refuzul nu a sters liniile").toHaveLength(2);
+    expect(after.error_code).toBe("reconciliation_failed");
+
+    // 6. NICIUN COD INVENTAT: acelasi partial fara cod, pe un document ale carui
+    //    linii SE ADUNA, ramane partial fara cod si fara verdict.
+    const reconciled = await uploadForExtraction(page, request, "p355ok");
+    const okPartial: Record<string, unknown> = callbackBody(reconciled, {
+      ...header,
+      status: "partial",
+      reason: `O linie are unitatea necitita ${RUN}`,
+      lines: [
+        extractedLine(`Linie care se aduna A ${RUN}`, { quantity: 100, unit_price: 92.25, line_total: 9225 }),
+        extractedLine(`Linie care se aduna B ${RUN}`, { quantity: 100, unit_price: 92.25, line_total: 9225 }),
+      ],
+    });
+    delete okPartial.error_code;
+    expect((await post(request, okPartial)).status()).toBe(202);
+    const ok = await draftState(request, reconciled);
+    expect(ok.status).toBe("partial");
+    expect(ok.error_code, "liniile se aduna, deci nu exista niciun cod de furnizat").toBeNull();
+    expect(ok.platform_error_code).toBeNull();
+    expect(ok.lines).toHaveLength(2);
+  });
+
   test("6. retrimiterea foloseste acelasi order_id si inlocuieste extragerea", async ({
     page,
     request,

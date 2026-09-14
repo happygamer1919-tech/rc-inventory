@@ -13287,3 +13287,111 @@ happens, and R-195 recorded the fifth.
 **Unblocks:** nothing.
 **Supersedes:** none. R-194(b) is NARROWED in place, with the narrowed text quoted
 beside the note and its rule sentence untouched.
+
+### R-197 - A digital partial with no error_code and at least one line is valid and carries our reconciliation code, the two alternatives are rejected with their reasons, and a failure path's `_meta.model` names the configured model and never a snapshot
+
+**Date:** 2026-09-14
+**Asked on:** P3-55 (the ORANGE dispatch of 2026-09-14, steps 1 and 2)
+**Answer, verbatim:**
+> STEP 1 - BUILD. Partial with a null error code is valid.
+>   ruled: partial is reachable only when the header reconciles, at least one line
+>     is present, the document is not a scan, and the line arithmetic fails. That
+>     state is fully determined, so status partial already carries the meaning a
+>     code would carry. The counterparty traced this in their own expressions:
+>     every partial they are capable of producing arrives with a null code, so
+>     partial is currently 100 percent discarded before storage.
+>   accept it. Our classifier supplies reconciliation_failed and records its arm,
+>     per the backstop rule already shipped.
+>   the lines are kept and shown. They are the reason partial exists.
+>   do NOT widen the 400 away: a failed payload with a null error code stays
+>     refused. Only partial with at least one line becomes valid.
+>
+> STEP 2 - RECORD.
+>   no contract change on either side. The lines structure keeps no error_code
+>     field, by design.
+>   record why the two rejected alternatives were rejected: moving partial into the
+>     failed structure discards the lines, which are the reason partial exists;
+>     adding error_code to the lines structure is a two-sided change carrying one
+>     constant value.
+>   record that _meta.model on a failure path is the configured model and not the
+>     resolved snapshot, because the call did not complete. A refusal can never be
+>     attributed to a specific snapshot. Only the success path can.
+
+**Ruling: adopted. Step 1 is built by card P3-55. Step 2 is recorded below as
+four positions. One sentence of the dispatch's premise is false about `main` and
+about production, and that is recorded rather than smoothed over.**
+
+#### (a) THE RULE, AND THE PREMISE SENTENCE THE REPOSITORY DOES NOT BEAR OUT
+
+**The rule, as built by P3-55.** A `partial` that arrives with no `error_code` and
+at least one line is accepted. When `document_source` is `digital`, our
+classification runs on it. Its verdict is recorded in `platform_error_code` and
+`platform_arm`, and when that verdict is `reconciliation_failed` it is also stored
+as the draft's `error_code`. The status stays `partial` and the lines are kept and
+shown. A `failed` with no code is still `400`. A `partial` with no code and no
+lines is `400`.
+
+**"Partial is currently 100 percent discarded before storage" is not true of
+`main` or of production.** Card P3-29a (PR #286, merged 2026-09-14T06:14Z) made
+the route answer `400` on a null `error_code` for `failed` only, and on
+2026-09-14 production answered `/api/health` with `ledger_version` `"0041"` at
+commit `d1f7074`, which carries it. A digital partial with no code and with lines
+is accepted `202` and stored today. **What was true is narrower:** it was stored
+with `error_code` null and no verdict of ours, because our classification ran on
+scans only. The counterparty's trace may predate that deploy; this ruling does
+not guess which.
+
+**WHEN OURS DOES NOT SAY `reconciliation_failed` ON SUCH A PAYLOAD, NO CODE IS
+INVENTED.** The dispatch names one code and says no other state is reachable. A
+payload that reaches another arm therefore contradicts the premise, and the
+recorded arm is where that shows. `error_code` stays null in that case. P3-29a's
+case 31, whose lines carry no `line_total`, is that shape, and it is unchanged.
+
+#### (b) NO CONTRACT CHANGE ON EITHER SIDE
+
+**The lines structure keeps no `error_code` field, by design**, and no field,
+status or code is added or removed on the wire. What changes is what we store for
+one payload shape, plus the refusal of a code-less `partial` with no lines, which
+the dispatch orders in terms. Contract sections 5.2 and 5.3a each gain a note
+naming this ruling, because a contract document that described our side's
+behaviour wrongly would mislead the counterparty that reads it. **Reading "no
+contract change" as the wire shape, and documenting our behaviour anyway, is a
+reading this terminal chose, and it is flagged.**
+
+#### (c) THE TWO REJECTED ALTERNATIVES, AND WHY
+
+1. **Moving `partial` into the `failed` structure.** Rejected: it discards the
+   lines, which are the reason `partial` exists. On this platform a `failed` draft
+   offers no review form at all, only the reason and a re-fire control, so the
+   read lines would reach nobody.
+2. **Adding `error_code` to the lines structure.** Rejected: it is a change on
+   both sides, both schemas and both validators, to carry one constant value. On
+   every payload of this shape the field could only ever hold
+   `reconciliation_failed`, and a field that can hold one value carries no
+   information the status does not already carry.
+
+#### (d) `_meta.model` ON A FAILURE PATH IS THE CONFIGURED MODEL, NEVER THE RESOLVED SNAPSHOT
+
+**Recorded as given.** On a failure path the call to the model did not complete,
+so no snapshot was resolved, and `_meta.model` carries the model as configured.
+**A refusal can therefore never be attributed to a specific snapshot. Only the
+success path can.**
+
+**How this sits beside R-196(b)**, which is on the open pull request for EXT-28
+and not yet merged: R-196(b) recorded that `_meta.model` carries the configured
+model as a literal on both failure paths. This ruling adds the reason and the
+consequence: a failure's `model` is never evidence of which snapshot ran, and
+comparing a failure against a success by `model` compares a configuration with a
+resolution. **Our side reads neither**, measured from source for R-196: `_meta` is
+stored verbatim and only `page_count` is read out of it. Contract section 4.3 is
+not edited here, because the EXT-28 pull request edits that row and two edits of
+one row on two open branches are a conflict by construction; the row should cite
+both rulings once both have merged.
+
+#### THE ROLE DEVIATION IS NAMED HERE RATHER THAN ONLY IN A REPORT
+
+**An EXECUTOR wrote this ruling and authored card P3-55**, both instructed. This is
+the seventh consecutive session in which a terminal writes rulings outside its role.
+
+**Unblocks:** P3-55.
+**Supersedes:** none. R-196(b) is not amended: this ruling adds to it.
