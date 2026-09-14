@@ -68,7 +68,7 @@ duplicate draft order that a human has to notice and delete.
   "document_filename": "confirmare-comanda-bilka-BLK-2026-14507.pdf",
   "mime_type": "application/pdf",
   "size_bytes": 184320,
-  "callback_url": "https://www.rapidconstructmd.com/api/extraction/callback"
+  "callback_url": "https://app.rapidconstruct.md/api/extraction/callback"
 }
 ```
 
