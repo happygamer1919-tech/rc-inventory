@@ -171,6 +171,9 @@ export default defineConfig({
         MAKE_WEBHOOK_SECRET,
         MAKE_CALLBACK_SECRET,
         RC_CALLBACK_URL: `${BASE_URL}/api/extraction/callback`,
+        // EXT-30. The document link is built from this origin and there is no
+        // fallback any more: without it every fire is refused, loudly, by design.
+        NEXT_PUBLIC_SITE_URL: BASE_URL,
       },
       stdout: "ignore",
       stderr: "pipe",
@@ -195,6 +198,7 @@ export default defineConfig({
         MAKE_WEBHOOK_SECRET,
         MAKE_CALLBACK_SECRET,
         RC_CALLBACK_URL: `${PROD_URL}/api/extraction/callback`,
+        NEXT_PUBLIC_SITE_URL: PROD_URL,
       },
       stdout: "ignore",
       stderr: "pipe",

@@ -21,12 +21,16 @@
 //
 // Nu atinge nicio retea, nicio baza de date si niciun secret.
 
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DOCUMENT_ERROR,
   DOCUMENT_STATUS,
   classifyStorageFailure,
   tokenExpiry,
 } from "../../lib/data/document-url-contract.mjs";
+import { resolveSiteOrigin } from "../../lib/data/site-origin.mjs";
 
 // Un jeton de forma reala: trei segmente, payload citibil, semnatura care nu
 // este verificata de nimeni aici. Nu deschide nimic, nicaieri.
@@ -180,10 +184,92 @@ for (const [label, tok, expected] of EXPIRY) {
   console.log(`  ${ok ? "ok   " : "FAIL "} tokenExpiry, ${label}: asteptat ${expected}, primit ${got}`);
 }
 
+// EXT-30. ORIGINEA LEGATURII, FARA ADRESA DE REZERVA.
+//
+// resolveSiteOrigin intoarce originea sau null. null inseamna ca nu pleaca nimic:
+// lib/data/extraction-fire.ts refuza trimiterea si scrie motivul pe ciorna. Pana la
+// EXT-30 o valoare lipsa cadea in tacere pe site-ul de marketing.
+console.log("");
+const ORIGINS = [
+  ["variabila absenta", undefined, null],
+  ["sir gol", "", null],
+  ["numai spatii", "   ", null],
+  ["fara schema, ar produce o legatura relativa", "app.rapidconstruct.md", null],
+  ["alta schema", "ftp://app.rapidconstruct.md", null],
+  ["cu o cale, ar fi lipita in fata lui /api/documents", "https://app.rapidconstruct.md/aplicatie", null],
+  ["cu interogare", "https://app.rapidconstruct.md/?x=1", null],
+  ["gazda de productie, cu slash final", "https://app.rapidconstruct.md/", "https://app.rapidconstruct.md"],
+  ["gazda de productie, cu spatii", "  https://app.rapidconstruct.md  ", "https://app.rapidconstruct.md"],
+  ["serverul local al suitei", "http://localhost:3100", "http://localhost:3100"],
+];
+for (const [label, raw, expected] of ORIGINS) {
+  const got = resolveSiteOrigin(raw);
+  const ok = got === expected;
+  if (!ok) failures += 1;
+  console.log(`  ${ok ? "ok   " : "FAIL "} resolveSiteOrigin, ${label}: asteptat ${expected}, primit ${got}`);
+}
+
+// EXT-30. TREI LOCURI NUMESC GAZDA DE PRODUCTIE SI NU AU VOIE SA DIFERE: garda de
+// commit, contractul pe care il citeste cealalta parte, si scriptul care produce
+// legaturile de proba. GATE-07 a mutat garda pe gazda buna si a lasat celelalte
+// doua pe cea veche; de aceea se compara aici, nu se presupune.
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const PRODUCTION_HOST = "https://app.rapidconstruct.md";
+// ANCORATE LA INCEPUTUL RANDULUI, SI NU E O PRECAUTIE. Doua dintre fisiere pastreaza,
+// intr-un comentariu, randul vechi care numea gazda de marketing (CLAUDE.md 9c).
+// Prima varianta a acestor tipare nu era ancorata, a gasit intai comentariul si a
+// raportat gazda veche drept valoarea in vigoare.
+const HOSTS = [
+  ["garda de commit", "scripts/poc-free/check-deployed-commit.mjs", /^const ORIGIN = \(args\.origin \|\| process\.env\.RC_HEALTH_ORIGIN \|\| "(https:\/\/[^"]+)"\)/m],
+  ["contractul, sectiunea 1", "docs/contracts/document-url.md", /^(https:\/\/[^/\s]+)\/api\/documents\/<bucket>/m],
+  ["scriptul setului de proba", "scripts/ext/serve-sample-documents.mjs", /^const ORIGIN = \(arg\("origin", "(https:\/\/[^"]+)"\)\)/m],
+  ["scriptul legaturilor de test", "scripts/ext/document-url-test-links.mjs", /^const ORIGIN = arg\("origin", "(https:\/\/[^"]+)"\)/m],
+];
+console.log("");
+for (const [label, rel, pattern] of HOSTS) {
+  const found = pattern.exec(readFileSync(join(ROOT, rel), "utf8"))?.[1] ?? null;
+  const ok = found === PRODUCTION_HOST;
+  if (!ok) failures += 1;
+  console.log(`  ${ok ? "ok   " : "FAIL "} gazda din ${label}: asteptat ${PRODUCTION_HOST}, primit ${found}`);
+}
+
+// EXT-30. APLICATIA NU NUMESTE SITE-UL DE MARKETING NICAIERI. Un literal al
+// gazdei vechi in lib/, app/, components/ sau proxy.ts este exact forma pe care
+// o avea adresa de rezerva. Comentariile care o citeaza stau in fisiere .mjs din
+// lib/ si sunt permise numai acolo unde se citeaza textul inlocuit.
+const OLD_HOST = "rapidconstructmd.com";
+const QUOTING = new Set(["lib/data/site-origin.mjs"]);
+function walk(rel) {
+  const full = join(ROOT, rel);
+  if (statSync(full).isFile()) return [rel];
+  return readdirSync(full).flatMap((name) => walk(join(rel, name)));
+}
+const offenders = ["lib", "app", "components", "proxy.ts"]
+  .flatMap((rel) => walk(rel))
+  .filter((rel) => /\.(ts|tsx|mjs|js)$/.test(rel) && !QUOTING.has(rel))
+  .filter((rel) => {
+    const text = readFileSync(join(ROOT, rel), "utf8");
+    // Un rand de comentariu care citeaza gazda veche ca istorie este permis; un
+    // literal intr-un rand de cod nu este.
+    return text
+      .split("\n")
+      .some((line) => line.includes(OLD_HOST) && !/^\s*(\/\/|\*|\/\*)/.test(line));
+  });
+{
+  const ok = offenders.length === 0;
+  if (!ok) failures += 1;
+  console.log(
+    `\n  ${ok ? "ok   " : "FAIL "} niciun rand de cod din aplicatie nu numeste ${OLD_HOST}` +
+      (ok ? "" : `: ${offenders.join(", ")}`),
+  );
+}
+
 console.log("");
 if (failures > 0) {
   console.error(`check-document-url-contract: ${failures} caz(uri) au cazut.`);
   console.error("docs/contracts/document-url.md este contractul pe care Make il programeaza.");
   process.exit(1);
 }
-console.log(`check-document-url-contract: ${CASES.length + PAIRS.length + EXPIRY.length} cazuri, toate trec.`);
+console.log(
+  `check-document-url-contract: ${CASES.length + PAIRS.length + EXPIRY.length + ORIGINS.length + HOSTS.length + 1} cazuri, toate trec.`,
+);
