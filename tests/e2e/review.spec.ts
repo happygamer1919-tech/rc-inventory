@@ -1535,12 +1535,13 @@ test.describe("Verificare si confirmare extragere", () => {
     const oldest = seededDraft("cea-mai-veche", firedAt);
     await insertDrafts(rest, [oldest]);
 
-    test.info().annotations.push({
-      type: "P3-39",
-      description:
-        `limita masurata: ${measured.limit} randuri din ${measured.total} ciorne in asteptare; ` +
-        `ciorne trimise inaintea celei mai vechi: ${fired}`,
-    });
+    // In adnotare pentru raportul HTML si in jurnalul rularii, ca limita masurata
+    // sa se poata cita din CI fara sa se descarce vreun artefact.
+    const measurement =
+      `limita masurata: ${measured.limit} randuri din ${measured.total} ciorne in asteptare; ` +
+      `ciorne trimise inaintea celei mai vechi: ${fired}`;
+    test.info().annotations.push({ type: "P3-39", description: measurement });
+    console.log(`P3-39 ${measurement}`);
     // Pozitia ei, numarata de la zero, este `fired`. Dincolo de limita inseamna
     // cel putin `limit`.
     expect(fired).toBeGreaterThanOrEqual(measured.limit);

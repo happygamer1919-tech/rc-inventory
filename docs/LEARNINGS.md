@@ -5364,3 +5364,20 @@ a `next-action` header in its `.network` entry; a local build's
 from CI, so only the first byte carries over. **RULE: a test that captures a network request
 names it by its payload. Any screen that loads data through a server action on open will
 otherwise hand the capture a request nobody clicked.**
+
+### A seeded row that sorts last cannot push anything past a row cap
+**Tag:** ci
+**ERROR:** P3-39 needed the oldest pending draft to sit beyond PostgREST's row cap in
+the review screen's own order, `fired_at` descending with `nullsFirst: false`. The
+obvious seed counts every pending draft and tops up past the cap. P3-38's filler rows
+carry NO `fired_at`, so they sort AFTER every sent draft, including the oldest one. A
+test counting them would believe the oldest draft sat past the cap while it was still
+inside the first page, and the red arm would have passed against the broken code.
+**SOLUTION:** the P3-39 helpers count and seed only drafts WITH `fired_at`
+(`fired_at=not.is.null`), place the target a day before the oldest of those, and assert
+that the number ahead of it is at least the measured limit. The limit itself is measured
+by one unlimited read with `Prefer: count=exact`: rows returned against the content-range
+total, same request. RULE: **a test that needs a row past a cap counts the rows that
+sort AHEAD of it in the application's order, not the rows that match its filter.** And
+paging by offset needs a unique tiebreaker (`order_id` after `fired_at`), or two rows
+with the same sort key can be seen twice and another never.
