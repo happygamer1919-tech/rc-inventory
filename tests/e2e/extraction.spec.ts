@@ -1751,6 +1751,28 @@ test.describe("Extragere documente", () => {
     );
   });
 
+  test("34. EXT-30: document_url pleaca prin ruta noastra, pe originea din NEXT_PUBLIC_SITE_URL si pe nicio alta", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    // EXT-30. playwright.config.ts da serverului NEXT_PUBLIC_SITE_URL egal cu
+    // adresa suitei. Fara adresa de rezerva, originea legaturii nu poate veni din
+    // alta parte, iar cazul o afirma: aceeasi origine, prin /api/documents/.
+    // Legatura insasi nu este pastrata de serverul fals, deci niciun jeton nu
+    // ajunge in raport.
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "origin");
+
+    const fired = await firedFor(request, orderId);
+    expect(fired).toHaveLength(1);
+    expect(fired[0]!.hasDocumentUrl).toBe(true);
+    expect(fired[0]!.documentUrlOrigin).toBe(new URL(baseURL!).origin);
+    expect(fired[0]!.documentUrlOrigin).not.toContain("rapidconstructmd.com");
+    expect(fired[0]!.documentUrlViaRoute, "legatura trece prin ruta noastra").toBe(true);
+  });
+
 });
 
 // ---------------------------------------------------------------------------
