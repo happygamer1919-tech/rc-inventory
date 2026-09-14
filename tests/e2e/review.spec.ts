@@ -13,6 +13,7 @@ import {
   EXTRACTION_ERROR_LABEL,
   SCAN_LINE_NOTICE,
 } from "@/lib/data/extraction-types";
+import { readAllPages } from "@/lib/data/id-list";
 
 // review.spec - linia de acceptanta a cardului P2-09.
 //
@@ -248,7 +249,11 @@ async function openReview(page: Page, orderId: string) {
 /** Plafonul sondei, si el este legat de `max_rows = 1000` din
  *  supabase/config.toml. Tinta semanata este plafonul plus marja; daca ea ar
  *  trece de max_rows, lista de ciorne ar fi taiata de server si cazul ar cadea
- *  din alt motiv decat al lui. */
+ *  din alt motiv decat al lui.
+ *
+ *  P3-39: jumatatea a doua nu mai este adevarata. listReviewDrafts citeste acum
+ *  pe pagini pana la capat, deci lista nu mai este taiata la max_rows. Plafonul
+ *  ramane, ca sa nu semene degeaba. */
 const ID_LIST_PROBE_CEILING = 400;
 
 /** Cat se semaneaza PESTE pragul masurat. Sonda cere un `select` mai scurt
@@ -1440,6 +1445,58 @@ test.describe("Verificare si confirmare extragere", () => {
     }[];
     expect(order.order_ref_series, "seria editata de operator").toBe("AV");
     expect(order.order_ref, "numarul ramane neatins").toBe("0009312");
+  });
+
+  // -------------------------------------------------------------------------
+  // P3-39. JUMATATEA TACERII, FARA BAZA DE DATE SI FARA BROWSER.
+  //
+  // readAllPages impotriva unui server fals. Cazul de ecran de mai jos dovedeste
+  // ca ciorna ajunge pe ecran; acesta dovedeste ca un raspuns SCURT nu ajunge pe
+  // ecran ca o lista mai scurta, ceea ce pe o stiva sanatoasa nu se poate
+  // provoca.
+  // -------------------------------------------------------------------------
+  test("P3-39: citirea pe pagini aduna tot sub o limita mai mica decat pagina, iar un raspuns scurt este un esec vizibil", async () => {
+    const all = Array.from({ length: 23 }, (_, i) => i);
+    const what = "randurile de proba";
+
+    // Un server care nu da niciodata mai mult de `cap` randuri, oricat i se
+    // cere, si care declara `total`.
+    const capped =
+      (cap: number, rows: number[], total: number = rows.length) =>
+      async (from: number, to: number) => ({
+        data: rows.slice(from, Math.min(to + 1, from + cap)),
+        count: total,
+        error: null,
+      });
+
+    // 1. LIMITA SERVERULUI SUB PAGINA: vine tot, in ordine, fiindca pagina
+    //    urmatoare incepe dupa randurile care AU VENIT.
+    expect(await readAllPages(what, capped(4, all), 10)).toEqual(all);
+
+    // 2. Serverul declara 23 si da numai primele 8: ESEC, nu opt randuri.
+    await expect(readAllPages(what, capped(4, all.slice(0, 8), all.length), 10)).rejects.toThrow(
+      "8 din 23",
+    );
+
+    // 3. Fara total nu are cu ce compara: ESEC.
+    await expect(
+      readAllPages(what, async () => ({ data: all, count: null, error: null }), 10),
+    ).rejects.toThrow("numarul total");
+
+    // 4. Totalul se schimba intre pagini: ESEC, paginile nu descriu aceeasi lista.
+    let calls = 0;
+    await expect(
+      readAllPages(
+        what,
+        async (from, to) => ({ data: all.slice(from, to + 1), count: all.length + calls++, error: null }),
+        10,
+      ),
+    ).rejects.toThrow("s-a schimbat");
+
+    // 5. Eroarea serverului se citeste, ca la P3-38.
+    await expect(
+      readAllPages(what, async () => ({ data: null, count: null, error: { message: "refuzat" } })),
+    ).rejects.toThrow("refuzat");
   });
 
   // -------------------------------------------------------------------------
