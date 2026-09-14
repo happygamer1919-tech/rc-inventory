@@ -114,6 +114,10 @@ export type ClientRow = {
   followUpDate: string | null;
   /** Data de reluare este inainte de azi IN CHISINAU. Calculat in baza, nu aici. */
   overdue: boolean;
+  /** P3-48. Pentru coloana Interes a vederii Leaduri. Se citeste numai in vederea
+   *  Leaduri; NULL in celelalte, cand nu l-a scris nimeni, sau pe calea de dinainte
+   *  de 0040. */
+  interest: string | null;
 };
 
 /** Un client cu tot ce stie sistemul despre el, pentru ruta de detaliu. */
@@ -135,6 +139,17 @@ export type ClientDetail = {
   stage: ClientStage | null;
   /** Data de reluare, `YYYY-MM-DD`. Nu se sterge cand etapa trece mai departe. */
   followUpDate: string | null;
+  /** P3-48. Adevarat numai cand hasClientLeaduri a raspuns da. Fals inseamna "nu
+   *  arata randurile si nu oferi campurile", nu "necompletate". */
+  leaduriAvailable: boolean;
+  source: ClientSource | null;
+  interest: string | null;
+  ownerId: string | null;
+  /** Numele responsabilului, dupa aceeasi regula ca lista de responsabili. NULL
+   *  cand nu are responsabil, sau cand profilul lui nu se poate citi de cine se
+   *  uita: profiles_select din 0001 arata altcuiva decat administratorului doar
+   *  profilul propriu. Niciodata id-ul in locul numelui. */
+  ownerName: string | null;
 };
 
 /** Filtrele listei, toate in sirul de interogare din URL.

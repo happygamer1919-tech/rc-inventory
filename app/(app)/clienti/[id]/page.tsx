@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/server";
 import { hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
-import { getClient } from "@/lib/data/clients";
+import { getClient, listClientOwnerChoices } from "@/lib/data/clients";
 import {
   getClientMaterials,
   listClientContacts,
@@ -45,6 +45,11 @@ export default async function ClientDetailPage({
     getClientMaterials(id),
   ]);
 
+  // P3-48. Responsabilii pentru Modifică, din aceeasi lista ca formularul de lead,
+  // ceruti numai pentru cine poate modifica si numai cand coloanele din 0040 exista.
+  const owners =
+    client.leaduriAvailable && user?.role === "owner" ? await listClientOwnerChoices() : undefined;
+
   return (
     <ClientDetailScreen
       client={client}
@@ -52,6 +57,7 @@ export default async function ClientDetailPage({
       projects={projects}
       materials={materials}
       canWrite={user?.role === "owner"}
+      owners={owners}
     />
   );
 }

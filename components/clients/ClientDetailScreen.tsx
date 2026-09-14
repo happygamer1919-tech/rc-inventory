@@ -14,7 +14,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
-import { CLIENT_TYPE_LABEL, type ClientDetail } from "@/lib/data/clients-types";
+import {
+  CLIENT_SOURCE_LABEL,
+  CLIENT_TYPE_LABEL,
+  type ClientDetail,
+  type ClientOwnerChoice,
+} from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
 import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
@@ -51,14 +56,24 @@ export function ClientDetailScreen({
   projects,
   materials,
   canWrite,
+  owners,
 }: {
   client: ClientDetail;
   contacts: ClientContact[];
   projects: ClientProject[];
   materials: ClientMaterials;
   canWrite: boolean;
+  /** P3-48. Responsabilii pentru Modifică. Lipsa inseamna fara Sursă, Interes si
+   *  Responsabil in formular. */
+  owners?: ClientOwnerChoice[];
 }) {
   const [editing, setEditing] = React.useState(false);
+
+  // P3-48. RESPONSABILUL ESTE UN NUME, niciodata id-ul. Liniuta cand nu are
+  // responsabil; cand are, dar profilul lui nu se poate citi de cine se uita, se
+  // spune in cuvinte, ca randul sa nu para nealocat.
+  const ownerLabel =
+    client.ownerId === null ? null : (client.ownerName ?? "Alt membru al echipei");
 
   return (
     <>
@@ -108,6 +123,17 @@ export function ClientDetailScreen({
               />
             </>
           ) : null}
+          {client.leaduriAvailable ? (
+            <>
+              <Row label="Interes" value={client.interest} testId="client-interest" />
+              <Row
+                label="Sursă"
+                value={client.source ? CLIENT_SOURCE_LABEL[client.source] : null}
+                testId="client-source"
+              />
+              <Row label="Responsabil" value={ownerLabel} testId="client-owner" />
+            </>
+          ) : null}
           <Row label="IDNO" value={client.fiscalCode} />
           <Row label="Telefon" value={client.phone} />
           <Row label="Email" value={client.email} />
@@ -139,6 +165,7 @@ export function ClientDetailScreen({
         <ClientForm
           client={client}
           stageAvailable={client.stage !== null}
+          owners={client.leaduriAvailable ? owners : undefined}
           onClose={() => setEditing(false)}
         />
       ) : null}
