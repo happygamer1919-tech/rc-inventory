@@ -5413,3 +5413,32 @@ restored from the red-arm commit, the two new files removed with
 pushed, and the implementation restored with `git checkout <implementation sha> -- <paths>`.
 RULE: **a red arm is only a red arm once its run reaches the step its case lives in, and
 every step in front of that step runs locally first, including the ones no list names.**
+
+### A migration number held by another open branch is invisible to every id check
+**Tag:** data
+**ERROR:** P3-15's task named `0042` as the next free migration number, read off
+`ls supabase/migrations/` on `main`. Pull request #290 (EXT-28) already held
+`0042_error_code_document_too_large.sql` and `0043_extraction_upload_page_count.sql` on its
+own branch. `check:unique-ids` and `check:open-branch-ids` look at card and ruling ids only,
+so two open branches can each carry a `0042` and every check stays green until the second
+merge. That is the 0032 pair in CLAUDE.md 3.1, which reached production.
+**SOLUTION:** before naming a migration, list every open pull request's files:
+`gh pr list --state open` then `gh pr diff <n> --name-only` for each, and take the first
+number above everything on `main` AND on those branches. P3-15 took `0044`. RULE: **the next
+free migration number is read across open branches, not off main.**
+
+### A file above about 1 MB cannot reach a server action here, and above about 4.5 MB no function
+**Tag:** backend
+**ERROR:** P3-15 needs 20 MB uploads. Next 16's server actions accept a 1 MB body unless
+`serverActions.bodySizeLimit` is set, `next.config.ts` sets none and refuses experimental
+flags, and the app is hosted on Vercel, where a function request body is capped near 4.5 MB
+whatever Next allows. A 20 MB file sent as `FormData` to a server action cannot arrive.
+`uploadOrderDocument` in `lib/data/inbound-actions.ts` sends the inbound order document that
+way while its form promises 10 MB; that path was not changed or measured by P3-15 and needs
+its own card.
+**SOLUTION:** the file goes from the browser straight to the private bucket through
+`createSignedUploadUrl` and `uploadToSignedUrl`, and the server checks before (role,
+extension, declared size, a structured path) and after (the stored object's real size from
+`list`, its first bytes through a short signed link, the object removed on a mismatch)
+before writing the row. RULE: **a file bigger than a request body limit is uploaded to
+storage directly, and the server verifies what landed rather than what was claimed.**
