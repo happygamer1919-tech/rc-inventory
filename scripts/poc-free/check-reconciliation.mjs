@@ -388,29 +388,57 @@ console.log('\n9. EXT-23: which code carries the refusal, arm by arm');
   // runs on EVERY scan-sourced payload so that its verdict can be RECORDED beside
   // the sender's. What may not widen is what the verdict DECIDES, and that is
   // what the three assertions below pin instead of the one above.
-  if (/documentSource === "scan"\n?\s*\?\s*classifyScan\(\{/.test(ROUTE)
-      || /documentSource === "scan"$/m.test(ROUTE)) {
-    ok('the classifier is still gated on scan-sourced payloads, so the digital path stays untouched');
+  //
+  // P3-55 WIDENED IT BY ONE NAMED DIGITAL SHAPE, UNDER RULING R-197, AND THESE
+  // ASSERTIONS FIRED ON IT, AS THEY SHOULD. Kept here under CLAUDE.md 9c. Until
+  // 2026-09-14 the three below read:
+  //
+  //   if (/documentSource === "scan"\n?\s*\?\s*classifyScan\(\{/.test(ROUTE)
+  //       || /documentSource === "scan"$/m.test(ROUTE)) {
+  //     ok('the classifier is still gated on scan-sourced payloads, so the digital path stays untouched');
+  //   ...
+  //   if (/const effectiveErrorCode = errorCodeRaw !== null \? errorCodeRaw : platformCode;/.test(ROUTE)) {
+  //   ...
+  //   if (/errorCodeRaw === null && platformCode !== null \? "failed" : status/.test(ROUTE)) {
+  //
+  // R-197: a `partial` that is DIGITAL and arrives with NO `error_code` is judged,
+  // its verdict is recorded, our code is supplied only when it is
+  // `reconciliation_failed`, and its status never moves. The pins below are that
+  // rule and nothing wider: any other digital payload judged, the sender's code
+  // losing, or a digital partial's status or lines moving, is still a failure.
+  if (/const digitalPartialWithoutCode =\s*documentSource === "digital" && status === "partial" && errorCodeRaw === null;/.test(ROUTE)
+      && /documentSource === "scan" \|\| digitalPartialWithoutCode\s*\?\s*classifyScan\(\{/.test(ROUTE)) {
+    ok('the classifier is gated on scans plus exactly one digital shape: a partial with no error_code (R-197)');
   } else {
-    bad('the classifier no longer asks document_source, so a digital payload may now be judged');
+    bad('the classifier gate is no longer scans plus a code-less digital partial, so another digital payload may now be judged');
   }
 
   // THE SENDER WINS, AS ONE EXPRESSION. Ruling R-190. Before EXT-26 this was true
   // only as a side effect of the 400 at route.ts:139, which refuses an error_code
   // on an `extracted` payload; a precedence that exists as a consequence of a
   // neighbouring rule reverses itself the day that rule changes.
-  if (/const effectiveErrorCode = errorCodeRaw !== null \? errorCodeRaw : platformCode;/.test(ROUTE)) {
-    ok("the sender's error_code wins, stated rather than inherited from the 400 at :139");
+  if (/const effectiveErrorCode = errorCodeRaw !== null \? errorCodeRaw : suppliedCode;/.test(ROUTE)
+      && /const suppliedCode = digitalPartialWithoutCode\s*\?\s*platformCode === "reconciliation_failed"\s*\?\s*platformCode\s*:\s*null\s*:\s*platformCode;/.test(ROUTE)) {
+    ok("the sender's error_code wins, and on a code-less digital partial ours is supplied only as reconciliation_failed");
   } else {
-    bad("the sender's error_code is no longer the first branch of effectiveErrorCode");
+    bad("the sender's error_code is no longer the first branch of effectiveErrorCode, or a digital partial can receive a code other than reconciliation_failed");
   }
 
   // AND OUR VERDICT MAY NOT MOVE A STATUS THE SENDER SET. `effectiveStatus` flips
-  // to `failed` ONLY when the sender sent no code at all.
-  if (/errorCodeRaw === null && platformCode !== null \? "failed" : status/.test(ROUTE)) {
-    ok('our verdict moves the status only when the sender sent no code');
+  // to `failed` ONLY when the sender sent no code at all, and never on the digital
+  // partial R-197 names, whose lines are the reason it exists.
+  if (/errorCodeRaw === null && suppliedCode !== null && !digitalPartialWithoutCode\s*\?\s*"failed"\s*:\s*status/.test(ROUTE)) {
+    ok('our verdict moves the status only when the sender sent no code, and never on a digital partial');
   } else {
-    bad('effectiveStatus no longer requires errorCodeRaw to be null before it moves a status');
+    bad('effectiveStatus no longer requires errorCodeRaw to be null, or it can now move a digital partial to failed');
+  }
+
+  // P3-55. THE LINES OF A DIGITAL PAYLOAD ARE NEVER DROPPED. Only a scan that ends
+  // `failed` loses its lines (EXT-15); R-197 keeps a digital partial's lines.
+  if (/const dropLines =\s*canStoreSource && documentSource === "scan" && effectiveStatus === "failed";/.test(ROUTE)) {
+    ok('only a scan that ends failed drops its lines, so a digital partial keeps them');
+  } else {
+    bad('dropLines is no longer limited to a failed scan, so a digital partial may lose its lines');
   }
 
   // BOTH COLUMNS ARE WRITTEN TOGETHER OR NEITHER IS. A code without its arm
