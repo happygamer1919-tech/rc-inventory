@@ -66,6 +66,17 @@ export function InventoryScreen({
   const params = useSearchParams();
   const supplierFromUrl = params.get("furnizor") ?? "";
   const skuFromUrl = params.get("produs") ?? "";
+  // Un sku din URL deschide panoul produsului la prima randare. Un sku care nu
+  // exista nu deschide nimic si nu este o eroare: legatura poate fi veche.
+  const productFromUrl = skuFromUrl
+    ? (products.find((p) => p.sku === skuFromUrl) ?? null)
+    : null;
+  // P3-42. camp=prag vine de pe ecranul de memento si deschide direct fisa
+  // produsului, cu pragul in focus. ESTE ACELASI FORMULAR, deci aceeasi scriere,
+  // updateProduct; legatura doar scurteaza drumul. Fara drept de scriere nu
+  // deschide formularul, ci panoul de citire, exact ca produs= singur: o adresa
+  // scrisa de mana nu poate da mai mult decat butonul Modifica.
+  const editFromUrl = canWrite && productFromUrl !== null && params.get("camp") === "prag";
 
   const [q, setQ] = React.useState("");
   const [category, setCategory] = React.useState("");
@@ -73,11 +84,12 @@ export function InventoryScreen({
   const [level, setLevel] = React.useState<StockLevel>("toate");
   const [visibility, setVisibility] = React.useState<Visibility>("active");
   const [openId, setOpenId] = React.useState<string | null>(
-    // Un sku din URL deschide panoul produsului la prima randare. Un sku care nu
-    // exista nu deschide nimic si nu este o eroare: legatura poate fi veche.
-    skuFromUrl ? (products.find((p) => p.sku === skuFromUrl)?.id ?? null) : null,
+    editFromUrl ? null : (productFromUrl?.id ?? null),
   );
-  const [editing, setEditing] = React.useState<CatalogProduct | null>(null);
+  const [editing, setEditing] = React.useState<CatalogProduct | null>(
+    editFromUrl ? productFromUrl : null,
+  );
+  const [focusThreshold, setFocusThreshold] = React.useState(editFromUrl);
   const [creating, setCreating] = React.useState(false);
 
   const visible = React.useMemo(
@@ -348,7 +360,11 @@ export function InventoryScreen({
           categories={categories}
           units={units}
           suppliers={suppliers}
-          onClose={() => setEditing(null)}
+          focusField={focusThreshold ? "threshold" : undefined}
+          onClose={() => {
+            setEditing(null);
+            setFocusThreshold(false);
+          }}
         />
       ) : null}
     </>

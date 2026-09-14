@@ -22,16 +22,28 @@ export function ProductForm({
   categories,
   units,
   suppliers,
+  focusField,
   onClose,
 }: {
   product?: CatalogProduct;
   categories: Category[];
   units: UnitCode[];
   suppliers: SupplierOption[];
+  /** P3-42: campul pus in focus la deschidere, cand formularul vine dintr-o
+   *  legatura catre un camp anume. Nu schimba nimic din ce se salveaza. */
+  focusField?: "threshold";
   onClose: () => void;
 }) {
   const router = useRouter();
   const editing = product !== undefined;
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  React.useEffect(() => {
+    if (focusField !== "threshold") return;
+    const input = formRef.current?.querySelector<HTMLInputElement>('input[name="threshold"]');
+    input?.focus();
+    input?.select();
+  }, [focusField]);
 
   const [sku, setSku] = React.useState(product?.sku ?? "");
   const [name, setName] = React.useState(product?.name ?? "");
@@ -144,7 +156,7 @@ export function ProductForm({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} noValidate className="px-6 py-5">
+        <form ref={formRef} onSubmit={onSubmit} noValidate className="px-6 py-5">
           {noCategories ? (
             <p className="mb-4 rounded-[10px] border border-rc-warn bg-rc-warn-soft px-3.5 py-2.5 text-[12.5px] text-rc-black">
               Nu există nicio categorie. Adaugă una în Setări înainte de a crea un produs.
@@ -207,6 +219,7 @@ export function ProductForm({
               <Input
                 value={threshold}
                 onChange={(e) => setThreshold(e.target.value)}
+                name="threshold"
                 inputMode="decimal"
                 className={fieldClass("threshold")}
                 data-testid="field-threshold"

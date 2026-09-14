@@ -8,12 +8,21 @@
 // cu momentul, stocul si pragul din clipa aceea. Un esec de trimitere se vede
 // AICI, cu motivul lui, fiindca miscarea de stoc s-a scris oricum si operatorul
 // trebuie sa afle ca emailul nu a plecat.
+//
+// P3-42. PRAGUL SE AJUNGE DE AICI, DAR NU SE EDITEAZA AICI. Capacitatea exista
+// in fisa produsului din Inventar, prin updateProduct, si ramane singurul loc
+// care scrie pragul. Randul poarta o LEGATURA catre fisa, deschisa direct pe
+// campul pragului, nu un al doilea formular: o legatura nu poate ajunge sa scrie
+// altfel decat fisa. Doar administratorul o vede, pentru ca doar el poate
+// modifica pragul; operatorul vede valoarea, ca pana acum.
 
 import { Card, CardHeader, Chip, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
+import { RecordLink } from "@/components/ui/RecordLink";
 import { loadThresholds } from "@/lib/data/dashboard";
 import { listFiredAlerts } from "@/lib/data/reminders";
 import { formatNumber, formatQty, plural } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +35,12 @@ function formatMoment(iso: string): string {
 }
 
 export default async function RemindersPage() {
-  const [products, alerts] = await Promise.all([loadThresholds(), listFiredAlerts()]);
+  const [products, alerts, user] = await Promise.all([
+    loadThresholds(),
+    listFiredAlerts(),
+    getSessionUser(),
+  ]);
+  const canWrite = user?.role === "owner";
   const low = products.filter((p) => p.stock <= p.threshold);
   const failed = alerts.filter((a) => a.sendError !== null);
 
@@ -41,7 +55,11 @@ export default async function RemindersPage() {
       <Card className="mb-5">
         <CardHeader
           title="Praguri per produs"
-          hint="Pragul se editează în fișa produsului, din Inventar"
+          hint={
+            canWrite
+              ? "Apasă pe prag ca să-l modifici în fișa produsului, din Inventar"
+              : "Pragul se editează în fișa produsului, din Inventar"
+          }
           right={
             <span className="text-[12.5px] text-rc-muted" data-testid="threshold-count">
               {products.length} produse
@@ -83,9 +101,20 @@ export default async function RemindersPage() {
                     </span>
                   </Td>
                   <Td align="right">
-                    <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
-                      {formatNumber(p.threshold)} {unitLabel(p.unit)}
-                    </span>
+                    {canWrite ? (
+                      <RecordLink
+                        href={`/inventar?produs=${encodeURIComponent(p.sku)}&camp=prag`}
+                        fallback={`${formatNumber(p.threshold)} ${unitLabel(p.unit)}`}
+                        testId="threshold-edit-link"
+                        className="rc-num text-[13px] whitespace-nowrap"
+                      >
+                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                      </RecordLink>
+                    ) : (
+                      <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
+                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                      </span>
+                    )}
                   </Td>
                   <Td align="right">
                     {p.stock === 0 ? (
