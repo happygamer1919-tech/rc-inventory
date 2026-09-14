@@ -2,8 +2,10 @@
 
 **Role:** EXECUTOR. **Session:** the operator's task queue, task G13, on the owner's machine
 (no Docker, no Supabase CLI, no production credentials).
-**Branch:** `card/p3-15`. **Pull request:** #293. **State:** open, merge held for the
-owner's approval, because merging applies migration 0044 to production (CLAUDE.md 8.0).
+**Branch:** `card/p3-15`. **Pull request:** #293. **State:** open and RED, card blocked on
+Ivan. `quality` cannot pass until pull request #290, which holds migrations 0042 and 0043, is
+merged. Even when green, the merge waits for the owner, because it applies migration 0044 to
+production (CLAUDE.md 8.0).
 
 ## Boot status at the start
 
@@ -16,16 +18,16 @@ owner's approval, because merging applies migration 0044 to production (CLAUDE.m
 
 | card | status at start | status in this pull request |
 |---|---|---|
-| P3-15 | todo | shipped, with evidence naming #293; the merge waits for the owner |
+| P3-15 | todo | blocked, `blocked_on: ivan`, question in the card |
 
-## What changes for Rapid Construct
+## What changes for Rapid Construct, once merged
 
 The Documente tab on every client page and every project page is no longer an empty box.
 An owner picks the kind (Contract, Act, Factură, Fotografie, Altele), uploads a PDF, JPG,
 JPEG, PNG, WEBP, DOC, DOCX, XLS or XLSX file up to 20 MB, sees the newest five with a link
 to the full list, downloads any file with one click, and deletes a file put in the wrong
 place. An account manager sees and downloads only. Files open only through a link that
-expires after 15 minutes.
+expires after 15 minutes. Nothing changes on the live site until the pull request merges.
 
 ## What was built
 
@@ -54,11 +56,12 @@ expires after 15 minutes.
 
 1. **Migration 0044, not 0042.** The task named 0042 as next free. `gh pr diff 290
    --name-only` showed Orange's #290 (EXT-28) holding `0042_error_code_document_too_large.sql`
-   and `0043_extraction_upload_page_count.sql`.
-2. **Board status `shipped`, not `todo`.** The task said to leave the card at `todo`.
+   and `0043_extraction_upload_page_count.sql`. See "What blocked" for what that costs.
+2. **Board status moved in this pull request.** The task said to leave the card at `todo`.
    `npm run check:board-edit` refuses a code pull request whose card status did not move, and
-   CLAUDE.md section 2 requires the status in the same pull request. P3-29a (#286) shipped
-   its card on the branch with the merge held for the owner. The repository's rule wins.
+   CLAUDE.md section 2 requires the status in the same pull request; the repository's rule
+   wins. It was first set `shipped` (the P3-29a shape, #286), then `blocked` once CI showed
+   the acceptance cannot run yet (sections 4 and 6).
 3. **Bucket limits: q013 Option 1**, unanswered, recommended default.
 4. **Delete policy on the row, owner only.** The card calls the delete "the only delete
    policy authored in phase 3". The task text read it as no row policy; the card is the
@@ -84,7 +87,7 @@ expires after 15 minutes.
 | `npm run build` | exit 0 |
 | `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` | PASS, 0 violations, before each commit |
 | `npm run check:card-ids` | OK |
-| `npm run check:board-edit` | refused before the board commit (expected), OK after: P3-15 todo -> shipped |
+| `npm run check:board-edit` | refused before the first board commit (expected), OK after |
 | `npm run check:unique-ids` | OK |
 | `npm run check:open-branch-ids` | OK, no id added |
 | `npm run check:no-destructive-migration` | OK, 1 file parsed, 39 statements, run after the commit |
@@ -97,34 +100,61 @@ expires after 15 minutes.
 | `npm run check:assertion-register` | OK |
 | `npm run check:board-clock` | OK, every timestamp at or before its commit |
 
-**Left to CI, because this machine has no Docker and no Supabase CLI:** the end to end
-suite with `tests/e2e/documents.spec.ts`, `npm run check:migrations` with the new
-assertions file, `npm run prove:applier` and `npm run prove:assertions`. The green
-`quality` run id on the head sha is recorded in the pull request and in the owner's
-question, not here, because writing it here would move the head sha.
+Not runnable here (no Docker, no Supabase CLI): the end to end suite, `npm run
+check:migrations`, `npm run prove:applier`, `npm run prove:assertions`.
+
+## CI
+
+**Run 34900595515 on `074bf10`: failure, at one step.** "Prove the migration applier against
+the Docker shim", 9 of 16 proofs passed. Every step before it passed, including "Apply every
+migration to a bare postgres, unmodified" (so `0044` and `assertions/0044_documents.sql` apply
+and hold file by file) and "Refuse a migration that removes rows". Steps after it did not run,
+**so the end to end suite, `documents.spec.ts` included, has NOT run and the acceptance is not
+yet proven.**
+
+**Cause, read from the source:** the proof applies every migration from 0013 up as one batch
+through `scripts/apply-pending-migrations.mjs`, whose second assertion,
+`ledger-no-gaps-ends-at-highest` (line 972), requires the ledger to hold every number from 1 to
+the highest. On this branch it goes 0041 then 0044. That assertion stops the batch first, which
+is why the three mutation proofs report exit 1 without their own assertion text.
+
+**Not done, deliberately:** renumbering to 0042, which would put one number on two open pull
+requests (the 0032 incident, CLAUDE.md 3.1); touching the proof (a check is never made to pass
+by weakening it). This is not a failed fix attempt under section 10: nothing on this branch can
+fix it.
 
 ## What blocked
 
-Nothing blocked the card. The merge is held for the owner, by instruction and by the
-standing rule that a pull request adding a migration never self-merges.
+P3-15, `blocked_on: ivan`, since 2026-09-14T21:51Z. The question, as written into the card:
+
+> DECISION NEEDED: the merge order of pull request #290 (migrations 0042 and 0043) and pull
+> request #293 (this card, migration 0044), because #293 cannot pass quality until 0042 and
+> 0043 are on main. RECOMMENDATION: option 1, merge #290 first; #293 then merges main, reruns
+> quality, and goes to the owner for merge approval.
+
+Filed for Ivan in the operator's mailbox as `q014-p3-15-migration-order-290.md`.
 
 ## Defects and findings, cross-referenced to docs/LEARNINGS.md
 
-- **A migration number taken on another open branch is invisible to every id check.**
-  Entry appended.
+- **A migration number held by another open branch is invisible to every id check, and a
+  number above it cannot pass the applier proof until that branch merges.** Entry appended.
 - **A file larger than about 1 MB cannot reach a server action here, and larger than about
   4.5 MB cannot reach any function on Vercel.** Entry appended. The existing inbound order
   upload sends its file through a server action with a 10 MB promise; that path was NOT
   changed or tested by this card and should be checked by its own card.
+- The applier proof's own output goes to a file on the runner and not to the log, so its
+  refusal text had to be reconstructed from the source. Recorded in the operator's
+  KNOWN-FAILURES.
 
 ## State at the end, and what the next session picks up
 
-- The owner is asked in the operator's mailbox (`q014-approve-p3-15-merge.md`) with the
-  pull request number, head sha, migration path and what changes in the live database.
-- **Merge order:** #290 holds migrations 0042 and 0043. If #293 merges first, production
-  has 0044 before 0042 and 0043, and the Supabase integration may refuse or skip the
-  lower-numbered files later. Safest: #290 first. If #293 must go first, #290 renumbers its
-  two files above 0044 before merging.
-- After the approved merge: `GET https://app.rapidconstruct.md/api/health` should report
-  `ledger_version` `"0044"` (once 0042 and 0043 are also in), and the pending register line
-  becomes a `## 0044_documents.sql - APPLIED BY MERGE` heading in `APPLY-LOG.md`.
+1. Wait for #290 to merge (Ivan's terminal owns it; it was green at 20:27Z and is behind main).
+2. Then, on `card/p3-15`: `git fetch origin`, `git merge origin/main`, set P3-15 back to
+   `shipped` with evidence naming #293, validator, commit, push, wait for `quality` on the new
+   head. Expect the applier proof and the end to end suite to run in full for the first time.
+3. When green and `npm run checks:state 293` exits 0: ask the owner to approve the merge. The
+   draft sits at `rc-inventory-worktrees/q014-approve-p3-15-merge.DRAFT.md` outside the
+   mailbox.
+4. After the approved merge: `GET https://app.rapidconstruct.md/api/health` should report
+   `ledger_version` `"0044"`, and the pending register line becomes a
+   `## 0044_documents.sql - APPLIED BY MERGE` heading in `APPLY-LOG.md`.
