@@ -68,6 +68,23 @@ const server = createServer(async (req, res) => {
       mimeType: body?.mime_type ?? null,
       sizeBytes: body?.size_bytes ?? null,
       hasDocumentUrl: typeof body?.document_url === "string" && body.document_url.length > 0,
+      // EXT-30. Originea si prefixul caii legaturii, NICIODATA legatura: jetonul
+      // ramane in afara oricarui raport. Asa testul verifica pe ce gazda si prin
+      // ce ruta pleaca documentul fara ca serverul sa pastreze ceva semnat.
+      documentUrlOrigin: (() => {
+        try {
+          return new URL(body.document_url).origin;
+        } catch {
+          return null;
+        }
+      })(),
+      documentUrlViaRoute: (() => {
+        try {
+          return new URL(body.document_url).pathname.startsWith("/api/documents/");
+        } catch {
+          return false;
+        }
+      })(),
       callbackUrl: body?.callback_url ?? null,
     });
     return json(res, 200, { accepted: true });

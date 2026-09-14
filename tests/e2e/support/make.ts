@@ -33,6 +33,10 @@ export type FiredRequest = {
   mimeType: string | null;
   sizeBytes: number | null;
   hasDocumentUrl: boolean;
+  /** EXT-30. Originea legaturii catre document, fara cale si fara jeton. */
+  documentUrlOrigin: string | null;
+  /** EXT-30. Legatura trece prin /api/documents/, adica prin ruta noastra. */
+  documentUrlViaRoute: boolean;
   callbackUrl: string | null;
 };
 

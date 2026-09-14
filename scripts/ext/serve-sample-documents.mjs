@@ -42,7 +42,12 @@ const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.slice(name.length + 3) : fallback;
 };
-const ORIGIN = (arg("origin", "https://www.rapidconstructmd.com")).replace(/\/+$/, "");
+// EXT-30. Gazda pe care se serveste aplicatia. ACEASTA LINIE CITEA
+// `arg("origin", "https://www.rapidconstructmd.com")` PANA LA 2026-09-14, iar gazda
+// aceea este site-ul de marketing: legaturile produse fara --origin nu treceau prin
+// ruta noastra. check-document-url-contract.mjs refuza daca aceasta valoare, garda
+// de commit si contractul ajung sa difere.
+const ORIGIN = (arg("origin", "https://app.rapidconstruct.md")).replace(/\/+$/, "");
 const CAPTURE_ONLY = process.argv.includes("--capture-only");
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
