@@ -226,6 +226,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "lines lipseste" }, { status: CALLBACK_CODES.rejected });
   }
 
+  // P3-55, HOTARAREA R-197. UN `partial` FARA COD TREBUIE SA POARTE CEL PUTIN O
+  // LINIE. `partial` inseamna ca o parte din document a fost citita; fara nicio
+  // linie nu a fost citit nimic, iar hotararea spune in termeni ca numai partialul
+  // cu cel putin o linie devine valid. 400 si nimic scris, INAINTEA oricarei
+  // clasificari si a oricarei scrieri, ca un 4xx sa ramana un refuz curat.
+  // Un `failed` fara cod ramane refuzat mai sus, neschimbat.
+  if (status === "partial" && errorCodeRaw === null && rawLines.length === 0) {
+    return NextResponse.json(
+      { error: "partial fara error_code trebuie sa poarte cel putin o linie" },
+      { status: CALLBACK_CODES.rejected },
+    );
+  }
+
   // EXT-15. O SCANARE CARE A ESUAT NU PASTREAZA NICIO LINIE.
   //
   // Regula proprietarului, din rezultatul scanarii din 2026-09-02: calea de
@@ -338,8 +351,19 @@ export async function POST(request: Request) {
   // sau sa scoata o linie. Singurul lucru nou pe care il face este sa fie SCRIS.
   // Calea digitala ramane in afara: acolo cifrele vin din text si o nepotrivire
   // inseamna altceva, iar cazurile 14, 20.3 si 15b.2 o afirma.
+  //
+  // P3-55, HOTARAREA R-197: CU O SINGURA EXCEPTIE DIGITALA, NUMITA. Un `partial`
+  // DIGITAL care soseste FARA cod este atins, dupa hotarare, numai cand antetul se
+  // aduna, exista cel putin o linie si aritmetica liniilor rateaza. Pe el
+  // clasificarea noastra RULEAZA si este scrisa, iar codul ei este furnizat numai
+  // cand este `reconciliation_failed` (mai jos). Statusul ramane `partial` si
+  // liniile raman: ele sunt motivul pentru care partial exista. Orice alt payload
+  // digital ramane in afara, exact ca pana acum, iar cazurile 14, 20.3 si 15b.2
+  // continua sa o afirme.
+  const digitalPartialWithoutCode =
+    documentSource === "digital" && status === "partial" && errorCodeRaw === null;
   const scanVerdict =
-    documentSource === "scan"
+    documentSource === "scan" || digitalPartialWithoutCode
       ? classifyScan({
           lineTotals: (rawLines as unknown[]).map(
             (l): number | null => num((l as Record<string, unknown>).line_total),
@@ -413,13 +437,34 @@ export async function POST(request: Request) {
   // partial. Cardul nu a mutat aceasta precedenta; ea este scrisa aici ca sa nu
   // fie descoperita.
   //
+  // P3-55 FACE PROPOZITIA "Pe calea digitala nu judecam nimic" INCOMPLETA, si ea
+  // ramane scrisa mai sus. Un `partial` DIGITAL FARA COD este acum judecat: al
+  // nostru este scris, este furnizat numai cand spune `reconciliation_failed`, iar
+  // statusul ramane `partial`. Orice alt payload digital ramane nejudecat.
+  //
   // NU SE RELAXEAZA LINIA 139. Sa il lasam pe Andre sa trimita un `error_code`
   // pe un payload `extracted` este o schimbare de contract care ajunge la el, si
   // este punctul 6 din lista inchisa de escaladari. R-190 numeste gaura si
   // deliberat nu o inchide aici.
-  const effectiveErrorCode = errorCodeRaw !== null ? errorCodeRaw : platformCode;
+  //
+  // P3-55, HOTARAREA R-197. PE UN `partial` DIGITAL FARA COD, AL NOSTRU ESTE
+  // FURNIZAT NUMAI CAND ESTE `reconciliation_failed`, SI STATUSUL NU SE MUTA.
+  // Hotararea spune ca un astfel de partial este atins numai cand aritmetica
+  // liniilor rateaza, deci un alt brat al nostru contrazice premisa. Atunci codul
+  // NU se inventeaza: verdictul ramane scris in platform_error_code si
+  // platform_arm, unde se vede, iar error_code ramane null, exact ca la P3-29a.
+  // Statusul ramane `partial` fiindca liniile sunt motivul pentru care partial
+  // exista; mutarea in `failed` este regula scanarilor si nu se extinde aici.
+  const suppliedCode = digitalPartialWithoutCode
+    ? platformCode === "reconciliation_failed"
+      ? platformCode
+      : null
+    : platformCode;
+  const effectiveErrorCode = errorCodeRaw !== null ? errorCodeRaw : suppliedCode;
   const effectiveStatus =
-    errorCodeRaw === null && platformCode !== null ? "failed" : status;
+    errorCodeRaw === null && suppliedCode !== null && !digitalPartialWithoutCode
+      ? "failed"
+      : status;
 
   const dropLines =
     canStoreSource && documentSource === "scan" && effectiveStatus === "failed";

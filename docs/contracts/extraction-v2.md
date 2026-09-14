@@ -718,6 +718,14 @@ sender to invent one that describes nothing real, so every `partial` without a
 code was a `400`. A `failed` still carries its code: a failure that omits the
 reason for its own failure is refused, by the route and by the database.
 
+**A `partial` WITH NO CODE MUST CARRY AT LEAST ONE LINE. Card P3-55, ruling
+R-197, 2026-09-14.** A code-less `partial` with an empty `lines` array is a `400`:
+`partial` means some of the document was read, and without a line nothing was.
+When a code-less digital `partial` carries lines, our classification runs on it
+(section 5.3a) and, when it says `reconciliation_failed`, that code is stored with
+the draft. The status stays `partial` and the lines are kept. The wire shape is
+unchanged: no field is added, and the lines carry no `error_code`.
+
 | code | meaning |
 |---|---|
 | `download_failed` | The signed URL could not be fetched. Network, DNS, 5xx from storage. |
@@ -1017,6 +1025,16 @@ a decision rather than an omission. 5.3 left the digital path alone deliberately
 a new refusal there would change, silently, the behaviour of documents Andre
 delivers today, and section 5.2a requires a new failure on a surface to be
 announced before it can appear.
+
+**NARROWED, 2026-09-14, BY RULING R-197, CARD P3-55. THE PARAGRAPH ABOVE IS KEPT
+AS WRITTEN.** One digital payload is now classified: a `partial` that arrives with
+no `error_code` and at least one line. Our classification runs on it and is
+recorded in `platform_error_code` and `platform_arm`. When it says
+`reconciliation_failed`, that code is also stored as the draft's `error_code`.
+**Nothing on the digital path is refused by this section, the status stays
+`partial`, and the lines are kept.** When our classification says anything else on
+such a payload, it is recorded and no code is stored, because the ruling holds that
+no other state is reachable. Every other digital payload is untouched, as above.
 
 #### A failure carries `reconciliation_failed`, not a new code
 
