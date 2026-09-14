@@ -21,9 +21,13 @@
 // exact ca inainte. Vederea si etapa stau in URL, langa filtrele de pana acum, si
 // NU in `stare`, care inseamna activ sau inactiv.
 //
-// In vederea Leaduri coloanele sunt Denumire, Etapă, Data de reluare, Telefon si
-// Stare: tipul si proiectele active nu ajuta pe nimeni sa aleaga pe cine suna azi.
-// Numerele pe etapa sunt un rand de cifre in cipuri, nu un al doilea tabel.
+// In vederea Leaduri coloanele sunt Denumire, Interes, Etapă, Data de reluare,
+// Telefon si Stare: tipul si proiectele active nu ajuta pe nimeni sa aleaga pe cine
+// suna azi. Numerele pe etapa sunt un rand de cifre in cipuri, nu un al doilea tabel.
+//
+// P3-48. INTERES ESTE O COLOANA NUMAI A VEDERII LEADURI, imediat dupa Denumire:
+// spune ce vrea omul, adica de ce il suni. Vederea Clienți si lista fara vedere isi
+// pastreaza coloanele. Un text lung se taie pe un rand, cu textul intreg in title.
 
 import * as React from "react";
 import Link from "next/link";
@@ -288,6 +292,7 @@ export function ClientsScreen({
             <thead>
               <tr>
                 <Th>Denumire</Th>
+                <Th>Interes</Th>
                 <Th>Etapă</Th>
                 <Th>Data de reluare</Th>
                 <Th>Telefon</Th>
@@ -311,6 +316,15 @@ export function ClientsScreen({
                     >
                       {c.name}
                     </Link>
+                  </Td>
+                  <Td>
+                    <span
+                      className="block max-w-[260px] truncate"
+                      title={c.interest?.trim() || undefined}
+                      data-testid="row-interest"
+                    >
+                      {c.interest?.trim() || "-"}
+                    </span>
                   </Td>
                   <Td>
                     {c.stage ? (

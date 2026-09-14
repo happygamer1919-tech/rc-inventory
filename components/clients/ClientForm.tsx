@@ -15,15 +15,19 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { createClientRecord, updateClientRecord } from "@/lib/data/client-actions";
 import {
+  CLIENT_SOURCES,
+  CLIENT_SOURCE_LABEL,
   CLIENT_STAGES,
   CLIENT_STAGE_LABEL,
   CLIENT_TYPE_LABEL,
   type ClientDetail,
+  type ClientOwnerChoice,
 } from "@/lib/data/clients-types";
 
 export function ClientForm({
   client,
   stageAvailable,
+  owners,
   onClose,
   onSaved,
 }: {
@@ -31,6 +35,10 @@ export function ClientForm({
   /** P3-43. Fals cat timp coloana de etapa nu exista pe baza. Atunci formularul
    *  nu ofera etapa si nu o trimite, exact ca inainte de card. */
   stageAvailable: boolean;
+  /** P3-48. Responsabilii, din listClientOwnerChoices. Lipsa inseamna ca
+   *  hasClientLeaduri nu a raspuns da: atunci formularul nu ofera Sursă, Interes si
+   *  Responsabil si nu le trimite. */
+  owners?: ClientOwnerChoice[];
   onClose: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -47,6 +55,17 @@ export function ClientForm({
   const [active, setActive] = React.useState(client?.active ?? true);
   const [stage, setStage] = React.useState<string>(client?.stage ?? "cold");
   const [followUpDate, setFollowUpDate] = React.useState(client?.followUpDate ?? "");
+  const [source, setSource] = React.useState<string>(client?.source ?? "");
+  const [interest, setInterest] = React.useState(client?.interest ?? "");
+  const [ownerId, setOwnerId] = React.useState(client?.ownerId ?? "");
+
+  // Un responsabil al carui profil a fost dezactivat nu mai este in lista, dar
+  // ramane responsabilul clientului: optiunea lui se pastreaza, altfel selectorul
+  // ar arata Nealocat pentru un client care are responsabil.
+  const ownerOptions =
+    owners && client?.ownerId && !owners.some((o) => o.id === client.ownerId)
+      ? [...owners, { id: client.ownerId, fullName: client.ownerName ?? "Responsabil inactiv" }]
+      : (owners ?? []);
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -76,6 +95,11 @@ export function ClientForm({
       notes,
       active,
       ...(stageAvailable ? { stage, followUpDate } : {}),
+      // P3-48. NUMAI CE S-A SCHIMBAT. Un camp netrimis inseamna "nu atinge" pentru
+      // validateLeaduri, deci o modificare fara legatura cu cele trei nu le rescrie.
+      ...(owners && source !== (client?.source ?? "") ? { source } : {}),
+      ...(owners && interest !== (client?.interest ?? "") ? { interest } : {}),
+      ...(owners && ownerId !== (client?.ownerId ?? "") ? { ownerId } : {}),
     };
     const result = editing
       ? await updateClientRecord(client!.id, input)
@@ -190,6 +214,54 @@ export function ClientForm({
                 </Field>
               ) : null}
             </div>
+          ) : null}
+
+          {owners ? (
+            // P3-48. ACELEASI CAMPURI SI ACELEASI OPTIUNI CA IN FORMULARUL DE LEAD:
+            // sursele din CLIENT_SOURCES, responsabilii din listClientOwnerChoices.
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Sursă">
+                  <Select
+                    value={source}
+                    onChange={(e) => setSource(e.target.value)}
+                    className={fieldClass("source")}
+                    data-testid="field-client-source"
+                  >
+                    <option value="">Nespecificată</option>
+                    {CLIENT_SOURCES.map((s) => (
+                      <option key={s} value={s}>
+                        {CLIENT_SOURCE_LABEL[s]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Responsabil">
+                  <Select
+                    value={ownerId}
+                    onChange={(e) => setOwnerId(e.target.value)}
+                    className={fieldClass("ownerId")}
+                    data-testid="field-client-owner"
+                  >
+                    <option value="">Nealocat</option>
+                    {ownerOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.fullName}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+
+              <Field label="Interes" hint="Ce își dorește, în cuvintele lui.">
+                <Input
+                  value={interest}
+                  onChange={(e) => setInterest(e.target.value)}
+                  data-testid="field-client-interest"
+                />
+              </Field>
+            </>
           ) : null}
 
           <div className="grid grid-cols-2 gap-4">
