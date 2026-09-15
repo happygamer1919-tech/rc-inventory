@@ -34,6 +34,7 @@ import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
 import type { CatalogProduct } from "@/lib/data/products";
 import type { Deviz, DevizSummary } from "@/lib/data/deviz";
 import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
+import type { DocumentsView } from "@/lib/data/documents-types";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -55,6 +56,7 @@ export function ProjectDetailScreen({
   comparison,
   products,
   clients,
+  documents,
   canWrite,
 }: {
   project: ProjectDetail;
@@ -65,6 +67,8 @@ export function ProjectDetailScreen({
   comparison: DevizComparison;
   products: CatalogProduct[];
   clients: { id: string; name: string }[];
+  /** P3-15. null cand migratia 0044 nu este inca aplicata. */
+  documents: DocumentsView | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -219,6 +223,7 @@ export function ProjectDetailScreen({
           deviz={deviz}
           comparison={comparison}
           products={products}
+          documents={documents}
           canWrite={canWrite}
         />
       </div>

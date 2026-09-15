@@ -14,6 +14,8 @@ There was no way to know which:
 - **`mime_type` does not answer it.** One of the four sample documents is a **PDF with no text layer**, so `application/pdf` covers both cases.
 - **`_meta.characters_extracted` was the only proxy**, and EXT-09 removes it - with the file handed straight to the model, that number could only ever be null.
 
+  **Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 Only the extractor knows, so the extractor declares it. `document_source`, `scan` or `digital`, **null read as `scan`**.
 
 **The asymmetry is the reason for that default.** Guessing `digital` on a scan costs invented stock in a real warehouse. Guessing `scan` on a digital document costs somebody keying it in by hand.

@@ -216,6 +216,12 @@ console.log('\n7. EXT-18: both header checks hold on ALL FOUR sample documents')
   // read from the files themselves on 2026-09-04 with `pdftotext -layout`, not
   // transcribed from anybody's summary.
   //
+  // NOTE 2026-09-15, card EXT-33: the sample set under _samples/andre holds six
+  // documents since 2026-09-15, and R-096 as amended that day covers every
+  // document under that prefix, not a fixed count of four. The four named here,
+  // and in the heading printed above, are the original set this check carries as
+  // fixtures; nothing above is changed.
+  //
   // THE MATNORD FIGURES ARE THE ONE EXCEPTION AND THE REASON IS THE CARD'S OWN
   // SUBJECT: that file is a scan with NO TEXT LAYER, `pdftotext` returns one
   // byte, so its header comes from the record instead, where 50336.40 has been
@@ -241,6 +247,11 @@ console.log('\n7. EXT-18: both header checks hold on ALL FOUR sample documents')
   // misses by a cent, because 89609.38 * 0.20 is 17921.876 and the document
   // prints 17921.87. Four documents that all landed at exactly zero would not
   // show that the tolerance is reachable at all.
+  //
+  // NOTE 2026-09-15, card EXT-33: the sample set under _samples/andre holds six
+  // documents since 2026-09-15, and R-096 as amended that day covers every
+  // document under that prefix, not a fixed count of four. The four named here
+  // are the original set this check carries as fixtures; nothing above is changed.
   const bx = round2(Math.abs(round2((89609.38 * 20) / 100) - round2(17921.87)));
   if (bx > 0) ok(`Betonmix check B misses by ${bx.toFixed(2)}, so the tolerance is load-bearing here and not decoration`);
   else bad('Betonmix check B now lands at zero, and no sample exercises the tolerance');

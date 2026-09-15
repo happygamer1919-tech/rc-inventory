@@ -68,7 +68,7 @@ export function Button({
     md: "text-[14px] px-4 py-2.5",
   };
   const variants = {
-    primary: "bg-rc-orange text-white hover:bg-rc-orange-dark",
+    primary: "bg-rc-orange-button text-white hover:bg-rc-orange-button-hover",
     secondary:
       "bg-rc-white text-rc-black border border-rc-line-strong hover:bg-rc-paper",
     ghost: "text-rc-black hover:bg-rc-paper",

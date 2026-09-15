@@ -1,9 +1,15 @@
 #!/usr/bin/env node
-// EXT-08. Cele patru documente de proba, si contractul lor de esec, masurat.
+// EXT-08. Documentele de proba de sub _samples/andre, si contractul lor de esec, masurat.
+//
+// EXT-32, 2026-09-15. ACEST ANTET SPUNEA "Cele patru documente de proba" SI "urca
+// cele patru documente" PANA LA 2026-09-15. Scriptul nu a numarat niciodata: urca si
+// semneaza fiecare PDF din directorul primit. Hotararea R-096, amendata in aceeasi zi,
+// acopera fiecare document de sub _samples/andre, astazi sase, nu un numar fix de patru.
 //
 // CE FACE, IN ORDINE:
 //
-//   1. urca cele patru documente din /Users/ivan/rc-samples in bucket-ul rc-docs
+//   1. urca fiecare PDF din /Users/ivan/rc-samples (sau din RC_SAMPLES_DIR) in
+//      bucket-ul rc-docs
 //   2. le semneaza prin acelasi createSignedUrl pe care il foloseste aplicatia,
 //      cu TTL 86400 de secunde (douazeci si patru de ore, ruling R-096), si le
 //      rescrie in forma rutei noastre
@@ -164,6 +170,12 @@ say();
 //
 // Un obiect de unica folosinta, urcat, semnat de doua ori si sters, produce
 // toate cele trei stari fara sa atinga niciunul dintre cele patru documente.
+//
+// NOTA 2026-09-15, cardul EXT-33: setul de proba de sub _samples/andre are sase
+// documente de la 2026-09-15, iar R-096, amendata in aceeasi zi, acopera fiecare
+// document de sub acel prefix, nu un numar fix de patru. Cele patru numite aici
+// sunt setul initial; nimic de mai sus nu s-a schimbat. Sonda nu atinge niciunul
+// dintre cele sase.
 const probe = `${PREFIX}/_probe-${Date.now()}.pdf`;
 await sb.storage
   .from(BUCKET)

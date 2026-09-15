@@ -122,6 +122,8 @@ raised it to twenty-four** on 2026-09-03, for the four test fixtures only, with
 production explicitly left at fifteen minutes. The two readings move the number in
 opposite directions, so the number is escalated and **the direction binds now**.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 ---
 
 ## 4. What this corrects in my own earlier record
