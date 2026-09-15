@@ -114,6 +114,15 @@ about, and it would be the fourth instance on that list.
 - **The web-editor merge commit stays in the branch history.** Rewriting it would
   need a force push.
 
+## STEP 1, CONTINUED. THE SAME BREAK A SECOND TIME, DURING THIS DISPATCH
+
+My repair `74b07f6` was pushed at about 20:28Z. **Its `quality` run started at 20:29:04Z and was cancelled at 20:54:24Z**, because the branch moved under it:
+- **#303** (`card/p3-50`) merged at 2026-09-15T20:53:03Z and edited the phase 3 board.
+- **`9b1e662`** followed 30 seconds later: again "Merge branch 'main' into board/orange-20260915-manufactured-figure", author the owner's GitHub account, committer GitHub, 2026-09-15T16:53:33-04:00, parents `74b07f6` and `7c1a528`.
+- **The same residue on the same lines:** ` board/orange-20260915-manufactured-figure` at line 5 and ` main` at line 9. The board does not parse. Every other file in that merge matches a clean machine merge of its two parents.
+
+**Repaired the same way, on top of it:** a parsed three-way union with base `8cbd3ce`, branch `74b07f6` and main `7c1a528`. Result: 106 cards = 104 from main + EXT-34 and EXT-35 from the branch. Main's change since the base is kept as main has it (P3-50), and the branch's changes are kept (none). Every card is asserted, and `as_of` is bumped. A forward commit, with no force push.
+
 ## STEP 2. R-198 corrected
 
 Amended in `decisions/inbox.md` under `CLAUDE.md` section 9c: the true statement
@@ -263,11 +272,11 @@ stays at `R-199`.
    of #300 would keep it off `main`.
 3. **The merge that broke the board was made in the GitHub web editor from the
    owner's account.** `CLAUDE.md`'s Conflicts section (R-052) names that path, and
-   this is the fourth instance of the residue it lists. It is recorded as a fact,
+   these are the fourth and fifth instances of the residue it lists. It is recorded as a fact,
    not a criticism.
 
    **#300 re-conflicts on the phase 3 board every time another lane merges**, which
-   has now happened three times. **Recommendation:** merge #300 soon after its next
+   has now happened four times, twice settled in the web editor with the same residue. **Recommendation:** merge #300 soon after its next
    green run, and leave any further conflict on it to this terminal.
 4. **Part (g) says one thing the dispatch did not:** a declared `printed` cannot be
    verified from the payload. It is stated because it is the new control's limit,
