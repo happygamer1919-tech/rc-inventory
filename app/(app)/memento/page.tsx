@@ -62,7 +62,7 @@ export default async function RemindersPage() {
           }
           right={
             <span className="text-[12.5px] text-rc-muted" data-testid="threshold-count">
-              {products.length} produse
+              {plural(products.length, "produs", "produse")}
             </span>
           }
         />
