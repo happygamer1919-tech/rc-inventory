@@ -233,6 +233,11 @@ neither of them.** The previous report did not say this.
 
 ## STATE AT THE END
 
+- **Pull request #297**, branch `card/ext-32`, carries the R-096 clause, the script
+  header, the contract row, card EXT-32 and this report. Locally, before the
+  pull request's `quality` run: `check:board-edit` said "satisfied 1 of 1 card
+  id(s)", with EXT-32 absent at base and shipped at head, and
+  `check:grant-revocation` exited 0.
 - Nothing blocked. Nothing sent to the counterparty.
 - No `docs/LEARNINGS.md` entry: no defect was found in the repository. The one
   error in this session was my own statement in the previous report, and step 3
