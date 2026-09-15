@@ -27,6 +27,8 @@ import type { Deviz, DevizSummary } from "@/lib/data/deviz";
 import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
 import { DevizPanel } from "./DevizPanel";
 import { DevizComparisonPanel } from "./DevizComparisonPanel";
+import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
+import type { DocumentsView } from "@/lib/data/documents-types";
 
 const TABS = [
   { id: "consum", label: "Consum" },
@@ -62,6 +64,7 @@ export function ProjectTabs({
   deviz,
   comparison,
   products,
+  documents,
   canWrite,
 }: {
   projectId: string;
@@ -71,6 +74,7 @@ export function ProjectTabs({
   deviz: { list: DevizSummary[]; open: Deviz | null };
   comparison: DevizComparison;
   products: CatalogProduct[];
+  documents: DocumentsView | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -353,13 +357,12 @@ export function ProjectTabs({
         ) : null}
 
         {active === "documente" ? (
-          <Card>
-            <CardHeader title="Documente" />
-            <EmptyState
-              title="Niciun document"
-              hint="Contractele, actele și fotografiile de pe șantier ajung aici odată cu cardul care le aduce."
-            />
-          </Card>
+          // P3-15 a umplut fila: incarcare, lista, descarcare si stergere.
+          <DocumentsPanel
+            owner={{ type: "project", id: projectId }}
+            documents={documents}
+            canWrite={canWrite}
+          />
         ) : null}
 
         {active === "istoric" ? (

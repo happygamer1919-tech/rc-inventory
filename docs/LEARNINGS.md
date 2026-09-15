@@ -5431,3 +5431,132 @@ agreeing. RULE: **when a fixture is built by code, prove the fixture with the gr
 tool as well as the code under test with the fixture; and give each such case a witness
 that asserts the property that makes it hard, because the answer alone cannot tell the
 hard shape from an easy one.**
+
+### A migration number held by another open branch is invisible to every id check
+**Tag:** data
+**ERROR:** P3-15's task named `0042` as the next free migration number, read off
+`ls supabase/migrations/` on `main`. Pull request #290 (EXT-28) already held
+`0042_error_code_document_too_large.sql` and `0043_extraction_upload_page_count.sql` on its
+own branch. `check:unique-ids` and `check:open-branch-ids` look at card and ruling ids only,
+so two open branches can each carry a `0042` and every check stays green until the second
+merge. That is the 0032 pair in CLAUDE.md 3.1, which reached production.
+**SOLUTION:** before naming a migration, list every open pull request's files:
+`gh pr list --state open` then `gh pr diff <n> --name-only` for each. P3-15 took `0044`, the
+first number above `main` and above #290. **THAT IS NOT ENOUGH ON ITS OWN, and quality run
+34900595515 proved it:** "Prove the migration applier against the Docker shim" applies every
+file from 0013 up as one batch, and the applier's assertion `ledger-no-gaps-ends-at-highest`
+refuses a ledger that goes 0041 then 0044. So a number above another branch's migrations
+cannot pass `quality` until that branch merges and `main` is merged in, and taking that
+branch's number instead puts one number on two open pull requests. RULE: **the next free
+migration number is read across open branches, not off main, and a branch numbered above
+another open branch's migrations waits for that branch to merge before it can go green.**
+
+### A file above about 1 MB cannot reach a server action here, and above about 4.5 MB no function
+**Tag:** backend
+**ERROR:** P3-15 needs 20 MB uploads. Next 16's server actions accept a 1 MB body unless
+`serverActions.bodySizeLimit` is set, `next.config.ts` sets none and refuses experimental
+flags, and the app is hosted on Vercel, where a function request body is capped near 4.5 MB
+whatever Next allows. A 20 MB file sent as `FormData` to a server action cannot arrive.
+`uploadOrderDocument` in `lib/data/inbound-actions.ts` sends the inbound order document that
+way while its form promises 10 MB; that path was not changed or measured by P3-15 and needs
+its own card.
+**SOLUTION:** the file goes from the browser straight to the private bucket through
+`createSignedUploadUrl` and `uploadToSignedUrl`, and the server checks before (role,
+extension, declared size, a structured path) and after (the stored object's real size from
+`list`, its first bytes through a short signed link, the object removed on a mismatch)
+before writing the row. RULE: **a file bigger than a request body limit is uploaded to
+storage directly, and the server verifies what landed rather than what was claimed.**
+
+### A server action that reads part of a fetch stream and awaits cancel never answered in CI
+**Tag:** backend
+**ERROR:** P3-15's first End to end run, quality run 34909961251 on `4480155`, failed all nine
+cases of `tests/e2e/documents.spec.ts`. Eight waited 60 seconds for `document-done` and the
+ninth 30 seconds for `document-error`; the server printed nothing. The page snapshot showed
+the button still on "Se încarcă...". The trace showed where: the prepare action answered, the
+browser upload to `/storage/v1/object/upload/sign/...` answered 200, and the confirm action's
+POST never received a response (status -1). The one thing confirm does that prepare does not
+is read the stored object's first bytes: a raw `fetch` of a signed link,
+`response.body.getReader()`, a read loop, then `await reader.cancel()`. This machine has no
+Supabase stack, so no local run could show it. In plain Node, `await reader.cancel()` on one
+branch of a `tee()` never settles, and Next 16 clones fetch responses with `tee()` in
+`server/lib/clone-response.js`; the same read and cancel through that function did settle in
+isolation, so the tee is a suspect, not a proof.
+**SOLUTION:** the first bytes are requested with a `Range` header and read whole with
+`response.arrayBuffer()`: no stream reader, no `cancel()`. The fetch carries
+`AbortSignal.timeout`, and a read that fails or times out returns a Romanian "could not verify"
+message and removes the unconfirmed object, so the action always answers. The spec was not
+touched. RULE: **in server code, read a fetch body whole or not at all, never part of a stream
+followed by an awaited cancel; and a server action that waits on the network carries a
+deadline, because a hang prints nothing and leaves only a spinner.**
+
+### innerText returns table headers in capitals, so a spec looking for "Denumire" misses it
+**Tag:** testing
+**ERROR:** P3-15's second End to end run, quality run 34913622610 on `b52aba6`, passed 238 of
+239 tests. The one failure was `documents.spec.ts` case 8, `lipseste "Denumire"`: the panel's
+`innerText()` held `DENUMIRE TIP MĂRIME ÎNCĂRCAT LA`. `Th` in `components/ui/primitives.tsx`
+styles every table header in capitals, and `innerText` applies CSS `text-transform`, so the
+written text never appears in it. The first run could not show this because every upload hung
+before case 8 reached the check.
+**SOLUTION:** the headers are asserted by their written text with
+`expect(panel.locator("thead th")).toHaveText([...])`, which reads the text content, exact and
+with diacritics. Everything else in the case still reads `innerText`. The app was not touched.
+RULE: **a visible-text check on `innerText` sees what CSS did to the text; check anything drawn
+through `Th` (or any `uppercase` class) by its text content, exact, not by a substring of
+`innerText`.**
+
+### A storage policy scoped only by bucket reaches every folder in a shared bucket
+**Tag:** data
+**ERROR:** P3-15's first draft of `0044_documents.sql` created
+`rc_docs_delete on storage.objects ... using (bucket_id = 'rc-docs' and public.is_owner())`.
+`rc-docs` is shared: the inbound order documents live in it under `inbound/<order_id>/`, and
+`0002` made them undeletable by every role on purpose. The draft let an owner delete them too.
+Its assertion only checked that the policy text mentioned `rc-docs` and `is_owner()`, so it
+passed and the PR went green. The owner caught it reviewing the merge question (q013), before
+the merge, which is the last point anyone can catch a migration (CLAUDE.md 8.0).
+**SOLUTION:** the policy adds `and (name like 'client/%' or name like 'project/%')`, the two
+folders the card writes. The assertion checks both prefixes in the policy text and then deletes
+as the owner: refused on a real `inbound/` path, allowed on a `client/` and a `project/` object.
+`documents.spec.ts` does the same against the real storage server. RULE: **a policy on a bucket
+two features share names its own folder, and its test tries the other feature's real path, not
+an invented one.**
+
+### The shim gives authenticated no delete on storage.objects, so a refusal test passes for the wrong reason
+**Tag:** ci
+**ERROR:** `scripts/poc-free/local-db/shim.sql` grants `select, insert, update` on
+`storage.objects` to `authenticated`, not `delete`. On the shim, any delete run as
+`authenticated` is refused by the missing privilege before a policy is read, so an assertion
+that "the owner cannot delete an inbound document" would pass even with no path restriction.
+**SOLUTION:** `assertions/0044_documents.sql` grants `delete on storage.objects to authenticated`
+inside its own transaction, which is rolled back, matching what Supabase grants, and pairs the
+refusal with a success control: the same owner session deletes a `client/` and a `project/`
+object. The control is what proves the grant took effect and the policy decided. RULE: **every
+refusal test has a success control on the same role and the same table, or it cannot tell a
+policy refusal from a missing grant.**
+
+### next start with no Supabase names answers 500 even for a static file
+**Tag:** infra
+**ERROR:** P3-54's red proof ran `next start` on a build of origin/main on a machine with no
+`.env.local`. `/favicon.ico`, which the proxy matcher excludes and which should have
+answered 404, answered 500: the instrumentation hook refuses to start the server when
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are missing, and every
+request, static or not, gets the failure. A 500 is "not 200", so it looked like a red, and
+it was a red for the wrong reason.
+**SOLUTION:** a gitignored `.env.local` in the worktree naming the two variables with
+placeholder local values (`http://127.0.0.1:54321`, no key, no database running). The
+server then booted, `/favicon.ico` answered the real 404 and the sign-in page rendered
+with zero icon links, and the same file let Playwright's production guard pass for the
+cases that need no session. RULE: **before trusting a local red, read the server log and
+confirm the failure is the one the spec names, not a boot refusal.**
+
+### A lane that builds a card without its pull request cannot pass check:board-edit
+**Tag:** ci
+**ERROR:** P3-54 was built on a second worker told to push the branch, open no pull
+request and leave the board untouched, because the card moves when the later pull request
+is opened. `npm run check:board-edit` refused: code under P3-54 with the card `todo` at
+the merge base and at the head. Eleven of the twelve local gates passed; this one cannot
+while the brief forbids the board edit.
+**SOLUTION:** the branch was pushed with the refusal named in the report and in the
+factory mailbox note, so the task that opens the pull request flips the card in that same
+pull request, which is what section 2 asks. RULE: **a build-only lane expects exactly this
+one refusal, and the pull request that follows must carry the board edit before quality
+runs.**

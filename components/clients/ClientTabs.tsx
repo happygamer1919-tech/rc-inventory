@@ -34,6 +34,8 @@ import type {
   ClientProject,
 } from "@/lib/data/client-detail";
 import { ContactForm } from "./ContactForm";
+import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
+import type { DocumentsView } from "@/lib/data/documents-types";
 
 const TABS = [
   { id: "contacte", label: "Contacte" },
@@ -54,12 +56,14 @@ export function ClientTabs({
   contacts,
   projects,
   materials,
+  documents,
   canWrite,
 }: {
   clientId: string;
   contacts: ClientContact[];
   projects: ClientProject[];
   materials: ClientMaterials;
+  documents: DocumentsView | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -298,13 +302,12 @@ export function ClientTabs({
         ) : null}
 
         {active === "documente" ? (
-          <Card>
-            <CardHeader title="Documente" />
-            <EmptyState
-              title="Niciun document"
-              hint="Contractele, actele și facturile clientului ajung aici odată cu cardul care le aduce."
-            />
-          </Card>
+          // P3-15 a umplut fila: incarcare, lista, descarcare si stergere.
+          <DocumentsPanel
+            owner={{ type: "client", id: clientId }}
+            documents={documents}
+            canWrite={canWrite}
+          />
         ) : null}
 
         {active === "note" ? (

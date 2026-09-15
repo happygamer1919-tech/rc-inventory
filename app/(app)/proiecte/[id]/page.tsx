@@ -14,6 +14,7 @@ import { getProjectMaterialCost } from "@/lib/reporting/material-cost";
 import { getProjectDevizView } from "@/lib/data/deviz";
 import { getDevizComparison } from "@/lib/reporting/deviz-comparison";
 import { listActiveProducts } from "@/lib/data/products";
+import { listDocuments } from "@/lib/data/documents";
 import { ProjectDetailScreen } from "@/components/projects/ProjectDetailScreen";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,10 @@ export default async function ProjectDetailPage({
   const rawDeviz = query["deviz"];
   const requestedDeviz = typeof rawDeviz === "string" && rawDeviz ? rawDeviz : null;
 
-  const [user, history, materials, clients, cost, deviz, comparison, products] = await Promise.all([
+  // P3-15. Lista completa a documentelor, in adresa, cu aceleasi chei ca pe fisa clientului.
+  const rawDocumentsPage = query["pagina-documente"];
+
+  const [user, history, materials, clients, cost, deviz, comparison, products, documents] = await Promise.all([
     getSessionUser(),
     getProjectHistory(id),
     getProjectMaterials(id),
@@ -66,6 +70,13 @@ export default async function ProjectDetailPage({
     // acelasi lucru cu adresa nu au voie sa foloseasca doua chei.
     getDevizComparison(id, requestedDeviz),
     listActiveProducts(),
+    listDocuments(
+      { type: "project", id },
+      {
+        showAll: query["documente"] === "toate",
+        page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
+      },
+    ),
   ]);
 
   return (
@@ -78,6 +89,7 @@ export default async function ProjectDetailPage({
       comparison={comparison}
       products={products}
       clients={clients}
+      documents={documents}
       canWrite={user?.role === "owner"}
     />
   );
