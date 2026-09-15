@@ -87,6 +87,16 @@ Run twice. First on `9ea7301` (main still `4b65ced`). Then again after the sync 
 
 `docs/LEARNINGS.md` untouched: nothing in the repository broke while working this card.
 
+## Pull request run, 2026-09-15
+
+A second EXECUTOR run opened the pull request once #301 (P3-52) had merged and the one open pull request slot was free.
+
+- `gh pr list --state open --author @me` was empty before opening.
+- `git merge origin/main` at `2ac5905` merged cleanly, no conflict. `git diff --exit-code origin/main -- tests/e2e/dashboard.spec.ts` exit 0 after the merge.
+- On the merged tree, each exit 0: `npx tsc --noEmit`, `npm run build`, the board validator on all three boards, `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`, `check:no-destructive-migration`, `check:conflict-residue`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`. The hard-coded plural grep prints 0 for all three files.
+- Pull request #302 opened. P3-51 flipped to `shipped` on `docs/board/rc-board-phase3.json` with evidence naming #302 and `tests/e2e/copy-fixes.spec.ts`; `last_checkpoint`, `evidence.at` and `as_of` set to 2026-09-15T19:25:40Z, read from the clock. `check:board-edit` and `check:board-clock` re-run after the flip.
+- No CI red run, for the reason in "Red first" above: spec and fix were both on the pushed branch before a pull request existed, and a spec-alone head needs a rewritten history or a second pull request.
+
 ## Merge
 
-No pull request opened, nothing merged. Real client data is in production; when the pull request exists, the owner approves and POC merges.
+Not merged by this terminal. Real client data is in production; the owner approves and POC merges.
