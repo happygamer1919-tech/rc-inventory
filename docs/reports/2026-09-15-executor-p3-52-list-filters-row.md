@@ -107,3 +107,64 @@ One, the card's own defect, entered in `docs/LEARNINGS.md`: `w-full` controls in
 - For the task that opens the pull request: flip P3-52 on `docs/board/rc-board-phase3.json`
   in that pull request (`last_checkpoint` from `date -u`, then `check:board-edit` and
   `check:board-clock`), sync with main, and state in the body that no migration was added.
+
+## Second run: the pull request (factory task, same day)
+
+- **Role:** EXECUTOR. The one open pull request slot was free (`gh pr list --state open
+  --author @me` empty before opening), P3-53 having merged as `a0f1ec6`.
+- **Pull request:** #301, head branch `card/p3-52`. Opened on the already pushed head so
+  the board evidence could name its number, then the merge and the board flip were pushed
+  in one push.
+
+### Sync with main
+
+`git merge origin/main` (`a0f1ec6`, never a rebase) conflicted in exactly one file,
+`docs/LEARNINGS.md`: main had appended six entries (P3-15, P3-54) at the end and this
+branch one (P3-52) at the same place. Both kept, main's entries first. The resolved file
+equals origin/main's copy plus this branch's 20 lines, zero lines removed (`git diff
+origin/main -- docs/LEARNINGS.md` shows 20 insertions and no deletions). The board merged
+without a conflict. Commit `b467242`.
+
+### Board flip
+
+`P3-52` on `docs/board/rc-board-phase3.json`: `status` and `lane` shipped, `evidence` kind
+`e2e` naming pull request #301 and `tests/e2e/list-filters-layout.spec.ts`,
+`last_checkpoint`, `evidence.at` and the board `as_of` all `2026-09-15T18:45:34Z` read from
+`date -u` before the edit, notes logging the defaults applied. Commit `3f214d1`.
+
+### Commands run on the merged tree, and results
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npm run build` | exit 0 |
+| board validator, all three boards | PASS, 0 violations, before every commit |
+| `npm run check:card-ids` | exit 0 |
+| `npm run check:board-edit` | exit 0, P3-52 todo -> shipped, flipped |
+| `npm run check:board-clock` | exit 0 |
+| `npm run check:unique-ids` | exit 0 |
+| `npm run check:open-branch-ids` | exit 0 (one other open branch, Orange's #300) |
+| `npm run check:no-destructive-migration` | exit 0, 0 files |
+| `npm run check:conflict-residue` | exit 0, after staging |
+| `npm run check:categories` | exit 0 |
+| `npm run check:ledger-rows` | exit 0 |
+| `npm run check:no-prod-target` | exit 0 |
+| `npm run check:pending-schema-reads` | exit 0 |
+| `npm run check:removal-safety` | exit 0 |
+| `npm run check:assertion-register` | exit 0 |
+| `git diff --exit-code origin/main -- tests/e2e/leaduri.spec.ts tests/e2e/projects.spec.ts tests/e2e/products.spec.ts` | exit 0 |
+
+Left to CI, as in the first run: the End to end suite with
+`tests/e2e/list-filters-layout.spec.ts`, `leaduri.spec.ts`, `projects.spec.ts` and
+`products.spec.ts`, which needs Docker and a local Supabase stack. The applier proof steps
+are path-filtered and should skip, since no migration or applier file is touched.
+
+### Defects found this run
+
+None new. The one LEARNINGS conflict is the known append collision and needed no new entry.
+
+### Merge
+
+Not self-merged: real client data is in production. The owner approves, POC merges. The
+quality run on the head sha and the owner question are recorded in the pull request and
+in the factory mailbox, not here, because writing them into this file would move the head.
