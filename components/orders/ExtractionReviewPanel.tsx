@@ -516,7 +516,7 @@ export function ExtractionReviewPanel({
           onChange={onFile}
           disabled={pending}
           data-testid="extraction-input"
-          className="block w-full text-[13px] text-rc-muted file:mr-3 file:rounded-[9px] file:border-0 file:bg-rc-orange file:px-3.5 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-rc-orange-dark disabled:opacity-60"
+          className="block w-full text-[13px] text-rc-muted file:mr-3 file:rounded-[9px] file:border-0 file:bg-rc-orange-button file:px-3.5 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-rc-orange-button-hover disabled:opacity-60"
         />
         {pending ? (
           <p className="mt-2.5 text-[12.5px] text-rc-muted" data-testid="extraction-pending">
