@@ -197,8 +197,8 @@ export function OrdersScreen({
       </div>
 
       <p className="mt-4 text-[12px] text-rc-muted-2 max-w-[80ch] leading-relaxed">
-        Stările sunt la nivel de comandă întreagă. Recepțiile parțiale și expedierile parțiale sunt
-        în afara domeniului fazei 2.
+        Starea se schimbă pentru toată comanda odată; o recepție sau o expediere parțială nu se
+        poate înregistra.
       </p>
 
       {selectedIn ? <InboundPanel order={selectedIn} onClose={() => setSel(null)} /> : null}
