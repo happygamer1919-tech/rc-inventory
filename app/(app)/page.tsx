@@ -26,6 +26,7 @@ import {
   formatMoney,
   formatNumber,
   formatQty,
+  plural,
 } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 
@@ -63,7 +64,7 @@ export default async function Dashboard() {
           label="Valoare totală stoc"
           value={formatNumber(d.stockValue)}
           suffix={DISPLAY_CURRENCY}
-          sub={`${formatNumber(d.productCount)} produse în catalog`}
+          sub={`${plural(d.productCount, "produs", "produse")} în catalog`}
           icon="boxes"
         />
         <StatCard

@@ -110,7 +110,7 @@ export function ClientTabs({
           <Card>
             <CardHeader
               title="Contacte"
-              hint="Un client este mai multe numere de telefon"
+              hint="Un client poate avea mai multe persoane de contact."
               right={
                 canWrite ? (
                   <Button onClick={() => setCreatingContact(true)} data-testid="contact-new">

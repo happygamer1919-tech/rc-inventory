@@ -86,9 +86,9 @@ export function UploadOrderScreen({
       <Card className="mb-4">
         <div className="px-5 py-4" data-testid="upload-explainer">
           <p className="text-[13px] text-rc-muted leading-relaxed max-w-[80ch]">
-            Documentul se salvează real, în depozitul privat, și rămâne atașat comenzii. Citirea
-            automată a conținutului este panoul de mai sus: acolo comanda se creează din document,
-            după ce verifici ce s-a extras. Aici comanda se tastează întâi, exact ca la{" "}
+            Documentul atașat rămâne salvat lângă comandă. Dacă vrei ca sistemul să citească
+            documentul în locul tău, folosește panoul de mai sus. Aici completezi comanda de mână,
+            ca la{" "}
             <Link href="/adauga-manual" className="font-semibold text-rc-orange-deep hover:underline">
               adăugarea manuală
             </Link>
