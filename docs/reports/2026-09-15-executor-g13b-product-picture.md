@@ -102,10 +102,21 @@ after the ship flip.
 `prove:applier` and `prove:assertions`. The quality run on the head sha, its id and whether the
 migration steps RAN are recorded in the pull request and the owner question.
 
+## CI runs
+
+- Run 35025352161 on `0af76c0` (first push, card still `in_flight`): failed at "Refuse a code
+  pull request whose board edit is missing". Expected; the known signature in the factory's
+  KNOWN-FAILURES.md. The ship flip on `c0a8d12` answers it.
+- Run 35025464643 on `c0a8d12`: failed at "Apply every migration to a bare postgres,
+  unmodified". Migration 0045 APPLIED; its assertion file failed with `permission denied for
+  table objects`. Repair attempt 1: the file lacked the `grant delete on storage.objects to
+  authenticated` that the 0044 assertion file carries inside its own transaction. Same line
+  and reason added; nothing loosened.
+
 ## Learnings
 
-Nothing broke while building this card up to the first push, so `docs/LEARNINGS.md` is
-untouched. Anything CI turns up is appended in this pull request before the owner question.
+One entry appended to `docs/LEARNINGS.md`: "A storage delete in a local-db assertion needs its
+own grant, every file".
 
 ## Left for the owner
 

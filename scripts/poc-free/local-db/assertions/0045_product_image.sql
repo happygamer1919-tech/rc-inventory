@@ -142,6 +142,16 @@ $$;
 -- ===========================================================================
 -- 3. WHO MAY DELETE A PICTURE FROM THE BUCKET
 -- ===========================================================================
+--
+-- THE GRANT IS SUPABASE'S, NOT A LOOSENING, the same line and the same reason as
+-- in assertions/0044_documents.sql. Supabase grants delete on storage.objects to
+-- authenticated and leaves the refusing to the policies; the shim grants only
+-- select, insert and update, so without this line every delete below is refused by
+-- the missing privilege ("permission denied for table objects", run 35025464643)
+-- and the policy is never consulted. The 0044 file's grant is rolled back with its
+-- own transaction, so it does not carry into this one. This one is rolled back too.
+
+grant delete on storage.objects to authenticated;
 
 insert into storage.objects (id, bucket_id, name) values
   ('e3564000-0000-4000-8000-000000000001', 'rc-docs',
