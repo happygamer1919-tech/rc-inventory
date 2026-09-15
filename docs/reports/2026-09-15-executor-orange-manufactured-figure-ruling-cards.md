@@ -185,5 +185,11 @@ the review screen is refused, since confirming it would create a real inbound or
 
 ## STATE AT THE END
 
+- **Pull request #300**, branch `board/orange-20260915-manufactured-figure`,
+  carries R-198, the counter at R-199, `docs/DOCTRINE-PATTERNS.md`, EXT-34, EXT-35
+  and this report. Before its `quality` run, locally: `check:unique-ids`,
+  `check:open-branch-ids`, `check:grant-revocation` and `check:conflict-residue`
+  all exit 0, and `check:board-edit` passes it as a pull request that changes no
+  code.
 - Nothing blocked. Nothing sent to the counterparty. Steps 3 and 4 not built.
 - The boundary date in R-198 and P-2 is TBD until the counterparty confirms it.
