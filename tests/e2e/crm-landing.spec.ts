@@ -351,7 +351,7 @@ test.describe("Ecranul CRM (P3-46)", () => {
     const titles: [string, string][] = [
       ["/crm", "CRM"],
       ["/clienti", "Clienți"],
-      ["/clienti?vedere=leaduri", "Clienți"],
+      ["/clienti?vedere=leaduri", "Leaduri"],
       ["/proiecte", "Proiecte"],
     ];
     for (const [path, title] of titles) {

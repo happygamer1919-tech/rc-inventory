@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { labelForPath } from "@/lib/nav";
 import { ROLE_LABEL, type SessionUser } from "@/lib/supabase/types";
 import { SignOutButton } from "@/components/auth/SignOutButton";
@@ -10,12 +10,15 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 // data pe cerere.
 export function Topbar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
+  const params = useSearchParams();
   const initials = initialsFor(user);
 
   return (
     <header className="h-[58px] shrink-0 border-b border-white/10 bg-rc-ink/60 backdrop-blur flex items-center justify-between px-8">
       <div className="flex items-center gap-3">
-        <span className="text-[13.5px] font-semibold text-white">{labelForPath(pathname)}</span>
+        <span className="text-[13.5px] font-semibold text-white">
+          {titleFor(pathname, params.get("vedere"))}
+        </span>
         <span className="text-rc-muted">/</span>
         <span className="text-[13px] text-rc-muted">Rapid Construct</span>
       </div>
@@ -39,6 +42,17 @@ export function Topbar({ user }: { user: SessionUser }) {
       </div>
     </header>
   );
+}
+
+/**
+ * P3-50. Leaduri este o vedere a lui /clienti, deci adresa singura nu o deosebeste
+ * de lista de clienti: titlul citeste si `vedere`. Pentru orice alta adresa
+ * raspunde labelForPath, neschimbat, fiindca headers.spec si crm-landing.spec
+ * citesc lista de navigatie din care vine.
+ */
+function titleFor(pathname: string, view: string | null): string {
+  if (pathname === "/clienti" && view === "leaduri") return "Leaduri";
+  return labelForPath(pathname);
 }
 
 function initialsFor(user: SessionUser): string {

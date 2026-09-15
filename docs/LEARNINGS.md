@@ -5580,3 +5580,18 @@ compressible controls, so a percentage width gives them no min-content floor in 
 track), measured, not assumed. RULE: **a filter row built from the shared field
 primitives is a grid with explicit columns, never a flex-wrap row; `w-full` controls in
 flex-wrap stack.**
+
+### A card that keeps a spec "unmodified" while changing what that spec pins
+**Tag:** ci
+**ERROR:** P3-50's acceptance asks for the top bar on `/clienti?vedere=leaduri` to read
+Leaduri, and in the same line for `tests/e2e/crm-landing.spec.ts` to pass unmodified. Case
+P3-46 (4) of that spec lists `["/clienti?vedere=leaduri", "Clienți"]` among its top bar
+titles, so both cannot hold. The card's `defaults` read the spec as guarding only
+`labelForPath` and the route list, and did not open the case that pins the exact title the
+card changes.
+**SOLUTION:** the branch was built with the top bar change in its own commit and the spec
+left untouched, and the conflict went to POC as a question with a recommended default
+(change that one row to Leaduri: P3-46's own clause 4 speaks of `/clienti` and `/proiecte`,
+which still read Clienți and Proiecte). RULE: **before a card says a spec stays unmodified,
+grep that spec for every URL and every string the card changes; a hit means the card
+changes the spec, and the acceptance says so.**
