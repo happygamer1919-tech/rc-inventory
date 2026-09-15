@@ -333,6 +333,8 @@ in terms that the **EXT-16 check is EXTENDED**, not duplicated, which is the
 "one named expression, one place" rule applied across cards. All four sample
 documents' header figures become fixtures.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **EXT-19 is the one to re-read before working it.** Its acceptance opens with
 *"MIGRATION: a new numbered file adds reconciliation_failed to the extraction error
 code enum"* — **EXT-16 already did that**, as `0034`, because the dispatch required

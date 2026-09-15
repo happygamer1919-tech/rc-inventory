@@ -72,6 +72,8 @@ acceptance is wider than his emission in both the current and the pending state.
 Committed: the sample document signed URL TTL rises from two hours to
 twenty-four, for the four permanent test documents only.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 - `scripts/ext/serve-sample-documents.mjs`, `TTL_SECONDS`: `2 * 60 * 60` becomes
   `24 * 60 * 60`.
 - Scope is the four PDFs under `_samples/andre` plus that script's own throwaway
@@ -81,6 +83,8 @@ twenty-four, for the four permanent test documents only.
   were checked rather than assumed.
 - Reason line, as dispatched: **a TTL shorter than the counterparty response
   cycle produces repeat handoffs through the owner.**
+
+  **Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **The id is `R-096` and the committed counter said `R-087`.** `R-087` through
 `R-095` are each already written as a **different** decision on an open PR: `#172`
@@ -126,6 +130,8 @@ ruling ids, no internal file paths.
 version of that file carried live links for all four sample documents plus the
 failure-contract table. It now carries the Matnord scan alone. If the
 counterparty needs the other three live, regenerating them is one command.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 ### Step 6. Ruling R-097, three amendments to a frozen contract
 
@@ -256,3 +262,5 @@ Nothing. No `ask.sh` was raised and no step stopped.
 4. **The live sample link expires 2026-09-04 19:58:37 UTC.** Re-running
    `scripts/ext/serve-sample-documents.mjs` issues fresh ones at the new 24 hour
    TTL; `--capture-only` skips re-uploading the four PDFs.
+
+   **Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.

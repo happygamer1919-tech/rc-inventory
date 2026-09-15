@@ -170,6 +170,12 @@ say();
 //
 // Un obiect de unica folosinta, urcat, semnat de doua ori si sters, produce
 // toate cele trei stari fara sa atinga niciunul dintre cele patru documente.
+//
+// NOTA 2026-09-15, cardul EXT-33: setul de proba de sub _samples/andre are sase
+// documente de la 2026-09-15, iar R-096, amendata in aceeasi zi, acopera fiecare
+// document de sub acel prefix, nu un numar fix de patru. Cele patru numite aici
+// sunt setul initial; nimic de mai sus nu s-a schimbat. Sonda nu atinge niciunul
+// dintre cele sase.
 const probe = `${PREFIX}/_probe-${Date.now()}.pdf`;
 await sb.storage
   .from(BUCKET)
