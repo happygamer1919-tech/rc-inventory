@@ -48,12 +48,15 @@ export function InventoryScreen({
   units,
   suppliers,
   canWrite,
+  imagesActive,
 }: {
   products: CatalogProduct[];
   categories: Category[];
   units: UnitCode[];
   suppliers: SupplierOption[];
   canWrite: boolean;
+  /** P3-56: migratia 0045 este aplicata, deci formularul ofera campul de imagine. */
+  imagesActive: boolean;
 }) {
   // P3-10. FILTRUL DE FURNIZOR SI PRODUSUL DESCHIS VIN DIN URL, ca legaturile
   // din alte ecrane sa fie navigabile si partajabile. Cardul cere legaturi
@@ -351,6 +354,7 @@ export function InventoryScreen({
           categories={categories}
           units={units}
           suppliers={suppliers}
+          imagesActive={imagesActive}
           onClose={() => setCreating(false)}
         />
       ) : null}
@@ -361,6 +365,7 @@ export function InventoryScreen({
           categories={categories}
           units={units}
           suppliers={suppliers}
+          imagesActive={imagesActive}
           focusField={focusThreshold ? "threshold" : undefined}
           onClose={() => {
             setEditing(null);
