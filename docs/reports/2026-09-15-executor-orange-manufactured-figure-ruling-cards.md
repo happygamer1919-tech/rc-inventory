@@ -191,5 +191,6 @@ the review screen is refused, since confirming it would create a real inbound or
   `check:open-branch-ids`, `check:grant-revocation` and `check:conflict-residue`
   all exit 0, and `check:board-edit` passes it as a pull request that changes no
   code.
+- **The pull request went conflicting after its first green run**, because P3-53 merged to `main` and edited the phase 3 board. `origin/main` was merged into the branch locally, a forward commit and no force push, and the board conflict was resolved by parsing: a three-way union against the branch base that keeps every card from both sides, asserted card by card, with `as_of` bumped.
 - Nothing blocked. Nothing sent to the counterparty. Steps 3 and 4 not built.
 - The boundary date in R-198 and P-2 is TBD until the counterparty confirms it.
