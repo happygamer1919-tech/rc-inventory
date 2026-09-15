@@ -1,4 +1,4 @@
-import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 
@@ -876,5 +876,102 @@ test.describe("Leaduri (P3-48)", () => {
     await expectLeaduriInterest(page, name, null);
 
     await rest.api.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P3-50. Vederea Leaduri are subtitlul ei, titlul ei in bara de sus si Lead nou
+// ca buton principal
+// ---------------------------------------------------------------------------
+//
+// Constatarea F5 din revizuirea aplicatiei live din 2026-09-14: pe vederea Leaduri
+// subtitlul era al Clientilor, bara de sus spunea Clienți, iar butonul portocaliu
+// era Client nou, cu Lead nou secundar.
+//
+// CULOAREA BUTONULUI PRINCIPAL SE CITESTE LA RULARE, de pe butonul principal al
+// altui ecran (Proiect nou pe /proiecte), nu dintr-o valoare scrisa aici: P3-53 a
+// schimbat deja o data portocaliul butoanelor.
+//
+// Cazul doar citeste. Nu creeaza si nu modifica niciun rand.
+
+const CLIENTS_SUBTITLE = "Beneficiarii, cu datele lor de contact și proiectele lor.";
+
+/** Titlul din bara de sus: primul text din <header>, inaintea lui "/ Rapid Construct". */
+function topbarTitle(page: Page): Locator {
+  return page.locator("header").first().locator("span").first();
+}
+
+/** Antetul paginii: titlul, subtitlul de sub el si butoanele din dreapta. */
+function pageHeader(page: Page): Locator {
+  return page.locator("main").getByRole("heading", { level: 1 }).locator("xpath=../..");
+}
+
+function pageSubtitle(page: Page): Locator {
+  return page.locator("main").getByRole("heading", { level: 1 }).locator("xpath=following-sibling::p");
+}
+
+/** Fundalul calculat de browser, dupa ce s-a terminat orice tranzitie de culoare. */
+async function backgroundOf(target: Locator): Promise<string> {
+  return target.evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((a) => a.finished.catch(() => undefined)));
+    return getComputedStyle(el).backgroundColor;
+  });
+}
+
+/** Cate butoane din antetul paginii au fundalul butonului principal. */
+async function primaryButtonsInHeader(page: Page, primary: string): Promise<number> {
+  const buttons = await pageHeader(page).locator("button").all();
+  const backgrounds = await Promise.all(buttons.map((b) => backgroundOf(b)));
+  return backgrounds.filter((b) => b === primary).length;
+}
+
+test.describe("Leaduri (P3-50)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("P3-50: vederea Leaduri are subtitlul ei, titlul Leaduri în bara de sus și Lead nou ca singurul buton principal, iar Clienți rămâne neschimbat", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+
+    // FUNDALUL UNUI BUTON PRINCIPAL DE PE ALT ECRAN, citit in repaus: cursorul
+    // este mutat departe, ca hover sa nu schimbe culoarea citita.
+    await page.goto("/proiecte");
+    const reference = page.getByTestId("project-new");
+    await expect(reference).toBeVisible({ timeout: 20_000 });
+    await page.mouse.move(1, 1);
+    const primary = await backgroundOf(reference);
+    expect(primary, "butonul principal de referinta nu are fundal").not.toBe("rgba(0, 0, 0, 0)");
+
+    // (1) BARA DE SUS SPUNE LEADURI.
+    await page.goto(listUrl({ vedere: "leaduri" }));
+    await expect(page.getByTestId("clients-filters")).toBeVisible({ timeout: 20_000 });
+    await expect(topbarTitle(page)).toHaveText("Leaduri", { timeout: 20_000 });
+
+    // (2) SUBTITLUL ESTE AL VEDERII, nu propozitia Clientilor.
+    const subtitle = pageSubtitle(page);
+    await expect(subtitle).toBeVisible();
+    expect(((await subtitle.textContent()) ?? "").trim()).not.toBe("");
+    await expect(subtitle).not.toContainText("Beneficiarii, cu datele lor de contact și proiectele lor");
+
+    // (3) LEAD NOU ESTE BUTONUL PRINCIPAL SI SINGURUL DIN ANTET CU CULOAREA LUI.
+    const leadNew = pageHeader(page).getByTestId("leaduri-new");
+    await expect(leadNew).toHaveText("Lead nou");
+    await page.mouse.move(1, 1);
+    expect(await backgroundOf(leadNew)).toBe(primary);
+    expect(await primaryButtonsInHeader(page, primary), "butoane principale in antetul Leaduri").toBe(1);
+
+    // (4) VEDEREA CLIENȚI SI LISTA FARA VEDERE RAMAN CUM ERAU.
+    for (const path of ["/clienti?vedere=clienti", "/clienti"]) {
+      await page.goto(path);
+      await expect(page.getByTestId("clients-filters")).toBeVisible({ timeout: 20_000 });
+      await expect(topbarTitle(page), `titlul pe ${path}`).toHaveText("Clienți", { timeout: 20_000 });
+      await expect(pageSubtitle(page), `subtitlul pe ${path}`).toHaveText(CLIENTS_SUBTITLE);
+
+      const clientNew = pageHeader(page).getByTestId("client-new");
+      await expect(clientNew, `Client nou pe ${path}`).toHaveText("Client nou");
+      await page.mouse.move(1, 1);
+      expect(await backgroundOf(clientNew), `Client nou pe ${path}`).toBe(primary);
+      expect(await primaryButtonsInHeader(page, primary), `butoane principale in antet pe ${path}`).toBe(1);
+    }
   });
 });

@@ -116,11 +116,24 @@ export function ClientsScreen({
 
   return (
     <>
+      {/* P3-50. VEDEREA LEADURI SE DESCRIE SINGURA: subtitlul ei, iar Lead nou este
+          singurul buton, cel principal. Client nou lipseste de aici fiindca un lead
+          devine client printr-o schimbare de etapa (P3-45), iar a doua cale de
+          creare pe vederea Leaduri ar aduce acelasi om de doua ori. Vederea Clienți
+          si lista fara vedere raman exact ca inainte. */}
       <PageHeader
         title={inLeaduri ? "Leaduri" : "Clienți"}
-        lead="Beneficiarii, cu datele lor de contact și proiectele lor."
+        lead={
+          inLeaduri
+            ? "Persoanele și firmele care nu sunt încă clienți, cu etapa lor și data la care trebuie sunate."
+            : "Beneficiarii, cu datele lor de contact și proiectele lor."
+        }
         actions={
-          canWrite ? (
+          !canWrite ? null : inLeaduri ? (
+            <Button onClick={() => setCreatingLead(true)} data-testid="leaduri-new">
+              Lead nou
+            </Button>
+          ) : (
             <>
               {leaduri ? (
                 <Button
@@ -135,7 +148,7 @@ export function ClientsScreen({
                 Client nou
               </Button>
             </>
-          ) : null
+          )
         }
       />
 
