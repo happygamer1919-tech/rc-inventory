@@ -107,15 +107,20 @@ export function ProjectsScreen({
           hint={total === 1 ? "1 proiect" : `${total} proiecte`}
         />
 
-        <div className="p-5 flex flex-wrap items-center gap-3" data-testid="projects-filters">
-          <div className="min-w-[260px] flex-1">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Caută după denumire sau adresă"
-              data-testid="projects-search"
-            />
-          </div>
+        {/* P3-52. Grila explicita, ca pe Inventar: Input si Select poarta w-full,
+            deci intr-un rand flex-wrap fiecare cerea tot randul. Coloana auto de
+            la final tine Șterge filtrele, ca selecturile sa nu treaca dedesubt
+            cand butonul apare. */}
+        <div
+          className="p-5 grid grid-cols-[1.6fr_1fr_1.2fr_auto] items-center gap-3"
+          data-testid="projects-filters"
+        >
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Caută după denumire sau adresă"
+            data-testid="projects-search"
+          />
 
           <Select
             value={statusValue}

@@ -5560,3 +5560,23 @@ factory mailbox note, so the task that opens the pull request flips the card in 
 pull request, which is what section 2 asks. RULE: **a build-only lane expects exactly this
 one refusal, and the pull request that follows must carry the board edit before quality
 runs.**
+
+### A w-full field inside a flex-wrap row takes a whole line of its own
+**Tag:** frontend
+**ERROR:** on `/clienti?vedere=leaduri` and `/proiecte` the search box, and then each
+filter, sat on its own full-width line (live-app review 2026-09-14, finding F8), pushing
+the list down the page, while `/inventar` showed the same kind of controls side by side.
+Both rows were `flex flex-wrap` with the search in a `min-w-[280px] flex-1` wrapper, and
+`Input` and `Select` carry `w-full` from the shared `CONTROL` class in
+`components/ui/primitives.tsx`. A flex item's `width: 100%` is its flex basis, so every
+Select asked for the whole row and wrapped. Measured at 1440 by 900 with the compiled
+CSS: each control's vertical centre 51px below the previous one, every control 1086px
+wide.
+**SOLUTION:** P3-52 made both rows explicit CSS grids, one fraction per control and a
+final `auto` column for Șterge filtrele, the pattern `InventoryScreen.tsx` already used;
+the shared `CONTROL` class was not touched, since every form depends on its `w-full`. A
+Select with an 86 character option did not widen its `fr` column (select and input are
+compressible controls, so a percentage width gives them no min-content floor in a grid
+track), measured, not assumed. RULE: **a filter row built from the shared field
+primitives is a grid with explicit columns, never a flex-wrap row; `w-full` controls in
+flex-wrap stack.**
