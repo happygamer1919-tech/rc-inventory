@@ -12,21 +12,36 @@
 // ERORILE SUNT ROMANESTI SI LEGATE DE CAMP. Un mesaj brut de Postgres pe ecran
 // este un defect, nu un detaliu.
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
-import { hasProductPackaging } from "./schema-capability";
+import { hasProductImage, hasProductPackaging } from "./schema-capability";
+import { DOCS_BUCKET, type ActionResult as ValueResult } from "./inbound-types";
+import {
+  MAX_PRODUCT_IMAGE_BYTES,
+  PRODUCT_IMAGE_MESSAGES,
+  PRODUCT_IMAGE_TYPES,
+  SNIFF_BYTES,
+  contentMatchesType,
+  productImageExtension,
+  productImageProblem,
+  type ProductImageChoice,
+} from "./product-image-types";
 
-export type ActionResult =
-  | { ok: true }
-  | { ok: false; message: string; field?: string };
+type Failure = { ok: false; message: string; field?: string };
 
-const OWNER_ONLY: ActionResult = {
+export type ActionResult = { ok: true } | Failure;
+
+/** P3-56: salvarea intoarce id-ul produsului, ca imaginea sa se poata atasa dupa ea. */
+export type ProductSaveResult = { ok: true; id: string } | Failure;
+
+const OWNER_ONLY = {
   ok: false,
   message: "Doar administratorul poate modifica catalogul.",
-};
+} as const;
 
 type ProductInput = {
   sku: string;
@@ -41,6 +56,10 @@ type ProductInput = {
   packageUnit: string;
   /** EXT-10: cate unitati de stoc incap intr-un ambalaj. */
   packageFactor: string;
+  /** P3-56: imaginea aleasa, daca s-a ales una: numele si marimea, nu fisierul.
+   *  Se verifica aici INAINTE de orice scriere; fisierul vine dupa salvare, prin
+   *  prepareProductImageUpload si confirmProductImage. */
+  image?: ProductImageChoice | null;
 };
 
 /** EXT-10. Perechea de ambalaj, curatata, sau primul camp gresit.
@@ -145,7 +164,7 @@ function validate(input: ProductInput):
 }
 
 /** Codul 23505 este incalcarea unei constrangeri unice. Aici, SKU-ul. */
-function translateWriteError(code: string | undefined, message: string): ActionResult {
+function translateWriteError(code: string | undefined, message: string): Failure {
   if (code === "23505") {
     return { ok: false, message: "Există deja un produs cu acest cod SKU.", field: "sku" };
   }
@@ -187,7 +206,25 @@ async function packagingColumns(
   };
 }
 
-export async function createProduct(input: ProductInput): Promise<ActionResult> {
+/**
+ * P3-56. Imaginea aleasa poate fi salvata? Se intreaba INAINTE de orice scriere,
+ * inclusiv inainte de resolveSupplier, care poate crea un furnizor: un tip sau o
+ * marime refuzata nu lasa in urma nici produsul, nici furnizorul.
+ */
+async function checkImageChoice(
+  client: Parameters<typeof hasProductImage>[0],
+  choice: ProductImageChoice | null | undefined,
+): Promise<{ ok: true } | Failure> {
+  if (!choice) return { ok: true };
+  const problem = productImageProblem(choice);
+  if (problem) return { ok: false, field: "image", message: problem };
+  if (!(await hasProductImage(client))) {
+    return { ok: false, field: "image", message: PRODUCT_IMAGE_MESSAGES.notActive };
+  }
+  return { ok: true };
+}
+
+export async function createProduct(input: ProductInput): Promise<ProductSaveResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
   if (user.role !== "owner") return OWNER_ONLY;
@@ -199,23 +236,28 @@ export async function createProduct(input: ProductInput): Promise<ActionResult> 
   if (!pack.ok) return pack;
 
   const supabase = await createClient();
+  const image = await checkImageChoice(supabase, input.image);
+  if (!image.ok) return image;
+
   const supplier = await resolveSupplier(input.supplier);
   if (!supplier.ok) return supplier;
 
   const packColumns = await packagingColumns(supabase, pack.value);
   if (!packColumns.ok) return packColumns;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("products")
-    .insert({ ...checked.value, ...supplier.value, ...packColumns.value });
-  if (error) return translateWriteError(error.code, error.message);
+    .insert({ ...checked.value, ...supplier.value, ...packColumns.value })
+    .select("id")
+    .single();
+  if (error || !data) return translateWriteError(error?.code, error?.message ?? "");
 
   revalidatePath("/inventar");
   revalidatePath("/setari");
-  return { ok: true };
+  return { ok: true, id: data.id as string };
 }
 
-export async function updateProduct(id: string, input: ProductInput): Promise<ActionResult> {
+export async function updateProduct(id: string, input: ProductInput): Promise<ProductSaveResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
   if (user.role !== "owner") return OWNER_ONLY;
@@ -227,6 +269,8 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ac
   if (!pack.ok) return pack;
 
   const supabase = await createClient();
+  const image = await checkImageChoice(supabase, input.image);
+  if (!image.ok) return image;
 
   // UNITATEA ESTE FIXATA DE PRODUS. Odata ce exista un lot sau o linie care il
   // refera, schimbarea unitatii ar reinterpreta tacit fiecare cantitate stocata:
@@ -273,7 +317,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ac
 
   revalidatePath("/inventar");
   revalidatePath("/setari");
-  return { ok: true };
+  return { ok: true, id };
 }
 
 /**
@@ -291,6 +335,189 @@ export async function setProductActive(id: string, active: boolean): Promise<Act
   const supabase = await createClient();
   const { error } = await supabase.from("products").update({ active }).eq("id", id);
   if (error) return translateWriteError(error.code, error.message);
+
+  revalidatePath("/inventar");
+  return { ok: true };
+}
+
+/* ------------------------------------------------------ imaginea produsului -- */
+//
+// P3-56. O SINGURA IMAGINE PE PRODUS, in bucketul rc-docs, la
+// product/<id produs>/<uuid>.<ext>. Numele original al fisierului nu ajunge
+// niciodata in cale.
+//
+// FISIERUL NU TRECE PRIN SERVERUL APLICATIEI, din motivul scris in
+// document-actions.ts: pe Vercel corpul unei cereri are un plafon de aproximativ
+// 4,5 MB, iar limita aici este 10 MB. Deci trei pasi, ca la documente:
+//
+//   1. prepareProductImageUpload verifica rolul, tipul si marimea declarata, alege
+//      calea si cere o legatura de incarcare semnata pentru EXACT acea cale;
+//   2. browserul trimite fisierul direct in bucket;
+//   3. confirmProductImage citeste marimea REALA si primii octeti ai obiectului,
+//      si abia apoi scrie products.image_path. Un obiect care nu trece este sters.
+//
+// LA INLOCUIRE, INTAI RANDUL, APOI OBIECTUL VECHI. Daca stergerea obiectului vechi
+// esueaza, ramane un fisier orfan in depozit, niciodata un produs care arata spre
+// nimic. Stergerea o permite politica rc_docs_delete, largita de 0045 la product/.
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const PRODUCT_GONE: Failure = { ok: false, message: "Produsul nu mai există." };
+const IMAGE_UNVERIFIED: Failure = {
+  ok: false,
+  field: "image",
+  message: "Nu s-a putut verifica imaginea încărcată. Încearcă din nou.",
+};
+
+/** Numai administratorul, si numai dupa ce 0045 este aplicata. */
+async function imageGate(): Promise<{ ok: true; supabase: Supabase } | Failure> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner") return OWNER_ONLY;
+  const supabase = await createClient();
+  if (!(await hasProductImage(supabase))) return { ok: false, message: PRODUCT_IMAGE_MESSAGES.notActive };
+  return { ok: true, supabase };
+}
+
+/** Marimea obiectului de la o cale, citita de la Supabase. "error": nu s-a putut afla; null: nu exista. */
+async function storedSize(supabase: Supabase, path: string): Promise<number | null | "error"> {
+  const slash = path.lastIndexOf("/");
+  const { data, error } = await supabase.storage
+    .from(DOCS_BUCKET)
+    .list(path.slice(0, slash), { search: path.slice(slash + 1), limit: 10 });
+  if (error || !data) return "error";
+  const item = data.find((o) => o.name === path.slice(slash + 1));
+  if (!item) return null;
+  const size = Number((item.metadata as { size?: unknown } | null)?.size);
+  return Number.isFinite(size) ? size : -1;
+}
+
+/**
+ * Primii octeti ai obiectului, printr-o legatura semnata de un minut. Aceeasi
+ * citire ca firstBytes din document-actions.ts, cu termen si fara cititor de flux,
+ * din motivul scris acolo (rularea 34909961251).
+ */
+async function firstBytes(supabase: Supabase, path: string): Promise<Uint8Array | "error"> {
+  const { data } = await supabase.storage.from(DOCS_BUCKET).createSignedUrl(path, 60);
+  if (!data?.signedUrl) return "error";
+  try {
+    const response = await fetch(data.signedUrl, {
+      headers: { Range: `bytes=0-${SNIFF_BYTES - 1}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) return "error";
+    return new Uint8Array(await response.arrayBuffer()).subarray(0, SNIFF_BYTES);
+  } catch {
+    return "error";
+  }
+}
+
+async function removeObject(supabase: Supabase, path: string): Promise<void> {
+  await supabase.storage.from(DOCS_BUCKET).remove([path]);
+}
+
+export async function prepareProductImageUpload(
+  productId: string,
+  choice: ProductImageChoice,
+): Promise<ValueResult<{ path: string; token: string; contentType: string }>> {
+  const gate = await imageGate();
+  if (!gate.ok) return gate;
+  const { supabase } = gate;
+
+  const id = String(productId ?? "").toLowerCase();
+  if (!UUID.test(id)) return PRODUCT_GONE;
+
+  const problem = productImageProblem(choice);
+  if (problem) return { ok: false, field: "image", message: problem };
+  const ext = productImageExtension(String(choice.fileName))!;
+
+  const { data: product } = await supabase.from("products").select("id").eq("id", id).maybeSingle();
+  if (!product) return PRODUCT_GONE;
+
+  const path = `product/${id}/${randomUUID()}.${ext}`;
+  const { data, error } = await supabase.storage.from(DOCS_BUCKET).createSignedUploadUrl(path);
+  if (error || !data?.token) {
+    return {
+      ok: false,
+      field: "image",
+      message: `Încărcarea imaginii nu a putut începe. ${error?.message ?? ""}`.trim(),
+    };
+  }
+  return { ok: true, value: { path, token: data.token, contentType: PRODUCT_IMAGE_TYPES[ext]! } };
+}
+
+export async function confirmProductImage(productId: string, path: string): Promise<ActionResult> {
+  const gate = await imageGate();
+  if (!gate.ok) return gate;
+  const { supabase } = gate;
+
+  const id = String(productId ?? "").toLowerCase();
+  if (!UUID.test(id)) return PRODUCT_GONE;
+
+  // Calea trebuie sa fie exact forma aleasa la pasul 1, pentru acest produs.
+  const objectPath = String(path ?? "");
+  const expected = new RegExp(
+    `^product/${id}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|jpeg|png|webp)$`,
+  );
+  if (!expected.test(objectPath)) {
+    return { ok: false, field: "image", message: "Imaginea încărcată nu poate fi confirmată." };
+  }
+
+  // MARIMEA REALA, nu cea declarata la pasul 1.
+  const size = await storedSize(supabase, objectPath);
+  if (size === "error") return IMAGE_UNVERIFIED;
+  if (size === null) {
+    return { ok: false, field: "image", message: "Imaginea nu a ajuns în depozit. Încearcă din nou." };
+  }
+  if (size <= 0) {
+    await removeObject(supabase, objectPath);
+    return { ok: false, field: "image", message: PRODUCT_IMAGE_MESSAGES.empty };
+  }
+  if (size > MAX_PRODUCT_IMAGE_BYTES) {
+    await removeObject(supabase, objectPath);
+    return { ok: false, field: "image", message: PRODUCT_IMAGE_MESSAGES.tooLarge };
+  }
+
+  // CONTINUTUL REAL, nu extensia si nu tipul trimis de browser.
+  const ext = objectPath.slice(objectPath.lastIndexOf(".") + 1);
+  const head = await firstBytes(supabase, objectPath);
+  if (head === "error") {
+    await removeObject(supabase, objectPath);
+    return IMAGE_UNVERIFIED;
+  }
+  if (!contentMatchesType(head, PRODUCT_IMAGE_TYPES[ext]!)) {
+    await removeObject(supabase, objectPath);
+    return { ok: false, field: "image", message: PRODUCT_IMAGE_MESSAGES.contentMismatch };
+  }
+
+  const { data: current } = await supabase
+    .from("products")
+    .select("image_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (!current) {
+    await removeObject(supabase, objectPath);
+    return PRODUCT_GONE;
+  }
+  const previous = (current.image_path as string | null) ?? null;
+
+  // INTAI RANDUL.
+  const { data: updated, error } = await supabase
+    .from("products")
+    .update({ image_path: objectPath })
+    .eq("id", id)
+    .select("id");
+  if (error || !updated || updated.length === 0) {
+    await removeObject(supabase, objectPath);
+    if (error) return translateWriteError(error.code, error.message);
+    return OWNER_ONLY;
+  }
+
+  // APOI OBIECTUL VECHI.
+  if (previous && previous !== objectPath) await removeObject(supabase, previous);
 
   revalidatePath("/inventar");
   return { ok: true };

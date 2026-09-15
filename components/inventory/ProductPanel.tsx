@@ -28,6 +28,7 @@ export function ProductPanel({
   const [detail, setDetail] = React.useState<ProductDetail | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [imageBroken, setImageBroken] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -287,6 +288,37 @@ export function ProductPanel({
             ) : null}
           </div>
         </section>
+
+        {/* P3-56. IMAGINEA PRODUSULUI, ultimul bloc, pe toata latimea panoului, sub
+            Miscari, cum a cerut proprietarul. Cat timp migratia 0045 nu este
+            aplicata blocul lipseste, iar panoul este cel de azi. */}
+        {detail && detail.image.state !== "inactive" ? (
+          <section className="px-6 pb-6" data-testid="panel-image-section">
+            <h3 className="text-[13.5px] font-bold text-rc-black mb-2">Imagine produs</h3>
+            <div className="rounded-[10px] border border-rc-line bg-rc-paper overflow-hidden">
+              {detail.image.state === "ready" && !imageBroken ? (
+                // Un <img> simplu si nu next/image: legatura este semnata si expira,
+                // iar optimizarea ar pune-o intr-o memorie intermediara.
+                <img
+                  src={detail.image.url}
+                  alt={`Imaginea produsului ${product.name}`}
+                  className="block w-full h-auto"
+                  onError={() => setImageBroken(true)}
+                  data-testid="panel-image"
+                />
+              ) : (
+                <p
+                  className="px-4 py-6 text-center text-[12.5px] text-rc-muted"
+                  data-testid="panel-image-empty"
+                >
+                  {detail.image.state === "none"
+                    ? "Nicio imagine pentru acest produs."
+                    : "Imaginea nu s-a putut încărca. Închide și redeschide panoul."}
+                </p>
+              )}
+            </div>
+          </section>
+        ) : null}
       </aside>
     </div>
   );

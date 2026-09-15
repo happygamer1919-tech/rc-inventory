@@ -12,7 +12,18 @@ import { useRouter } from "next/navigation";
 import { Button, Input, Select } from "@/components/ui/primitives";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
-import { createProduct, updateProduct } from "@/lib/data/product-actions";
+import {
+  confirmProductImage,
+  createProduct,
+  prepareProductImageUpload,
+  updateProduct,
+} from "@/lib/data/product-actions";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import { DOCS_BUCKET } from "@/lib/data/inbound-types";
+import {
+  PRODUCT_IMAGE_ACCEPT,
+  PRODUCT_IMAGE_EXTENSIONS_LABEL,
+} from "@/lib/data/product-image-types";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
@@ -23,6 +34,7 @@ export function ProductForm({
   units,
   suppliers,
   focusField,
+  imagesActive = false,
   onClose,
 }: {
   product?: CatalogProduct;
@@ -32,6 +44,8 @@ export function ProductForm({
   /** P3-42: campul pus in focus la deschidere, cand formularul vine dintr-o
    *  legatura catre un camp anume. Nu schimba nimic din ce se salveaza. */
   focusField?: "threshold";
+  /** P3-56: false cat timp migratia 0045 nu este aplicata; atunci campul de imagine lipseste. */
+  imagesActive?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -86,6 +100,16 @@ export function ProductForm({
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
   const [pending, setPending] = React.useState(false);
 
+  // P3-56. IMAGINEA PRODUSULUI. Fisierul nu trece prin server action: dupa salvare
+  // merge din browser direct in bucket, iar serverul verifica ce a ajuns. De ce, pe
+  // larg, in lib/data/product-actions.ts.
+  const imageInputId = React.useId();
+  const imageRef = React.useRef<HTMLInputElement>(null);
+  const [imageName, setImageName] = React.useState<string | null>(null);
+  // Produsul creat de o apasare anterioara, a carui imagine nu a trecut. Apasarea
+  // urmatoare il modifica pe acela in loc sa creeze un duplicat.
+  const [savedId, setSavedId] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -102,6 +126,7 @@ export function ProductForm({
     setErrorField(undefined);
     setPending(true);
 
+    const file = imagesActive ? (imageRef.current?.files?.[0] ?? null) : null;
     const input = {
       sku,
       name,
@@ -112,8 +137,12 @@ export function ProductForm({
       supplier,
       packageUnit,
       packageFactor,
+      // P3-56: numai numele si marimea. Serverul refuza tipul si marimea INAINTE de
+      // orice scriere, deci o imagine gresita nu salveaza nici produsul.
+      image: file ? { fileName: file.name, sizeBytes: file.size } : null,
     };
-    const result = editing ? await updateProduct(product.id, input) : await createProduct(input);
+    const targetId = product?.id ?? savedId;
+    const result = targetId ? await updateProduct(targetId, input) : await createProduct(input);
 
     if (!result.ok) {
       setError(result.message);
@@ -121,8 +150,52 @@ export function ProductForm({
       setPending(false);
       return;
     }
+
+    if (file) {
+      if (!editing) setSavedId(result.id);
+      const attached = await attachImage(result.id, file);
+      if (!attached.ok) {
+        setError(`Produsul a fost salvat, dar imaginea nu a fost încărcată. ${attached.message}`);
+        setErrorField("image");
+        setPending(false);
+        router.refresh();
+        return;
+      }
+    }
     router.refresh();
     onClose();
+  }
+
+  /** P3-56: pregatire pe server, incarcare directa in bucket, confirmare pe server. */
+  async function attachImage(
+    productId: string,
+    file: File,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    try {
+      const prepared = await prepareProductImageUpload(productId, {
+        fileName: file.name,
+        sizeBytes: file.size,
+      });
+      if (!prepared.ok) return prepared;
+
+      const { path, token, contentType } = prepared.value;
+      const { error: uploadError } = await createBrowserClient()
+        .storage.from(DOCS_BUCKET)
+        .uploadToSignedUrl(path, token, file, { contentType });
+      if (uploadError) {
+        return {
+          ok: false,
+          message: `Depozitul a refuzat imaginea. Se acceptă doar ${PRODUCT_IMAGE_EXTENSIONS_LABEL}, de cel mult 10 MB.`,
+        };
+      }
+
+      return await confirmProductImage(productId, path);
+    } catch {
+      return {
+        ok: false,
+        message: "Încărcarea imaginii a eșuat. Verifică legătura la internet și încearcă din nou.",
+      };
+    }
   }
 
   const fieldClass = (field: string) =>
@@ -284,6 +357,55 @@ export function ProductForm({
               </Field>
             </div>
           </div>
+
+          {/* P3-56. IMAGINE PRODUS, la adaugare si la modificare. Campul nativ scrie
+              "Choose File" in engleza, deci este ascuns vizual si il inlocuieste o
+              eticheta romaneasca, ca in fila Documente. */}
+          {imagesActive ? (
+            <div className="mt-1 mb-1 border-t border-rc-line pt-4" data-testid="field-image">
+              <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">
+                Imagine produs
+              </span>
+              <div className="flex items-center gap-3 min-h-[38px]">
+                <input
+                  ref={imageRef}
+                  id={imageInputId}
+                  type="file"
+                  accept={PRODUCT_IMAGE_ACCEPT}
+                  disabled={pending}
+                  className="sr-only"
+                  onChange={(e) => {
+                    setImageName(e.target.files?.[0]?.name ?? null);
+                    if (errorField === "image") {
+                      setError(null);
+                      setErrorField(undefined);
+                    }
+                  }}
+                  data-testid="field-image-input"
+                />
+                <label
+                  htmlFor={imageInputId}
+                  className={[
+                    "inline-flex cursor-pointer items-center rounded-[10px] border bg-rc-white px-3 py-2 text-[13px] font-semibold text-rc-black hover:bg-rc-paper",
+                    errorField === "image" ? "border-rc-danger" : "border-rc-line-strong",
+                  ].join(" ")}
+                  data-testid="field-image-choose"
+                >
+                  Alege imaginea
+                </label>
+                <span
+                  className="max-w-[260px] truncate text-[13px] text-rc-muted"
+                  data-testid="field-image-chosen"
+                >
+                  {imageName ?? "Nicio imagine aleasă"}
+                </span>
+              </div>
+              <p className="text-[12px] text-rc-muted mt-1.5">
+                Se acceptă {PRODUCT_IMAGE_EXTENSIONS_LABEL}, de cel mult 10 MB.
+                {editing ? " O imagine nouă o înlocuiește pe cea existentă." : ""}
+              </p>
+            </div>
+          ) : null}
 
           {error ? (
             <p
