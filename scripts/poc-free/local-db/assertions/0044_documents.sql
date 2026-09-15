@@ -1,6 +1,7 @@
 -- assertions/0044_documents.sql
 -- Card P3-15. The documents table and its kind, the record of who deleted a
--- document, the widened rc-docs bucket and its new owner-only delete policy.
+-- document, the widened rc-docs bucket and its new owner-only delete policy,
+-- which reaches client/ and project/ and never the inbound order documents.
 --
 -- WHAT THIS FILE CANNOT PROVE, SAID HERE SO NOBODY READS IT AS PROVEN. It runs on
 -- a bare postgres with a shim for the storage schema, so it proves what the
@@ -218,9 +219,11 @@ begin
   where schemaname = 'storage' and tablename = 'objects' and policyname = 'rc_docs_delete'
     and roles = '{authenticated}'::name[]
     and qual like '%rc-docs%'
-    and qual like '%is_owner()%';
+    and qual like '%is_owner()%'
+    and position('''client/%''' in qual) > 0
+    and position('''project/%''' in qual) > 0;
   if n <> 1 then
-    raise exception 'P3-15: rc_docs_delete is not a delete to authenticated, inside rc-docs, for owners only';
+    raise exception 'P3-15: rc_docs_delete is not a delete to authenticated, inside rc-docs, for owners only, under client/ and project/ only';
   end if;
 end
 $$;
@@ -493,6 +496,99 @@ begin
   select count(*) into n from public.documents where id = 'e3153000-0000-4000-8000-000000000002';
   if n <> 1 then
     raise exception 'P3-15: deleting one document removed another';
+  end if;
+end
+$$;
+
+
+-- ===========================================================================
+-- 4. THE STORAGE DELETE REACHES client/ AND project/, NEVER inbound/
+-- ===========================================================================
+--
+-- The owner's q013 answer. Three objects in rc-docs: an inbound order document at
+-- the path lib/data/inbound-actions.ts really writes, inbound/<order_id>/<file>,
+-- and one object in each of this card's two folders. An account manager deletes
+-- nothing; the owner cannot delete the inbound one and can delete the other two.
+--
+-- THE GRANT IS SUPABASE'S, NOT A LOOSENING. Supabase grants delete on
+-- storage.objects to authenticated and leaves the refusing to the policies; the
+-- shim grants only select, insert and update, so without this line every delete
+-- below would be refused by the missing privilege and the policy would never be
+-- consulted. It is inside this file's transaction and rolled back with it.
+
+grant delete on storage.objects to authenticated;
+
+insert into storage.objects (id, bucket_id, name) values
+  ('e3155000-0000-4000-8000-000000000001', 'rc-docs',
+   'inbound/e3156000-0000-4000-8000-000000000001/confirmare-furnizor.pdf'),
+  ('e3155000-0000-4000-8000-000000000002', 'rc-docs',
+   'client/e3151000-0000-4000-8000-000000000001/e3154000-0000-4000-8000-000000000011.pdf'),
+  ('e3155000-0000-4000-8000-000000000003', 'rc-docs',
+   'project/e3152000-0000-4000-8000-000000000001/e3154000-0000-4000-8000-000000000012.jpg');
+
+-- An account manager, on all three.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"e3150000-0000-4000-8000-000000000002","role":"authenticated"}';
+
+delete from storage.objects where id in (
+  'e3155000-0000-4000-8000-000000000001',
+  'e3155000-0000-4000-8000-000000000002',
+  'e3155000-0000-4000-8000-000000000003');
+
+reset role;
+
+do $$
+declare
+  n integer;
+begin
+  select count(*) into n from storage.objects where id::text like 'e3155000-%';
+  if n <> 3 then
+    raise exception 'P3-15: an account manager deleted a stored object (% of 3 left)', n;
+  end if;
+end
+$$;
+
+-- The owner, on the inbound order document alone.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"e3150000-0000-4000-8000-000000000001","role":"authenticated"}';
+
+delete from storage.objects where id = 'e3155000-0000-4000-8000-000000000001';
+
+reset role;
+
+do $$
+declare
+  n integer;
+begin
+  select count(*) into n from storage.objects where id = 'e3155000-0000-4000-8000-000000000001';
+  if n <> 1 then
+    raise exception 'P3-15: the owner deleted an inbound order document from rc-docs; rc_docs_delete must reach client/ and project/ only';
+  end if;
+end
+$$;
+
+-- The owner, on the client and the project object.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"e3150000-0000-4000-8000-000000000001","role":"authenticated"}';
+
+delete from storage.objects where id in (
+  'e3155000-0000-4000-8000-000000000002',
+  'e3155000-0000-4000-8000-000000000003');
+
+reset role;
+
+do $$
+declare
+  n integer;
+begin
+  select count(*) into n from storage.objects
+  where id in ('e3155000-0000-4000-8000-000000000002', 'e3155000-0000-4000-8000-000000000003');
+  if n <> 0 then
+    raise exception 'P3-15: the owner could not delete under client/ or project/ (% of 2 left)', n;
+  end if;
+  select count(*) into n from storage.objects where id = 'e3155000-0000-4000-8000-000000000001';
+  if n <> 1 then
+    raise exception 'P3-15: deleting under client/ and project/ removed the inbound order document';
   end if;
 end
 $$;

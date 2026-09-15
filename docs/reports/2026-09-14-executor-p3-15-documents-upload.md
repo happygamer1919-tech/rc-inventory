@@ -158,3 +158,34 @@ Filed for Ivan in the operator's mailbox as `q014-p3-15-migration-order-290.md`.
 4. After the approved merge: `GET https://app.rapidconstruct.md/api/health` should report
    `ledger_version` `"0044"`, and the pending register line becomes a
    `## 0044_documents.sql - APPLIED BY MERGE` heading in `APPLY-LOG.md`.
+
+## 2026-09-15: storage delete narrowed to client/ and project/ (owner answer q013, factory task 018)
+
+**In plain words:** the owner can still delete a document put on the wrong client or project,
+but can no longer delete anything else in the same file storage. The supplier documents that
+back inbound orders stay undeletable by anyone, as they always were.
+
+- **Why.** The owner's q013 answer: keep 20 MB and the nine types, and narrow the storage delete
+  before being asked to approve the merge. At `1bc1b92` the rule reached the whole `rc-docs`
+  bucket, including `inbound/<order_id>/<file>` (the path `lib/data/inbound-actions.ts` writes).
+- **Migration** `supabase/migrations/0044_documents.sql`, still unmerged and applied nowhere, so
+  edited in place (CLAUDE.md 8.1 forbids editing only after an apply). `rc_docs_delete` is now
+  `bucket_id = 'rc-docs' and public.is_owner() and (name like 'client/%' or name like 'project/%')`.
+  The header comment that said the delete reached the whole bucket now says it does not.
+- **Assertions** `scripts/poc-free/local-db/assertions/0044_documents.sql`: the policy text must
+  carry both prefixes; a new section 4 puts three objects in `rc-docs` (one `inbound/`, one
+  `client/`, one `project/`), then as `authenticated` an account manager deletes none, the owner
+  cannot delete the `inbound/` one, and the owner can delete the other two. The shim gives
+  `authenticated` no delete on `storage.objects`, so the file grants it inside its rolled back
+  transaction, as Supabase does; the success control is what proves the policy decided.
+- **End to end** `tests/e2e/documents.spec.ts`: a new case signs in the owner against the auth
+  API, stores an `inbound/`, a `client/` and a `project/` object with the service key, and sends
+  the same bulk delete `deleteDocument` sends. The `inbound/` object survives (empty list, still
+  200 to the service key); the other two are deleted (one entry each, then 4xx). Case 7 already
+  proved the owner's delete through the app.
+- **Main** had no new commit since `3561430`, checked with `git fetch origin` before the push.
+- **Defects appended to `docs/LEARNINGS.md`:** a policy scoped only by bucket reaches every folder
+  of a shared bucket; the shim's missing delete grant would let a refusal test pass for the wrong
+  reason.
+- **Merge still held for the owner.** A fresh approve question names the new head; the one
+  written for `1bc1b92` is withdrawn.

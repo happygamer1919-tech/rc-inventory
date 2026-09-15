@@ -11,7 +11,7 @@
 --   function  public.record_document_deletion()    the trigger function that writes that record
 --   trigger   documents_record_deletion            before delete on public.documents
 --   update    storage.buckets, row rc-docs         20 MB and nine file types, was 10 MB and three
---   policy    rc_docs_delete on storage.objects    owner only, inside rc-docs only
+--   policy    rc_docs_delete on storage.objects    owner only, rc-docs client/ and project/ only
 --
 -- NO DELETE, NO DROP AND NO TRUNCATE RUN IN THIS FILE. The one UPDATE changes the
 -- rc-docs bucket row in place: its size ceiling goes up and its list of types
@@ -38,9 +38,13 @@
 --    problem, and deactivating it does not solve that. public.documents carries
 --    an owner-only delete policy, and rc-docs gets an owner-only delete policy on
 --    storage.objects. 0002 had none, for every role, because an inbound order
---    document backs its order forever. THIS WIDENS WHAT AN OWNER MAY DO TO THE
---    WHOLE BUCKET, the inbound order documents included. It is scoped to
---    public.is_owner(), so an account manager cannot use it.
+--    document backs its order forever. THE STORAGE DELETE REACHES ONLY THIS
+--    CARD'S OWN FOLDERS, client/ and project/. An inbound order document lives
+--    under inbound/ (lib/data/inbound-actions.ts) and stays undeletable by every
+--    role, owner included, as 0002 intended. An earlier draft of this file let an
+--    owner delete anywhere in the bucket; the owner had it narrowed before the
+--    merge (q013). It is scoped to public.is_owner(), so an account manager
+--    cannot use it.
 --
 -- 3. WHO DELETED A DOCUMENT IS WRITTEN BY THE DATABASE, NOT BY THE APPLICATION.
 --    A trigger copies the row into public.document_deletions, with auth.uid(),
@@ -279,9 +283,17 @@ begin
 end
 $$;
 
+-- ONLY UNDER client/ AND project/, the two folders this card writes. Every other
+-- object in rc-docs, the inbound order documents under inbound/ among them, stays
+-- undeletable by every role, exactly as 0002 decided. The owner approved this
+-- narrowing in the operator's mailbox, q013.
 create policy rc_docs_delete on storage.objects
   for delete to authenticated
-  using (bucket_id = 'rc-docs' and public.is_owner());
+  using (
+    bucket_id = 'rc-docs'
+    and public.is_owner()
+    and (name like 'client/%' or name like 'project/%')
+  );
 
 commit;
 

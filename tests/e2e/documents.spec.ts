@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
@@ -18,14 +19,17 @@ import { signIn } from "./support/auth";
 //   7. stergerea unui document scoate randul si obiectul si scrie cine a sters;
 //   8. fiecare text vizibil este romanesc.
 // Plus doctrina densitatii: cel mult 5 randuri pe fila, restul in lista completa.
+// Plus raspunsul proprietarului la q013: stergerea din depozit ajunge numai la
+// dosarele client/ si project/, niciodata la documentele comenzilor din inbound/.
 //
 // CE SE CITESTE DIN BAZA SI DIN DEPOZIT SE CITESTE CU CHEIA service_role a stivei
 // LOCALE, ca document-url.spec. Nu exista alt drum catre randul de stergere, iar
 // "obiectul nu mai exista" nu se poate dovedi de pe ecran.
 //
-// DATELE DE TEST NU SE STERG NICIODATA, conform conventiei P2-07. Singura
-// stergere din acest fisier este cea pe care o testeaza cazul 7, a unui document
-// creat de acelasi caz.
+// DATELE DE TEST NU SE STERG NICIODATA, conform conventiei P2-07. Singurele
+// stergeri din acest fisier sunt cele pe care le testeaza cazul 7 si cazul
+// stergerii din depozit, fiecare a unui obiect creat de acelasi caz. Obiectul de
+// sub inbound/ ramane, fiindca tocmai asta dovedeste cazul.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 const MB = 1024 * 1024;
@@ -486,6 +490,64 @@ test.describe("Documente pe client și pe proiect", () => {
       /\b(Upload|Uploading|Download|Delete|Remove|Choose|chosen|File|Files|Size|Type|Name|Date|Cancel|Confirm|Loading|Error|Browse|Documents?|No file|Kind|Other|Invoice|Photo)\b/;
     expect(text).not.toMatch(ENGLISH);
     expect(confirmText).not.toMatch(ENGLISH);
+  });
+
+  test("ștergerea din depozit: administratorul șterge în client/ și project/, niciodată în inbound/", async ({
+    request,
+  }) => {
+    const { origin, anon } = env();
+
+    // SESIUNEA ADMINISTRATORULUI, direct la API, ca aplicatia: deleteDocument
+    // sterge obiectul cu sesiunea utilizatorului, nu cu service_role.
+    const owner = ownerAccount();
+    const token = await request.post(`${origin}/auth/v1/token?grant_type=password`, {
+      headers: { apikey: anon, "Content-Type": "application/json" },
+      data: { email: owner.email, password: owner.password },
+    });
+    expect(token.ok(), "autentificarea administratorului").toBe(true);
+    const { access_token } = (await token.json()) as { access_token: string };
+    const asOwner = { apikey: anon, Authorization: `Bearer ${access_token}` };
+
+    // Calea unui document de comanda, forma din lib/data/inbound-actions.ts:
+    // inbound/<order_id>/<nume fisier>. Si cate un obiect in dosarele cardului.
+    const inboundPath = `inbound/${randomUUID()}/confirmare-furnizor-${RUN}.pdf`;
+    const clientPath = `client/${randomUUID()}/${randomUUID()}.pdf`;
+    const projectPath = `project/${randomUUID()}/${randomUUID()}.pdf`;
+
+    const objectUrl = (path: string) => `${origin}/storage/v1/object/rc-docs/${path}`;
+    for (const path of [inboundPath, clientPath, projectPath]) {
+      const put = await request.post(objectUrl(path), {
+        headers: { ...serviceHeaders(), "Content-Type": "application/pdf" },
+        data: pdf(),
+      });
+      expect(put.status(), `incarcarea ${path}`).toBe(200);
+    }
+
+    // Aceeasi cerere ca supabase.storage.from("rc-docs").remove([path]) din
+    // deleteDocument. Supabase raspunde 200 si lista obiectelor sterse, goala
+    // cand politica nu lasa.
+    async function removeAsOwner(path: string): Promise<unknown[]> {
+      const response = await request.delete(`${origin}/storage/v1/object/rc-docs`, {
+        headers: { ...asOwner, "Content-Type": "application/json" },
+        data: { prefixes: [path] },
+      });
+      expect(response.status(), `stergerea ${path}`).toBe(200);
+      return (await response.json()) as unknown[];
+    }
+
+    // DOCUMENTUL COMENZII RAMANE. 0002 l-a facut de nesters pentru oricine, iar
+    // 0044 nu schimba asta.
+    expect(await removeAsOwner(inboundPath), "lista stearsa pentru inbound/").toHaveLength(0);
+    const survived = await request.get(objectUrl(inboundPath), { headers: serviceHeaders() });
+    expect(survived.status(), "documentul comenzii dupa incercarea de stergere").toBe(200);
+
+    // MARTORII: aceeasi sesiune si aceeasi cerere sterg in client/ si in project/.
+    // Deci refuzul de mai sus este despre CALE, nu despre jeton.
+    for (const path of [clientPath, projectPath]) {
+      expect(await removeAsOwner(path), `lista stearsa pentru ${path}`).toHaveLength(1);
+      const gone = await request.get(objectUrl(path), { headers: serviceHeaders() });
+      expect(gone.status(), `${path} dupa stergere`).toBeGreaterThanOrEqual(400);
+    }
   });
 
   test("doctrina densității: cel mult 5 rânduri pe filă, restul în lista completă", async ({ page }) => {

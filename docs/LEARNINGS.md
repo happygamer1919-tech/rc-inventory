@@ -5503,3 +5503,32 @@ with diacritics. Everything else in the case still reads `innerText`. The app wa
 RULE: **a visible-text check on `innerText` sees what CSS did to the text; check anything drawn
 through `Th` (or any `uppercase` class) by its text content, exact, not by a substring of
 `innerText`.**
+
+### A storage policy scoped only by bucket reaches every folder in a shared bucket
+**Tag:** data
+**ERROR:** P3-15's first draft of `0044_documents.sql` created
+`rc_docs_delete on storage.objects ... using (bucket_id = 'rc-docs' and public.is_owner())`.
+`rc-docs` is shared: the inbound order documents live in it under `inbound/<order_id>/`, and
+`0002` made them undeletable by every role on purpose. The draft let an owner delete them too.
+Its assertion only checked that the policy text mentioned `rc-docs` and `is_owner()`, so it
+passed and the PR went green. The owner caught it reviewing the merge question (q013), before
+the merge, which is the last point anyone can catch a migration (CLAUDE.md 8.0).
+**SOLUTION:** the policy adds `and (name like 'client/%' or name like 'project/%')`, the two
+folders the card writes. The assertion checks both prefixes in the policy text and then deletes
+as the owner: refused on a real `inbound/` path, allowed on a `client/` and a `project/` object.
+`documents.spec.ts` does the same against the real storage server. RULE: **a policy on a bucket
+two features share names its own folder, and its test tries the other feature's real path, not
+an invented one.**
+
+### The shim gives authenticated no delete on storage.objects, so a refusal test passes for the wrong reason
+**Tag:** ci
+**ERROR:** `scripts/poc-free/local-db/shim.sql` grants `select, insert, update` on
+`storage.objects` to `authenticated`, not `delete`. On the shim, any delete run as
+`authenticated` is refused by the missing privilege before a policy is read, so an assertion
+that "the owner cannot delete an inbound document" would pass even with no path restriction.
+**SOLUTION:** `assertions/0044_documents.sql` grants `delete on storage.objects to authenticated`
+inside its own transaction, which is rolled back, matching what Supabase grants, and pairs the
+refusal with a success control: the same owner session deletes a `client/` and a `project/`
+object. The control is what proves the grant took effect and the policy decided. RULE: **every
+refusal test has a success control on the same role and the same table, or it cannot tell a
+policy refusal from a missing grant.**
