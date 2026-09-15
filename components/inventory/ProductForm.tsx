@@ -26,6 +26,7 @@ import {
 } from "@/lib/data/product-image-types";
 import {
   SHEET_CATEGORY,
+  SHEET_PRICE_NOTE,
   SHEET_SUPPLIER,
   sheetProductName,
   thicknessOptionLabel,
@@ -126,6 +127,19 @@ export function ProductForm({
   );
   const sheetPicked = sheetThicknesses.find((o) => sheetOptionKey(o) === sheetKey) ?? null;
 
+  // P3-58. PRETUL SUGERAT, SI ESTE O SUGESTIE SI NU O REGULA. Alegerea grosimii
+  // completeaza valoarea unitara cu pretul liniei din lista Dasterum. Nota de sub
+  // camp se vede numai cat timp campul poarta exact acel pret: din clipa in care
+  // operatorul scrie altceva, valoarea nu mai este a listei si nota dispare.
+  //
+  // Preturile lipsesc pana cand migratia 0047 este aplicata, si atunci formularul
+  // se poarta exact ca dupa P3-57: campul ramane de completat de mana.
+  const sheetPricesActive = React.useMemo(
+    () => sheetOptions.some((o) => o.priceLei !== null),
+    [sheetOptions],
+  );
+  const [suggestedPrice, setSuggestedPrice] = React.useState<string | null>(null);
+
   const supplierOptions: ComboOption[] = suppliers.map((s) => ({
     value: s.id,
     label: s.name,
@@ -177,6 +191,13 @@ export function ProductForm({
       (s) => s.name.trim().toLowerCase() === SHEET_SUPPLIER.toLowerCase(),
     );
     setSupplier(known ? known.id : SHEET_SUPPLIER);
+    // P3-58: pretul liniei alese, cand lista verificata il are.
+    if (option.priceLei !== null) {
+      setUnitValue(option.priceLei);
+      setSuggestedPrice(option.priceLei);
+    } else {
+      setSuggestedPrice(null);
+    }
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -314,8 +335,9 @@ export function ProductForm({
                 Tablă și țiglă metalică Dasterum
               </p>
               <p className="text-[12px] text-rc-muted mt-0.5 mb-3">
-                Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria și
-                furnizorul se completează singure, iar denumirea se poate modifica.
+                {sheetPricesActive
+                  ? "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria, furnizorul și valoarea unitară se completează singure, iar apoi se pot modifica."
+                  : "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria și furnizorul se completează singure, iar denumirea se poate modifica."}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Model">
@@ -448,6 +470,15 @@ export function ProductForm({
                 className={fieldClass("unitValueMdl")}
                 data-testid="field-unit-value"
               />
+              {/* P3-58: se vede numai cat timp campul poarta exact pretul sugerat. */}
+              {sheetPicked !== null && suggestedPrice !== null && unitValue === suggestedPrice ? (
+                <span
+                  className="block text-[12px] text-rc-muted mt-1"
+                  data-testid="field-unit-value-note"
+                >
+                  {SHEET_PRICE_NOTE}
+                </span>
+              ) : null}
             </Field>
           </div>
 

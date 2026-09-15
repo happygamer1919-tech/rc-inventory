@@ -641,3 +641,43 @@ export async function hasSheetOptions(client: ColumnProbe): Promise<boolean> {
   }
   return cachedSheetOptions.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-58. Exista migratia 0047: tabela public.sheet_prices?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasSheetOptions. Aceea raspunde despre
+// 0046, care este deja fuzionata. 0047 este un fisier separat si ajunge in
+// productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua
+// minute, iar codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda.
+// O poarta comuna ar lega soarta a doua migratii care sosesc separat.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Pagina de inventar ar cere lista
+// de preturi, PostgREST ar raspunde ca tabela nu exista, citirea ar arunca si
+// intreg inventarul ar raspunde 500, pentru un camp pe care operatorul il poate
+// completa si singur.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: alegerea de model,
+// serie si grosime completeaza denumirea, unitatea, categoria si furnizorul, iar
+// valoarea unitara ramane de scris de mana. Tabela, politica si cele 194 de
+// preturi sosesc in aceeasi tranzactie, deci o singura sonda pe tabela ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedSheetPrices: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI APELANTUL, din acelasi motiv ca la
+ *   celelalte porti.
+ */
+export async function hasSheetPrices(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSheetPrices && now - cachedSheetPrices.at < TTL_MS) return cachedSheetPrices.value;
+  try {
+    const { error } = await client.from("sheet_prices").select("price_lei").limit(1);
+    cachedSheetPrices = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": pretul nu se sugereaza, in loc sa cada ecranul.
+    cachedSheetPrices = { value: false, at: now };
+  }
+  return cachedSheetPrices.value;
+}
