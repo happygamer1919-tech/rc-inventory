@@ -404,6 +404,10 @@ a row for run C.
 
 ## STATE AT THE END
 
+- **Pull request #298**, branch `card/ext-33`, carries the 44 notes, card EXT-33,
+  the run C journal row and this report. Locally, before the pull request's
+  `quality` run: the verifier exits 0 on the final tree (50 covered, 9 excluded,
+  0 unresolved), and `check:board-edit` says "satisfied 1 of 1 card id(s)".
 - Nothing blocked. Nothing sent to the counterparty.
 - The final links expire `2026-09-16T16:01:17.891Z`.
 - No `docs/LEARNINGS.md` entry: no defect was found in the repository.
