@@ -8,6 +8,20 @@
 - **NOT READY FOR A PULL REQUEST YET.** The card's acceptance contradicts itself (below).
   The question is with POC in the factory mailbox, with a recommended default.
 
+## Update, second run (the pull request run), 2026-09-15 UTC
+
+- **Answered:** PURPLE chose **Option A** (factory answer
+  `q027-p3-50-topbar-title-contradicts-crm-landing.md`). Applied in commit `5c4cb11`: the one
+  `/clienti?vedere=leaduri` row of `tests/e2e/crm-landing.spec.ts` case "P3-46 (4)" now
+  expects Leaduri. Nothing else in that file changed; `headers.spec.ts` is unmodified.
+- **Synced:** `git merge origin/main` at `8cbd3ce` (after P3-51, #302), clean, no conflicts.
+- **Pull request:** #303, opened after a fresh local gate set on the merged tree: typecheck,
+  build, validator and the eleven `check:*` scripts, all exit 0. The board flip to `shipped`
+  with evidence naming #303 is its own commit, followed by `check:board-edit` and
+  `check:board-clock`.
+- **Not self-merged.** Real client data is in production; the owner approves the merge.
+- Everything below this section is the first run's report, kept as written.
+
 ## Plain words
 
 On the leads list, the description under the title, the title at the top of the window and
