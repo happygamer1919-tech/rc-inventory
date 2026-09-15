@@ -29,7 +29,7 @@ export function Topbar({ user }: { user: SessionUser }) {
           {ROLE_LABEL[user.role]}
         </span>
         <span
-          className="w-7 h-7 rounded-full bg-rc-orange text-white grid place-items-center text-[12px] font-bold"
+          className="w-7 h-7 rounded-full bg-rc-orange-button text-white grid place-items-center text-[12px] font-bold"
           title={user.email ?? undefined}
           data-testid="topbar-avatar"
         >

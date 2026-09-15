@@ -15,6 +15,12 @@
   --color-rc-orange-dark: #e27200;
   --color-rc-orange-deep: #f06801;
   --color-rc-orange-soft: #fff5ea;
+  /* P3-53. Fundalul oricarui text ALB pe portocaliu. Alb pe #f47c1f da 2.71:1,
+     sub pragul WCAG AA de 4.5:1; #c25401 da 4.60:1, iar hover #a84900 da 5.80:1.
+     --color-rc-orange ramane neschimbat: marcajul din meniu, sublinierea taburilor
+     si conturul de focus nu poarta text alb. */
+  --color-rc-orange-button: #c25401;
+  --color-rc-orange-button-hover: #a84900;
 
   /* fundal (negru) */
   --color-rc-black: #0b0b0c;
