@@ -10,14 +10,17 @@ import {
   listClientContacts,
   listClientProjects,
 } from "@/lib/data/client-detail";
+import { listDocuments } from "@/lib/data/documents";
 import { ClientDetailScreen } from "@/components/clients/ClientDetailScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // Migratiile fazei 3 sunt scrise si NEAPLICATE pana la cardul P3-27. Fara
   // aceasta poarta, ecranul cere tabele care nu exista si raspunde 500.
@@ -38,11 +41,22 @@ export default async function ClientDetailPage({
   // interogari degeaba.
   if (!client) notFound();
 
-  const [user, contacts, projects, materials] = await Promise.all([
+  // P3-15. Lista completa a documentelor traieste in adresa, ca si fila.
+  const query = await searchParams;
+  const rawDocumentsPage = query["pagina-documente"];
+
+  const [user, contacts, projects, materials, documents] = await Promise.all([
     getSessionUser(),
     listClientContacts(id),
     listClientProjects(id),
     getClientMaterials(id),
+    listDocuments(
+      { type: "client", id },
+      {
+        showAll: query["documente"] === "toate",
+        page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
+      },
+    ),
   ]);
 
   // P3-48. Responsabilii pentru Modifică, din aceeasi lista ca formularul de lead,
@@ -56,6 +70,7 @@ export default async function ClientDetailPage({
       contacts={contacts}
       projects={projects}
       materials={materials}
+      documents={documents}
       canWrite={user?.role === "owner"}
       owners={owners}
     />
