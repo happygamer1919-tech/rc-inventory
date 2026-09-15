@@ -98,3 +98,37 @@ From the worktree on `66abd6e`, each exit 0: `npx tsc --noEmit`, `npm run build`
 ## Merge
 
 No pull request opened, nothing merged. Real client data is in production; when the pull request exists, the owner approves and POC merges.
+
+---
+
+# Second run: the pull request, 2026-09-15 UTC
+
+**Role:** EXECUTOR (main line). **Pull request:** #299, opened after PR #295 (P3-54) merged at `794629b` and `gh pr list --state open --author @me` returned empty.
+
+## Boot status
+
+- Phase 2 board: 68 shipped, 32 todo, 2 blocked, 0 in_flight, 0 halted. Launch gate 6/9. Next eligible card: AUT-3.
+- Phase 3 board (RULE-05 defect): 64 shipped, 38 todo before this flip. P3-53 todo, no dependencies, not blocked.
+
+## What this run did
+
+1. `git fetch origin`, then `git merge origin/main` (`794629b`) into `card/p3-53` at `82a4772`. No conflict, no dependency change, so no `npm ci`.
+2. Re-ran the local gates on the merged tree, each exit 0: `npx tsc --noEmit`, `npm run build`, `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`, `check:no-destructive-migration`, `check:conflict-residue`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`. Both acceptance greps exit 1. The four test ids the spec reads (`client-new`, `project-new`, `product-new`, `topbar-avatar`) are still present after the merge.
+3. Opened pull request #299 against the branch head already on origin, to learn its number before writing the evidence.
+4. Flipped P3-53 to `shipped` on `docs/board/rc-board-phase3.json` (lane `shipped`), with `e2e` evidence naming #299 and the spec, `last_checkpoint`, `evidence.at` and `as_of` set to a UTC time read just before the edit. Validator, `check:board-edit` and `check:board-clock` run after the commit, before the push.
+
+## Red first
+
+No CI red run. The spec and the fix were already committed together on the pushed branch by the first run, and a spec-alone head would need a rewritten history (no force pushes) or a second pull request (one open pull request at a time). The red arm rests on the local harness above: 8 failures on `3561430`, all pass on this branch.
+
+## CI
+
+The `quality` run on the head sha, End to end included, is recorded in the pull request and in the owner question for its merge, not in this file, because committing its id would move the head away from the run that proved it.
+
+## LEARNINGS
+
+`docs/LEARNINGS.md` untouched in this run too: nothing broke.
+
+## Merge
+
+Not merged. The owner approval question is filed in the factory mailbox once `quality` is green on the head sha and `npm run checks:state 299` exits 0.
