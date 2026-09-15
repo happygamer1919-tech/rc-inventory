@@ -563,3 +563,40 @@ export async function hasDocuments(client: ColumnProbe): Promise<boolean> {
   }
   return cachedDocuments.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-56. Exista migratia 0045: coloana products.image_path?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasProductPackaging. Aceea raspunde
+// despre 0035. 0045 este un fisier separat si ajunge in productie pe fuziune, prin
+// aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul pleaca din
+// acelasi push si NU aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Panoul produsului ar cere
+// image_path, PostgREST ar raspunde 42703, iar salvarea imaginii ar scrie o
+// coloana care nu exista.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: formularul nu arata
+// campul de imagine, panoul nu arata blocul de imagine. Coloana, constrangerea si
+// politica sosesc in aceeasi tranzactie, deci o singura sonda pe coloana ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedProductImage: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasProductImage(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedProductImage && now - cachedProductImage.at < TTL_MS) return cachedProductImage.value;
+  try {
+    const { error } = await client.from("products").select("image_path").limit(1);
+    cachedProductImage = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedProductImage = { value: false, at: now };
+  }
+  return cachedProductImage.value;
+}

@@ -40,6 +40,7 @@ naming a file that does not exist all fail the suite.
 The format is machine-read, so keep it exactly:
 
 - `0044_documents.sql`, card de aplicare P3-15
+- `0045_product_image.sql`, card de aplicare P3-56
 
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.

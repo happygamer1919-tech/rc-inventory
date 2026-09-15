@@ -5595,3 +5595,19 @@ left untouched, and the conflict went to POC as a question with a recommended de
 which still read Clienți and Proiecte). RULE: **before a card says a spec stays unmodified,
 grep that spec for every URL and every string the card changes; a hit means the card
 changes the spec, and the acceptance says so.**
+
+### A storage delete in a local-db assertion needs its own grant, every file
+**Tag:** ci
+**ERROR:** P3-56's `quality` run 35025464643 failed in under a minute at "Apply every
+migration to a bare postgres, unmodified": all 45 migrations applied, every assertion file up
+to 0044 passed, then `FAILED: assertions/0045_product_image.sql` with `ERROR: permission
+denied for table objects`. The new file deleted from `storage.objects` as `authenticated`,
+copying the policy test in `assertions/0044_documents.sql`, but not that file's
+`grant delete on storage.objects to authenticated;`.
+**SOLUTION:** the shim grants `authenticated` only select, insert and update on
+`storage.objects`, where Supabase also grants delete and leaves the refusing to the policies.
+0044's grant sits inside its own `begin ... rollback`, so it is gone when the next file runs.
+The 0045 file now carries the same grant, with the same comment, inside its own transaction.
+RULE: **every assertion file that deletes from `storage.objects` as `authenticated` grants
+delete itself; a grant in another assertion file never carries over, and without it the
+policy under test is never consulted.**

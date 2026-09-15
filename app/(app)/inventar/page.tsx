@@ -15,18 +15,21 @@
 // vine din baza la fiecare cerere si nu exista strat de date in browser.
 
 import { listCategories, listProducts, listSuppliers, listUnits } from "@/lib/data/products";
-import { getSessionUser } from "@/lib/supabase/server";
+import { hasProductImage } from "@/lib/data/schema-capability";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { InventoryScreen } from "@/components/inventory/InventoryScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const [products, categories, units, suppliers, user] = await Promise.all([
+  const [products, categories, units, suppliers, user, imagesActive] = await Promise.all([
     listProducts(),
     listCategories(),
     listUnits(),
     listSuppliers(),
     getSessionUser(),
+    // P3-56: campul de imagine apare numai dupa ce migratia 0045 este aplicata.
+    createClient().then(hasProductImage),
   ]);
 
   return (
@@ -36,6 +39,7 @@ export default async function InventoryPage() {
       units={units}
       suppliers={suppliers}
       canWrite={user?.role === "owner"}
+      imagesActive={imagesActive}
     />
   );
 }
