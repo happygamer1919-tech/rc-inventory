@@ -1180,12 +1180,17 @@ transport failure, and it is not inferred.
 |---|---|---|
 | `lib/data/extraction-fire.ts` | **fifteen minutes** | the real supplier document carried to the extractor |
 | `lib/data/inbound-actions.ts` | **fifteen minutes** | named by R-096 as unchanged |
-| `scripts/ext/serve-sample-documents.mjs` | **twenty-four hours** | the four `_samples/andre` fixtures only, R-096 |
+| `scripts/ext/serve-sample-documents.mjs` | **twenty-four hours** | every document under `_samples/andre`, six on 2026-09-15, R-096 as amended 2026-09-15 |
 
 **NO VALUE IS CHANGED HERE.** Ruling R-194 records that the dispatch which set this
 position named "two hours", which is the value the sample script used **until the
 owner's own ruling R-096 raised it to twenty-four** on 2026-09-03, and which no
 signing path carries today. The number is owed; the direction binds now.
+
+**The third row was amended on 2026-09-15, with R-096.** Until then its scope
+column read *"the four `_samples/andre` fixtures only, R-096"*. R-096 now covers
+every document under that prefix, six on that day, not a fixed count of four. The
+TTL is unchanged.
 
 ## 6. Callback response codes
 
