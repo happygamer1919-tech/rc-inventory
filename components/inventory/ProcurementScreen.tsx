@@ -23,7 +23,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Card, CardHeader, Chip, EmptyState, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
-import { formatNumber, formatQty } from "@/lib/data/format";
+import { formatNumber, formatQty, plural } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { ProjectStatus } from "@/lib/data/projects-types";
 import type { UnitCode } from "@/lib/data/units";
@@ -121,11 +121,20 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                este un raport pe care nu il poti verifica. */
             data-ids={excluded.map((p) => p.id).join(",")}
           >
+            {/* P3-51. La zero o stare goala simpla, nu "Toate cele 0"; altfel numarul
+                trece prin regula romaneasca, iar verbul se acorda cu el. */}
             {excluded.length === 0 ? (
-              <>
-                Toate cele {formatNumber(includedProjects)} șantiere vii au deviz acceptat și sunt
-                cuprinse în cifrele de mai jos.
-              </>
+              includedProjects === 0 ? (
+                <>Niciun șantier activ nu are încă un deviz acceptat.</>
+              ) : (
+                <>
+                  {plural(includedProjects, "șantier activ", "șantiere active")}{" "}
+                  {includedProjects === 1
+                    ? "are deviz acceptat și este cuprins"
+                    : "au deviz acceptat și sunt cuprinse"}{" "}
+                  în cifrele de mai jos.
+                </>
+              )
             ) : (
               <>
                 <span className="font-semibold">

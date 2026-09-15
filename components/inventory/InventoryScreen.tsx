@@ -18,7 +18,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
-import { formatMoney, formatNumber, formatQty, normalizeText } from "@/lib/data/format";
+import { formatMoney, formatNumber, formatQty, normalizeText, plural } from "@/lib/data/format";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
@@ -203,9 +203,10 @@ export function InventoryScreen({
         </div>
         <div className="px-4 pb-3 -mt-1">
           <p className="text-[12.5px] text-rc-muted" data-testid="product-count">
+            {/* P3-51. Substantivul se acorda cu primul numar afisat: "1 produs din 42". */}
             {rows.length === visible.length
-              ? `${rows.length} produse`
-              : `${rows.length} din ${visible.length} produse`}
+              ? plural(rows.length, "produs", "produse")
+              : `${plural(rows.length, "produs", "produse")} din ${formatNumber(visible.length)}`}
           </p>
         </div>
       </Card>
