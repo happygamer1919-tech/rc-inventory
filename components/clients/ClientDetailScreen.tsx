@@ -25,6 +25,7 @@ import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
+import type { DocumentsView } from "@/lib/data/documents-types";
 
 function Row({
   label,
@@ -55,6 +56,7 @@ export function ClientDetailScreen({
   contacts,
   projects,
   materials,
+  documents,
   canWrite,
   owners,
 }: {
@@ -62,6 +64,8 @@ export function ClientDetailScreen({
   contacts: ClientContact[];
   projects: ClientProject[];
   materials: ClientMaterials;
+  /** P3-15. null cand migratia 0044 nu este inca aplicata. */
+  documents: DocumentsView | null;
   canWrite: boolean;
   /** P3-48. Responsabilii pentru Modifică. Lipsa inseamna fara Sursă, Interes si
    *  Responsabil in formular. */
@@ -157,6 +161,7 @@ export function ClientDetailScreen({
           contacts={contacts}
           projects={projects}
           materials={materials}
+          documents={documents}
           canWrite={canWrite}
         />
       </div>
