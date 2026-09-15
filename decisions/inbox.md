@@ -13443,3 +13443,140 @@ the seventh consecutive session in which a terminal writes rulings outside its r
 
 **Unblocks:** P3-55.
 **Supersedes:** none. R-196(b) is not amended: this ruling adds to it.
+
+### R-198 - A line total the page does not print was manufactured as quantity times unit price, reconciled exactly and was reported clean: no arithmetic control on either side can detect it, and the only fix is a prompt rule
+
+**Date:** 2026-09-15
+**Asked on:** the ORANGE dispatch of 2026-09-15 that followed #298, steps 1 and 2
+**Answer, verbatim:**
+> 1. Write a ruling recording the manufactured-figure defect, taking the next id
+>    per section 8b. Content: the counterparty's model, when a printed line total
+>    is absent, produced the missing figure as quantity times unit price. The
+>    invented value is arithmetically consistent with every reconciliation check
+>    on both sides by construction, so the document reconciled exactly and was
+>    reported cleanly extracted. Record that no arithmetic control on either side
+>    can detect this, that quantity times unit price is the same trap one layer
+>    down, and that the only fix is a prompt rule refusing to emit a figure the
+>    page does not show, returning a null line_total, which routes to partial with
+>    cause lines. Record that the defect was live for the full period preceding
+>    the counterparty's prompt change, that its incidence is unknown and
+>    unmeasurable from stored data, and that a clean extraction before that change
+>    is weaker evidence than one after it. Leave the boundary date as TBD pending
+>    the counterparty's confirmation.
+>
+> 2. Add it to the doctrine list as a named pattern: a manufactured value that
+>    satisfies the check built to verify it is undetectable by that check, and is
+>    distinct from errors that agree with each other.
+
+**Ruling: adopted as a standing record. Its pattern is entered as P-2 in
+`docs/DOCTRINE-PATTERNS.md`, created by this ruling because no such list existed.
+The boundary date is TBD.**
+
+#### (a) THE DEFECT, AS THE OWNER REPORTS IT
+
+When a printed line total is absent from the page, the counterparty's model
+produced the missing figure as quantity times unit price. The invented value is
+arithmetically consistent with every reconciliation check on both sides by
+construction, so the document reconciled exactly and was reported cleanly
+extracted.
+
+**Recorded as the owner's report, not as a measurement.** Nothing in this
+repository observes the counterparty's prompt, model or scenario, exactly as
+R-193 records of its first instance. What this repository can show is the
+property the defect exploits. On 2026-09-15 the lines-arm fixture
+`confirmare-comanda-lumicast-5531.pdf` was built with one line whose value cell is
+blank while its quantity and unit price are printed. The fixtures report
+`docs/reports/2026-09-15-executor-orange-andre-fixtures.md` recorded that a
+pipeline which multiplies them and fills the value in reconciles cleanly and
+never reaches the arm.
+
+**It is not the first time a self-consistent figure was asked for and produced.**
+`docs/LEARNINGS.md`, "Second instance: an instruction not to invent a
+self-consistent total was ignored three runs of three", records a prompt that
+already forbade constructing a quantity, a unit price and a line total that agree
+with each other.
+
+#### (b) NO ARITHMETIC CONTROL ON EITHER SIDE CAN DETECT IT
+
+**Ours.** `reconcile()` in `lib/data/reconciliation.ts` compares the sum of line
+totals with the printed subtotal or document total, within `toleranceFor`.
+`headerConsistency()` reads only header figures. Both receive a number and
+neither can tell a printed figure from a derived one. Measured on 2026-09-15
+against the route's own decision block, sliced verbatim and run with the real
+classifier (`docs/reports/2026-09-15-executor-orange-r096-scope-buyer-block-lines-arm.md`,
+step 3): a line total that is present and consistent with the header is accepted
+unrefused on every payload shape.
+
+**His.** His reconciliation compares the same sums and passes for the same
+reason. Recorded as the owner's report.
+
+**QUANTITY TIMES UNIT PRICE IS THE SAME TRAP ONE LAYER DOWN.** A check that
+`line_total` equals `quantity * unit_price` verifies exactly the relation the
+invented figure was computed from, so the invented figure passes it with a
+difference of zero, every time. Our validator carries no such check today, and
+the same step 3 measured that. **Adding one would not be a control for this
+defect. It would be a second check that certifies it.**
+
+#### (c) THE ONLY FIX IS A PROMPT RULE, AND WHERE A NULL LANDS ON OUR SIDE
+
+**The fix:** a prompt rule refusing to emit a figure the page does not show.
+When a printed line total is absent, the line carries `line_total: null`.
+**On the counterparty's side that routes to `partial` with cause `lines`**, as
+the owner states. `partial_cause` is not in the committed contract; it arrives
+inside `_meta`, which our route stores verbatim and does not read.
+
+**On our side, measured on 2026-09-15 by the same step 3, a null `line_total`
+lands in one of two places, by source:**
+- a **digital** `partial` with no `error_code` stays `partial` with its lines
+  kept. `error_code` stays null, and our verdict, `unreadable_document` on arm
+  `line_total_missing`, is recorded in `platform_error_code` and `platform_arm`.
+- a **scan** payload with a null `line_total` is refused as `failed` with
+  `unreadable_document`, and its lines are dropped.
+
+**No code change on our side follows from this ruling.** Part (b) rules out the
+one check that looks like a fix. This ruling does not amend section 8 of
+`docs/contracts/extraction-v2.md`, which lists four prompt rules that bind the
+counterparty's prompt, and it sends nothing to the counterparty.
+
+#### (d) EXPOSURE: LIVE FOR THE WHOLE PRIOR PERIOD, INCIDENCE UNKNOWABLE FROM WHAT IS STORED
+
+- **The defect was live for the full period preceding the counterparty's prompt
+  change.**
+- **The boundary date is TBD**, pending the counterparty's confirmation. No date
+  is inferred here.
+- **Its incidence is unknown and cannot be measured from stored data.**
+  `extraction_draft_lines.line_total` stores a number whether the page printed it
+  or the model computed it. No column and no `_meta` key records which, so no
+  query over stored drafts can count the manufactured ones.
+- **What stored data will be able to say once the date is confirmed:**
+  `_meta.prompt_version`, stored verbatim when a payload carried it, places a
+  draft on one side of the boundary. It still does not say whether that draft
+  carried a manufactured figure.
+
+#### (e) A CLEAN EXTRACTION BEFORE THE CHANGE IS WEAKER EVIDENCE THAN ONE AFTER IT
+
+Before the prompt change, a clean result is consistent with two readings: a page
+read correctly, and a line total the page never printed, computed and reconciled.
+After it, the second reading requires the prompt rule to have been broken. **Any
+acceptance, report, card or ruling that cites a clean extraction from before the
+boundary as evidence of reading quality carries less weight than the same result
+would after it.** This ruling reopens none of them; it records their weight.
+
+#### (f) THE PATTERN, NAMED
+
+> **A MANUFACTURED VALUE THAT SATISFIES THE CHECK BUILT TO VERIFY IT IS
+> UNDETECTABLE BY THAT CHECK.** It is distinct from errors that agree with each
+> other.
+
+**The distinction, stated so the two are not merged later.** R-185's pattern is a
+misread repeated: the wrong value agrees with itself across passes, so voting
+certifies it, yet a check on a relation the misread does not satisfy can still
+catch it. This one is a value derived from the relation the check tests, so
+every check of that relation passes it with zero difference, by construction.
+The first is defeated by agreement; the second by construction. Entered as P-2 in
+`docs/DOCTRINE-PATTERNS.md`, with R-185 beside it as P-1.
+
+**Unblocks:** nothing, and it changes no card. Per `docs/DOCTRINE-TRIAGE.md`
+section 2, requirement 3, it is a standing record, and its pattern lives in the
+doctrine list rather than in `CLAUDE.md`. Cards EXT-34 and EXT-35, authored in the
+same pull request, do not depend on it.
