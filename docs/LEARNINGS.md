@@ -5532,3 +5532,31 @@ refusal with a success control: the same owner session deletes a `client/` and a
 object. The control is what proves the grant took effect and the policy decided. RULE: **every
 refusal test has a success control on the same role and the same table, or it cannot tell a
 policy refusal from a missing grant.**
+
+### next start with no Supabase names answers 500 even for a static file
+**Tag:** infra
+**ERROR:** P3-54's red proof ran `next start` on a build of origin/main on a machine with no
+`.env.local`. `/favicon.ico`, which the proxy matcher excludes and which should have
+answered 404, answered 500: the instrumentation hook refuses to start the server when
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are missing, and every
+request, static or not, gets the failure. A 500 is "not 200", so it looked like a red, and
+it was a red for the wrong reason.
+**SOLUTION:** a gitignored `.env.local` in the worktree naming the two variables with
+placeholder local values (`http://127.0.0.1:54321`, no key, no database running). The
+server then booted, `/favicon.ico` answered the real 404 and the sign-in page rendered
+with zero icon links, and the same file let Playwright's production guard pass for the
+cases that need no session. RULE: **before trusting a local red, read the server log and
+confirm the failure is the one the spec names, not a boot refusal.**
+
+### A lane that builds a card without its pull request cannot pass check:board-edit
+**Tag:** ci
+**ERROR:** P3-54 was built on a second worker told to push the branch, open no pull
+request and leave the board untouched, because the card moves when the later pull request
+is opened. `npm run check:board-edit` refused: code under P3-54 with the card `todo` at
+the merge base and at the head. Eleven of the twelve local gates passed; this one cannot
+while the brief forbids the board edit.
+**SOLUTION:** the branch was pushed with the refusal named in the report and in the
+factory mailbox note, so the task that opens the pull request flips the card in that same
+pull request, which is what section 2 asks. RULE: **a build-only lane expects exactly this
+one refusal, and the pull request that follows must carry the board edit before quality
+runs.**
