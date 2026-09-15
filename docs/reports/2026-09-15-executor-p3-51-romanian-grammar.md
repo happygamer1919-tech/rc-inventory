@@ -79,7 +79,7 @@ Expected in CI on the red arm `474bcdf`, stated honestly case by case:
 
 ## Local commands
 
-From the worktree on the tree committed as `9ea7301`, merged with `origin/main` (already up to date at `4b65ced`), each exit 0: `npx tsc --noEmit`, `npm run build`, the board validator on all three boards, `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`, `check:no-destructive-migration`, `check:conflict-residue`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`, `check:board-clock`.
+Run twice. First on `9ea7301` (main still `4b65ced`). Then again after the sync before push, because P3-54 (#295) merged meanwhile: `git merge origin/main` at `794629b` merged cleanly with no conflict, as merge commit `f4d8e62`, and every command below was re-run on that merged tree with the same results. Each exit 0: `npx tsc --noEmit`, `npm run build`, the board validator on all three boards, `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`, `check:no-destructive-migration`, `check:conflict-residue`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`, `check:board-clock`.
 
 **One exit 1, expected: `check:board-edit` REFUSES**, "P3-51: status is todo at the merge base AND at the head". This lane was told not to edit the board, and the check only accepts shipped, blocked or halted, so nothing honest can satisfy it before the pull request exists. P3-53 and P3-54 hit the same refusal, and PURPLE ruled (factory answer q017) that the pull request task flips the card. The Playwright suite and the applier proofs run only in CI.
 
