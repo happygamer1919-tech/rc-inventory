@@ -182,6 +182,18 @@ Uploaded to `rc-docs` under `_samples/andre/`. Signed through
 | `confirmare-comanda-mpc-8842 (2).pdf` | 46714 | `fb53aa9e925684d9e1d32431dd1110bd950f8cf1f46b4e2498fe662af485cbe7` |
 | `factura-betonmix-4417 (2).pdf` | 46457 | `5639ce76378504ac2151707a9b66c78588782b63a68fd861597876e5272aa645` |
 | `factura-tehnocom-0009312.pdf` | 53243 | `fafca5c2c863dba2c503474a6d749c714fc4c5e0bd0f410cef0820ac05bbd465` |
+| `factura-nordavex-0002718.pdf` | 37525 | `a0c1a77602add5072b85e53d743dfa0086c5e8eaf077d98c1494391ec5aee3f1` |
+| `confirmare-comanda-lumicast-5531.pdf` | 36958 | `056eabac3542976ff9472375d053fd3ff96893ea48fe71c551e10800652954c5` |
+
+**The last two rows were added on 2026-09-15, by the owner dispatch of that day,
+and were not part of this card.** They are two synthesized fixtures, digital
+source, uploaded to `rc-docs/_samples/andre/` under the same names. Each sha256 is
+of the local file and was compared, after the upload, against the stored object
+downloaded back and against the bytes served through the signed route: all equal.
+Neither document carries real client paperwork or a real supplier identity. The
+write is journalled in `docs/PRODUCTION-WRITES.md` and the run is reported in
+`docs/reports/2026-09-15-executor-orange-andre-fixtures.md`. The heading above
+still says four because it described this card's set when the card shipped.
 
 **No line count, no total and no page count for any of them appears in this
 report, in the board, or in anything sent to Andre.** The point of the set is
