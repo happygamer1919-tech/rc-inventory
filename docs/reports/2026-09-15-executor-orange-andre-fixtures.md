@@ -206,6 +206,8 @@ from this dispatch and are not EXT-08's.
    producer; these name `macOS ... Quartz PDFContext`. This is not a real identity.
    It is noted so nobody mistakes it for evidence of a different source.
 
+   **Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 ## STATE AT THE END
 
 - **Pull request #296** carries the journal row, the upload table rows and this

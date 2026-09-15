@@ -130,6 +130,10 @@ node scripts/ext/serve-sample-documents.mjs
 Add `--capture-only` to skip re-uploading the four documents, and
 `--origin=<url>` to point the capture at somewhere other than production.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **No line counts, no totals and no page counts** for any of the four documents,
 here or anywhere sent to Andre. The point of the set is that the extractor
 produces them unaided.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.

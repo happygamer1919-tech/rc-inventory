@@ -159,6 +159,11 @@ export type ExtractionLine = {
  *  intrebare: unul dintre cele patru documente de proba este un PDF fara strat
  *  de text, deci application/pdf acopera amandoua cazurile.
  *
+ *  NOTA 2026-09-15, cardul EXT-33: setul de proba de sub _samples/andre are sase
+ *  documente de la 2026-09-15, iar R-096, amendata in aceeasi zi, acopera fiecare
+ *  document de sub acel prefix, nu un numar fix de patru. Cele patru numite aici
+ *  sunt setul initial; nimic de mai sus nu s-a schimbat.
+ *
  *  null INSEAMNA "nu a spus", si se citeste ca `scan`. Vezi SAFE_DOCUMENT_SOURCE. */
 export const DOCUMENT_SOURCES = ["scan", "digital"] as const;
 export type DocumentSource = (typeof DOCUMENT_SOURCES)[number];

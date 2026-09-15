@@ -391,6 +391,8 @@ Case 20 passing before is what a control is for.
 
 ### All four sample documents hold both checks
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 Their header figures were **not recorded anywhere in the repository**, so they
 were read from the documents themselves with `pdftotext -layout` on 2026-09-04
 rather than transcribed from anybody's summary. The Matnord file is the one
@@ -409,6 +411,8 @@ layer, `pdftotext` returns one byte, so its header comes from the record, where
 the document prints `17921.87`. Four documents all landing at exactly zero would
 not have shown the tolerance is reachable at all, and the check asserts that at
 least one is.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **A note on where those figures now live.** The EXT-08 report says, deliberately,
 that no total for any sample document appears in the repository, in the board or

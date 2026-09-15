@@ -88,6 +88,8 @@ The TTL itself is unchanged.
   places: the note that one has no text layer, the retention condition that calls
   them synthetic, and the heading over the reconciliation fixtures.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 All four describe the original set, not the ruling's scope, and the dispatch named
 only the header and the table.
 
@@ -112,6 +114,8 @@ only the header and the table.
   with copies of two of them in `~/Downloads`, and three name ReportLab as their
   producer.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **What the committed record does say about where they came from, quoted exactly,
 and it names no author or source data:**
 - R-096 (`decisions/inbox.md`): *"they are supplier documents handed over as an
@@ -122,6 +126,8 @@ and it names no author or source data:**
   the line."*
 - The EXT-08 card's notes and the EXT-08 report describe the upload and the failure
   contract, and say nothing about who produced the documents or from what.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **Consequence for deviation 4.** The two fixtures copied the block from these four,
 so they add nothing new. Whether the IDNO and the address belong to the real client
