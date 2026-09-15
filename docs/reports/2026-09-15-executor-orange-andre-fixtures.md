@@ -208,6 +208,8 @@ from this dispatch and are not EXT-08's.
 
 ## STATE AT THE END
 
+- **Pull request #296** carries the journal row, the upload table rows and this
+  report, from `board/orange-20260915-andre-fixtures`.
 - Nothing is blocked and nothing was sent to the counterparty. Forwarding the
   links file is the owner's act.
 - The links expire `2026-09-16T13:16:31.396Z`.
