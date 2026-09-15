@@ -101,33 +101,40 @@ async function storedObject(
   return { size: Number.isFinite(size) ? size : -1 };
 }
 
-/** Primii octeti ai unui obiect, printr-o legatura semnata de un minut. */
-async function firstBytes(supabase: Supabase, path: string): Promise<Uint8Array | null> {
+/** O citire a primilor octeti care nu raspunde in atat se opreste. */
+const FIRST_BYTES_TIMEOUT_MS = 15_000;
+
+/**
+ * Primii octeti ai unui obiect, printr-o legatura semnata de un minut.
+ * "error" inseamna ca nu s-au putut citi, si atunci nu se spune nimic despre continut.
+ *
+ * FARA CITITOR DE FLUX SI FARA cancel(). Prima versiune citea din response.body
+ * pana la SNIFF_BYTES si apoi astepta reader.cancel(). In CI, rularea 34909961251,
+ * confirmarea nu a mai raspuns niciodata in toate cele noua cazuri: incarcarea in
+ * bucket raspundea 200, iar actiunea de confirmare ramanea fara raspuns si butonul
+ * pe "Se incarca...". Singurul lucru pe care confirmarea il face si pregatirea nu
+ * este aceasta citire. Acum se cere numai intervalul de octeti si se citeste tot
+ * corpul: SNIFF_BYTES octeti cand serverul respecta Range, cel mult limita
+ * bucketului cand nu il respecta.
+ *
+ * CU TERMEN, ca actiunea sa raspunda intotdeauna: o citire blocata devine un mesaj
+ * romanesc, nu un buton care se invarte pentru totdeauna.
+ */
+async function firstBytes(supabase: Supabase, path: string): Promise<Uint8Array | "error"> {
   const { data } = await supabase.storage.from(DOCS_BUCKET).createSignedUrl(path, 60);
-  if (!data?.signedUrl) return null;
+  if (!data?.signedUrl) return "error";
 
-  const response = await fetch(data.signedUrl, {
-    headers: { Range: `bytes=0-${SNIFF_BYTES - 1}` },
-    cache: "no-store",
-  });
-  if (!response.ok || !response.body) return null;
-
-  // Se citeste pana la SNIFF_BYTES si se opreste, chiar daca serverul ignora Range.
-  const reader = response.body.getReader();
-  const out = new Uint8Array(SNIFF_BYTES);
-  let got = 0;
   try {
-    while (got < SNIFF_BYTES) {
-      const { done, value } = await reader.read();
-      if (done || !value) break;
-      const take = Math.min(value.length, SNIFF_BYTES - got);
-      out.set(value.subarray(0, take), got);
-      got += take;
-    }
-  } finally {
-    await reader.cancel().catch(() => undefined);
+    const response = await fetch(data.signedUrl, {
+      headers: { Range: `bytes=0-${SNIFF_BYTES - 1}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(FIRST_BYTES_TIMEOUT_MS),
+    });
+    if (!response.ok) return "error";
+    return new Uint8Array(await response.arrayBuffer()).subarray(0, SNIFF_BYTES);
+  } catch {
+    return "error";
   }
-  return out.subarray(0, got);
 }
 
 async function removeObject(supabase: Supabase, path: string): Promise<void> {
@@ -219,7 +226,12 @@ export async function confirmDocumentUpload(input: {
   // CONTINUTUL REAL, nu extensia si nu tipul trimis de browser.
   const mimeType = DOCUMENT_TYPES[ext]!;
   const head = await firstBytes(supabase, path);
-  if (!head || !contentMatchesType(head, mimeType)) {
+  if (head === "error") {
+    // Nu se stie ce este in fisier, deci nu se scrie randul si obiectul nu ramane orfan.
+    await removeObject(supabase, path);
+    return { ok: false, message: "Nu s-a putut verifica fișierul încărcat. Încearcă din nou." };
+  }
+  if (!contentMatchesType(head, mimeType)) {
     await removeObject(supabase, path);
     return { ok: false, message: DOCUMENT_MESSAGES.contentMismatch, field: "file" };
   }

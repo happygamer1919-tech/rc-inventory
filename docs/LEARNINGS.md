@@ -5466,3 +5466,25 @@ extension, declared size, a structured path) and after (the stored object's real
 `list`, its first bytes through a short signed link, the object removed on a mismatch)
 before writing the row. RULE: **a file bigger than a request body limit is uploaded to
 storage directly, and the server verifies what landed rather than what was claimed.**
+
+### A server action that reads part of a fetch stream and awaits cancel never answered in CI
+**Tag:** backend
+**ERROR:** P3-15's first End to end run, quality run 34909961251 on `4480155`, failed all nine
+cases of `tests/e2e/documents.spec.ts`. Eight waited 60 seconds for `document-done` and the
+ninth 30 seconds for `document-error`; the server printed nothing. The page snapshot showed
+the button still on "Se încarcă...". The trace showed where: the prepare action answered, the
+browser upload to `/storage/v1/object/upload/sign/...` answered 200, and the confirm action's
+POST never received a response (status -1). The one thing confirm does that prepare does not
+is read the stored object's first bytes: a raw `fetch` of a signed link,
+`response.body.getReader()`, a read loop, then `await reader.cancel()`. This machine has no
+Supabase stack, so no local run could show it. In plain Node, `await reader.cancel()` on one
+branch of a `tee()` never settles, and Next 16 clones fetch responses with `tee()` in
+`server/lib/clone-response.js`; the same read and cancel through that function did settle in
+isolation, so the tee is a suspect, not a proof.
+**SOLUTION:** the first bytes are requested with a `Range` header and read whole with
+`response.arrayBuffer()`: no stream reader, no `cancel()`. The fetch carries
+`AbortSignal.timeout`, and a read that fails or times out returns a Romanian "could not verify"
+message and removes the unconfirmed object, so the action always answers. The spec was not
+touched. RULE: **in server code, read a fetch body whole or not at all, never part of a stream
+followed by an awaited cancel; and a server action that waits on the network carries a
+deadline, because a hang prints nothing and leaves only a spinner.**
