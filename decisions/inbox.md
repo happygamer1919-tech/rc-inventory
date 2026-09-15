@@ -13443,3 +13443,264 @@ the seventh consecutive session in which a terminal writes rulings outside its r
 
 **Unblocks:** P3-55.
 **Supersedes:** none. R-196(b) is not amended: this ruling adds to it.
+
+### R-198 - A line total the page does not print was manufactured as quantity times unit price, reconciled exactly and was reported clean: no arithmetic control on either side can detect it, and the only fix is a prompt rule
+
+**Date:** 2026-09-15
+**Asked on:** the ORANGE dispatch of 2026-09-15 that followed #298, steps 1 and 2
+**Answer, verbatim:**
+> 1. Write a ruling recording the manufactured-figure defect, taking the next id
+>    per section 8b. Content: the counterparty's model, when a printed line total
+>    is absent, produced the missing figure as quantity times unit price. The
+>    invented value is arithmetically consistent with every reconciliation check
+>    on both sides by construction, so the document reconciled exactly and was
+>    reported cleanly extracted. Record that no arithmetic control on either side
+>    can detect this, that quantity times unit price is the same trap one layer
+>    down, and that the only fix is a prompt rule refusing to emit a figure the
+>    page does not show, returning a null line_total, which routes to partial with
+>    cause lines. Record that the defect was live for the full period preceding
+>    the counterparty's prompt change, that its incidence is unknown and
+>    unmeasurable from stored data, and that a clean extraction before that change
+>    is weaker evidence than one after it. Leave the boundary date as TBD pending
+>    the counterparty's confirmation.
+>
+> 2. Add it to the doctrine list as a named pattern: a manufactured value that
+>    satisfies the check built to verify it is undetectable by that check, and is
+>    distinct from errors that agree with each other.
+
+**Ruling: adopted as a standing record. Its pattern is entered as P-2 in
+`docs/DOCTRINE-PATTERNS.md`, created by this ruling because no such list existed.**
+
+**AMENDED 2026-09-15, BEFORE THIS RULING MERGED, ON THE OWNER'S NEXT DISPATCH.
+THE BACKWARD HALF WAS FALSE. It is corrected under `CLAUDE.md` section 9c: the
+true statement first, the superseded text quoted beneath it, nothing deleted.**
+The amending dispatch, verbatim:
+
+> 2. Correct R-198 before it ships. Its backward half is false. The counterparty
+>    reports his scenario has never been active: 46 executions between 1 and 15
+>    September, all his own, no client document ever passed through it. Amend the
+>    ruling, quoting the superseded text per section 9c: there is no unmeasured
+>    historical incidence, the defect was never exercised against client
+>    documents, and no boundary date is needed for past traffic.
+>
+> 3. Add the boundary that does exist: counterparty prompt version 2026-09-15b
+>    introduces a required per-line field line_total_source, printed or derived,
+>    where one derived line fails reconciliation regardless of arithmetic
+>    agreement. Record that two prior attempts at a withholding rule were ignored
+>    by the model with the field already permitting null.
+>
+> 4. Add a doctrine pattern, distinct from P-2. A control correctly written but
+>    filed under the wrong scope executes in that scope only and reads as coverage
+>    everywhere else. Its presence is what prevents anyone looking. Source: the
+>    counterparty's no-invented-figure rule existed under a scanned-document
+>    heading and was never applied to digital PDFs. Bar: a control's scope is
+>    verified independently of its text.
+
+**What the amendment changes:**
+- **(d) is replaced.** There is no historical exposure.
+- **(c) and (e) carry notes** narrowing them.
+- **(g) is added:** the boundary that does exist.
+- **(h) is added:** a second pattern from the same incident, entered as P-3.
+
+**The superseded sentence from this paragraph, quoted as written:**
+
+> *"The boundary date is TBD."*
+
+#### (a) THE DEFECT, AS THE OWNER REPORTS IT
+
+When a printed line total is absent from the page, the counterparty's model
+produced the missing figure as quantity times unit price. The invented value is
+arithmetically consistent with every reconciliation check on both sides by
+construction, so the document reconciled exactly and was reported cleanly
+extracted.
+
+**Recorded as the owner's report, not as a measurement.** Nothing in this
+repository observes the counterparty's prompt, model or scenario, exactly as
+R-193 records of its first instance. What this repository can show is the
+property the defect exploits. On 2026-09-15 the lines-arm fixture
+`confirmare-comanda-lumicast-5531.pdf` was built with one line whose value cell is
+blank while its quantity and unit price are printed. The fixtures report
+`docs/reports/2026-09-15-executor-orange-andre-fixtures.md` recorded that a
+pipeline which multiplies them and fills the value in reconciles cleanly and
+never reaches the arm.
+
+**It is not the first time a self-consistent figure was asked for and produced.**
+`docs/LEARNINGS.md`, "Second instance: an instruction not to invent a
+self-consistent total was ignored three runs of three", records a prompt that
+already forbade constructing a quantity, a unit price and a line total that agree
+with each other.
+
+#### (b) NO ARITHMETIC CONTROL ON EITHER SIDE CAN DETECT IT
+
+**Ours.** `reconcile()` in `lib/data/reconciliation.ts` compares the sum of line
+totals with the printed subtotal or document total, within `toleranceFor`.
+`headerConsistency()` reads only header figures. Both receive a number and
+neither can tell a printed figure from a derived one. Measured on 2026-09-15
+against the route's own decision block, sliced verbatim and run with the real
+classifier (`docs/reports/2026-09-15-executor-orange-r096-scope-buyer-block-lines-arm.md`,
+step 3): a line total that is present and consistent with the header is accepted
+unrefused on every payload shape.
+
+**His.** His reconciliation compares the same sums and passes for the same
+reason. Recorded as the owner's report.
+
+**QUANTITY TIMES UNIT PRICE IS THE SAME TRAP ONE LAYER DOWN.** A check that
+`line_total` equals `quantity * unit_price` verifies exactly the relation the
+invented figure was computed from, so the invented figure passes it with a
+difference of zero, every time. Our validator carries no such check today, and
+the same step 3 measured that. **Adding one would not be a control for this
+defect. It would be a second check that certifies it.**
+
+#### (c) THE ONLY FIX IS A PROMPT RULE, AND WHERE A NULL LANDS ON OUR SIDE
+
+**The fix:** a prompt rule refusing to emit a figure the page does not show.
+When a printed line total is absent, the line carries `line_total: null`.
+**On the counterparty's side that routes to `partial` with cause `lines`**, as
+the owner states. `partial_cause` is not in the committed contract; it arrives
+inside `_meta`, which our route stores verbatim and does not read.
+
+**On our side, measured on 2026-09-15 by the same step 3, a null `line_total`
+lands in one of two places, by source:**
+- a **digital** `partial` with no `error_code` stays `partial` with its lines
+  kept. `error_code` stays null, and our verdict, `unreadable_document` on arm
+  `line_total_missing`, is recorded in `platform_error_code` and `platform_arm`.
+- a **scan** payload with a null `line_total` is refused as `failed` with
+  `unreadable_document`, and its lines are dropped.
+
+**No code change on our side follows from this ruling.** Part (b) rules out the
+one check that looks like a fix. This ruling does not amend section 8 of
+`docs/contracts/extraction-v2.md`, which lists four prompt rules that bind the
+counterparty's prompt, and it sends nothing to the counterparty.
+
+**AMENDED 2026-09-15: THE WITHHOLDING RULE THIS PART DESCRIBES WAS TRIED TWICE AND
+DID NOT HOLD.**
+- Per the counterparty's report, relayed by the owner, two prior attempts at a
+  withholding rule were ignored by the model, with `line_total` already permitting
+  null. The model had a legal way to say a figure was not printed, and did not use
+  it, twice.
+- **The boundary that shipped is not a withholding rule. It is a declared field,
+  part (g).**
+- The routing of a null `line_total` on our side, above, is unchanged and still
+  measured.
+
+**The superseded sentence from this part, quoted as written:**
+
+> *"**The fix:** a prompt rule refusing to emit a figure the page does not show."*
+
+#### (d) EXPOSURE: NONE IN PAST TRAFFIC. THE DEFECT WAS NEVER EXERCISED AGAINST A CLIENT DOCUMENT
+
+**AMENDED 2026-09-15. The true statement:**
+- **There is no unmeasured historical incidence.** The counterparty reports that
+  his scenario has never been active: 46 executions between 1 and 15 September
+  2026, all his own, and no client document ever passed through it. This is his
+  report, relayed by the owner; nothing in this repository observes his scenario.
+- **The defect was never exercised against client documents.** Every instance of
+  it is in his own executions.
+- **No boundary date is needed for past traffic.** There is no past client traffic
+  to place on either side of one.
+- **The boundary that does exist looks forward**, and it is part (g).
+
+**SUPERSEDED 2026-09-15, quoted as written:**
+
+> *"#### (d) EXPOSURE: LIVE FOR THE WHOLE PRIOR PERIOD, INCIDENCE UNKNOWABLE FROM
+> WHAT IS STORED"*
+>
+> *"- **The defect was live for the full period preceding the counterparty's prompt
+> change.**"*
+>
+> *"- **The boundary date is TBD**, pending the counterparty's confirmation. No date
+> is inferred here."*
+>
+> *"- **Its incidence is unknown and cannot be measured from stored data.**
+> `extraction_draft_lines.line_total` stores a number whether the page printed it
+> or the model computed it. No column and no `_meta` key records which, so no
+> query over stored drafts can count the manufactured ones."*
+>
+> *"- **What stored data will be able to say once the date is confirmed:**
+> `_meta.prompt_version`, stored verbatim when a payload carried it, places a
+> draft on one side of the boundary. It still does not say whether that draft
+> carried a manufactured figure."*
+
+#### (e) A CLEAN EXTRACTION BEFORE THE CHANGE IS WEAKER EVIDENCE THAN ONE AFTER IT
+
+Before the prompt change, a clean result is consistent with two readings: a page
+read correctly, and a line total the page never printed, computed and reconciled.
+After it, the second reading requires the prompt rule to have been broken. **Any
+acceptance, report, card or ruling that cites a clean extraction from before the
+boundary as evidence of reading quality carries less weight than the same result
+would after it.** This ruling reopens none of them; it records their weight.
+
+**AMENDED 2026-09-15: NARROWED, NOT REVERSED.** The boundary is prompt version
+`2026-09-15b`, and no extraction of a client document lies before it. The weighting
+above therefore attaches only to the counterparty's own executions before
+`2026-09-15b`, and to any acceptance, report, card or ruling that cites one of them
+as evidence of reading quality.
+
+#### (f) THE PATTERN, NAMED
+
+> **A MANUFACTURED VALUE THAT SATISFIES THE CHECK BUILT TO VERIFY IT IS
+> UNDETECTABLE BY THAT CHECK.** It is distinct from errors that agree with each
+> other.
+
+**The distinction, stated so the two are not merged later.** R-185's pattern is a
+misread repeated: the wrong value agrees with itself across passes, so voting
+certifies it, yet a check on a relation the misread does not satisfy can still
+catch it. This one is a value derived from the relation the check tests, so
+every check of that relation passes it with zero difference, by construction.
+The first is defeated by agreement; the second by construction. Entered as P-2 in
+`docs/DOCTRINE-PATTERNS.md`, with R-185 beside it as P-1.
+
+#### (g) THE BOUNDARY THAT EXISTS: COUNTERPARTY PROMPT VERSION `2026-09-15b`
+
+**Added 2026-09-15 by the amendment. Recorded as the counterparty's report,
+relayed by the owner.**
+
+- **From prompt version `2026-09-15b`, every line carries a required field
+  `line_total_source`**, valued `printed` or `derived`.
+- **One `derived` line fails reconciliation, regardless of arithmetic agreement.**
+  A document whose figures agree exactly still fails if any line total was
+  derived.
+- **It follows two failed attempts at a withholding rule**, both ignored by the
+  model with `line_total` already permitting null (see the note on part (c)).
+
+**Why P-2's construction does not defeat it.** The failure no longer depends on
+the arithmetic a manufactured figure satisfies; it depends on the declaration.
+That is the difference between this control and the check part (b) rules out.
+
+**What it still cannot prove.** Whether a line declared `printed` was in fact
+printed. That remains the model's account of its own reading, and no check on
+either side can confirm it from the payload.
+
+**On our side today.** Our validator accepts `line_total_source` on every line and
+ignores it. No line of `app/api/extraction/callback/route.ts` on `origin/main`
+`8cbd3ce` reads it, and the per-line insert at `:645-657` names ten keys, none of
+them this one. **Storing it is added to card EXT-34 as a fifth field. Using it in
+our own reconciliation is not carded.**
+
+#### (h) A SECOND PATTERN FROM THE SAME INCIDENT: A CONTROL FILED UNDER THE WRONG SCOPE
+
+**Added 2026-09-15 by the amendment.**
+
+> **A CONTROL CORRECTLY WRITTEN BUT FILED UNDER THE WRONG SCOPE EXECUTES IN THAT
+> SCOPE ONLY AND READS AS COVERAGE EVERYWHERE ELSE. ITS PRESENCE IS WHAT PREVENTS
+> ANYONE LOOKING.**
+
+**The instance, as the counterparty reports it.** His no-invented-figure rule
+existed under a scanned-document heading in his prompt and was never applied to
+digital PDFs.
+
+**The bar.** A control's scope is verified independently of its text.
+
+**Distinct from P-2, and from R-193.**
+- P-2's control runs where it should and is satisfied by construction.
+- This one would catch the defect, but it runs somewhere else.
+- R-193's control never executes anywhere. This one executes in its own scope,
+  which is why a test there passes and why nobody looked further.
+
+Entered as P-3 in `docs/DOCTRINE-PATTERNS.md`.
+
+**Unblocks:** nothing, and it changes no card's status. Per
+`docs/DOCTRINE-TRIAGE.md` section 2, requirement 3, it is a standing record, and
+its patterns live in the doctrine list rather than in `CLAUDE.md`. Cards EXT-34
+and EXT-35, authored in the same pull request, do not depend on it; EXT-34 gains
+`line_total_source` from part (g).
