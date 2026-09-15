@@ -24,6 +24,7 @@ import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
 import { ProductForm } from "./ProductForm";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
+import type { SheetOption } from "@/lib/data/sheet-options-types";
 
 type StockLevel = "toate" | "redus" | "epuizat" | "suficient";
 
@@ -49,6 +50,7 @@ export function InventoryScreen({
   suppliers,
   canWrite,
   imagesActive,
+  sheetOptions,
 }: {
   products: CatalogProduct[];
   categories: Category[];
@@ -57,6 +59,8 @@ export function InventoryScreen({
   canWrite: boolean;
   /** P3-56: migratia 0045 este aplicata, deci formularul ofera campul de imagine. */
   imagesActive: boolean;
+  /** P3-57: combinatiile de tabla Dasterum. Goala cat timp migratia 0046 lipseste. */
+  sheetOptions: SheetOption[];
 }) {
   // P3-10. FILTRUL DE FURNIZOR SI PRODUSUL DESCHIS VIN DIN URL, ca legaturile
   // din alte ecrane sa fie navigabile si partajabile. Cardul cere legaturi
@@ -355,6 +359,7 @@ export function InventoryScreen({
           units={units}
           suppliers={suppliers}
           imagesActive={imagesActive}
+          sheetOptions={sheetOptions}
           onClose={() => setCreating(false)}
         />
       ) : null}

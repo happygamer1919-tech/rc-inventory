@@ -16,13 +16,14 @@
 
 import { listCategories, listProducts, listSuppliers, listUnits } from "@/lib/data/products";
 import { hasProductImage } from "@/lib/data/schema-capability";
+import { listSheetOptions } from "@/lib/data/sheet-options";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { InventoryScreen } from "@/components/inventory/InventoryScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const [products, categories, units, suppliers, user, imagesActive] = await Promise.all([
+  const [products, categories, units, suppliers, user, imagesActive, sheetOptions] = await Promise.all([
     listProducts(),
     listCategories(),
     listUnits(),
@@ -30,6 +31,8 @@ export default async function InventoryPage() {
     getSessionUser(),
     // P3-56: campul de imagine apare numai dupa ce migratia 0045 este aplicata.
     createClient().then(hasProductImage),
+    // P3-57: lista de tabla Dasterum, goala pana cand migratia 0046 este aplicata.
+    listSheetOptions(),
   ]);
 
   return (
@@ -40,6 +43,7 @@ export default async function InventoryPage() {
       suppliers={suppliers}
       canWrite={user?.role === "owner"}
       imagesActive={imagesActive}
+      sheetOptions={sheetOptions}
     />
   );
 }

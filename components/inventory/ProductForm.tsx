@@ -24,6 +24,13 @@ import {
   PRODUCT_IMAGE_ACCEPT,
   PRODUCT_IMAGE_EXTENSIONS_LABEL,
 } from "@/lib/data/product-image-types";
+import {
+  SHEET_CATEGORY,
+  SHEET_SUPPLIER,
+  sheetProductName,
+  thicknessOptionLabel,
+  type SheetOption,
+} from "@/lib/data/sheet-options-types";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
@@ -35,6 +42,7 @@ export function ProductForm({
   suppliers,
   focusField,
   imagesActive = false,
+  sheetOptions = [],
   onClose,
 }: {
   product?: CatalogProduct;
@@ -46,6 +54,9 @@ export function ProductForm({
   focusField?: "threshold";
   /** P3-56: false cat timp migratia 0045 nu este aplicata; atunci campul de imagine lipseste. */
   imagesActive?: boolean;
+  /** P3-57: combinatiile de tabla Dasterum. Goala cat timp migratia 0046 nu este
+   *  aplicata, si atunci alegerea de model lipseste. Folosita numai la adaugare. */
+  sheetOptions?: SheetOption[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -91,6 +102,30 @@ export function ProductForm({
       : String(product.packageFactor),
   );
 
+  // P3-57. MODEL, SERIE SI GROSIME, NUMAI LA ADAUGARE. Fiecare combinatie este un
+  // produs al ei, cu SKU-ul, pretul si stocul lui, deci alegerea nu se schimba pe un
+  // produs existent. Listele se deriva din combinatiile primite: seria numai dintre
+  // cele ale modelului, grosimea numai dintre cele ale seriei, deci o combinatie care
+  // nu este in lista nu poate fi aleasa. Alegerea grosimii completeaza denumirea,
+  // unitatea, categoria si furnizorul; toate raman modificabile.
+  const sheetActive = !editing && sheetOptions.length > 0;
+  const [sheetModel, setSheetModel] = React.useState("");
+  const [sheetSeries, setSheetSeries] = React.useState("");
+  const [sheetKey, setSheetKey] = React.useState("");
+  const sheetModels = React.useMemo(
+    () => distinct(sheetOptions.map((o) => o.model)),
+    [sheetOptions],
+  );
+  const sheetSeriesList = React.useMemo(
+    () => distinct(sheetOptions.filter((o) => o.model === sheetModel).map((o) => o.series)),
+    [sheetOptions, sheetModel],
+  );
+  const sheetThicknesses = React.useMemo(
+    () => sheetOptions.filter((o) => o.model === sheetModel && o.series === sheetSeries),
+    [sheetOptions, sheetModel, sheetSeries],
+  );
+  const sheetPicked = sheetThicknesses.find((o) => sheetOptionKey(o) === sheetKey) ?? null;
+
   const supplierOptions: ComboOption[] = suppliers.map((s) => ({
     value: s.id,
     label: s.name,
@@ -120,6 +155,30 @@ export function ProductForm({
 
   const noCategories = categories.length === 0;
 
+  function clearSheetError() {
+    if (errorField === "sheet") {
+      setError(null);
+      setErrorField(undefined);
+    }
+  }
+
+  /** P3-57: grosimea aleasa completeaza campurile; operatorul le poate schimba dupa. */
+  function pickSheetThickness(key: string) {
+    setSheetKey(key);
+    clearSheetError();
+    const option = sheetThicknesses.find((o) => sheetOptionKey(o) === key);
+    if (!option) return;
+    setName(sheetProductName(option));
+    if (units.includes(option.unit)) setUnit(option.unit);
+    const category = categories.find((c) => c.name === SHEET_CATEGORY);
+    if (category) setCategoryId(category.id);
+    // Furnizorul existent dupa id; altfel numele, pe care serverul il gaseste sau il creeaza.
+    const known = suppliers.find(
+      (s) => s.name.trim().toLowerCase() === SHEET_SUPPLIER.toLowerCase(),
+    );
+    setSupplier(known ? known.id : SHEET_SUPPLIER);
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -140,6 +199,17 @@ export function ProductForm({
       // P3-56: numai numele si marimea. Serverul refuza tipul si marimea INAINTE de
       // orice scriere, deci o imagine gresita nu salveaza nici produsul.
       image: file ? { fileName: file.name, sizeBytes: file.size } : null,
+      // P3-57: combinatia aleasa, numai la adaugare. Serverul o cauta in lista si
+      // refuza un model fara serie sau fara grosime.
+      sheet:
+        sheetActive && sheetModel
+          ? {
+              model: sheetModel,
+              series: sheetSeries,
+              thicknessMm: sheetPicked?.thicknessMm ?? "",
+              finish: sheetPicked?.finish ?? "",
+            }
+          : null,
     };
     const targetId = product?.id ?? savedId;
     const result = targetId ? await updateProduct(targetId, input) : await createProduct(input);
@@ -234,6 +304,78 @@ export function ProductForm({
             <p className="mb-4 rounded-[10px] border border-rc-warn bg-rc-warn-soft px-3.5 py-2.5 text-[12.5px] text-rc-black">
               Nu există nicio categorie. Adaugă una în Setări înainte de a crea un produs.
             </p>
+          ) : null}
+
+          {/* P3-57. TABLA SI TIGLA METALICA DASTERUM. Optional: un produs obisnuit
+              lasa Fără model si se completeaza de mana, ca pana acum. */}
+          {sheetActive ? (
+            <div className="mb-4 border-b border-rc-line" data-testid="field-sheet">
+              <p className="text-[12.5px] font-semibold text-rc-black">
+                Tablă și țiglă metalică Dasterum
+              </p>
+              <p className="text-[12px] text-rc-muted mt-0.5 mb-3">
+                Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria și
+                furnizorul se completează singure, iar denumirea se poate modifica.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Model">
+                  <Select
+                    value={sheetModel}
+                    onChange={(e) => {
+                      setSheetModel(e.target.value);
+                      setSheetSeries("");
+                      setSheetKey("");
+                      clearSheetError();
+                    }}
+                    className={fieldClass("sheet")}
+                    data-testid="field-sheet-model"
+                  >
+                    <option value="">Fără model</option>
+                    {sheetModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Serie">
+                  <Select
+                    value={sheetSeries}
+                    onChange={(e) => {
+                      setSheetSeries(e.target.value);
+                      setSheetKey("");
+                      clearSheetError();
+                    }}
+                    disabled={!sheetModel}
+                    className={fieldClass("sheet")}
+                    data-testid="field-sheet-series"
+                  >
+                    <option value="">Alege seria</option>
+                    {sheetSeriesList.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Grosime">
+                <Select
+                  value={sheetKey}
+                  onChange={(e) => pickSheetThickness(e.target.value)}
+                  disabled={!sheetSeries}
+                  className={fieldClass("sheet")}
+                  data-testid="field-sheet-thickness"
+                >
+                  <option value="">Alege grosimea</option>
+                  {sheetThicknesses.map((o) => (
+                    <option key={sheetOptionKey(o)} value={sheetOptionKey(o)}>
+                      {thicknessOptionLabel(o)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
           ) : null}
 
           <Field label="Cod SKU">
@@ -429,6 +571,16 @@ export function ProductForm({
       </aside>
     </div>
   );
+}
+
+/** P3-57: valorile unice, in ordinea in care apar in lista. */
+function distinct(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/** P3-57: grosimea si finisajul, cheia unei combinatii in cadrul seriei alese. */
+function sheetOptionKey(option: Pick<SheetOption, "thicknessMm" | "finish">): string {
+  return `${option.thicknessMm}|${option.finish}`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

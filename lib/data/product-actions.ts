@@ -18,7 +18,8 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
-import { hasProductImage, hasProductPackaging } from "./schema-capability";
+import { hasProductImage, hasProductPackaging, hasSheetOptions } from "./schema-capability";
+import { normalizeThickness, type SheetChoice } from "./sheet-options-types";
 import { DOCS_BUCKET, type ActionResult as ValueResult } from "./inbound-types";
 import {
   MAX_PRODUCT_IMAGE_BYTES,
@@ -60,6 +61,9 @@ type ProductInput = {
    *  Se verifica aici INAINTE de orice scriere; fisierul vine dupa salvare, prin
    *  prepareProductImageUpload si confirmProductImage. */
   image?: ProductImageChoice | null;
+  /** P3-57: combinatia de tabla aleasa din lista Dasterum, numai la adaugare. Null
+   *  pentru un produs obisnuit. updateProduct nu o citeste si nu o scrie niciodata. */
+  sheet?: SheetChoice | null;
 };
 
 /** EXT-10. Perechea de ambalaj, curatata, sau primul camp gresit.
@@ -111,6 +115,90 @@ function validatePackage(input: ProductInput):
   }
 
   return { ok: true, value: { package_unit: unit, package_factor: factor } };
+}
+
+/** P3-57. Coloanele combinatiei, cu numele din migratia 0046. */
+type SheetColumns = {
+  sheet_model: string;
+  sheet_series: string;
+  sheet_thickness_mm: string;
+  sheet_finish: string;
+};
+
+/** P3-57. Forma combinatiei alese, curatata, sau ce lipseste din ea.
+ *
+ *  SEPARAT DE validate(), DELIBERAT. validate() intoarce valorile pe care le scriu
+ *  si adaugarea si modificarea. Daca le-ar purta si pe acestea, fiecare modificare
+ *  a unui produs ar goli combinatia aleasa la adaugare, fiindca formularul de
+ *  modificare nu o trimite.
+ *
+ *  UN MODEL FARA SERIE SAU FARA GROSIME ESTE REFUZAT, nu salvat ca produs obisnuit:
+ *  operatorul a inceput o alegere, iar a o pierde tacut ar fi un produs altfel decat
+ *  cel pe care ecranul l-a aratat. */
+function validateSheet(input: ProductInput):
+  | { ok: true; value: SheetColumns | null }
+  | { ok: false; message: string; field: string } {
+  const choice = input.sheet;
+  const model = String(choice?.model ?? "").trim();
+  if (!choice || model.length === 0) return { ok: true, value: null };
+
+  const series = String(choice.series ?? "").trim();
+  const thickness = normalizeThickness(choice.thicknessMm);
+  if (series.length === 0 || thickness === null) {
+    return {
+      ok: false,
+      field: "sheet",
+      message: "Alege seria și grosimea pentru modelul ales, sau alege Fără model.",
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      sheet_model: model,
+      sheet_series: series,
+      sheet_thickness_mm: thickness,
+      sheet_finish: String(choice.finish ?? "").trim(),
+    },
+  };
+}
+
+/**
+ * P3-57. Combinatia aleasa exista in lista? Se intreaba INAINTE de resolveSupplier,
+ * care poate crea furnizorul Dasterum: o combinatie refuzata nu lasa in urma nici
+ * produsul, nici furnizorul.
+ *
+ * Cheia straina din 0046 ar refuza oricum o combinatie din afara listei, dar cu
+ * 23503, pe care translateWriteError il citeste ca "categoria nu mai exista".
+ * Intrebarea de aici da mesajul adevarat.
+ */
+async function sheetColumns(
+  client: Supabase,
+  value: SheetColumns | null,
+): Promise<{ ok: true; value: SheetColumns | Record<string, never> } | Failure> {
+  if (value === null) return { ok: true, value: {} };
+  if (!(await hasSheetOptions(client))) {
+    return {
+      ok: false,
+      field: "sheet",
+      message: "Alegerea din lista Dasterum nu este încă activă. Încearcă din nou peste câteva minute.",
+    };
+  }
+
+  const { data, error } = await client
+    .from("sheet_options")
+    .select("model")
+    .eq("model", value.sheet_model)
+    .eq("series", value.sheet_series)
+    .eq("thickness_mm", value.sheet_thickness_mm)
+    .eq("finish", value.sheet_finish)
+    .maybeSingle();
+  if (error) {
+    return { ok: false, field: "sheet", message: "Lista Dasterum nu a putut fi citită. Încearcă din nou." };
+  }
+  if (!data) {
+    return { ok: false, field: "sheet", message: "Combinația aleasă nu există în lista Dasterum." };
+  }
+  return { ok: true, value };
 }
 
 /** Validare comuna. Intoarce fie valorile curate, fie primul camp gresit. */
@@ -235,9 +323,15 @@ export async function createProduct(input: ProductInput): Promise<ProductSaveRes
   const pack = validatePackage(input);
   if (!pack.ok) return pack;
 
+  const sheet = validateSheet(input);
+  if (!sheet.ok) return sheet;
+
   const supabase = await createClient();
   const image = await checkImageChoice(supabase, input.image);
   if (!image.ok) return image;
+
+  const sheetCols = await sheetColumns(supabase, sheet.value);
+  if (!sheetCols.ok) return sheetCols;
 
   const supplier = await resolveSupplier(input.supplier);
   if (!supplier.ok) return supplier;
@@ -247,7 +341,7 @@ export async function createProduct(input: ProductInput): Promise<ProductSaveRes
 
   const { data, error } = await supabase
     .from("products")
-    .insert({ ...checked.value, ...supplier.value, ...packColumns.value })
+    .insert({ ...checked.value, ...supplier.value, ...packColumns.value, ...sheetCols.value })
     .select("id")
     .single();
   if (error || !data) return translateWriteError(error?.code, error?.message ?? "");
