@@ -281,6 +281,8 @@ unchanged. **The two-hour figure is recorded as matching nothing in this
 repository**, re-read at `404c5ab`, which is the owner's own instruction and which
 `R-194(c)` could report but not ratify.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **(d) "All nine" is recorded as GRANTED and is NOT enumerated, and that is a
 flagged gap.** The superseded dispatch carrying the numbered list was never
 committed, and **the two 2026-09-11 reports flag twelve deviations between them,

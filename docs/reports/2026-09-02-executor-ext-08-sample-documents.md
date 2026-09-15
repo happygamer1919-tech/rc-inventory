@@ -1,5 +1,7 @@
 # EXECUTOR, 2026-09-02: EXT-08, the four sample documents and the failure contract
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 Card **EXT-08**. Branch `card/ext-08`. Worktree `/Users/ivan/rc-inventory-exec`.
 No migration. No database write. One production **storage** write, journalled in
 `docs/PRODUCTION-WRITES.md`.
@@ -171,7 +173,11 @@ shape, bucket, path, token and TTL are unchanged; only the origin moves. The
 production TTL stays 15 minutes. The six fields of the fire payload are unchanged
 and `tests/e2e/extraction.spec.ts` still asserts exactly those six.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 ## 7. The four documents
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 Uploaded to `rc-docs` under `_samples/andre/`. Signed through
 `createSignedUrl`, the same call the application uses, TTL **7200 seconds**.

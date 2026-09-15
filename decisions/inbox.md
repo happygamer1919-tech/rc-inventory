@@ -5966,6 +5966,8 @@ condition `R-096` was written to end.
 escalation item 6, and it is escalated with a recommended default rather than
 decided here.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **D4. A read against the production project `bwhzatwwjqmyfesfnisa` to settle
 Andre's blank-category report. RATIFIED on test 4.**
 Test 1 does not fire and the reason is stated rather than assumed: the test names
@@ -13075,11 +13077,15 @@ hours, and none has been since 2026-09-03.** Read from source at `6ca0ded`:
 | `lib/data/inbound-actions.ts` | **fifteen minutes** | named by R-096 as unchanged |
 | `scripts/ext/serve-sample-documents.mjs:39` | `24 * 60 * 60`, **twenty-four hours** | the four `_samples/andre` fixtures only |
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **TWO HOURS IS THE VALUE THE SAMPLE SCRIPT USED UNTIL THE OWNER'S OWN RULING
 R-096 RAISED IT TO TWENTY-FOUR**, on 2026-09-03, for the four test documents only.
 That ruling says in terms: *"NO OTHER SIGNING PATH CHANGES... A real supplier
 document carried to the extractor still expires in fifteen minutes. Anyone reading
 this ruling as a general TTL increase has read it wrong."*
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **SO "STAYS AT TWO HOURS" IS TRUE OF NOTHING TODAY**, and there are two candidate
 readings with different consequences:
@@ -13177,6 +13183,8 @@ the pattern is the finding.
 documents are TWENTY-FOUR HOURS. R-096 is not reversed.** The recommendation
 R-194(c) escalated with is accepted in full: no value changes.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **AND THE OWNER HAS RECORDED THAT HIS OWN FIGURE MATCHED NOTHING IN THIS
 REPOSITORY**, which R-194(c) had reported and could not itself ratify. Re-read at
 `404c5ab` on 2026-09-12:
@@ -13186,6 +13194,8 @@ REPOSITORY**, which R-194(c) had reported and could not itself ratify. Re-read a
 | `lib/data/extraction-fire.ts` | `15 * 60` | the real supplier document carried to the extractor |
 | `lib/data/inbound-actions.ts` | fifteen minutes | named by R-096 as unchanged |
 | `scripts/ext/serve-sample-documents.mjs` | `24 * 60 * 60` | the four sample fixtures only |
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **Two hours is the value the sample script used until R-096 raised it on
 2026-09-03, and it has been true of nothing since.** The security position from

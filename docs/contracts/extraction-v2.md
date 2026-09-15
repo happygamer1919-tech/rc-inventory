@@ -375,6 +375,8 @@ of the four sample documents is a **PDF with no text layer**, so
 proxy and card EXT-09 removes it, because with the file handed straight to the
 model that number could only ever be null. Only the extractor knows.
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 **Null is read as `scan`, and the asymmetry is the reason.** Guessing `digital`
 on a scanned document costs invented stock in a real warehouse. Guessing `scan`
 on a digital one costs somebody keying a document in by hand.
@@ -648,6 +650,8 @@ reads.
 document from this integration**, and it must be off before the first REAL
 supplier document goes through. The four sample documents are synthetic and are
 already through; a real document is the line.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 **The owner has ruled: OFF.** This section does not weigh it again.
 
@@ -1095,6 +1099,8 @@ reduces the risk to zero.
 
 #### The four sample documents are the fixtures, and all four hold both checks
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 A guard that has only ever run against documents it rejects has not been shown to
 accept a correct one. `npm run check:reconciliation` carries all four sample
 documents' header figures, read from the files themselves:
@@ -1106,9 +1112,13 @@ documents' header figures, read from the files themselves:
 | `factura-betonmix-4417` | 5 | 0.05 | 0.00 | **0.01** |
 | `factura-tehnocom-0009312` | 54 | 0.54 | 0.00 | 0.00 |
 
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
+
 Betonmix's `0.01` is the one that matters: `89609.38 * 0.20` is `17921.876` and
 the document prints `17921.87`. Four documents all landing at exactly zero would
 not have shown that the tolerance is reachable at all.
+
+**Note 2026-09-15, card EXT-33:** the sample set under `_samples/andre` holds six documents since 2026-09-15, and R-096 as amended that day covers every document under that prefix, not a fixed count of four. The four named here are the original set; nothing above is changed.
 
 ---
 
