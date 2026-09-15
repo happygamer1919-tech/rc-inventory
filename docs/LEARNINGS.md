@@ -5488,3 +5488,18 @@ message and removes the unconfirmed object, so the action always answers. The sp
 touched. RULE: **in server code, read a fetch body whole or not at all, never part of a stream
 followed by an awaited cancel; and a server action that waits on the network carries a
 deadline, because a hang prints nothing and leaves only a spinner.**
+
+### innerText returns table headers in capitals, so a spec looking for "Denumire" misses it
+**Tag:** testing
+**ERROR:** P3-15's second End to end run, quality run 34913622610 on `b52aba6`, passed 238 of
+239 tests. The one failure was `documents.spec.ts` case 8, `lipseste "Denumire"`: the panel's
+`innerText()` held `DENUMIRE TIP MĂRIME ÎNCĂRCAT LA`. `Th` in `components/ui/primitives.tsx`
+styles every table header in capitals, and `innerText` applies CSS `text-transform`, so the
+written text never appears in it. The first run could not show this because every upload hung
+before case 8 reached the check.
+**SOLUTION:** the headers are asserted by their written text with
+`expect(panel.locator("thead th")).toHaveText([...])`, which reads the text content, exact and
+with diacritics. Everything else in the case still reads `innerText`. The app was not touched.
+RULE: **a visible-text check on `innerText` sees what CSS did to the text; check anything drawn
+through `Th` (or any `uppercase` class) by its text content, exact, not by a substring of
+`innerText`.**

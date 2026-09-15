@@ -462,6 +462,11 @@ test.describe("Documente pe client și pe proiect", () => {
     const confirmText = await panel.innerText();
     await row.getByTestId("document-delete-cancel").click();
 
+    // CAPUL TABELULUI SE CITESTE DIN TEXTUL ELEMENTELOR, exact. Th din primitives.tsx
+    // il scrie cu majuscule prin CSS, iar innerText intoarce "DENUMIRE", nu "Denumire"
+    // (rularea 34913622610). toHaveText citeste textul scris, cu diacriticele lui.
+    await expect(panel.locator("thead th")).toHaveText(["Denumire", "Tip", "Mărime", "Încărcat la", ""]);
+
     const text = await panel.innerText();
     for (const expected of [
       "Documente",
@@ -470,10 +475,6 @@ test.describe("Documente pe client și pe proiect", () => {
       "Alege fișierul",
       "Încarcă",
       `Se acceptă ${ALLOWED}, de cel mult 20 MB.`,
-      "Denumire",
-      "Tip",
-      "Mărime",
-      "Încărcat la",
       "Descarcă",
       "Șterge",
     ]) {
