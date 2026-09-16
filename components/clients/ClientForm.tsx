@@ -13,6 +13,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
+import { DateField } from "@/components/ui/DateField";
 import { createClientRecord, updateClientRecord } from "@/lib/data/client-actions";
 import {
   CLIENT_SOURCES,
@@ -204,12 +205,11 @@ export function ClientForm({
 
               {stage === "follow_up" ? (
                 <Field label="Data de reluare" required>
-                  <Input
-                    type="date"
+                  <DateField
                     value={followUpDate}
-                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    onChange={setFollowUpDate}
                     className={fieldClass("followUpDate")}
-                    data-testid="field-client-follow-up"
+                    testId="field-client-follow-up"
                   />
                 </Field>
               ) : null}

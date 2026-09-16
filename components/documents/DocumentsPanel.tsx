@@ -9,10 +9,10 @@
 // serverul, iar serverul verifica apoi ce a ajuns. De ce, pe larg, in
 // lib/data/document-actions.ts.
 //
-// CAMPUL DE FISIER AL BROWSERULUI ESTE ASCUNS VIZUAL si il inlocuieste o eticheta
-// romaneasca, pentru ca butonul nativ scrie "Choose File" in engleza. Cardul
-// P3-49 romanizeaza separat fiecare camp de fisier din aplicatie; aici este
-// numai cat trebuie ca fila aceasta sa nu arate un cuvant englezesc.
+// CAMPUL DE FISIER AL BROWSERULUI ESTE ASCUNS si il inlocuieste butonul romanesc
+// comun, pentru ca butonul nativ scrie "Choose File" in engleza. Cardul P3-15 a
+// facut aici prima copie a acelui buton; cardul P3-49 a mutat-o in componenta
+// comuna FilePicker, folosita acum de fiecare camp de fisier din aplicatie.
 //
 // DOCTRINA DENSITATII: fila arata cel mult 5 documente, cele mai noi, si o
 // legatura catre lista completa, care pagineaza la 25. Lista completa traieste in
@@ -32,6 +32,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { createClient } from "@/lib/supabase/client";
 import { DOCS_BUCKET } from "@/lib/data/inbound-types";
 import { formatDate } from "@/lib/data/format";
@@ -183,32 +184,21 @@ function DocumentUpload({ owner }: { owner: DocumentOwner }) {
           <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">
             Fișier<span className="text-rc-orange"> *</span>
           </span>
-          <div className="flex items-center gap-3 min-h-[38px]">
-            <input
-              ref={inputRef}
-              id={inputId}
-              type="file"
-              accept={DOCUMENT_ACCEPT}
-              disabled={pending}
-              className="sr-only"
-              onChange={(e) => {
-                setFileName(e.target.files?.[0]?.name ?? null);
-                setError(null);
-                setDone(false);
-              }}
-              data-testid="document-input"
-            />
-            <label
-              htmlFor={inputId}
-              className="inline-flex cursor-pointer items-center rounded-[10px] border border-rc-line-strong bg-rc-white px-3 py-2 text-[13px] font-semibold text-rc-black hover:bg-rc-paper"
-              data-testid="document-choose"
-            >
-              Alege fișierul
-            </label>
-            <span className="max-w-[260px] truncate text-[13px] text-rc-muted" data-testid="document-chosen">
-              {fileName ?? "Niciun fișier ales"}
-            </span>
-          </div>
+          <FilePicker
+            inputRef={inputRef}
+            id={inputId}
+            accept={DOCUMENT_ACCEPT}
+            disabled={pending}
+            fileName={fileName}
+            onChange={(e) => {
+              setFileName(e.target.files?.[0]?.name ?? null);
+              setError(null);
+              setDone(false);
+            }}
+            inputTestId="document-input"
+            chooseTestId="document-choose"
+            nameTestId="document-chosen"
+          />
         </div>
 
         <Button type="button" onClick={upload} disabled={pending} data-testid="document-submit">

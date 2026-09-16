@@ -25,6 +25,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
+import { DateField } from "@/components/ui/DateField";
 import {
   DISPLAY_CURRENCY,
   formatDateWords,
@@ -37,10 +38,13 @@ import { createInboundOrder } from "@/lib/data/inbound-actions";
 
 // P3-41. Ziua aleasa, scrisa in cuvinte sub campul de data.
 //
-// Campul nativ aseaza ziua si luna dupa limba browserului, deci pe un browser in
-// engleza aceleasi taste pot pastra alta zi decat cea gandita. Textul arata ziua
-// care se va salva, se schimba odata cu campul si lipseste cand campul este gol:
-// o data de umplutura sub un camp optional ar parea aleasa.
+// Campul nativ aseza ziua si luna dupa limba browserului, deci pe un browser in
+// engleza aceleasi taste puteau pastra alta zi decat cea gandita. Cardul P3-49 a
+// scos cu totul campul nativ de sub ochii operatorului si a pus in locul lui
+// campul romanesc zz.ll.aaaa, care citeste intai ziua pe orice calculator, deci
+// divergenta nu mai exista. Textul scris in cuvinte RAMANE: el spune ziua care
+// se va salva, se schimba odata cu campul si lipseste cand campul este gol,
+// fiindca o data de umplutura sub un camp optional ar parea aleasa.
 function DateInWords({ value, testId }: { value: string; testId: string }) {
   const words = formatDateWords(value);
   if (!words) return null;
@@ -226,20 +230,18 @@ export function InboundOrderForm({
             </Select>
           </Field>
           <Field label="Data comenzii">
-            <Input
-              type="date"
+            <DateField
               value={orderedAt}
-              onChange={(e) => setOrderedAt(e.target.value)}
-              data-testid="order-ordered-at"
+              onChange={setOrderedAt}
+              testId="order-ordered-at"
             />
             <DateInWords value={orderedAt} testId="order-ordered-at-words" />
           </Field>
           <Field label="Livrare estimată" required>
-            <Input
-              type="date"
+            <DateField
               value={expectedAt}
-              onChange={(e) => setExpectedAt(e.target.value)}
-              data-testid="order-expected-at"
+              onChange={setExpectedAt}
+              testId="order-expected-at"
             />
             <DateInWords value={expectedAt} testId="order-expected-at-words" />
           </Field>

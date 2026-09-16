@@ -258,11 +258,16 @@ test.describe("Comenzi de intrare", () => {
 // poate deci salva alta zi decat cea la care se gandeste, fara sa vada nimic.
 //
 // De aceea cazul NU foloseste browserul din configuratie: lanseaza el unul in
-// engleza, explicit, si verifica intai ca divergenta chiar exista. Daca un mediu
-// ar aseza campul in ordinea romaneasca, cazul cade pe acea verificare, nu trece
-// fara sa fi dovedit ceva. Un browser lansat aici nu se poate cere prin
-// test.use intr-un grup, fiindca optiunile de lansare tin de proces, iar la
-// nivelul fisierului ar schimba limba pentru toate celelalte cazuri.
+// engleza, explicit. Un browser lansat aici nu se poate cere prin test.use
+// intr-un grup, fiindca optiunile de lansare tin de proces, iar la nivelul
+// fisierului ar schimba limba pentru toate celelalte cazuri.
+//
+// P3-49 A SCOS DIVERGENTA DIN RADACINA. Campul nativ nu se mai vede nicaieri;
+// in locul lui sta campul romanesc zz.ll.aaaa, care citeste intai ziua pe orice
+// browser. Browserul in engleza ramane deci conditia cazului, fiindca sub el se
+// vedea greseala, dar prima clauza nu mai fixeaza greseala ca pe un fapt: spune
+// ca aceleasi taste stocheaza acum ziua gandita. Textul scris in cuvinte, care
+// este chiar subiectul cardului P3-41, se verifica mai jos neschimbat.
 test.describe("Data aleasă, scrisă în cuvinte", () => {
   test("fiecare câmp de dată arată în română ziua care se salvează", async ({
     playwright,
@@ -295,10 +300,25 @@ test.describe("Data aleasă, scrisă în cuvinte", () => {
       await expect(orderedWords).toHaveCount(0);
       await expect(expectedWords).toHaveCount(0);
 
-      // DIVERGENTA, REPRODUSA. Operatorul tasteaza 01122027 gandind 1 decembrie;
-      // browserul in engleza citeste intai luna si pastreaza 12 ianuarie.
+      // CLAUZA 1, REFACUTA DE CARDUL P3-49. Pana la P3-49 aici se reproducea
+      // divergenta: aceleasi taste 01122027 pastrau 2027-01-12 pe un browser in
+      // engleza, si clauza aceasta fixa purtarea aceea ca pe un fapt. P3-49 a
+      // scos campul nativ de sub ochii operatorului, deci faptul nu mai exista:
+      // campul romanesc citeste intai ziua pe ORICE browser, iar clauza spune
+      // acum ce se stocheaza. Nu este o verificare slabita, este verificarea unui
+      // defect care a fost reparat.
       await expectedAt.pressSequentially("01122027");
-      await expect(expectedAt).toHaveValue("2027-01-12");
+      await expect(expectedAt).toHaveValue("01.12.2027");
+      await expect(page.getByTestId("order-expected-at-native")).toHaveValue("2027-12-01");
+      await expect(expectedWords).toHaveText("miercuri, 1 decembrie 2027");
+
+      // Restul cazului P3-41 lucreaza pe 12 ianuarie 2027, deci tastele se scriu
+      // de aici incolo in ordinea romaneasca. Ce se asteapta pe ecran nu se
+      // schimba cu nimic.
+      await expectedAt.fill("");
+      await expectedAt.pressSequentially("12012027");
+      await expect(expectedAt).toHaveValue("12.01.2027");
+      await expect(page.getByTestId("order-expected-at-native")).toHaveValue("2027-01-12");
 
       // Textul scris se vede si spune ziua care chiar se va salva, nu cea gandita.
       await expect(expectedWords).toBeVisible();
@@ -306,8 +326,10 @@ test.describe("Data aleasă, scrisă în cuvinte", () => {
       await expect(orderedWords).toHaveCount(0);
 
       // Al doilea camp, alta data, tot tastata: fiecare text isi urmeaza campul lui.
-      await orderedAt.pressSequentially("09102026");
-      await expect(orderedAt).toHaveValue("2026-09-10");
+      // Tot 10 septembrie 2026, tastat acum ziua intai.
+      await orderedAt.pressSequentially("10092026");
+      await expect(orderedAt).toHaveValue("10.09.2026");
+      await expect(page.getByTestId("order-ordered-at-native")).toHaveValue("2026-09-10");
       await expect(orderedWords).toBeVisible();
       await expect(orderedWords).toHaveText("joi, 10 septembrie 2026");
       await expect(expectedWords).toHaveText("marți, 12 ianuarie 2027");

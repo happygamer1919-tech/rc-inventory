@@ -10,6 +10,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Select } from "@/components/ui/primitives";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
@@ -532,47 +533,34 @@ export function ProductForm({
           </div>
 
           {/* P3-56. IMAGINE PRODUS, la adaugare si la modificare. Campul nativ scrie
-              "Choose File" in engleza, deci este ascuns vizual si il inlocuieste o
-              eticheta romaneasca, ca in fila Documente. */}
+              "Choose File" in engleza, deci este ascuns si il inlocuieste butonul
+              romanesc comun. P3-49 a mutat butonul in componenta FilePicker si a
+              adus si aici acelasi text ca peste tot, "Alege fișierul": un singur
+              fel de a alege un fisier, oriunde in aplicatie. */}
           {imagesActive ? (
             <div className="mt-1 mb-1 border-t border-rc-line pt-4" data-testid="field-image">
               <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">
                 Imagine produs
               </span>
-              <div className="flex items-center gap-3 min-h-[38px]">
-                <input
-                  ref={imageRef}
-                  id={imageInputId}
-                  type="file"
-                  accept={PRODUCT_IMAGE_ACCEPT}
-                  disabled={pending}
-                  className="sr-only"
-                  onChange={(e) => {
-                    setImageName(e.target.files?.[0]?.name ?? null);
-                    if (errorField === "image") {
-                      setError(null);
-                      setErrorField(undefined);
-                    }
-                  }}
-                  data-testid="field-image-input"
-                />
-                <label
-                  htmlFor={imageInputId}
-                  className={[
-                    "inline-flex cursor-pointer items-center rounded-[10px] border bg-rc-white px-3 py-2 text-[13px] font-semibold text-rc-black hover:bg-rc-paper",
-                    errorField === "image" ? "border-rc-danger" : "border-rc-line-strong",
-                  ].join(" ")}
-                  data-testid="field-image-choose"
-                >
-                  Alege imaginea
-                </label>
-                <span
-                  className="max-w-[260px] truncate text-[13px] text-rc-muted"
-                  data-testid="field-image-chosen"
-                >
-                  {imageName ?? "Nicio imagine aleasă"}
-                </span>
-              </div>
+              <FilePicker
+                inputRef={imageRef}
+                id={imageInputId}
+                accept={PRODUCT_IMAGE_ACCEPT}
+                disabled={pending}
+                fileName={imageName}
+                onChange={(e) => {
+                  setImageName(e.target.files?.[0]?.name ?? null);
+                  if (errorField === "image") {
+                    setError(null);
+                    setErrorField(undefined);
+                  }
+                }}
+                inputTestId="field-image-input"
+                chooseTestId="field-image-choose"
+                nameTestId="field-image-chosen"
+                buttonClassName={errorField === "image" ? "border-rc-danger" : undefined}
+                ariaLabel="Imagine produs"
+              />
               <p className="text-[12px] text-rc-muted mt-1.5">
                 Se acceptă {PRODUCT_IMAGE_EXTENSIONS_LABEL}, de cel mult 10 MB.
                 {editing ? " O imagine nouă o înlocuiește pe cea existentă." : ""}

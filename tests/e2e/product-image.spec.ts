@@ -319,8 +319,10 @@ test.describe("Imaginea produsului", () => {
     // CAMPUL ESTE ROMANESC: butonul nativ scrie in engleza, deci este ascuns vizual.
     const field = page.getByTestId("field-image");
     await expect(field).toContainText("Imagine produs");
-    await expect(page.getByTestId("field-image-choose")).toHaveText("Alege imaginea");
-    await expect(page.getByTestId("field-image-chosen")).toHaveText("Nicio imagine aleasă");
+    // P3-49. Un singur fel de a alege un fisier in toata aplicatia, deci si aici
+    // scrie "Alege fișierul" si "Niciun fișier ales", nu un text numai al lui.
+    await expect(page.getByTestId("field-image-choose")).toHaveText("Alege fișierul");
+    await expect(page.getByTestId("field-image-chosen")).toHaveText("Niciun fișier ales");
     await expect(field).toContainText(`Se acceptă ${ALLOWED}, de cel mult 10 MB.`);
     const inputBox = await page.getByTestId("field-image-input").boundingBox();
     expect(inputBox === null || (inputBox.width <= 1 && inputBox.height <= 1)).toBe(true);

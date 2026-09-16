@@ -11,6 +11,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
+import { DateField } from "@/components/ui/DateField";
 import { createProjectRecord, updateProjectRecord } from "@/lib/data/project-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import { ALL_STATUSES, type ProjectDetail } from "@/lib/data/projects-list-types";
@@ -178,20 +179,18 @@ export function ProjectForm({
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Data început">
-              <Input
-                type="date"
+              <DateField
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                data-testid="field-project-start"
+                onChange={setStartDate}
+                testId="field-project-start"
               />
             </Field>
             <Field label="Termen estimat">
-              <Input
-                type="date"
+              <DateField
                 value={plannedEndDate}
-                onChange={(e) => setPlannedEndDate(e.target.value)}
+                onChange={setPlannedEndDate}
                 className={fieldClass("plannedEndDate")}
-                data-testid="field-project-end"
+                testId="field-project-end"
               />
             </Field>
           </div>
