@@ -239,10 +239,28 @@ that those steps must RUN does not bind it. For the same reason section 8.0's
 nothing was applied to any database by this work. EXT-34 is blocked on Max and is
 ineligible for every run, scheduled or interactive.
 
-**PR 308 conflicts on `docs/board/rc-board-phase3.json` as a direct result of this
-merge.** It was excluded from both dispatches and is untouched. It is the first
-thing the next session should pick up, and per R-052 it is resolved locally by
-EXECUTOR against the full tree, never in the web editor.
+**PR 308 conflicted on `docs/board/rc-board-phase3.json` as a direct result of
+this merge, and somebody else has since resolved and landed it.** It was excluded
+from both dispatches and was never touched by this terminal. It merged as
+`7b0b7a5` at 2026-09-16T13:17:47Z, authored by another contributor, and
+`origin/main` is that commit. The phase 3 board there parses, carries 110 cards,
+and EXT-34 is unchanged at `owner_terminal: max`, `status: blocked`,
+`blocked_on: max`. **So this is no longer work for the next session**, and the
+sentence that said it was has been corrected here rather than left to misdirect
+whoever reads this next.
+
+**This report's own pull request was updated from `main` through the GitHub web
+Update-branch button**, as `db57f62`, ninety seconds after 308 landed. It is
+recorded because R-052 and CLAUDE.md section 3 reserve conflict resolution to
+EXECUTOR working locally and name the web editor as the thing not to use. **No
+harm was done in this instance and that was checked rather than assumed**: the
+two sides touched disjoint files, this report is byte-identical across the merge,
+and the board validator, `check:conflict-residue` and the other five gates were
+all re-run locally on `db57f62` at rc=0. The risk the rule exists for is real,
+because that button is what strips markers down to bare tails that a marker grep
+cannot find, which is the exact damage this report's own section 2 describes.
+**That push also cancelled the first quality run on this pull request**, at
+27 minutes in, under the workflow's `cancel-in-progress` setting.
 
 **The scheduled harness is not a risk to EXT-34.** `com.ai.rc-poc` is disabled.
 The two agents that are loaded, the 60 second responder and the twice-daily
