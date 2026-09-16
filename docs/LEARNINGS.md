@@ -5653,3 +5653,30 @@ least one of those, so every case fails on that tree. RULE: **an acceptance line
 red-first CI run cannot be met on a card branch in this repository. Ask for it as a static proof
 against `origin/main`, naming the exact commands, or run the spec red BEFORE the card branch
 exists; do not flip a card to `shipped` to get past `check:board-edit`.**
+
+### A document-level no-sideways-scroll check is a false green inside the app shell
+**Tag:** frontend
+**ERROR:** the phone acceptance for G23 measures `document.documentElement.scrollWidth <= clientWidth`.
+Inside the authenticated shell (`app/(app)/layout.tsx`) the page content sits in `<main className="flex-1
+overflow-y-auto ...">`, and `overflow-y: auto` forces `overflow-x` to `auto` as well. A 900 px table on
+a 390 px phone therefore scrolled sideways INSIDE `<main>` while the document stayed exactly 390 px
+wide: on the local harness for P3-64 the Inventar table ran from 33 to 831 px and the document check
+alone would have passed.
+**SOLUTION:** `tests/e2e/phone-lists.spec.ts` measures `main.scrollWidth <= main.clientWidth` beside the
+document, plus every visible element inside `<main>` between 0 and 390 px. RULE: **a width check must
+be taken on the element that actually scrolls; in this app that is `<main>`, not the document.**
+
+### A phone layout for a table must restyle the one DOM, never add a second copy
+**Tag:** frontend
+**ERROR:** the obvious way to give a table a phone layout is a second, card-shaped list shown under
+768 px and hidden above it. Every existing spec on these screens counts rows by `data-testid`
+(`product-row`, `client-row`, `project-row`), so a hidden duplicate would double every count at
+1440 px and break desktop specs that the card requires to pass unchanged.
+**SOLUTION:** P3-64 keeps one table and adds only `max-md:` classes: the table, tbody and rows turn into
+block and grid boxes, `thead` is hidden, and each cell carries `data-label` with its header text, drawn
+by `max-md:before:content-[attr(data-label)]`. Cell text content is unchanged, and screenshots of all
+nine screen variants at 1440, 1100 and 800 px were byte-identical before and after. One caution found
+on the way: a screenshot taken right after typing into a field differs by a few pixels from run to run
+(blinking caret, focus ring transition); blur the field and let the transition end before comparing
+hashes. RULE: **responsive work on a list keeps a single DOM and restyles it; labels come from
+attributes drawn by CSS, so no spec that reads text sees a change.**
