@@ -57,7 +57,8 @@ export function ProductForm({
   /** P3-56: false cat timp migratia 0045 nu este aplicata; atunci campul de imagine lipseste. */
   imagesActive?: boolean;
   /** P3-57: combinatiile de tabla Dasterum. Goala cat timp migratia 0046 nu este
-   *  aplicata, si atunci alegerea de model lipseste. Folosita numai la adaugare. */
+   *  aplicata, si atunci alegerea de model lipseste. P3-59: la adaugare si la
+   *  modificare. */
   sheetOptions?: SheetOption[];
   onClose: () => void;
 }) {
@@ -104,16 +105,21 @@ export function ProductForm({
       : String(product.packageFactor),
   );
 
-  // P3-57. MODEL, SERIE SI GROSIME, NUMAI LA ADAUGARE. Fiecare combinatie este un
-  // produs al ei, cu SKU-ul, pretul si stocul lui, deci alegerea nu se schimba pe un
-  // produs existent. Listele se deriva din combinatiile primite: seria numai dintre
-  // cele ale modelului, grosimea numai dintre cele ale seriei, deci o combinatie care
-  // nu este in lista nu poate fi aleasa. Alegerea grosimii completeaza denumirea,
-  // unitatea, categoria si furnizorul; toate raman modificabile.
-  const sheetActive = !editing && sheetOptions.length > 0;
-  const [sheetModel, setSheetModel] = React.useState("");
-  const [sheetSeries, setSheetSeries] = React.useState("");
-  const [sheetKey, setSheetKey] = React.useState("");
+  // P3-57. MODEL, SERIE SI GROSIME. Listele se deriva din combinatiile primite: seria
+  // numai dintre cele ale modelului, grosimea numai dintre cele ale seriei, deci o
+  // combinatie care nu este in lista nu poate fi aleasa. Alegerea grosimii completeaza
+  // denumirea, unitatea, categoria si furnizorul; toate raman modificabile.
+  //
+  // P3-59. SI LA MODIFICARE. Pana atunci listele apareau numai la adaugare, iar pe un
+  // produs existent combinatia nu se mai putea schimba sau goli. Acum pornesc de la
+  // combinatia salvata, ca STARE INITIALA si nimic mai mult: deschiderea formularului
+  // nu rescrie denumirea, unitatea, categoria, furnizorul sau pretul. Numai alegerea
+  // unei grosimi le completeaza, exact ca la adaugare.
+  const sheetActive = sheetOptions.length > 0;
+  const savedSheet = product?.sheet ?? null;
+  const [sheetModel, setSheetModel] = React.useState(savedSheet?.model ?? "");
+  const [sheetSeries, setSheetSeries] = React.useState(savedSheet?.series ?? "");
+  const [sheetKey, setSheetKey] = React.useState(savedSheet ? sheetOptionKey(savedSheet) : "");
   const sheetModels = React.useMemo(
     () => distinct(sheetOptions.map((o) => o.model)),
     [sheetOptions],
@@ -221,17 +227,22 @@ export function ProductForm({
       // P3-56: numai numele si marimea. Serverul refuza tipul si marimea INAINTE de
       // orice scriere, deci o imagine gresita nu salveaza nici produsul.
       image: file ? { fileName: file.name, sizeBytes: file.size } : null,
-      // P3-57: combinatia aleasa, numai la adaugare. Serverul o cauta in lista si
-      // refuza un model fara serie sau fara grosime.
-      sheet:
-        sheetActive && sheetModel
-          ? {
-              model: sheetModel,
-              series: sheetSeries,
-              thicknessMm: sheetPicked?.thicknessMm ?? "",
-              finish: sheetPicked?.finish ?? "",
-            }
-          : null,
+      // P3-57: combinatia aleasa. Serverul o cauta in lista si refuza un model fara
+      // serie sau fara grosime. P3-59: null inseamna "Fără model" si goleste
+      // combinatia la modificare; cand listele nu se vad, campul lipseste cu totul,
+      // iar combinatia salvata ramane neatinsa.
+      ...(sheetActive
+        ? {
+            sheet: sheetModel
+              ? {
+                  model: sheetModel,
+                  series: sheetSeries,
+                  thicknessMm: sheetPicked?.thicknessMm ?? "",
+                  finish: sheetPicked?.finish ?? "",
+                }
+              : null,
+          }
+        : {}),
     };
     const targetId = product?.id ?? savedId;
     const result = targetId ? await updateProduct(targetId, input) : await createProduct(input);

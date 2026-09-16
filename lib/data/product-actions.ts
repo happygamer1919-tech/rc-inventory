@@ -61,8 +61,11 @@ type ProductInput = {
    *  Se verifica aici INAINTE de orice scriere; fisierul vine dupa salvare, prin
    *  prepareProductImageUpload si confirmProductImage. */
   image?: ProductImageChoice | null;
-  /** P3-57: combinatia de tabla aleasa din lista Dasterum, numai la adaugare. Null
-   *  pentru un produs obisnuit. updateProduct nu o citeste si nu o scrie niciodata. */
+  /** P3-57: combinatia de tabla aleasa din lista Dasterum. Null pentru un produs
+   *  obisnuit. P3-59: si la modificare, unde null inseamna "Fără model", deci
+   *  combinatia se goleste, iar ABSENTA (undefined) inseamna ca formularul nu a
+   *  aratat listele, deci combinatia salvata nu se atinge. Pana la P3-59 comentariul
+   *  spunea ca updateProduct nu o citeste si nu o scrie niciodata. */
   sheet?: SheetChoice | null;
 };
 
@@ -130,7 +133,9 @@ type SheetColumns = {
  *  SEPARAT DE validate(), DELIBERAT. validate() intoarce valorile pe care le scriu
  *  si adaugarea si modificarea. Daca le-ar purta si pe acestea, fiecare modificare
  *  a unui produs ar goli combinatia aleasa la adaugare, fiindca formularul de
- *  modificare nu o trimite.
+ *  modificare nu o trimite. P3-59: formularul de modificare o trimite acum, cu
+ *  listele precompletate, dar numai cand le arata; cand nu le arata nu trimite
+ *  nimic, iar updateProduct lasa coloanele cum sunt (vezi sheetUpdateColumns).
  *
  *  UN MODEL FARA SERIE SAU FARA GROSIME ESTE REFUZAT, nu salvat ca produs obisnuit:
  *  operatorul a inceput o alegere, iar a o pierde tacut ar fi un produs altfel decat
@@ -199,6 +204,31 @@ async function sheetColumns(
     return { ok: false, field: "sheet", message: "Combinația aleasă nu există în lista Dasterum." };
   }
   return { ok: true, value };
+}
+
+/**
+ * P3-59. Ce scrie modificarea in coloanele combinatiei.
+ *
+ * sheetColumns NU GOLESTE NIMIC: pentru "Fără model" intoarce un obiect gol, care la
+ * adaugare inseamna coloane nule, dar la modificare ar lasa combinatia veche pe
+ * loc. Deci aici "Fără model" se scrie explicit ca patru valori nule, ceea ce
+ * respecta products_sheet_complete, si numai cat timp coloanele exista.
+ *
+ * FORMULARUL CARE NU A ARATAT LISTELE NU TRIMITE COMBINATIA, iar atunci nu se scrie
+ * nimic: a goli o combinatie pe care operatorul nu a vazut-o ar fi o pierdere tacuta.
+ */
+async function sheetUpdateColumns(
+  client: Supabase,
+  choice: SheetChoice | null | undefined,
+  value: SheetColumns | null,
+): Promise<{ ok: true; value: Record<string, string | null> } | Failure> {
+  if (choice === undefined) return { ok: true, value: {} };
+  if (value !== null) return sheetColumns(client, value);
+  if (!(await hasSheetOptions(client))) return { ok: true, value: {} };
+  return {
+    ok: true,
+    value: { sheet_model: null, sheet_series: null, sheet_thickness_mm: null, sheet_finish: null },
+  };
 }
 
 /** Validare comuna. Intoarce fie valorile curate, fie primul camp gresit. */
@@ -362,6 +392,10 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
   const pack = validatePackage(input);
   if (!pack.ok) return pack;
 
+  // P3-59: aceeasi verificare a combinatiei ca la adaugare.
+  const sheet = validateSheet(input);
+  if (!sheet.ok) return sheet;
+
   const supabase = await createClient();
   const image = await checkImageChoice(supabase, input.image);
   if (!image.ok) return image;
@@ -397,6 +431,10 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     }
   }
 
+  // P3-59: INAINTE de resolveSupplier, din acelasi motiv ca la adaugare.
+  const sheetCols = await sheetUpdateColumns(supabase, input.sheet, sheet.value);
+  if (!sheetCols.ok) return sheetCols;
+
   const supplier = await resolveSupplier(input.supplier);
   if (!supplier.ok) return supplier;
 
@@ -405,7 +443,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
 
   const { error } = await supabase
     .from("products")
-    .update({ ...checked.value, ...supplier.value, ...packColumns.value })
+    .update({ ...checked.value, ...supplier.value, ...packColumns.value, ...sheetCols.value })
     .eq("id", id);
   if (error) return translateWriteError(error.code, error.message);
 

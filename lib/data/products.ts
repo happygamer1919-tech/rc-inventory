@@ -13,7 +13,8 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { hasPhase3Schema, hasProductPackaging } from "./schema-capability";
+import { hasPhase3Schema, hasProductPackaging, hasSheetOptions } from "./schema-capability";
+import { normalizeThickness, type SheetChoice } from "./sheet-options-types";
 import type { SupplierOption } from "./suppliers-types";
 import { isUnitCode, type UnitCode } from "./units";
 
@@ -36,6 +37,10 @@ export type CatalogProduct = {
   /** EXT-10: cate unitati de stoc incap intr-un ambalaj. Prezent exact cand
    *  packageUnit este prezent, impus de constrangerea din 0035. */
   packageFactor: number | null;
+  /** P3-59: combinatia de tabla Dasterum salvata pe produs, ca formularul de
+   *  modificare sa porneasca de la ea. Null pentru un produs obisnuit, si null cat
+   *  timp migratia 0046 nu este aplicata. */
+  sheet: SheetChoice | null;
   needsReview: boolean;
   active: boolean;
   /** Suma loturilor minus iesirile. Zero cat timp nu a intrat nimic. */
@@ -111,6 +116,10 @@ type ProductRow = {
   supplier_id: string | null;
   package_unit?: string | null;
   package_factor?: unknown;
+  sheet_model?: string | null;
+  sheet_series?: string | null;
+  sheet_thickness_mm?: unknown;
+  sheet_finish?: string | null;
   suppliers: { name: string } | { name: string }[] | null;
   needs_review: boolean;
   active: boolean;
@@ -141,10 +150,21 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
       row.package_factor === null || row.package_factor === undefined
         ? null
         : toNumber(row.package_factor),
+    sheet: toSheetChoice(row),
     needsReview: row.needs_review,
     active: row.active,
     stock: stock.get(row.id) ?? 0,
   };
+}
+
+/** P3-59. Combinatia salvata, sau null. Constrangerea din 0046 cere toate patru
+ *  coloanele sau niciuna, deci un model lipsa inseamna un produs obisnuit. Grosimea
+ *  vine ca "0.45", forma din lista de combinatii, ca alegerea sa se regaseasca. */
+function toSheetChoice(row: ProductRow): SheetChoice | null {
+  const model = row.sheet_model ?? null;
+  const thicknessMm = normalizeThickness(row.sheet_thickness_mm);
+  if (!model || !row.sheet_series || !thicknessMm) return null;
+  return { model, series: row.sheet_series, thicknessMm, finish: row.sheet_finish ?? "" };
 }
 
 /**
@@ -168,9 +188,13 @@ export async function listProducts(): Promise<CatalogProduct[]> {
   // se termina in aceeasi secunda. Un select care numeste o coloana neaplicata
   // primeste 42703, iar aceasta functie este chemata de tabloul de bord, de
   // inventar si de fiecare formular care alege un produs: exact forma lui INC-05.
-  const columns = (await hasProductPackaging(supabase))
+  const packaging = (await hasProductPackaging(supabase))
     ? `${base}, package_unit, package_factor`
     : base;
+  // P3-59. COLOANELE COMBINATIEI, CU ACEEASI GRIJA: numai cand 0046 este aplicata.
+  const columns = (await hasSheetOptions(supabase))
+    ? `${packaging}, sheet_model, sheet_series, sheet_thickness_mm, sheet_finish`
+    : packaging;
 
   const [{ data, error }, stock] = await Promise.all([
     supabase.from("products").select(columns).order("sku", { ascending: true }),

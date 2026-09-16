@@ -5653,3 +5653,23 @@ least one of those, so every case fails on that tree. RULE: **an acceptance line
 red-first CI run cannot be met on a card branch in this repository. Ask for it as a static proof
 against `origin/main`, naming the exact commands, or run the spec red BEFORE the card branch
 exists; do not flip a card to `shipped` to get past `check:board-edit`.**
+
+### A spec that asserts a feature's scope limit locks the defect in
+**Tag:** frontend
+**ERROR:** on 2026-09-16 Max reported on the live site that Model, Serie and Grosime could not be
+changed on a product that already exists. `components/inventory/ProductForm.tsx` gated the lists
+with `const sheetActive = !editing && sheetOptions.length > 0;`, and P3-57's own acceptance spec,
+`tests/e2e/roofing-product-picker.spec.ts`, asserted the gap as behaviour on the edit form:
+`await expect(page.getByTestId("field-sheet")).toHaveCount(0);`. The suite was green on exactly the
+screen the owner could not use. Separately, the task brief for the fix said that `sheetColumns`
+"maps [no model] into the four columns set to null". It does not: for `null` it returns `{}`,
+which on insert means null columns and on update means "leave the old combination in place", so
+mirroring `createProduct` literally would have made "Fără model" a no-op on edit.
+**SOLUTION:** card P3-59 shows the lists on edit, seeded from the saved combination as initial
+state only, and changes that one spec line to expect the prefilled lists. `updateProduct` writes
+four explicit nulls for "Fără model" and writes nothing when the form did not show the lists (the
+`sheet` key is absent), so a combination the operator never saw is never cleared. RULE: **an
+acceptance spec asserts what the owner can do, not what the card chose to leave out; a limit
+written as `toHaveCount(0)` becomes a test that defends the defect. And a helper that returns `{}`
+for "nothing chosen" is only equivalent to "clear" on insert: check the null branch before reusing
+it on update.**

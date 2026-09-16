@@ -371,6 +371,7 @@ export function InventoryScreen({
           units={units}
           suppliers={suppliers}
           imagesActive={imagesActive}
+          sheetOptions={sheetOptions}
           focusField={focusThreshold ? "threshold" : undefined}
           onClose={() => {
             setEditing(null);
