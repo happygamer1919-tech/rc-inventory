@@ -243,7 +243,10 @@ export const BOARD_CONFIGS = {
   // the board's own `renders_to` field, as both earlier boards do.
   "RC-INVENTORY - Phase 3 - CRM and Density": {
     owner: "ivan",
-    whoLabels: { ivan: "Ivan", andre: "Andre", client: "Client", infra: "Infra" },
+    // max is the platform owner, added 2026-09-16 with the blocked_on_people
+    // column of the same name. A column with no label renders as a blank header,
+    // so the two are added together or neither is.
+    whoLabels: { ivan: "Ivan", andre: "Andre", client: "Client", max: "Max", infra: "Infra" },
     laneLabels: {
       blocked_on_people: "Blocked on people",
       in_flight: "In flight",
