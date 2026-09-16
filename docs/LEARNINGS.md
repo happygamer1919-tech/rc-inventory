@@ -5730,3 +5730,17 @@ acceptance spec asserts what the owner can do, not what the card chose to leave 
 written as `toHaveCount(0)` becomes a test that defends the defect. And a helper that returns `{}`
 for "nothing chosen" is only equivalent to "clear" on insert: check the null branch before reusing
 it on update.**
+
+### A component name in a brief is not proof of which component the file uses
+**Tag:** frontend
+**ERROR:** the task for P3-61 said the Serie and Grosime lists sit inside `Field` from
+`components/ui/primitives.tsx` and told the executor to pass its existing `hint` prop. The first
+`npx tsc --noEmit` failed with `TS2322: Property 'hint' does not exist on type '{ label: string;
+children: ReactNode; }'`: `components/inventory/ProductForm.tsx` never imports the shared `Field`, it
+declares its own private one at the bottom of the file, with no hint and no "(opțional)" marker.
+Importing the shared one instead would have compiled, and would have printed "(opțional)" beside
+Serie and Grosime but not beside Model, and dropped the private field's bottom margin.
+**SOLUTION:** the private `Field` gained an optional `hint` that renders the same line as the shared
+one; the shared primitives were not touched. RULE: **before reusing a component a brief names, grep
+the file's imports and its own local declarations; a same-named local component shadows the shared
+one silently, and the type checker is the first thing that tells you.**
