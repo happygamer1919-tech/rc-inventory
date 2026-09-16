@@ -58,6 +58,23 @@ import { ClientForm } from "./ClientForm";
 import { LeaduriForm } from "./LeaduriForm";
 import { StageMark } from "./StageMark";
 
+// P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
+// doua lista ascunsa, fiindca spec-urile numara client-row si o copie ar dubla
+// fiecare numar pe desktop. Eticheta fiecarui camp este textul din antetul
+// coloanei, pus pe celula in data-label si desenat din CSS, deci textul celulei
+// ramane exact cel de azi. Textele starilor goale nu se ating.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:px-5 max-md:[&_tbody:not(:empty)]:pb-5";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** Legatura din rand: pe telefon o tinta de 44px, nu doar inaltimea textului. */
+const PHONE_LINK = "max-md:flex max-md:min-h-11 max-md:items-center";
+const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+
 export function ClientsScreen({
   rows,
   total,
@@ -130,7 +147,11 @@ export function ClientsScreen({
         }
         actions={
           !canWrite ? null : inLeaduri ? (
-            <Button onClick={() => setCreatingLead(true)} data-testid="leaduri-new">
+            <Button
+              onClick={() => setCreatingLead(true)}
+              data-testid="leaduri-new"
+              className="max-md:min-h-11"
+            >
               Lead nou
             </Button>
           ) : (
@@ -140,11 +161,16 @@ export function ClientsScreen({
                   variant="secondary"
                   onClick={() => setCreatingLead(true)}
                   data-testid="leaduri-new"
+                  className="max-md:min-h-11"
                 >
                   Lead nou
                 </Button>
               ) : null}
-              <Button onClick={() => setCreating(true)} data-testid="client-new">
+              <Button
+                onClick={() => setCreating(true)}
+                data-testid="client-new"
+                className="max-md:min-h-11"
+              >
                 Client nou
               </Button>
             </>
@@ -152,7 +178,7 @@ export function ClientsScreen({
         }
       />
 
-      <Card>
+      <Card className={PHONE_TABLE}>
         <CardHeader
           title="Listă"
           hint={
@@ -245,7 +271,7 @@ export function ClientsScreen({
             la final tine Șterge filtrele, ca selecturile sa nu treaca dedesubt
             cand butonul apare. */}
         <div
-          className="p-5 grid grid-cols-[1.6fr_1fr_1fr_auto] items-center gap-3"
+          className="p-5 grid grid-cols-[1.6fr_1fr_1fr_auto] items-center gap-3 max-md:grid-cols-1"
           data-testid="clients-filters"
         >
           <Input
@@ -253,12 +279,16 @@ export function ClientsScreen({
             onChange={(e) => setQ(e.target.value)}
             placeholder="Caută după denumire, IDNO, telefon sau email"
             data-testid="clients-search"
+            // Indiciul cautarii este mai lung decat caseta pe telefon: se termina
+            // in puncte de suspensie, nu intr-o litera taiata. Textul nu se schimba.
+            className={`${PHONE_CONTROL} max-md:text-ellipsis`}
           />
 
           <Select
             value={query.type}
             onChange={(e) => push({ tip: e.target.value, pagina: "1" })}
             data-testid="clients-type"
+            className={PHONE_CONTROL}
           >
             <option value="">Toate tipurile</option>
             <option value="company">{CLIENT_TYPE_LABEL.company}</option>
@@ -269,6 +299,7 @@ export function ClientsScreen({
             value={query.status}
             onChange={(e) => push({ stare: e.target.value, pagina: "1" })}
             data-testid="clients-status"
+            className={PHONE_CONTROL}
           >
             <option value="active">Activi</option>
             <option value="inactive">Inactivi</option>
@@ -280,6 +311,7 @@ export function ClientsScreen({
               variant="secondary"
               onClick={() => router.push(pathname)}
               data-testid="clients-clear"
+              className="max-md:min-h-11"
             >
               Șterge filtrele
             </Button>
@@ -324,27 +356,29 @@ export function ClientsScreen({
                   data-testid="client-row"
                   data-id={c.id}
                   data-name={c.name}
-                  className="hover:bg-rc-paper"
+                  className={`hover:bg-rc-paper ${PHONE_ROW}`}
                 >
-                  <Td>
+                  <Td data-label="Denumire" className={PHONE_WIDE}>
                     <Link
                       href={`/clienti/${c.id}`}
-                      className="font-semibold text-rc-black hover:underline"
+                      className={`font-semibold text-rc-black hover:underline ${PHONE_LINK}`}
                       data-testid="client-link"
                     >
                       {c.name}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td data-label="Interes" className={PHONE_WIDE}>
+                    {/* Pe telefon nu exista title la trecerea mouse-ului, deci
+                        interesul se rupe pe randuri in loc sa fie taiat. */}
                     <span
-                      className="block max-w-[260px] truncate"
+                      className="block max-w-[260px] truncate max-md:max-w-none max-md:overflow-visible max-md:whitespace-normal"
                       title={c.interest?.trim() || undefined}
                       data-testid="row-interest"
                     >
                       {c.interest?.trim() || "-"}
                     </span>
                   </Td>
-                  <Td>
+                  <Td data-label="Etapă" className={PHONE_CELL}>
                     {c.stage ? (
                       <StageMark
                         stage={c.stage}
@@ -356,8 +390,8 @@ export function ClientsScreen({
                       "-"
                     )}
                   </Td>
-                  <Td>
-                    <span className="inline-flex items-center gap-2">
+                  <Td data-label="Data de reluare" className={PHONE_CELL}>
+                    <span className="inline-flex items-center gap-2 max-md:flex-wrap">
                       {formatDate(c.followUpDate)}
                       {/* Intarziat inseamna inainte de azi in Chisinau, calculat in
                           baza. Azi este datorat, nu intarziat. */}
@@ -368,8 +402,10 @@ export function ClientsScreen({
                       ) : null}
                     </span>
                   </Td>
-                  <Td>{c.phone ?? "-"}</Td>
-                  <Td>
+                  <Td data-label="Telefon" className={PHONE_CELL}>
+                    {c.phone ?? "-"}
+                  </Td>
+                  <Td data-label="Stare" className={PHONE_CELL}>
                     <Chip tone={c.active ? "ok" : "neutral"}>
                       {c.active ? "Activ" : "Inactiv"}
                     </Chip>
@@ -396,21 +432,27 @@ export function ClientsScreen({
                   data-testid="client-row"
                   data-id={c.id}
                   data-name={c.name}
-                  className="hover:bg-rc-paper"
+                  className={`hover:bg-rc-paper ${PHONE_ROW}`}
                 >
-                  <Td>
+                  <Td data-label="Denumire" className={PHONE_WIDE}>
                     <Link
                       href={`/clienti/${c.id}`}
-                      className="font-semibold text-rc-black hover:underline"
+                      className={`font-semibold text-rc-black hover:underline ${PHONE_LINK}`}
                       data-testid="client-link"
                     >
                       {c.name}
                     </Link>
                   </Td>
-                  <Td>{CLIENT_TYPE_LABEL[c.type]}</Td>
-                  <Td>{c.phone ?? "-"}</Td>
-                  <Td align="right">{c.activeProjects}</Td>
-                  <Td>
+                  <Td data-label="Tip" className={PHONE_CELL}>
+                    {CLIENT_TYPE_LABEL[c.type]}
+                  </Td>
+                  <Td data-label="Telefon" className={PHONE_CELL}>
+                    {c.phone ?? "-"}
+                  </Td>
+                  <Td align="right" data-label="Proiecte active" className={PHONE_CELL}>
+                    {c.activeProjects}
+                  </Td>
+                  <Td data-label="Stare" className={PHONE_CELL}>
                     <Chip tone={c.active ? "ok" : "neutral"}>
                       {c.active ? "Activ" : "Inactiv"}
                     </Chip>
@@ -423,7 +465,7 @@ export function ClientsScreen({
 
         {pageCount > 1 ? (
           <div
-            className="px-5 py-4 flex items-center justify-between border-t border-rc-line"
+            className="px-5 py-4 flex items-center justify-between border-t border-rc-line max-md:flex-wrap max-md:gap-3"
             data-testid="clients-pagination"
           >
             <span className="text-[12.5px] text-rc-muted">
@@ -435,6 +477,7 @@ export function ClientsScreen({
                 disabled={page <= 1}
                 onClick={() => push({ pagina: String(page - 1) })}
                 data-testid="clients-prev"
+                className="max-md:min-h-11"
               >
                 Înapoi
               </Button>
@@ -443,6 +486,7 @@ export function ClientsScreen({
                 disabled={page >= pageCount}
                 onClick={() => push({ pagina: String(page + 1) })}
                 data-testid="clients-next"
+                className="max-md:min-h-11"
               >
                 Înainte
               </Button>
@@ -478,7 +522,8 @@ export function ClientsScreen({
 
 function chipClass(active: boolean): string {
   return [
-    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold leading-none whitespace-nowrap transition-colors",
+    // P3-64: pe telefon cipul este o tinta de atingere de 44px.
+    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold leading-none whitespace-nowrap transition-colors max-md:min-h-11",
     active
       ? "bg-rc-white text-rc-black border-rc-orange"
       : "bg-rc-paper text-rc-muted border-rc-line-strong hover:text-rc-black",

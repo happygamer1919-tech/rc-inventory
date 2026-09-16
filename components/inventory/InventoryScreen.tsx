@@ -35,6 +35,20 @@ const STOCK_LEVELS: Array<{ value: StockLevel; label: string }> = [
   { value: "suficient", label: "Stoc suficient" },
 ];
 
+// P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
+// doua lista ascunsa, fiindca spec-urile numara randurile dupa data-testid si o
+// copie ar dubla fiecare numar pe desktop. Eticheta fiecarui camp este textul din
+// antetul coloanei, pus pe celula in data-label si desenat din CSS, deci textul
+// celulei ramane exact cel de azi.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-3";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:[&>span]:whitespace-normal max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+
 type Visibility = "active" | "toate" | "inactive";
 
 const VISIBILITY: Array<{ value: Visibility; label: string }> = [
@@ -146,14 +160,18 @@ export function InventoryScreen({
         title="Inventar"
         lead="Toate produsele din depozitul central. Apasă pe un rând pentru loturile și mișcările produsului."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-md:flex-col max-md:items-end">
             {filtersActive ? (
-              <Button variant="secondary" onClick={reset}>
+              <Button variant="secondary" onClick={reset} className="max-md:min-h-11">
                 Șterge filtrele
               </Button>
             ) : null}
             {canWrite ? (
-              <Button onClick={() => setCreating(true)} data-testid="product-new">
+              <Button
+                onClick={() => setCreating(true)}
+                data-testid="product-new"
+                className="max-md:min-h-11"
+              >
                 Adaugă produs
               </Button>
             ) : null}
@@ -162,17 +180,19 @@ export function InventoryScreen({
       />
 
       <Card className="mb-4">
-        <div className="p-4 grid grid-cols-[1.6fr_1fr_1.3fr_1fr_1.1fr] gap-3">
+        <div className="p-4 grid grid-cols-[1.6fr_1fr_1.3fr_1fr_1.1fr] gap-3 max-md:grid-cols-1">
           <Input
             placeholder="Caută după denumire sau cod SKU"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             data-testid="product-search"
+            className={PHONE_CONTROL}
           />
           <Select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             data-testid="filter-category"
+            className={PHONE_CONTROL}
           >
             <option value="">Toate categoriile</option>
             {categories.map((c) => (
@@ -181,7 +201,11 @@ export function InventoryScreen({
               </option>
             ))}
           </Select>
-          <Select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
+          <Select
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+            className={PHONE_CONTROL}
+          >
             <option value="">Toți furnizorii</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
@@ -189,7 +213,11 @@ export function InventoryScreen({
               </option>
             ))}
           </Select>
-          <Select value={level} onChange={(e) => setLevel(e.target.value as StockLevel)}>
+          <Select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as StockLevel)}
+            className={PHONE_CONTROL}
+          >
             {STOCK_LEVELS.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
@@ -200,6 +228,7 @@ export function InventoryScreen({
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as Visibility)}
             data-testid="filter-visibility"
+            className={PHONE_CONTROL}
           >
             {VISIBILITY.map((v) => (
               <option key={v.value} value={v.value}>
@@ -218,7 +247,7 @@ export function InventoryScreen({
         </div>
       </Card>
 
-      <Card>
+      <Card className={PHONE_TABLE}>
         <Table>
           <thead>
             <tr>
@@ -245,6 +274,7 @@ export function InventoryScreen({
                   data-needs-review={String(p.needsReview)}
                   className={[
                     "cursor-pointer transition-colors",
+                    PHONE_ROW,
                     !p.active
                       ? "opacity-60 hover:bg-rc-paper"
                       : empty
@@ -254,12 +284,16 @@ export function InventoryScreen({
                           : "hover:bg-rc-paper",
                   ].join(" ")}
                 >
-                  <Td>
+                  <Td data-label="SKU" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold text-rc-muted whitespace-nowrap">
                       {p.sku}
                     </span>
                   </Td>
-                  <Td>
+                  {/* Pe telefon denumirea deschide cardul, pe tot randul lui. */}
+                  <Td
+                    data-label="Denumire"
+                    className={`${PHONE_CELL} max-md:order-first max-md:col-span-2`}
+                  >
                     <span className="text-[13.5px] font-medium text-rc-black">{p.name}</span>
                     {!p.active ? (
                       <span className="ml-2 align-middle">
@@ -272,15 +306,15 @@ export function InventoryScreen({
                       </span>
                     ) : null}
                   </Td>
-                  <Td>
+                  <Td data-label="Categorie" className={PHONE_CELL}>
                     <span className="text-[12.5px] text-rc-muted whitespace-nowrap">
                       {p.category}
                     </span>
                   </Td>
-                  <Td>
+                  <Td data-label="Furnizor" className={PHONE_CELL}>
                     <span className="text-[12.5px] text-rc-muted">{p.supplierName ?? "-"}</span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stoc" className={PHONE_CELL}>
                     {empty ? (
                       <Chip tone="danger">Epuizat</Chip>
                     ) : (
@@ -294,12 +328,12 @@ export function InventoryScreen({
                       </span>
                     )}
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
                       {formatNumber(p.threshold)} {unitLabel(p.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Valoare" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-black whitespace-nowrap">
                       {formatMoney(p.stock * p.unitValueMdl)}
                     </span>
@@ -331,7 +365,12 @@ export function InventoryScreen({
                   Schimbă filtrele sau șterge-le pentru a vedea tot catalogul.
                 </p>
                 <div className="mt-4 flex justify-center">
-                  <Button variant="secondary" size="sm" onClick={reset}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={reset}
+                    className="max-md:min-h-11"
+                  >
                     Șterge filtrele
                   </Button>
                 </div>
