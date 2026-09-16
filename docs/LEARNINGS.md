@@ -5611,3 +5611,45 @@ The 0045 file now carries the same grant, with the same comment, inside its own 
 RULE: **every assertion file that deletes from `storage.objects` as `authenticated` grants
 delete itself; a grant in another assertion file never carries over, and without it the
 policy under test is never consulted.**
+
+### id:free reports nothing free while another open branch carries a board that does not parse
+**Tag:** ci
+**ERROR:** `npm run id:free -- P3-58` exited 2 with "A SOURCE COULD NOT BE READ, SO NO ID IS
+REPORTED FREE" and named open pull request #300 (`board/orange-20260915-manufactured-figure`):
+`Expected double-quoted property name in JSON at position 119 (line 5 column 2)`. Fetching the
+branch, which is what the message suggests, changed nothing: the file on that branch really does
+not parse, it carries two top-level `as_of` keys, the shape a board merge conflict leaves behind.
+The check is right to refuse, and CLAUDE.md 8b says exit 2 is not permission to proceed, so a card
+authored on the other terminal's broken file waits on a terminal this one cannot reach.
+**SOLUTION:** the branch is another terminal's and is never edited from here. The id was verified
+by hand instead and the deviation written into the card notes rather than left silent:
+`git grep P3-58 <branch> -- docs/board` finds no match, the highest phase 3 id on `main` is P3-57,
+and `npm run check:open-branch-ids` exits 0 on this branch, because it compares ruling ids and
+reads `decisions/`, not the boards. Both id checks run again in `quality`. RULE: **when `id:free`
+exits 2 because ANOTHER branch's file is unreadable, do not take the silence as a yes and do not
+repair the other branch: prove the id by hand against `main` and that branch, name the refusal and
+the proof in the card notes, and let the merge-time checks re-ask.**
+
+### A spec cannot be proved red in CI before its own card's code lands
+**Tag:** ci
+**ERROR:** card P3-49's acceptance asks that the new `tests/e2e/romanian-file-date.spec.ts` be
+"proved to fail first against the tree before this card". The end to end suite runs only in CI on
+this machine (no Docker, no Supabase CLI), so the only way to run it is a pull request. The first
+commit of `card/p3-49` carried the new spec alone, with no code change, and pull request #307's
+`quality` run 35040244048 went red in 38 seconds, at the step `Refuse a code pull request whose
+board edit is missing`, long before any test ran:
+`P3-49: status is "in_flight" at the head, which means the work is still in hand.`
+`check:board-edit` refuses any pull request carrying code under a card that is not terminal, and a
+spec file counts as code. The card cannot honestly be `shipped` before the work is done, so there
+is no tree on which CI will run the new spec against the unfixed components. The two rules are in
+genuine conflict, and CLAUDE.md 2 wins.
+**SOLUTION:** the failure was proved statically instead, against `origin/main`, with commands a
+stranger can re-run: `git grep "zz.ll.aaaa" origin/main -- components/` finds nothing, and so does
+`git grep "extraction-choose\|doc-choose\|order-expected-at-native\|review-ordered-at-native"
+origin/main -- components/`, while `git grep "sr-only" origin/main --
+components/documents/DocumentsPanel.tsx` shows the file input that the spec requires to be hidden
+was clipped to one pixel, which Playwright counts as visible. Every case of the spec asserts on at
+least one of those, so every case fails on that tree. RULE: **an acceptance line that asks for a
+red-first CI run cannot be met on a card branch in this repository. Ask for it as a static proof
+against `origin/main`, naming the exact commands, or run the spec red BEFORE the card branch
+exists; do not flip a card to `shipped` to get past `check:board-edit`.**

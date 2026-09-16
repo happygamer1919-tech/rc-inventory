@@ -10,6 +10,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/primitives";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { uploadOrderDocument } from "@/lib/data/inbound-actions";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg";
@@ -27,21 +28,28 @@ export function OrderDocumentUpload({
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
   const [pending, setPending] = React.useState(false);
+  const [fileName, setFileName] = React.useState<string | null>(null);
+
+  function clearChoice() {
+    if (inputRef.current) inputRef.current.value = "";
+    setFileName(null);
+  }
 
   async function onChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setError(null);
     setDone(false);
+    setFileName(file?.name ?? null);
     if (!file) return;
 
     if (!ACCEPT.split(",").includes(file.type)) {
       setError("Se acceptă doar PDF, PNG sau JPG.");
-      if (inputRef.current) inputRef.current.value = "";
+      clearChoice();
       return;
     }
     if (file.size > MAX_BYTES) {
       setError("Fișierul depășește 10 MB.");
-      if (inputRef.current) inputRef.current.value = "";
+      clearChoice();
       return;
     }
 
@@ -62,14 +70,15 @@ export function OrderDocumentUpload({
 
   return (
     <div data-testid="doc-upload">
-      <input
-        ref={inputRef}
-        type="file"
+      <FilePicker
+        inputRef={inputRef}
         accept={ACCEPT}
         onChange={onChange}
         disabled={pending}
-        data-testid="doc-input"
-        className="block w-full text-[13px] text-rc-muted file:mr-3 file:rounded-[9px] file:border-0 file:bg-rc-orange-button file:px-3.5 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-rc-orange-button-hover disabled:opacity-60"
+        fileName={fileName}
+        inputTestId="doc-input"
+        chooseTestId="doc-choose"
+        nameTestId="doc-chosen"
       />
 
       {pending ? (

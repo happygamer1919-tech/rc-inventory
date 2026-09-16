@@ -600,3 +600,84 @@ export async function hasProductImage(client: ColumnProbe): Promise<boolean> {
   }
   return cachedProductImage.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-57. Exista migratia 0046: tabela public.sheet_options si coloanele
+// products.sheet_model, sheet_series, sheet_thickness_mm si sheet_finish?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasProductImage. Aceea raspunde despre
+// 0045. 0046 este un fisier separat si ajunge in productie pe fuziune, prin
+// aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul pleaca din
+// acelasi push si NU aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Pagina de inventar ar cere lista
+// de combinatii, PostgREST ar raspunde ca tabela nu exista, iar salvarea unui
+// produs ales din lista ar scrie coloane care nu exista.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: formularul nu arata
+// alegerea de model, serie si grosime. Tabela, coloanele si constrangerile sosesc
+// in aceeasi tranzactie, deci o singura sonda, pe cele patru coloane, ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedSheetOptions: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasSheetOptions(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSheetOptions && now - cachedSheetOptions.at < TTL_MS) return cachedSheetOptions.value;
+  try {
+    const { error } = await client
+      .from("products")
+      .select("sheet_model, sheet_series, sheet_thickness_mm, sheet_finish")
+      .limit(1);
+    cachedSheetOptions = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": formularul arata ce exista azi, in loc sa cada.
+    cachedSheetOptions = { value: false, at: now };
+  }
+  return cachedSheetOptions.value;
+}
+
+
+// ---------------------------------------------------------------------------
+// P3-58. Exista migratia 0047: tabela public.sheet_prices?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasSheetOptions. Aceea raspunde despre
+// 0046, care este deja fuzionata. 0047 este un fisier separat si ajunge in
+// productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua
+// minute, iar codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda.
+// O poarta comuna ar lega soarta a doua migratii care sosesc separat.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Pagina de inventar ar cere lista
+// de preturi, PostgREST ar raspunde ca tabela nu exista, citirea ar arunca si
+// intreg inventarul ar raspunde 500, pentru un camp pe care operatorul il poate
+// completa si singur.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: alegerea de model,
+// serie si grosime completeaza denumirea, unitatea, categoria si furnizorul, iar
+// valoarea unitara ramane de scris de mana. Tabela, politica si cele 194 de
+// preturi sosesc in aceeasi tranzactie, deci o singura sonda pe tabela ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedSheetPrices: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI APELANTUL, din acelasi motiv ca la
+ *   celelalte porti.
+ */
+export async function hasSheetPrices(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSheetPrices && now - cachedSheetPrices.at < TTL_MS) return cachedSheetPrices.value;
+  try {
+    const { error } = await client.from("sheet_prices").select("price_lei").limit(1);
+    cachedSheetPrices = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": pretul nu se sugereaza, in loc sa cada ecranul.
+    cachedSheetPrices = { value: false, at: now };
+  }
+  return cachedSheetPrices.value;
+}

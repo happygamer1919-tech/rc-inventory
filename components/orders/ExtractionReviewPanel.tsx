@@ -28,6 +28,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
+import { DateField } from "@/components/ui/DateField";
+import { FilePicker } from "@/components/ui/FilePicker";
 import {
   EXTRACTION_ERROR_LABEL,
   SCAN_LINE_NOTICE,
@@ -252,23 +254,25 @@ function ReviewForm({
         </label>
         <label className="text-[12.5px] text-rc-muted">
           Data documentului
-          <input
-            type="date"
-            data-testid="review-ordered-at"
-            value={orderedAt}
-            onChange={(e) => setOrderedAt(e.target.value)}
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
-          />
+          <span className="mt-1 block">
+            <DateField
+              testId="review-ordered-at"
+              value={orderedAt}
+              onChange={setOrderedAt}
+              className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
+            />
+          </span>
         </label>
         <label className="text-[12.5px] text-rc-muted">
           Livrare estimată
-          <input
-            type="date"
-            data-testid="review-expected-at"
-            value={expectedAt}
-            onChange={(e) => setExpectedAt(e.target.value)}
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
-          />
+          <span className="mt-1 block">
+            <DateField
+              testId="review-expected-at"
+              value={expectedAt}
+              onChange={setExpectedAt}
+              className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
+            />
+          </span>
         </label>
         {/* EXT-11. DOUA CAMPURI SI NU UNUL. `TG 0009312` scris intr-un singur
             camp este doua fapte lipite la tastare, si nimic nu le mai poate
@@ -470,6 +474,7 @@ export function ExtractionReviewPanel({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [fileName, setFileName] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [refiring, setRefiring] = React.useState<string | null>(null);
   // CRIT-16. Reusita traieste AICI, deasupra listei, nu inauntrul fisei.
@@ -478,6 +483,10 @@ export function ExtractionReviewPanel({
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setUploadError(null);
+    // NUMELE RAMANE PE ECRAN si dupa ce campul nativ este golit mai jos: campul
+    // se goleste ca acelasi fisier sa poata fi ales din nou, iar numele scris
+    // ramane dovada a ce s-a trimis.
+    setFileName(file?.name ?? null);
     if (!file) return;
     setPending(true);
     const formData = new FormData();
@@ -509,14 +518,15 @@ export function ExtractionReviewPanel({
           Încarcă documentul furnizorului. Se citește automat, apoi verifici datele extrase și
           confirmi. PDF, PNG sau JPG, până în 10 MB.
         </p>
-        <input
-          ref={inputRef}
-          type="file"
+        <FilePicker
+          inputRef={inputRef}
           accept={ACCEPT}
           onChange={onFile}
           disabled={pending}
-          data-testid="extraction-input"
-          className="block w-full text-[13px] text-rc-muted file:mr-3 file:rounded-[9px] file:border-0 file:bg-rc-orange-button file:px-3.5 file:py-2 file:text-[13px] file:font-semibold file:text-white hover:file:bg-rc-orange-button-hover disabled:opacity-60"
+          fileName={fileName}
+          inputTestId="extraction-input"
+          chooseTestId="extraction-choose"
+          nameTestId="extraction-chosen"
         />
         {pending ? (
           <p className="mt-2.5 text-[12.5px] text-rc-muted" data-testid="extraction-pending">

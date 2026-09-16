@@ -10,6 +10,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Select } from "@/components/ui/primitives";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
@@ -24,6 +25,14 @@ import {
   PRODUCT_IMAGE_ACCEPT,
   PRODUCT_IMAGE_EXTENSIONS_LABEL,
 } from "@/lib/data/product-image-types";
+import {
+  SHEET_CATEGORY,
+  SHEET_PRICE_NOTE,
+  SHEET_SUPPLIER,
+  sheetProductName,
+  thicknessOptionLabel,
+  type SheetOption,
+} from "@/lib/data/sheet-options-types";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
@@ -35,6 +44,7 @@ export function ProductForm({
   suppliers,
   focusField,
   imagesActive = false,
+  sheetOptions = [],
   onClose,
 }: {
   product?: CatalogProduct;
@@ -46,6 +56,9 @@ export function ProductForm({
   focusField?: "threshold";
   /** P3-56: false cat timp migratia 0045 nu este aplicata; atunci campul de imagine lipseste. */
   imagesActive?: boolean;
+  /** P3-57: combinatiile de tabla Dasterum. Goala cat timp migratia 0046 nu este
+   *  aplicata, si atunci alegerea de model lipseste. Folosita numai la adaugare. */
+  sheetOptions?: SheetOption[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -91,6 +104,43 @@ export function ProductForm({
       : String(product.packageFactor),
   );
 
+  // P3-57. MODEL, SERIE SI GROSIME, NUMAI LA ADAUGARE. Fiecare combinatie este un
+  // produs al ei, cu SKU-ul, pretul si stocul lui, deci alegerea nu se schimba pe un
+  // produs existent. Listele se deriva din combinatiile primite: seria numai dintre
+  // cele ale modelului, grosimea numai dintre cele ale seriei, deci o combinatie care
+  // nu este in lista nu poate fi aleasa. Alegerea grosimii completeaza denumirea,
+  // unitatea, categoria si furnizorul; toate raman modificabile.
+  const sheetActive = !editing && sheetOptions.length > 0;
+  const [sheetModel, setSheetModel] = React.useState("");
+  const [sheetSeries, setSheetSeries] = React.useState("");
+  const [sheetKey, setSheetKey] = React.useState("");
+  const sheetModels = React.useMemo(
+    () => distinct(sheetOptions.map((o) => o.model)),
+    [sheetOptions],
+  );
+  const sheetSeriesList = React.useMemo(
+    () => distinct(sheetOptions.filter((o) => o.model === sheetModel).map((o) => o.series)),
+    [sheetOptions, sheetModel],
+  );
+  const sheetThicknesses = React.useMemo(
+    () => sheetOptions.filter((o) => o.model === sheetModel && o.series === sheetSeries),
+    [sheetOptions, sheetModel, sheetSeries],
+  );
+  const sheetPicked = sheetThicknesses.find((o) => sheetOptionKey(o) === sheetKey) ?? null;
+
+  // P3-58. PRETUL SUGERAT, SI ESTE O SUGESTIE SI NU O REGULA. Alegerea grosimii
+  // completeaza valoarea unitara cu pretul liniei din lista Dasterum. Nota de sub
+  // camp se vede numai cat timp campul poarta exact acel pret: din clipa in care
+  // operatorul scrie altceva, valoarea nu mai este a listei si nota dispare.
+  //
+  // Preturile lipsesc pana cand migratia 0047 este aplicata, si atunci formularul
+  // se poarta exact ca dupa P3-57: campul ramane de completat de mana.
+  const sheetPricesActive = React.useMemo(
+    () => sheetOptions.some((o) => o.priceLei !== null),
+    [sheetOptions],
+  );
+  const [suggestedPrice, setSuggestedPrice] = React.useState<string | null>(null);
+
   const supplierOptions: ComboOption[] = suppliers.map((s) => ({
     value: s.id,
     label: s.name,
@@ -120,6 +170,37 @@ export function ProductForm({
 
   const noCategories = categories.length === 0;
 
+  function clearSheetError() {
+    if (errorField === "sheet") {
+      setError(null);
+      setErrorField(undefined);
+    }
+  }
+
+  /** P3-57: grosimea aleasa completeaza campurile; operatorul le poate schimba dupa. */
+  function pickSheetThickness(key: string) {
+    setSheetKey(key);
+    clearSheetError();
+    const option = sheetThicknesses.find((o) => sheetOptionKey(o) === key);
+    if (!option) return;
+    setName(sheetProductName(option));
+    if (units.includes(option.unit)) setUnit(option.unit);
+    const category = categories.find((c) => c.name === SHEET_CATEGORY);
+    if (category) setCategoryId(category.id);
+    // Furnizorul existent dupa id; altfel numele, pe care serverul il gaseste sau il creeaza.
+    const known = suppliers.find(
+      (s) => s.name.trim().toLowerCase() === SHEET_SUPPLIER.toLowerCase(),
+    );
+    setSupplier(known ? known.id : SHEET_SUPPLIER);
+    // P3-58: pretul liniei alese, cand lista verificata il are.
+    if (option.priceLei !== null) {
+      setUnitValue(option.priceLei);
+      setSuggestedPrice(option.priceLei);
+    } else {
+      setSuggestedPrice(null);
+    }
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -140,6 +221,17 @@ export function ProductForm({
       // P3-56: numai numele si marimea. Serverul refuza tipul si marimea INAINTE de
       // orice scriere, deci o imagine gresita nu salveaza nici produsul.
       image: file ? { fileName: file.name, sizeBytes: file.size } : null,
+      // P3-57: combinatia aleasa, numai la adaugare. Serverul o cauta in lista si
+      // refuza un model fara serie sau fara grosime.
+      sheet:
+        sheetActive && sheetModel
+          ? {
+              model: sheetModel,
+              series: sheetSeries,
+              thicknessMm: sheetPicked?.thicknessMm ?? "",
+              finish: sheetPicked?.finish ?? "",
+            }
+          : null,
     };
     const targetId = product?.id ?? savedId;
     const result = targetId ? await updateProduct(targetId, input) : await createProduct(input);
@@ -236,6 +328,79 @@ export function ProductForm({
             </p>
           ) : null}
 
+          {/* P3-57. TABLA SI TIGLA METALICA DASTERUM. Optional: un produs obisnuit
+              lasa Fără model si se completeaza de mana, ca pana acum. */}
+          {sheetActive ? (
+            <div className="mb-4 border-b border-rc-line" data-testid="field-sheet">
+              <p className="text-[12.5px] font-semibold text-rc-black">
+                Tablă și țiglă metalică Dasterum
+              </p>
+              <p className="text-[12px] text-rc-muted mt-0.5 mb-3">
+                {sheetPricesActive
+                  ? "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria, furnizorul și valoarea unitară se completează singure, iar apoi se pot modifica."
+                  : "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria și furnizorul se completează singure, iar denumirea se poate modifica."}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Model">
+                  <Select
+                    value={sheetModel}
+                    onChange={(e) => {
+                      setSheetModel(e.target.value);
+                      setSheetSeries("");
+                      setSheetKey("");
+                      clearSheetError();
+                    }}
+                    className={fieldClass("sheet")}
+                    data-testid="field-sheet-model"
+                  >
+                    <option value="">Fără model</option>
+                    {sheetModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Serie">
+                  <Select
+                    value={sheetSeries}
+                    onChange={(e) => {
+                      setSheetSeries(e.target.value);
+                      setSheetKey("");
+                      clearSheetError();
+                    }}
+                    disabled={!sheetModel}
+                    className={fieldClass("sheet")}
+                    data-testid="field-sheet-series"
+                  >
+                    <option value="">Alege seria</option>
+                    {sheetSeriesList.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Grosime">
+                <Select
+                  value={sheetKey}
+                  onChange={(e) => pickSheetThickness(e.target.value)}
+                  disabled={!sheetSeries}
+                  className={fieldClass("sheet")}
+                  data-testid="field-sheet-thickness"
+                >
+                  <option value="">Alege grosimea</option>
+                  {sheetThicknesses.map((o) => (
+                    <option key={sheetOptionKey(o)} value={sheetOptionKey(o)}>
+                      {thicknessOptionLabel(o)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          ) : null}
+
           <Field label="Cod SKU">
             <Input
               value={sku}
@@ -306,6 +471,15 @@ export function ProductForm({
                 className={fieldClass("unitValueMdl")}
                 data-testid="field-unit-value"
               />
+              {/* P3-58: se vede numai cat timp campul poarta exact pretul sugerat. */}
+              {sheetPicked !== null && suggestedPrice !== null && unitValue === suggestedPrice ? (
+                <span
+                  className="block text-[12px] text-rc-muted mt-1"
+                  data-testid="field-unit-value-note"
+                >
+                  {SHEET_PRICE_NOTE}
+                </span>
+              ) : null}
             </Field>
           </div>
 
@@ -359,47 +533,34 @@ export function ProductForm({
           </div>
 
           {/* P3-56. IMAGINE PRODUS, la adaugare si la modificare. Campul nativ scrie
-              "Choose File" in engleza, deci este ascuns vizual si il inlocuieste o
-              eticheta romaneasca, ca in fila Documente. */}
+              "Choose File" in engleza, deci este ascuns si il inlocuieste butonul
+              romanesc comun. P3-49 a mutat butonul in componenta FilePicker si a
+              adus si aici acelasi text ca peste tot, "Alege fișierul": un singur
+              fel de a alege un fisier, oriunde in aplicatie. */}
           {imagesActive ? (
             <div className="mt-1 mb-1 border-t border-rc-line pt-4" data-testid="field-image">
               <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">
                 Imagine produs
               </span>
-              <div className="flex items-center gap-3 min-h-[38px]">
-                <input
-                  ref={imageRef}
-                  id={imageInputId}
-                  type="file"
-                  accept={PRODUCT_IMAGE_ACCEPT}
-                  disabled={pending}
-                  className="sr-only"
-                  onChange={(e) => {
-                    setImageName(e.target.files?.[0]?.name ?? null);
-                    if (errorField === "image") {
-                      setError(null);
-                      setErrorField(undefined);
-                    }
-                  }}
-                  data-testid="field-image-input"
-                />
-                <label
-                  htmlFor={imageInputId}
-                  className={[
-                    "inline-flex cursor-pointer items-center rounded-[10px] border bg-rc-white px-3 py-2 text-[13px] font-semibold text-rc-black hover:bg-rc-paper",
-                    errorField === "image" ? "border-rc-danger" : "border-rc-line-strong",
-                  ].join(" ")}
-                  data-testid="field-image-choose"
-                >
-                  Alege imaginea
-                </label>
-                <span
-                  className="max-w-[260px] truncate text-[13px] text-rc-muted"
-                  data-testid="field-image-chosen"
-                >
-                  {imageName ?? "Nicio imagine aleasă"}
-                </span>
-              </div>
+              <FilePicker
+                inputRef={imageRef}
+                id={imageInputId}
+                accept={PRODUCT_IMAGE_ACCEPT}
+                disabled={pending}
+                fileName={imageName}
+                onChange={(e) => {
+                  setImageName(e.target.files?.[0]?.name ?? null);
+                  if (errorField === "image") {
+                    setError(null);
+                    setErrorField(undefined);
+                  }
+                }}
+                inputTestId="field-image-input"
+                chooseTestId="field-image-choose"
+                nameTestId="field-image-chosen"
+                buttonClassName={errorField === "image" ? "border-rc-danger" : undefined}
+                ariaLabel="Imagine produs"
+              />
               <p className="text-[12px] text-rc-muted mt-1.5">
                 Se acceptă {PRODUCT_IMAGE_EXTENSIONS_LABEL}, de cel mult 10 MB.
                 {editing ? " O imagine nouă o înlocuiește pe cea existentă." : ""}
@@ -429,6 +590,16 @@ export function ProductForm({
       </aside>
     </div>
   );
+}
+
+/** P3-57: valorile unice, in ordinea in care apar in lista. */
+function distinct(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/** P3-57: grosimea si finisajul, cheia unei combinatii in cadrul seriei alese. */
+function sheetOptionKey(option: Pick<SheetOption, "thicknessMm" | "finish">): string {
+  return `${option.thicknessMm}|${option.finish}`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
