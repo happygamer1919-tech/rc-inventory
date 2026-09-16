@@ -59,6 +59,9 @@ export function LoginForm() {
     }
   }
 
+  // P3-60. Campurile au explicit 16px (text-base), ca iOS sa nu mareasca pagina
+  // la focus, iar butonul are cel putin 44px inaltime, ca tinta de atingere pe
+  // telefon. Pe desktop ambele erau deja exact atat.
   return (
     <form
       onSubmit={onSubmit}
@@ -76,7 +79,7 @@ export function LoginForm() {
         autoFocus
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="w-full rounded-lg bg-rc-black border border-rc-ink-2 px-3.5 py-2.5 text-rc-white placeholder:text-rc-muted outline-none focus:border-rc-orange"
+        className="w-full rounded-lg bg-rc-black border border-rc-ink-2 px-3.5 py-2.5 text-base text-rc-white placeholder:text-rc-muted outline-none focus:border-rc-orange"
         placeholder="nume@firma.ro"
       />
 
@@ -92,7 +95,7 @@ export function LoginForm() {
         autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="w-full rounded-lg bg-rc-black border border-rc-ink-2 px-3.5 py-2.5 text-rc-white placeholder:text-rc-muted outline-none focus:border-rc-orange"
+        className="w-full rounded-lg bg-rc-black border border-rc-ink-2 px-3.5 py-2.5 text-base text-rc-white placeholder:text-rc-muted outline-none focus:border-rc-orange"
         placeholder="Parola contului"
       />
 
@@ -110,7 +113,7 @@ export function LoginForm() {
         type="submit"
         disabled={pending || !hydrated}
         data-testid="login-submit"
-        className="mt-6 w-full rounded-lg bg-rc-orange px-4 py-2.5 font-semibold text-rc-black transition-colors hover:bg-rc-orange-dark disabled:opacity-60"
+        className="mt-6 w-full min-h-11 rounded-lg bg-rc-orange px-4 py-2.5 font-semibold text-rc-black transition-colors hover:bg-rc-orange-dark disabled:opacity-60"
       >
         {pending ? "Se autentifică..." : "Intră în cont"}
       </button>

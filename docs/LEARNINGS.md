@@ -5654,6 +5654,36 @@ red-first CI run cannot be met on a card branch in this repository. Ask for it a
 against `origin/main`, naming the exact commands, or run the spec red BEFORE the card branch
 exists; do not flip a card to `shipped` to get past `check:board-edit`.**
 
+### A phone layout fix inside the shell components cannot work while a global rule pins the shell to 1100 px
+**Tag:** frontend
+**ERROR:** card P3-60 (the app shell on a phone) was scoped to five files: the root layout's
+viewport, the sign-in screen, `components/layout/Sidebar.tsx` and `components/layout/Topbar.tsx`.
+None of them decides the shell's width. `app/globals.css` carried `.rc-shell { min-width: 1100px }`,
+applied by `app/(app)/layout.tsx` to the outer shell, so at 390 px the whole frame, top bar
+included, stayed 1100 px wide whatever the sidebar did: a drawer would have opened inside a page
+that still scrolled sideways.
+**SOLUTION:** the rule moved inside `@media (min-width: 768px)`, the same breakpoint as Tailwind's
+`md`, so every width from 768 px up keeps the 1100 px minimum and a phone gets the screen's own
+width. Desktop was proved unchanged by screenshots at 1440, 1100 and 800 px taken from main's
+versions of the files and from the branch, byte-identical (same sha256). RULE: **before scoping a
+responsive card by component, search the global stylesheet and the layout wrappers for
+`min-width` on the shell; a fixed minimum there overrides every per-component fix.**
+
+### Layout of an authenticated screen can be checked locally without a database
+**Tag:** frontend
+**ERROR:** this machine has no Supabase stack, so every screen inside the shell redirects to
+`/autentificare` and the end to end cases that sign in cannot run here. The dev server also refuses
+to start at all without `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(`instrumentation.ts`), and starting the Playwright `productie` web server rewrites the local
+`tsconfig.json` include list with `.next-prod` paths.
+**SOLUTION:** a throwaway, never committed page under `app/auth/` (the proxy lets `/auth/*` through
+without a session) rendering the same markup as `app/(app)/layout.tsx` with a fake user, a
+gitignored `.env.local` holding dummy names pointed at an address where nothing listens, and a
+Playwright script measuring the page. Both were deleted after the run, and `tsconfig.json` was
+restored with `git checkout -- tsconfig.json` before committing. RULE: **for a layout-only card,
+prove the measurements on a local harness page under `/auth/`, delete it before committing, and
+say in the report which spec cases ran locally and which run only in CI.**
+
 ### A spec that asserts a feature's scope limit locks the defect in
 **Tag:** frontend
 **ERROR:** on 2026-09-16 Max reported on the live site that Model, Serie and Grosime could not be
