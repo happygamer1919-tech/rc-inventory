@@ -5,11 +5,15 @@
 // baza, din public.sheet_options (migratia 0046), si nu este copiata aici: o a doua
 // copie ar fi o lista care poate sa nu mai spuna acelasi lucru.
 //
-// FARA PRETURI. Coloana de lei a listei este pentru alt card.
+// PRETURILE SUNT ALE CARDULUI P3-58, si sosesc alaturi de combinatie. Antetul
+// spunea pana atunci "FARA PRETURI. Coloana de lei a listei este pentru alt card",
+// iar acela este acest card: coloana de lei traieste in public.sheet_prices
+// (migratia 0047), se citeste pe server si vine aici ca priceLei, ca o SUGESTIE
+// pentru campul de valoare unitara. Nimic nu se blocheaza: operatorul scrie peste.
 
 import type { UnitCode } from "./units";
 
-/** O combinatie din lista: model, serie, grosime si finisaj. */
+/** O combinatie din lista: model, serie, grosime, finisaj si pretul liniei ei. */
 export type SheetOption = {
   model: string;
   series: string;
@@ -19,6 +23,9 @@ export type SheetOption = {
   finish: string;
   /** Unitatea cu care se completeaza produsul: m2, sau pcs pentru Dastera. */
   unit: UnitCode;
+  /** P3-58: pretul in lei al liniei, ca text pentru camp ("144"). Null cat timp
+   *  migratia 0047 nu este aplicata sau lista de preturi nu se poate citi. */
+  priceLei: string | null;
 };
 
 /** Ce trimite formularul la salvare: combinatia aleasa, fara unitate. */
@@ -43,6 +50,16 @@ export function normalizeThickness(value: unknown): string | null {
   if (!Number.isFinite(n) || n <= 0 || n >= 10) return null;
   return n.toFixed(2);
 }
+
+/** P3-58: pretul din baza, 144 sau "144.00", adus la "144". Null daca nu este un pret. */
+export function normalizePrice(value: unknown): string | null {
+  const n = typeof value === "number" ? value : Number(String(value ?? "").trim().replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return String(n);
+}
+
+/** P3-58: ce scrie sub valoarea unitara cat timp ea este pretul sugerat. */
+export const SHEET_PRICE_NOTE = "Prețul Dasterum din 07.08.2026. Se poate modifica.";
 
 /** "0.45" devine "0,45 mm". */
 export function thicknessLabel(thicknessMm: string): string {

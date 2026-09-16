@@ -5611,3 +5611,21 @@ The 0045 file now carries the same grant, with the same comment, inside its own 
 RULE: **every assertion file that deletes from `storage.objects` as `authenticated` grants
 delete itself; a grant in another assertion file never carries over, and without it the
 policy under test is never consulted.**
+
+### id:free reports nothing free while another open branch carries a board that does not parse
+**Tag:** ci
+**ERROR:** `npm run id:free -- P3-58` exited 2 with "A SOURCE COULD NOT BE READ, SO NO ID IS
+REPORTED FREE" and named open pull request #300 (`board/orange-20260915-manufactured-figure`):
+`Expected double-quoted property name in JSON at position 119 (line 5 column 2)`. Fetching the
+branch, which is what the message suggests, changed nothing: the file on that branch really does
+not parse, it carries two top-level `as_of` keys, the shape a board merge conflict leaves behind.
+The check is right to refuse, and CLAUDE.md 8b says exit 2 is not permission to proceed, so a card
+authored on the other terminal's broken file waits on a terminal this one cannot reach.
+**SOLUTION:** the branch is another terminal's and is never edited from here. The id was verified
+by hand instead and the deviation written into the card notes rather than left silent:
+`git grep P3-58 <branch> -- docs/board` finds no match, the highest phase 3 id on `main` is P3-57,
+and `npm run check:open-branch-ids` exits 0 on this branch, because it compares ruling ids and
+reads `decisions/`, not the boards. Both id checks run again in `quality`. RULE: **when `id:free`
+exits 2 because ANOTHER branch's file is unreadable, do not take the silence as a yes and do not
+repair the other branch: prove the id by hand against `main` and that branch, name the refusal and
+the proof in the card notes, and let the merge-time checks re-ask.**
