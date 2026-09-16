@@ -23,6 +23,22 @@ import type { Category } from "@/lib/data/products";
 import { createCategory, renameCategory } from "@/lib/data/product-actions";
 import { plural } from "@/lib/data/format";
 
+// P3-67. PE TELEFON (sub 768px) fiecare categorie devine un card, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in
+// P3-64, fiindca spec-urile numara category-row. Eticheta fiecarei celule este
+// textul antetului coloanei ei, pus in data-label si desenat din CSS.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** Un camp: pe telefon 44px si text de 16px, altfel iOS mareste pagina. */
+const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+/** Un buton: pe telefon o tinta de 44px. */
+const PHONE_TAP = "max-md:min-h-11";
+
 export function CategorySettings({
   categories,
   canWrite,
@@ -67,7 +83,7 @@ export function CategorySettings({
   }
 
   return (
-    <Card className="mb-5">
+    <Card className={`mb-5 ${PHONE_TABLE}`}>
       <CardHeader
         title="Categorii"
         hint="Fiecare produs aparține exact unei categorii."
@@ -89,9 +105,10 @@ export function CategorySettings({
               onChange={(e) => setName(e.target.value)}
               placeholder="Învelitori"
               data-testid="category-name"
+              className={PHONE_CONTROL}
             />
           </label>
-          <Button type="submit" disabled={pending} data-testid="category-add">
+          <Button type="submit" disabled={pending} data-testid="category-add" className={PHONE_TAP}>
             {pending ? "Se adaugă..." : "Adaugă"}
           </Button>
         </form>
@@ -117,35 +134,42 @@ export function CategorySettings({
         </thead>
         <tbody data-testid="category-rows">
           {categories.map((c) => (
-            <tr key={c.id} data-testid="category-row" data-name={c.name}>
-              <Td>
+            <tr key={c.id} data-testid="category-row" data-name={c.name} className={PHONE_ROW}>
+              <Td data-label="Categorie" className={PHONE_WIDE}>
                 {editingId === c.id ? (
                   <Input
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
                     data-testid="category-rename-input"
+                    className={PHONE_CONTROL}
                     autoFocus
                   />
                 ) : (
                   <span className="text-[13.5px] font-medium text-rc-black">{c.name}</span>
                 )}
               </Td>
-              <Td align="right">
+              <Td align="right" data-label="Produse" className={PHONE_CELL}>
                 <span className="rc-num text-[13px] text-rc-muted">{c.productCount}</span>
               </Td>
               {canWrite ? (
-                <Td align="right">
+                <Td align="right" data-label="Acțiuni" className={PHONE_CELL}>
                   {editingId === c.id ? (
-                    <span className="inline-flex gap-1.5">
+                    <span className="inline-flex gap-1.5 max-md:flex-wrap">
                       <Button
                         size="sm"
                         onClick={() => onRename(c.id)}
                         disabled={pending}
                         data-testid="category-rename-save"
+                        className={PHONE_TAP}
                       >
                         Salvează
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingId(null)}
+                        className={PHONE_TAP}
+                      >
                         Renunță
                       </Button>
                     </span>
@@ -158,6 +182,7 @@ export function CategorySettings({
                         setEditingName(c.name);
                       }}
                       data-testid="category-rename"
+                      className={PHONE_TAP}
                     >
                       Redenumește
                     </Button>

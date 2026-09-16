@@ -36,6 +36,22 @@ import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { SelectableProject } from "@/lib/data/projects-types";
 
+// P3-67. PE TELEFON (sub 768px) formularul sta pe o coloana si fiecare pozitie
+// devine un card, iar peste 768px nimic nu se schimba: fiecare clasa de mai jos
+// poarta max-md. ACELASI DOM, ca in P3-64 si P3-65. Eticheta fiecarei celule este
+// textul antetului coloanei ei, pus in data-label si desenat din CSS.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** Un camp: pe telefon 44px si text de 16px, altfel iOS mareste pagina. */
+const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+/** Un buton: pe telefon o tinta de 44px. */
+const PHONE_TAP = "max-md:min-h-11";
+
 type Line = { key: string; productId: string; quantity: string; price: string };
 
 let seq = 0;
@@ -186,11 +202,14 @@ export function OutboundScreen({
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare expediere</Chip>
             </div>
-            <div className="mt-6 flex items-center justify-center gap-2.5">
-              <Link href="/comenzi">
-                <Button data-testid="issue-go-to-orders">Vezi în lista de comenzi</Button>
+            <div className="mt-6 flex items-center justify-center gap-2.5 max-md:flex-col max-md:items-stretch">
+              <Link href="/comenzi" className="max-md:flex max-md:flex-col">
+                <Button data-testid="issue-go-to-orders" className={PHONE_TAP}>
+                  Vezi în lista de comenzi
+                </Button>
               </Link>
               <Button
+                className={PHONE_TAP}
                 variant="secondary"
                 onClick={() => {
                   setCreated(null);
@@ -238,7 +257,7 @@ export function OutboundScreen({
       <div className="space-y-4" data-testid="outbound-form">
         <Card>
           <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />
-          <div className="p-5 grid grid-cols-2 gap-4">
+          <div className="p-5 grid grid-cols-2 gap-4 max-md:grid-cols-1">
             <Field label="Proiect" required>
               <div data-testid="field-project">
                 <Combobox
@@ -265,7 +284,7 @@ export function OutboundScreen({
           </div>
         </Card>
 
-        <Card>
+        <Card className={PHONE_TABLE}>
           <CardHeader
             title="Materiale"
             hint="Cantitatea este în unitatea fixă a produsului. Prețul este opțional."
@@ -276,6 +295,7 @@ export function OutboundScreen({
                 type="button"
                 onClick={() => setLines((ls) => [...ls, emptyLine()])}
                 data-testid="issue-add-line"
+                className={PHONE_TAP}
               >
                 + Adaugă poziție
               </Button>
@@ -298,8 +318,8 @@ export function OutboundScreen({
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = l.price ? Number(l.quantity) * Number(l.price) : 0;
                 return (
-                  <tr key={l.key} className="align-top">
-                    <Td>
+                  <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
+                    <Td data-label="Produs" className={PHONE_WIDE}>
                       <div data-testid={`issue-product-${index}`}>
                         <Combobox
                           options={productOptions}
@@ -321,37 +341,37 @@ export function OutboundScreen({
                         </p>
                       ) : null}
                     </Td>
-                    <Td align="right">
+                    <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <Input
                         type="number"
                         min="0"
                         step="any"
-                        className="text-right rc-num"
+                        className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.quantity}
                         onChange={(e) => setLine(l.key, { quantity: e.target.value })}
                         placeholder="0"
                         data-testid={`issue-quantity-${index}`}
                       />
                     </Td>
-                    <Td>
-                      <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted">
+                    <Td data-label="Unitate" className={PHONE_CELL}>
+                      <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted max-md:h-11">
                         {product ? unitLabel(product.unit) : "-"}
                       </span>
                     </Td>
-                    <Td align="right">
+                    <Td align="right" data-label={`Preț unitar (${DISPLAY_CURRENCY})`} className={PHONE_CELL}>
                       <Input
                         type="number"
                         min="0"
                         step="any"
-                        className="text-right rc-num"
+                        className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.price}
                         onChange={(e) => setLine(l.key, { price: e.target.value })}
                         placeholder="lasă gol"
                         data-testid={`issue-price-${index}`}
                       />
                     </Td>
-                    <Td align="right">
-                      <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold">
+                    <Td align="right" data-label="Total linie" className={PHONE_CELL}>
+                      <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
                         {total > 0 ? (
                           formatMoney(total)
                         ) : (
@@ -359,13 +379,15 @@ export function OutboundScreen({
                         )}
                       </span>
                     </Td>
-                    <Td align="right">
+                    {/* Coloana fara antet: pe telefon butonul de eliminare sta pe tot
+                        randul cardului, in dreapta, fara eticheta. */}
+                    <Td align="right" className="max-md:col-span-2 max-md:block max-md:border-b-0 max-md:p-0">
                       <button
                         type="button"
                         onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
                         disabled={lines.length === 1}
                         title="Elimină poziția"
-                        className="mt-2 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-danger-soft hover:text-rc-danger disabled:opacity-30 transition-colors"
+                        className="mt-2 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-danger-soft hover:text-rc-danger disabled:opacity-30 transition-colors max-md:mt-0 max-md:h-11 max-md:w-11"
                       >
                         ✕
                       </button>
@@ -375,7 +397,7 @@ export function OutboundScreen({
               })}
             </tbody>
           </Table>
-          <div className="flex items-center justify-between gap-6 px-5 py-4 bg-rc-paper border-t border-rc-line">
+          <div className="flex items-center justify-between gap-6 px-5 py-4 bg-rc-paper border-t border-rc-line max-md:flex-col max-md:items-start max-md:gap-3">
             <p className="text-[12px] text-rc-muted max-w-[54ch] leading-relaxed">
               Pozițiile fără preț sunt eliberări netarifate, de obicei către un șantier propriu. Nu
               blochează crearea bonului.
@@ -414,13 +436,19 @@ export function OutboundScreen({
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between max-md:flex-col max-md:items-stretch max-md:gap-3">
           <p className="text-[12.5px] text-rc-muted-2">
             La creare, bonul primește starea{" "}
             <span className="font-semibold text-rc-muted">În așteptare expediere</span>, iar stocul
             scade imediat: materialul a plecat fizic din depozit.
           </p>
-          <Button onClick={submit} type="button" disabled={pending} data-testid="issue-submit">
+          <Button
+            onClick={submit}
+            type="button"
+            disabled={pending}
+            data-testid="issue-submit"
+            className={`${PHONE_TAP} max-md:whitespace-normal`}
+          >
             {pending ? "Se creează..." : "Creează bonul de eliberare"}
           </Button>
         </div>

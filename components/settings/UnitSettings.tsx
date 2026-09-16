@@ -27,9 +27,21 @@ const UNIT_MEANING: Record<UnitCode, string> = {
   l: "Litru, pentru vopsele, lacuri și solvenți",
 };
 
+// P3-67. PE TELEFON (sub 768px) fiecare unitate devine un card, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in
+// P3-64. Eticheta fiecarei celule este textul antetului coloanei ei, pus in
+// data-label si desenat din CSS.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+
 export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: number }> }) {
   return (
-    <Card>
+    <Card className={PHONE_TABLE}>
       <CardHeader
         title="Unități de măsură"
         hint="Fiecare produs are exact o unitate, fixată la crearea produsului."
@@ -50,16 +62,16 @@ export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: nu
         </thead>
         <tbody data-testid="unit-rows">
           {rows.map((r) => (
-            <tr key={r.unit} data-testid="unit-row" data-unit={r.unit}>
-              <Td>
+            <tr key={r.unit} data-testid="unit-row" data-unit={r.unit} className={PHONE_ROW}>
+              <Td data-label="Unitate" className={PHONE_CELL}>
                 <span className="text-[13.5px] font-semibold text-rc-black">
                   {unitLabel(r.unit)}
                 </span>
               </Td>
-              <Td>
+              <Td data-label="Se folosește pentru" className={PHONE_WIDE}>
                 <span className="text-[12.5px] text-rc-muted">{UNIT_MEANING[r.unit]}</span>
               </Td>
-              <Td align="right">
+              <Td align="right" data-label="Produse" className={PHONE_CELL}>
                 <span className="rc-num text-[13px] text-rc-muted">{r.count}</span>
               </Td>
             </tr>

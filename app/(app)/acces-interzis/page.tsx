@@ -27,7 +27,7 @@ export default function AccesInterzisPage() {
       </p>
       <Link
         href="/"
-        className="mt-7 rounded-lg bg-rc-orange px-4 py-2.5 text-sm font-semibold text-rc-black transition-colors hover:bg-rc-orange-dark"
+        className="mt-7 rounded-lg bg-rc-orange px-4 py-2.5 text-sm font-semibold text-rc-black transition-colors hover:bg-rc-orange-dark max-md:inline-flex max-md:min-h-11 max-md:items-center"
       >
         Înapoi la tabloul de bord
       </Link>

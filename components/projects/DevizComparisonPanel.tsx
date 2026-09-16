@@ -39,6 +39,22 @@ function qty(value: number, unit: UnitCode | null): string {
   return unit ? formatQty(value, unit) : formatNumber(value);
 }
 
+// P3-67. PE TELEFON (sub 768px) fiecare produs devine un card, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in
+// P3-64, fiindca deviz-comparison.spec citeste celulele dupa data-testid. Eticheta
+// fiecarei celule este textul antetului coloanei ei, pus in data-label si desenat
+// din CSS. Tabelul sta deja intr-un chenar cu margini, deci corpul lui nu mai
+// primeste altele.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** O legatura sau un buton de text: pe telefon o tinta de 44px. */
+const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
+
 /** Semnul explicit, ca "+120" sa nu se citeasca la fel ca "120". */
 function signed(value: number): string {
   return value > 0 ? `+${formatMoney(value)}` : formatMoney(value);
@@ -51,9 +67,9 @@ function signedQty(value: number, unit: UnitCode | null): string {
 function RowCells({ row }: { row: ComparisonRow }) {
   const key = row.sku;
   return (
-    <tr data-testid={`comparison-row-${key}`} data-kind={row.kind}>
-      <Td>
-        <div className="flex items-center gap-2">
+    <tr data-testid={`comparison-row-${key}`} data-kind={row.kind} className={PHONE_ROW}>
+      <Td data-label="Produs" className={PHONE_WIDE}>
+        <div className="flex items-center gap-2 max-md:flex-wrap">
           <span className="font-medium text-rc-black">{row.productName}</span>
           {row.kind === "unplanned" ? (
             <span data-testid={`comparison-neprevazut-${key}`}>
@@ -69,17 +85,17 @@ function RowCells({ row }: { row: ComparisonRow }) {
         <div className="text-[12px] text-rc-muted">{key}</div>
       </Td>
 
-      <Td align="right">
+      <Td align="right" data-label="Estimat, cantitate" className={PHONE_CELL}>
         <span data-testid={`comparison-est-qty-${key}`} data-qty={row.estimatedQty}>
           {qty(row.estimatedQty, row.unit)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="Emis, cantitate" className={PHONE_CELL}>
         <span data-testid={`comparison-emis-qty-${key}`} data-qty={row.issuedQty}>
           {qty(row.issuedQty, row.unit)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="Diferență, cantitate" className={PHONE_CELL}>
         <span
           data-testid={`comparison-dif-qty-${key}`}
           data-qty={row.qtyDifference}
@@ -89,17 +105,17 @@ function RowCells({ row }: { row: ComparisonRow }) {
         </span>
       </Td>
 
-      <Td align="right">
+      <Td align="right" data-label="Estimat, valoare" className={PHONE_CELL}>
         <span data-testid={`comparison-est-mdl-${key}`} data-value-mdl={row.estimatedMdl}>
           {formatMoney(row.estimatedMdl)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="Emis, valoare" className={PHONE_CELL}>
         <span data-testid={`comparison-emis-mdl-${key}`} data-value-mdl={row.issuedMdl}>
           {formatMoney(row.issuedMdl)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="Diferență, valoare" className={PHONE_CELL}>
         <span
           data-testid={`comparison-dif-mdl-${key}`}
           data-value-mdl={row.differenceMdl}
@@ -159,7 +175,7 @@ export function DevizComparisonPanel({
         <Chip tone="neutral">{DEVIZ_STATUS_LABEL[deviz.status]}</Chip>
 
         {versions.length > 1 ? (
-          <span className="flex items-center gap-1.5 ml-2">
+          <span className="flex items-center gap-1.5 ml-2 max-md:ml-0 max-md:flex-wrap">
             <span className="text-[12.5px] text-rc-muted">Compară altă versiune:</span>
             {versions.map((v) => (
               <Link
@@ -167,11 +183,11 @@ export function DevizComparisonPanel({
                 href={`${pathname}?fila=comparatie&deviz=${v.id}`}
                 data-testid={`comparison-versiune-${v.version}`}
                 data-active={v.id === deviz.id ? "true" : "false"}
-                className={
+                className={`${
                   v.id === deviz.id
                     ? "px-2 py-1 text-[12.5px] font-semibold text-rc-black border-b-2 border-rc-orange"
                     : "px-2 py-1 text-[12.5px] text-rc-muted hover:text-rc-black"
-                }
+                } ${PHONE_LINK}`}
               >
                 v{v.version}
               </Link>
@@ -199,7 +215,7 @@ export function DevizComparisonPanel({
           hint="Adaugă linii pe fila Deviz sau eliberează material către acest proiect."
         />
       ) : (
-        <div className="px-5 py-4">
+        <div className={`px-5 py-4 ${PHONE_TABLE}`}>
           <Table>
             <thead>
               <tr>
@@ -224,7 +240,7 @@ export function DevizComparisonPanel({
               type="button"
               data-testid="comparison-more"
               onClick={() => setShown((n) => n + PAGE)}
-              className="mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+              className={`mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
             >
               Arată încă {Math.min(PAGE, rows.length - shown)} din {rows.length - shown} rămase
             </button>
@@ -232,7 +248,7 @@ export function DevizComparisonPanel({
 
           {/* SUBSOLUL, PATRU CIFRE, PESTE TOATE RANDURILE SI NU DOAR PESTE
               PAGINA VIZIBILA. */}
-          <div className="mt-4 grid grid-cols-4 gap-3 border-t border-rc-line pt-3">
+          <div className="mt-4 grid grid-cols-4 gap-3 border-t border-rc-line pt-3 max-md:grid-cols-2">
             <div>
               <div className="text-[12.5px] text-rc-muted">Total materiale estimate</div>
               <div
@@ -313,7 +329,7 @@ export function DevizComparisonPanel({
 
           <Link
             href={`/proiecte/${projectId}?fila=deviz&deviz=${deviz.id}`}
-            className="mt-3 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+            className={`mt-3 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
             data-testid="comparison-link-deviz"
           >
             Deschide devizul

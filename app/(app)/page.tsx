@@ -32,6 +32,23 @@ import { unitLabel } from "@/lib/data/units";
 
 export const dynamic = "force-dynamic";
 
+// P3-67. PE TELEFON (sub 768px) BLOCURILE STAU UNUL SUB ALTUL si fiecare rand de
+// tabel devine un card, iar peste 768px nimic nu se schimba: fiecare clasa de mai
+// jos poarta max-md. ACELASI DOM, nu o a doua copie ascunsa, ca in P3-64. Eticheta
+// fiecarei celule este textul antetului coloanei ei, pus pe celula in data-label si
+// desenat din CSS, deci textul celulei ramane cel de azi.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** O legatura: pe telefon o tinta de 44px, nu doar inaltimea textului. */
+const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
+/** Un text tinut pe un rand pe desktop se rupe pe telefon, unde nu exista hover. */
+const PHONE_WRAP = "max-md:whitespace-normal max-md:[overflow-wrap:anywhere]";
+
 export default async function Dashboard() {
   const d = await loadDashboard();
 
@@ -59,7 +76,7 @@ export default async function Dashboard() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-4 gap-4" data-testid="dashboard-stats">
+      <div className="grid grid-cols-4 gap-4 max-md:grid-cols-1" data-testid="dashboard-stats">
         <StatCard
           label="Valoare totală stoc"
           value={formatNumber(d.stockValue)}
@@ -92,7 +109,7 @@ export default async function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-[1.35fr_1fr] gap-4 mt-4">
+      <div className="grid grid-cols-[1.35fr_1fr] gap-4 mt-4 max-md:grid-cols-1">
         <Card>
           <CardHeader
             title="Activitate recentă"
@@ -100,7 +117,7 @@ export default async function Dashboard() {
             right={
               <Link
                 href="/comenzi"
-                className="text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+                className={`text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
               >
                 Vezi comenzile
               </Link>
@@ -122,10 +139,14 @@ export default async function Dashboard() {
                   ].join(" ")}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-semibold text-rc-black truncate">{a.title}</p>
+                  <p
+                    className={`text-[13.5px] font-semibold text-rc-black truncate max-md:overflow-visible ${PHONE_WRAP}`}
+                  >
+                    {a.title}
+                  </p>
                   <p className="text-[12.5px] text-rc-muted mt-0.5">{a.detail}</p>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 max-md:max-w-[45%] max-md:[overflow-wrap:anywhere]">
                   <p className="text-[12px] text-rc-muted rc-num">{formatDate(a.at)}</p>
                   <p className="text-[11.5px] text-rc-muted-2 mt-0.5">{a.reference}</p>
                 </div>
@@ -139,14 +160,14 @@ export default async function Dashboard() {
           ) : null}
         </Card>
 
-        <Card>
+        <Card className={PHONE_TABLE}>
           <CardHeader
             title="Produse sub prag"
             hint="Stoc curent sub sau egal cu pragul de recomandă"
             right={
               <Link
                 href="/memento"
-                className="text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+                className={`text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
               >
                 Praguri
               </Link>
@@ -162,16 +183,19 @@ export default async function Dashboard() {
             </thead>
             <tbody data-testid="dashboard-low-stock">
               {d.lowStock.map((p) => (
-                <tr key={p.id} className="hover:bg-rc-paper">
-                  <Td>
-                    <Link href="/inventar" className="block group">
+                <tr key={p.id} className={`hover:bg-rc-paper ${PHONE_ROW}`}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
+                    <Link
+                      href="/inventar"
+                      className="block group max-md:flex max-md:min-h-11 max-md:flex-col max-md:justify-center"
+                    >
                       <span className="block text-[13px] font-medium text-rc-black leading-snug group-hover:text-rc-orange-deep">
                         {p.name}
                       </span>
                       <span className="block text-[11.5px] text-rc-muted-2 mt-0.5">{p.sku}</span>
                     </Link>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stoc" className={PHONE_CELL}>
                     {p.stock === 0 ? (
                       <Chip tone="danger">Epuizat</Chip>
                     ) : (
@@ -180,7 +204,7 @@ export default async function Dashboard() {
                       </span>
                     )}
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted">
                       {formatNumber(p.threshold)} {unitLabel(p.unit)}
                     </span>
@@ -199,8 +223,8 @@ export default async function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <Card>
+      <div className="grid grid-cols-2 gap-4 mt-4 max-md:grid-cols-1">
+        <Card className={PHONE_TABLE}>
           <CardHeader title="Intrări în așteptare" hint="Comenzi transmise, nerecepționate încă" />
           <Table>
             <thead>
@@ -213,21 +237,23 @@ export default async function Dashboard() {
             </thead>
             <tbody data-testid="dashboard-pending-inbound">
               {d.pendingInbound.map((o) => (
-                <tr key={o.id} className="hover:bg-rc-paper">
-                  <Td>
-                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">
+                <tr key={o.id} className={`hover:bg-rc-paper ${PHONE_ROW}`}>
+                  <Td data-label="Comandă" className={PHONE_WIDE}>
+                    <span
+                      className={`text-[13px] font-semibold text-rc-black whitespace-nowrap ${PHONE_WRAP}`}
+                    >
                       {o.reference}
                     </span>
                   </Td>
-                  <Td>
+                  <Td data-label="Furnizor" className={PHONE_WIDE}>
                     <span className="text-[13px] text-rc-muted">{o.supplierName ?? "-"}</span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Estimat" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
                       {formatDate(o.expectedAt)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Valoare" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] font-semibold whitespace-nowrap">
                       {formatMoney(o.totalMdl)}
                     </span>
@@ -243,7 +269,7 @@ export default async function Dashboard() {
           ) : null}
         </Card>
 
-        <Card>
+        <Card className={PHONE_TABLE}>
           <CardHeader title="Ieșiri de expediat" hint="Bonuri create, neexpediate încă" />
           <Table>
             <thead>
@@ -256,19 +282,21 @@ export default async function Dashboard() {
             </thead>
             <tbody data-testid="dashboard-pending-outbound">
               {d.pendingOutbound.map((o) => (
-                <tr key={o.id} className="hover:bg-rc-paper">
-                  <Td>
-                    <span className="text-[13px] font-semibold text-rc-black whitespace-nowrap">
+                <tr key={o.id} className={`hover:bg-rc-paper ${PHONE_ROW}`}>
+                  <Td data-label="Bon" className={PHONE_WIDE}>
+                    <span
+                      className={`text-[13px] font-semibold text-rc-black whitespace-nowrap ${PHONE_WRAP}`}
+                    >
                       {o.reference}
                     </span>
                   </Td>
-                  <Td>
+                  <Td data-label="Proiect" className={PHONE_WIDE}>
                     <span className="text-[13px] text-rc-black">{o.projectName}</span>
                   </Td>
-                  <Td>
+                  <Td data-label="Client" className={PHONE_CELL}>
                     <span className="text-[12.5px] text-rc-muted">{o.clientName}</span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Poziții" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted">{o.lines.length}</span>
                   </Td>
                 </tr>

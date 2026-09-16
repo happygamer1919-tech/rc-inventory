@@ -47,7 +47,9 @@ export default function CrmPage() {
         lead="Clienții, leadurile și proiectele, fiecare la un clic distanță."
       />
 
-      <div className="grid grid-cols-3 gap-5" data-testid="crm-cards">
+      {/* P3-67. Pe telefon (sub 768px) cele trei carduri stau unul sub altul, in
+          aceeasi ordine; peste 768px raman trei alaturi. */}
+      <div className="grid grid-cols-3 gap-5 max-md:grid-cols-1" data-testid="crm-cards">
         {CARDS.map((c) => (
           <Link
             key={c.label}
