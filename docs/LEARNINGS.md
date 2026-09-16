@@ -5680,3 +5680,53 @@ on the way: a screenshot taken right after typing into a field differs by a few 
 (blinking caret, focus ring transition); blur the field and let the transition end before comparing
 hashes. RULE: **responsive work on a list keeps a single DOM and restyles it; labels come from
 attributes drawn by CSS, so no spec that reads text sees a change.**
+
+### A phone layout fix inside the shell components cannot work while a global rule pins the shell to 1100 px
+**Tag:** frontend
+**ERROR:** card P3-60 (the app shell on a phone) was scoped to five files: the root layout's
+viewport, the sign-in screen, `components/layout/Sidebar.tsx` and `components/layout/Topbar.tsx`.
+None of them decides the shell's width. `app/globals.css` carried `.rc-shell { min-width: 1100px }`,
+applied by `app/(app)/layout.tsx` to the outer shell, so at 390 px the whole frame, top bar
+included, stayed 1100 px wide whatever the sidebar did: a drawer would have opened inside a page
+that still scrolled sideways.
+**SOLUTION:** the rule moved inside `@media (min-width: 768px)`, the same breakpoint as Tailwind's
+`md`, so every width from 768 px up keeps the 1100 px minimum and a phone gets the screen's own
+width. Desktop was proved unchanged by screenshots at 1440, 1100 and 800 px taken from main's
+versions of the files and from the branch, byte-identical (same sha256). RULE: **before scoping a
+responsive card by component, search the global stylesheet and the layout wrappers for
+`min-width` on the shell; a fixed minimum there overrides every per-component fix.**
+
+### Layout of an authenticated screen can be checked locally without a database
+**Tag:** frontend
+**ERROR:** this machine has no Supabase stack, so every screen inside the shell redirects to
+`/autentificare` and the end to end cases that sign in cannot run here. The dev server also refuses
+to start at all without `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(`instrumentation.ts`), and starting the Playwright `productie` web server rewrites the local
+`tsconfig.json` include list with `.next-prod` paths.
+**SOLUTION:** a throwaway, never committed page under `app/auth/` (the proxy lets `/auth/*` through
+without a session) rendering the same markup as `app/(app)/layout.tsx` with a fake user, a
+gitignored `.env.local` holding dummy names pointed at an address where nothing listens, and a
+Playwright script measuring the page. Both were deleted after the run, and `tsconfig.json` was
+restored with `git checkout -- tsconfig.json` before committing. RULE: **for a layout-only card,
+prove the measurements on a local harness page under `/auth/`, delete it before committing, and
+say in the report which spec cases ran locally and which run only in CI.**
+
+### A spec that asserts a feature's scope limit locks the defect in
+**Tag:** frontend
+**ERROR:** on 2026-09-16 Max reported on the live site that Model, Serie and Grosime could not be
+changed on a product that already exists. `components/inventory/ProductForm.tsx` gated the lists
+with `const sheetActive = !editing && sheetOptions.length > 0;`, and P3-57's own acceptance spec,
+`tests/e2e/roofing-product-picker.spec.ts`, asserted the gap as behaviour on the edit form:
+`await expect(page.getByTestId("field-sheet")).toHaveCount(0);`. The suite was green on exactly the
+screen the owner could not use. Separately, the task brief for the fix said that `sheetColumns`
+"maps [no model] into the four columns set to null". It does not: for `null` it returns `{}`,
+which on insert means null columns and on update means "leave the old combination in place", so
+mirroring `createProduct` literally would have made "Fără model" a no-op on edit.
+**SOLUTION:** card P3-59 shows the lists on edit, seeded from the saved combination as initial
+state only, and changes that one spec line to expect the prefilled lists. `updateProduct` writes
+four explicit nulls for "Fără model" and writes nothing when the form did not show the lists (the
+`sheet` key is absent), so a combination the operator never saw is never cleared. RULE: **an
+acceptance spec asserts what the owner can do, not what the card chose to leave out; a limit
+written as `toHaveCount(0)` becomes a test that defends the defect. And a helper that returns `{}`
+for "nothing chosen" is only equivalent to "clear" on insert: check the null branch before reusing
+it on update.**

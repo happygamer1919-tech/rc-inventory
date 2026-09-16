@@ -153,10 +153,14 @@ test.describe("Tablă și țiglă metalică din lista Dasterum", () => {
     expectSheet(row!, "C-10", "Standart Zn", 0.45, "");
 
     // SI DUPA SALVARE: formularul de modificare schimba denumirea, nu combinatia.
+    // P3-59: listele se vad si pe formularul de modificare, cu combinatia salvata.
+    // Pana atunci linia de aici astepta ca ele sa lipseasca, adica exact defectul
+    // raportat de Max pe 2026-09-16.
     await openPanel(page, sku);
     await page.getByTestId("panel-edit").click();
     await expect(page.getByTestId("product-form")).toBeVisible();
-    await expect(page.getByTestId("field-sheet")).toHaveCount(0);
+    await expect(page.getByTestId("field-sheet")).toBeVisible();
+    await expect.poll(() => selectedLabel(page, "field-sheet-thickness")).toBe("0,45 mm");
     const renamed = `Tablă C-10 redenumită ${RUN}`;
     await page.getByTestId("field-name").fill(renamed);
     await submitAndWaitClosed(page);

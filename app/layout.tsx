@@ -1,9 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Rapid Construct - Inventar",
   description: "Sistem de gestiune a inventarului.",
+};
+
+// P3-60. Pe telefon pagina se randeaza la latimea reala a ecranului, nu la o
+// latime falsa de desktop micsorata.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Layout-ul radacina este deliberat gol: html, body si stilurile globale, atat.

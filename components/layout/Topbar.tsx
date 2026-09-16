@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { labelForPath } from "@/lib/nav";
 import { ROLE_LABEL, type SessionUser } from "@/lib/supabase/types";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { SidebarMenuButton } from "@/components/layout/Sidebar";
 
 // Bara de sus. In faza 1 arata un rol fix, "Operator", scris in cod. Acum arata
 // rolul real al contului conectat, primit din layout, care l-a citit o singura
@@ -13,26 +14,33 @@ export function Topbar({ user }: { user: SessionUser }) {
   const params = useSearchParams();
   const initials = initialsFor(user);
 
+  // P3-60. Sub 768px: padding mai mic, butonul de meniu in fata titlului, titlul
+  // se poate rupe pe doua randuri in loc sa fie taiat, iar cele doua mentiuni
+  // decorative (/ Rapid Construct, Depozit central) nu se mai afiseaza ca sa
+  // incapa rolul, initialele si Iesire. Peste 768px nimic nu se schimba.
   return (
-    <header className="h-[58px] shrink-0 border-b border-white/10 bg-rc-ink/60 backdrop-blur flex items-center justify-between px-8">
-      <div className="flex items-center gap-3">
-        <span className="text-[13.5px] font-semibold text-white">
+    <header className="h-[58px] shrink-0 border-b border-white/10 bg-rc-ink/60 backdrop-blur flex items-center justify-between px-8 max-md:gap-2 max-md:px-4">
+      <div className="flex items-center gap-3 max-md:min-w-0 max-md:gap-1">
+        <SidebarMenuButton />
+        <span className="text-[13.5px] font-semibold text-white max-md:leading-tight">
           {titleFor(pathname, params.get("vedere"))}
         </span>
-        <span className="text-rc-muted">/</span>
-        <span className="text-[13px] text-rc-muted">Rapid Construct</span>
+        <span className="text-rc-muted max-md:hidden">/</span>
+        <span className="text-[13px] text-rc-muted max-md:hidden">Rapid Construct</span>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="inline-flex items-center gap-1.5 text-[12px] text-rc-muted">
+      {/* Pe telefon butonul Iesire, singurul <button> direct din acest grup, are
+          44px inaltime, ca tinta de atingere. */}
+      <div className="flex items-center gap-3 max-md:shrink-0 max-md:gap-2 max-md:[&>button]:min-h-11">
+        <span className="inline-flex items-center gap-1.5 text-[12px] text-rc-muted max-md:hidden">
           <span className="w-1.5 h-1.5 rounded-full bg-rc-ok" />
           Depozit central
         </span>
-        <span className="w-px h-5 bg-white/10" />
+        <span className="w-px h-5 bg-white/10 max-md:hidden" />
         <span className="text-[12.5px] text-rc-muted-2" data-testid="topbar-role">
           {ROLE_LABEL[user.role]}
         </span>
         <span
-          className="w-7 h-7 rounded-full bg-rc-orange-button text-white grid place-items-center text-[12px] font-bold"
+          className="w-7 h-7 shrink-0 rounded-full bg-rc-orange-button text-white grid place-items-center text-[12px] font-bold"
           title={user.email ?? undefined}
           data-testid="topbar-avatar"
         >
