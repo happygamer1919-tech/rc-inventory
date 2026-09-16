@@ -5781,3 +5781,17 @@ Serie and Grosime but not beside Model, and dropped the private field's bottom m
 one; the shared primitives were not touched. RULE: **before reusing a component a brief names, grep
 the file's imports and its own local declarations; a same-named local component shadows the shared
 one silently, and the type checker is the first thing that tells you.**
+
+### `id:free` cannot see a card id held on a branch nobody has pushed
+**Tag:** ci
+**ERROR:** allocating the card for goal G24 on 2026-09-16, `npm run id:free -- P3-66` answered
+FREE and added "The next id in that lane is P3-65", with the lane's highest id P3-64 and 0 open
+pull requests. P3-65 was not free: a second terminal on the same machine had authored it on
+`card/p3-65` in its own worktree, committed but not pushed and with no pull request. The check
+reads `main`, open pull request branches and the current working tree, so a local branch in
+another worktree is invisible to it. Taking the advised P3-65 would have collided, and nothing
+would have said so until both branches were open at once.
+**SOLUTION:** P3-66 was taken instead, after `git worktree list` showed `card/p3-65` checked out
+in another worktree. RULE: **when two terminals share one machine, run `git worktree list` (and
+`git branch --list "card/*"`) before trusting the "next id" hint; `id:free` is advisory about
+branches that have been pushed, not about work sitting in a sibling worktree.**

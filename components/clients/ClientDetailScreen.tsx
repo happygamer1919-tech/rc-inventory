@@ -13,6 +13,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
 import {
   CLIENT_SOURCE_LABEL,
@@ -21,6 +22,7 @@ import {
   type ClientOwnerChoice,
 } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
+import { updateClientRecord } from "@/lib/data/client-actions";
 import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
@@ -72,7 +74,48 @@ export function ClientDetailScreen({
    *  Responsabil in formular. */
   owners?: ClientOwnerChoice[];
 }) {
+  const router = useRouter();
   const [editing, setEditing] = React.useState(false);
+  const [toggling, setToggling] = React.useState(false);
+  const [toggleError, setToggleError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
+
+  // P3-66. REACTIVAREA ESTE UN BUTON PE FISA, nu o casuta la capatul formularului
+  // Modifică, la care se ajungea numai dupa filtrul Inactivi. Scrie prin
+  // updateClientRecord, cu campurile fisei neschimbate si numai `active` inversat.
+  // Etapa, data, sursa, interesul si responsabilul NU se trimit, iar actiunea citeste
+  // lipsa lor ca "nu atinge": butonul nu muta etapa si nu scrie istoric.
+  //
+  // APLICATIA NU ARE TOAST-URI. Confirmarea este un rand cu role=status sub antetul
+  // cardului, unde s-a apasat, si ramane pana la urmatoarea apasare, ca sa nu dispara
+  // inainte sa fie citita.
+  async function toggleActive() {
+    const next = !client.active;
+    setToggling(true);
+    setToggleError(null);
+    setNotice(null);
+    const result = await updateClientRecord(client.id, {
+      name: client.name,
+      type: client.type,
+      fiscalCode: client.fiscalCode ?? "",
+      address: client.address ?? "",
+      phone: client.phone ?? "",
+      email: client.email ?? "",
+      notes: client.notes ?? "",
+      active: next,
+    });
+    setToggling(false);
+    if (!result.ok) {
+      setToggleError(result.message);
+      return;
+    }
+    setNotice(
+      next
+        ? "Reactivat. Apare din nou în liste și în selectoare."
+        : "Dezactivat. Nu mai apare în selectoare și în lista celor activi.",
+    );
+    router.refresh();
+  }
 
   // P3-48. RESPONSABILUL ESTE UN NUME, niciodata id-ul. Liniuta cand nu are
   // responsabil; cand are, dar profilul lui nu se poate citi de cine se uita, se
@@ -109,7 +152,38 @@ export function ClientDetailScreen({
         <CardHeader
           title="Date de identificare"
           hint={client.active ? undefined : "Dezactivat"}
+          right={
+            canWrite ? (
+              <Button
+                size="sm"
+                variant={client.active ? "secondary" : "primary"}
+                onClick={toggleActive}
+                disabled={toggling}
+                data-testid="client-active-toggle"
+              >
+                {client.active ? "Dezactivează" : "Reactivează"}
+              </Button>
+            ) : null
+          }
         />
+        {notice ? (
+          <p
+            role="status"
+            data-testid="client-active-notice"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-ok/25 bg-rc-ok-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {notice}
+          </p>
+        ) : null}
+        {toggleError ? (
+          <p
+            role="alert"
+            data-testid="client-active-error"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {toggleError}
+          </p>
+        ) : null}
         <div className="px-5 py-3" data-testid="client-detail">
           <Row label="Denumire" value={client.name} />
           <Row label="Tip" value={CLIENT_TYPE_LABEL[client.type]} />
