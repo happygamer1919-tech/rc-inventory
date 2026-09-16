@@ -38,7 +38,7 @@ export function CardHeader({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-rc-line">
+    <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-rc-line max-md:flex-wrap">
       <div>
         <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
         {hint ? <p className="text-[12.5px] text-rc-muted mt-0.5">{hint}</p> : null}
@@ -61,8 +61,10 @@ export function Button({
   className,
   ...rest
 }: ButtonProps) {
+  // P3-65. Pe telefon (sub 768px) fiecare buton are cel putin 44px: tinta de
+  // atingere. Peste 768px clasa nu se aplica si butonul este cel de azi.
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap";
+    "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap max-md:min-h-11";
   const sizes = {
     sm: "text-[13px] px-3 py-1.5",
     md: "text-[14px] px-4 py-2.5",
@@ -142,8 +144,10 @@ export function Field({
   );
 }
 
+// P3-65. Pe telefon (sub 768px) campul are 44px si text de 16px: sub 16px iOS
+// mareste pagina la atingere. Peste 768px clasele nu se aplica.
 const CONTROL =
-  "w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition";
+  "w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition max-md:min-h-11 max-md:text-base";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className, ...rest } = props;
@@ -264,12 +268,14 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-end justify-between gap-6 mb-6">
-      <div>
+    <div className="flex items-end justify-between gap-6 mb-6 max-md:flex-wrap max-md:gap-4">
+      <div className="max-md:min-w-0 max-md:[overflow-wrap:anywhere]">
         <h1 className="text-[26px] font-bold tracking-tight text-white">{title}</h1>
         {lead ? <p className="text-[13.5px] text-rc-muted-2 mt-1.5 max-w-[68ch]">{lead}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2.5 shrink-0">{actions}</div> : null}
+      {actions ? (
+        <div className="flex items-center gap-2.5 shrink-0 max-md:shrink max-md:flex-wrap">{actions}</div>
+      ) : null}
     </div>
   );
 }

@@ -35,14 +35,21 @@ import type { CatalogProduct } from "@/lib/data/products";
 import type { Deviz, DevizSummary } from "@/lib/data/deviz";
 import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import {
+  PHONE_LINK,
+  PHONE_ROW_LABEL,
+  PHONE_ROW_PAIR,
+  PHONE_ROW_VALUE,
+  PHONE_STACK,
+} from "@/components/ui/phone";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-4 py-2.5 border-b border-rc-line last:border-0">
-      <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
+    <div className={`flex gap-4 py-2.5 border-b border-rc-line last:border-0 ${PHONE_ROW_PAIR}`}>
+      <span className={`w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted ${PHONE_ROW_LABEL}`}>
         {label}
       </span>
-      <span className="text-[13.5px] text-rc-black">{value}</span>
+      <span className={`text-[13.5px] text-rc-black ${PHONE_ROW_VALUE}`}>{value}</span>
     </div>
   );
 }
@@ -120,14 +127,14 @@ export function ProjectDetailScreen({
           a fost un substitut cat timp fila nu exista, si a-l lasa ar insemna doua
           locuri care randeaza aceleasi randuri cu acelasi data-testid: o afirmatie
           de test le-ar numara pe amandoua. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+      <div className={`grid grid-cols-[minmax(0,1fr)_360px] gap-4 items-start ${PHONE_STACK}`}>
         <Card>
           <CardHeader title="Date proiect" />
           <div className="px-5 py-3" data-testid="project-detail">
             <Row
               label="Client"
               value={
-                <Link href={`/clienti/${project.clientId}`} className="hover:underline">
+                <Link href={`/clienti/${project.clientId}`} className={`hover:underline ${PHONE_LINK}`}>
                   {project.clientName}
                 </Link>
               }

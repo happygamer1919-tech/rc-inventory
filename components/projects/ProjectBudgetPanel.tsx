@@ -93,7 +93,11 @@ export function ProjectBudgetPanel({ summary }: { summary: ProjectBudgetSummary 
         hint="Abaterea și consumul sunt față de buget"
       />
 
-      <div className="flex divide-x divide-rc-line" data-testid="project-budget-figures">
+      {/* P3-65. Pe telefon (sub 768px) cifrele stau una sub alta, nu alaturate. */}
+      <div
+        className="flex divide-x divide-rc-line max-md:flex-col max-md:divide-x-0 max-md:divide-y"
+        data-testid="project-budget-figures"
+      >
         <Figure
           label="Buget"
           testid="project-budget"
@@ -115,7 +119,7 @@ export function ProjectBudgetPanel({ summary }: { summary: ProjectBudgetSummary 
       </div>
 
       <div
-        className="flex divide-x divide-rc-line border-t border-rc-line"
+        className="flex divide-x divide-rc-line border-t border-rc-line max-md:flex-col max-md:divide-x-0 max-md:divide-y"
         data-testid="project-budget-derived"
       >
         <div className="flex-1 min-w-0 px-5 py-3.5" data-testid="project-variance" data-value-mdl={varianceMdl === null ? "" : varianceMdl}>

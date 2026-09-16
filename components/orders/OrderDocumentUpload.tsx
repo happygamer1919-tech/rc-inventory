@@ -147,7 +147,7 @@ export function OrderDocumentLink({ orderId }: { orderId: string }) {
             target="_blank"
             rel="noopener noreferrer"
             data-testid="doc-link"
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-rc-white text-rc-black border border-rc-line-strong hover:bg-rc-paper font-semibold text-[13px] px-3 py-1.5"
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-rc-white text-rc-black border border-rc-line-strong hover:bg-rc-paper font-semibold text-[13px] px-3 py-1.5 max-md:min-h-11"
           >
             Deschide documentul
           </a>

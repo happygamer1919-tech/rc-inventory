@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button, Card, Chip, PageHeader } from "@/components/ui/primitives";
 import { EMPTY_INITIAL, InboundOrderForm } from "./InboundOrderForm";
 import { OrderDocumentUpload } from "./OrderDocumentUpload";
+import { PHONE_LINK } from "@/components/ui/phone";
 import type { CatalogProduct } from "@/lib/data/products";
 
 type Created = { id: string; reference: string; lineCount: number };
@@ -46,7 +47,7 @@ export function UploadOrderScreen({
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare</Chip>
             </div>
-            <div className="mt-6 flex items-center justify-center gap-2.5">
+            <div className="mt-6 flex items-center justify-center gap-2.5 max-md:flex-wrap">
               <Link href="/comenzi">
                 <Button>Vezi comanda în listă</Button>
               </Link>
@@ -89,7 +90,10 @@ export function UploadOrderScreen({
             Documentul atașat rămâne salvat lângă comandă. Dacă vrei ca sistemul să citească
             documentul în locul tău, folosește panoul de mai sus. Aici completezi comanda de mână,
             ca la{" "}
-            <Link href="/adauga-manual" className="font-semibold text-rc-orange-deep hover:underline">
+            <Link
+              href="/adauga-manual"
+              className={`font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
+            >
               adăugarea manuală
             </Link>
             .

@@ -26,6 +26,7 @@ import { updateClientRecord } from "@/lib/data/client-actions";
 import { ClientForm } from "./ClientForm";
 import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
+import { PHONE_ROW_LABEL, PHONE_ROW_PAIR, PHONE_ROW_VALUE } from "@/components/ui/phone";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
 import type { DocumentsView } from "@/lib/data/documents-types";
 
@@ -40,15 +41,15 @@ function Row({
 }) {
   return (
     <div
-      className="flex gap-4 py-2.5 border-b border-rc-line last:border-0"
+      className={`flex gap-4 py-2.5 border-b border-rc-line last:border-0 ${PHONE_ROW_PAIR}`}
       data-testid={testId}
     >
-      <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
+      <span className={`w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted ${PHONE_ROW_LABEL}`}>
         {label}
       </span>
       {/* O valoare lipsa este o liniuta, nu un sir gol: un rand fara nimic in
           dreapta arata ca un defect de randare. */}
-      <span className="text-[13.5px] text-rc-black">{value?.trim() || "-"}</span>
+      <span className={`text-[13.5px] text-rc-black ${PHONE_ROW_VALUE}`}>{value?.trim() || "-"}</span>
     </div>
   );
 }
@@ -188,8 +189,8 @@ export function ClientDetailScreen({
           <Row label="Tip" value={CLIENT_TYPE_LABEL[client.type]} />
           {client.stage !== null ? (
             <>
-              <div className="flex gap-4 py-2.5 border-b border-rc-line">
-                <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
+              <div className={`flex gap-4 py-2.5 border-b border-rc-line ${PHONE_ROW_PAIR}`}>
+                <span className={`w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted ${PHONE_ROW_LABEL}`}>
                   Etapă
                 </span>
                 <StageMark stage={client.stage} />
@@ -218,8 +219,8 @@ export function ClientDetailScreen({
           <Row label="Adresă" value={client.address} />
           <Row label="Note" value={client.notes} />
           <Row label="Adăugat" value={formatDate(client.createdAt)} />
-          <div className="flex gap-4 py-2.5">
-            <span className="w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted">
+          <div className={`flex gap-4 py-2.5 ${PHONE_ROW_PAIR}`}>
+            <span className={`w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted ${PHONE_ROW_LABEL}`}>
               Stare
             </span>
             <Chip tone={client.active ? "ok" : "neutral"}>

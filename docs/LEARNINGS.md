@@ -5731,6 +5731,43 @@ written as `toHaveCount(0)` becomes a test that defends the defect. And a helper
 for "nothing chosen" is only equivalent to "clear" on insert: check the null branch before reusing
 it on update.**
 
+### Byte-identical desktop screenshots are not a stable "desktop unchanged" proof in dev mode
+**Tag:** frontend
+**ERROR:** card P3-65 (phone forms and panels) compared 114 desktop screenshots of a local harness,
+taken with the base commit's files and with the branch's. Six hashes differed. A second run on the
+SAME branch files differed from the first run in six places too: 120 scattered anti-aliasing pixels
+on field corners in one form, 14 pixels on the top edge of one chip in another. Two identical runs do
+not produce identical PNGs in `next dev`, so a hash mismatch proved nothing either way.
+**SOLUTION:** compare computed layout instead of pixels. For every element that carries its own text,
+is a control or is a table part, dump its tag, text, bounding box and the computed styles that decide
+its look (display, font, colours, paddings, borders, grid and flex settings, the `::before` content),
+at 1440, 1100 and 800 px, once per version, and diff the dumps. For P3-65: 6,615 rows, 0 differences,
+once the `<script>` rows (Next dev writes a random request id into one per page) are dropped. RULE:
+**prove "desktop unchanged" with a computed-layout diff; pixel hashes in dev mode flicker and need a
+second run just to know whether a mismatch is real.**
+
+### A tap-target check must know that a checkbox's target is its label, and a Link's is its Button
+**Tag:** frontend
+**ERROR:** measuring every visible `input`, `button` and `a[href]` for a 44 px height flags two things
+that are not defects: the 16 px checkbox (the whole `<label>` row is what a thumb presses), and
+`<Link><Button/></Link>`, whose inline `<a>` reports the line height of its text (about 20 px) while
+the button inside it is 44 px. Growing the checkbox itself to 44 px would have been the wrong fix.
+**SOLUTION:** `tests/e2e/phone-forms.spec.ts` measures a checkbox or radio through `closest("label")`
+and skips an `<a>` that contains a button, input or select, whose own control is measured instead. The
+label rows get `max-md:min-h-11`. RULE: **measure the element a finger actually lands on.**
+
+### `git diff origin/main` in a worktree lists files other terminals merged while you worked
+**Tag:** ci
+**ERROR:** during P3-65, `git diff --name-only origin/main -- components` listed
+`components/inventory/ProductForm.tsx`, a file this card was forbidden to touch and never touched.
+Another terminal had run `git fetch` in its own worktree; `refs/remotes/origin/main` is shared by
+every worktree of the repository, so `origin/main` had moved on to the merge of pull request #312,
+and the diff was showing that merge in reverse.
+**SOLUTION:** for "what did this branch change", diff against the base commit the branch was cut
+from (`git diff --name-only <base-sha>`, or `origin/main...HEAD` with three dots, which uses the merge
+base), and read `git log origin/main` before trusting a two-dot diff. RULE: **in a shared clone,
+`origin/main` is a moving target; a two-dot diff against it is only meaningful right after merging it.**
+
 ### A component name in a brief is not proof of which component the file uses
 **Tag:** frontend
 **ERROR:** the task for P3-61 said the Serie and Grosime lists sit inside `Field` from

@@ -27,6 +27,14 @@ import {
 } from "@/components/ui/primitives";
 import { DateField } from "@/components/ui/DateField";
 import {
+  PHONE_CELL,
+  PHONE_CLOSE,
+  PHONE_ROW,
+  PHONE_STACK,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
+import {
   DISPLAY_CURRENCY,
   formatDateWords,
   formatMoney,
@@ -203,7 +211,7 @@ export function InboundOrderForm({
             )
           }
         />
-        <div className="p-5 grid grid-cols-3 gap-4">
+        <div className={`p-5 grid grid-cols-3 gap-4 ${PHONE_STACK}`}>
           <Field label="Furnizor" required>
             <Input
               value={supplierName}
@@ -258,6 +266,10 @@ export function InboundOrderForm({
             </Button>
           }
         />
+        {/* P3-65. Pe telefon (sub 768px) fiecare pozitie devine un card: produsul
+            pe toata latimea, apoi cantitatea, unitatea, pretul si totalul, fiecare
+            cu antetul coloanei ca eticheta. Peste 768px tabelul este cel de azi. */}
+        <div className={PHONE_TABLE}>
         <Table>
           <thead>
             <tr>
@@ -274,8 +286,8 @@ export function InboundOrderForm({
               const product = byId.get(l.productId);
               const lineTotal = (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0);
               return (
-                <tr key={l.key} className="align-top">
-                  <Td>
+                <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     <Select
                       value={l.productId}
                       onChange={(e) => setLine(l.key, { productId: e.target.value })}
@@ -296,7 +308,7 @@ export function InboundOrderForm({
                       </p>
                     ) : null}
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <Input
                       type="number"
                       min="0"
@@ -308,12 +320,12 @@ export function InboundOrderForm({
                       data-testid={`line-quantity-${index}`}
                     />
                   </Td>
-                  <Td>
-                    <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted">
+                  <Td data-label="Unitate" className={PHONE_CELL}>
+                    <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted max-md:h-11">
                       {product ? unitLabel(product.unit) : "-"}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label={`Preț unitar (${currency})`} className={PHONE_CELL}>
                     <Input
                       type="number"
                       min="0"
@@ -325,18 +337,19 @@ export function InboundOrderForm({
                       data-testid={`line-price-${index}`}
                     />
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                     <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold">
                       {lineTotal > 0 ? `${formatNumber(lineTotal)} ${currency}` : "-"}
                     </span>
                   </Td>
-                  <Td align="right">
+                  {/* Fara max-md:text-left: butonul de eliminare ramane in dreapta cardului. */}
+                  <Td align="right" className="max-md:col-span-2 max-md:block max-md:border-b-0 max-md:p-0">
                     <button
                       type="button"
                       onClick={() => removeLine(l.key)}
                       disabled={lines.length === 1}
                       title="Elimină poziția"
-                      className="mt-2 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-danger-soft hover:text-rc-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-rc-muted transition-colors"
+                      className={`mt-2 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-danger-soft hover:text-rc-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-rc-muted transition-colors max-md:mt-0 ${PHONE_CLOSE}`}
                     >
                       ✕
                     </button>
@@ -346,13 +359,14 @@ export function InboundOrderForm({
             })}
           </tbody>
         </Table>
+        </div>
 
-        <div className="flex items-start justify-between gap-6 px-5 py-4 bg-rc-paper border-t border-rc-line">
+        <div className="flex items-start justify-between gap-6 px-5 py-4 bg-rc-paper border-t border-rc-line max-md:flex-col max-md:gap-3">
           <div className="text-[12px] text-rc-muted max-w-[52ch] leading-relaxed">
             Valoarea în {DISPLAY_CURRENCY} nu este o conversie valutară. Nu există sursă de curs, așa
             că se însumează valorile în {DISPLAY_CURRENCY} deja stocate pe fiecare produs din catalog.
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 max-md:text-left">
             <p className="text-[12.5px] text-rc-muted">
               Total comandă:{" "}
               <span className="rc-num font-bold text-rc-black text-[15px]">
@@ -392,7 +406,7 @@ export function InboundOrderForm({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-md:flex-col max-md:items-stretch max-md:gap-3">
         <p className="text-[12.5px] text-rc-muted-2">
           La confirmare, comanda intră în listă cu starea{" "}
           <span className="font-semibold text-rc-muted">În așteptare</span>. Loturile se creează abia
