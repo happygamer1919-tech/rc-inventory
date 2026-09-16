@@ -29,6 +29,11 @@ import { OutboundPanel } from "./OutboundPanel";
 
 type Selection = { kind: "in"; id: string } | { kind: "out"; id: string } | null;
 
+// P3-64. PE TELEFON (sub 768px) cele doua liste stau una sub alta, iar un nume
+// lung se rupe pe randuri in loc sa fie taiat, fiindca pe telefon nu exista nimic
+// care sa arate restul. Peste 768px nimic nu se schimba: clasele poarta max-md.
+const PHONE_WRAP = "max-md:overflow-visible max-md:whitespace-normal max-md:[overflow-wrap:anywhere]";
+
 const inboundTone = (s: string): ChipTone => (s === "arrived" ? "ok" : "warn");
 const outboundTone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 
@@ -73,8 +78,12 @@ export function OrdersScreen({
         }
         actions={
           filter ? (
-            <Link href="/comenzi">
-              <Button variant="secondary" data-testid="orders-clear-filter">
+            <Link href="/comenzi" className="max-md:inline-flex">
+              <Button
+                variant="secondary"
+                data-testid="orders-clear-filter"
+                className="max-md:min-h-11"
+              >
                 Vezi toate ieșirile
               </Button>
             </Link>
@@ -82,7 +91,7 @@ export function OrdersScreen({
         }
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
         <Card>
           <CardHeader
             title="Intrări"
@@ -110,12 +119,14 @@ export function OrdersScreen({
                       : "hover:bg-rc-paper",
                   ].join(" ")}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13.5px] font-semibold text-rc-black">{o.reference}</span>
+                  <div className="flex items-center justify-between gap-3 max-md:flex-wrap max-md:gap-y-1">
+                    <span className="text-[13.5px] font-semibold text-rc-black max-md:[overflow-wrap:anywhere]">
+                      {o.reference}
+                    </span>
                     <Chip tone={inboundTone(o.status)}>{INBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
-                    <span className="text-[12.5px] text-rc-muted truncate">
+                    <span className={`text-[12.5px] text-rc-muted truncate ${PHONE_WRAP}`}>
                       {o.supplierName ?? "Fără furnizor"}
                     </span>
                     <span className="rc-num text-[12.5px] text-rc-muted shrink-0">
@@ -167,12 +178,16 @@ export function OrdersScreen({
                       : "hover:bg-rc-paper",
                   ].join(" ")}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13.5px] font-semibold text-rc-black">{o.reference}</span>
+                  <div className="flex items-center justify-between gap-3 max-md:flex-wrap max-md:gap-y-1">
+                    <span className="text-[13.5px] font-semibold text-rc-black max-md:[overflow-wrap:anywhere]">
+                      {o.reference}
+                    </span>
                     <Chip tone={outboundTone(o.status)}>{OUTBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
-                    <span className="text-[12.5px] text-rc-black truncate">{o.projectName}</span>
+                    <span className={`text-[12.5px] text-rc-black truncate ${PHONE_WRAP}`}>
+                      {o.projectName}
+                    </span>
                   </div>
                   <p className="text-[11.5px] text-rc-muted-2 mt-1">
                     {o.clientName} · {o.lines.length}{" "}

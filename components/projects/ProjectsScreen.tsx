@@ -37,6 +37,23 @@ import {
 } from "@/lib/data/projects-list-types";
 import { ProjectForm } from "./ProjectForm";
 
+// P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
+// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
+// doua lista ascunsa, fiindca spec-urile numara project-row si o copie ar dubla
+// fiecare numar pe desktop. Eticheta fiecarui camp este textul din antetul
+// coloanei, pus pe celula in data-label si desenat din CSS, deci textul celulei
+// ramane exact cel de azi. Textele starilor goale nu se ating.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:px-5 max-md:[&_tbody:not(:empty)]:pb-5";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** Legatura din rand: pe telefon o tinta de 44px, nu doar inaltimea textului. */
+const PHONE_LINK = "max-md:flex max-md:min-h-11 max-md:items-center";
+const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+
 export function ProjectsScreen({
   rows,
   total,
@@ -94,14 +111,18 @@ export function ProjectsScreen({
         lead="Șantierele, cu stadiul lor și cu clientul căruia îi aparțin."
         actions={
           canWrite ? (
-            <Button onClick={() => setCreating(true)} data-testid="project-new">
+            <Button
+              onClick={() => setCreating(true)}
+              data-testid="project-new"
+              className="max-md:min-h-11"
+            >
               Proiect nou
             </Button>
           ) : null
         }
       />
 
-      <Card>
+      <Card className={PHONE_TABLE}>
         <CardHeader
           title="Listă"
           hint={total === 1 ? "1 proiect" : `${total} proiecte`}
@@ -112,7 +133,7 @@ export function ProjectsScreen({
             la final tine Șterge filtrele, ca selecturile sa nu treaca dedesubt
             cand butonul apare. */}
         <div
-          className="p-5 grid grid-cols-[1.6fr_1fr_1.2fr_auto] items-center gap-3"
+          className="p-5 grid grid-cols-[1.6fr_1fr_1.2fr_auto] items-center gap-3 max-md:grid-cols-1"
           data-testid="projects-filters"
         >
           <Input
@@ -120,12 +141,14 @@ export function ProjectsScreen({
             onChange={(e) => setQ(e.target.value)}
             placeholder="Caută după denumire sau adresă"
             data-testid="projects-search"
+            className={PHONE_CONTROL}
           />
 
           <Select
             value={statusValue}
             onChange={(e) => push({ stare: e.target.value, pagina: "1" })}
             data-testid="projects-status"
+            className={PHONE_CONTROL}
           >
             <option value="">În desfășurare</option>
             {/* Optiunile citesc cele sase valori ale enumului IN ORDINEA
@@ -144,6 +167,7 @@ export function ProjectsScreen({
             value={query.clientId}
             onChange={(e) => push({ client: e.target.value, pagina: "1" })}
             data-testid="projects-client"
+            className={PHONE_CONTROL}
           >
             <option value="">Toți clienții</option>
             {clients.map((c) => (
@@ -158,6 +182,7 @@ export function ProjectsScreen({
               variant="secondary"
               onClick={() => router.push(pathname)}
               data-testid="projects-clear"
+              className="max-md:min-h-11"
             >
               Șterge filtrele
             </Button>
@@ -191,32 +216,34 @@ export function ProjectsScreen({
                   data-testid="project-row"
                   data-name={p.name}
                   data-status={p.status}
-                  className="hover:bg-rc-paper"
+                  className={`hover:bg-rc-paper ${PHONE_ROW}`}
                 >
-                  <Td>
+                  <Td data-label="Denumire" className={PHONE_WIDE}>
                     <Link
                       href={`/proiecte/${p.id}`}
-                      className="font-semibold text-rc-black hover:underline"
+                      className={`font-semibold text-rc-black hover:underline ${PHONE_LINK}`}
                       data-testid="project-link"
                     >
                       {p.name}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td data-label="Client" className={PHONE_WIDE}>
                     <Link
                       href={`/clienti/${p.clientId}`}
-                      className="text-rc-black hover:underline"
+                      className={`text-rc-black hover:underline ${PHONE_LINK}`}
                     >
                       {p.clientName}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td data-label="Stare" className={PHONE_CELL}>
                     <Chip tone={PROJECT_STATUS_TONE[p.status]}>
                       {PROJECT_STATUS_LABEL[p.status]}
                     </Chip>
                   </Td>
-                  <Td>{p.plannedEndDate ? formatDate(p.plannedEndDate) : "-"}</Td>
-                  <Td align="right">
+                  <Td data-label="Termen estimat" className={PHONE_CELL}>
+                    {p.plannedEndDate ? formatDate(p.plannedEndDate) : "-"}
+                  </Td>
+                  <Td align="right" data-label="Buget" className={PHONE_CELL}>
                     {/* NULL SI ZERO SUNT DOUA FAPTE DIFERITE. Un buget lipsa nu
                         este un buget de zero lei, si ecranul spune care. */}
                     {p.budgetMdl === null ? (
@@ -233,7 +260,7 @@ export function ProjectsScreen({
 
         {pageCount > 1 ? (
           <div
-            className="px-5 py-4 flex items-center justify-between border-t border-rc-line"
+            className="px-5 py-4 flex items-center justify-between border-t border-rc-line max-md:flex-wrap max-md:gap-3"
             data-testid="projects-pagination"
           >
             <span className="text-[12.5px] text-rc-muted">
@@ -245,6 +272,7 @@ export function ProjectsScreen({
                 disabled={page <= 1}
                 onClick={() => push({ pagina: String(page - 1) })}
                 data-testid="projects-prev"
+                className="max-md:min-h-11"
               >
                 Înapoi
               </Button>
@@ -253,6 +281,7 @@ export function ProjectsScreen({
                 disabled={page >= pageCount}
                 onClick={() => push({ pagina: String(page + 1) })}
                 data-testid="projects-next"
+                className="max-md:min-h-11"
               >
                 Înainte
               </Button>
