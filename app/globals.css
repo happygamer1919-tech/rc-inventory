@@ -68,9 +68,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Preview desktop-first: sub 1100px nu garantam nimic, dar nu rupem pagina. */
-.rc-shell {
-  min-width: 1100px;
+/* Preview desktop-first: sub 1100px nu garantam nimic, dar nu rupem pagina.
+   P3-60: latimea minima se aplica doar de la 768px in sus. Sub 768px (telefon)
+   invelisul are latimea ecranului, iar meniul lateral devine sertar. */
+@media (min-width: 768px) {
+  .rc-shell {
+    min-width: 1100px;
+  }
 }
 
 /* Numere aliniate in tabele si carduri de statistici. */
