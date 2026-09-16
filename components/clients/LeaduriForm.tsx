@@ -20,6 +20,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { DateField } from "@/components/ui/DateField";
+import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createClientRecord } from "@/lib/data/client-actions";
 import {
   CLIENT_SOURCES,
@@ -106,7 +107,7 @@ export function LeaduriForm({
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
       <aside
-        className="relative w-[520px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl"
+        className={`relative w-[520px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="leaduri-form"
       >
         <div className="sticky top-0 bg-rc-white text-rc-black border-b border-rc-line px-6 py-4 flex items-start justify-between gap-4">
@@ -120,7 +121,7 @@ export function LeaduriForm({
             type="button"
             onClick={onClose}
             aria-label="Închide"
-            className="shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors"
+            className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
             ✕
           </button>
@@ -144,7 +145,7 @@ export function LeaduriForm({
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid grid-cols-2 gap-4 ${PHONE_STACK}`}>
             <Field label="Telefon">
               <Input
                 value={phone}
@@ -185,7 +186,7 @@ export function LeaduriForm({
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid grid-cols-2 gap-4 ${PHONE_STACK}`}>
             <Field label="Etapă" required>
               <Select
                 value={stage}

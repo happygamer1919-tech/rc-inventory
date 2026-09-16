@@ -19,6 +19,7 @@ import { loadInboundDetail } from "@/lib/data/inbound-detail";
 import { receiveInboundOrder } from "@/lib/data/inbound-actions";
 import { OrderDocumentLink, OrderDocumentUpload } from "./OrderDocumentUpload";
 import { Panel } from "./Panel";
+import { PHONE_CELL, PHONE_ROW, PHONE_TABLE, PHONE_WIDE } from "@/components/ui/phone";
 
 const tone = (s: string): ChipTone => (s === "arrived" ? "ok" : "warn");
 
@@ -132,7 +133,7 @@ export function InboundPanel({
 
       <section className="px-6 py-5">
         <h3 className="text-[13.5px] font-bold mb-2">Poziții</h3>
-        <div className="rounded-[10px] border border-rc-line overflow-hidden">
+        <div className={`rounded-[10px] border border-rc-line overflow-hidden ${PHONE_TABLE}`}>
           <Table>
             <thead>
               <tr>
@@ -143,19 +144,19 @@ export function InboundPanel({
             </thead>
             <tbody data-testid="inbound-lines">
               {order.lines.map((l) => (
-                <tr key={l.id} data-testid="inbound-line">
-                  <Td>
+                <tr key={l.id} data-testid="inbound-line" className={PHONE_ROW}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     <span className="text-[12.5px] font-medium text-rc-black">{l.productName}</span>
                     <span className="block rc-num text-[11.5px] text-rc-muted-2 mt-0.5">
                       {l.productSku}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold whitespace-nowrap">
                       {formatNumber(l.quantity)} {unitLabel(l.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Preț unitar" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
                       {l.unitPrice === null
                         ? "-"
@@ -178,7 +179,7 @@ export function InboundPanel({
           Un lot se creează la recepție, câte unul pentru fiecare poziție. Suma loturilor este
           stocul.
         </p>
-        <div className="rounded-[10px] border border-rc-line overflow-hidden">
+        <div className={`rounded-[10px] border border-rc-line overflow-hidden ${PHONE_TABLE}`}>
           <Table>
             <thead>
               <tr>
@@ -189,16 +190,16 @@ export function InboundPanel({
             </thead>
             <tbody data-testid="inbound-batches">
               {batches.map((b) => (
-                <tr key={b.id} data-testid="inbound-batch">
-                  <Td>
+                <tr key={b.id} data-testid="inbound-batch" className={PHONE_ROW}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     <span className="text-[12.5px] text-rc-black">{b.productName}</span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold">
                       {formatNumber(b.quantity)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Recepționat" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] text-rc-muted">
                       {formatDate(b.arrivedAt)}
                     </span>

@@ -36,6 +36,16 @@ import type {
 import { ContactForm } from "./ContactForm";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import {
+  PHONE_ACTIONS_CELL,
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TAB,
+  PHONE_TABLE,
+  PHONE_TABS,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 
 const TABS = [
   { id: "contacte", label: "Contacte" },
@@ -86,7 +96,7 @@ export function ClientTabs({
 
   return (
     <>
-      <div className="flex gap-1 border-b border-rc-line mb-4" data-testid="client-tabs">
+      <div className={`flex gap-1 border-b border-rc-line mb-4 ${PHONE_TABS}`} data-testid="client-tabs">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -96,8 +106,8 @@ export function ClientTabs({
             data-active={active === t.id ? "true" : "false"}
             className={
               active === t.id
-                ? "px-4 py-2.5 text-[13.5px] font-semibold text-rc-white border-b-2 border-rc-orange -mb-px"
-                : "px-4 py-2.5 text-[13.5px] text-rc-muted-2 hover:text-rc-white"
+                ? `px-4 py-2.5 text-[13.5px] font-semibold text-rc-white border-b-2 border-rc-orange -mb-px ${PHONE_TAB}`
+                : `px-4 py-2.5 text-[13.5px] text-rc-muted-2 hover:text-rc-white ${PHONE_TAB}`
             }
           >
             {t.label}
@@ -129,6 +139,7 @@ export function ClientTabs({
                 }
               />
             ) : (
+              <div className={PHONE_TABLE}>
               <Table>
                 <thead>
                   <tr>
@@ -141,8 +152,8 @@ export function ClientTabs({
                 </thead>
                 <tbody>
                   {contacts.map((c) => (
-                    <tr key={c.id} data-testid="contact-row" data-name={c.name}>
-                      <Td>
+                    <tr key={c.id} data-testid="contact-row" data-name={c.name} className={PHONE_ROW}>
+                      <Td data-label="Persoană de contact" className={PHONE_WIDE}>
                         <span className="font-semibold text-rc-black">{c.name}</span>
                         {c.isPrimary ? (
                           <Chip tone="orange" className="ml-2" >
@@ -155,10 +166,10 @@ export function ClientTabs({
                           </Chip>
                         ) : null}
                       </Td>
-                      <Td>{c.role ?? "-"}</Td>
-                      <Td>{c.phone ?? "-"}</Td>
-                      <Td>{c.email ?? "-"}</Td>
-                      <Td align="right">
+                      <Td data-label="Rol" className={PHONE_CELL}>{c.role ?? "-"}</Td>
+                      <Td data-label="Telefon" className={PHONE_CELL}>{c.phone ?? "-"}</Td>
+                      <Td data-label="Email" className={PHONE_WIDE}>{c.email ?? "-"}</Td>
+                      <Td align="right" className={PHONE_ACTIONS_CELL}>
                         {canWrite ? (
                           <Button
                             variant="secondary"
@@ -173,6 +184,7 @@ export function ClientTabs({
                   ))}
                 </tbody>
               </Table>
+              </div>
             )}
           </Card>
         ) : null}
@@ -191,6 +203,7 @@ export function ClientTabs({
                 }
               />
             ) : (
+              <div className={PHONE_TABLE}>
               <Table>
                 <thead>
                   <tr>
@@ -202,23 +215,25 @@ export function ClientTabs({
                 </thead>
                 <tbody>
                   {projects.map((p) => (
-                    <tr key={p.id} data-testid="client-project-row" data-name={p.name}>
-                      <Td>
+                    <tr key={p.id} data-testid="client-project-row" data-name={p.name} className={PHONE_ROW}>
+                      <Td data-label="Denumire" className={PHONE_WIDE}>
                         <Link
                           href={`/proiecte/${p.id}`}
-                          className="font-semibold text-rc-black hover:underline"
+                          className={`font-semibold text-rc-black hover:underline ${PHONE_LINK}`}
                           data-testid="client-project-link"
                         >
                           {p.name}
                         </Link>
                       </Td>
-                      <Td>
+                      <Td data-label="Stare" className={PHONE_CELL}>
                         <Chip tone={PROJECT_STATUS_TONE[p.status]}>
                           {PROJECT_STATUS_LABEL[p.status]}
                         </Chip>
                       </Td>
-                      <Td>{p.plannedEndDate ? formatDate(p.plannedEndDate) : "-"}</Td>
-                      <Td align="right">
+                      <Td data-label="Termen estimat" className={PHONE_CELL}>
+                        {p.plannedEndDate ? formatDate(p.plannedEndDate) : "-"}
+                      </Td>
+                      <Td align="right" data-label="Buget" className={PHONE_WIDE}>
                         {p.budgetMdl === null ? (
                           <span className="text-rc-muted">Fără buget</span>
                         ) : (
@@ -229,6 +244,7 @@ export function ClientTabs({
                   ))}
                 </tbody>
               </Table>
+              </div>
             )}
           </Card>
         ) : null}
@@ -246,6 +262,7 @@ export function ClientTabs({
               />
             ) : (
               <>
+                <div className={PHONE_TABLE}>
                 <Table>
                   <thead>
                     <tr>
@@ -256,31 +273,38 @@ export function ClientTabs({
                   </thead>
                   <tbody>
                     {materials.rows.map((r) => (
-                      <tr key={r.productId ?? r.sku} data-testid="material-row" data-sku={r.sku}>
-                        <Td>
+                      <tr key={r.productId ?? r.sku} data-testid="material-row" data-sku={r.sku} className={PHONE_ROW}>
+                        <Td data-label="Produs" className={PHONE_WIDE}>
                           <span className="font-semibold text-rc-black">{r.name}</span>
                           <span className="ml-2 text-[12.5px] text-rc-muted">{r.sku}</span>
                         </Td>
-                        <Td align="right">
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                           {formatNumber(r.quantity)} {r.unit ? unitLabel(r.unit) : ""}
                         </Td>
-                        <Td align="right">{formatMoney(r.valueMdl)}</Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_CELL}>
+                          {formatMoney(r.valueMdl)}
+                        </Td>
                       </tr>
                     ))}
                     {materials.total ? (
-                      <tr data-testid="material-total" className="font-semibold">
-                        <Td>Total, toate produsele</Td>
-                        <Td align="right">{formatNumber(materials.total.quantity)}</Td>
-                        <Td align="right">{formatMoney(materials.total.valueMdl)}</Td>
+                      <tr data-testid="material-total" className={`font-semibold ${PHONE_ROW}`}>
+                        <Td className={PHONE_WIDE}>Total, toate produsele</Td>
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
+                          {formatNumber(materials.total.quantity)}
+                        </Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_CELL}>
+                          {formatMoney(materials.total.valueMdl)}
+                        </Td>
                       </tr>
                     ) : null}
                   </tbody>
                 </Table>
+                </div>
                 <div className="px-5 py-4 border-t border-rc-line space-y-2">
                   {/* P3-10: catre lista completa FILTRATA la acest client. */}
                   <Link
                     href={`/comenzi?client=${clientId}`}
-                    className="text-[12.5px] text-rc-orange-deep hover:underline"
+                    className={`text-[12.5px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                     data-testid="material-full-history"
                   >
                     Vezi toate ieșirile către acest client
