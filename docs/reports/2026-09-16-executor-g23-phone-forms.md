@@ -134,6 +134,32 @@ commit.
   this card changed (the label and value rows), so no conflict is expected; the card header now wraps
   on a phone, which gives its button room.
 
+## Pull request stage, 2026-09-16 (the re-queued pull request task)
+
+- Started only after `gh pr list --state open --author @me` and `gh pr list --state open` were both
+  empty (#313 merged).
+- `origin/main` at 96266d1 (P3-66, #313) merged into `card/p3-65` in 0290efc (merge commit, no
+  rebase). `docs/board/rc-board-phase3.json` conflicted and was rebuilt from both parents by script,
+  keeping both sides: main's P3-66 exactly as main has it, P3-65 from this branch; the script refuses if
+  this branch changed any other card or top-level key. `as_of` and P3-65 `last_checkpoint` bumped.
+  `components/clients/ClientDetailScreen.tsx` and `docs/LEARNINGS.md` merged without conflict; G24's
+  new header button is a shared `Button`, which already takes 44 px on a phone at every size, and the
+  card header wraps, so the phone checks cover it unchanged.
+- **`components/inventory/ProductForm.tsx` is still NOT included.** G21 and G24 have both merged and
+  no open pull request touches it (the P3-67 branch does not either), but this card's acceptance names
+  its exact file list without it, and a new layout for it could not be proved here without the local
+  database. A later card takes it, with the Model, Serie and Grosime picker.
+- Re-run on the merged tree, all exit 0: board validator (3 boards), `npx tsc --noEmit`,
+  `npm run build`, `npm run check:card-ids`, `npm run check:board-edit`, `npm run check:board-clock`,
+  `npm run check:unique-ids`, `npm run check:open-branch-ids`, `npm run check:no-destructive-migration`,
+  `npm run check:conflict-residue`, `npm run check:categories`, `npm run check:ledger-rows`,
+  `npm run check:no-prod-target`, `npm run check:pending-schema-reads`, `npm run check:removal-safety`,
+  `npm run check:assertion-register`. `git diff --exit-code origin/main -- tests/e2e
+  ':!tests/e2e/phone-forms.spec.ts'` exit 0, and `git diff --name-only origin/main` lists only the
+  files the acceptance allows.
+- `tests/e2e/phone-forms.spec.ts` needs the local Supabase stack and runs in CI's `quality` job only.
+- No new defect hit at this stage, so no new learning.
+
 ## Learnings
 
 Three entries appended to `docs/LEARNINGS.md`: pixel hashes flicker in dev mode, so desktop-unchanged is
