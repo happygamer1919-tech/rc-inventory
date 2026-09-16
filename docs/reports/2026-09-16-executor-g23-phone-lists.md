@@ -109,6 +109,26 @@ name, project and client names, order reference). A screenshot per screen goes t
 `npm run check:assertion-register`. Board validator exit 0 before every commit. Branch merged with
 current `origin/main` before the push.
 
+## After merging main (PR-opening run, 2026-09-16)
+
+- `origin/main` at ee617a4 merged into `card/p3-64` (merge commit, no rebase). It carries P3-59 (#308)
+  and the phone shell P3-60 (#310).
+- Conflicts: `docs/board/rc-board-phase3.json` rebuilt from both parents by script (P3-59 and P3-60 from
+  main, P3-64 from this branch; nothing else differed but `as_of`), and `docs/LEARNINGS.md` keeps all
+  five entries. `components/inventory/InventoryScreen.tsx` auto-merged (main added one prop line).
+- On the merged tree, all exit 0: validator, `npx tsc --noEmit`, `npm run build` and the twelve
+  `npm run check:*` scripts of the close-out list. `git diff --exit-code origin/main -- tests/e2e
+  ':!tests/e2e/phone-lists.spec.ts'` exits 0 and `git diff --name-only origin/main` lists only the files
+  the acceptance allows.
+- **Re-verified inside the real phone shell.** A throwaway page under `app/auth/` rendered the four
+  screens with fake rows inside P3-60's own `Sidebar` and `Topbar`, and the spec's measurement code,
+  copied verbatim, ran against it at 390x844: **10 of 10 passed** (seven screen variants with the
+  sidebar out of view, Comenzi stacked, desktop shape at 1440, and a negative control that forces the
+  table back and confirms the checks throw). Harness page, spec, config and dummy env file deleted,
+  never committed.
+- The signed-in spec itself still runs only in CI (no Docker or Supabase CLI on this machine).
+- No migration added.
+
 ## Learnings
 
 Two entries appended to `docs/LEARNINGS.md`: the `<main>` scroller that makes a document-only width
