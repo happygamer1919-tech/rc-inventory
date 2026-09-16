@@ -304,6 +304,15 @@ export function ProductForm({
   const fieldClass = (field: string) =>
     errorField === field ? "border-rc-danger" : undefined;
 
+  // P3-61. Serie si Grosime sunt blocate pana se alege campul de deasupra; fara
+  // un stil vizibil pareau stricate. Numai pe aceste doua liste, nu pe Select.
+  const lockedSheetClass = [
+    "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-rc-line",
+    fieldClass("sheet"),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
@@ -372,7 +381,7 @@ export function ProductForm({
                     ))}
                   </Select>
                 </Field>
-                <Field label="Serie">
+                <Field label="Serie" hint={sheetModel ? undefined : "Alege întâi modelul"}>
                   <Select
                     value={sheetSeries}
                     onChange={(e) => {
@@ -381,7 +390,7 @@ export function ProductForm({
                       clearSheetError();
                     }}
                     disabled={!sheetModel}
-                    className={fieldClass("sheet")}
+                    className={lockedSheetClass}
                     data-testid="field-sheet-series"
                   >
                     <option value="">Alege seria</option>
@@ -393,12 +402,12 @@ export function ProductForm({
                   </Select>
                 </Field>
               </div>
-              <Field label="Grosime">
+              <Field label="Grosime" hint={sheetSeries ? undefined : "Alege întâi seria"}>
                 <Select
                   value={sheetKey}
                   onChange={(e) => pickSheetThickness(e.target.value)}
                   disabled={!sheetSeries}
-                  className={fieldClass("sheet")}
+                  className={lockedSheetClass}
                   data-testid="field-sheet-thickness"
                 >
                   <option value="">Alege grosimea</option>
@@ -613,11 +622,21 @@ function sheetOptionKey(option: Pick<SheetOption, "thicknessMm" | "finish">): st
   return `${option.thicknessMm}|${option.finish}`;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// P3-61: hint are acelasi rand mic ca Field din components/ui/primitives.
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block mb-4">
       <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">{label}</span>
       {children}
+      {hint ? <span className="block text-[12px] text-rc-muted mt-1">{hint}</span> : null}
     </label>
   );
 }

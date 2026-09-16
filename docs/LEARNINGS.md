@@ -5767,3 +5767,17 @@ and the diff was showing that merge in reverse.
 from (`git diff --name-only <base-sha>`, or `origin/main...HEAD` with three dots, which uses the merge
 base), and read `git log origin/main` before trusting a two-dot diff. RULE: **in a shared clone,
 `origin/main` is a moving target; a two-dot diff against it is only meaningful right after merging it.**
+
+### A component name in a brief is not proof of which component the file uses
+**Tag:** frontend
+**ERROR:** the task for P3-61 said the Serie and Grosime lists sit inside `Field` from
+`components/ui/primitives.tsx` and told the executor to pass its existing `hint` prop. The first
+`npx tsc --noEmit` failed with `TS2322: Property 'hint' does not exist on type '{ label: string;
+children: ReactNode; }'`: `components/inventory/ProductForm.tsx` never imports the shared `Field`, it
+declares its own private one at the bottom of the file, with no hint and no "(opțional)" marker.
+Importing the shared one instead would have compiled, and would have printed "(opțional)" beside
+Serie and Grosime but not beside Model, and dropped the private field's bottom margin.
+**SOLUTION:** the private `Field` gained an optional `hint` that renders the same line as the shared
+one; the shared primitives were not touched. RULE: **before reusing a component a brief names, grep
+the file's imports and its own local declarations; a same-named local component shadows the shared
+one silently, and the type checker is the first thing that tells you.**
