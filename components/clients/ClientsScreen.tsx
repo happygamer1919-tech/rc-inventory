@@ -319,6 +319,10 @@ export function ClientsScreen({
         </div>
 
         {rows.length === 0 ? (
+          // P3-66. PE FILTRUL ACTIVI, O LISTA GOALA SPUNE CA CEI DEZACTIVATI SUNT
+          // ASCUNSI si ofera un buton spre Inactivi, in fiecare vedere. Acolo parea
+          // pierdut un lead dezactivat. Pe Inactivi si pe Toate starea goala ramane
+          // cum era.
           <EmptyState
             title={
               inLeaduri
@@ -329,12 +333,31 @@ export function ClientsScreen({
                   ? "Niciun client pentru filtrele alese"
                   : "Niciun client încă"
             }
-            hint={
+            hint={[
               filtered
                 ? "Schimbă căutarea sau șterge filtrele."
                 : inLeaduri
                   ? "Primul lead se adaugă din butonul de sus."
-                  : "Primul client se adaugă din butonul de sus."
+                  : "Primul client se adaugă din butonul de sus.",
+              query.status === "active"
+                ? inLeaduri
+                  ? "Leadurile dezactivate nu apar aici, ci la filtrul Inactivi."
+                  : "Clienții dezactivați nu apar aici, ci la filtrul Inactivi."
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            action={
+              query.status === "active" ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => push({ stare: "inactive", pagina: "1" })}
+                  data-testid="clients-show-inactive"
+                  className="max-md:min-h-11"
+                >
+                  Arată inactivii
+                </Button>
+              ) : undefined
             }
           />
         ) : inLeaduri ? (
