@@ -498,7 +498,9 @@ test.describe("Verificare si confirmare extragere", () => {
     // CLAUZA 1a: fiecare camp extras ajunge pe ecran.
     await expect(page.getByTestId("review-supplier")).toHaveValue("Bilka Steel SRL");
     await expect(page.getByTestId("review-currency")).toHaveValue("MDL");
-    await expect(page.getByTestId("review-ordered-at")).toHaveValue("2026-08-14");
+    // P3-49. Campul se citeste romaneste, zz.ll.aaaa; stocat ramane 2026-08-14.
+    await expect(page.getByTestId("review-ordered-at")).toHaveValue("14.08.2026");
+    await expect(page.getByTestId("review-ordered-at-native")).toHaveValue("2026-08-14");
     await expect(page.getByTestId("review-line-name-0")).toHaveValue(
       `Tigla metalica Bilka Classic 0.45mm visiniu ${RUN}`,
     );

@@ -19,6 +19,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
+import { DateField } from "@/components/ui/DateField";
 import { createClientRecord } from "@/lib/data/client-actions";
 import {
   CLIENT_SOURCES,
@@ -204,12 +205,11 @@ export function LeaduriForm({
                 data, iar o data pusa de cineva este o promisiune la orice etapa.
                 Obligatorie devine numai la De reluat. */}
             <Field label="Data de reluare" required={stage === "follow_up"}>
-              <Input
-                type="date"
+              <DateField
                 value={followUpDate}
-                onChange={(e) => setFollowUpDate(e.target.value)}
+                onChange={setFollowUpDate}
                 className={fieldClass("followUpDate")}
-                data-testid="field-leaduri-follow-up"
+                testId="field-leaduri-follow-up"
               />
             </Field>
           </div>
