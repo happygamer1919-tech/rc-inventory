@@ -164,8 +164,13 @@ test.describe("Prețurile Dasterum pe formularul de produs", () => {
   });
 
   test("3. lista de prețuri are cele 194 de linii și acoperă fiecare combinație", async () => {
+    // P3-68. LISTA VERIFICATA, FARA RANDURILE TEST-. De la P3-68 proprietarul poate
+    // adauga combinatii si preturi din Setari, iar sheet-options-admin.spec adauga pe
+    // aceeasi baza locala combinatii al caror model si grup de pret incep cu TEST-.
+    // Numaratoarea de mai jos ramane exact cea a listei verificate: 194, 26832 lei si
+    // 225. Pana atunci citea toate randurile, fiindca toate erau ale listei.
     const prices = await rest(
-      "sheet_prices?select=price_group,series,thickness_mm,finish,price_lei",
+      "sheet_prices?select=price_group,series,thickness_mm,finish,price_lei&price_group=not.like.TEST-*",
     );
     expect(prices).toHaveLength(PRICE_COUNT);
 
@@ -181,7 +186,7 @@ test.describe("Prețurile Dasterum pe formularul de produs", () => {
     expect(byLine.size).toBe(PRICE_COUNT);
 
     const options = await rest(
-      "sheet_options?select=model,series,thickness_mm,finish,price_group",
+      "sheet_options?select=model,series,thickness_mm,finish,price_group&model=not.like.TEST-*",
     );
     expect(options).toHaveLength(OPTION_COUNT);
 
