@@ -33,6 +33,79 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # P3-73, Ivan's finding F12. THE DOCUMENTATION-ONLY FAST PATH.
+      #
+      # A pull request that changes nothing but documentation still paid for a
+      # production build, a migration apply against a bare postgres and the whole
+      # Playwright suite against a local Supabase stack: about twenty minutes to
+      # re-prove an application nobody touched.
+      #
+      # THIS IS STILL NOT A WORKFLOW `paths:` KEY, AND IT NEVER WILL BE. The
+      # distinction is the one the applier filter below already spells out and it
+      # is what keeps CLAUDE.md 3.1 alive: a `paths:` key would skip the ENTIRE
+      # `quality` job, and GitHub reports a skipped required check as SUCCESS, so
+      # branch protection would be satisfied by a job that never ran. A
+      # step-level `if:` skips named steps and leaves every other step running
+      # and reporting its real result.
+      #
+      # WHAT STAYS RUNNING ON A DOCUMENTATION-ONLY DIFF: the typecheck and every
+      # validator and doctrine proof in this job, the board validator and the
+      # card-id checks included. A documentation-only diff is exactly the diff
+      # that edits a board, so the board checks are the ones that must not be
+      # filtered here.
+      #
+      # WHAT IT SKIPS: Build, the migration apply against a bare postgres, the
+      # two applier proofs, and the whole End to end block. None of them can tell
+      # anything about a diff that contains no application code, no migration and
+      # no test.
+      #
+      # IT FAILS OPEN, exactly like the applier filter: an unresolvable base
+      # commit, an empty file list or a classifier that errors all mean NOT
+      # documentation-only, so every step runs. A filter that cannot tell what
+      # changed must never conclude that nothing did.
+      - name: Decide whether the diff is documentation only
+        id: docs_scope
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "${BASE}" ] || [ "${BASE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "base commit not resolvable, running every step rather than assuming the diff is documentation"
+            exit 0
+          fi
+          CHANGED="$(git diff --name-only "${BASE}" HEAD)"
+          echo "changed files against ${BASE}:"
+          echo "${CHANGED}"
+          if [ -z "${CHANGED}" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "no changed file could be listed, running every step rather than assuming the diff is documentation"
+            exit 0
+          fi
+          # THE OFFENDING FILES ARE COLLECTED, NOT COUNTED BY `grep -q`. With
+          # `grep -q` the pipeline can end 141 because grep closed the pipe early
+          # and pipefail reported printf's SIGPIPE, and that status is
+          # indistinguishable from "no offending file", which would classify a
+          # code diff as documentation. Reading the whole list has no early exit
+          # and no such status.
+          set +e
+          OUTSIDE="$(printf '%s\n' "${CHANGED}" | grep -vE '^docs/|^decisions/|\.md$|^docs/board/rc-board\.json$|^docs/board/rc-board-phase2\.json$|^docs/board/rc-board-phase3\.json$')"
+          STATUS=$?
+          set -e
+          if [ "${STATUS}" -gt 1 ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "the file classifier itself failed with exit ${STATUS}, running every step"
+            exit 0
+          fi
+          if [ -n "${OUTSIDE}" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "these changed files are outside documentation, so every step runs:"
+            echo "${OUTSIDE}"
+          else
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "every changed file is documentation, so Build, the migration apply, the applier proofs and End to end are skipped"
+          fi
+
       # NOTE: the lint step is intentionally absent. eslint-config-next@16 bundles
       # typescript-eslint, which hard-throws "does not support TS 7.0" against this
       # repo's typescript@^7. Upstream tracking: typescript-eslint issue #10940.
@@ -41,7 +114,15 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # P3-73. Skipped on a documentation-only diff. Nothing downstream in this
+      # job consumes what it writes: `npm run build` appears exactly once in this
+      # file, no step reads `.next`, and the production-mode Playwright server in
+      # playwright.config.ts runs its OWN `NEXT_DIST_DIR=.next-prod npm run build`
+      # for precisely that reason, stated in that file's own comment. This step is
+      # a standalone smoke test, and End to end, which is the only thing that
+      # could have needed it, is skipped as a block alongside it.
       - name: Build
+        if: steps.docs_scope.outputs.docs_only != 'true'
         run: npm run build
 
       # All three boards, one step, one check name. The check name stays `quality`
@@ -294,7 +375,11 @@ jobs:
       #
       # Ruling R-060 records this, and the card defaults are amended to match
       # rather than left contradicting the workflow.
+      # P3-73. Skipped on a documentation-only diff: it builds a postgres
+      # container to replay `supabase/migrations/**`, and no file under that
+      # directory can appear in a diff this filter calls documentation.
       - name: Apply every migration to a bare postgres, unmodified
+        if: steps.docs_scope.outputs.docs_only != 'true'
         run: npm run check:migrations
 
       # THE APPLIER PROOF, AND IT IS THE ONE PATH-FILTERED STEP IN THIS JOB.
@@ -338,8 +423,16 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # P3-73 ADDS THE DOCUMENTATION-ONLY CLAUSE AND IT CHANGES NOTHING TODAY, by
+      # construction: `applier_scope` only says run=true when the diff touches
+      # `scripts/apply-pending-migrations.*`, `supabase/migrations/**`,
+      # `scripts/poc-free/local-db/**` or `scripts/poc-free/prove-assertions-can-fail.*`,
+      # and not one of those paths can appear in a diff `docs_scope` calls
+      # documentation. The two conditions cannot disagree. The clause is written
+      # anyway so that a reader adding a path to either filter later sees both
+      # gates on the step instead of inferring one from the other.
       - name: Prove the migration applier against the Docker shim
-        if: steps.applier_scope.outputs.run == 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && steps.applier_scope.outputs.run == 'true'
         run: npm run prove:applier
 
       # PROVE-01. EVERY APPLIER ASSERTION, WATCHED TO FAIL.
@@ -357,7 +450,7 @@ jobs:
       # It rides the same path filter as the applier proof above: both build
       # containers and both are about the same file.
       - name: Prove every applier assertion can fail
-        if: steps.applier_scope.outputs.run == 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && steps.applier_scope.outputs.run == 'true'
         run: npm run prove:assertions
 
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
@@ -789,6 +882,11 @@ jobs:
       # the eu-west-1 project. No production credential appears in this file or
       # in repository secrets: the local stack's anon and service keys are the
       # fixed, published demo keys, and they open nothing outside the runner.
+      #
+      # P3-73. EVERY STEP FROM HERE TO THE END OF THE JOB CARRIES THE SAME
+      # DOCUMENTATION-ONLY CONDITION, and they are skipped as ONE BLOCK or not at
+      # all. Skipping half of it would leave Playwright pointed at a stack that
+      # was never started, which is a red run rather than a fast one.
       # ----------------------------------------------------------------------
 
       # CI-01. PINNED, BOTH HALVES: THE ACTION TO A COMMIT SHA AND THE CLI TO AN
@@ -828,23 +926,27 @@ jobs:
       # THE SHA IS THE ONE THE GREEN RUN OF 2026-09-05 RESOLVED `@v1` TO, read
       # from that run's own log rather than from the tag today.
       - name: Start local Supabase
+        if: steps.docs_scope.outputs.docs_only != 'true'
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
         with:
           version: 2.116.0
 
       - name: Launch database, auth and storage
+        if: steps.docs_scope.outputs.docs_only != 'true'
         # Which services run is decided by supabase/config.toml, not by flags
         # here: one place to change, and no risk of a renamed container name
         # breaking the workflow.
         run: supabase start
 
       - name: Apply migrations to the local stack
+        if: steps.docs_scope.outputs.docs_only != 'true'
         # db reset replays supabase/migrations from empty, in file order, which
         # is the same order Ivan applies them by hand. If a migration is broken,
         # CI says so here rather than on the day it is applied for real.
         run: supabase db reset
 
       - name: Export local Supabase credentials
+        if: steps.docs_scope.outputs.docs_only != 'true'
         run: |
           set -euo pipefail
           supabase status -o env > /tmp/supabase.env
@@ -861,6 +963,7 @@ jobs:
       # the only way to exercise the redirect loop this card removed, because
       # the loop needed a valid session whose profile lookup came back empty.
       - name: Seed the three test accounts
+        if: steps.docs_scope.outputs.docs_only != 'true'
         env:
           TEST_OWNER_EMAIL: owner@rc-inventory.local
           TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
@@ -913,15 +1016,21 @@ jobs:
           } > .env.local
 
       - name: Install Playwright chromium
+        if: steps.docs_scope.outputs.docs_only != 'true'
         # Chromium only. Firefox and WebKit would triple the minutes to
         # re-prove the same application logic on a desktop-only internal tool.
         run: npx playwright install --with-deps chromium
 
       - name: End to end
+        if: steps.docs_scope.outputs.docs_only != 'true'
         run: npx playwright test
 
+      # P3-73. BOTH CONDITIONS, AND THE SECOND ONE IS NOT DECORATION. On a
+      # documentation-only diff there is no Playwright run and therefore no
+      # report directory, so a validator failing under `failure()` would send
+      # this step looking for a path that was never written.
       - name: Upload Playwright report on failure
-        if: failure()
+        if: failure() && steps.docs_scope.outputs.docs_only != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
