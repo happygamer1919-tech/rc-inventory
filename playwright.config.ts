@@ -57,6 +57,27 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const PROD_PORT = Number(process.env.PLAYWRIGHT_PROD_PORT ?? 3101);
 const PROD_DIST = ".next-prod";
 
+// P3-71, constatarea F3 a lui Ivan. AL TREILEA SERVER, FARA MAKE_WEBHOOK_URL.
+//
+// Cardul afirma ce se intampla cand variabila LIPSESTE, iar asta nu se poate
+// dovedi pe un server care o are: `webhookUrl()` o citeste din mediul procesului,
+// la fiecare cerere, deci raspunsul este o proprietate a serverului si nu a
+// testului. Un mock nu ajuta, fiindca nu exista nimic de mocat: ramura care se
+// probeaza este exact cea in care nu se face niciun fetch.
+//
+// ACEEASI FORMA CA SERVERUL "productie" DE MAI SUS, si din acelasi motiv: el
+// exista fiindca doua clauze ale lui P2-11 nu puteau fi dovedite pe serverul de
+// dezvoltare. Aceasta este a treia clauza de felul acela.
+//
+// SIRUL GOL, NU CHEIA ABSENTA, si diferenta conteaza aici. Playwright imbina
+// `env` peste `process.env`, iar Next citeste apoi .env.local, unde variabila
+// poate sa existe pe masina cuiva; @next/env NU suprascrie o cheie deja prezenta
+// in mediu, si un sir gol ESTE prezent. `webhookUrl()` trateaza gol si absent la
+// fel, prin `trim().length > 0`, care este exact intrebarea pusa: "este
+// configurata adresa". Asa cazul este acelasi pe masina proprietarului si in CI.
+const NO_WEBHOOK_PORT = Number(process.env.PLAYWRIGHT_NO_WEBHOOK_PORT ?? 3102);
+const NO_WEBHOOK_DIST = ".next-no-webhook";
+
 // "localhost", NU "127.0.0.1", si diferenta nu este cosmetica.
 //
 // Next 16 blocheaza implicit cererile cross-origin catre resursele de
@@ -71,6 +92,7 @@ const PROD_DIST = ".next-prod";
 // aceeasi origine de la care serverul raspunde.
 const BASE_URL = `http://localhost:${PORT}`;
 const PROD_URL = `http://localhost:${PROD_PORT}`;
+const NO_WEBHOOK_URL = `http://localhost:${NO_WEBHOOK_PORT}`;
 
 // P2-10. RESEND ESTE MOCAT PRINTR-UN SERVER, NU PRINTR-O RAMURA IN APLICATIE.
 //
@@ -122,13 +144,22 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       // headers.spec apartine celuilalt proiect: el are nevoie de raspunsuri de
       // productie, nu de serverul de dezvoltare.
-      testIgnore: /headers\.spec\.ts/,
+      //
+      // P3-71. extraction-webhook-missing.spec apartine celui de al treilea: el
+      // are nevoie de un server FARA MAKE_WEBHOOK_URL, iar acesta o are.
+      testIgnore: /headers\.spec\.ts|extraction-webhook-missing\.spec\.ts/,
     },
     {
       // P2-11. Acelasi browser, alta origine: serverul in mod productie.
       name: "productie",
       testMatch: /headers\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: PROD_URL },
+    },
+    {
+      // P3-71. Acelasi browser, alta origine: serverul fara adresa de webhook.
+      name: "fara-webhook",
+      testMatch: /extraction-webhook-missing\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL: NO_WEBHOOK_URL },
     },
   ],
 
@@ -174,6 +205,39 @@ export default defineConfig({
         // EXT-30. The document link is built from this origin and there is no
         // fallback any more: without it every fire is refused, loudly, by design.
         NEXT_PUBLIC_SITE_URL: BASE_URL,
+      },
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      // P3-71. Serverul fara adresa de webhook, in dosarul lui de build separat.
+      //
+      // MOD DEZVOLTARE, NU PRODUCTIE, spre deosebire de cel de mai jos: nimic din
+      // ce dovedeste cazul acesta nu tine de un build de productie, si un al
+      // doilea `npm run build` ar adauga minute de CI pentru nimic.
+      //
+      // NEXT_DIST_DIR PROPRIU, din acelasi motiv ca acolo: trei servere care scriu
+      // in acelasi dosar de build se calca unul pe altul.
+      command: `npm run dev -- --port ${NO_WEBHOOK_PORT}`,
+      url: NO_WEBHOOK_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        NEXT_DIST_DIR: NO_WEBHOOK_DIST,
+        RESEND_API_KEY: RESEND_MOCK_KEY,
+        RESEND_BASE_URL: RESEND_MOCK_URL,
+        RESEND_FROM: RESEND_MOCK_FROM,
+        // NIMIC PENTRU MAKE_WEBHOOK_URL, si asta ESTE cazul de probat. Sirul gol
+        // este cum se spune "neconfigurat" peste .env.local; vezi nota de sus.
+        MAKE_WEBHOOK_URL: "",
+        // SECRETUL RAMANE PUS, deliberat. Fara el, refuzul ar putea veni de la
+        // verificarea lui MAKE_WEBHOOK_SECRET si cazul ar dovedi altceva decat
+        // crede. Asa, singurul lucru care lipseste este adresa.
+        MAKE_WEBHOOK_SECRET,
+        // Citirea ciornei prin GET-ul rutei de callback cere acelasi antet secret.
+        MAKE_CALLBACK_SECRET,
+        RC_CALLBACK_URL: `${NO_WEBHOOK_URL}/api/extraction/callback`,
+        NEXT_PUBLIC_SITE_URL: NO_WEBHOOK_URL,
       },
       stdout: "ignore",
       stderr: "pipe",
