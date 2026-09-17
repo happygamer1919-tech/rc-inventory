@@ -48,7 +48,7 @@ export function ManualOrderScreen({
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare</Chip>
             </div>
-            <div className="mt-6 flex items-center justify-center gap-2.5">
+            <div className="mt-6 flex items-center justify-center gap-2.5 max-md:flex-wrap">
               <Link href="/comenzi">
                 <Button data-testid="go-to-orders">Vezi comanda în listă</Button>
               </Link>

@@ -7,6 +7,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import { RecordLink } from "@/components/ui/RecordLink";
+import {
+  PHONE_CELL,
+  PHONE_CLOSE,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_SHEET,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -72,7 +81,7 @@ export function ProductPanel({
       {/* text-rc-black este obligatoriu: body are culoarea alba, deci orice text
           fara clasa de culoare ar iesi alb pe alb in interiorul panoului. */}
       <aside
-        className="relative w-[620px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl"
+        className={`relative w-[620px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="product-panel"
       >
         <div className="sticky top-0 bg-rc-white text-rc-black border-b border-rc-line px-6 py-4 flex items-start justify-between gap-4">
@@ -94,6 +103,7 @@ export function ProductPanel({
                 href={product.supplierId ? `/inventar?furnizor=${product.supplierId}` : null}
                 fallback={product.supplierName ?? "Fără furnizor"}
                 testId="product-supplier-link"
+                className={PHONE_LINK}
               >
                 {product.supplierName}
               </RecordLink>
@@ -103,14 +113,14 @@ export function ProductPanel({
           <button
             onClick={onClose}
             aria-label="Închide"
-            className="shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors"
+            className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
             ✕
           </button>
         </div>
 
         {canWrite ? (
-          <div className="px-6 pt-4 flex items-center gap-2">
+          <div className="px-6 pt-4 flex items-center gap-2 max-md:flex-wrap">
             <Button size="sm" onClick={onEdit} data-testid="panel-edit">
               Modifică
             </Button>
@@ -136,7 +146,7 @@ export function ProductPanel({
           </p>
         ) : null}
 
-        <div className="px-6 py-5 grid grid-cols-3 gap-3">
+        <div className="px-6 py-5 grid grid-cols-3 gap-3 max-md:grid-cols-1">
           {[
             { l: "Stoc curent", v: formatQty(product.stock, product.unit), tone: low },
             {
@@ -177,6 +187,17 @@ export function ProductPanel({
           </p>
         ) : null}
 
+        {/* P3-69. DE UNDE A FOST INCARCAT PRODUSUL, aratat doar cand exista: lista de
+            preturi si nota ei. Un produs adaugat de mana nu are sursa. */}
+        {product.sourceNote ? (
+          <p
+            className="mx-6 -mt-2 mb-4 rounded-[10px] border border-rc-line bg-rc-paper px-3.5 py-2.5 text-[12.5px] text-rc-black"
+            data-testid="panel-source-note"
+          >
+            {product.sourceNote}
+          </p>
+        ) : null}
+
         <section className="px-6 pb-2">
           <h3 className="text-[13.5px] font-bold text-rc-black mb-2">
             Loturi <span className="font-normal text-rc-muted">({batches.length})</span>
@@ -184,7 +205,7 @@ export function ProductPanel({
           <p className="text-[12px] text-rc-muted mb-2.5">
             Un lot se creează la recepția unei comenzi de intrare.
           </p>
-          <div className="rounded-[10px] border border-rc-line overflow-hidden">
+          <div className={`rounded-[10px] border border-rc-line overflow-hidden ${PHONE_TABLE}`}>
             <Table>
               <thead>
                 <tr>
@@ -196,21 +217,21 @@ export function ProductPanel({
               </thead>
               <tbody>
                 {batches.map((b) => (
-                  <tr key={b.id}>
-                    <Td>
+                  <tr key={b.id} className={PHONE_ROW}>
+                    <Td data-label="Lot" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] font-semibold">
                         {b.id.slice(0, 8)}
                       </span>
                     </Td>
-                    <Td>
+                    <Td data-label="Comandă" className={PHONE_CELL}>
                       <span className="text-[12.5px] text-rc-muted">{b.orderReference ?? "-"}</span>
                     </Td>
-                    <Td align="right">
+                    <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] font-semibold">
                         {formatQty(b.quantity, product.unit)}
                       </span>
                     </Td>
-                    <Td align="right">
+                    <Td align="right" data-label="Recepționat" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] text-rc-muted">
                         {formatDate(b.arrivedAt)}
                       </span>
@@ -233,7 +254,7 @@ export function ProductPanel({
           <h3 className="text-[13.5px] font-bold text-rc-black mb-2">
             Mișcări <span className="font-normal text-rc-muted">({movements.length})</span>
           </h3>
-          <div className="rounded-[10px] border border-rc-line overflow-hidden">
+          <div className={`rounded-[10px] border border-rc-line overflow-hidden ${PHONE_TABLE}`}>
             <Table>
               <thead>
                 <tr>
@@ -245,20 +266,20 @@ export function ProductPanel({
               </thead>
               <tbody>
                 {movements.map((m) => (
-                  <tr key={m.id}>
-                    <Td>
+                  <tr key={m.id} className={PHONE_ROW}>
+                    <Td data-label="Dată" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
                         {formatDate(m.at)}
                       </span>
                     </Td>
-                    <Td>
+                    <Td data-label="Sens" className={PHONE_CELL}>
                       {m.direction === "in" ? (
                         <Chip tone="ok">Intrare</Chip>
                       ) : (
                         <Chip tone="orange">Ieșire</Chip>
                       )}
                     </Td>
-                    <Td align="right">
+                    <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <span
                         className={[
                           "rc-num text-[12.5px] font-semibold whitespace-nowrap",
@@ -269,7 +290,7 @@ export function ProductPanel({
                         {formatQty(m.quantity, product.unit)}
                       </span>
                     </Td>
-                    <Td>
+                    <Td data-label="Context" className={PHONE_WIDE}>
                       <span className="text-[12.5px] text-rc-black">{m.context}</span>
                       <span className="block text-[11.5px] text-rc-muted-2 mt-0.5">
                         {m.reference}

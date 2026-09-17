@@ -18,6 +18,7 @@ import { loadOutboundDetail } from "@/lib/data/outbound-detail";
 import { shipOutboundIssue } from "@/lib/data/outbound-actions";
 import { Panel } from "./Panel";
 import { RecordLink } from "@/components/ui/RecordLink";
+import { PHONE_CELL, PHONE_LINK, PHONE_ROW, PHONE_TABLE, PHONE_WIDE } from "@/components/ui/phone";
 
 const tone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 
@@ -75,11 +76,12 @@ export function OutboundPanel({
         // santier si bonul catre beneficiar. Cand randul istoric nu a fost inca
         // reconciliat, se scrie text simplu cu explicatia si NU o legatura
         // moarta.
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 max-md:flex-wrap max-md:[overflow-wrap:anywhere]">
           <RecordLink
             href={issue.projectId ? `/proiecte/${issue.projectId}` : null}
             fallback="Proiect neasociat"
             testId="issue-project-link"
+            className={PHONE_LINK}
           >
             {issue.projectName}
           </RecordLink>
@@ -88,6 +90,7 @@ export function OutboundPanel({
             href={issue.clientId ? `/clienti/${issue.clientId}` : null}
             fallback="Client neasociat"
             testId="issue-client-link"
+            className={PHONE_LINK}
           >
             {issue.clientName}
           </RecordLink>
@@ -99,7 +102,7 @@ export function OutboundPanel({
       testId="outbound-panel"
     >
       <div className="px-6 pt-5">
-        <div className="rounded-[10px] border border-rc-line bg-rc-paper px-4 py-3 flex items-center justify-between gap-4">
+        <div className="rounded-[10px] border border-rc-line bg-rc-paper px-4 py-3 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch max-md:gap-3">
           <div>
             <p className="text-[12.5px] font-semibold">
               {shipped ? "Marfa a plecat către șantier" : "Marfa este pregătită, dar nu a plecat"}
@@ -141,7 +144,7 @@ export function OutboundPanel({
 
       <section className="px-6 pt-5">
         <h3 className="text-[13.5px] font-bold mb-2">Poziții</h3>
-        <div className="rounded-[10px] border border-rc-line overflow-hidden">
+        <div className={`rounded-[10px] border border-rc-line overflow-hidden ${PHONE_TABLE}`}>
           <Table>
             <thead>
               <tr>
@@ -152,8 +155,8 @@ export function OutboundPanel({
             </thead>
             <tbody data-testid="outbound-lines">
               {issue.lines.map((l) => (
-                <tr key={l.id} data-testid="outbound-line">
-                  <Td>
+                <tr key={l.id} data-testid="outbound-line" className={PHONE_ROW}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     {/* P3-10: linia de comanda catre fisa produsului. Ecranul de
                         inventar deschide panoul produsului din parametrul de URL
                         produs, deci legatura este partajabila si nu un clic care
@@ -162,7 +165,7 @@ export function OutboundPanel({
                       href={`/inventar?produs=${encodeURIComponent(l.productSku)}`}
                       fallback={l.productName}
                       testId="line-product-link"
-                      className="text-[12.5px] font-medium"
+                      className={`text-[12.5px] font-medium ${PHONE_LINK}`}
                     >
                       {l.productName}
                     </RecordLink>
@@ -170,12 +173,12 @@ export function OutboundPanel({
                       {l.productSku}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold whitespace-nowrap">
                       {formatNumber(l.quantity)} {unitLabel(l.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Preț vânzare" className={PHONE_CELL}>
                     {l.salePriceMdl === null ? (
                       <span className="text-[12px] text-rc-muted-2">fără preț</span>
                     ) : (

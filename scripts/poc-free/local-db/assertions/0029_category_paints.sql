@@ -11,10 +11,18 @@ declare
   n   integer;
   txt text;
 begin
-  -- --- nineteen rows, no more and no fewer -----------------------------------
-  select count(*) into n from public.categories;
+  -- --- the nineteen rows are still there, and P3-69 added six after them ------
+  -- P3-69 (migration 0049) ADDED SIX CATEGORIES, sort_order 20 to 25, so the total
+  -- is no longer this file's to assert. Until then this block read (CLAUDE.md 9c):
+  --
+  --   "expected 19 categories, found %"
+  --
+  -- That was true of 0029 and is false after 0049. What stays 0029's is below: the
+  -- nineteenth exists once, at sort_order 19, and the eighteen before it did not
+  -- move. The six new rows are asserted by assertions/0049_roofing_materials.sql.
+  select count(*) into n from public.categories where sort_order between 1 and 19;
   if n <> 19 then
-    raise exception 'expected 19 categories, found %', n;
+    raise exception 'expected 19 categories at sort_order 1 to 19, found %', n;
   end if;
 
   -- --- the new one exists, spelled with its diacritics -----------------------
@@ -24,10 +32,17 @@ begin
     raise exception 'the nineteenth category is missing or duplicated: % row(s)', n;
   end if;
 
-  -- --- and it is LAST, which is the card's whole ordering rule ---------------
-  select name into txt from public.categories order by sort_order desc limit 1;
-  if txt <> 'Vopsele, lacuri și solvenți' then
-    raise exception 'the last category by sort_order is %, expected the new one', txt;
+  -- --- and it came AFTER the eighteen, which is the card's whole ordering rule -
+  -- P3-69 (migration 0049) added six categories after it, so it is no longer the
+  -- last one. Until then this block read (CLAUDE.md 9c):
+  --
+  --   "the last category by sort_order is %, expected the new one"
+  --
+  -- The rule it protected still holds and is asserted here: it was appended at 19,
+  -- not inserted into the middle.
+  select name into txt from public.categories where sort_order = 19;
+  if txt is distinct from 'Vopsele, lacuri și solvenți' then
+    raise exception 'sort_order 19 is %, expected the nineteenth category', txt;
   end if;
 
   -- --- the eighteen before it did not move -----------------------------------

@@ -60,7 +60,13 @@ export function FilePicker({
   ariaLabel?: string;
 }) {
   return (
-    <div className={["flex items-center gap-3 min-h-[38px]", className].filter(Boolean).join(" ")}>
+    // P3-65. Pe telefon (sub 768px) numele fisierului se rupe pe randuri in loc sa
+    // fie taiat: un telefon nu are titlu la trecerea mouse-ului.
+    <div
+      className={["flex items-center gap-3 min-h-[38px] max-md:min-w-0 max-md:flex-wrap", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <input
         ref={inputRef}
         id={id}
@@ -83,7 +89,10 @@ export function FilePicker({
       >
         {FILE_CHOOSE_LABEL}
       </Button>
-      <span className="max-w-[260px] truncate text-[13px] text-rc-muted" data-testid={nameTestId}>
+      <span
+        className="max-w-[260px] truncate text-[13px] text-rc-muted max-md:min-w-0 max-md:max-w-full max-md:whitespace-normal max-md:[overflow-wrap:anywhere]"
+        data-testid={nameTestId}
+      >
         {fileName ?? FILE_EMPTY_LABEL}
       </span>
     </div>

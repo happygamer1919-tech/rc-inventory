@@ -12,6 +12,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { DateField } from "@/components/ui/DateField";
+import { PHONE_CHECK, PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createProjectRecord, updateProjectRecord } from "@/lib/data/project-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import { ALL_STATUSES, type ProjectDetail } from "@/lib/data/projects-list-types";
@@ -96,7 +97,7 @@ export function ProjectForm({
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
       <aside
-        className="relative w-[560px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl"
+        className={`relative w-[560px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="project-form"
       >
         <div className="sticky top-0 bg-rc-white text-rc-black border-b border-rc-line px-6 py-4 flex items-start justify-between gap-4">
@@ -114,7 +115,7 @@ export function ProjectForm({
             type="button"
             onClick={onClose}
             aria-label="Închide"
-            className="shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors"
+            className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
             ✕
           </button>
@@ -177,7 +178,7 @@ export function ProjectForm({
             </Field>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid grid-cols-2 gap-4 ${PHONE_STACK}`}>
             <Field label="Data început">
               <DateField
                 value={startDate}
@@ -215,7 +216,7 @@ export function ProjectForm({
           </Field>
 
           {editing ? (
-            <label className="flex items-center gap-2.5 text-[13.5px] text-rc-black">
+            <label className={`flex items-center gap-2.5 text-[13.5px] text-rc-black ${PHONE_CHECK}`}>
               <input
                 type="checkbox"
                 checked={active}

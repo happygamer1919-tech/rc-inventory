@@ -5731,6 +5731,43 @@ written as `toHaveCount(0)` becomes a test that defends the defect. And a helper
 for "nothing chosen" is only equivalent to "clear" on insert: check the null branch before reusing
 it on update.**
 
+### Byte-identical desktop screenshots are not a stable "desktop unchanged" proof in dev mode
+**Tag:** frontend
+**ERROR:** card P3-65 (phone forms and panels) compared 114 desktop screenshots of a local harness,
+taken with the base commit's files and with the branch's. Six hashes differed. A second run on the
+SAME branch files differed from the first run in six places too: 120 scattered anti-aliasing pixels
+on field corners in one form, 14 pixels on the top edge of one chip in another. Two identical runs do
+not produce identical PNGs in `next dev`, so a hash mismatch proved nothing either way.
+**SOLUTION:** compare computed layout instead of pixels. For every element that carries its own text,
+is a control or is a table part, dump its tag, text, bounding box and the computed styles that decide
+its look (display, font, colours, paddings, borders, grid and flex settings, the `::before` content),
+at 1440, 1100 and 800 px, once per version, and diff the dumps. For P3-65: 6,615 rows, 0 differences,
+once the `<script>` rows (Next dev writes a random request id into one per page) are dropped. RULE:
+**prove "desktop unchanged" with a computed-layout diff; pixel hashes in dev mode flicker and need a
+second run just to know whether a mismatch is real.**
+
+### A tap-target check must know that a checkbox's target is its label, and a Link's is its Button
+**Tag:** frontend
+**ERROR:** measuring every visible `input`, `button` and `a[href]` for a 44 px height flags two things
+that are not defects: the 16 px checkbox (the whole `<label>` row is what a thumb presses), and
+`<Link><Button/></Link>`, whose inline `<a>` reports the line height of its text (about 20 px) while
+the button inside it is 44 px. Growing the checkbox itself to 44 px would have been the wrong fix.
+**SOLUTION:** `tests/e2e/phone-forms.spec.ts` measures a checkbox or radio through `closest("label")`
+and skips an `<a>` that contains a button, input or select, whose own control is measured instead. The
+label rows get `max-md:min-h-11`. RULE: **measure the element a finger actually lands on.**
+
+### `git diff origin/main` in a worktree lists files other terminals merged while you worked
+**Tag:** ci
+**ERROR:** during P3-65, `git diff --name-only origin/main -- components` listed
+`components/inventory/ProductForm.tsx`, a file this card was forbidden to touch and never touched.
+Another terminal had run `git fetch` in its own worktree; `refs/remotes/origin/main` is shared by
+every worktree of the repository, so `origin/main` had moved on to the merge of pull request #312,
+and the diff was showing that merge in reverse.
+**SOLUTION:** for "what did this branch change", diff against the base commit the branch was cut
+from (`git diff --name-only <base-sha>`, or `origin/main...HEAD` with three dots, which uses the merge
+base), and read `git log origin/main` before trusting a two-dot diff. RULE: **in a shared clone,
+`origin/main` is a moving target; a two-dot diff against it is only meaningful right after merging it.**
+
 ### A component name in a brief is not proof of which component the file uses
 **Tag:** frontend
 **ERROR:** the task for P3-61 said the Serie and Grosime lists sit inside `Field` from
@@ -5771,3 +5808,100 @@ tag, rounded box, display, font size and `::before` content, once with the origi
 once with the branch files, at 1440 and 800 px, and compare the lists line by line. Zero
 differences on all 12 screens. RULE: **to prove a responsive change leaves desktop alone, compare
 the computed layout of every element before and after, not pixels and not class names.**
+
+### An assertion file keeps asserting its card's access rules after a later card changes them on purpose
+**Tag:** data
+**ERROR:** P3-68 (migration 0048) gives the owner insert and update on `sheet_options` and
+`sheet_prices`. Every file in `scripts/poc-free/local-db/assertions/` runs against the FINISHED
+schema, so `assertions/0046_sheet_options.sql` and `assertions/0047_sheet_prices.sql` would have
+failed `check:migrations` on the pull request: each asserted "exactly the one select policy" and
+signed in as the owner expecting `insufficient_privilege` on an insert ("the list is written only
+by migrations"). With 0048 applied the owner's insert reaches the primary key instead, and the
+owner's update of a price succeeds.
+**SOLUTION:** both files were amended in the same pull request under CLAUDE.md 9c: the now-false
+sentence is quoted and kept, the refusal is asserted against an account manager (still true), and
+the owner's rights are asserted in the new `assertions/0048_sheet_options_admin.sql`. RULE: **a
+migration that widens or narrows who may write a table must grep `assertions/` for that table
+before the first push; an older card's assertion file is a regression test for the old rule and
+will fail exactly as designed.**
+
+### `check:migrations` needs Docker, and a Homebrew postgres can stand in for it before the push
+**Tag:** ci
+**ERROR:** this machine has no Docker, so `npm run check:migrations` cannot run and a wrong
+migration or assertion file is found only after about twenty minutes of CI. A first attempt to
+drive a throwaway cluster from node hung forever: `spawnSync("pg_ctl", [..., "start"])` never
+returned, because the started server inherits the pipe for stdout and never closes it.
+**SOLUTION:** `initdb` into a temporary directory, `pg_ctl -w -l <dir>/server.log -o "-k <dir> -p
+<port> -c listen_addresses=''" start` with `stdio: "ignore"`, then feed `shim.sql`, every migration
+and every assertion file to `psql --set ON_ERROR_STOP=1 --no-psqlrc` exactly as `apply.mjs` does,
+and stop the cluster. Unix socket only, no TCP, no credentials. It is postgres 17, not the 16 CI
+uses, so it is an early warning and never a replacement for the CI step. RULE: **when a child
+process can outlive the call that starts it, give it a log file and no inherited pipes, or a
+synchronous spawn waits on it forever.**
+
+### The phase 3 board passed 1 MiB and three board readers stopped reading it
+**Tag:** ci
+**ERROR:** P3-69 added one card and `docs/board/rc-board-phase3.json` went from 1,043,148 to
+1,050,448 bytes. `npm run check:board-clock` exited 2 with "did not parse: spawnSync cat ENOBUFS",
+and `npm run check:board-edit` resolved zero cards and refused `P3-69` as a token that resolves to
+no card, on a card that was plainly on the board. Both read the file through `execFileSync`, whose
+default `maxBuffer` is 1024 * 1024 bytes; output above that throws, and each check turned the throw
+into its own failure wording. `check-open-branch-ids.mjs` had the same helper and would have refused
+this branch as a source for every terminal running `id:free` while it is open.
+**SOLUTION:** `maxBuffer: 64 * 1024 * 1024` on the git and cat reads in those three files, the value
+`prove-live-fixtures.mjs` already used. RULE: **any `execFileSync` or `execSync` that returns a
+board, the inbox or any other file that only grows must pass an explicit `maxBuffer`; "did not
+parse" or "no such card" right after a board edit is a size problem until proven otherwise.**
+
+### A board commit went in while the validator was red, because the validator was piped
+**Tag:** ci
+**ERROR:** P3-69's authoring commit ran `node docs/board/validate-board.mjs ... | grep ... | tail`
+and then `git commit` in the same shell line. A pipeline's exit code is the exit code of its last
+command, so the red validator (a derived `lane` of `todo` where `in_flight` was required) did not
+stop the commit. CLAUDE.md 2 then required a revert, and `git revert` is not permitted in the
+operator factory, so the file was restored by hand from the parent commit and committed as the
+revert.
+**SOLUTION:** the validator runs as its own command, unpiped, and the commit is a separate step taken
+only after reading PASS on all three boards. RULE: **never pipe a gate into a filter in the same
+command as the commit it guards; the pipe swallows the exit code the gate exists to return.**
+
+### A JavaScript string replacement containing a dollar and a quote duplicated half a migration
+**Tag:** data
+**ERROR:** while editing `0049_roofing_materials.sql` with `String.prototype.replace(old, new)`, the
+replacement text held SQL regexes ending in a dollar sign followed by a single quote
+(`-[0-9]{3}$'`). In a replacement string that pair means "the text after the match", so every such
+regex inserted the rest of the file: 338 lines became 1,033, with no error. It was caught only
+because a grep for `sku ~` printed forty lines where six were expected.
+**SOLUTION:** the file was truncated back to the last known-good statement, the section appended
+whole with a literal edit, and the full local apply rerun. RULE: **when a replacement string can
+contain a dollar sign, pass a function (`s.replace(old, () => text)`) or use a literal edit, and
+check the line count after any scripted edit of SQL.**
+
+### A private bucket's read policy trusted any signed-in session, so a switched-off account could still sign links
+**Tag:** auth
+**ERROR:** Ivan's finding F1. `rc_docs_select` (0002) was `for select to authenticated using (bucket_id = 'rc-docs')`. Every
+screen of the app already turned a deactivated profile away (`proxy.ts` rewrites to the no-access
+screen), so the gap was invisible from the app: an account whose `profiles.active` was set to false
+kept a valid access token until it expired, and with it could call the storage API directly and get a
+signed link to any contract, invoice or supplier document in the bucket. `documentDownloadUrl` also
+checked only that a session existed.
+**SOLUTION:** migration 0050 replaces the predicate with `bucket_id = 'rc-docs' and
+public.current_app_role() is not null`, the active-only helper every table read already trusts, and
+`documentDownloadUrl` also reads the owning client or project through the caller's own client before
+signing. RULE: **a policy on a private bucket or a table holding client data never stops at `to
+authenticated`; it names `public.current_app_role()` or `public.is_owner()`, because the app's proxy
+guards screens and the Supabase APIs are reachable without it.**
+
+### A clean merge from main breaks a waiting branch's spec on a file the branch never touched
+**Tag:** frontend
+**ERROR:** P3-67 waited a day on its branch while P3-68 merged an `Administrează lista` link onto the
+Setări page. `git merge origin/main` conflicted only on the board and LEARNINGS, and the page file
+merged with no conflict at all because the branch never edited it. But the branch's own phone spec
+measures EVERY link on that page at 44 px, and the new link is about 34 px on a phone, so the spec
+would have gone red in CI on a file the branch did not change, with nothing in the merge output
+pointing at it.
+**SOLUTION:** after the merge, list what main changed since the merge base and intersect it with the
+ROUTES the branch's spec opens, not only with the files the branch edits. The link took `PHONE_TAP`
+from `components/ui/phone.ts`, max-md only. RULE: **a spec that measures a whole screen owns every
+file that renders on that screen; when resyncing a waiting branch, check main's changes against the
+screens the spec visits, before pushing, not after a 20 minute red run.**

@@ -94,8 +94,10 @@ function formatAsTyped(raw: string, previous: string): string {
   return digits;
 }
 
+// P3-65. Pe telefon (sub 768px) campul are 44px si text de 16px, ca primitivele,
+// iar butonul calendarului este o tinta de 44px. Peste 768px nimic nu se schimba.
 const CONTROL =
-  "w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 pr-11 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition";
+  "w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 pr-11 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition max-md:min-h-11 max-md:pr-12 max-md:text-base";
 
 export function DateField({
   value,
@@ -174,7 +176,7 @@ export function DateField({
           aria-label="Deschide calendarul"
           title="Deschide calendarul"
           data-testid={`${testId}-calendar`}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-rc-muted hover:bg-rc-paper hover:text-rc-black disabled:opacity-45 disabled:cursor-not-allowed"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-rc-muted hover:bg-rc-paper hover:text-rc-black disabled:opacity-45 disabled:cursor-not-allowed max-md:right-0 max-md:h-11 max-md:w-11"
         >
           <svg
             viewBox="0 0 24 24"

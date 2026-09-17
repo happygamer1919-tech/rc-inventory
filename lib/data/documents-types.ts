@@ -66,6 +66,7 @@ export const DOCUMENT_MESSAGES = {
   notActive: "Documentele nu sunt încă active.",
   session: "Sesiune expirată. Autentifică-te din nou.",
   forbidden: "Nu ai dreptul să faci această operațiune.",
+  downloadFailed: "Documentul nu poate fi descărcat. Reîncarcă pagina și încearcă din nou.",
 } as const;
 
 /** Extensia acceptata a unui nume de fisier, cu litere mici, sau null. */

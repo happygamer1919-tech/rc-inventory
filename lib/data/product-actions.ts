@@ -18,7 +18,12 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
-import { hasProductImage, hasProductPackaging, hasSheetOptions } from "./schema-capability";
+import {
+  hasProductImage,
+  hasProductPackaging,
+  hasSheetOptionRetirement,
+  hasSheetOptions,
+} from "./schema-capability";
 import { normalizeThickness, type SheetChoice } from "./sheet-options-types";
 import { DOCS_BUCKET, type ActionResult as ValueResult } from "./inbound-types";
 import {
@@ -179,6 +184,7 @@ function validateSheet(input: ProductInput):
 async function sheetColumns(
   client: Supabase,
   value: SheetColumns | null,
+  saved: SheetColumns | null = null,
 ): Promise<{ ok: true; value: SheetColumns | Record<string, never> } | Failure> {
   if (value === null) return { ok: true, value: {} };
   if (!(await hasSheetOptions(client))) {
@@ -189,9 +195,10 @@ async function sheetColumns(
     };
   }
 
+  const retirement = await hasSheetOptionRetirement(client);
   const { data, error } = await client
     .from("sheet_options")
-    .select("model")
+    .select(retirement ? "model, retired_at" : "model")
     .eq("model", value.sheet_model)
     .eq("series", value.sheet_series)
     .eq("thickness_mm", value.sheet_thickness_mm)
@@ -203,7 +210,45 @@ async function sheetColumns(
   if (!data) {
     return { ok: false, field: "sheet", message: "Combinația aleasă nu există în lista Dasterum." };
   }
+  // P3-68. O COMBINATIE RETRASA NU SE MAI ALEGE, dar un produs care o poarta deja o
+  // pastreaza: modificarea lui se salveaza cat timp combinatia ramane cea salvata.
+  const retiredAt = (data as { retired_at?: string | null }).retired_at ?? null;
+  if (retiredAt !== null && !sameSheet(value, saved)) {
+    return {
+      ok: false,
+      field: "sheet",
+      message: "Combinația aleasă a fost retrasă din listă. Alege alta sau Fără model.",
+    };
+  }
   return { ok: true, value };
+}
+
+/** P3-68: aceeasi combinatie, cu grosimea comparata ca numar ("0.45" si 0.45). */
+function sameSheet(a: SheetColumns, b: SheetColumns | null): boolean {
+  return (
+    b !== null &&
+    a.sheet_model === b.sheet_model &&
+    a.sheet_series === b.sheet_series &&
+    normalizeThickness(a.sheet_thickness_mm) === normalizeThickness(b.sheet_thickness_mm) &&
+    a.sheet_finish === b.sheet_finish
+  );
+}
+
+/** P3-68: combinatia pe care produsul o poarta acum, sau null. */
+async function savedSheetColumns(client: Supabase, id: string): Promise<SheetColumns | null> {
+  if (!(await hasSheetOptions(client))) return null;
+  const { data } = await client
+    .from("products")
+    .select("sheet_model, sheet_series, sheet_thickness_mm, sheet_finish")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data || !data.sheet_model) return null;
+  return {
+    sheet_model: data.sheet_model as string,
+    sheet_series: (data.sheet_series as string | null) ?? "",
+    sheet_thickness_mm: normalizeThickness(data.sheet_thickness_mm) ?? "",
+    sheet_finish: (data.sheet_finish as string | null) ?? "",
+  };
 }
 
 /**
@@ -219,11 +264,12 @@ async function sheetColumns(
  */
 async function sheetUpdateColumns(
   client: Supabase,
+  id: string,
   choice: SheetChoice | null | undefined,
   value: SheetColumns | null,
 ): Promise<{ ok: true; value: Record<string, string | null> } | Failure> {
   if (choice === undefined) return { ok: true, value: {} };
-  if (value !== null) return sheetColumns(client, value);
+  if (value !== null) return sheetColumns(client, value, await savedSheetColumns(client, id));
   if (!(await hasSheetOptions(client))) return { ok: true, value: {} };
   return {
     ok: true,
@@ -432,7 +478,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
   }
 
   // P3-59: INAINTE de resolveSupplier, din acelasi motiv ca la adaugare.
-  const sheetCols = await sheetUpdateColumns(supabase, input.sheet, sheet.value);
+  const sheetCols = await sheetUpdateColumns(supabase, id, input.sheet, sheet.value);
   if (!sheetCols.ok) return sheetCols;
 
   const supplier = await resolveSupplier(input.supplier);

@@ -54,8 +54,13 @@ const bad = (m) => {
   failures += 1;
 };
 
+// P3-69. maxBuffer IS SET BECAUSE THE PHASE 3 BOARD PASSED 1 MiB, execFileSync's
+// default. Reading a 1,050,448 byte board threw ENOBUFS and this check exited 2
+// with "did not parse". 64 MiB is the value prove-live-fixtures.mjs uses.
+const MAX_BUFFER = 64 * 1024 * 1024;
+
 const git = (args) =>
-  execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: MAX_BUFFER }).trim();
 
 /** The commit this run compares against, and how it was found. Never guessed. */
 function basisFor(relative) {
@@ -91,7 +96,7 @@ function basisFor(relative) {
 }
 
 function readBoard(relative) {
-  const text = REF ? git(["show", `${REF}:${relative}`]) : execFileSync("cat", [path.join(ROOT, relative)], { encoding: "utf8" });
+  const text = REF ? git(["show", `${REF}:${relative}`]) : execFileSync("cat", [path.join(ROOT, relative)], { encoding: "utf8", maxBuffer: MAX_BUFFER });
   return JSON.parse(text);
 }
 

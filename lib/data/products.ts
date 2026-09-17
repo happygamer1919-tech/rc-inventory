@@ -13,7 +13,12 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { hasPhase3Schema, hasProductPackaging, hasSheetOptions } from "./schema-capability";
+import {
+  hasPhase3Schema,
+  hasProductPackaging,
+  hasProductSourceNote,
+  hasSheetOptions,
+} from "./schema-capability";
 import { normalizeThickness, type SheetChoice } from "./sheet-options-types";
 import type { SupplierOption } from "./suppliers-types";
 import { isUnitCode, type UnitCode } from "./units";
@@ -41,6 +46,9 @@ export type CatalogProduct = {
    *  modificare sa porneasca de la ea. Null pentru un produs obisnuit, si null cat
    *  timp migratia 0046 nu este aplicata. */
   sheet: SheetChoice | null;
+  /** P3-69: de unde a fost incarcat produsul (nota listei, apoi "Sursă: " si lista).
+   *  Null pentru un produs adaugat de mana, si null cat timp 0049 nu este aplicata. */
+  sourceNote: string | null;
   needsReview: boolean;
   active: boolean;
   /** Suma loturilor minus iesirile. Zero cat timp nu a intrat nimic. */
@@ -120,6 +128,7 @@ type ProductRow = {
   sheet_series?: string | null;
   sheet_thickness_mm?: unknown;
   sheet_finish?: string | null;
+  source_note?: string | null;
   suppliers: { name: string } | { name: string }[] | null;
   needs_review: boolean;
   active: boolean;
@@ -151,6 +160,7 @@ function toCatalogProduct(row: ProductRow, stock: Map<string, number>): CatalogP
         ? null
         : toNumber(row.package_factor),
     sheet: toSheetChoice(row),
+    sourceNote: row.source_note ?? null,
     needsReview: row.needs_review,
     active: row.active,
     stock: stock.get(row.id) ?? 0,
@@ -192,9 +202,11 @@ export async function listProducts(): Promise<CatalogProduct[]> {
     ? `${base}, package_unit, package_factor`
     : base;
   // P3-59. COLOANELE COMBINATIEI, CU ACEEASI GRIJA: numai cand 0046 este aplicata.
-  const columns = (await hasSheetOptions(supabase))
+  const sheet = (await hasSheetOptions(supabase))
     ? `${packaging}, sheet_model, sheet_series, sheet_thickness_mm, sheet_finish`
     : packaging;
+  // P3-69. SURSA PRODUSULUI, CU ACEEASI GRIJA: numai cand 0049 este aplicata.
+  const columns = (await hasProductSourceNote(supabase)) ? `${sheet}, source_note` : sheet;
 
   const [{ data, error }, stock] = await Promise.all([
     supabase.from("products").select(columns).order("sku", { ascending: true }),

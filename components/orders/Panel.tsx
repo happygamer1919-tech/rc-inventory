@@ -4,6 +4,7 @@
 // folosit si de intrari, si de iesiri, fara doua copii care apoi diverg.
 
 import * as React from "react";
+import { PHONE_CLOSE, PHONE_SHEET } from "@/components/ui/phone";
 
 export function Panel({
   title,
@@ -35,13 +36,13 @@ export function Panel({
       {/* text-rc-black este obligatoriu: body are culoarea alba, deci orice text
           fara clasa de culoare ar iesi alb pe alb in interiorul panoului. */}
       <aside
-        className="relative w-[640px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl"
+        className={`relative w-[640px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid={testId}
       >
         <div className="sticky top-0 bg-rc-white text-rc-black border-b border-rc-line px-6 py-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-[17px] font-bold">{title}</h2>
+            <div className="flex items-center gap-2.5 max-md:flex-wrap">
+              <h2 className="text-[17px] font-bold max-md:min-w-0 max-md:[overflow-wrap:anywhere]">{title}</h2>
               {chip}
             </div>
             <p className="text-[12.5px] text-rc-muted mt-1">{subtitle}</p>
@@ -49,7 +50,7 @@ export function Panel({
           <button
             onClick={onClose}
             aria-label="Închide"
-            className="shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors"
+            className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
             ✕
           </button>

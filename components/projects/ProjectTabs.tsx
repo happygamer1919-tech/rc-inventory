@@ -29,6 +29,15 @@ import { DevizPanel } from "./DevizPanel";
 import { DevizComparisonPanel } from "./DevizComparisonPanel";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import {
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TAB,
+  PHONE_TABLE,
+  PHONE_TABS,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 
 const TABS = [
   { id: "consum", label: "Consum" },
@@ -92,7 +101,7 @@ export function ProjectTabs({
 
   return (
     <>
-      <div className="flex gap-1 border-b border-rc-line mb-4" data-testid="project-tabs">
+      <div className={`flex gap-1 border-b border-rc-line mb-4 ${PHONE_TABS}`} data-testid="project-tabs">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -102,8 +111,8 @@ export function ProjectTabs({
             data-active={active === t.id ? "true" : "false"}
             className={
               active === t.id
-                ? "px-4 py-2.5 text-[13.5px] font-semibold text-rc-white border-b-2 border-rc-orange -mb-px"
-                : "px-4 py-2.5 text-[13.5px] text-rc-muted-2 hover:text-rc-white"
+                ? `px-4 py-2.5 text-[13.5px] font-semibold text-rc-white border-b-2 border-rc-orange -mb-px ${PHONE_TAB}`
+                : `px-4 py-2.5 text-[13.5px] text-rc-muted-2 hover:text-rc-white ${PHONE_TAB}`
             }
           >
             {t.label}
@@ -125,6 +134,7 @@ export function ProjectTabs({
               />
             ) : (
               <>
+                <div className={PHONE_TABLE}>
                 <Table>
                   <thead>
                     <tr>
@@ -138,42 +148,62 @@ export function ProjectTabs({
                   </thead>
                   <tbody>
                     {materials.rows.map((r) => (
-                      <tr key={r.issueId ?? r.reference} data-testid="issue-row" data-reference={r.reference}>
-                        <Td>
+                      <tr
+                        key={r.issueId ?? r.reference}
+                        data-testid="issue-row"
+                        data-reference={r.reference}
+                        className={PHONE_ROW}
+                      >
+                        <Td data-label="Bon" className={PHONE_WIDE}>
                           <span className="font-semibold text-rc-black">{r.reference}</span>
                         </Td>
-                        <Td>{r.issuedAt ? formatDate(r.issuedAt) : "-"}</Td>
-                        <Td>
+                        <Td data-label="Data" className={PHONE_CELL}>
+                          {r.issuedAt ? formatDate(r.issuedAt) : "-"}
+                        </Td>
+                        <Td data-label="Stare" className={PHONE_CELL}>
                           <Chip tone={r.status === "shipped" ? "ok" : "neutral"}>
                             {r.status
                               ? OUTBOUND_STATUS_LABEL[r.status as OutboundStatus] ?? r.status
                               : "-"}
                           </Chip>
                         </Td>
-                        <Td align="right">{r.lineCount}</Td>
-                        <Td align="right">{formatNumber(r.quantity)}</Td>
-                        <Td align="right">{formatMoney(r.valueMdl)}</Td>
+                        <Td align="right" data-label="Poziții" className={PHONE_CELL}>
+                          {r.lineCount}
+                        </Td>
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
+                          {formatNumber(r.quantity)}
+                        </Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_WIDE}>
+                          {formatMoney(r.valueMdl)}
+                        </Td>
                       </tr>
                     ))}
                     {materials.total ? (
-                      <tr data-testid="issue-total" className="font-semibold">
-                        <Td>Total, toate ieșirile</Td>
-                        <Td></Td>
-                        <Td></Td>
-                        <Td align="right">{materials.total.lineCount}</Td>
-                        <Td align="right">{formatNumber(materials.total.quantity)}</Td>
-                        <Td align="right">{formatMoney(materials.total.valueMdl)}</Td>
+                      <tr data-testid="issue-total" className={`font-semibold ${PHONE_ROW}`}>
+                        <Td className={PHONE_WIDE}>Total, toate ieșirile</Td>
+                        <Td className="max-md:hidden"></Td>
+                        <Td className="max-md:hidden"></Td>
+                        <Td align="right" data-label="Poziții" className={PHONE_CELL}>
+                          {materials.total.lineCount}
+                        </Td>
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
+                          {formatNumber(materials.total.quantity)}
+                        </Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_WIDE}>
+                          {formatMoney(materials.total.valueMdl)}
+                        </Td>
                       </tr>
                     ) : null}
                   </tbody>
                 </Table>
+                </div>
                 <div className="px-5 py-4 border-t border-rc-line">
                   {/* P3-10: catre lista completa FILTRATA la acest proiect,
                       folosind filtrul din URL pe care ecranul de comenzi il
                       cunoaste. Nu se inventeaza un mecanism nou de filtrare. */}
                   <Link
                     href={`/comenzi?proiect=${projectId}`}
-                    className="text-[12.5px] text-rc-orange-deep hover:underline"
+                    className={`text-[12.5px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                     data-testid="issue-full-history"
                   >
                     Vezi toate ieșirile către acest șantier
@@ -194,15 +224,15 @@ export function ProjectTabs({
             {/* FILTRUL TRAIESTE IN URL, pentru ca numarul se recalculeaza pe
                 server. Implicit sunt toate iesirile: materialul a plecat din
                 depozit cand a fost eliberat. */}
-            <div className="px-5 pt-4 flex items-center gap-2" data-testid="cost-filter">
+            <div className="px-5 pt-4 flex items-center gap-2 max-md:flex-wrap" data-testid="cost-filter">
               <Link
                 href={`${pathname}?fila=cost`}
                 data-testid="cost-filter-toate"
                 data-active={cost.shippedOnly ? "false" : "true"}
                 className={
                   cost.shippedOnly
-                    ? "px-3 py-1.5 text-[12.5px] text-rc-muted hover:text-rc-black"
-                    : "px-3 py-1.5 text-[12.5px] font-semibold text-rc-black border-b-2 border-rc-orange"
+                    ? `px-3 py-1.5 text-[12.5px] text-rc-muted hover:text-rc-black ${PHONE_LINK}`
+                    : `px-3 py-1.5 text-[12.5px] font-semibold text-rc-black border-b-2 border-rc-orange ${PHONE_LINK}`
                 }
               >
                 Toate ieșirile
@@ -213,8 +243,8 @@ export function ProjectTabs({
                 data-active={cost.shippedOnly ? "true" : "false"}
                 className={
                   cost.shippedOnly
-                    ? "px-3 py-1.5 text-[12.5px] font-semibold text-rc-black border-b-2 border-rc-orange"
-                    : "px-3 py-1.5 text-[12.5px] text-rc-muted hover:text-rc-black"
+                    ? `px-3 py-1.5 text-[12.5px] font-semibold text-rc-black border-b-2 border-rc-orange ${PHONE_LINK}`
+                    : `px-3 py-1.5 text-[12.5px] text-rc-muted hover:text-rc-black ${PHONE_LINK}`
                 }
               >
                 Doar expediate
@@ -258,6 +288,7 @@ export function ProjectTabs({
                 <div className="px-5 pt-2 pb-1 text-[12.5px] font-semibold text-rc-black">
                   Pe produs
                 </div>
+                <div className={PHONE_TABLE}>
                 <Table>
                   <thead>
                     <tr>
@@ -274,21 +305,28 @@ export function ProjectTabs({
                         data-testid="cost-product-row"
                         data-sku={r.sku ?? ""}
                         data-value-mdl={r.valueMdl}
+                        className={PHONE_ROW}
                       >
-                        <Td>
+                        <Td data-label="Produs" className={PHONE_WIDE}>
                           <span className="font-semibold text-rc-black">{r.label}</span>
                         </Td>
-                        <Td>{r.sku ?? "-"}</Td>
-                        <Td align="right">{qtyLabel(r.quantity, r.unit)}</Td>
-                        <Td align="right">{formatMoney(r.valueMdl)}</Td>
+                        <Td data-label="Cod" className={PHONE_WIDE}>{r.sku ?? "-"}</Td>
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
+                          {qtyLabel(r.quantity, r.unit)}
+                        </Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_CELL}>
+                          {formatMoney(r.valueMdl)}
+                        </Td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+                </div>
 
                 <div className="px-5 pt-4 pb-1 text-[12.5px] font-semibold text-rc-black">
                   Pe lună
                 </div>
+                <div className={PHONE_TABLE}>
                 <Table>
                   <thead>
                     <tr>
@@ -304,21 +342,27 @@ export function ProjectTabs({
                         data-testid="cost-month-row"
                         data-month={r.monthStart ?? ""}
                         data-value-mdl={r.valueMdl}
+                        className={PHONE_ROW}
                       >
-                        <Td>
+                        <Td data-label="Luna" className={PHONE_WIDE}>
                           <span className="font-semibold text-rc-black">{r.label}</span>
                         </Td>
-                        <Td align="right">{formatNumber(r.quantity)}</Td>
-                        <Td align="right">{formatMoney(r.valueMdl)}</Td>
+                        <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
+                          {formatNumber(r.quantity)}
+                        </Td>
+                        <Td align="right" data-label="Valoare" className={PHONE_CELL}>
+                          {formatMoney(r.valueMdl)}
+                        </Td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+                </div>
 
                 <div className="px-5 py-4 border-t border-rc-line">
                   <Link
                     href={`/comenzi?proiect=${projectId}`}
-                    className="text-[12.5px] text-rc-orange-deep hover:underline"
+                    className={`text-[12.5px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                     data-testid="cost-full-history"
                   >
                     Vezi toate ieșirile către acest șantier
@@ -374,6 +418,7 @@ export function ProjectTabs({
                 hint="Fiecare mutare pe conductă apare aici, cu momentul ei."
               />
             ) : (
+              <div className={PHONE_TABLE}>
               <Table>
                 <thead>
                   <tr>
@@ -385,19 +430,22 @@ export function ProjectTabs({
                 </thead>
                 <tbody>
                   {history.map((h, i) => (
-                    <tr key={`${h.createdAt}-${i}`} data-testid="history-row">
-                      <Td>{h.fromStatus ? statusLabel(h.fromStatus) : "-"}</Td>
-                      <Td>
+                    <tr key={`${h.createdAt}-${i}`} data-testid="history-row" className={PHONE_ROW}>
+                      <Td data-label="Din" className={PHONE_CELL}>
+                        {h.fromStatus ? statusLabel(h.fromStatus) : "-"}
+                      </Td>
+                      <Td data-label="În" className={PHONE_CELL}>
                         <span className="font-semibold text-rc-black">
                           {statusLabel(h.toStatus)}
                         </span>
                       </Td>
-                      <Td>{h.note ?? "-"}</Td>
-                      <Td>{formatDate(h.createdAt)}</Td>
+                      <Td data-label="Notă" className={PHONE_WIDE}>{h.note ?? "-"}</Td>
+                      <Td data-label="Când" className={PHONE_WIDE}>{formatDate(h.createdAt)}</Td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
+              </div>
             )}
           </Card>
         ) : null}

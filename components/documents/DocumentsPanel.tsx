@@ -33,6 +33,14 @@ import {
   Th,
 } from "@/components/ui/primitives";
 import { FilePicker } from "@/components/ui/FilePicker";
+import {
+  PHONE_ACTIONS_CELL,
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { createClient } from "@/lib/supabase/client";
 import { DOCS_BUCKET } from "@/lib/data/inbound-types";
 import { formatDate } from "@/lib/data/format";
@@ -164,7 +172,7 @@ function DocumentUpload({ owner }: { owner: DocumentOwner }) {
   return (
     <div className="px-5 py-4 border-b border-rc-line" data-testid="document-upload">
       <div className="flex flex-wrap items-end gap-3">
-        <Field label="Tip document" required className="w-[200px]">
+        <Field label="Tip document" required className="w-[200px] max-md:w-full">
           <Select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
@@ -180,7 +188,7 @@ function DocumentUpload({ owner }: { owner: DocumentOwner }) {
           </Select>
         </Field>
 
-        <div>
+        <div className="max-md:w-full max-md:min-w-0">
           <span className="block text-[12.5px] font-semibold text-rc-black mb-1.5">
             Fișier<span className="text-rc-orange"> *</span>
           </span>
@@ -252,8 +260,21 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
   async function download(id: string) {
     setBusy(id);
     setError(null);
-    const result = await documentDownloadUrl(id);
+    // P3-70. Pentru un cont dezactivat intre timp, proxy.ts rescrie cererea spre
+    // ecranul fara acces si actiunea nu mai raspunde cu un rezultat: apelul arunca
+    // sau nu intoarce nimic. Refuzul se spune romaneste, nu ramane un buton pe
+    // "Se pregătește...".
+    let result: Awaited<ReturnType<typeof documentDownloadUrl>> | undefined;
+    try {
+      result = await documentDownloadUrl(id);
+    } catch {
+      result = undefined;
+    }
     setBusy(null);
+    if (!result) {
+      setError(DOCUMENT_MESSAGES.downloadFailed);
+      return;
+    }
     if (!result.ok) {
       setError(result.message);
       return;
@@ -312,6 +333,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
         </p>
       ) : null}
 
+      <div className={PHONE_TABLE}>
       <Table>
         <thead>
           <tr>
@@ -324,16 +346,22 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
         </thead>
         <tbody>
           {documents.rows.map((d) => (
-            <tr key={d.id} data-testid="document-row" data-name={d.originalName} data-id={d.id}>
-              <Td>
+            <tr
+              key={d.id}
+              data-testid="document-row"
+              data-name={d.originalName}
+              data-id={d.id}
+              className={PHONE_ROW}
+            >
+              <Td data-label="Denumire" className={PHONE_WIDE}>
                 <span className="font-semibold text-rc-black break-all">{d.originalName}</span>
               </Td>
-              <Td>{DOCUMENT_KIND_LABEL[d.kind]}</Td>
-              <Td align="right">{formatBytes(d.sizeBytes)}</Td>
-              <Td>{formatDate(d.createdAt)}</Td>
-              <Td align="right">
+              <Td data-label="Tip" className={PHONE_CELL}>{DOCUMENT_KIND_LABEL[d.kind]}</Td>
+              <Td align="right" data-label="Mărime" className={PHONE_CELL}>{formatBytes(d.sizeBytes)}</Td>
+              <Td data-label="Încărcat la" className={PHONE_WIDE}>{formatDate(d.createdAt)}</Td>
+              <Td align="right" className={PHONE_ACTIONS_CELL}>
                 {confirming === d.id ? (
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 max-md:flex-wrap">
                     <span className="text-[12.5px] text-rc-black">Ștergi definitiv documentul?</span>
                     <Button
                       type="button"
@@ -357,7 +385,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
                     </Button>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 max-md:flex-wrap">
                     <Button
                       type="button"
                       size="sm"
@@ -386,12 +414,13 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
           ))}
         </tbody>
       </Table>
+      </div>
 
       {!documents.showAll && documents.total > documents.rows.length ? (
         <div className="px-5 py-4 border-t border-rc-line">
           <Link
             href={href({ documente: "toate", "pagina-documente": null })}
-            className="text-[12.5px] text-rc-orange-deep hover:underline"
+            className={`text-[12.5px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
             data-testid="documents-all"
           >
             Vezi toate cele {documents.total} documente
@@ -401,18 +430,18 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
 
       {documents.showAll ? (
         <div
-          className="flex items-center justify-between gap-3 px-5 py-4 border-t border-rc-line text-[12.5px]"
+          className="flex items-center justify-between gap-3 px-5 py-4 border-t border-rc-line text-[12.5px] max-md:flex-wrap"
           data-testid="documents-pager"
         >
           <span className="text-rc-muted">
             Pagina {documents.page} din {pages}, {documents.total}{" "}
             {documents.total === 1 ? "document" : "documente"}
           </span>
-          <span className="inline-flex items-center gap-4">
+          <span className="inline-flex items-center gap-4 max-md:flex-wrap">
             {documents.page > 1 ? (
               <Link
                 href={href({ "pagina-documente": String(documents.page - 1) })}
-                className="text-rc-orange-deep hover:underline"
+                className={`text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                 data-testid="documents-prev"
               >
                 Pagina anterioară
@@ -421,7 +450,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
             {documents.page < pages ? (
               <Link
                 href={href({ "pagina-documente": String(documents.page + 1) })}
-                className="text-rc-orange-deep hover:underline"
+                className={`text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                 data-testid="documents-next"
               >
                 Pagina următoare
@@ -429,7 +458,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
             ) : null}
             <Link
               href={href({ documente: null, "pagina-documente": null })}
-              className="text-rc-orange-deep hover:underline"
+              className={`text-rc-orange-deep hover:underline ${PHONE_LINK}`}
               data-testid="documents-summary"
             >
               Doar cele mai noi

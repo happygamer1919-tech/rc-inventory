@@ -24,15 +24,21 @@ const JSON_PATH = resolve(HERE, "../../docs/contracts/categories.json");
 // and in apply order rather than a glob over supabase/migrations: a migration
 // that touches public.categories should be a line in this diff, and a glob would
 // silently widen what this check accepts the day somebody adds one.
+//
+// P3-69. 0049 adds six more, sort_order 20 to 25, for the owner's verified list of
+// roofing materials. Its categories VALUES list is in the same ('name', N) shape,
+// and its product and supplier VALUES lines are not, so the pattern below reads
+// exactly the six.
 const SQL_PATHS = [
   resolve(HERE, "../../supabase/migrations/0007_seed_categories.sql"),
   resolve(HERE, "../../supabase/migrations/0029_category_paints.sql"),
+  resolve(HERE, "../../supabase/migrations/0049_roofing_materials.sql"),
 ];
 
 // EXPLICIT, AND IT CHANGES DELIBERATELY. Derived from the JSON it would agree
 // with itself whatever the JSON said, which is a check whose passing path is
 // reachable without the condition being true. docs/LEARNINGS.md names that class.
-const EXPECTED_COUNT = 19;
+const EXPECTED_COUNT = 25;
 /** Belongs to P2-15 and to the owner decision recorded there, never to the vocabulary. */
 const RESIDUE = "TEST-Categorie";
 
