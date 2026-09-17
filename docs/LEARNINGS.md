@@ -5825,3 +5825,41 @@ and stop the cluster. Unix socket only, no TCP, no credentials. It is postgres 1
 uses, so it is an early warning and never a replacement for the CI step. RULE: **when a child
 process can outlive the call that starts it, give it a log file and no inherited pipes, or a
 synchronous spawn waits on it forever.**
+
+### The phase 3 board passed 1 MiB and three board readers stopped reading it
+**Tag:** ci
+**ERROR:** P3-69 added one card and `docs/board/rc-board-phase3.json` went from 1,043,148 to
+1,050,448 bytes. `npm run check:board-clock` exited 2 with "did not parse: spawnSync cat ENOBUFS",
+and `npm run check:board-edit` resolved zero cards and refused `P3-69` as a token that resolves to
+no card, on a card that was plainly on the board. Both read the file through `execFileSync`, whose
+default `maxBuffer` is 1024 * 1024 bytes; output above that throws, and each check turned the throw
+into its own failure wording. `check-open-branch-ids.mjs` had the same helper and would have refused
+this branch as a source for every terminal running `id:free` while it is open.
+**SOLUTION:** `maxBuffer: 64 * 1024 * 1024` on the git and cat reads in those three files, the value
+`prove-live-fixtures.mjs` already used. RULE: **any `execFileSync` or `execSync` that returns a
+board, the inbox or any other file that only grows must pass an explicit `maxBuffer`; "did not
+parse" or "no such card" right after a board edit is a size problem until proven otherwise.**
+
+### A board commit went in while the validator was red, because the validator was piped
+**Tag:** ci
+**ERROR:** P3-69's authoring commit ran `node docs/board/validate-board.mjs ... | grep ... | tail`
+and then `git commit` in the same shell line. A pipeline's exit code is the exit code of its last
+command, so the red validator (a derived `lane` of `todo` where `in_flight` was required) did not
+stop the commit. CLAUDE.md 2 then required a revert, and `git revert` is not permitted in the
+operator factory, so the file was restored by hand from the parent commit and committed as the
+revert.
+**SOLUTION:** the validator runs as its own command, unpiped, and the commit is a separate step taken
+only after reading PASS on all three boards. RULE: **never pipe a gate into a filter in the same
+command as the commit it guards; the pipe swallows the exit code the gate exists to return.**
+
+### A JavaScript string replacement containing a dollar and a quote duplicated half a migration
+**Tag:** data
+**ERROR:** while editing `0049_roofing_materials.sql` with `String.prototype.replace(old, new)`, the
+replacement text held SQL regexes ending in a dollar sign followed by a single quote
+(`-[0-9]{3}$'`). In a replacement string that pair means "the text after the match", so every such
+regex inserted the rest of the file: 338 lines became 1,033, with no error. It was caught only
+because a grep for `sku ~` printed forty lines where six were expected.
+**SOLUTION:** the file was truncated back to the last known-good statement, the section appended
+whole with a literal edit, and the full local apply rerun. RULE: **when a replacement string can
+contain a dollar sign, pass a function (`s.replace(old, () => text)`) or use a literal edit, and
+check the line count after any scripted edit of SQL.**
