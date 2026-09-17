@@ -13865,3 +13865,169 @@ and is frozen with the rest.
 
 **Unblocks:** nothing. It constrains every card touching the callback until close.
 **Supersedes:** none.
+
+### R-203 - Docs-only fast path: `quality` always runs and always reports, and skips its heavy steps inside the job
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 4, ruling Re
+**Answer, verbatim:**
+> Re (owner Ivan) - Docs-only fast path (F12 of the 2026-09-16 list). The required
+> check "quality" always runs and always reports. For docs-only diffs it skips its
+> heavy steps inside the job and exits green. No path filter on the workflow.
+> Required check name and branch protection unchanged. Built by Max's lane.
+
+**Ruling: adopted as written.**
+
+**THE SKIP IS INSIDE THE JOB AND IS NOT A PATH FILTER ON THE WORKFLOW.** A path
+filter makes the required check absent rather than green, and an absent required
+check is the state CLAUDE.md section 3 refuses a merge on. The job therefore
+starts on every pull request, reports under the name `quality`, and decides
+internally whether its heavy steps have anything to do.
+
+**THE REQUIRED CHECK NAME AND BRANCH PROTECTION DO NOT CHANGE.** There is one
+required check, it is named exactly `quality`, and nothing here adds a second
+name or a second rule.
+
+**BUILT BY MAX'S LANE.** This ruling records the decision; it authors no card
+here.
+
+**Unblocks:** nothing directly. It is the instruction Max's lane builds against.
+**Supersedes:** none.
+
+### R-204 - Handover of the document-reading findings to Max's lane, conditioned on R-202 holding and on Ivan announcing any callback change to Andre first
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 4, ruling Rf
+**Answer, verbatim:**
+> Rf (owner Ivan) - Handover of document-reading findings. Max's lane (GREEN)
+> builds findings F2, F3, F5, F6, F7, F8, F9 of the list handed to Max on
+> 2026-09-16; the bar on Max's workers is lifted for that work. Condition: R-202
+> holds; no change to what app/api/extraction/callback/route.ts accepts, refuses
+> or returns, including error texts, merges before close under R-199 unless Ivan
+> has announced it to Andre first. After close, all platform work is Max's lane.
+
+**Ruling: adopted as written.**
+
+**THE FINDINGS ARE THE LIST HANDED TO MAX ON 2026-09-16 AS CHAT TEXT, WHICH IS
+NOT COMMITTED ANYWHERE.** F2, F3, F5, F6, F7, F8 and F9 here are items of that
+list. They are NOT the F-ids of the 2026-09-14 review findings report, and the
+2026-09-17 triage that read them as such is void; the correction is recorded in
+`docs/reports/2026-09-17-executor-r203-r206-regression-file-and-handover.md`.
+
+**THE BAR THIS RULING LIFTS IS NOT IN THE RECORD, AND THE LIFT IS WRITTEN
+WITHOUT A CITATION.** The dispatch asked for the rule to be cited if it exists.
+It was searched for and not found: `decisions/inbox.md`, `CLAUDE.md`, every
+`docs/**/*.md` and all three boards contain no rule barring Max's workers from
+the document-reading or extraction work. What the record does contain is the
+opposite direction, card `EXT-34` on the phase 3 board: *"Owned by Max as
+platform owner. Carries a migration reaching the live database. Not to be built
+by any scheduled or autonomous run. Unblock only by Max."* That bars OUR runs
+from HIS card, not his workers from ours. A reader looking for the lifted bar
+should read this paragraph rather than conclude it went uncited by accident.
+
+**THE CONDITION IS PART OF THE RULING AND NOT A PREAMBLE.** R-202 holds. No
+change to what `app/api/extraction/callback/route.ts` accepts, refuses or
+returns, including its error texts, merges before close under R-199 unless Ivan
+has announced it to Andre first.
+
+**AFTER CLOSE, ALL PLATFORM WORK IS MAX'S LANE.**
+
+**Unblocks:** F2, F3, F5, F6, F7, F8 and F9 of the 2026-09-16 list, for Max's
+lane.
+**Supersedes:** none. It adds a condition on top of R-202 rather than changing
+it.
+
+### R-205 - The R-199 regression file is aviz-silvamat-0044213.pdf, and a 2xx status alone is not a pass on the fixture runs
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 4, ruling Rh
+**Answer, verbatim:**
+> Rh (strategy chat) - R-199 regression file and pass condition. The item
+> "digital invoice with line items and no printed grand total" is satisfied by
+> aviz-silvamat-0044213.pdf, a synthetic goods note with no values, supplied by
+> Andre on 2026-09-17 and confirmed by him not a Rapid Construct document,
+> sha256 b6480f1c828d541abd1c4bdfef591b9093d4d7fad49a1f5f102518c7122dc3b4,
+> stored at rc-docs/_samples/andre/aviz-silvamat-0044213.pdf. Expected: status
+> failed, error_code unreadable_document, document_source digital, lines [].
+> For the fixture runs, the regression passes only when the stored draft shows
+> supplier_name and _meta.page_count populated; a 2xx status alone is not a pass.
+
+**Ruling: adopted as written.**
+
+**THE FILE, AS MEASURED ON 2026-09-17 RATHER THAN AS DESCRIBED.** 45942 bytes,
+sha256 `b6480f1c828d541abd1c4bdfef591b9093d4d7fad49a1f5f102518c7122dc3b4`, one
+page by two independent counts. It was uploaded to
+`rc-docs/_samples/andre/aviz-silvamat-0044213.pdf` on 2026-09-17, without
+overwrite and without any signed URL, and the prefix went from six objects to
+seven. The stored object is 45942 bytes. The write is journalled in
+`docs/PRODUCTION-WRITES.md`.
+
+**THE EXPECTED SHAPE IS `unreadable_document`, AND THE VALIDATOR ACCEPTS IT
+TODAY.** `unreadable_document` is a member of `EXTRACTION_ERROR_CODES` in
+`lib/data/extraction-types.ts` line 19, which is the set `isExtractionErrorCode`
+tests at lines 255 to 257. Nothing has to change in the route for this payload
+to be accepted, which is what R-202 requires.
+
+**A 2xx STATUS ALONE IS NOT A PASS, AND THAT CLAUSE IS THE POINT OF THIS
+RULING.** On the fixture runs the regression passes only when the stored draft
+shows `supplier_name` and `_meta.page_count` populated. Both are exactly the
+fields Andre's build was sending under other names, `supplier` and
+`pages`/`_meta.pages`, and the route neither refuses nor stores either of those:
+a payload carrying them is answered `202` with both values recorded as null. A
+pass read off the status code would therefore report his field fixes as landed
+on the run that proves they did not.
+
+**Unblocks:** condition one of R-199, once the regression is run.
+**Supersedes:** none.
+
+### R-206 - Terminal access for the Andre connection: the sample prefix only, and it ends at close under R-199
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17 that followed the step 5 stop
+**Answer, verbatim:**
+> R-206 - Terminal access for the Andre connection. Ratifies Ivan's in-session
+> grants of 2026-09-15 and 2026-09-17, which were not committed at the time.
+> Until close under R-199, Ivan's lane terminals may: source
+> /Users/ivan/rc-secrets/phase2.env with values never printed; list objects,
+> upload without overwrite, and create signed URLs with TTL per R-096, under
+> rc-docs/_samples/andre only; write the matching docs/PRODUCTION-WRITES.md row
+> per R-055. No other production read or write is covered; anything else stops
+> for Ivan. The 2026-09-17 upload of
+> rc-docs/_samples/andre/aviz-silvamat-0044213.pdf is ratified under this ruling.
+> Coverage ends at close under R-199.
+
+**Ruling: adopted as written.**
+
+**IT RATIFIES TWO GRANTS THAT EXISTED ONLY IN CHAT.** The sample runs of
+2026-09-15, flagged as a deviation in
+`docs/reports/2026-09-15-executor-orange-manufactured-figure-ruling-cards.md` and
+never answered by a ruling, and the upload of 2026-09-17 recorded in
+`docs/reports/2026-09-17-executor-r203-r206-regression-file-and-handover.md`. Both
+were performed after the condition R-012 and CLAUDE.md 8.2 rest on had been spent,
+which R-200 states in terms. Until this ruling, the only committed trace of either
+authority was a report saying it was missing.
+
+**WHAT IS COVERED, AND IT IS A CLOSED LIST:**
+
+1. sourcing `/Users/ivan/rc-secrets/phase2.env`, values never printed, CLAUDE.md
+   8.3 otherwise unchanged
+2. listing objects under `rc-docs/_samples/andre`
+3. uploading under that prefix **without overwrite**
+4. creating signed URLs under that prefix at the TTL R-096 sets
+5. writing the matching `docs/PRODUCTION-WRITES.md` row, which R-055 requires
+
+**WHAT IS NOT COVERED IS EVERYTHING ELSE**, whether or not it is named here: the
+production database, any other bucket, any other prefix of `rc-docs`, any
+migration, and any credential act. Those stop for Ivan, exactly as they did
+before this ruling.
+
+**THE 2026-09-17 UPLOAD IS RATIFIED.**
+`rc-docs/_samples/andre/aviz-silvamat-0044213.pdf`, 45942 bytes, uploaded without
+overwrite and with no signed URL created, is covered by this ruling as performed.
+
+**COVERAGE ENDS AT CLOSE UNDER R-199.** Not on a date, not at a session boundary.
+It does not un-park `P2-13`, which R-200 governs, and it revives no wider terminal
+grant: R-192(c) is untouched and R-012 stays spent.
+
+**Unblocks:** the Andre sample work under the prefix, until close under R-199.
+**Supersedes:** none. It is narrower than R-012 and does not revive it.
