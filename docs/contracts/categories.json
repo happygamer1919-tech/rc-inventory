@@ -1,9 +1,9 @@
 {
   "_comment": "Exported from the live public.categories table, read-only, after migration 0007 applied. NOT hand-written: this file records what the database actually holds. Regenerate it rather than editing it. TEST-Categorie is deliberately excluded: it is CRIT-11 e2e residue and belongs to P2-15, not to the vocabulary.",
-  "_source": "public.categories, project bwhzatwwjqmyfesfnisa, exported 2026-08-26 by EXECUTOR under ruling R-012 The nineteenth entry, sort_order 19, was added by migration 0029 under card P3-34 and is recorded here in the same commit, because this file and that migration are two files holding one fact.",
+  "_source": "public.categories, project bwhzatwwjqmyfesfnisa, exported 2026-08-26 by EXECUTOR under ruling R-012 The nineteenth entry, sort_order 19, was added by migration 0029 under card P3-34 and is recorded here in the same commit, because this file and that migration are two files holding one fact. Entries 20 to 25 were added by migration 0049 under card P3-69 (the owner's verified list of 80 roofing materials, 2026-09-16) and are recorded here in the same commit, for the same reason.",
   "_authority": "Ruling R-018. A WORKING DEFAULT, not a specification: these are rows and not an enum, so Mihai may rename an entry at P2-14 with no code change and no migration.",
   "_used_by": "docs/contracts/extraction-v2.md section 4.4, the nullable mapped category field.",
-  "count": 19,
+  "count": 25,
   "categories": [
     {
       "name": "Cimenturi și mortare",
@@ -80,6 +80,30 @@
     {
       "name": "Vopsele, lacuri și solvenți",
       "sort_order": 19
+    },
+    {
+      "name": "Țiglă metalică",
+      "sort_order": 20
+    },
+    {
+      "name": "Țiglă metalică cu rocă vulcanică",
+      "sort_order": 21
+    },
+    {
+      "name": "Țiglă ceramică",
+      "sort_order": 22
+    },
+    {
+      "name": "Șindrilă bituminoasă",
+      "sort_order": 23
+    },
+    {
+      "name": "Sistem de scurgere",
+      "sort_order": 24
+    },
+    {
+      "name": "Sistem de scurgere Roofart/Bilka",
+      "sort_order": 25
     }
   ]
 }

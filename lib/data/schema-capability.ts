@@ -722,3 +722,42 @@ export async function hasSheetOptionRetirement(client: ColumnProbe): Promise<boo
   }
   return cachedSheetOptionRetirement.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-69. Exista migratia 0049: coloana products.source_note?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasProductImage SAU hasSheetOptions.
+// Acelea raspund despre 0045 si 0046. 0049 este un fisier separat si ajunge in
+// productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua
+// minute, iar codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. listProducts ar cere source_note,
+// PostgREST ar raspunde 42703, iar tabloul de bord, inventarul si fiecare formular
+// care alege un produs ar raspunde 500 pana cand migratia ateriza.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: panoul produsului nu
+// arata sursa. Coloana si cele 80 de produse sosesc in aceeasi tranzactie, deci o
+// singura sonda, pe coloana, ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedProductSourceNote: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI APELANTUL, din acelasi motiv ca la
+ *   celelalte porti.
+ */
+export async function hasProductSourceNote(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedProductSourceNote && now - cachedProductSourceNote.at < TTL_MS) {
+    return cachedProductSourceNote.value;
+  }
+  try {
+    const { error } = await client.from("products").select("source_note").limit(1);
+    cachedProductSourceNote = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": panoul arata ce exista azi, in loc sa cada.
+    cachedProductSourceNote = { value: false, at: now };
+  }
+  return cachedProductSourceNote.value;
+}
