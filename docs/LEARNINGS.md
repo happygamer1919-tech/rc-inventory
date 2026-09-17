@@ -5795,3 +5795,33 @@ would have said so until both branches were open at once.
 in another worktree. RULE: **when two terminals share one machine, run `git worktree list` (and
 `git branch --list "card/*"`) before trusting the "next id" hint; `id:free` is advisory about
 branches that have been pushed, not about work sitting in a sibling worktree.**
+
+### An assertion file keeps asserting its card's access rules after a later card changes them on purpose
+**Tag:** data
+**ERROR:** P3-68 (migration 0048) gives the owner insert and update on `sheet_options` and
+`sheet_prices`. Every file in `scripts/poc-free/local-db/assertions/` runs against the FINISHED
+schema, so `assertions/0046_sheet_options.sql` and `assertions/0047_sheet_prices.sql` would have
+failed `check:migrations` on the pull request: each asserted "exactly the one select policy" and
+signed in as the owner expecting `insufficient_privilege` on an insert ("the list is written only
+by migrations"). With 0048 applied the owner's insert reaches the primary key instead, and the
+owner's update of a price succeeds.
+**SOLUTION:** both files were amended in the same pull request under CLAUDE.md 9c: the now-false
+sentence is quoted and kept, the refusal is asserted against an account manager (still true), and
+the owner's rights are asserted in the new `assertions/0048_sheet_options_admin.sql`. RULE: **a
+migration that widens or narrows who may write a table must grep `assertions/` for that table
+before the first push; an older card's assertion file is a regression test for the old rule and
+will fail exactly as designed.**
+
+### `check:migrations` needs Docker, and a Homebrew postgres can stand in for it before the push
+**Tag:** ci
+**ERROR:** this machine has no Docker, so `npm run check:migrations` cannot run and a wrong
+migration or assertion file is found only after about twenty minutes of CI. A first attempt to
+drive a throwaway cluster from node hung forever: `spawnSync("pg_ctl", [..., "start"])` never
+returned, because the started server inherits the pipe for stdout and never closes it.
+**SOLUTION:** `initdb` into a temporary directory, `pg_ctl -w -l <dir>/server.log -o "-k <dir> -p
+<port> -c listen_addresses=''" start` with `stdio: "ignore"`, then feed `shim.sql`, every migration
+and every assertion file to `psql --set ON_ERROR_STOP=1 --no-psqlrc` exactly as `apply.mjs` does,
+and stop the cluster. Unix socket only, no TCP, no credentials. It is postgres 17, not the 16 CI
+uses, so it is an early warning and never a replacement for the CI step. RULE: **when a child
+process can outlive the call that starts it, give it a log file and no inherited pipes, or a
+synchronous spawn waits on it forever.**
