@@ -15,9 +15,10 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { inBatches, readAllPages } from "./id-list";
-import { isDocumentSource } from "./extraction-types";
+import { isDocumentSource, readExtractionMeta } from "./extraction-types";
 import {
   hasExtractionDocumentSource,
+  hasExtractionPageCount,
   hasExtractionUploadPageCount,
   hasSupplierDocumentRef,
 } from "./schema-capability";
@@ -48,6 +49,25 @@ const SUPPLIER_REF_COLUMNS = ", order_ref, order_ref_series";
  *  sufix separat, din acelasi motiv ca perechea de mai sus. */
 const UPLOAD_PAGE_COUNT_COLUMN = ", upload_page_count";
 
+/** P3-72, constatarea F5. Numarul de pagini RAPORTAT DE MODEL, adaugat de 0032.
+ *
+ *  ALT SUFIX SI ALTA POARTA decat cel de deasupra, si nu este dublare. 0032 si
+ *  0043 sunt fisiere separate care ajung in productie separat, exact motivul
+ *  pentru care `schema-capability.ts` tine deja doua sonde distincte. */
+const MODEL_PAGE_COUNT_COLUMN = ", page_count";
+
+/** P3-72, constatarea F5. Blocul de diagnostic al modelului, stocat verbatim.
+ *
+ *  FARA POARTA, SI ACEASTA ESTE SINGURA COLOANA DE AICI CARE NU ARE NEVOIE DE
+ *  UNA. `meta` vine din `0008_extraction_drafts.sql`, care este fisierul care
+ *  CREEAZA tabela: coloana si tabela au aceeasi soarta, deci o baza pe care
+ *  `extraction_drafts` exista are intotdeauna si `meta`. Nu exista fereastra in
+ *  care selectul ar putea intoarce 42703 pe ea si tabela sa raspunda oricum.
+ *  Sondele de mai sus exista fiindca 0032, 0036 si 0043 sunt migratii DE MAI
+ *  TARZIU, care ajung in productie la fuziune, in timp ce codul pleaca din
+ *  acelasi push. */
+const META_COLUMN = ", meta";
+
 /** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
  *
  *  INTREBARI SEPARATE SI NU UNA, fiindca 0033, 0036 si 0043 sunt fisiere separate
@@ -58,9 +78,15 @@ async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocument
     ? DRAFT_COLUMNS_WITH_SOURCE
     : DRAFT_COLUMNS;
   const withRef = (await hasSupplierDocumentRef(supabase)) ? base + SUPPLIER_REF_COLUMNS : base;
-  return (await hasExtractionUploadPageCount(supabase))
-    ? withRef + UPLOAD_PAGE_COUNT_COLUMN
-    : withRef;
+  // P3-72. `meta` se adauga neconditionat: vezi META_COLUMN pentru de ce este
+  // singura de aici fara sonda.
+  const withMeta = withRef + META_COLUMN;
+  const withUpload = (await hasExtractionUploadPageCount(supabase))
+    ? withMeta + UPLOAD_PAGE_COUNT_COLUMN
+    : withMeta;
+  return (await hasExtractionPageCount(supabase))
+    ? withUpload + MODEL_PAGE_COUNT_COLUMN
+    : withUpload;
 }
 
 const LINE_COLUMNS =
@@ -129,6 +155,18 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
       Number.isInteger(row.upload_page_count) && (row.upload_page_count as number) >= 1
         ? (row.upload_page_count as number)
         : null,
+    // P3-72, constatarea F5. Numarul raportat DE MODEL, aceeasi poarta de
+    // valoare ca la cel numarat de noi: sub 1 nu este un numar mai mic de
+    // pagini, este un raport stricat, si se citeste ca "nu s-a raportat". Cand
+    // 0032 nu este aplicata coloana lipseste din select si valoarea este null,
+    // ceea ce este adevarul despre randul acela.
+    modelPageCount:
+      Number.isInteger(row.page_count) && (row.page_count as number) >= 1
+        ? (row.page_count as number)
+        : null,
+    // P3-72, constatarea F5. `jsonb` NEVALIDAT, citit camp cu camp si niciodata
+    // crezut pe cuvant. Vezi readExtractionMeta.
+    meta: readExtractionMeta(row.meta),
     firedAt: (row.fired_at as string | null) ?? null,
     callbackAt: (row.callback_at as string | null) ?? null,
     lines: lines.map(mapLine).sort((a, b) => a.lineNo - b.lineNo),

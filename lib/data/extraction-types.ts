@@ -257,6 +257,127 @@ export function scanReadLines(draft: { documentSource: unknown }): boolean {
   return effectiveSource(draft.documentSource) === "scan";
 }
 
+/** P3-72, constatarea F5 a lui Ivan. BLOCUL DE DIAGNOSTIC AL MODELULUI.
+ *
+ *  CE ESTE. Sectiunea 4.3 din contract: `_meta` poarta `model`,
+ *  `prompt_version`, `page_count` si `duration_ms`. Ruta de callback il scrie
+ *  VERBATIM in coloana `extraction_drafts.meta`, care este `jsonb`, de la
+ *  migratia 0008 incoace. Pana la acest card nimic nu il citea inapoi.
+ *
+ *  `partial_cause` NU ESTE IN CONTRACT SI SOSESTE ORICUM, inauntrul aceluiasi
+ *  bloc. Hotararea din `decisions/inbox.md` o spune in termeni: o linie fara
+ *  total tiparit ruteaza la `partial` cu cauza `lines` pe partea expeditorului,
+ *  iar cauza calatoreste in `_meta`, pe care ruta noastra o stocheaza si nu o
+ *  citeste. Se citeste aici fiindca este exact propozitia care explica un
+ *  `partial`, si fiindca constatarea F5 o numeste.
+ *
+ *  `page_count` NU ESTE AICI, DELIBERAT. Are coloana lui, adaugata de migratia
+ *  0032 tocmai fiindca o cheie intr-un blob nevalidat nu este ceva ce poate
+ *  intreba o interogare. Vezi `ExtractionDraft.modelPageCount`.
+ *
+ *  FIECARE CAMP SE CITESTE APARTE SI NECREZUT. Nimic, nici la scriere nici la
+ *  citire, nu verifica forma acestui obiect: este `jsonb` nevalidat scris
+ *  verbatim dintr-un payload al altcuiva. Un camp care nu are tipul asteptat
+ *  devine null, adica exact ce inseamna si un camp care nu a sosit, si nimic
+ *  aici nu arunca si nu poate strica ecranul. */
+export type ExtractionMeta = {
+  model: string | null;
+  promptVersion: string | null;
+  durationMs: number | null;
+  partialCause: string | null;
+};
+
+/** Un camp de text din `_meta`.
+ *
+ *  UN NUMAR SE ACCEPTA SI SE SCRIE CA TEXT. `prompt_version` este un sir prin
+ *  contract, si un expeditor care trimite `2` in loc de `"v2"` a raportat
+ *  totusi ceva; a-l arunca ar ascunde exact informatia pentru care exista
+ *  blocul. Sirul gol si cel format numai din spatii sunt null: un camp gol nu
+ *  este un raport. */
+function metaText(v: unknown): string | null {
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return null;
+}
+
+/** Durata citirii, in milisecunde.
+ *
+ *  UN RAPORT STRICAT ESTE null, NICIODATA ZERO, din acelasi motiv pentru care
+ *  migratia 0032 refuza un default pe numarul de pagini: zero ar fi o afirmatie
+ *  ca citirea a durat instantaneu, iar absenta nu afirma nimic. Un sir numeric
+ *  se accepta fiindca `_meta` nu este validat de nimeni si un numar trimis ca
+ *  text este acelasi numar. */
+function metaDuration(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? Math.round(v) : null;
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
+/** S-a citit macar un camp? Un bloc din care nu s-a citit nimic se raporteaza
+ *  ca absent, ca ecranul sa nu deschida o sectiune goala. */
+export function hasExtractionMeta(m: ExtractionMeta | null): m is ExtractionMeta {
+  return (
+    m !== null &&
+    (m.model !== null || m.promptVersion !== null || m.durationMs !== null || m.partialCause !== null)
+  );
+}
+
+/** Citeste coloana `meta` intr-o forma tipizata, sau null.
+ *
+ *  O SINGURA DEFINITIE, folosita si de stratul de date si de proba, din acelasi
+ *  motiv ca la `scanReadLines`: ce se arata pe ecran si ce verifica proba nu au
+ *  voie sa fie doua citiri diferite ale aceluiasi blob. */
+export function readExtractionMeta(raw: unknown): ExtractionMeta | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const meta: ExtractionMeta = {
+    model: metaText(o.model),
+    promptVersion: metaText(o.prompt_version),
+    durationMs: metaDuration(o.duration_ms),
+    partialCause: metaText(o.partial_cause),
+  };
+  return hasExtractionMeta(meta) ? meta : null;
+}
+
+/** P3-72. Titlul sectiunii de diagnostic, si etichetele ei.
+ *
+ *  AICI SI NU IN COMPONENT, din acelasi motiv ca la `EXTRACTION_ERROR_LABEL` si
+ *  `SCAN_LINE_NOTICE`: textul pe care il vede operatorul si textul pe care il
+ *  cauta proba sunt acelasi sir, nu doua siruri care se pot desparti. */
+export const EXTRACTION_META_TITLE = "Detalii tehnice ale citirii";
+
+export const EXTRACTION_META_LABEL = {
+  model: "Model",
+  promptVersion: "Versiunea promptului",
+  durationMs: "Durata citirii",
+  partialCause: "Cauza citirii parțiale",
+  /** Numarul RAPORTAT DE MODEL, din `_meta.page_count`, prin coloana 0032. */
+  modelPageCount: "Pagini raportate de model",
+  /** Numarul NUMARAT DE NOI din bytes la incarcare, coloana 0043. Acelasi sir
+   *  ca in antetul scanarii necitite, si de aceea este o constanta: doua numere
+   *  care stau unul langa altul pe ecran se deosebesc numai prin eticheta. */
+  uploadPageCount: "Pagini numărate la încărcare",
+} as const;
+
+/** Ce se scrie cand campul nu a sosit sau a sosit stricat. */
+export const EXTRACTION_META_ABSENT = "Nu s-a raportat";
+
+/** Durata in cuvinte, cu virgula zecimala romaneasca.
+ *
+ *  FORMATARE EXPLICITA SI NU `Intl`, fiindca proba compara sirul exact si un
+ *  separator care depinde de datele de locale instalate pe masina de integrare
+ *  ar face din asta un test care pica in alta parte decat in cod. */
+export function formatExtractionDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+}
+
 export type ExtractionDraft = {
   orderId: string;
   documentPath: string;
@@ -294,6 +415,16 @@ export type ExtractionDraft = {
    *  nu am putut numara cu siguranta, sau ca randul este de dinaintea migratiei
    *  0043. Nu este numarul raportat de model, care ramane in `_meta`. */
   uploadPageCount: number | null;
+  /** P3-72, constatarea F5. Paginile RAPORTATE DE MODEL, din coloana pe care
+   *  migratia 0032 o adauga, umpluta din `_meta.page_count`. null inseamna ca
+   *  modelul nu a raportat niciun numar, ca a raportat unul stricat, sau ca 0032
+   *  nu este inca aplicata pe baza catre care arata aplicatia. Nu este
+   *  `uploadPageCount`, care vine din bytes si este numarul nostru. */
+  modelPageCount: number | null;
+  /** P3-72, constatarea F5. Blocul de diagnostic al modelului, citit din
+   *  coloana `meta`. null inseamna ca nu a sosit sau ca nu s-a putut citi niciun
+   *  camp din el. Vezi `readExtractionMeta`. */
+  meta: ExtractionMeta | null;
   firedAt: string | null;
   callbackAt: string | null;
   lines: ExtractionLine[];
