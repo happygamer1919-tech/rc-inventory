@@ -32,8 +32,13 @@ import { DateField } from "@/components/ui/DateField";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
   EXTRACTION_ERROR_LABEL,
+  EXTRACTION_META_ABSENT,
+  EXTRACTION_META_LABEL,
+  EXTRACTION_META_TITLE,
   SCAN_LINE_NOTICE,
   effectiveSource,
+  formatExtractionDuration,
+  hasExtractionMeta,
   scanReadLines,
 } from "@/lib/data/extraction-types";
 import { formatMoney } from "@/lib/data/format";
@@ -45,6 +50,103 @@ import { formatMoney } from "@/lib/data/format";
  *  care lista ofera un buton catre un panou care randeaza formularul. */
 function unreadScanDraft(d: { documentSource: unknown; status: unknown }): boolean {
   return effectiveSource(d.documentSource) === "scan" && d.status === "failed";
+}
+
+/** Un rand din blocul de diagnostic. Absenta se scrie, nu se ascunde: un camp
+ *  care lipseste de pe ecran nu se deosebeste de unul care nu exista. */
+function MetaRow({ label, value, testId }: { label: string; value: string | null; testId: string }) {
+  return (
+    <div data-testid={testId}>
+      <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-rc-muted">{label}</dt>
+      <dd className="text-[13.5px] text-rc-black">
+        {value === null ? <span className="text-rc-muted">{EXTRACTION_META_ABSENT}</span> : value}
+      </dd>
+    </div>
+  );
+}
+
+/** P3-72, constatarea F5 a lui Ivan. CE A RAPORTAT MODELUL DESPRE PROPRIA
+ *  CITIRE, aratat operatorului.
+ *
+ *  DE CE EXISTA. `_meta` este stocat verbatim de la migratia 0008 incoace si
+ *  comentariul acelei coloane spunea, in termeni, "stocat si niciodata aratat
+ *  operatorului". Rostul lui este ca o extragere gresita sa poata fi EXPLICATA
+ *  in loc sa fie discutata in contradictoriu, iar un camp pe care nimeni nu il
+ *  poate vedea nu explica nimic nimanui. Constatarea F5 este exact asta.
+ *
+ *  INTR-UN `details` INCHIS, SI ACEASTA ESTE TOATA GRIJA. Ecranul acesta are un
+ *  singur rost, reconcilierea documentului cu ce se salveaza, iar numele unui
+ *  model si o durata in milisecunde nu au ce cauta in fata acelei sarcini. Se
+ *  deschid cand cineva intreaba de ce a iesit asa, care este singurul moment in
+ *  care conteaza.
+ *
+ *  PE RANDUL CIORNEI SI NU INAUNTRUL FISEI DE VERIFICARE, fiindca fisa nu se
+ *  randeaza pentru orice ciorna: un esec DIGITAL nu are nici buton "Verifica"
+ *  nici "Vezi antetul", deci un bloc pus acolo ar fi invizibil exact pe forma pe
+ *  care constatarea o numeste.
+ *
+ *  NUMARUL DE PAGINI AL MODELULUI NUMAI PE FORMA ESUATA, cuvintele constatarii.
+ *  Pe un document citit cu succes numarul nu spune nimic ce nu spun deja
+ *  liniile; pe unul esuat este singurul indiciu ca modelul a citit o pagina
+ *  dintr-un document de patru si a raspuns consecvent cu sine. Langa el sta
+ *  numarul NOSTRU, numarat din bytes, fiindca un numar singur nu se poate
+ *  compara cu nimic si doua numere cu etichete diferite sunt exact intrebarea. */
+function ExtractionMetaDetails({ draft }: { draft: ExtractionDraft }) {
+  const meta = hasExtractionMeta(draft.meta) ? draft.meta : null;
+  const showPages = draft.status === "failed";
+  if (meta === null && !showPages) return null;
+
+  const durationMs = meta === null ? null : meta.durationMs;
+
+  return (
+    <details className="mt-2" data-testid="draft-meta" data-order-id={draft.orderId}>
+      <summary className="cursor-pointer text-[12px] text-rc-muted" data-testid="draft-meta-toggle">
+        {EXTRACTION_META_TITLE}
+      </summary>
+      <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2" data-testid="draft-meta-body">
+        <MetaRow
+          testId="draft-meta-model"
+          label={EXTRACTION_META_LABEL.model}
+          value={meta?.model ?? null}
+        />
+        <MetaRow
+          testId="draft-meta-prompt-version"
+          label={EXTRACTION_META_LABEL.promptVersion}
+          value={meta?.promptVersion ?? null}
+        />
+        <MetaRow
+          testId="draft-meta-duration"
+          label={EXTRACTION_META_LABEL.durationMs}
+          value={durationMs === null ? null : formatExtractionDuration(durationMs)}
+        />
+        {/* Cauza se arata NUMAI CAND A SOSIT. Ea nu este in contract, deci un
+            rand "Nu s-a raportat" ar promite un camp pe care nimeni nu s-a
+            angajat sa il trimita. Celelalte trei sunt in contract si absenta lor
+            este ea insasi un fapt despre citire. */}
+        {meta?.partialCause ? (
+          <MetaRow
+            testId="draft-meta-partial-cause"
+            label={EXTRACTION_META_LABEL.partialCause}
+            value={meta.partialCause}
+          />
+        ) : null}
+        {showPages ? (
+          <>
+            <MetaRow
+              testId="draft-meta-model-pages"
+              label={EXTRACTION_META_LABEL.modelPageCount}
+              value={draft.modelPageCount === null ? null : String(draft.modelPageCount)}
+            />
+            <MetaRow
+              testId="draft-meta-upload-pages"
+              label={EXTRACTION_META_LABEL.uploadPageCount}
+              value={draft.uploadPageCount === null ? null : String(draft.uploadPageCount)}
+            />
+          </>
+        ) : null}
+      </dl>
+    </details>
+  );
 }
 import { ALL_UNITS, unitLabel } from "@/lib/data/units";
 import type { ExtractionDraft } from "@/lib/data/extraction-types";
@@ -198,10 +300,23 @@ function ReviewForm({
               poate deosebi un aviz de o pagina de prima pagina din patru. Forma
               nu poarta _meta, deci numarul modelului nu exista aici niciodata;
               al nostru exista, fiindca vine din fisier. Eticheta spune de unde
-              vine, ca nimeni sa nu il citeasca drept ce a citit extractorul. */}
+              vine, ca nimeni sa nu il citeasca drept ce a citit extractorul.
+
+              P3-72, CONSTATAREA F5: PROPOZITIA "FORMA NU POARTA _meta" ESTE
+              ADEVARATA DESPRE CONTRACT SI FALSA DESPRE CE PRIMIM. Se pastreaza
+              scrisa, in spiritul CLAUDE.md sectiunea 9c, fiindca randul de mai
+              jos a fost asezat pe ea. Sectiunea 4.1a din contract enumera
+              saisprezece campuri "si nimic altceva" si _meta nu este printre
+              ele; ruta de callback insa refuza cu 400 NUMAI cheia `lines` pe o
+              scanare esuata, si scrie `body._meta` verbatim orice ar sosi.
+              Lista expeditorului, citita in
+              docs/reports/2026-09-15-executor-orange-sample-count-notes-callback-keys.md,
+              poarta _meta si pe forma de esec. Numarul modelului poate deci sa
+              existe. De la acest card se arata, langa al nostru si cu eticheta
+              lui, in blocul de diagnostic de pe randul ciornei. */}
           <div data-testid="review-unread-pages">
             <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-rc-muted">
-              Pagini numărate la încărcare
+              {EXTRACTION_META_LABEL.uploadPageCount}
             </dt>
             <dd className="text-[13.5px] text-rc-black">
               {draft.uploadPageCount === null ? (
@@ -616,6 +731,8 @@ export function ExtractionReviewPanel({
                         păstrate.
                       </p>
                     ) : null}
+                    {/* P3-72, constatarea F5. Diagnosticul modelului, inchis. */}
+                    <ExtractionMetaDetails draft={draft} />
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
