@@ -281,3 +281,5 @@ question is filed at
 3. **Comparing the two page counts is still not built.** Contract section 4.3a
    says so in terms. This card puts both numbers in front of a human, side by
    side and labelled; it does not judge them, block on them, or flag them.
+
+<!-- P3-73 documentation-only proof, one appended line, no other file in the diff. -->
