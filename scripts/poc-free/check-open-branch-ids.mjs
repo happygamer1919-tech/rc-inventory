@@ -151,9 +151,14 @@ const NOT_A_RULING = new Set([
   '### R-NNN - <one line naming the decision>',
 ]);
 
+// P3-69. maxBuffer IS SET BECAUSE THE PHASE 3 BOARD PASSED 1 MiB, execFileSync's
+// default. `git show <branch>:docs/board/rc-board-phase3.json` on a 1,050,448 byte
+// board throws ENOBUFS, which this file reports as a refused source and exit 2, for
+// every terminal asking `npm run id:free` while such a branch is open. 64 MiB is the
+// value prove-live-fixtures.mjs uses.
 function git(args, opts = {}) {
   return execFileSync('git', args, {
-    cwd: GITROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts,
+    cwd: GITROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, ...opts,
   });
 }
 

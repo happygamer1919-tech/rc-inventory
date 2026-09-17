@@ -257,8 +257,14 @@ const NON_CARD_PREFIXES = [
 
 // =============================================================================
 
+// P3-69. maxBuffer IS SET BECAUSE THE PHASE 3 BOARD PASSED 1 MiB. execFileSync's
+// default is 1024 * 1024 bytes, and `git show <ref>:docs/board/rc-board-phase3.json`
+// on a 1,050,448 byte board threw ENOBUFS, so no card resolved and this check
+// refused every card id as unknown. 64 MiB is the value prove-live-fixtures.mjs uses.
 const git = (args, opts = {}) =>
-  execFileSync("git", args, { cwd: GITROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opts });
+  execFileSync("git", args, {
+    cwd: GITROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024, ...opts,
+  });
 
 /** Exit 2. The check could not do its job. Never renders as clean. */
 function cannotClassify(lines) {
