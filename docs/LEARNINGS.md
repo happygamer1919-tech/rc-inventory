@@ -5952,3 +5952,21 @@ close-out block's local gate list, so nothing local caught it.
 timestamp is READ from `date -u`, never estimated forward, and it is committed in the same minute it
 is read; and `npm run check:board-clock` belongs in the local run before any push that edits a
 board.**
+
+### A column from the migration that CREATES the table needs no capability probe, and every later column does
+**Tag:** data
+**ERROR:** `lib/data/extraction.ts` builds its `select()` column list behind three capability probes
+(`hasExtractionDocumentSource`, `hasSupplierDocumentRef`, `hasExtractionUploadPageCount`), each
+guarding a column added by a later migration, because a merged migration reaches production about two
+minutes after the code that reads it ships from the same push, and a `select` naming a column that is
+not there yet is `42703` on the operator's screen. Adding `meta` and `page_count` to that list looked
+like two more probes. It is not. `meta` arrives in `0008_extraction_drafts.sql`, which is the file
+that CREATES `extraction_drafts`; a fourth probe on it would have been a question whose answer can
+never be no, cached for its TTL, costing a round trip on every read of the review screen to learn
+something the table's own existence already settles. `page_count` arrives in `0032`, a separate later
+file, and genuinely does need its gate, which `hasExtractionPageCount` already provided unused.
+**SOLUTION:** `meta` is appended unconditionally with the reason written beside it; `page_count` is
+appended behind the existing probe, mirroring the upload-time count exactly. RULE: **the question a
+capability probe answers is "did a LATER migration land yet", so read which file added the column
+before writing one. A column and its table share a fate when one file created both, and probing it
+asks nothing.**
