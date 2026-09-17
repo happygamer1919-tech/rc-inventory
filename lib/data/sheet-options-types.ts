@@ -26,10 +26,56 @@ export type SheetOption = {
   /** P3-58: pretul in lei al liniei, ca text pentru camp ("144"). Null cat timp
    *  migratia 0047 nu este aplicata sau lista de preturi nu se poate citi. */
   priceLei: string | null;
+  /** P3-68: retrasa din lista de proprietar. Nu se mai ofera la un produs nou, dar
+   *  un produs care o poarta deja o pastreaza. False cat timp 0048 nu este aplicata. */
+  retired: boolean;
 };
 
 /** Ce trimite formularul la salvare: combinatia aleasa, fara unitate. */
 export type SheetChoice = Pick<SheetOption, "model" | "series" | "thicknessMm" | "finish">;
+
+/** P3-68: un rand al ecranului din Setari. Combinatia, linia ei de pret si starea. */
+export type SheetOptionAdminRow = SheetOption & {
+  /** Textul de model al liniei de pret, cheia pe care o impart profilele cu acelasi pret. */
+  priceGroup: string;
+  /** Cate combinatii impart linia de pret a acestui rand, el inclus. */
+  priceLineShares: number;
+};
+
+/** P3-68: ce trimite formularul de adaugare. Textele asa cum le-a scris proprietarul. */
+export type SheetOptionInput = {
+  model: string;
+  series: string;
+  thicknessMm: string;
+  finish: string;
+  unit: string;
+  priceGroup: string;
+  priceLei: string;
+};
+
+/**
+ * P3-68: grosimea scrisa de proprietar, "0,45" sau "0.45", adusa la "0.45".
+ *
+ * MAI STRICT DECAT normalizeThickness, care citeste ce vine din baza. Aici se refuza
+ * o a treia zecimala in loc sa fie rotunjita tacut: numeric(3,2) ar rotunji 0,455
+ * la 0,46, iar combinatia salvata nu ar mai fi cea scrisa pe ecran.
+ */
+export function parseThicknessInput(value: string): string | null {
+  const text = value.trim().replace(",", ".");
+  if (!/^\d(\.\d{1,2})?$/.test(text)) return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n.toFixed(2);
+}
+
+/** P3-68: pretul scris de proprietar, "150,50" sau "150.5". Null daca nu este un pret. */
+export function parsePriceInput(value: string): number | null {
+  const text = value.trim().replace(",", ".");
+  if (!/^\d{1,12}(\.\d{1,2})?$/.test(text)) return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
 
 /** Furnizorul listei. Campul de furnizor il gaseste sau il creeaza dupa nume. */
 export const SHEET_SUPPLIER = "Dasterum";

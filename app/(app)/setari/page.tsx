@@ -10,7 +10,8 @@
 //
 // Ruta este deja pazita: proxy.ts o refuza pentru account_manager si arata 403.
 
-import { Chip, PageHeader } from "@/components/ui/primitives";
+import Link from "next/link";
+import { Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
 import { listCategories, listProducts, listUnits } from "@/lib/data/products";
 import { getSessionUser } from "@/lib/supabase/server";
 import { CategorySettings } from "@/components/settings/CategorySettings";
@@ -40,6 +41,24 @@ export default async function SettingsPage() {
       />
 
       <CategorySettings categories={categories} canWrite={user?.role === "owner"} />
+
+      {/* P3-68. Lista de tabla are ecranul ei: 225 de randuri nu incap intr-un card de aici. */}
+      <Card className="mb-5">
+        <CardHeader
+          title="Model, serie și grosime"
+          hint="Combinațiile de tablă și țiglă metalică oferite pe formularul de produs, cu prețurile lor."
+          right={
+            <Link
+              href="/setari/tabla"
+              className="inline-flex items-center rounded-[10px] border border-rc-line-strong bg-rc-white px-3 py-1.5 text-[13px] font-semibold text-rc-black hover:bg-rc-paper"
+              data-testid="settings-sheet-options-link"
+            >
+              Administrează lista
+            </Link>
+          }
+        />
+      </Card>
+
       <UnitSettings rows={perUnit} />
     </>
   );

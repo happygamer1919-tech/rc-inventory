@@ -120,17 +120,31 @@ export function ProductForm({
   const [sheetModel, setSheetModel] = React.useState(savedSheet?.model ?? "");
   const [sheetSeries, setSheetSeries] = React.useState(savedSheet?.series ?? "");
   const [sheetKey, setSheetKey] = React.useState(savedSheet ? sheetOptionKey(savedSheet) : "");
+  // P3-68. O COMBINATIE RETRASA NU SE MAI OFERA, cu o singura exceptie: combinatia pe
+  // care produsul modificat o poarta deja, ca formularul sa se deschida cu ea aleasa.
+  const offeredSheetOptions = React.useMemo(
+    () =>
+      sheetOptions.filter(
+        (o) =>
+          !o.retired ||
+          (savedSheet !== null &&
+            o.model === savedSheet.model &&
+            o.series === savedSheet.series &&
+            sheetOptionKey(o) === sheetOptionKey(savedSheet)),
+      ),
+    [sheetOptions, savedSheet],
+  );
   const sheetModels = React.useMemo(
-    () => distinct(sheetOptions.map((o) => o.model)),
-    [sheetOptions],
+    () => distinct(offeredSheetOptions.map((o) => o.model)),
+    [offeredSheetOptions],
   );
   const sheetSeriesList = React.useMemo(
-    () => distinct(sheetOptions.filter((o) => o.model === sheetModel).map((o) => o.series)),
-    [sheetOptions, sheetModel],
+    () => distinct(offeredSheetOptions.filter((o) => o.model === sheetModel).map((o) => o.series)),
+    [offeredSheetOptions, sheetModel],
   );
   const sheetThicknesses = React.useMemo(
-    () => sheetOptions.filter((o) => o.model === sheetModel && o.series === sheetSeries),
-    [sheetOptions, sheetModel, sheetSeries],
+    () => offeredSheetOptions.filter((o) => o.model === sheetModel && o.series === sheetSeries),
+    [offeredSheetOptions, sheetModel, sheetSeries],
   );
   const sheetPicked = sheetThicknesses.find((o) => sheetOptionKey(o) === sheetKey) ?? null;
 

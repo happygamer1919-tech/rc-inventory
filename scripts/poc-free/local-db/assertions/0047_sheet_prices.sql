@@ -29,11 +29,14 @@ begin
     raise exception 'P3-58: row level security is not enabled on sheet_prices';
   end if;
 
-  select count(*) into n from pg_policies
-  where schemaname = 'public' and tablename = 'sheet_prices';
-  if n <> 1 then
-    raise exception 'P3-58: sheet_prices carries % policies, expected exactly the one select policy', n;
-  end if;
+  -- P3-68 ADDED TWO OWNER WRITE POLICIES, so the count of policies on this table
+  -- is no longer this file's to assert. Until then this block read:
+  --
+  --   "sheet_prices carries % policies, expected exactly the one select policy"
+  --
+  -- That was true of 0047 and is false after 0048. The select policy below is
+  -- still 0047's and is still asserted here; the full set of three is asserted by
+  -- assertions/0048_sheet_options_admin.sql.
 
   select count(*) into n from pg_policies
   where schemaname = 'public' and tablename = 'sheet_prices'
@@ -221,13 +224,24 @@ $$;
 -- 5. WHO MAY READ AND WRITE THE PRICES
 -- ===========================================================================
 
+-- THE PRICES ARE NO LONGER WRITTEN ONLY BY MIGRATIONS. Card P3-68 (migration
+-- 0048) lets the owner add a price line and change a price from a screen. Until
+-- then this section signed in as the OWNER and read:
+--
+--   "a signed-in owner CHANGED a price; the list is written only by migrations"
+--
+-- That sentence is false after 0048, and it is kept here rather than deleted
+-- (CLAUDE.md 9c). What stays true of every account that is not the owner is
+-- asserted below, against an account manager; what the owner may and may not do
+-- is asserted in assertions/0048_sheet_options_admin.sql.
+
 insert into auth.users (id, email) values
-  ('e3580000-0000-4000-8000-000000000001', 'p3-58-owner@rc-inventory.local');
+  ('e3580000-0000-4000-8000-000000000001', 'p3-58-manager@rc-inventory.local');
 
 insert into public.profiles (id, email, role, active) values
-  ('e3580000-0000-4000-8000-000000000001', 'p3-58-owner@rc-inventory.local', 'owner', true);
+  ('e3580000-0000-4000-8000-000000000001', 'p3-58-manager@rc-inventory.local', 'account_manager', true);
 
--- The owner, signed in: reads all 194, writes none.
+-- An account manager, signed in: reads all 194, writes none.
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"e3580000-0000-4000-8000-000000000001","role":"authenticated"}';
 
@@ -237,27 +251,35 @@ declare
 begin
   select count(*) into n from public.sheet_prices;
   if n <> 194 then
-    raise exception 'P3-58: a signed-in owner reads % of the 194 prices', n;
+    raise exception 'P3-58: a signed-in account manager reads % of the 194 prices', n;
   end if;
 
   begin
     insert into public.sheet_prices (price_group, series, thickness_mm, finish, price_lei)
     values ('C-10', 'Econom', 0.30, '', 82);
-    raise exception 'P3-58: a signed-in owner ADDED a price; the list is written only by migrations';
+    raise exception 'P3-58: a signed-in account manager ADDED a price';
   exception when insufficient_privilege then
     null; -- expected
   end;
 
-  begin
-    update public.sheet_prices set price_lei = 1 where price_group = 'C-10';
-    raise exception 'P3-58: a signed-in owner CHANGED a price; the list is written only by migrations';
-  exception when insufficient_privilege then
-    null; -- expected
-  end;
+  -- An update the owner policy does not let through touches no row and raises
+  -- nothing, so the proof is the price read back afterwards.
+  update public.sheet_prices set price_lei = 1 where price_group = 'C-10';
 end
 $$;
 
 reset role;
+
+do $$
+declare
+  n integer;
+begin
+  select count(*) into n from public.sheet_prices where price_lei = 1;
+  if n <> 0 then
+    raise exception 'P3-58: a signed-in account manager CHANGED % prices', n;
+  end if;
+end
+$$;
 
 -- Nobody signed in: reads nothing.
 set local role anon;

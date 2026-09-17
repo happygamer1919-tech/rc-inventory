@@ -43,6 +43,7 @@ The format is machine-read, so keep it exactly:
 - `0045_product_image.sql`, card de aplicare P3-56
 - `0046_sheet_options.sql`, card de aplicare P3-57
 - `0047_sheet_prices.sql`, card de aplicare P3-58
+- `0048_sheet_options_admin.sql`, card de aplicare P3-68
 
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.

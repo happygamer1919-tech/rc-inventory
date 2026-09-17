@@ -36,11 +36,14 @@ begin
     raise exception 'P3-57: row level security is not enabled on sheet_options';
   end if;
 
-  select count(*) into n from pg_policies
-  where schemaname = 'public' and tablename = 'sheet_options';
-  if n <> 1 then
-    raise exception 'P3-57: sheet_options carries % policies, expected exactly the one select policy', n;
-  end if;
+  -- P3-68 ADDED TWO OWNER WRITE POLICIES, so the count of policies on this table
+  -- is no longer this file's to assert. Until then this block read:
+  --
+  --   "sheet_options carries % policies, expected exactly the one select policy"
+  --
+  -- That was true of 0046 and is false after 0048. The select policy below is
+  -- still 0046's and is still asserted here; the full set of three is asserted by
+  -- assertions/0048_sheet_options_admin.sql.
 
   select count(*) into n from pg_policies
   where schemaname = 'public' and tablename = 'sheet_options'
@@ -220,13 +223,24 @@ $$;
 -- 4. WHO MAY READ AND WRITE THE LIST
 -- ===========================================================================
 
+-- THE LIST IS NO LONGER WRITTEN ONLY BY MIGRATIONS. Card P3-68 (migration 0048)
+-- lets the owner add and retire combinations from a screen. Until then this
+-- section signed in as the OWNER and read:
+--
+--   "a signed-in owner ADDED a combination; the list is written only by migrations"
+--
+-- That sentence is false after 0048, and it is kept here rather than deleted
+-- (CLAUDE.md 9c). What stays true of every account that is not the owner is
+-- asserted below, against an account manager; what the owner may and may not do
+-- is asserted in assertions/0048_sheet_options_admin.sql.
+
 insert into auth.users (id, email) values
-  ('e3570000-0000-4000-8000-000000000001', 'p3-57-owner@rc-inventory.local');
+  ('e3570000-0000-4000-8000-000000000001', 'p3-57-manager@rc-inventory.local');
 
 insert into public.profiles (id, email, role, active) values
-  ('e3570000-0000-4000-8000-000000000001', 'p3-57-owner@rc-inventory.local', 'owner', true);
+  ('e3570000-0000-4000-8000-000000000001', 'p3-57-manager@rc-inventory.local', 'account_manager', true);
 
--- The owner, signed in: reads all 225, writes none.
+-- An account manager, signed in: reads all 225, writes none.
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"e3570000-0000-4000-8000-000000000001","role":"authenticated"}';
 
@@ -236,20 +250,20 @@ declare
 begin
   select count(*) into n from public.sheet_options;
   if n <> 225 then
-    raise exception 'P3-57: a signed-in owner reads % of the 225 combinations', n;
+    raise exception 'P3-57: a signed-in account manager reads % of the 225 combinations', n;
   end if;
 
   begin
     insert into public.sheet_options (model, series, thickness_mm, finish, unit, price_group, sort_order)
     values ('C-10', 'Econom', 0.45, '', 'm2', 'C-10', 9001);
-    raise exception 'P3-57: a signed-in owner ADDED a combination; the list is written only by migrations';
+    raise exception 'P3-57: a signed-in account manager ADDED a combination';
   exception when insufficient_privilege then
     null; -- expected
   end;
 
   begin
     update public.sheet_options set unit = 'pcs' where model = 'C-10';
-    raise exception 'P3-57: a signed-in owner CHANGED a combination; the list is written only by migrations';
+    raise exception 'P3-57: a signed-in account manager CHANGED a combination';
   exception when insufficient_privilege then
     null; -- expected
   end;

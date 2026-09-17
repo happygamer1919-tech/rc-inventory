@@ -681,3 +681,44 @@ export async function hasSheetPrices(client: ColumnProbe): Promise<boolean> {
   }
   return cachedSheetPrices.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-68. Exista migratia 0048: coloana sheet_options.retired_at si scrierile
+// proprietarului pe sheet_options si sheet_prices?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasSheetOptions. Aceea raspunde despre
+// 0046. 0048 este un fisier separat si ajunge in productie pe fuziune, prin
+// aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul pleaca din
+// acelasi push si NU aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Pagina de inventar ar cere
+// retired_at, PostgREST ar raspunde 42703, lista de combinatii ar iesi goala si
+// alegerea de model ar disparea din formular.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: formularul ofera toate
+// combinatiile, iar ecranul din Setari arata lista fara butoanele de scriere,
+// fiindca politicile de scriere sosesc in aceeasi tranzactie cu coloana. O singura
+// sonda, pe coloana, ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedSheetOptionRetirement: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasSheetOptionRetirement(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSheetOptionRetirement && now - cachedSheetOptionRetirement.at < TTL_MS) {
+    return cachedSheetOptionRetirement.value;
+  }
+  try {
+    const { error } = await client.from("sheet_options").select("retired_at").limit(1);
+    cachedSheetOptionRetirement = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": formularul ofera tot, ca azi, in loc sa cada.
+    cachedSheetOptionRetirement = { value: false, at: now };
+  }
+  return cachedSheetOptionRetirement.value;
+}
