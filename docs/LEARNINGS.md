@@ -5863,3 +5863,18 @@ because a grep for `sku ~` printed forty lines where six were expected.
 whole with a literal edit, and the full local apply rerun. RULE: **when a replacement string can
 contain a dollar sign, pass a function (`s.replace(old, () => text)`) or use a literal edit, and
 check the line count after any scripted edit of SQL.**
+
+### A private bucket's read policy trusted any signed-in session, so a switched-off account could still sign links
+**Tag:** auth
+**ERROR:** Ivan's finding F1. `rc_docs_select` (0002) was `for select to authenticated using (bucket_id = 'rc-docs')`. Every
+screen of the app already turned a deactivated profile away (`proxy.ts` rewrites to the no-access
+screen), so the gap was invisible from the app: an account whose `profiles.active` was set to false
+kept a valid access token until it expired, and with it could call the storage API directly and get a
+signed link to any contract, invoice or supplier document in the bucket. `documentDownloadUrl` also
+checked only that a session existed.
+**SOLUTION:** migration 0050 replaces the predicate with `bucket_id = 'rc-docs' and
+public.current_app_role() is not null`, the active-only helper every table read already trusts, and
+`documentDownloadUrl` also reads the owning client or project through the caller's own client before
+signing. RULE: **a policy on a private bucket or a table holding client data never stops at `to
+authenticated`; it names `public.current_app_role()` or `public.is_owner()`, because the app's proxy
+guards screens and the Supabase APIs are reachable without it.**

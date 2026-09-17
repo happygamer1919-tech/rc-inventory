@@ -260,8 +260,21 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
   async function download(id: string) {
     setBusy(id);
     setError(null);
-    const result = await documentDownloadUrl(id);
+    // P3-70. Pentru un cont dezactivat intre timp, proxy.ts rescrie cererea spre
+    // ecranul fara acces si actiunea nu mai raspunde cu un rezultat: apelul arunca
+    // sau nu intoarce nimic. Refuzul se spune romaneste, nu ramane un buton pe
+    // "Se pregătește...".
+    let result: Awaited<ReturnType<typeof documentDownloadUrl>> | undefined;
+    try {
+      result = await documentDownloadUrl(id);
+    } catch {
+      result = undefined;
+    }
     setBusy(null);
+    if (!result) {
+      setError(DOCUMENT_MESSAGES.downloadFailed);
+      return;
+    }
     if (!result.ok) {
       setError(result.message);
       return;
