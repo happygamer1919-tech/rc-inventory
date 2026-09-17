@@ -5938,3 +5938,17 @@ wire, `StoredErrorCode` is the union, and only the draft type and the screen's l
 The named spec asserts the wire set still has nine members and that the route still answers 400 to the
 new code. RULE: **before adding a member to a shared constant, grep for who VALIDATES against it, not
 only who reads it; a frozen file can be changed from outside itself through a constant it imports.**
+
+### A board timestamp written from a guessed clock failed CI two minutes into a twenty minute run
+**Tag:** ci
+**ERROR:** the shipped flip for P3-71 was written with `last_checkpoint` and `evidence.at` set to
+`18:58:40Z` while the commit that carried it landed at `18:50:58Z`. `npm run check:board-clock`
+compares every card and gate timestamp against the commit that last touched that board file and
+refuses anything ahead of it, so `quality` went red at 2m23s on two fields that had nothing to do
+with the work. The timestamp had been typed forward, by a few minutes, to be "about now" by the time
+the commit was made. The board validator passes such a file, and `check:board-clock` is not in the
+close-out block's local gate list, so nothing local caught it.
+**SOLUTION:** re-read the clock and rewrite the two fields, then commit at once. RULE: **a board
+timestamp is READ from `date -u`, never estimated forward, and it is committed in the same minute it
+is read; and `npm run check:board-clock` belongs in the local run before any push that edits a
+board.**
