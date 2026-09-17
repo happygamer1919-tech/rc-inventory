@@ -32,6 +32,9 @@ next-env.d.ts
 # P2-11: dosarul de build folosit de serverul de productie din suita.
 .next-prod
 
+# P3-71: dosarul de build folosit de serverul fara MAKE_WEBHOOK_URL din suita.
+.next-no-webhook
+
 # Stare locala a CLI-ului Supabase, nu sursa. .branches/_current_branch si
 # .temp/cli-latest sunt scrise de `supabase start` si `supabase db reset` pe
 # masina fiecaruia si nu descriu nimic despre proiect. Au ajuns urmarite pe

@@ -4,11 +4,8 @@
 -- THREE PROPERTIES, the same three 0034's file asserted for the eighth label:
 --
 --   1. the label exists on public.extraction_error_code
---   2. the WHOLE SET is exactly these nine, in this order. This file pins the
---      set because 0042 is now the newest migration that changed it, per the
---      docs/LEARNINGS.md entry "An old assertion that pins a whole enum set
---      fails the day a later migration appends a label". 0034's file was
---      narrowed in the same pull request to pin only its own label.
+--   2. the eight codes that were there before are ALL still there, and
+--      document_too_large is the NINTH
 --   3. a draft row can actually BE WRITTEN carrying it, as `failed`, and the
 --      0041 constraint still refuses it on `extracted`
 --
@@ -19,7 +16,7 @@ begin;
 do $$
 declare
   n        integer;
-  ordered  text;
+  missing  text;
 begin
   -- --- 1. THE LABEL EXISTS ---------------------------------------------------
   select count(*) into n
@@ -29,13 +26,48 @@ begin
     raise exception 'EXT-28: document_too_large is not a label on extraction_error_code (found %)', n;
   end if;
 
-  -- --- 2. THE WHOLE SET, IN ORDER --------------------------------------------
-  select string_agg(e.enumlabel, ',' order by e.enumsortorder) into ordered
+  -- --- 2. NOTHING WAS LOST, AND THIS ONE IS THE NINTH -------------------------
+  select string_agg(x, ', ' order by x) into missing
+  from unnest(array[
+    'download_failed','url_expired','unsupported_format','unreadable_document',
+    'extraction_failed','invalid_output','timeout','reconciliation_failed'
+  ]) as x
+  where not exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'extraction_error_code' and e.enumlabel = x
+  );
+  if missing is not null then
+    raise exception 'EXT-28: the enum LOST pre-existing labels: %. An addition must add, never replace', missing;
+  end if;
+
+  -- THE WHOLE SET IS NO LONGER PINNED HERE, AND THAT IS docs/LEARNINGS.md's RULE.
+  -- This block read, until card P3-71 added 0051:
+  --
+  --   select string_agg(e.enumlabel, ',' order by e.enumsortorder) into ordered
+  --   from pg_enum e join pg_type t on t.oid = e.enumtypid
+  --   where t.typname = 'extraction_error_code';
+  --   if ordered is distinct from
+  --      'download_failed,url_expired,unsupported_format,unreadable_document,extraction_failed,invalid_output,timeout,reconciliation_failed,document_too_large' then
+  --     raise exception 'EXT-28: extraction_error_code is %, expected the eight labels of 0008 and 0034 followed by document_too_large', ordered;
+  --   end if;
+  --
+  -- apply.mjs runs every assertion file against the FINISHED schema, so that
+  -- comparison was true only until the next label arrived, and 0051 appended
+  -- config_error. An assertion pins what its own migration did; the whole set is
+  -- pinned by the assertion of the NEWEST migration that changed it, which is now
+  -- assertions/0051_error_code_config_error.sql. This is the same narrowing 0042
+  -- performed on 0034's file, for the same reason, one label later.
+  -- What stays here is 0042's own fact: document_too_large is the NINTH label.
+  select count(*) into n
   from pg_enum e join pg_type t on t.oid = e.enumtypid
-  where t.typname = 'extraction_error_code';
-  if ordered is distinct from
-     'download_failed,url_expired,unsupported_format,unreadable_document,extraction_failed,invalid_output,timeout,reconciliation_failed,document_too_large' then
-    raise exception 'EXT-28: extraction_error_code is %, expected the eight labels of 0008 and 0034 followed by document_too_large', ordered;
+  where t.typname = 'extraction_error_code'
+    and e.enumlabel = 'document_too_large'
+    and e.enumsortorder > (
+      select e3.enumsortorder from pg_enum e3
+      where e3.enumtypid = e.enumtypid and e3.enumlabel = 'reconciliation_failed'
+    );
+  if n <> 1 then
+    raise exception 'EXT-28: document_too_large does not sort after reconciliation_failed, so it is not the ninth label';
   end if;
 end $$;
 

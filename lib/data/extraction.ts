@@ -21,7 +21,7 @@ import {
   hasExtractionUploadPageCount,
   hasSupplierDocumentRef,
 } from "./schema-capability";
-import type { ExtractionDraft, ExtractionErrorCode, ExtractionStatus } from "./extraction-types";
+import type { ExtractionDraft, ExtractionStatus, StoredErrorCode } from "./extraction-types";
 
 /** EXT-15. Aceeasi lista, plus coloana pe care 0032 o adauga.
  *
@@ -99,7 +99,9 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     mimeType: String(row.mime_type),
     sizeBytes: Number(row.size_bytes),
     status: (row.status as ExtractionStatus | null) ?? null,
-    errorCode: (row.error_code as ExtractionErrorCode | null) ?? null,
+    // P3-71. StoredErrorCode: coloana poate purta si un cod scris de noi care nu
+    // circula pe sarma, si un cast la multimea de pe sarma ar minti despre el.
+    errorCode: (row.error_code as StoredErrorCode | null) ?? null,
     reason: (row.reason as string | null) ?? null,
     supplierName: (row.supplier_name as string | null) ?? null,
     orderDate: (row.order_date as string | null) ?? null,

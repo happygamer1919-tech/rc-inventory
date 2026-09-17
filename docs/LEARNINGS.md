@@ -5905,3 +5905,50 @@ ROUTES the branch's spec opens, not only with the files the branch edits. The li
 from `components/ui/phone.ts`, max-md only. RULE: **a spec that measures a whole screen owns every
 file that renders on that screen; when resyncing a waiting branch, check main's changes against the
 screens the spec visits, before pushing, not after a 20 minute red run.**
+
+### A refusal that returned before the diagnostic row was written was a failure nobody could see
+**Tag:** backend
+**ERROR:** Ivan's finding F3. `fireExtraction` checked `MAKE_WEBHOOK_URL` at the very top and
+returned `{ ok: false, reason }` from there, BEFORE the `extraction_drafts` upsert further down the
+same function. Both callers mark a failed fire with `.update({status, error_code, reason})
+.eq("order_id", orderId)`, and an update against a row that was never inserted matches zero rows and
+reports no error. `uploadOrderDocument` does not even read the result, by design. So the upload
+succeeded, the file was stored, the order was updated, the document silently never went to
+extraction, and there was no row to query for a stuck state either. Every other refusal in that
+function sits AFTER the upsert and is therefore visible; this one was the only one that was not, and
+the file's own P2-08a comment promises the opposite: "motivul unui esec ajunge pe randul de ciorna si
+se vede pe ecran".
+**SOLUTION:** the missing-URL branch now writes the failed row itself, complete, in one upsert,
+before it returns. RULE: **an early return that refuses work is a refusal nobody can see until it has
+written the thing the screen reads; when a function's later refusals all write a row first, an early
+one that returns before that point is a defect, not an optimisation.**
+
+### A new enum label that joins a wire-validation array changes what a frozen route accepts
+**Tag:** backend
+**ERROR:** `config_error` needed a label on `public.extraction_error_code` so a failed draft row could
+carry it, and the obvious move was to append it to `EXTRACTION_ERROR_CODES` in
+`lib/data/extraction-types.ts` beside the nine already there, which is what migrations 0034 and 0042
+did for their labels. That array is not only a type: `app/api/extraction/callback/route.ts` tests
+incoming payloads against it through `isExtractionErrorCode`, so appending a member silently turns a
+callback carrying it from a 400 into an accepted payload. That route is frozen by ruling R-202, which
+forbids any change to what it accepts, refuses or returns, and the change would have landed without
+the route file appearing in the diff at all.
+**SOLUTION:** a second set, `LOCAL_ERROR_CODES`, holds codes we write ourselves and never speak on the
+wire, `StoredErrorCode` is the union, and only the draft type and the screen's label map widen to it.
+The named spec asserts the wire set still has nine members and that the route still answers 400 to the
+new code. RULE: **before adding a member to a shared constant, grep for who VALIDATES against it, not
+only who reads it; a frozen file can be changed from outside itself through a constant it imports.**
+
+### A board timestamp written from a guessed clock failed CI two minutes into a twenty minute run
+**Tag:** ci
+**ERROR:** the shipped flip for P3-71 was written with `last_checkpoint` and `evidence.at` set to
+`18:58:40Z` while the commit that carried it landed at `18:50:58Z`. `npm run check:board-clock`
+compares every card and gate timestamp against the commit that last touched that board file and
+refuses anything ahead of it, so `quality` went red at 2m23s on two fields that had nothing to do
+with the work. The timestamp had been typed forward, by a few minutes, to be "about now" by the time
+the commit was made. The board validator passes such a file, and `check:board-clock` is not in the
+close-out block's local gate list, so nothing local caught it.
+**SOLUTION:** re-read the clock and rewrite the two fields, then commit at once. RULE: **a board
+timestamp is READ from `date -u`, never estimated forward, and it is committed in the same minute it
+is read; and `npm run check:board-clock` belongs in the local run before any push that edits a
+board.**

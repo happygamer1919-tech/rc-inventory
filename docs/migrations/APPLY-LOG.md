@@ -46,6 +46,7 @@ The format is machine-read, so keep it exactly:
 - `0048_sheet_options_admin.sql`, card de aplicare P3-68
 - `0049_roofing_materials.sql`, card de aplicare P3-69
 - `0050_rc_docs_select_active_profile.sql`, card de aplicare P3-70
+- `0051_error_code_config_error.sql`, card de aplicare P3-71
 
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.

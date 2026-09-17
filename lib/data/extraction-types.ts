@@ -36,6 +36,38 @@ export const EXTRACTION_ERROR_CODES = [
 ] as const;
 export type ExtractionErrorCode = (typeof EXTRACTION_ERROR_CODES)[number];
 
+/** P3-71, Ivan's finding F3. CODURILE PE CARE LE SCRIEM NOI SI CARE NU CIRCULA
+ *  NICIODATA PE SARMA.
+ *
+ *  DE CE UN AL DOILEA SET SI NU INCA O LINIE IN CEL DE SUS. Multimea de mai sus
+ *  este multimea inchisa a sectiunii 5.2 din contract, si este exact multimea pe
+ *  care app/api/extraction/callback/route.ts o verifica prin
+ *  isExtractionErrorCode: un cod din afara ei primeste 400. Ruta aceea este
+ *  INGHETATA prin hotararea R-202 cat timp legatura cu Andre este deschisa, si
+ *  nimic nu are voie sa schimbe ce accepta, ce refuza sau ce raspunde. A pune
+ *  `config_error` in multimea de sus ar fi transformat un callback care il poarta
+ *  dintr-un 400 intr-un payload acceptat, adica exact schimbarea pe care R-202 o
+ *  interzice. Deci sta aici, separat, si ruta ramane neatinsa la litera.
+ *
+ *  SI ASTA ESTE OPUSUL UNEI PORTITE. Codul acesta descrie o configurare de-a
+ *  NOASTRA care lipseste, pentru un document care nu a plecat nicaieri. Cealalta
+ *  parte nu are cum sa il trimita, fiindca nu are cum sa il afle, iar noi nu i-l
+ *  trimitem niciodata. Conditia hotararii R-098, ca expeditorul sa cunoasca un
+ *  cod inainte ca noi sa il emitem, nu se aplica din acelasi motiv: nimic nu il
+ *  emite pe sarma.
+ *
+ *  ESTE TOTUSI O ETICHETA REALA DE ENUM, adaugata de migratia 0051, fiindca el se
+ *  scrie pe randul nostru de ciorna, iar constrangerea
+ *  extraction_drafts_error_code_matches_status cere un error_code ne-null ori de
+ *  cate ori status este 'failed'. */
+export const LOCAL_ERROR_CODES = ["config_error"] as const;
+export type LocalErrorCode = (typeof LOCAL_ERROR_CODES)[number];
+
+/** Ce poate purta coloana extraction_drafts.error_code: un cod de pe sarma sau
+ *  unul dintre ale noastre. Ecranul le arata pe amandoua; ruta de callback
+ *  accepta numai primul fel, si aceea este toata distinctia. */
+export type StoredErrorCode = ExtractionErrorCode | LocalErrorCode;
+
 /** EXT-19. CELE DOUA INSTRUCTIUNI, FIINDCA ELE SUNT DIFERENTA CARE CONTEAZA.
  *
  *  Un document respins il trimite pe operator sa faca CEVA, iar cele doua coduri
@@ -88,7 +120,7 @@ export const ACTION_CHECK_DOCUMENT =
 /** Propozitia romaneasca a fiecarui cod. Un token brut pe ecran ar fi un sir
  *  englezesc ajuns in interfata, ceea ce sectiunea 11 din CLAUDE.md interzice.
  *  Ecranul apartine lui P2-09; textele stau aici ca sa existe un singur loc. */
-export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
+export const EXTRACTION_ERROR_LABEL: Record<StoredErrorCode, string> = {
   download_failed: "Documentul nu a putut fi descărcat de serviciul de extragere.",
   url_expired: "Legătura semnată a expirat înainte să fie folosită. Retrimite documentul.",
   unsupported_format: "Formatul fișierului nu poate fi citit de serviciul de extragere.",
@@ -127,6 +159,22 @@ export const EXTRACTION_ERROR_LABEL: Record<ExtractionErrorCode, string> = {
   // introducere manuala.
   document_too_large:
     "Documentul are prea multe pagini pentru serviciul de extragere. Împarte-l în părți mai mici și încarcă-le pe rând.",
+  // P3-71. SINGURA PROPOZITIE DE AICI CARE NU ESTE DESPRE DOCUMENT, si tocmai de
+  // aceea instructiunea ei nu seamana cu a niciunui alt cod: nu cere o scanare
+  // mai buna, nu cere un document mai mic, nu cere introducere manuala si nu cere
+  // o retrimitere imediata, fiindca o retrimitere ar cadea exact la fel pana cand
+  // setarea este pusa la loc.
+  //
+  // SPUNE CA DOCUMENTUL NU S-A PIERDUT, si asta nu este politete. Incarcarea a
+  // reusit: fisierul este stocat si comanda este actualizata. Fara propozitia
+  // aceea, un operator care vede un esec presupune ca trebuie sa o ia de la capat
+  // si incarca acelasi document de cinci ori.
+  //
+  // NU NUMESTE VARIABILA. Numele ei sta in `reason`, pe rand, pentru cine repara;
+  // pe ecran ar fi un sir englezesc, pe care sectiunea 11 din CLAUDE.md il
+  // interzice, si nu i-ar spune nimic omului care il citeste.
+  config_error:
+    "Documentul a fost încărcat și păstrat, dar nu a putut fi trimis la citirea automată: o setare a sistemului lipsește. Anunță administratorul, apoi retrimite documentul.",
 };
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
@@ -217,7 +265,10 @@ export type ExtractionDraft = {
   sizeBytes: number;
   /** null inseamna "trimis, fara raspuns inca". Vezi antetul migratiei 0008. */
   status: ExtractionStatus | null;
-  errorCode: ExtractionErrorCode | null;
+  /** P3-71. `StoredErrorCode` si nu `ExtractionErrorCode`: coloana poate purta si
+   *  un cod de-al nostru, care nu circula niciodata pe sarma. Vezi
+   *  LOCAL_ERROR_CODES. */
+  errorCode: StoredErrorCode | null;
   reason: string | null;
   supplierName: string | null;
   orderDate: string | null;

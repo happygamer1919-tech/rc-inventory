@@ -303,6 +303,41 @@ export async function hasDocumentTooLargeCode(probe: LabelProbe): Promise<boolea
 
 
 // ---------------------------------------------------------------------------
+// P3-71. Cunoaste baza eticheta config_error?
+//
+// ACEEASI FORMA CA CELE DOUA PORTI DE MAI SUS SI ACELASI MOTIV. 0051 adauga o
+// ETICHETA DE ENUM, pe care check:pending-schema-reads nu o vede, iar scrierea ei
+// inaintea aplicarii da 22P02.
+//
+// CE SE INTAMPLA CAND POARTA SPUNE NU ESTE ALTFEL DECAT LA document_too_large, SI
+// DIFERENTA ESTE DELIBERATA. Acolo, cand eticheta lipseste, refuzul nu mai are
+// loc deloc: documentul pleaca, si plafonul celeilalte parti ramane singurul.
+// Aici nu exista asa ceva de ales. MAKE_WEBHOOK_URL chiar lipseste, documentul
+// chiar nu poate pleca, si singura intrebare este daca omul afla sau nu. In
+// fereastra de doua minute dinaintea aplicarii se scrie acelasi rand, cu acelasi
+// motiv romanesc, sub eticheta `download_failed`, care este exact ce scriu deja
+// apelantii pentru orice esec fara cod propriu. Codul este atunci mai general
+// decat adevarul; tacerea ar fi fost defectul pe care acest card il repara.
+// ---------------------------------------------------------------------------
+
+let cachedConfigErrorCode: { value: boolean; at: number } | null = null;
+
+export async function hasConfigErrorCode(probe: LabelProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedConfigErrorCode && now - cachedConfigErrorCode.at < TTL_MS) {
+    return cachedConfigErrorCode.value;
+  }
+  try {
+    const { error } = await probe();
+    cachedConfigErrorCode = { value: !error, at: now };
+  } catch {
+    cachedConfigErrorCode = { value: false, at: now };
+  }
+  return cachedConfigErrorCode.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // EXT-10. Exista coloanele products.package_unit si products.package_factor?
 //
 // DE CE ARE NEVOIE DE O POARTA PROPRIE. hasPhase3Schema intreaba daca TABELELE

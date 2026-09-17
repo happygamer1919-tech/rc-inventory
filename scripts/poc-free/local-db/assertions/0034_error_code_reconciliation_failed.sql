@@ -55,7 +55,8 @@ begin
   -- apply.mjs runs every assertion file against the FINISHED schema, so that line
   -- was true only until the next label arrived. An assertion pins what its own
   -- migration did; the whole set is pinned by the assertion of the NEWEST
-  -- migration that changed it, which is now assertions/0042_error_code_document_too_large.sql.
+  -- migration that changed it, which is now assertions/0051_error_code_config_error.sql
+  -- (it was assertions/0042_error_code_document_too_large.sql until card P3-71).
   -- What stays here is 0034's own fact: reconciliation_failed is the EIGHTH label.
   select count(*) into n
   from pg_enum e join pg_type t on t.oid = e.enumtypid

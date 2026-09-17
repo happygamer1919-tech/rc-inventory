@@ -31,7 +31,11 @@ import { resolveSiteOrigin } from "./site-origin.mjs";
 // el insusi.
 import { ACK_TIMEOUT_MS } from "./extraction-budget.mjs";
 import { DOCUMENT_PAGE_LIMIT, isTooManyPages } from "./page-count.mjs";
-import { hasDocumentTooLargeCode, hasExtractionUploadPageCount } from "./schema-capability";
+import {
+  hasConfigErrorCode,
+  hasDocumentTooLargeCode,
+  hasExtractionUploadPageCount,
+} from "./schema-capability";
 
 /** Cat traieste legatura semnata. Destul pentru o extragere, nu mai mult. */
 const SIGNED_URL_TTL_SECONDS = 15 * 60;
@@ -50,10 +54,16 @@ const TIMEOUT_MS = ACK_TIMEOUT_MS;
 
 /** EXT-28. `errorCode` este prezent NUMAI pe refuzul nostru de dinaintea
  *  trimiterii. Orice alt esec, de transport sau de configurare, vine fara el, iar
- *  apelantii il scriu `download_failed`, exact ca pana la acest card. */
+ *  apelantii il scriu `download_failed`, exact ca pana la acest card.
+ *
+ *  P3-71. AL DOILEA REFUZ AL NOSTRU DE DINAINTEA TRIMITERII, si el poarta acum
+ *  codul lui: lipsa lui MAKE_WEBHOOK_URL. `download_failed` poate ramane, si nu
+ *  este o scapare: se intoarce exact atunci cand baza nu cunoaste inca eticheta
+ *  `config_error`, adica in fereastra de doua minute dintre fuziune si aplicarea
+ *  migratiei 0051. Vezi hasConfigErrorCode. */
 export type FireResult =
   | { ok: true; orderId: string }
-  | { ok: false; reason: string; errorCode?: "document_too_large" };
+  | { ok: false; reason: string; errorCode?: "document_too_large" | "config_error" | "download_failed" };
 
 function webhookUrl(): string | null {
   const raw = process.env.MAKE_WEBHOOK_URL;
@@ -76,15 +86,7 @@ function callbackUrl(origin: string): string {
   return `${origin}/api/extraction/callback`;
 }
 
-/**
- * Creeaza randul de ciorna si trimite documentul la Make.
- *
- * Randul se scrie INAINTE de trimitere, ca un callback care ajunge inaintea
- * raspunsului nostru sa gaseasca ceva pe care sa faca upsert. Ordinea inversa
- * este o cursa pe care nimeni nu o vede pana in ziua in care Make raspunde
- * repede.
- */
-export async function fireExtraction(input: {
+export type FireInput = {
   orderId: string;
   documentPath: string;
   documentFilename: string;
@@ -94,10 +96,106 @@ export async function fireExtraction(input: {
    *  numara cu siguranta. La retrimitere vine de pe rand, fiindca retrimiterea
    *  nu tine bytes-ii documentului. */
   pageCount: number | null;
-}): Promise<FireResult> {
+};
+
+/**
+ * P3-71. Scrie ciorna esuata pentru un refuz de CONFIGURARE, si intoarce codul
+ * sub care a scris-o.
+ *
+ * UN UPSERT SI NU UN UPSERT URMAT DE UN UPDATE. Refuzul de 100 de pagini de mai
+ * jos face doua scrieri fiindca randul trebuie sa existe INAINTE ca numarul de
+ * pagini sa fie judecat. Aici nu se judeca nimic: se stie de la prima linie ca
+ * documentul nu pleaca, deci randul se scrie o singura data, gata esuat.
+ * `onConflict: order_id` acopera si retrimiterea, unde randul exista deja.
+ *
+ * CODUL ESTE CU POARTA, DIN MOTIVUL LUI hasConfigErrorCode: pana cand 0051 este
+ * aplicata baza nu cunoaste `config_error`, iar scrierea lui ar da 22P02 si ar
+ * lasa din nou randul nescris, adica exact defectul reparat aici, doar cu alta
+ * cauza. In fereastra aceea se scrie `download_failed`, care este deja codul pe
+ * care apelantii il pun pe orice esec fara cod propriu.
+ *
+ * INTOARCE CODUL FIINDCA APELANTII SCRIU PESTE EL. startExtraction si
+ * refireExtraction fac `error_code: fired.errorCode ?? "download_failed"` imediat
+ * dupa ce functia se intoarce; fara valoarea asta, randul tocmai scris ar fi
+ * rescris pe loc cu codul generic.
+ */
+async function recordConfigRefusal(
+  input: FireInput,
+  reason: string,
+): Promise<"config_error" | "download_failed"> {
+  try {
+    const supabase = await createClient();
+    const known = await hasConfigErrorCode(() =>
+      supabase.from("extraction_drafts").select("order_id").eq("error_code", "config_error").limit(1),
+    );
+    const errorCode: "config_error" | "download_failed" = known ? "config_error" : "download_failed";
+
+    const draft: Record<string, unknown> = {
+      order_id: input.orderId,
+      document_path: input.documentPath,
+      document_filename: input.documentFilename,
+      mime_type: input.mimeType,
+      size_bytes: input.sizeBytes,
+      // fired_at RAMANE CEASUL INCERCARII, nu al trimiterii, si asta este alegerea
+      // corecta fata de null: ecranul si retrimiterea citesc randul, iar un
+      // fired_at gol pe un rand `failed` ar arata ca o ciorna care nu a fost
+      // niciodata atinsa. Nimic nu a plecat catre Make si nimic din acest fisier
+      // nu pretinde altceva: statusul spune `failed` si motivul spune de ce.
+      fired_at: new Date().toISOString(),
+      status: "failed",
+      error_code: errorCode,
+      reason,
+    };
+    if (await hasExtractionUploadPageCount(supabase)) {
+      draft.upload_page_count = input.pageCount;
+    }
+
+    await supabase.from("extraction_drafts").upsert(draft, { onConflict: "order_id" });
+    return errorCode;
+  } catch {
+    // O scriere de diagnostic care cade nu are voie sa schimbe raspunsul catre
+    // apelant. Se intoarce codul generic, pe care apelantul il pune oricum.
+    return "download_failed";
+  }
+}
+
+/**
+ * Creeaza randul de ciorna si trimite documentul la Make.
+ *
+ * Randul se scrie INAINTE de trimitere, ca un callback care ajunge inaintea
+ * raspunsului nostru sa gaseasca ceva pe care sa faca upsert. Ordinea inversa
+ * este o cursa pe care nimeni nu o vede pana in ziua in care Make raspunde
+ * repede.
+ */
+export async function fireExtraction(input: FireInput): Promise<FireResult> {
+  // P3-71, constatarea F3 a lui Ivan. LIPSA ADRESEI SE SCRIE PE RAND INAINTE DE A
+  // SE INTOARCE, SI PANA LA ACEST CARD NU SE SCRIA NICAIERI.
+  //
+  // CE ERA GRESIT, EXACT. Verificarea aceasta statea INAINTEA upsert-ului de mai
+  // jos, deci pentru comanda aceea nu exista niciun rand de ciorna. Apelantii isi
+  // fac treaba lor si nu ajuta: startExtraction si refireExtraction marcheaza
+  // esecul cu `.update(...).eq("order_id", ...)`, iar un update fara rand
+  // potriveste zero randuri si nu are cum sa spuna asta; uploadOrderDocument nici
+  // macar nu citeste rezultatul, prin proiectare. Rezultatul pe ecran era o
+  // incarcare reusita, un document care nu pleca nicaieri, si nimic nicaieri care
+  // sa spuna de ce. Comentariul de la uploadOrderDocument promite de la P2-08a
+  // exact contrariul: "motivul unui esec ajunge pe randul de ciorna si se vede pe
+  // ecran". Ramura aceasta era singura care nu il tinea.
+  //
+  // RANDUL SE SCRIE AICI SI NU LA APELANTI, din acelasi motiv scris la refuzul de
+  // 100 de pagini mai jos: trei apelanti cheama functia, iar o regula pusa la un
+  // apelant pazeste un singur apelant.
+  //
+  // NU ARUNCA, ca tot restul fisierului. Daca nici randul nu se poate scrie, se
+  // intoarce acelasi refuz, cu acelasi motiv romanesc. O incarcare reusita nu are
+  // voie sa para esuata fiindca o scriere de diagnostic a cazut.
   const url = webhookUrl();
   if (!url) {
-    return { ok: false, reason: "Variabila de mediu MAKE_WEBHOOK_URL lipseste." };
+    const reason =
+      "Variabila de mediu MAKE_WEBHOOK_URL lipsește. Documentul a fost încărcat și păstrat, " +
+      "dar nu a fost trimis la extragere.";
+    const errorCode = await recordConfigRefusal(input, reason);
+    return { ok: false, reason, errorCode };
   }
 
   try {
