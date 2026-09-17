@@ -13704,3 +13704,164 @@ Entered as P-3 in `docs/DOCTRINE-PATTERNS.md`.
 its patterns live in the doctrine list rather than in `CLAUDE.md`. Cards EXT-34
 and EXT-35, authored in the same pull request, do not depend on it; EXT-34 gains
 `line_total_source` from part (g).
+
+### R-199 - Andre connection close criteria: a regression against a fresh re-sign verified by the validator, plus the EXT-35 fixture order in production, and EXT-34 is excluded
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 1, ruling Ra
+**Answer, verbatim:**
+> Ra (owner Ivan) - Andre connection close criteria. The connection closes when
+> both hold: (1) Andre's corrected build passes one regression against a fresh
+> re-sign covering fixtures lumicast-5531 and nordavex-0002718, one digital
+> failure, one scan failure, one digital invoice with line items and no printed
+> grand total (supplied by Andre, confirmed not a Rapid Construct document), and
+> his field fixes (supplier -> supplier_name, pages/_meta.pages ->
+> _meta.page_count), verified against the validator only, never against a fixture
+> or prose list; (2) the EXT-35 fixture order exists in production, marked as
+> fixture, excluded from real-data detection, every production step performed by
+> Ivan. EXT-34 (line_total_source storage) is excluded from close.
+
+**Ruling: adopted as the close criteria for the Andre extraction connection. Both
+conditions must hold. Neither alone closes it.**
+
+**CONDITION ONE, THE REGRESSION.** One run, against a FRESH re-sign, covering all
+of: fixtures `lumicast-5531` and `nordavex-0002718`; one digital failure; one scan
+failure; and one digital invoice carrying line items and no printed grand total.
+That last document is SUPPLIED BY ANDRE and confirmed not to be a Rapid Construct
+document, because a document of ours cannot test whether his side invents a figure
+ours already knows.
+
+**VERIFIED AGAINST THE VALIDATOR ONLY.** Not against a fixture, not against a
+prose list, not against a description of what the contract says. The validator is
+`POST` in `app/api/extraction/callback/route.ts` and its accept or refuse answer
+is the whole of the check. This clause exists because a prose list can agree with
+a build that the validator refuses, and has.
+
+**HIS FIELD FIXES ARE PART OF CONDITION ONE:** `supplier` becomes
+`supplier_name`, and `pages` or `_meta.pages` becomes `_meta.page_count`.
+
+**CONDITION TWO, THE FIXTURE ORDER.** The `EXT-35` fixture order exists in
+production, marked as fixture, and excluded from real-data detection. **EVERY
+PRODUCTION STEP IS PERFORMED BY IVAN.** No terminal writes it.
+
+**EXT-34 IS EXCLUDED FROM CLOSE.** `line_total_source` storage is not a close
+condition and does not gate this. It is owned by Max, blocked, and carries a
+migration that reaches production on merge.
+
+**Unblocks:** nothing directly. It defines the condition R-200 depends on.
+**Supersedes:** none.
+
+### R-200 - Rotation timing: no backstop date, and P2-13 un-parks only after the Andre connection closes
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 1, ruling Rb
+**Answer, verbatim:**
+> Rb (owner Ivan) - Rotation timing. No backstop date. Credential rotation and
+> un-parking of P2-13 happen only after the Andre connection closes under Ra.
+> Confirms Ivan rulings of 2026-09-15 and 2026-09-16.
+
+**Ruling: adopted. There is NO BACKSTOP DATE.**
+
+Credential rotation and the un-parking of `P2-13` happen only after the Andre
+connection closes under R-199, and on no other trigger. Not on a date, not on a
+sprint boundary, not because the parking has lasted a long time.
+
+**THIS CONFIRMS THE OWNER RULINGS OF 2026-09-15 AND 2026-09-16** rather than
+changing them.
+
+**WHAT IT DOES NOT DO.** It does not revive any terminal grant. R-192(c) held the
+grants live only while no real client data was entered, and card evidence records
+that real client data IS in production. Rotation timing and grant status are two
+questions, and this ruling answers only the first.
+
+**Unblocks:** nothing. `P2-13` stays parked.
+**Supersedes:** none. Confirms the rulings of 2026-09-15 and 2026-09-16.
+
+### R-201 - Local failure-shape measurements of 2026-09-17: null and empty string are both refused on the digital path, and the scan path refuses the key itself
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 1, ruling Rc
+**Answer, verbatim:**
+> Rc (strategy chat) - Local failure-shape measurements, EXECUTOR run 2026-09-17.
+> Handler: POST in app/api/extraction/callback/route.ts. Method: cases in
+> tests/e2e/extraction.spec.ts against a local scratch Supabase stack, no network.
+> Measurements, not passing tests; case scripts not committed. C1 digital, valid
+> error_code, lines [] -> 202 accepted (control, pre-existing named test). C6
+> digital, valid error_code, lines null -> 400 refused "lines lipseste". C7
+> digital, valid error_code, lines "" -> 400 refused "lines lipseste". C8 scan,
+> valid error_code, lines null -> 400 refused by the scan-failure rule that the
+> lines key must not be sent.
+
+**Ruling: recorded as measured. These are MEASUREMENTS, NOT PASSING TESTS, and the
+case scripts were deliberately not committed.**
+
+**HANDLER:** `POST` in `app/api/extraction/callback/route.ts`.
+**METHOD:** cases in `tests/e2e/extraction.spec.ts` posting real payloads at that
+handler, run against a local scratch Supabase stack with no network.
+
+| case | payload | result |
+|---|---|---|
+| C1 | digital, valid `error_code`, `lines: []` | 202 accepted |
+| C6 | digital, valid `error_code`, `lines: null` | 400 refused, `lines lipseste` |
+| C7 | digital, valid `error_code`, `lines: ""` | 400 refused, `lines lipseste` |
+| C8 | scan, valid `error_code`, `lines: null` | 400 refused, `lines interzis pe o scanare esuata: cheia nu are voie sa fie trimisa deloc` |
+
+**C8'S VERBATIM TEXT IS RECORDED HERE AND THE DISPATCH GAVE IT IN DESCRIPTION
+ONLY.** The dispatch quoted the exact error string for C6 and C7 and described
+C8's rule in words. The measured string is written above so that a later reader
+does not conclude it went uncaptured.
+
+**C1 IS A REAL CONTROL AND THE OTHER THREE ARE NOT CHECKS.** C1 is a pre-existing
+named test whose own assertions can fail. C6, C7 and C8 asserted only that the
+status was one of a permitted set and logged the truth, so they cannot fail and
+must never be cited as passing tests.
+
+**WHY IT MATTERS.** Andre's JSON builder emits `null` for an unmapped field and
+`""` for a mapped expression evaluating to nothing. On the digital path both
+produce the SAME refusal as omitting the key entirely, and the error text says the
+field is missing even when it was sent. Only a literal `[]` is accepted.
+
+**ONE MEASUREMENT REQUIRED A SECOND ATTEMPT, AND THE REASON WAS NOT THE
+VALIDATOR.** C7 first failed inside the test fixture, which waited twenty seconds
+for a newly created order to appear on the orders list and saw none, while the row
+existed in the database. It was re-run clean. That intermittent list-render defect
+is unrelated to this contract and is recorded so the retry is not mistaken for a
+flaky validator.
+
+**Unblocks:** nothing. It is a standing record of measurement.
+**Supersedes:** none.
+
+### R-202 - The failure-shape contract is frozen until the Andre connection closes under R-199
+
+**Date:** 2026-09-17
+**Asked on:** the owner dispatch of 2026-09-17, Part 1, ruling Rd
+**Answer, verbatim:**
+> Rd (strategy chat) - Failure-shape contract frozen until close under Ra. Digital
+> failure: lines must be a literal []. Scan failure: the lines key must be absent.
+> null and "" stay refused on both paths. No change to what
+> app/api/extraction/callback/route.ts accepts, refuses, or returns, including
+> error texts, until close. Any contract change needed before close is announced
+> to Andre by Ivan before merge.
+
+**Ruling: adopted. The failure-shape contract is FROZEN until close under R-199.**
+
+**THE FROZEN SHAPES.** A DIGITAL failure carries `lines` as a literal `[]`. A SCAN
+failure carries no `lines` key at all. `null` and `""` stay REFUSED on both paths.
+
+**NOTHING IN `app/api/extraction/callback/route.ts` CHANGES UNTIL CLOSE:** not
+what it accepts, not what it refuses, not what it returns, and NOT ITS ERROR
+TEXTS. The error strings are part of the frozen surface, because the counterparty
+reads them to decide what went wrong.
+
+**A CONTRACT CHANGE NEEDED BEFORE CLOSE IS ANNOUNCED TO ANDRE BY IVAN BEFORE THE
+MERGE**, not after it and not by a terminal. Merging is the act that changes what
+his build meets, so an announcement that follows the merge describes a change he
+has already hit.
+
+**THIS BINDS THE ERROR TEXT EVEN WHERE IT READS WRONG.** R-201 records that a
+digital failure sending `lines: null` is refused with `lines lipseste`, which says
+missing about a field that was sent. Improving that wording is a contract change
+and is frozen with the rest.
+
+**Unblocks:** nothing. It constrains every card touching the callback until close.
+**Supersedes:** none.
