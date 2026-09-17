@@ -26,6 +26,20 @@ import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+// P3-67. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px nimic
+// nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in P3-64,
+// fiindca spec-urile numara threshold-row si alert-row. Eticheta fiecarei celule
+// este textul antetului coloanei ei, pus in data-label si desenat din CSS.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** Legatura catre prag: pe telefon o tinta de 44px, nu doar inaltimea textului. */
+const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
+
 /** Data si ora, pentru randurile de alerta. */
 function formatMoment(iso: string): string {
   const d = new Date(iso);
@@ -52,7 +66,7 @@ export default async function RemindersPage() {
         actions={<Chip tone="warn">{low.length} sub prag</Chip>}
       />
 
-      <Card className="mb-5">
+      <Card className={`mb-5 ${PHONE_TABLE}`}>
         <CardHeader
           title="Praguri per produs"
           hint={
@@ -80,17 +94,17 @@ export default async function RemindersPage() {
             {products.map((p) => {
               const under = p.stock <= p.threshold;
               return (
-                <tr key={p.id} data-testid="threshold-row" data-sku={p.sku}>
-                  <Td>
+                <tr key={p.id} data-testid="threshold-row" data-sku={p.sku} className={PHONE_ROW}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     <span className="text-[13.5px] font-medium text-rc-black">{p.name}</span>
                     <span className="block rc-num text-[11.5px] text-rc-muted-2 mt-0.5">
                       {p.sku}
                     </span>
                   </Td>
-                  <Td>
+                  <Td data-label="Categorie" className={PHONE_CELL}>
                     <span className="text-[12.5px] text-rc-muted">{p.category}</span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stoc curent" className={PHONE_CELL}>
                     <span
                       className={[
                         "rc-num text-[13px] font-semibold whitespace-nowrap",
@@ -100,13 +114,13 @@ export default async function RemindersPage() {
                       {formatQty(p.stock, p.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
                     {canWrite ? (
                       <RecordLink
                         href={`/inventar?produs=${encodeURIComponent(p.sku)}&camp=prag`}
                         fallback={`${formatNumber(p.threshold)} ${unitLabel(p.unit)}`}
                         testId="threshold-edit-link"
-                        className="rc-num text-[13px] whitespace-nowrap"
+                        className={`rc-num text-[13px] whitespace-nowrap ${PHONE_LINK}`}
                       >
                         {formatNumber(p.threshold)} {unitLabel(p.unit)}
                       </RecordLink>
@@ -116,7 +130,7 @@ export default async function RemindersPage() {
                       </span>
                     )}
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stare" className={PHONE_CELL}>
                     {p.stock === 0 ? (
                       <Chip tone="danger">Epuizat</Chip>
                     ) : under ? (
@@ -140,7 +154,7 @@ export default async function RemindersPage() {
         ) : null}
       </Card>
 
-      <Card>
+      <Card className={PHONE_TABLE}>
         <CardHeader
           title="Alerte declanșate"
           hint="Emailurile trimise când un produs a coborât sub prag. Unul singur pe traversare, rearmat când stocul urcă înapoi peste prag."
@@ -173,12 +187,12 @@ export default async function RemindersPage() {
             </thead>
             <tbody data-testid="alert-rows">
               {alerts.map((a) => (
-                <tr key={a.id} data-testid="alert-row" data-sku={a.sku}>
-                  <Td>
+                <tr key={a.id} data-testid="alert-row" data-sku={a.sku} className={PHONE_ROW}>
+                  <Td data-label="Produs" className={PHONE_WIDE}>
                     <span className="text-[13.5px] font-medium text-rc-black">{a.name}</span>
                     <span className="block rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{a.sku}</span>
                   </Td>
-                  <Td>
+                  <Td data-label="Trimis" className={PHONE_WIDE}>
                     <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
                       {formatMoment(a.firedAt)}
                     </span>
@@ -191,17 +205,17 @@ export default async function RemindersPage() {
                       </span>
                     ) : null}
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stoc la trimitere" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] font-semibold text-rc-warn whitespace-nowrap">
                       {formatQty(a.stockAtFire, a.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
                       {formatNumber(a.thresholdAtFire)} {unitLabel(a.unit)}
                     </span>
                   </Td>
-                  <Td align="right">
+                  <Td align="right" data-label="Stare" className={PHONE_CELL}>
                     {a.sendError ? (
                       <Chip tone="danger">Netrimis</Chip>
                     ) : (

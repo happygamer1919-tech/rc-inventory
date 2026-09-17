@@ -151,7 +151,10 @@ export function Combobox({
             setQuery("");
           }
         }}
-        className="w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition"
+        // P3-67. Pe telefon (sub 768px) campul are 44px si text de 16px, ca
+        // celelalte campuri: sub 16px iOS mareste pagina la atingere. Peste
+        // 768px clasele nu se aplica.
+        className="w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition max-md:min-h-11 max-md:text-base"
       />
 
       {open && rect
@@ -176,7 +179,7 @@ export function Combobox({
                 }}
                 onMouseEnter={() => setActive(i)}
                 className={[
-                  "w-full text-left px-3 py-2 transition-colors",
+                  "w-full text-left px-3 py-2 transition-colors max-md:min-h-11",
                   i === active ? "bg-rc-orange-soft" : "hover:bg-rc-paper",
                 ].join(" ")}
               >

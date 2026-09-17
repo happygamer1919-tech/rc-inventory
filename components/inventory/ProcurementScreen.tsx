@@ -32,6 +32,21 @@ import type { ProcurementNeed, ProcurementRow } from "@/lib/reporting/procuremen
 const PAGE = 25;
 const NEED_STATUSES: ProjectStatus[] = ["lead", "offer", "contract", "active"];
 
+// P3-67. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px nimic
+// nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in P3-64,
+// fiindca procurement.spec citeste celulele dupa data-testid. Eticheta fiecarei
+// celule este textul antetului coloanei ei, pus in data-label si desenat din CSS.
+// Tabelul sta deja intr-un chenar cu margini, deci corpul lui nu mai primeste altele.
+const PHONE_TABLE =
+  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3";
+const PHONE_ROW =
+  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
+const PHONE_CELL =
+  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
+const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+/** O legatura sau un buton de text: pe telefon o tinta de 44px. */
+const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:[overflow-wrap:anywhere]";
+
 function qty(value: number, unit: UnitCode | null): string {
   return unit ? formatQty(value, unit) : formatNumber(value);
 }
@@ -39,8 +54,12 @@ function qty(value: number, unit: UnitCode | null): string {
 function NeedRow({ row }: { row: ProcurementRow }) {
   const key = row.sku;
   return (
-    <tr data-testid={`need-row-${key}`} data-has-shortfall={row.shortfallQty > 0 ? "true" : "false"}>
-      <Td>
+    <tr
+      data-testid={`need-row-${key}`}
+      data-has-shortfall={row.shortfallQty > 0 ? "true" : "false"}
+      className={PHONE_ROW}
+    >
+      <Td data-label="Produs" className={PHONE_WIDE}>
         <div className="font-medium text-rc-black">{row.productName}</div>
         <div className="text-[12px] text-rc-muted">{key}</div>
         {/* PROIECTELE CARE CER RANDUL, ca un numar agregat sa poata fi explicat
@@ -51,7 +70,7 @@ function NeedRow({ row }: { row: ProcurementRow }) {
               key={p.projectId}
               href={`/proiecte/${p.projectId}?fila=comparatie`}
               data-testid={`need-project-${key}-${p.projectId}`}
-              className="text-[12px] text-rc-muted hover:text-rc-black underline decoration-dotted"
+              className={`text-[12px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK}`}
             >
               {p.projectName} ({PROJECT_STATUS_LABEL[p.status]})
             </Link>
@@ -59,17 +78,17 @@ function NeedRow({ row }: { row: ProcurementRow }) {
         </div>
       </Td>
 
-      <Td align="right">
+      <Td align="right" data-label="Necesar" className={PHONE_CELL}>
         <span data-testid={`need-necesar-${key}`} data-qty={row.requiredQty}>
           {qty(row.requiredQty, row.unit)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="În stoc" className={PHONE_CELL}>
         <span data-testid={`need-stoc-${key}`} data-qty={row.stockQty}>
           {qty(row.stockQty, row.unit)}
         </span>
       </Td>
-      <Td align="right">
+      <Td align="right" data-label="Deficit" className={PHONE_CELL}>
         <span
           data-testid={`need-deficit-${key}`}
           data-qty={row.shortfallQty}
@@ -81,7 +100,7 @@ function NeedRow({ row }: { row: ProcurementRow }) {
       </Td>
 
       {NEED_STATUSES.map((s) => (
-        <Td key={s} align="right">
+        <Td key={s} align="right" data-label={PROJECT_STATUS_LABEL[s]} className={PHONE_CELL}>
           <span
             data-testid={`need-stare-${key}-${s}`}
             data-qty={row.byStatus[s]}
@@ -149,7 +168,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                       key={p.id}
                       href={`/proiecte/${p.id}?fila=deviz`}
                       data-testid={`need-exclus-${p.id}`}
-                      className="text-[12.5px] text-rc-muted hover:text-rc-black underline decoration-dotted"
+                      className={`text-[12.5px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK}`}
                     >
                       {p.name} ({PROJECT_STATUS_LABEL[p.status]}): {p.reason}
                     </Link>
@@ -158,7 +177,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                 <Link
                   href="/proiecte"
                   data-testid="need-excluse-link"
-                  className="mt-2 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+                  className={`mt-2 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
                 >
                   Vezi toate șantierele
                 </Link>
@@ -180,7 +199,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
             hint="Nu există șantiere cu deviz acceptat care să mai aștepte material."
           />
         ) : (
-          <div className="px-5 py-4">
+          <div className={`px-5 py-4 ${PHONE_TABLE}`}>
             <Table>
               <thead>
                 <tr>
@@ -207,7 +226,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                 type="button"
                 data-testid="need-more"
                 onClick={() => setShown((n) => n + PAGE)}
-                className="mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline"
+                className={`mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
               >
                 Arată încă {Math.min(PAGE, rows.length - shown)} din {rows.length - shown} rămase
               </button>

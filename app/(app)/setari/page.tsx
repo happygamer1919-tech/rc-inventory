@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
+import { PHONE_TAP } from "@/components/ui/phone";
 import { listCategories, listProducts, listUnits } from "@/lib/data/products";
 import { getSessionUser } from "@/lib/supabase/server";
 import { CategorySettings } from "@/components/settings/CategorySettings";
@@ -42,7 +43,8 @@ export default async function SettingsPage() {
 
       <CategorySettings categories={categories} canWrite={user?.role === "owner"} />
 
-      {/* P3-68. Lista de tabla are ecranul ei: 225 de randuri nu incap intr-un card de aici. */}
+      {/* P3-68. Lista de tabla are ecranul ei: 225 de randuri nu incap intr-un card de aici.
+          P3-67. Pe telefon legatura este o tinta de 44px; peste 768px nimic nu se schimba. */}
       <Card className="mb-5">
         <CardHeader
           title="Model, serie și grosime"
@@ -50,7 +52,7 @@ export default async function SettingsPage() {
           right={
             <Link
               href="/setari/tabla"
-              className="inline-flex items-center rounded-[10px] border border-rc-line-strong bg-rc-white px-3 py-1.5 text-[13px] font-semibold text-rc-black hover:bg-rc-paper"
+              className={`inline-flex items-center rounded-[10px] border border-rc-line-strong bg-rc-white px-3 py-1.5 text-[13px] font-semibold text-rc-black hover:bg-rc-paper ${PHONE_TAP}`}
               data-testid="settings-sheet-options-link"
             >
               Administrează lista
