@@ -249,12 +249,31 @@ report, self-merge on green".
 #### THE CONDITION THIS RESTS ON, WHICH IS A PROPERTY OF THE WORKFLOW
 
 `.github/workflows/quality.yml` triggers on `pull_request` with **no path
-filter**, so every pull request runs every step of the job: typecheck, build,
-all three board validators, the reset SQL parser, the conflict residue check,
-the category vocabulary check, the ledger row check, the production-target
-check, the migration apply against a bare postgres, the harness cap proof, the
-production guard refusal, and the end to end suite against a local Supabase
-stack. A green here is work that actually ran.
+filter**, and that half is unchanged and is still what this whole section rests
+on. **Every pull request runs the typecheck and every validator and doctrine
+proof in the job**: all three board validators, the card-id checks, the
+board-edit check, the reset SQL parser, the conflict residue check, the category
+vocabulary check, the ledger row check, the production-target check, the
+destructive-migration refusal, the assertion register, the harness cap proof and
+the production guard refusal. A green here is work that actually ran.
+
+**THE SENTENCE THAT USED TO STAND HERE SAID MORE THAN THAT, AND SINCE CARD P3-73
+IT IS FALSE**, corrected under section 9c. It read:
+
+> *"`.github/workflows/quality.yml` triggers on `pull_request` with **no path
+> filter**, so every pull request runs every step of the job: typecheck, build,
+> all three board validators, the reset SQL parser, the conflict residue check,
+> the category vocabulary check, the ledger row check, the production-target
+> check, the migration apply against a bare postgres, the harness cap proof, the
+> production guard refusal, and the end to end suite against a local Supabase
+> stack."*
+
+It stopped being true in two steps. R-084 and PROVE-01 each filtered a step and
+said so below. P3-73 filtered ten more, under a second computed filter, and the
+subsection at the end of this block names every one. **What survives, and it is
+the only thing this section ever needed, is that no `paths:` key exists**, so
+the job itself always runs and always reports the real result of every step that
+was not filtered.
 
 **IF A `paths:` FILTER IS EVER ADDED TO THAT WORKFLOW, THIS SECTION DIES WITH
 IT**, because it would then authorise merging on a check that never executed.
@@ -304,8 +323,15 @@ violate it, where it must raise.
 
 **It shares the existing filter rather than adding one.** Both steps are gated by
 the same `applier_scope` decision, on the same paths plus the new proof's own
-file, so there are two filtered steps and still **one** filter. Whoever adds a
-third reads this paragraph and amends it again.
+file. Whoever adds a third reads this paragraph and amends it again.
+
+**THIS PARAGRAPH ENDED WITH A COUNT UNTIL CARD P3-73 AND THE COUNT IS NOW
+FALSE**, corrected under section 9c. It read:
+
+> *"so there are two filtered steps and still **one** filter."*
+
+P3-73 added a second filter, `docs_scope`, and it gates twelve steps including
+these two. The subsection below names it and names them.
 
 **Why it is filtered at all:** it costs a container and minutes, and it is about
 `scripts/apply-pending-migrations.mjs`. A pull request that does not touch the
@@ -320,6 +346,98 @@ green this section means.
 the step that notices an assertion arriving with no failing case, it needs no
 container and no database, and filtering it would let exactly the gap it exists
 to catch through on a pull request that touched something else.
+
+###### THERE IS NOW A SECOND FILTER, IT IS CALLED `docs_scope`, AND IT GATES TWELVE STEPS. Added 2026-09-17 by card P3-73, Ivan's finding F12.
+
+The two paragraphs above each said the next one would be an amendment rather
+than a quiet `if:`. This is that amendment.
+
+**THE PROBLEM.** A pull request that changes nothing but documentation still
+paid for a production build, a migration apply against a bare postgres and the
+whole Playwright suite against a local Supabase stack: about twenty minutes to
+re-prove an application that nobody touched. Board edits, reports, rulings and
+this file are documentation, and they are a large share of what this repository
+merges.
+
+**THE FILTER.** A step named **Decide whether the diff is documentation only**,
+with id `docs_scope`, placed before `Typecheck`. It resolves the base commit and
+diffs against it in exactly the shape `applier_scope` uses, and it sets
+`docs_only=true` only when **every** changed file is one of:
+
+- anything under `docs/`
+- anything under `decisions/`
+- any path ending `.md`, at any depth, `CLAUDE.md` included
+- the three board files, `docs/board/rc-board.json`,
+  `docs/board/rc-board-phase2.json`, `docs/board/rc-board-phase3.json`, which
+  `docs/` already covers and which are named anyway because they are the files
+  this exemption most often exists for
+
+**IT FAILS OPEN, in three places, and the direction is always "run everything":**
+an unresolvable base commit, an empty changed-file list, and a classifier that
+exits with an error all set `docs_only=false`. The offending files are collected
+into a variable rather than detected with `grep -q`, because `grep -q` closes the
+pipe early and `pipefail` can then report the writer's SIGPIPE as 141, a status
+indistinguishable from "nothing was offending", which is the one way this filter
+could have called a code diff documentation.
+
+**THE TWELVE STEPS IT GATES, in file order:**
+
+| step | also gated by |
+|---|---|
+| `Build` | |
+| `Apply every migration to a bare postgres, unmodified` | |
+| `Prove the migration applier against the Docker shim` | `applier_scope` |
+| `Prove every applier assertion can fail` | `applier_scope` |
+| `Start local Supabase` | |
+| `Launch database, auth and storage` | |
+| `Apply migrations to the local stack` | |
+| `Export local Supabase credentials` | |
+| `Seed the three test accounts` | |
+| `Install Playwright chromium` | |
+| `End to end` | |
+| `Upload Playwright report on failure` | `failure()` |
+
+**THE TWO COMBINED CONDITIONS CHANGE NOTHING TODAY, BY CONSTRUCTION, AND THE
+REASON IS WRITTEN DOWN RATHER THAN LEFT TO BE RE-DERIVED.** `applier_scope` says
+`run=true` only when the diff touches `scripts/apply-pending-migrations.*`,
+`supabase/migrations/**`, `scripts/poc-free/local-db/**` or
+`scripts/poc-free/prove-assertions-can-fail.*`. Not one of those paths can appear
+in a diff `docs_scope` calls documentation, so the two filters cannot disagree:
+when `docs_only` is true, `run` is already false, and both steps were skipping
+anyway. The clause is written on the step so that whoever widens either filter
+later sees both gates instead of inferring one from the other. The `failure()`
+clause on the artefact upload is not decoration either: on a documentation-only
+diff no Playwright run happened, so a validator failing would otherwise send that
+step looking for a report directory nobody wrote.
+
+**EVERYTHING ELSE STILL RUNS ON EVERY PULL REQUEST**, documentation-only or not:
+`Typecheck` and every `Refuse ...` and `Prove ...` step in the job. **The board
+validator, the card-id checks and the board-edit check are the load-bearing case
+here**, because a documentation-only diff is precisely the diff that edits a
+board. The card authoring this filter was itself such a commit.
+
+| | what it skips | what the required check reports |
+|---|---|---|
+| a workflow `paths:` key | the **entire** `quality` job | **success**, on a job that never ran |
+| a step-level `if:` | the named steps | the real result of every step that was not named |
+
+**WHAT SELF-MERGE REQUIRES, RESTATED, BECAUSE THE "what it skips" COLUMN JUST GOT
+WIDER:**
+
+1. **The unfiltered suite green.** That is the typecheck plus every validator and
+   doctrine proof, on every pull request without exception. It is still the only
+   green this section has ever meant.
+2. **A pull request that is NOT documentation-only still needs `Build`, the
+   migration apply, and the whole End to end block to have RUN and PASSED**,
+   exactly as before this card. Nothing about a code pull request changed.
+3. **A pull request that IS documentation-only does not need them**, because none
+   of them can say anything about a diff carrying no application code, no
+   migration and no test.
+4. **The applier rule in the paragraphs above is untouched.** A pull request
+   touching any applier path requires both applier proofs to have RUN and PASSED,
+   and such a pull request can never be documentation-only.
+
+**A THIRD FILTER IS AGAIN A CHANGE TO THIS SECTION, NOT AN APPLICATION OF IT.**
 
 #### THE HISTORY, KEPT SHORT AND KEPT
 
