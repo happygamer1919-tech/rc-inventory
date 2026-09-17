@@ -142,7 +142,7 @@ Their results are read on the pull request's head sha and quoted in the mailbox 
 ## Split or not
 
 Not split. The migration, data layer, server actions and screen are one pull request of about
-1,900 added lines, most of them the migration's and assertions' own comments and checks.
+2,300 added lines over 19 files, most of them the migration's and assertions' own comments and checks.
 
 ## Learnings
 
