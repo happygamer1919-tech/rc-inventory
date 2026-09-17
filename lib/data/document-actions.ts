@@ -267,8 +267,25 @@ export async function confirmDocumentUpload(input: {
 /**
  * Legatura semnata, cu viata de 15 minute, catre un document.
  *
- * Oricine autentificat o poate cere, ca in politica de citire din 0044. Supabase
- * trimite fisierul ca atasament, cu numele original, deci un clic il descarca.
+ * P3-70, constatarea F1 a lui Ivan. Legatura se da numai cand toate trei sunt
+ * adevarate:
+ *   1. sesiunea are un profil ACTIV: getSessionUser intoarce null pentru un profil
+ *      dezactivat si pentru un cont fara profil;
+ *   2. documentul se vede prin citirea cu drepturile apelantului;
+ *   3. clientul sau proiectul caruia ii apartine se vede si el, prin aceeasi
+ *      citire, ca ownerExists la incarcare.
+ *
+ * "SE VEDE" INSEAMNA EXACT CE ARE APLICATIA, nimic inventat aici: clients_select
+ * (0013) si projects_select (0016) sunt using (true), deci orice profil activ vede
+ * orice client si proiect. Punctul 3 refuza un document al carui client sau
+ * proiect nu mai este citibil; cheile din 0044 sunt on delete restrict, deci azi
+ * nu exista unul, iar verificarea este a doua linie, nu reparatia unui caz viu.
+ *
+ * DEPOZITUL REFUZA SI EL, independent de acest cod: politica rc_docs_select din
+ * 0050 cere un profil activ, deci un token inca valid al unui cont dezactivat nu
+ * poate semna o legatura nici direct, pe langa aplicatie.
+ *
+ * Supabase trimite fisierul ca atasament, cu numele original, deci un clic il descarca.
  */
 export async function documentDownloadUrl(documentId: string): Promise<ActionResult<{ url: string }>> {
   const user = await getSessionUser();
@@ -282,10 +299,21 @@ export async function documentDownloadUrl(documentId: string): Promise<ActionRes
 
   const { data: row } = await supabase
     .from("documents")
-    .select("storage_path, original_name")
+    .select("storage_path, original_name, client_id, project_id")
     .eq("id", id)
     .maybeSingle();
   if (!row) return { ok: false, message: "Documentul nu mai există." };
+
+  // Acelasi mesaj ca un document lipsa: cine nu poate vedea proprietarul nu afla
+  // nici ca documentul exista.
+  const owner = normalizeOwner(
+    row.client_id
+      ? { type: "client", id: row.client_id }
+      : { type: "project", id: row.project_id },
+  );
+  if (!owner || !(await ownerExists(supabase, owner))) {
+    return { ok: false, message: "Documentul nu mai există." };
+  }
 
   const { data, error } = await supabase.storage
     .from(DOCS_BUCKET)
