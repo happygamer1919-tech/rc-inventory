@@ -6151,3 +6151,14 @@ a comment naming P3-81 and quoting the old clause; the three write checks are un
 assertion is stricter, not looser. RULE: **before changing an existing policy, grep
 `scripts/poc-free/local-db/assertions/` for its name AND for its current clause text (`qual =
 'true'`), and update every file that pins it in the same pull request.**
+
+### ExtractionReviewPanel has a second import block halfway down the file
+**Tag:** frontend
+**ERROR:** Card P3-82 (2026-09-18). Adding `type ExtractionDraft` to the import from
+`@/lib/data/extraction-types` at the top of `components/orders/ExtractionReviewPanel.tsx` failed
+`npx tsc --noEmit` with `TS2300: Duplicate identifier 'ExtractionDraft'` at lines 48 and 199. The
+file has a SECOND import block after its first helper components (around line 198), and that block
+already imports the type. Reading only the top of the file hid it.
+**SOLUTION:** dropped the added import; ES imports are hoisted, so a helper near the top can use a
+type imported further down. RULE: **before adding an import to a long component, grep the whole
+file for `^import` rather than reading only its first lines.**
