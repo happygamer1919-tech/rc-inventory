@@ -14031,3 +14031,49 @@ grant: R-192(c) is untouched and R-012 stays spent.
 
 **Unblocks:** the Andre sample work under the prefix, until close under R-199.
 **Supersedes:** none. It is narrower than R-012 and does not revive it.
+
+### R-207 - Who is the owner now: Max is the platform owner, every "Ivan" in P2-13's approval steps reads "Max", and the automatic merge script is the owner's own decision
+
+**Date:** 2026-09-18
+**Asked on:** goal G33, the rotation runbook for `P2-13`
+**Answer, verbatim:**
+> (owner Ivan, relayed by Max, 2026-09-17) "the whole platform is yours"
+
+**Ruling: recorded as a correction under CLAUDE.md section 9c.** The true
+statement first, the superseded one quoted beneath it and kept.
+
+**THE TRUE STATEMENT.** As of 2026-09-17, Max is the platform owner. In the
+approval steps of `P2-13` and of `docs/RUNBOOK-CREDENTIAL-ROTATION.md`, every
+"Ivan" reads "Max": who executes the checklist, who ticks it, who approves the
+pull request that ticks it, and to whom every pull request returns once CLAUDE.md
+section 3.1 is gone.
+
+**THE SUPERSEDED SENTENCE, QUOTED FROM P2-13's `plain` FIELD AND KEPT THERE:**
+
+> *"It is also the moment the workshop loses the right to approve its own work:
+> from then on nothing reaches the live system without Ivan, and no automated
+> helper can change the database at all, for any reason."*
+
+**Corrected by this ruling: "without Ivan" now reads "without Max".** The rest of
+the sentence stands. The card's title, question and defaults name Ivan in the
+same role and are corrected the same way. The board text is not edited by the
+pull request carrying this ruling, because that pull request authors the runbook
+and does not work `P2-13`; this entry and the runbook's "Who is the owner now"
+section are where a reader lands.
+
+**THE AUTOMATIC MERGE SCRIPT IS THE OWNER'S OWN DECISION.** The script Max runs,
+`scratchpad/auto-merge.sh`, is his decision as platform owner. It is not a
+delegation from Ivan and it does not rest on any terminal grant that `P2-13`
+ends, so the rotation does not touch it.
+
+**IVAN'S TERMINALS KEEP THEIR GITHUB ACCESS AND KEEP OPENING PULL REQUESTS.**
+The rotation ends terminal-held database and service credentials. It does not
+end, and no step of the runbook suggests ending, anyone's GitHub access.
+
+**WHAT THIS DOES NOT DO.** It grants, widens, extends or renews no credential or
+environment access, so it is not item 5 of the closed escalation list in
+`docs/DOCTRINE-TRIAGE.md` section 6. It does not un-park `P2-13`, which R-200
+governs, and it revives no terminal grant.
+
+**Unblocks:** nothing. It fixes who the runbook's approval steps name.
+**Supersedes:** the sentence quoted above, in the words "without Ivan" only.
