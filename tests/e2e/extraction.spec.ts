@@ -1475,6 +1475,8 @@ test.describe("Extragere documente", () => {
       // nu este in contract este IGNORAT, niciodata ghicit, deci prezenta lor
       // aici este exact ce se intampla in productie. EXT-11 si P3-31 sunt
       // cardurile care le dau o forma.
+      // NU MAI ESTE ADEVARAT CA NU SUNT CITITE: EXT-11 stocheaza order_ref, iar
+      // EXT-34 stocheaza client_ref, verbatim. Cazul acesta nu le verifica.
       order_ref: "AV-0021884",
       client_ref: "RC-2026-0042",
       order_date: "2026-08-30",

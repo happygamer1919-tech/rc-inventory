@@ -32,6 +32,7 @@ import { DateField } from "@/components/ui/DateField";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
   EXTRACTION_ERROR_LABEL,
+  EXTRACTION_INBOUND_LABEL,
   EXTRACTION_META_ABSENT,
   EXTRACTION_META_LABEL,
   EXTRACTION_META_TITLE,
@@ -39,6 +40,7 @@ import {
   effectiveSource,
   formatExtractionDuration,
   hasExtractionMeta,
+  lineTotalSourceLabel,
   scanReadLines,
 } from "@/lib/data/extraction-types";
 import { formatMoney } from "@/lib/data/format";
@@ -148,8 +150,36 @@ function ExtractionMetaDetails({ draft }: { draft: ExtractionDraft }) {
     </details>
   );
 }
+/** EXT-34. Codul furnizorului, descrierea si sursa totalului unei linii, asa
+ *  cum le-a trimis citirea. Numai citite: nu intra in formular si nu schimba
+ *  nimic din ce se salveaza. */
+function InboundLineDetails({ line, index }: { line: ExtractionLine | undefined; index: number }) {
+  if (!line || (!line.supplierCode && !line.lineDescription && !line.lineTotalSource)) return null;
+  return (
+    <p
+      className="col-span-4 flex flex-wrap gap-x-5 text-[11.5px] text-rc-muted-2"
+      data-testid={`review-line-inbound-${index}`}
+    >
+      {line.supplierCode ? (
+        <span data-testid={`review-line-supplier-code-${index}`}>
+          {EXTRACTION_INBOUND_LABEL.supplierCode}: {line.supplierCode}
+        </span>
+      ) : null}
+      {line.lineDescription ? (
+        <span data-testid={`review-line-desc-${index}`}>
+          {EXTRACTION_INBOUND_LABEL.lineDescription}: {line.lineDescription}
+        </span>
+      ) : null}
+      {line.lineTotalSource ? (
+        <span data-testid={`review-line-total-source-${index}`}>
+          {EXTRACTION_INBOUND_LABEL.lineTotalSource}: {lineTotalSourceLabel(line.lineTotalSource)}
+        </span>
+      ) : null}
+    </p>
+  );
+}
 import { ALL_UNITS, unitLabel } from "@/lib/data/units";
-import type { ExtractionDraft } from "@/lib/data/extraction-types";
+import type { ExtractionDraft, ExtractionLine } from "@/lib/data/extraction-types";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
   confirmExtractionDraft,
@@ -415,6 +445,25 @@ function ReviewForm({
         </label>
       </div>
 
+      {/* EXT-34. CE A MAI TRIMIS CITIREA DESPRE DOCUMENT, NUMAI CITIT. Nu se
+          editeaza si nu se salveaza pe comanda: este acolo ca cineva care
+          verifica hartia sa aiba si aceste doua repere. Randul lipseste cand
+          niciunul nu a sosit, ca ecranul de reconciliere sa nu creasca degeaba. */}
+      {draft.documentType || draft.clientRef ? (
+        <p className="mt-3 flex flex-wrap gap-x-5 text-[12px] text-rc-muted" data-testid="review-inbound-document">
+          {draft.documentType ? (
+            <span data-testid="review-document-type">
+              {EXTRACTION_INBOUND_LABEL.documentType}: <span className="text-rc-black">{draft.documentType}</span>
+            </span>
+          ) : null}
+          {draft.clientRef ? (
+            <span data-testid="review-client-ref">
+              {EXTRACTION_INBOUND_LABEL.clientRef}: <span className="text-rc-black">{draft.clientRef}</span>
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+
       <div className="mt-5 space-y-2.5">
         {lines.map((line, index) => (
           <div
@@ -486,6 +535,10 @@ function ReviewForm({
                 className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
               />
             </label>
+
+            {/* EXT-34. CE A MAI TRIMIS CITIREA DESPRE LINIE, NUMAI CITIT, pe un
+                rand mic sub campuri. Lipseste cand nu a sosit nimic. */}
+            <InboundLineDetails line={draft.lines[index]} index={index} />
 
             {/* PRODUS NOU: categoria si unitatea se aleg, nu se ghicesc.
                 Amandoua sunt obligatorii pe produs, iar o unitate gresita

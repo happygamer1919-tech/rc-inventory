@@ -20,6 +20,7 @@ import {
   hasExtractionDocumentSource,
   hasExtractionPageCount,
   hasExtractionUploadPageCount,
+  hasExtractionInboundFields,
   hasSupplierDocumentRef,
 } from "./schema-capability";
 import type { ExtractionDraft, ExtractionStatus, StoredErrorCode } from "./extraction-types";
@@ -68,6 +69,12 @@ const MODEL_PAGE_COUNT_COLUMN = ", page_count";
  *  acelasi push. */
 const META_COLUMN = ", meta";
 
+/** EXT-34. Cele doua coloane de pe document pe care 0053 le adauga, si cele trei
+ *  de pe linie. Aceeasi poarta pentru toate cinci, fiindca sosesc in acelasi
+ *  fisier. */
+const INBOUND_DRAFT_COLUMNS = ", document_type, client_ref";
+const INBOUND_LINE_COLUMNS = ", supplier_code, description, line_total_source";
+
 /** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
  *
  *  INTREBARI SEPARATE SI NU UNA, fiindca 0033, 0036 si 0043 sunt fisiere separate
@@ -84,13 +91,21 @@ async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocument
   const withUpload = (await hasExtractionUploadPageCount(supabase))
     ? withMeta + UPLOAD_PAGE_COUNT_COLUMN
     : withMeta;
-  return (await hasExtractionPageCount(supabase))
+  const withModel = (await hasExtractionPageCount(supabase))
     ? withUpload + MODEL_PAGE_COUNT_COLUMN
     : withUpload;
+  return (await hasExtractionInboundFields(supabase))
+    ? withModel + INBOUND_DRAFT_COLUMNS
+    : withModel;
 }
 
 const LINE_COLUMNS =
   "order_id, line_no, product_name, quantity, unit, unit_raw, unit_price, line_total, currency, currency_raw, category, category_raw";
+
+/** EXT-34. Coloanele liniei, plus cele trei din 0053 cand exista. */
+async function lineColumnsFor(supabase: Parameters<typeof hasExtractionInboundFields>[0]): Promise<string> {
+  return (await hasExtractionInboundFields(supabase)) ? LINE_COLUMNS + INBOUND_LINE_COLUMNS : LINE_COLUMNS;
+}
 
 /** numeric() peste PostgREST vine ca sir. null ramane null, mereu: contract 2.1. */
 function num(v: unknown): number | null {
@@ -114,6 +129,11 @@ function mapLine(row: LineRow) {
     currencyRaw: (row.currency_raw as string | null) ?? null,
     category: (row.category as string | null) ?? null,
     categoryRaw: (row.category_raw as string | null) ?? null,
+    // EXT-34. Cand 0053 nu este inca aplicata coloanele lipsesc din select si
+    // valorile sunt null, ceea ce este adevarul: nu au fost stocate.
+    supplierCode: (row.supplier_code as string | null) ?? null,
+    lineDescription: (row.description as string | null) ?? null,
+    lineTotalSource: (row.line_total_source as string | null) ?? null,
   };
 }
 
@@ -149,6 +169,9 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // stocata deloc.
     orderRef: (row.order_ref as string | null) ?? null,
     orderRefSeries: (row.order_ref_series as string | null) ?? null,
+    // EXT-34. Aceeasi regula ca la liniile de mai sus.
+    documentType: (row.document_type as string | null) ?? null,
+    clientRef: (row.client_ref as string | null) ?? null,
     // EXT-28. Cand 0043 nu este inca aplicata coloana lipseste din select si
     // valoarea este null, ceea ce este adevarul: nimeni nu a numarat.
     uploadPageCount:
@@ -191,6 +214,7 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   // larg il face sa intoarca forma generica, care este exact ce vrea mapDraft:
   // el citeste campurile pe nume dintr-un Record si nu depinde de inferenta.
   const draftColumns: string = await draftColumnsFor(supabase);
+  const lineColumns: string = await lineColumnsFor(supabase);
 
   // P3-38. LINIILE VIN IMBRICATE, INTR-O SINGURA CERERE, FARA NICIO LISTA DE
   // ID-URI.
@@ -230,7 +254,7 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
     async (from, to) => {
       const { data, count, error } = await supabase
         .from("extraction_drafts")
-        .select(`${draftColumns}, extraction_draft_lines(${LINE_COLUMNS})`, { count: "exact" })
+        .select(`${draftColumns}, extraction_draft_lines(${lineColumns})`, { count: "exact" })
         // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
         // catre comanda poarta on delete set null, deci poate redeveni null, iar o
         // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.

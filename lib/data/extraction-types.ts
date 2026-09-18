@@ -199,7 +199,40 @@ export type ExtractionLine = {
   currencyRaw: string | null;
   category: string | null;
   categoryRaw: string | null;
+  /** EXT-34. Codul produsului LA FURNIZOR, asa cum l-a trimis expeditorul. Nu
+   *  se foloseste la potrivirea produselor. null inseamna ca nu s-a trimis, sau
+   *  ca 0053 nu este inca aplicata. */
+  supplierCode: string | null;
+  /** EXT-34. Descrierea liniei, asa cum a trimis-o expeditorul, alaturi de
+   *  denumire. Numele are prefixul `line` fiindca cuvantul simplu este si cheia
+   *  de metadate a lui Next si campul unui element de meniu, iar
+   *  check:pending-schema-reads cauta numele coloanei ca pe un cuvant. */
+  lineDescription: string | null;
+  /** EXT-34. `printed` daca totalul liniei a fost citit de pe pagina, `derived`
+   *  daca a fost calculat. Stocat asa cum a sosit, fara verificare, si citit de
+   *  nicio regula de reconciliere. */
+  lineTotalSource: string | null;
 };
+
+/** EXT-34. Etichetele celor cinci campuri primite de la expeditor.
+ *
+ *  AICI SI NU IN COMPONENT, din acelasi motiv ca la `EXTRACTION_META_LABEL`:
+ *  textul de pe ecran si textul pe care il cauta o proba sunt acelasi sir. */
+export const EXTRACTION_INBOUND_LABEL = {
+  documentType: "Tipul documentului",
+  clientRef: "Referința clientului",
+  supplierCode: "Cod furnizor",
+  lineDescription: "Descriere",
+  lineTotalSource: "Totalul liniei",
+} as const;
+
+/** EXT-34. Sursa totalului liniei, in cuvinte. O valoare pe care nu o
+ *  cunoastem se arata asa cum a sosit: campul este stocat, nu interpretat. */
+export function lineTotalSourceLabel(v: string): string {
+  if (v === "printed") return "tipărit pe document";
+  if (v === "derived") return "calculat";
+  return v;
+}
 
 /** EXT-15. Unde a gasit extractorul textul: pe pagina, sau intr-o imagine.
  *
@@ -411,6 +444,13 @@ export type ExtractionDraft = {
    *  doi furnizori pot emite amandoi 0009312. null este legal: nu orice document
    *  poarta o serie. */
   orderRefSeries: string | null;
+  /** EXT-34. Tipul documentului, asa cum l-a trimis expeditorul (de exemplu
+   *  `invoice`). Nicio multime de valori. null inseamna ca nu s-a trimis, sau ca
+   *  0053 nu este inca aplicata. */
+  documentType: string | null;
+  /** EXT-34. Referinta CLIENTULUI tiparita pe document, verbatim. Nu se
+   *  potriveste cu niciun client. Nu este `orderRef`, care este a furnizorului. */
+  clientRef: string | null;
   /** EXT-28. Paginile NUMARATE DE NOI la incarcare, din bytes. null inseamna ca
    *  nu am putut numara cu siguranta, sau ca randul este de dinaintea migratiei
    *  0043. Nu este numarul raportat de model, care ramane in `_meta`. */
