@@ -276,8 +276,8 @@ export async function confirmDocumentUpload(input: {
  *      citire, ca ownerExists la incarcare.
  *
  * "SE VEDE" INSEAMNA EXACT CE ARE APLICATIA, nimic inventat aici: clients_select
- * (0013) si projects_select (0016) sunt using (true), deci orice profil activ vede
- * orice client si proiect. Punctul 3 refuza un document al carui client sau
+ * (0013) si projects_select (0016) cer, din 0055, doar un profil activ, deci orice
+ * profil activ vede orice client si proiect. Punctul 3 refuza un document al carui client sau
  * proiect nu mai este citibil; cheile din 0044 sunt on delete restrict, deci azi
  * nu exista unul, iar verificarea este a doua linie, nu reparatia unui caz viu.
  *
