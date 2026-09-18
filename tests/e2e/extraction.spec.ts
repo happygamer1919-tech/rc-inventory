@@ -1963,7 +1963,9 @@ test.describe("Extragere documente", () => {
           ...line,
           product_name: "Surub autoforant 4.8x35 visiniu",
           quantity: 10,
-          unit: "buc",
+          // `unit` este enumul unit_code din 0008, deci numai o valoare din
+          // ALL_UNITS; cuvantul documentului sta in unit_raw.
+          unit: "pcs",
           unit_raw: "buc",
           unit_price: 1.5,
           line_total: 15,

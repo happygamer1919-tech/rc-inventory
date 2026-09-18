@@ -6092,3 +6092,17 @@ blinds the check for those files for every future migration. The TypeScript fiel
 `npm run check:pending-schema-reads` before writing app code, tolerate each false hit per file and
 per word with its reason, never per file, and give the app-side field a name that is not the bare
 word.**
+
+### A test payload with a unit outside the enum turns the callback into a 500
+**Tag:** backend
+**ERROR:** Card EXT-34 (2026-09-18), case 35 of `tests/e2e/extraction.spec.ts`, first run on PR
+#334 (run 35368299734): `Expected: 202, Received: 500` at the first assertion. The case built a
+second line with `unit: "buc"`. `extraction_draft_lines.unit` is the enum `public.unit_code` from
+0008 (`m2`, `lm`, `pcs`, `bag`, `kg`, `roll`, `m3`, `t`, `l`), the route passes `str(l.unit)`
+straight to the insert, and PostgREST refused the whole batch. Nothing in the card's change was
+involved; case 36, the other new case, passed in the same run.
+**SOLUTION:** the fixture sends `unit: "pcs"` and keeps the document's word in `unit_raw: "buc"`,
+which is what the contract's pair means. RULE: **a fixture line copied from the shared body and
+edited by hand takes its `unit` from `ALL_UNITS` in `lib/data/units.ts`, never from the word on the
+document.** Observed and not changed here: a real payload with a unit outside the enum also gets
+500 today, and Make retries a 5xx.

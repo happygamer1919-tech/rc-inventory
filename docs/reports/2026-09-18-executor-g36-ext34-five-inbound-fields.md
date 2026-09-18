@@ -90,6 +90,25 @@ recalculated because of them.
    could be captured locally, and this report says so rather than quoting output
    that does not exist. The green half is the End to end step of `quality` on
    the pull request head.
+
+   **THE FIRST CI RUN WAS RED, AND ON A DEFECT IN MY OWN FIXTURE.** Run
+   35368299734 on head `7d139f6`: 340 passed, 1 failed. Case 36 passed. Case 35
+   failed at its first assertion:
+
+   ```
+   Error: un payload cu cele cinci campuri este acceptat
+   Expected: 202
+   Received: 500
+   ```
+
+   Its hand-built second line sent `unit: "buc"`, and `extraction_draft_lines.unit`
+   is the enum `public.unit_code`, so the insert was refused. The fixture now
+   sends `unit: "pcs"` with `unit_raw: "buc"`. Consequence for the before-half,
+   stated plainly: at `b81d0b0` case 35 still fails, but it fails at that same
+   status line for the unit reason, not at the five stored values. With the
+   corrected fixture and no migration it would reach the read-back and fail on
+   `undefined`; that last sentence is reasoning from the code, not a run. Case 36
+   at `b81d0b0` fails on the missing columns exactly as described.
 4. **PLUS `npx tsc --noEmit`** exit 0 locally, and `npm run build` exit 0.
 
 ## 4. Local gates, each run alone, each exit 0
@@ -112,8 +131,17 @@ is the card's and was kept. The check gained a narrow `TOLERATED_WORDS` map
 (file plus word, each with a reason, refused when stale); whole-file exemption
 was refused because it would blind the check for those files forever. Both new
 refusal paths were watched firing locally, then reverted. The app-side field
-was named `lineDescription` to avoid the same collision. One entry appended to
-`docs/LEARNINGS.md`.
+was named `lineDescription` to avoid the same collision.
+
+Second, the red first CI run described in section 3: a unit outside the
+`unit_code` enum in my own fixture. Fixed in the fixture; signature added to the
+factory's `KNOWN-FAILURES.md`.
+
+Two entries appended to `docs/LEARNINGS.md`.
+
+**Observed and not changed (outside this card):** a real payload whose line
+`unit` is outside the enum also gets a 500 from the callback route today, and
+Make retries a 5xx. That is existing behaviour; if wanted, it is a separate card.
 
 ## 6. Counterparty and contract
 
