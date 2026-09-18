@@ -50,6 +50,7 @@ The format is machine-read, so keep it exactly:
 - `0052_extraction_line_math.sql`, card de aplicare P3-75
 - `0053_extraction_inbound_fields.sql`, card de aplicare EXT-34
 - `0054_extraction_derived_partial.sql`, card de aplicare P3-80
+- `0055_active_profile_table_reads.sql`, card de aplicare P3-81
 
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
