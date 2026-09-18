@@ -6057,3 +6057,18 @@ the same pull request, satisfies it. RULE: **before calling a change docs-only, 
 means the change is not docs-only, whatever its paths look like. Anything under
 `docs/board/` other than the three boards and the template is CODE: `board-config.mjs`,
 `render-board.mjs`, `validate-board.mjs`, `board-app.js` and `board.css`.**
+
+### A doctrine correction that fixes one copy of a claim leaves the other copies standing
+**Tag:** ci
+**ERROR:** Card P3-73 (2026-09-17) added the `docs_scope` filter and, under section 9c, corrected the
+sentence at the top of CLAUDE.md section 3.1 that said every pull request runs every step. The same
+claim was restated twice further down the same section, in the list under R-084 ("the full,
+unfiltered suite green ... the only green that authorises a merge") and in the paragraph after
+PROVE-01 ("The rest of the job is unfiltered"), and neither was touched. For a day the file stated
+two different rules for what green authorises a merge, and a documentation-only pull request could
+never meet the older one. Ivan found it as F19; card P3-79 corrected it.
+**SOLUTION:** state the rule once and make every other place point at it. RULE: **before closing a
+doctrine correction, grep the whole file for the key phrase of the false claim AND its paraphrases
+(here: `only green`, `unfiltered`, `every step`), and correct every hit under section 9c in the same
+pull request. A restatement "so it cannot be read loosely" is a second copy that will go stale; a
+pointer to the one statement cannot.**

@@ -318,9 +318,31 @@ concluding that nothing changed.
 **WHAT SELF-MERGE REQUIRES IS UNCHANGED AND IS RESTATED HERE SO IT CANNOT BE READ
 LOOSELY:**
 
-1. **the full, unfiltered suite green.** Every other step in the job runs on every
-   pull request, exactly as before. That is the green this section has always
-   meant and it is still the only green that authorises a merge.
+1. **`quality` concluded success on the head sha, with the steps the workflow
+   itself decided to run for that diff. This is the only green that authorises a
+   merge, and it is the ONE statement of that rule in this file**: every other
+   sentence here that says what green means points to this item. The typecheck
+   and every `Refuse ...` and `Prove ...` step outside the two filters run on
+   every pull request, documentation-only or not. A pull request that is NOT
+   documentation-only additionally needs `Build`, the migration apply and the
+   whole End to end block to have RUN and PASSED. A pull request that IS
+   documentation-only, as the `docs_scope` filter decides, does not need them to
+   have run. The applier proofs follow item 2. What `docs_scope` counts as
+   documentation, and the twelve steps it gates, are named once, in the P3-73
+   subsection below, and are not repeated here.
+
+   **THIS ITEM SAID SOMETHING ELSE UNTIL CARD P3-79, AND SINCE CARD P3-73 IT WAS
+   FALSE**, corrected under section 9c, Ivan's finding F19. It read:
+
+   > *"**the full, unfiltered suite green.** Every other step in the job runs on
+   > every pull request, exactly as before. That is the green this section has
+   > always meant and it is still the only green that authorises a merge."*
+
+   P3-73 filtered twelve steps and corrected the same claim at the top of this
+   block, and it missed this copy. The file then stated two different rules for
+   one word: this item required a green that a documentation-only pull request
+   can never produce, while the P3-73 subsection said such a pull request does
+   not need the filtered steps. The rule above is the one that survives.
 2. **and additionally**, a pull request touching any of the three applier paths
    above requires the applier proof step to have RUN and PASSED, not skipped. A
    pull request that changes a migration file and shows that step as skipped has
@@ -356,9 +378,18 @@ these two. The subsection below names it and names them.
 applier, its migrations, the shim or the proof cannot change what it proves.
 
 **WHAT SELF-MERGE REQUIRES IS UNCHANGED.** A pull request touching any of those
-paths requires BOTH filtered steps to have RUN and PASSED, not skipped. The rest
-of the job is unfiltered and runs on every pull request, and that is still the
-green this section means.
+paths requires BOTH filtered steps to have RUN and PASSED, not skipped. The green
+this section means is item 1 of the restated list under R-084 above.
+
+**THE LAST SENTENCE OF THAT PARAGRAPH SAID SOMETHING ELSE UNTIL CARD P3-79, AND
+SINCE CARD P3-73 IT WAS FALSE**, corrected under section 9c, Ivan's finding F19.
+It read:
+
+> *"The rest of the job is unfiltered and runs on every pull request, and that is
+> still the green this section means."*
+
+Since P3-73 the rest of the job is not unfiltered: `docs_scope` gates ten more
+steps, named in the subsection below.
 
 **`npm run check:assertion-register` is NOT filtered and must never be.** It is
 the step that notices an assertion arriving with no failing case, it needs no
@@ -442,9 +473,19 @@ board. The card authoring this filter was itself such a commit.
 **WHAT SELF-MERGE REQUIRES, RESTATED, BECAUSE THE "what it skips" COLUMN JUST GOT
 WIDER:**
 
-1. **The unfiltered suite green.** That is the typecheck plus every validator and
-   doctrine proof, on every pull request without exception. It is still the only
-   green this section has ever meant.
+1. **The only green that authorises a merge is item 1 of the restated list under
+   R-084 above**, and it is not restated here. Items 2 to 4 below spell out what
+   that one rule means for this filter; they are not a second rule.
+
+   **THIS ITEM SAID SOMETHING ELSE UNTIL CARD P3-79**, corrected under section
+   9c, Ivan's finding F19. It read:
+
+   > *"**The unfiltered suite green.** That is the typecheck plus every validator
+   > and doctrine proof, on every pull request without exception. It is still the
+   > only green this section has ever meant."*
+
+   It was a second statement of the rule, in different words from the first, and
+   the first still said the full suite. One statement now, and this points at it.
 2. **A pull request that is NOT documentation-only still needs `Build`, the
    migration apply, and the whole End to end block to have RUN and PASSED**,
    exactly as before this card. Nothing about a code pull request changed.
@@ -666,6 +707,31 @@ reassigned, it did not get weaker.
 The validator enforces the shape. It cannot enforce that the command was
 actually run. That part is on the executor, and lying about it is the one
 failure this project has no recovery path for.
+
+**READING AN EXIT CODE: THE TERMINAL SHELL IS `zsh`, NOT `bash`.** Added
+2026-09-18 by card P3-79, Ivan's finding F15. Acceptance is usually a command
+with an expected exit code, so the code must be read from that command and from
+nothing else. Run the command alone, with no pipe, send its output to a file, and
+capture `$?` on the very next line, before anything else runs:
+
+```
+npm run check:card-ids > /tmp/card-ids.out 2>&1
+echo "exit $?"
+```
+
+Then read the file. The two traps this avoids:
+
+- **A pipe reports the last command.** `npm run check:card-ids | tail -20` exits
+  with the status of `tail`, which is 0, whatever the check did.
+- **`${PIPESTATUS[0]}` is bash only.** It is the bash array that would recover
+  the first command's status from a pipe. In `zsh` it does not exist and expands
+  to nothing, so a red check reads as no answer at all, or as whatever the reader
+  assumed. Never use it in a terminal session. A script that needs it must run
+  under an explicit `#!/usr/bin/env bash` shebang; no script under `scripts/`
+  uses it today.
+
+Any command between the one under test and the capture, even a `cd` or an
+`echo`, replaces `$?` with its own status.
 
 ---
 
