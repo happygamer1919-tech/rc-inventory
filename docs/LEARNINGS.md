@@ -5992,3 +5992,25 @@ changed. RULE: **`Number.isFinite(Number(v))` does not answer "is v a number". T
 first and convert second, and when a coercion guard is the only thing standing between a
 payload and a stored figure, write the failing values out as cases: `""`, `"   "`, `true`,
 `false`, `[]` and `[5]` are the six that pass a finite check and mean nothing.**
+
+### Waiting on a server-rendered list that never refetches turns a failed page into "0 rows"
+**Tag:** ci
+**ERROR:** `orderWithDocument` in `tests/e2e/extraction.spec.ts` went to `/comenzi` and waited
+20 s for the new order's row with `toHaveCount(1)`. On Ivan's scratch stack on 2026-09-17 it saw
+0 rows for all 20 s while the order was in the database, and a clean re-run passed. That reads
+like a list that lost an order. But `/comenzi` is rendered once, on the server, and nothing on the
+page reads the list again. The DOM the assertion polls cannot change after the load. So 0 rows for
+20 s means the one render was not the list: the error screen (one failed read in `listInboundOrders`
+or `listOutboundIssues` throws to `app/error.tsx`) or a redirect to the login screen. A mock
+Supabase with a real browser showed it: one injected failed read gave `Ceva nu a mers` with 0 rows,
+and that stays the same however long you wait. The leads that looked stronger did not reproduce: no
+stale cache (51 list reads for 51 navigations) and no `router.refresh()` collision (60 rounds, 0
+misses).
+**SOLUTION:** after `page.goto("/comenzi")` the helper checks the URL, waits for the inbound
+counter OR the error screen, and throws with the error digest when the error screen rendered. The
+digest matches the dev server's own `[WebServer]` log line, which carries the real error. RULE:
+**before a test waits for content on a server-rendered page, it first checks it is on the right
+page and that the page rendered. Waiting longer on a page nothing refetches shows nothing new. It
+only turns an error page into what looks like missing data. Wait for the list's always-visible
+counter, not the list itself: an empty `<ul>` has zero height and Playwright never counts it as
+visible.**
