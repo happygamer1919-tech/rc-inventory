@@ -6014,3 +6014,46 @@ page and that the page rendered. Waiting longer on a page nothing refetches show
 only turns an error page into what looks like missing data. Wait for the list's always-visible
 counter, not the list itself: an empty `<ul>` has zero height and Playwright never counts it as
 visible.**
+
+### A real node_modules copied with cp -a still breaks Turbopack when the source carries a self-loop
+**Tag:** tooling
+**ERROR:** On 2026-09-16, repairing PR 300, a worktree was given its own REAL `node_modules`, as
+the entry "A symlinked node_modules makes Turbopack refuse the project" prescribes, by copying the
+main clone's with `cp -a` rather than symlinking it. Turbopack still refused the project with
+`Symlink [project]/node_modules/node_modules is invalid, it points out of the filesystem root`, and
+that cascaded into false `Module not found` errors for `scheduler` and `@swc/helpers`. The cause
+was in the SOURCE tree: the main clone's `node_modules` already held a self-referential
+`node_modules/node_modules` symlink, dated 2026-08-27, and `cp -a` copied it faithfully. The earlier
+entry was necessary but not sufficient. Recorded in
+`docs/reports/2026-09-16-executor-pr-300-repair-and-digital-failure-verification.md` section 5 and
+appended here by card P3-78, Ivan's finding F13.
+**SOLUTION:** removing the copied `node_modules/node_modules` self-loop fixed it. RULE: **a copied
+`node_modules` inherits whatever the source holds, loops included. Prefer `npm ci` in the worktree,
+which builds a clean tree from the lockfile. If you copy anyway, check first for a
+`node_modules/node_modules` entry in the copy and remove it. A `Module not found` for a package that
+is plainly installed is a symptom to trace up to the first Turbopack `Symlink` line, not a missing
+dependency.**
+
+### check:board-edit counts docs/board/board-config.mjs as CODE, so the docs/ prefix does not mean record
+**Tag:** ci
+**ERROR:** On 2026-09-16 `check:board-edit` refused PR 300 with `code-with-no-card`. The pull
+request changed `docs/board/board-config.mjs` and read as a docs-only change, because
+`docs/board/rc-board-phase3.json` is a board and `docs/` is generally a record. But the classifier
+in `scripts/poc-free/check-board-edit.mjs` runs its rules in order, first match wins: after the
+three boards and the board template, every other path under `docs/board/` is CODE ("the board
+renderer, the validator and the board app are programs, and they live under docs/board/ for
+historical reasons only"). Only after that rule does the general `docs/` record rule apply. The
+existing entries covered `tests/` being CODE and covered the terminal-status rule, but none said
+the `docs/` prefix is not a safe proxy for record. Recorded in
+`docs/reports/2026-09-16-executor-pr-300-repair-and-digital-failure-verification.md` section 5 and
+appended here by card P3-78, Ivan's finding F13.
+**SOLUTION:** name a card for the change, the same as any code change. The check reads card ids from
+the branch name and the commit subjects, and each one passes when its status on the pull request
+head is in `TERMINAL_STATUSES`, which is `{shipped, blocked, halted}`. A card that is absent at the
+merge base resolves as `new-card` rather than `status-unchanged`, and that passes too. So a commit
+subject naming a card that is shipped, blocked or halted at the head, or a card first authored in
+the same pull request, satisfies it. RULE: **before calling a change docs-only, run
+`npm run check:board-edit` and read the count it prints per class: a `code` count above zero
+means the change is not docs-only, whatever its paths look like. Anything under
+`docs/board/` other than the three boards and the template is CODE: `board-config.mjs`,
+`render-board.mjs`, `validate-board.mjs`, `board-app.js` and `board.css`.**
