@@ -571,6 +571,44 @@ export async function hasExtractionInboundFields(client: ColumnProbe): Promise<b
 
 
 // ---------------------------------------------------------------------------
+// P3-80. Exista coloana extraction_drafts.platform_derived_partial?
+//
+// ACEEASI FORMA CA P3-75 SI DIN ACELASI MOTIV. 0054 aterizeaza pe productie prin
+// integrarea Supabase la vreo doua minute dupa fuziune, iar codul pleaca din
+// acelasi push. In fereastra aceea un update care numeste o coloana necunoscuta
+// primeste 42703, ruta raspunde 500, si Make REINCEARCA pe 5xx: INC-05.
+//
+// POARTA ACOPERA SI REGULA, NU NUMAI SCRIEREA. Cat timp coloana lipseste ruta
+// nu muta niciun status din cauza unei linii calculate: un status mutat fara
+// ca mutarea sa fie scrisa undeva ar fi o substitutie pe care nu o vede nimeni.
+// ---------------------------------------------------------------------------
+
+let cachedDerivedPartial: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasExtractionDerivedPartial(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedDerivedPartial && now - cachedDerivedPartial.at < TTL_MS) return cachedDerivedPartial.value;
+
+  try {
+    const { error } = await client
+      .from("extraction_drafts")
+      .select("platform_derived_partial")
+      .limit(1);
+    cachedDerivedPartial = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": se scrie fara coloana, in loc sa se
+    // incerce si sa se cada.
+    cachedDerivedPartial = { value: false, at: now };
+  }
+  return cachedDerivedPartial.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // P3-43. Exista coloanele clients.stage si clients.follow_up_date?
 //
 // DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar

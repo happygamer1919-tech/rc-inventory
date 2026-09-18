@@ -31,6 +31,7 @@ import { Button, Card, Chip } from "@/components/ui/primitives";
 import { DateField } from "@/components/ui/DateField";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
+  DERIVED_PARTIAL_NOTICE,
   EXTRACTION_ERROR_LABEL,
   EXTRACTION_INBOUND_LABEL,
   EXTRACTION_META_ABSENT,
@@ -782,6 +783,15 @@ export function ExtractionReviewPanel({
                         {draft.lines.length}{" "}
                         {draft.lines.length === 1 ? "poziție citită" : "poziții citite"} au fost
                         păstrate.
+                      </p>
+                    ) : null}
+                    {/* P3-80, constatarea F6. De ce un document trimis ca citit
+                        complet sta in Parțial: mutarea este a NOASTRA, si fara
+                        aceasta propozitie operatorul ar cauta un motiv al
+                        cititorului care nu exista. */}
+                    {draft.derivedPartial === true ? (
+                      <p className="text-[12.5px] text-rc-black mt-1" data-testid="draft-derived-partial">
+                        {DERIVED_PARTIAL_NOTICE}
                       </p>
                     ) : null}
                     {/* P3-72, constatarea F5. Diagnosticul modelului, inchis. */}

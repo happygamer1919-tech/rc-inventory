@@ -35,9 +35,11 @@ import {
   hasExtractionPlatformVerdict,
   hasExtractionLineMath,
   hasExtractionInboundFields,
+  hasExtractionDerivedPartial,
 } from "@/lib/data/schema-capability";
 import {
   classifyScan,
+  derivedLineRoute,
   headerConsistency,
   lineMathConsistency,
   lineMathFailedCount,
@@ -526,6 +528,42 @@ export async function POST(request: Request) {
     });
   });
 
+  // --- P3-80. UN TOTAL CALCULAT TRIMITE DOCUMENTUL IN PARTIAL -----------------
+  //
+  // CONSTATAREA F6 A LUI IVAN: "`line_total_source` = derived routes the
+  // document to partial by itself, in our reconciliation." Regula si motivele ei
+  // sunt in derivedLineRoute, lib/data/reconciliation.ts.
+  //
+  // RULEAZA DUPA effectiveStatus SI dropLines, SI NU LE HRANESTE. Clasificarea
+  // de deasupra si-a spus deja cuvantul: un `failed` al nostru ramane `failed`,
+  // liniile pastrate sau scoase raman exact cele decise acolo. Aceasta regula
+  // poate face un singur lucru, sa mute un `extracted` fara error_code in
+  // `partial`, pe orice sursa, scanare sau digital: F6 nu numeste o sursa, iar
+  // tiparul (h) din amendamentul R-185 este exact un control pus numai sub
+  // titlul scanarilor.
+  //
+  // UN PAYLOAD CARE POARTA error_code-ul LUI NU ESTE ATINS, hotararea R-190. Pe
+  // `extracted` un cod este oricum refuzat cu 400 mai sus; conditia este scrisa
+  // si in regula, ca precedenta sa fie o propozitie si nu un efect secundar al
+  // unei reguli vecine, aceeasi grija ca la EXT-26.
+  //
+  // CODUL HTTP NU SE SCHIMBA: el se decide mai jos numai din isRepeat. Corpul
+  // raspunsului spune statusul STOCAT, exact ca la EXT-16.
+  //
+  // SE MUTA NUMAI CAND MUTAREA SE POATE SCRIE. Fara coloana din 0054 nu am avea
+  // unde sa spunem ca expeditorul a zis `extracted` si noi am stocat `partial`,
+  // iar o substitutie nescrisa este exact ce interzice R-190.
+  const canRecordDerivedPartial = await hasExtractionDerivedPartial(supabase);
+  const derivedRoute = derivedLineRoute({
+    status: effectiveStatus,
+    senderErrorCode: errorCodeRaw,
+    lineTotalSources: (rawLines as unknown[]).map((l) =>
+      str((l as Record<string, unknown>).line_total_source),
+    ),
+  });
+  const routedToPartial = canRecordDerivedPartial && derivedRoute.routeToPartial;
+  const storedStatus = routedToPartial ? "partial" : effectiveStatus;
+
   // --- exista deja o ciorna pentru acest order_id? -------------------------
   const { data: existing, error: readError } = await supabase
     .from("extraction_drafts")
@@ -595,7 +633,7 @@ export async function POST(request: Request) {
   // si o poarta pe el, exact ca pana acum. Ziua in care 0032 se aplica, ea incepe
   // sa fie scrisa si separat, fara alta livrare.
   const draftUpdate: Record<string, unknown> = {
-    status: effectiveStatus,
+    status: storedStatus,
     error_code: effectiveErrorCode,
     reason: str(body.reason),
     supplier_name: str(body.supplier_name),
@@ -644,6 +682,12 @@ export async function POST(request: Request) {
     draftUpdate.platform_line_math_failed = lineMathFailedCount(lineMath);
   }
 
+  // P3-80. true EXACT cand regula a mutat statusul, false cand a rulat si nu l-a
+  // mutat. Pe un rand de dinaintea lui 0054 coloana ramane NULL: nu a rulat.
+  if (canRecordDerivedPartial) {
+    draftUpdate.platform_derived_partial = routedToPartial;
+  }
+
   if (await hasExtractionPageCount(supabase)) {
     draftUpdate.page_count = pageCount(body._meta);
   }
@@ -689,6 +733,11 @@ export async function POST(request: Request) {
   // a lui client_ref cu un client, nicio folosire a lui supplier_code la
   // potrivirea produselor, si line_total_source nu este citit de nicio regula de
   // reconciliere. Fiecare ar fi alt card.
+  //
+  // P3-80 FACE PROPOZITIA "line_total_source nu este citit de nicio regula de
+  // reconciliere" FALSA, si ea ramane scrisa mai sus. Constatarea F6 este acel
+  // alt card: o linie `derived` muta acum un `extracted` in `partial`, mai sus,
+  // langa aritmetica liniilor. Campul se stocheaza tot asa cum a sosit.
   //
   // ABSENTA NU ESTE O EROARE, exact ca la seria de mai sus: niciun 400 nou.
   // `str()` face ca "netrimis" si "trimis gol" sa ajunga amandoua NULL.
@@ -770,7 +819,8 @@ export async function POST(request: Request) {
     // stocat este `failed` iar raspunsul trebuie sa spuna acelasi lucru: un 202
     // care raporteaza `extracted` peste un rand scris `failed` este exact
     // genul de raspuns care face ca partea cealalta sa creada ca liniile exista.
-    { order_id: orderId, status: effectiveStatus, lines: dropLines ? 0 : rawLines.length },
+    // P3-80: statusul stocat, deci `partial` cand o linie calculata l-a mutat.
+    { order_id: orderId, status: storedStatus, lines: dropLines ? 0 : rawLines.length },
     { status: isRepeat ? CALLBACK_CODES.duplicate : CALLBACK_CODES.accepted },
   );
 }

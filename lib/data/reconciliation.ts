@@ -469,3 +469,66 @@ export function lineMathFailedCount(verdicts: readonly LineMathVerdict[]): numbe
   }
   return checked === 0 ? null : failed;
 }
+
+
+// ===========================================================================
+// P3-80. UN TOTAL DE LINIE CALCULAT, NU TIPARIT, TRIMITE DOCUMENTUL IN PARTIAL.
+// CONSTATAREA F6 A LUI IVAN, citata in termeni pe card si in ruta; aici fara
+// numele campului, fiindca acest fisier nu citeste nicio coloana si
+// check:pending-schema-reads cauta numele ca pe un cuvant: sursa totalului
+// liniei egala cu `derived` trimite documentul in partial, singura, in
+// reconcilierea noastra.
+//
+// DE CE. Din versiunea de prompt 2026-09-15b expeditorul declara pe fiecare
+// linie daca totalul a fost CITIT de pe pagina (`printed`) sau CALCULAT de el
+// (`derived`), iar pe partea lui o singura linie `derived` pica reconcilierea
+// oricat de bine s-ar aduna cifrele. Un total calculat este un total pe care
+// nimeni nu l-a vazut pe hartie: aritmetica il confirma prin constructie, deci
+// nicio verificare de suma nu il poate prinde. Aceasta este oglinda regulii lui,
+// pe partea noastra.
+//
+// ESTE O VERIFICARE NOUA SI SEPARATA, NU UN BRAT AL LUI classifyScan, din
+// acelasi motiv ca P3-75: reconcile() nu se uita niciodata la provenienta unei
+// linii, iar un brat nou ar muta documente intre brate, adica ar schimba ce se
+// respinge.
+//
+// CE MUTA, SI NUMAI ATAT. Un `extracted` fara error_code devine `partial`.
+// Nimic altceva: un status pe care clasificarea noastra l-a facut deja `failed`
+// nu se inmoaie, un `partial` ramane `partial`, iar un payload care poarta
+// error_code-ul lui nu este atins deloc, hotararea R-190.
+//
+// NUMAI SIRUL EXACT "derived". O valoare necunoscuta este stocata asa cum a
+// sosit si nu muta nimic: EXT-34 stocheaza campul neinterpretat, iar a ghici ce
+// inseamna "Derived" sau "estimated" ar fi o regula pe care nu a facut-o nimeni.
+// ===========================================================================
+
+export type DerivedRouteInput = {
+  /** Statusul pe care ruta L-AR STOCA dupa clasificarea existenta, nu cel sosit. */
+  status: "extracted" | "partial" | "failed";
+  /** error_code-ul EXPEDITORULUI, asa cum a sosit. Ne-null inseamna autoritar. */
+  senderErrorCode: string | null;
+  /** Sursa totalului fiecarei linii, dupa trim, null cand lipseste. */
+  lineTotalSources: readonly (string | null)[];
+};
+
+export type DerivedRouteVerdict = {
+  /** Cate linii au declarat totalul calculat. */
+  derivedLines: number;
+  /** true EXACT cand aceasta regula muta statusul din `extracted` in `partial`. */
+  routeToPartial: boolean;
+};
+
+/**
+ * Muta o linie cu totalul calculat documentul in `partial`?
+ *
+ * PURA SI FARA ACCES LA NIMIC, ca ruta sa aiba un singur loc unde o cheama si ca
+ * proba sa o poata cere pe fiecare ramura.
+ */
+export function derivedLineRoute(input: DerivedRouteInput): DerivedRouteVerdict {
+  const derivedLines = input.lineTotalSources.filter((s) => s === "derived").length;
+  return {
+    derivedLines,
+    routeToPartial:
+      input.status === "extracted" && input.senderErrorCode === null && derivedLines > 0,
+  };
+}

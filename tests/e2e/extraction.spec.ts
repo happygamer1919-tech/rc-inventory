@@ -1978,8 +1978,18 @@ test.describe("Extragere documente", () => {
 
     const r = await post(request, body);
     expect(r.status(), "un payload cu cele cinci campuri este acceptat").toBe(202);
-    // RASPUNSUL ESTE CEL DE ASTAZI: cardul nu muta statusul si nu scoate linii.
-    expect(await r.json()).toEqual({ order_id: orderId, status: "extracted", lines: 2 });
+    // P3-80, CONSTATAREA F6, SCHIMBA ACEST RASPUNS DELIBERAT. Comentariul si
+    // asteptarea de pana la P3-80 erau, sub scopul EXT-34 "stocat, nu
+    // interpretat":
+    //
+    //   "RASPUNSUL ESTE CEL DE ASTAZI: cardul nu muta statusul si nu scoate linii."
+    //   expect(await r.json()).toEqual({ order_id: orderId, status: "extracted", lines: 2 });
+    //
+    // Linia 2 poarta `derived`, deci din P3-80 documentul este stocat `partial`
+    // si corpul spune statusul stocat. Codul HTTP este tot 202 si nicio linie nu
+    // este scoasa. Cazurile complete sunt in
+    // extraction-derived-line-routes-partial.spec.
+    expect(await r.json()).toEqual({ order_id: orderId, status: "partial", lines: 2 });
 
     const d = await draftState(request, orderId);
     expect(d.document_type, "tipul documentului, pe ciorna").toBe("invoice");
@@ -1995,7 +2005,9 @@ test.describe("Extragere documente", () => {
       "Surub autoforant cu saiba, pentru tigla metalica",
     );
     expect(d.lines[1].line_total_source, "totalul liniei 2 a fost calculat").toBe("derived");
-    expect(d.status, "line_total_source nu muta statusul").toBe("extracted");
+    // P3-80. Pana la P3-80: expect(d.status, "line_total_source nu muta statusul").toBe("extracted");
+    expect(d.status, "o linie derived muta documentul in partial, P3-80").toBe("partial");
+    expect(d.error_code, "fara cod inventat").toBeNull();
   });
 
   test("36. EXT-34: un payload FARA cele cinci campuri este acceptat, 202, si toate cinci sunt null", async ({

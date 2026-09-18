@@ -228,6 +228,14 @@ export const EXTRACTION_INBOUND_LABEL = {
 
 /** EXT-34. Sursa totalului liniei, in cuvinte. O valoare pe care nu o
  *  cunoastem se arata asa cum a sosit: campul este stocat, nu interpretat. */
+/** P3-80, constatarea F6. De ce un document citit complet sta in `Parțial`.
+ *
+ *  AICI SI NU IN COMPONENT, din acelasi motiv ca etichetele de mai sus: textul
+ *  de pe ecran si textul pe care il cauta proba sunt acelasi sir. Linia anume se
+ *  vede sub fiecare pozitie, prin eticheta `Totalul liniei: calculat`. */
+export const DERIVED_PARTIAL_NOTICE =
+  "Marcat parțial de platformă: totalul cel puțin unei poziții a fost calculat la citire, nu tipărit pe document. Comparați acea poziție cu hârtia.";
+
 export function lineTotalSourceLabel(v: string): string {
   if (v === "printed") return "tipărit pe document";
   if (v === "derived") return "calculat";
@@ -451,6 +459,11 @@ export type ExtractionDraft = {
   /** EXT-34. Referinta CLIENTULUI tiparita pe document, verbatim. Nu se
    *  potriveste cu niciun client. Nu este `orderRef`, care este a furnizorului. */
   clientRef: string | null;
+  /** P3-80, constatarea F6. true EXACT cand regula NOASTRA a mutat documentul
+   *  din `extracted` in `partial` fiindca o linie are totalul calculat, nu
+   *  tiparit. false cand regula a rulat si nu a mutat nimic. null cand nu a
+   *  rulat, sau cand 0054 nu este inca aplicata. */
+  derivedPartial: boolean | null;
   /** EXT-28. Paginile NUMARATE DE NOI la incarcare, din bytes. null inseamna ca
    *  nu am putut numara cu siguranta, sau ca randul este de dinaintea migratiei
    *  0043. Nu este numarul raportat de model, care ramane in `_meta`. */
