@@ -128,6 +128,35 @@ const EXEMPT = {
     'apelul catre applied_ledger_version() este intr-un try si orice eroare devine null, deci ruta raspunde 200 cu ledger_version null si nu se prabuseste cat timp 0028 este in asteptare. Aplierul decide pe campul commit, care nu atinge baza de date.',
 };
 
+// EXT-34. UN CUVANT TOLERAT INTR-UN FISIER, NU UN FISIER SCUTIT.
+//
+// 0053 adauga coloana extraction_draft_lines.description, iar `description` este
+// si un cuvant obisnuit: cheia de metadate a lui Next si campul unui element de
+// meniu. Regula de mai jos cauta numele coloanei ORIUNDE in fisier, deliberat,
+// deci patru fisiere care nu ating nicio tabela de extragere au fost raportate.
+//
+// DE CE NU EXEMPT. O scutire acopera fisierul intreg si pentru orice migratie
+// viitoare, deci ar orbi verificarea exact acolo unde nimeni nu mai priveste.
+// Aici se tolereaza O PERECHE, fisier si cuvant, cu motivul scris; orice alta
+// coloana in asteptare este cautata in acelasi fisier exact ca pana acum.
+//
+// O PERECHE CARE NU MAI ESTE ADEVARATA ESTE REFUZATA, ca lista sa nu putrezeasca:
+// fisierul lipseste, sau cuvantul nu mai apare in el.
+const TOLERATED_WORDS = {
+  'lib/nav.ts': {
+    description: 'campul `description` al unui element de meniu, un text romanesc; fisierul nu citeste nicio tabela.',
+  },
+  'app/(app)/crm/page.tsx': {
+    description: 'campul `description` al celor trei carduri de pe pagina CRM, text static; fisierul nu citeste nicio tabela de extragere.',
+  },
+  'app/layout.tsx': {
+    description: 'cheia `description` din metadatele Next ale aplicatiei; fisierul nu citeste nicio tabela.',
+  },
+  'components/layout/Sidebar.tsx': {
+    description: '`item.description`, textul elementului de meniu din lib/nav.ts, pus in atributul title; fisierul nu citeste nicio tabela.',
+  },
+};
+
 function pendingMigrations() {
   const log = readFileSync(APPLY_LOG_PATH, 'utf8');
   const files = [];
@@ -257,6 +286,7 @@ for (const file of sourceFiles()) {
     // si verificarea l-ar rata tocmai in fisierul care tocmai a fost refactorizat.
     // Un fisier care numeste o coloana in asteptare ORIUNDE trebuie sa fi trecut
     // pe langa poarta.
+    if (TOLERATED_WORDS[rel]?.[c]) continue;
     if (new RegExp(`\\b${c}\\b`).test(src)) hits.push(`coloana ${c}`);
   }
 
@@ -309,6 +339,18 @@ const stale = EXEMPT_KEYS.filter((rel) => {
     return true;
   }
 });
+// EXT-34. O pereche tolerata al carei fisier lipseste sau nu mai poarta cuvantul.
+for (const [rel, words] of Object.entries(TOLERATED_WORDS)) {
+  let src = null;
+  try {
+    src = readFileSync(join(ROOT, rel), 'utf8');
+  } catch {
+    src = null;
+  }
+  for (const w of Object.keys(words)) {
+    if (src === null || !new RegExp(`\\b${w}\\b`).test(src)) stale.push(`${rel} (cuvantul tolerat ${w})`);
+  }
+}
 if (stale.length > 0) {
   // REFUSAL: pending-schema-reads-stale-exemption
   console.error('check-pending-schema-reads: scutiri pentru fisiere care nu mai exista:');

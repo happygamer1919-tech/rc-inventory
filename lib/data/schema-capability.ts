@@ -520,6 +520,57 @@ export async function hasExtractionLineMath(client: ColumnProbe): Promise<boolea
 
 
 // ---------------------------------------------------------------------------
+// EXT-34. Exista cele cinci coloane primite de la expeditor?
+//
+//   extraction_drafts.document_type, client_ref
+//   extraction_draft_lines.supplier_code, description, line_total_source
+//
+// ACEEASI FORMA CA P3-75 SI DIN ACELASI MOTIV. 0053 aterizeaza pe productie prin
+// integrarea Supabase la vreo doua minute dupa fuziune, iar codul pleaca din
+// acelasi push. In fereastra aceea un update sau un insert care numeste o
+// coloana necunoscuta primeste 42703, ruta raspunde 500, si Make REINCEARCA pe
+// 5xx: INC-05.
+//
+// O SINGURA POARTA PENTRU CELE CINCI COLOANE, fiindca sosesc in acelasi fisier de
+// migratie, deci nu exista stare in care unele exista si altele nu. Doua tabele
+// inseamna doua sonde, si poarta spune da NUMAI cand amandoua raspund.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: ruta scrie exact ce
+// scria, iar cele cinci campuri sunt acceptate si ignorate, ca pana acum.
+// ---------------------------------------------------------------------------
+
+let cachedInboundFields: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti: ruta de callback scrie cu cheia de
+ *   service_role, ecranul citeste prin sesiune, si o sonda care intreaba pe alta
+ *   legatura decat cea care va lucra raspunde la alta intrebare.
+ */
+export async function hasExtractionInboundFields(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedInboundFields && now - cachedInboundFields.at < TTL_MS) return cachedInboundFields.value;
+
+  try {
+    const drafts = await client
+      .from("extraction_drafts")
+      .select("document_type, client_ref")
+      .limit(1);
+    const lines = await client
+      .from("extraction_draft_lines")
+      .select("supplier_code, description, line_total_source")
+      .limit(1);
+    cachedInboundFields = { value: !drafts.error && !lines.error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
+    // incerce si sa se cada.
+    cachedInboundFields = { value: false, at: now };
+  }
+  return cachedInboundFields.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // P3-43. Exista coloanele clients.stage si clients.follow_up_date?
 //
 // DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar

@@ -221,10 +221,15 @@ console.log("\n6. lista este cea a rutei, citita din sursa ei");
     sorted(EXT34_TOP_LEVEL_KEYS) === sorted(["document_type", "client_ref"]) &&
       sorted(EXT34_LINE_KEYS) === sorted(["supplier_code", "description", "line_total_source"]),
   );
+  // EXT-34 A LIVRAT. Pana la el cazul de aici era "nicio cheie EXT-34 nu este
+  // deja citita de ruta", cu indicatia "daca EXT-34 a livrat, muta cheile in
+  // listele rutei". Cheile au fost mutate, deci cazul se intoarce: fiecare dintre
+  // cele cinci este citita de ruta si sta in lista rutei.
   check(
-    "nicio cheie EXT-34 nu este deja citita de ruta",
-    !EXT34_TOP_LEVEL_KEYS.some((k) => top.has(k)) && !EXT34_LINE_KEYS.some((k) => line.has(k)),
-    "daca EXT-34 a livrat, muta cheile in listele rutei",
+    "EXT-34 a livrat: toate cele cinci chei sunt citite de ruta si stau in listele rutei",
+    EXT34_TOP_LEVEL_KEYS.every((k) => top.has(k) && ROUTE_TOP_LEVEL_KEYS.includes(k)) &&
+      EXT34_LINE_KEYS.every((k) => line.has(k) && ROUTE_LINE_KEYS.includes(k)),
+    `ruta sus ${sorted(top)}, linie ${sorted(line)}`,
   );
   check("ruta cheama avertismentul", /warnUnknownCallbackKeys\(body\)/.test(post));
 }

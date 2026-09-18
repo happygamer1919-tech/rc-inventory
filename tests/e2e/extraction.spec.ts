@@ -1475,6 +1475,8 @@ test.describe("Extragere documente", () => {
       // nu este in contract este IGNORAT, niciodata ghicit, deci prezenta lor
       // aici este exact ce se intampla in productie. EXT-11 si P3-31 sunt
       // cardurile care le dau o forma.
+      // NU MAI ESTE ADEVARAT CA NU SUNT CITITE: EXT-11 stocheaza order_ref, iar
+      // EXT-34 stocheaza client_ref, verbatim. Cazul acesta nu le verifica.
       order_ref: "AV-0021884",
       client_ref: "RC-2026-0042",
       order_date: "2026-08-30",
@@ -1916,6 +1918,115 @@ test.describe("Extragere documente", () => {
     expect(fired[0]!.documentUrlOrigin).toBe(new URL(baseURL!).origin);
     expect(fired[0]!.documentUrlOrigin).not.toContain("rapidconstructmd.com");
     expect(fired[0]!.documentUrlViaRoute, "legatura trece prin ruta noastra").toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // EXT-34. CINCI CAMPURI PE CARE EXPEDITORUL LE TRIMITE DEJA SI PE CARE LE
+  // ARUNCAM.
+  //
+  // Pe document: document_type si client_ref. Pe fiecare linie: supplier_code,
+  // description si line_total_source. Pana la acest card ruta le accepta si nu
+  // le citeste, deci nimic nu ajunge in baza.
+  //
+  // STOCATE, NU INTERPRETATE. line_total_source se scrie asa cum soseste:
+  // `printed` pe o linie si `derived` pe cealalta, si niciuna nu schimba
+  // statusul, codul sau liniile pastrate. Folosirea lui in reconcilierea noastra
+  // este alt card.
+  //
+  // ACESTE DOUA CAZURI PICA INAINTE DE SCHIMBARE: fara migratia cardului
+  // coloanele nu exista, deci GET-ul intoarce `undefined` pentru fiecare camp,
+  // iar `undefined` nu este nici valoarea trimisa, nici null.
+  // -------------------------------------------------------------------------
+
+  test("35. EXT-34: cele cinci campuri trimise se stocheaza asa cum au sosit si se citesc inapoi", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e34cinci");
+
+    const base = callbackBody(orderId);
+    const line = base.lines[0]!;
+    const body = {
+      ...base,
+      document_type: "invoice",
+      client_ref: "RC-2026-0042",
+      lines: [
+        {
+          ...line,
+          supplier_code: "BK-C045-VIS",
+          description: "Tigla metalica Bilka Classic, grosime 0.45 mm, culoare visiniu",
+          line_total_source: "printed",
+        },
+        {
+          ...line,
+          product_name: "Surub autoforant 4.8x35 visiniu",
+          quantity: 10,
+          // `unit` este enumul unit_code din 0008, deci numai o valoare din
+          // ALL_UNITS; cuvantul documentului sta in unit_raw.
+          unit: "pcs",
+          unit_raw: "buc",
+          unit_price: 1.5,
+          line_total: 15,
+          supplier_code: "SA-4835-V",
+          description: "Surub autoforant cu saiba, pentru tigla metalica",
+          line_total_source: "derived",
+        },
+      ],
+    };
+
+    const r = await post(request, body);
+    expect(r.status(), "un payload cu cele cinci campuri este acceptat").toBe(202);
+    // RASPUNSUL ESTE CEL DE ASTAZI: cardul nu muta statusul si nu scoate linii.
+    expect(await r.json()).toEqual({ order_id: orderId, status: "extracted", lines: 2 });
+
+    const d = await draftState(request, orderId);
+    expect(d.document_type, "tipul documentului, pe ciorna").toBe("invoice");
+    expect(d.client_ref, "referinta clientului, pe ciorna").toBe("RC-2026-0042");
+    expect(d.lines).toHaveLength(2);
+    expect(d.lines[0].supplier_code, "codul furnizorului, linia 1").toBe("BK-C045-VIS");
+    expect(d.lines[0].description, "descrierea, linia 1").toBe(
+      "Tigla metalica Bilka Classic, grosime 0.45 mm, culoare visiniu",
+    );
+    expect(d.lines[0].line_total_source, "totalul liniei 1 a fost tiparit").toBe("printed");
+    expect(d.lines[1].supplier_code, "codul furnizorului, linia 2").toBe("SA-4835-V");
+    expect(d.lines[1].description, "descrierea, linia 2").toBe(
+      "Surub autoforant cu saiba, pentru tigla metalica",
+    );
+    expect(d.lines[1].line_total_source, "totalul liniei 2 a fost calculat").toBe("derived");
+    expect(d.status, "line_total_source nu muta statusul").toBe("extracted");
+  });
+
+  test("36. EXT-34: un payload FARA cele cinci campuri este acceptat, 202, si toate cinci sunt null", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { orderId } = await orderWithDocument(page, "e34fara");
+
+    // Payload-ul versiunii precedente, care nu cunoaste niciunul dintre campuri.
+    // Absenta nu este un motiv de refuz: niciun 400 nou, nicaieri.
+    const body = callbackBody(orderId);
+    for (const k of ["document_type", "client_ref"]) {
+      expect(Object.prototype.hasOwnProperty.call(body, k), `fixture-ul nu poarta ${k}`).toBe(false);
+    }
+    for (const k of ["supplier_code", "description", "line_total_source"]) {
+      expect(Object.prototype.hasOwnProperty.call(body.lines[0], k), `linia nu poarta ${k}`).toBe(false);
+    }
+
+    const r = await post(request, body);
+    expect(r.status(), "absenta celor cinci campuri nu este o eroare").toBe(202);
+    expect(await r.json()).toEqual({ order_id: orderId, status: "extracted", lines: 1 });
+
+    const d = await draftState(request, orderId);
+    expect(d.document_type, "tipul absent este NULL").toBeNull();
+    expect(d.client_ref, "referinta absenta este NULL").toBeNull();
+    expect(d.lines).toHaveLength(1);
+    expect(d.lines[0].supplier_code, "codul absent este NULL").toBeNull();
+    expect(d.lines[0].description, "descrierea absenta este NULL").toBeNull();
+    expect(d.lines[0].line_total_source, "sursa totalului absenta este NULL").toBeNull();
   });
 
 });

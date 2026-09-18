@@ -34,6 +34,7 @@ import {
   hasReconciliationFailedCode,
   hasExtractionPlatformVerdict,
   hasExtractionLineMath,
+  hasExtractionInboundFields,
 } from "@/lib/data/schema-capability";
 import {
   classifyScan,
@@ -680,6 +681,27 @@ export async function POST(request: Request) {
     draftUpdate.order_ref_series = str(body.order_ref_series);
   }
 
+  // EXT-34. CINCI CAMPURI PE CARE EXPEDITORUL LE TRIMITE DEJA SI PE CARE, PANA
+  // LA 0053, LE ARUNCAM: document_type si client_ref aici, pe document, si
+  // supplier_code, description si line_total_source mai jos, pe fiecare linie.
+  //
+  // STOCATE, NU INTERPRETATE. Nicio multime pentru document_type, nicio potrivire
+  // a lui client_ref cu un client, nicio folosire a lui supplier_code la
+  // potrivirea produselor, si line_total_source nu este citit de nicio regula de
+  // reconciliere. Fiecare ar fi alt card.
+  //
+  // ABSENTA NU ESTE O EROARE, exact ca la seria de mai sus: niciun 400 nou.
+  // `str()` face ca "netrimis" si "trimis gol" sa ajunga amandoua NULL.
+  //
+  // O SINGURA POARTA PENTRU CELE CINCI, pe clientul de service_role, fiindca
+  // sosesc in acelasi fisier de migratie. Pana la aplicare ruta scrie exact ce
+  // scria.
+  const canStoreInboundFields = await hasExtractionInboundFields(supabase);
+  if (canStoreInboundFields) {
+    draftUpdate.document_type = str(body.document_type);
+    draftUpdate.client_ref = str(body.client_ref);
+  }
+
   const { error: updateError } = await supabase
     .from("extraction_drafts")
     .update(draftUpdate)
@@ -725,6 +747,14 @@ export async function POST(request: Request) {
           ? {
               platform_math_outcome: lineMath[i]!.outcome,
               platform_math_diff: lineMath[i]!.diff,
+            }
+          : {}),
+        // EXT-34. Asa cum au sosit, in spatele aceleiasi porti ca pe document.
+        ...(canStoreInboundFields
+          ? {
+              supplier_code: str(l.supplier_code),
+              description: str(l.description),
+              line_total_source: str(l.line_total_source),
             }
           : {}),
       };
