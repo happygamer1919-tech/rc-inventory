@@ -26,6 +26,7 @@
     "check:page-count": "node scripts/poc-free/check-page-count.mjs",
     "check:reconciliation": "node scripts/poc-free/check-reconciliation.mjs",
     "check:numeric-field": "node scripts/poc-free/check-numeric-field.mjs",
+    "check:callback-keys": "node scripts/poc-free/check-callback-keys.mjs",
     "check:no-destructive-migration": "node scripts/poc-free/check-no-destructive-migration.mjs",
     "prove:no-destructive-migration": "node scripts/poc-free/prove-no-destructive-migration.mjs",
     "prove:deployed-commit": "node scripts/poc-free/prove-deployed-commit.mjs",
