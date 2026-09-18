@@ -33,8 +33,14 @@ import {
   hasSupplierDocumentRef,
   hasReconciliationFailedCode,
   hasExtractionPlatformVerdict,
+  hasExtractionLineMath,
 } from "@/lib/data/schema-capability";
-import { classifyScan, headerConsistency } from "@/lib/data/reconciliation";
+import {
+  classifyScan,
+  headerConsistency,
+  lineMathConsistency,
+  lineMathFailedCount,
+} from "@/lib/data/reconciliation";
 import { numericField } from "@/lib/data/numeric-field.mjs";
 import {
   CALLBACK_CODES,
@@ -488,6 +494,28 @@ export async function POST(request: Request) {
   const dropLines =
     canStoreSource && documentSource === "scan" && effectiveStatus === "failed";
 
+  // --- P3-75. ARITMETICA FIECAREI LINII, PE ORICE FORMA ------------------------
+  //
+  // CONSTATAREA F7 A LUI IVAN: "a line whose line_total is right but quantity x
+  // unit price disagrees is caught, on every shape." PE ORICE FORMA INSEAMNA
+  // FARA POARTA LUI scanVerdict: fiecare linie a fiecarui payload care poarta
+  // linii, oricare ar fi sursa si oricare ar fi statusul. O scanare `failed` nu
+  // are voie sa poarte cheia `lines` deloc (EXT-20, 400 mai sus), deci acolo nu
+  // exista nimic de verificat si numarul ramane null, ceea ce este adevarul.
+  //
+  // SE CALCULEAZA DUPA effectiveStatus SI dropLines SI NU LE CITESTE, NICI NU LE
+  // HRANESTE. Nimic de deasupra acestei linii nu vede rezultatul: nu muta un
+  // status, nu alege un cod, nu pastreaza si nu scoate o linie, si nu intra in
+  // raspunsul HTTP. Se SCRIE, si atat, forma hotararii R-190.
+  const lineMath = (rawLines as unknown[]).map((l) => {
+    const r = l as Record<string, unknown>;
+    return lineMathConsistency({
+      quantity: num(r.quantity),
+      unitPrice: num(r.unit_price),
+      lineTotal: num(r.line_total),
+    });
+  });
+
   // --- exista deja o ciorna pentru acest order_id? -------------------------
   const { data: existing, error: readError } = await supabase
     .from("extraction_drafts")
@@ -598,6 +626,14 @@ export async function POST(request: Request) {
     draftUpdate.platform_arm = platformArm;
   }
 
+  // P3-75. Poarta proprie, fiindca 0052 este alt fisier decat 0037. Numarul se
+  // scrie si cand liniile sunt scoase de EXT-15: acela este cazul pentru care
+  // exista pe document si nu numai pe linie.
+  const canStoreLineMath = await hasExtractionLineMath(supabase);
+  if (canStoreLineMath) {
+    draftUpdate.platform_line_math_failed = lineMathFailedCount(lineMath);
+  }
+
   if (await hasExtractionPageCount(supabase)) {
     draftUpdate.page_count = pageCount(body._meta);
   }
@@ -674,6 +710,14 @@ export async function POST(request: Request) {
           return mapped !== null && knownCategories.has(mapped) ? mapped : null;
         })(),
         category_raw: str(l.category_raw),
+        // P3-75. Verdictul NOSTRU despre aritmetica liniei, scris langa cifrele
+        // ei si niciodata in locul lor. Diferenta este null exact pe `not_run`.
+        ...(canStoreLineMath
+          ? {
+              platform_math_outcome: lineMath[i]!.outcome,
+              platform_math_diff: lineMath[i]!.diff,
+            }
+          : {}),
       };
     });
     const { error: insertError } = await supabase.from("extraction_draft_lines").insert(rows);

@@ -476,6 +476,50 @@ export async function hasExtractionPlatformVerdict(client: ColumnProbe): Promise
 
 
 // ---------------------------------------------------------------------------
+// P3-75. Exista coloanele aritmeticii pe linie?
+//
+//   extraction_draft_lines.platform_math_outcome, platform_math_diff
+//   extraction_drafts.platform_line_math_failed
+//
+// ACEEASI FORMA CA EXT-26 SI DIN ACELASI MOTIV. 0052 aterizeaza pe productie
+// prin integrarea Supabase la vreo doua minute dupa fuziune, iar codul pleaca din
+// acelasi push. In fereastra aceea un insert care numeste o coloana necunoscuta
+// primeste 42703, ruta raspunde 500, si Make REINCEARCA pe 5xx: INC-05.
+//
+// O SINGURA POARTA PENTRU CELE TREI COLOANE, fiindca sosesc in acelasi fisier de
+// migratie. Doua tabele inseamna doua sonde, si poarta spune da NUMAI cand
+// amandoua raspund: o jumatate prezenta nu este o stare pe care o scriem.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: ruta scrie exact ce
+// scria, fara cele trei coloane.
+// ---------------------------------------------------------------------------
+
+let cachedLineMath: { value: boolean; at: number } | null = null;
+
+export async function hasExtractionLineMath(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedLineMath && now - cachedLineMath.at < TTL_MS) return cachedLineMath.value;
+
+  try {
+    const lines = await client
+      .from("extraction_draft_lines")
+      .select("platform_math_outcome, platform_math_diff")
+      .limit(1);
+    const drafts = await client
+      .from("extraction_drafts")
+      .select("platform_line_math_failed")
+      .limit(1);
+    cachedLineMath = { value: !lines.error && !drafts.error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
+    // incerce si sa se cada.
+    cachedLineMath = { value: false, at: now };
+  }
+  return cachedLineMath.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // P3-43. Exista coloanele clients.stage si clients.follow_up_date?
 //
 // DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar

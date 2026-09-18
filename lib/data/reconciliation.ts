@@ -349,3 +349,123 @@ export function classifyScan(input: ScanInput): ScanClassification {
     }
   }
 }
+
+
+// ===========================================================================
+// P3-75. ARITMETICA FIECAREI LINII, PE EA INSASI. CONSTATAREA F7 A LUI IVAN:
+//
+//   "a line whose line_total is right but quantity x unit price disagrees is
+//    caught, on every shape."
+//
+// CE NU PRINDE NIMIC DIN CE ESTE MAI SUS. reconcile() aduna line_total si
+// compara SUMA cu antetul. O linie gresita pe ea insasi (3 x 10 = 40) trece
+// neobservata cand o linie vecina greseste in sens invers cu aceeasi suma: tabelul
+// se aduna, antetul se aduna, si doua linii sunt gresite.
+//
+// ESTE O VERIFICARE NOUA SI SEPARATA, NU UN BRAT AL LUI classifyScan. A o pune
+// acolo ar muta documente de pe un brat pe altul, adica ar schimba ce se
+// respinge, iar aceea este suprafata contractului cu Andre.
+//
+// SE INREGISTREAZA, NU SE SUBSTITUIE, forma hotararii R-190: "Our classification
+// runs anyway and is recorded, never substituted." Rezultatul se scrie langa
+// campurile expeditorului si nu atinge niciodata status, error_code, liniile
+// pastrate sau raspunsul HTTP.
+//
+// NU PRINDE NICI EL O FABRICATIE COERENTA. Scanarea Matnord a avut patru linii
+// inventate, fiecare consistenta aritmetic: fiecare se inmultea corect. Aceasta
+// verificare nu le-ar fi vazut. Prinde citirea gresita a UNUIA dintre cele trei
+// campuri ale unei linii, ceea ce este alta afirmatie. Ultimul control ramane
+// Mihai uitandu-se la scanare.
+// ===========================================================================
+
+export type LineMathInput = {
+  quantity: number | null;
+  unitPrice: number | null;
+  lineTotal: number | null;
+};
+
+/** Ce s-a intamplat cu o linie. Acelasi vocabular ca HeaderCheckOutcome si din
+ *  acelasi motiv: `not_run` NU ESTE `passed`. O linie careia ii lipseste o cifra
+ *  nu a fost verificata, iar "nu am putut sa ma uit" si "nu este nimic in
+ *  neregula" nu au voie sa se stocheze la fel. */
+export type LineMathVerdict =
+  | { outcome: "passed"; diff: number; tolerance: number }
+  | { outcome: "failed"; diff: number; tolerance: number }
+  | { outcome: "not_run"; diff: null; tolerance: null };
+
+/**
+ * Toleranta unei singure linii.
+ *
+ * PODEAUA ESTE A RECONCILIERII, CHEMATA, NU RESCRISA: toleranceFor(1), adica
+ * 0.05. Doua podele care nu sunt de acord la granita ar fi exact ce interzice
+ * antetul lui toleranceFor.
+ *
+ * AL DOILEA TERMEN ESTE ROTUNJIREA PRETULUI PE HARTIE, SI NU ESTE O RELAXARE.
+ * Un pret unitar tiparit la ban poate purta pana la o jumatate de ban de eroare
+ * pe unitate, iar furnizorul calculeaza totalul liniei din pretul NEROTUNJIT:
+ * 1000 de bucati la 1.2345 tiparit 1.23 dau 1234.50 fata de 1230.00, o diferenta
+ * de 4.50 pe o linie perfect corecta. O suma fixa in bani ar marca fiecare linie
+ * cu cantitate mare. O citire gresita reala (o cifra schimbata, o virgula mutata)
+ * rateaza cu mult peste acest prag.
+ */
+export function lineMathTolerance(quantity: number): number {
+  return round2(Math.max(toleranceFor(1), 0.005 * Math.abs(quantity)));
+}
+
+/**
+ * Se potriveste cantitatea ori pretul unitar cu totalul LINIEI?
+ *
+ * ROTUNJIREA SE FACE INAINTE DE SCADERE, la fel ca la reconcile() si
+ * headerConsistency(), si din acelasi motiv: a rotunji dupa da alt raspuns exact
+ * la granita. Granita este inclusiva, tot ca acolo.
+ */
+export function lineMathConsistency(input: LineMathInput): LineMathVerdict {
+  const has = (v: number | null): v is number => v !== null && Number.isFinite(v);
+  if (!has(input.quantity) || !has(input.unitPrice) || !has(input.lineTotal)) {
+    return { outcome: "not_run", diff: null, tolerance: null };
+  }
+  const tolerance = lineMathTolerance(input.quantity);
+  const diff = round2(
+    Math.abs(round2(input.quantity * input.unitPrice) - round2(input.lineTotal)),
+  );
+  return diff <= tolerance
+    ? { outcome: "passed", diff, tolerance }
+    : { outcome: "failed", diff, tolerance };
+}
+
+/**
+ * Cate linii ale documentului NU se potrivesc cu ele insele, sau null.
+ *
+ * NULL CAND NICIO LINIE NU A PUTUT FI VERIFICATA: zero linii, sau fiecare linie
+ * `not_run`. Zero ar spune "am verificat si totul se potriveste", iar despre un
+ * document din care nu s-a verificat nimic acea propozitie este falsa. Aceeasi
+ * regula ca `not_run` la antet.
+ *
+ * EXISTA PE DOCUMENT, NU NUMAI PE LINIE, fiindca o scanare pe care reconcilierea
+ * noastra o stocheaza `failed` isi pierde liniile dupa EXT-15. Fara acest numar,
+ * o nepotrivire pe acea forma nu ar fi scrisa nicaieri.
+ */
+export function lineMathFailedCount(verdicts: readonly LineMathVerdict[]): number | null {
+  let checked = 0;
+  let failed = 0;
+  for (const v of verdicts) {
+    switch (v.outcome) {
+      case "passed":
+        checked += 1;
+        break;
+      case "failed":
+        checked += 1;
+        failed += 1;
+        break;
+      case "not_run":
+        break;
+      default: {
+        // Un al patrulea rezultat nu compileaza pana nu spune cineva cum se
+        // numara. Aceeasi garda ca in classifyScan.
+        const unreachable: never = v;
+        throw new Error(`rezultat de linie neclasificat: ${JSON.stringify(unreachable)}`);
+      }
+    }
+  }
+  return checked === 0 ? null : failed;
+}
