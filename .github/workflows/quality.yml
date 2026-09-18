@@ -1045,13 +1045,6 @@ jobs:
         if: steps.docs_scope.outputs.docs_only != 'true'
         run: npx playwright test
 
-      # P3-77 TEMPORARY. Acceptance (1) of the card: the orderWithDocument path
-      # ten times in a row, retries off. Removed again before the merge proposal;
-      # the run id is the evidence.
-      - name: P3-77 proof, orderWithDocument ten times with retries off
-        if: steps.docs_scope.outputs.docs_only != 'true'
-        run: npx playwright test tests/e2e/extraction.spec.ts --project=chromium --grep "1\. trimiterea poarta" --repeat-each=10 --retries=0
-
       # P3-73. BOTH CONDITIONS, AND THE SECOND ONE IS NOT DECORATION. On a
       # documentation-only diff there is no Playwright run and therefore no
       # report directory, so a validator failing under `failure()` would send
