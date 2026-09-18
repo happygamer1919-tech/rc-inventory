@@ -253,6 +253,17 @@ jobs:
       - name: Check the reconciliation tolerance
         run: npm run check:reconciliation
 
+      # P3-74, Ivan's finding F2. An empty string or a boolean landing in a
+      # numeric extraction field must arrive as null and never as 0 or 1, because
+      # Number("") is 0, Number(true) is 1 and every one of them is finite. NOT
+      # PATH-FILTERED, for the same reason the reconciliation step above gives:
+      # the end-to-end case proves the rule is wired into the callback route and
+      # needs a database, this proves the rule itself is right and needs nothing,
+      # and the two fail for different reasons. No network, no database, no
+      # secret.
+      - name: Check the numeric field rule
+        run: npm run check:numeric-field
+
       # MERGE IS APPLY ON THIS REPOSITORY, so the destructive-statement boundary
       # is the pull request and not the applier. NOT PATH-FILTERED: it resolves
       # its own file list from the diff, and a workflow-level filter would skip

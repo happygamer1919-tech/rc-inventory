@@ -5970,3 +5970,25 @@ appended behind the existing probe, mirroring the upload-time count exactly. RUL
 capability probe answers is "did a LATER migration land yet", so read which file added the column
 before writing one. A column and its table share a fate when one file created both, and probing it
 asks nothing.**
+
+### Number() is a converter, not a type test, so "" and true and [] all become finite numbers
+**Tag:** backend
+**ERROR:** `num()` in `app/api/extraction/callback/route.ts` read
+`const n = typeof v === "string" ? Number(v) : Number(v);` and then trusted
+`Number.isFinite(n)` to reject anything that was not a number. Both branches of that ternary
+are the same expression, which is the visible half of the defect, and the invisible half is
+that `Number.isFinite` was being asked the wrong question. `Number("")` is `0`,
+`Number("   ")` is `0`, `Number(true)` is `1`, `Number(false)` is `0`, `Number([])` is `0` and
+`Number([5])` is `5`. Every one of those is finite, so every one of them passed the guard and
+was written into `extraction_drafts` and `extraction_draft_lines` as a reading. A stored `0`
+subtotal is indistinguishable on the review screen from a `0` printed on the paper, so the
+operator confirming the draft has no way to tell an empty field from a document that says
+nothing is owed, and the reconciliation verdict is computed from the same false figure. The
+guard had been there since the route was written and looked like it covered exactly this.
+**SOLUTION:** the rule moved to `lib/data/numeric-field.mjs`, where the type is tested BEFORE
+any conversion: only a `number` or a non-empty trimmed `string` ever reaches `Number()`, and
+everything else returns `null` first. `num()` became a one-line delegation, so no call site
+changed. RULE: **`Number.isFinite(Number(v))` does not answer "is v a number". Test the type
+first and convert second, and when a coercion guard is the only thing standing between a
+payload and a stored figure, write the failing values out as cases: `""`, `"   "`, `true`,
+`false`, `[]` and `[5]` are the six that pass a finite check and mean nothing.**

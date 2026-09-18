@@ -35,6 +35,7 @@ import {
   hasExtractionPlatformVerdict,
 } from "@/lib/data/schema-capability";
 import { classifyScan, headerConsistency } from "@/lib/data/reconciliation";
+import { numericField } from "@/lib/data/numeric-field.mjs";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -45,11 +46,29 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/** numeric() peste PostgREST vine ca string; null ramane null, mereu. */
+/**
+ * numeric() peste PostgREST vine ca string; null ramane null, mereu.
+ *
+ * P3-74, CONSTATAREA F2 A LUI IVAN. CORPUL ACESTEI FUNCTII ERA, PANA LA ACEST
+ * CARD:
+ *
+ *     if (v === null || v === undefined) return null;
+ *     const n = typeof v === "string" ? Number(v) : Number(v);
+ *     return Number.isFinite(n) ? n : null;
+ *
+ * Cele doua ramuri ale ternarului erau identice, deci fiecare valoare ajungea la
+ * Number(), iar Number("") este 0, Number(true) este 1 si Number(false) este 0,
+ * toate trei finite. Un camp trimis GOL se stoca drept zero, adica drept o
+ * citire, si un boolean ajuns in dreptul unui camp numeric se stoca drept 1 sau
+ * 0. Regula sta acum in lib/data/numeric-field.mjs, care o poate dovedi in
+ * `quality` fara baza de date si fara browser; antetul acelui fisier spune de ce
+ * un zero fals este mai rau decat o valoare lipsa.
+ *
+ * ACELASI NUME SI ACEEASI SEMNATURA, deliberat: fiecare chemare de mai jos
+ * ramane neatinsa, deci diferenta se citeste intr-un singur loc.
+ */
 function num(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  const n = typeof v === "string" ? Number(v) : Number(v);
-  return Number.isFinite(n) ? n : null;
+  return numericField(v);
 }
 
 /** Un sir prezent si gol NU este o valoare. Contract, regula globala 2.1. */
