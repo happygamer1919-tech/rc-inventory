@@ -6072,3 +6072,23 @@ doctrine correction, grep the whole file for the key phrase of the false claim A
 (here: `only green`, `unfiltered`, `every step`), and correct every hit under section 9c in the same
 pull request. A restatement "so it cannot be read loosely" is a second copy that will go stale; a
 pointer to the one statement cannot.**
+
+### A pending column named with a common word makes the unapplied-schema check flag files that read no table
+**Tag:** ci
+**ERROR:** Card EXT-34 (2026-09-18) added migration 0053 with the column
+`extraction_draft_lines.description`, which its acceptance names exactly. `npm run
+check:pending-schema-reads` searches every file under `lib/`, `app/` and `components/` for the
+pending column name as a whole word, anywhere, deliberately. It refused four files that touch no
+database table at all: `lib/nav.ts` and `app/(app)/crm/page.tsx` (menu and card text fields),
+`app/layout.tsx` (the Next metadata key) and `components/layout/Sidebar.tsx`
+(`item.description`). A first draft of the review screen also named its own TypeScript field
+`description` and was flagged for the same reason.
+**SOLUTION:** the column name stays as the card requires. The check gained `TOLERATED_WORDS`, a map
+of file to word, each with a written reason, so only that word is skipped in that file and every
+other pending column is still searched there; a pair whose file is gone or no longer carries the
+word is refused like a stale exemption. Adding the four files to `EXEMPT` was refused because it
+blinds the check for those files for every future migration. The TypeScript field was renamed
+`lineDescription`. RULE: **when a migration adds a column whose name is an ordinary word, run
+`npm run check:pending-schema-reads` before writing app code, tolerate each false hit per file and
+per word with its reason, never per file, and give the app-side field a name that is not the bare
+word.**
