@@ -37,14 +37,29 @@ import {
   EXTRACTION_META_ABSENT,
   EXTRACTION_META_LABEL,
   EXTRACTION_META_TITLE,
+  QUANTITIES_ONLY_NOTICE,
   SCAN_LINE_NOTICE,
   effectiveSource,
   formatExtractionDuration,
   hasExtractionMeta,
+  isQuantitiesOnly,
   lineTotalSourceLabel,
   scanReadLines,
 } from "@/lib/data/extraction-types";
 import { formatMoney } from "@/lib/data/format";
+
+/** P3-82. Un document citit, cu linii, fara niciun pret si fara niciun total.
+ *  Numai pe `extracted` si `partial`: un `failed` nu a fost acceptat. */
+function quantitiesOnlyDraft(d: ExtractionDraft): boolean {
+  return (
+    (d.status === "extracted" || d.status === "partial") &&
+    isQuantitiesOnly({
+      lineTotals: d.lines.map((l) => l.lineTotal),
+      subtotal: d.subtotal,
+      documentTotal: d.documentTotal,
+    })
+  );
+}
 
 /** EXT-15. O scanare al carei continut nu a fost citit.
  *
@@ -792,6 +807,17 @@ export function ExtractionReviewPanel({
                     {draft.derivedPartial === true ? (
                       <p className="text-[12.5px] text-rc-black mt-1" data-testid="draft-derived-partial">
                         {DERIVED_PARTIAL_NOTICE}
+                      </p>
+                    ) : null}
+                    {/* P3-82, constatarea F17, hotararea R-208. Un aviz fara
+                        preturi este acceptat; nota spune de unde vin preturile.
+                        Derivata din liniile si totalurile stocate prin ACEEASI
+                        conditie pe care o foloseste reconcilierea, deci nu poate
+                        aparea pe un document refuzat si nu poate lipsi de pe unul
+                        acceptat pe aceasta forma. */}
+                    {quantitiesOnlyDraft(draft) ? (
+                      <p className="text-[12.5px] text-rc-black mt-1" data-testid="draft-quantities-only">
+                        {QUANTITIES_ONLY_NOTICE}
                       </p>
                     ) : null}
                     {/* P3-72, constatarea F5. Diagnosticul modelului, inchis. */}

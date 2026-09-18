@@ -14077,3 +14077,65 @@ governs, and it revives no terminal grant.
 
 **Unblocks:** nothing. It fixes who the runbook's approval steps name.
 **Supersedes:** the sentence quoted above, in the words "without Ivan" only.
+
+### R-208 - A delivery note with quantities but no prices and no total is accepted, not failed: our reconciliation skips, it does not refuse
+
+**Date:** 2026-09-18
+**Asked on:** Ivan's finding F17, decided by Max as platform owner (R-207), goal
+G37 of the operator factory
+**Answer, verbatim:**
+> F17: a readable delivery note (aviz) with line items and quantities but no
+> prices and no total is ACCEPTED, not failed. The reader keeps every line with
+> its quantity; unit price and line total stay null; the document lands in review
+> with a plain Romanian note 'Document fără prețuri: cantitățile sunt citite,
+> prețurile se completează din factură'; the reconciliation that compares line
+> totals to a header total is skipped when there is no header total, not failed.
+> `unreadable_document` is reserved for documents that could not be read. Record
+> the decision as a ruling in `decisions/inbox.md` (Max's words above) so R-202's
+> frozen failure shape has a successor; Andre is told in the PR body whether his
+> side must change anything (it should not: our side stops refusing).
+
+**Ruling: adopted. Built by card P3-82.**
+
+**WHAT CHANGES, AND IT IS ONE SHAPE.** A document with at least one line, EVERY
+line without a `line_total`, and NO header total at all (`subtotal` null and
+`document_total` null) is no longer refused by our reconciliation. `reconcile()`
+in `lib/data/reconciliation.ts` answers it `quantities_only`, which is accepted,
+and `classifyScan` therefore returns no refusal. The document keeps its status,
+every line is kept with its quantity, and `unit_price` and `line_total` stay null
+as sent. The review screen shows Max's sentence on that document's row.
+
+**WHAT DOES NOT CHANGE.** A document with SOME lines missing a total is an
+incomplete reading, not a delivery note by design, and still refuses
+`line_total_missing` with `unreadable_document`, exactly as before. So does a
+document that prints a header total while a line has none. The other five arms of
+the EXT-23 split are untouched, `platform_arm` keeps its six values (this is not
+a refusal, so it writes no arm), no HTTP code moves, and the callback route is not
+edited.
+
+**THE SUCCESSOR TO R-202, FOR THIS ONE CASE.** R-202 froze the failure shape
+until close under R-199, and that close happened on 2026-09-17. Under it, a
+priceless delivery note read from a scan was one of the payloads our side turned
+into a failure. From this ruling it is not a failure on our side at all. R-202's
+shapes for a failure that really is one (a digital failure carries `lines: []`, a
+scan failure carries no `lines` key, `null` and `""` refused) are unchanged.
+
+**THE NOTE IS DERIVED FROM THE STORED DOCUMENT, NOT WRITTEN INTO `reason`.**
+`reason` is the sender's field and is stored as sent; overwriting it would hide
+what the reader said. The screen decides with the same single condition the
+reconciliation uses, so the two cannot disagree.
+
+**WHAT ANDRE'S SIDE MUST CHANGE: NOTHING. OUR SIDE STOPS REFUSING.** Nothing that
+was accepted before is refused now. ONE FACT IS RECORDED BESIDE THAT, BECAUSE IT
+DECIDES WHAT MIHAI ACTUALLY SEES: R-205 records that for
+`aviz-silvamat-0044213.pdf`, a goods note with no values, the sender's own reader
+answers `failed` with `unreadable_document`. A payload that carries its own
+`error_code` is authoritative under R-190, so such a payload stays failed on our
+side after this ruling too, and R-205's regression expectation still holds. The
+note reaches the screen for a priceless delivery note when the reader sends it as
+read, with its lines. Whether the reader should do that is Andre's side and is not
+decided here.
+
+**Unblocks:** card P3-82.
+**Supersedes:** none. It adds one accepted shape to the reconciliation; R-202's
+frozen shapes and R-190's precedence stand.

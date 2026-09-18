@@ -1,4 +1,5 @@
 import "server-only";
+import { isQuantitiesOnly } from "./extraction-types";
 
 // EXT-16. RECONCILIEREA UNUI PAYLOAD DE SCANARE, PE PARTEA NOASTRA.
 //
@@ -159,6 +160,9 @@ export type ReconcileInput = {
 
 export type ReconcileVerdict =
   | { ok: true; reason: "matched"; target: number; sum: number; tolerance: number }
+  // P3-82, hotararea R-208. Nimic de comparat: niciun total pe linii si niciun
+  // total in antet. NU este `matched`, fiindca nu s-a comparat nimic.
+  | { ok: true; reason: "quantities_only" }
   | { ok: false; reason: "target_missing" | "line_total_missing" | "out_of_tolerance" };
 
 /**
@@ -173,6 +177,11 @@ export type ReconcileVerdict =
  *   3. orice linie are line_total null -> REFUZ, suma este incompleta prin
  *      constructie
  *
+ * P3-82 ADAUGA O CONDITIE, SI EA NU ESTE O TRECERE GRATUITA A NICIUNEIA DE MAI
+ * SUS: FIECARE linie fara total SI niciun total in antet -> `quantities_only`,
+ * acceptat, fiindca nu exista nimic de comparat. Hotararea R-208. Regulile 1 si 3
+ * raman neschimbate pe orice alta forma.
+ *
  * NOTA DE CITIRE, scrisa fiindca dispecerul se poate citi in doua feluri. El
  * pune cele trei sub "toate trei CAD, niciuna nu trece" si apoi da regulii 2
  * procedura ei proprie. Citirea implementata aici este ca NICIUNA DINTRE CELE
@@ -182,6 +191,22 @@ export type ReconcileVerdict =
  * este o ramura si un caz.
  */
 export function reconcile(input: ReconcileInput): ReconcileVerdict {
+  // P3-82, CONSTATAREA F17 A LUI IVAN, HOTARAREA R-208 A LUI MAX: un aviz citit,
+  // cu linii si cantitati dar FARA PRETURI SI FARA TOTAL, este acceptat, nu
+  // refuzat. "The reconciliation that compares line totals to a header total is
+  // skipped when there is no header total, not failed."
+  //
+  // SE EVALUEAZA INAINTEA REGULII 3, SI NUMAI PE FORMA INTREAGA. Regula 3 ar
+  // refuza acest document, fiindca fiecare linie ii lipseste totalul. Dar aici nu
+  // este o suma incompleta: nu exista NICIO suma si NICIO tinta, deci nu exista
+  // nicio comparatie care sa fi ratat. Un document caruia ii lipsesc NUMAI UNELE
+  // totaluri, sau care tipareste un total in antet, nu intra aici si cade in
+  // regula 3 exact ca pana acum. Conditia este isQuantitiesOnly, una singura,
+  // aceeasi pe care o citeste ecranul.
+  if (isQuantitiesOnly(input)) {
+    return { ok: true, reason: "quantities_only" };
+  }
+
   // Regula 3 se evalueaza prima: o suma incompleta nu poate fi comparata cu
   // nimic, oricare ar fi tinta.
   if (input.lineTotals.some((t) => t === null || !Number.isFinite(t))) {
@@ -312,6 +337,10 @@ export function classifyScan(input: ScanInput): ScanClassification {
   }
 
   const verdict = reconcile(input);
+  // Doua motive trec: `matched` si, din P3-82, `quantities_only`. Al doilea NU
+  // este un brat: nu este un refuz, deci platform_arm si platform_error_code
+  // raman null ca pe orice scanare acceptata, iar 0037 nu trebuie largita.
+  // Switch-ul de mai jos ramane exhaustiv peste motivele care refuza.
   if (verdict.ok) return { refuse: false };
 
   switch (verdict.reason) {

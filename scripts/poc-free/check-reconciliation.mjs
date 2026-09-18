@@ -484,6 +484,60 @@ console.log('\n8. EXT-18: what the header checks do NOT do');
   else bad('the line sum no longer refuses that run, and the asymmetry this case records is gone');
 }
 
+// ===========================================================================
+// P3-82, SECTION 10. A DELIVERY NOTE WITH QUANTITIES AND NO PRICES IS ACCEPTED.
+// Ivan's finding F17 as decided by Max, ruling R-208.
+//
+// WHAT THIS PINS IS THE NARROWNESS. The new outcome must fire on exactly one
+// shape (at least one line, EVERY line total null, AND no subtotal AND no
+// document total) and on nothing else, because every other shape with a missing
+// line total is an incomplete reading and keeps refusing line_total_missing.
+// Same limit as the rest of this file: the predicate below is a SPECIFICATION,
+// tied to the implementation by the source-text assertions beside it.
+// ===========================================================================
+
+console.log('\n10. P3-82: quantities only, nothing to reconcile, accepted and never widened');
+{
+  const TYPES = readFileSync(`${ROOT}/lib/data/extraction-types.ts`, 'utf8');
+  const shape = [
+    [TYPES, /input\.lineTotals\.length > 0 &&\s*input\.lineTotals\.every\(\(t\) => t === null\) &&\s*input\.subtotal === null &&\s*input\.documentTotal === null/, 'isQuantitiesOnly needs a line, EVERY line total null, and BOTH header totals null'],
+    [TYPES, /export const QUANTITIES_ONLY_NOTICE =\s*"Document fără prețuri: cantitățile sunt citite, prețurile se completează din factură";/, "the note is Max's words, verbatim"],
+    [SOURCE, /import \{ isQuantitiesOnly \} from "\.\/extraction-types";/, 'reconcile() reads the ONE predicate the review screen also reads'],
+    [SOURCE, /if \(isQuantitiesOnly\(input\)\) \{\s*return \{ ok: true, reason: "quantities_only" \};/, 'the shape returns quantities_only, accepted'],
+  ];
+  for (const [src, re, what] of shape) {
+    if (re.test(src)) ok(what);
+    else bad(`the implementation no longer shows: ${what}`);
+  }
+
+  // ORDER: the new outcome is asked BEFORE rule 3, or rule 3 refuses it first.
+  const iQty = SOURCE.indexOf('return { ok: true, reason: "quantities_only" }');
+  const iMissing = SOURCE.indexOf('return { ok: false, reason: "line_total_missing" }');
+  if (iQty > 0 && iMissing > iQty) ok('quantities_only is asked before the line_total_missing refusal');
+  else bad('quantities_only is not asked before line_total_missing, so the delivery note is still refused');
+
+  // NOT AN ARM. platform_arm is constrained to six values by 0037 and this is
+  // not a refusal; section 9 already asserts exactly six arms.
+  if (!/arm:\s*"quantities_only"/.test(SOURCE)) ok('quantities_only is not a classifyScan arm, so 0037 is unchanged');
+  else bad('quantities_only became a classifyScan arm, which needs a migration and a decision');
+
+  // THE SPECIFICATION, on the shapes the card names. Each row: line totals,
+  // subtotal, document total, whether it is quantities-only.
+  const spec = (lt, sub, tot) => lt.length > 0 && lt.every((t) => t === null) && sub === null && tot === null;
+  const rows = [
+    [[null, null, null], null, null, true, 'every line without a total, no header total: ACCEPTED'],
+    [[12.5, null, 40], null, null, false, 'SOME lines without a total: still line_total_missing'],
+    [[null, null], 100, null, false, 'a subtotal printed, lines without totals: still refused'],
+    [[null, null], null, 120, false, 'a document total printed, lines without totals: still refused'],
+    [[], null, null, false, 'zero lines: not a delivery note, the no_lines arm still refuses'],
+    [[10, 20], null, null, false, 'every line priced, no header total: target_missing as before'],
+  ];
+  for (const [lt, sub, tot, want, what] of rows) {
+    if (spec(lt, sub, tot) === want) ok(what);
+    else bad(`the specification disagrees on: ${what}`);
+  }
+}
+
 console.log('');
 if (problems.length > 0) {
   console.error(`check-reconciliation: ${problems.length} assertion(s) failed.`);
