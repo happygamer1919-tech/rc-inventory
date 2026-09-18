@@ -21,6 +21,7 @@ import {
   hasExtractionPageCount,
   hasExtractionUploadPageCount,
   hasExtractionInboundFields,
+  hasExtractionDerivedPartial,
   hasSupplierDocumentRef,
 } from "./schema-capability";
 import type { ExtractionDraft, ExtractionStatus, StoredErrorCode } from "./extraction-types";
@@ -75,6 +76,10 @@ const META_COLUMN = ", meta";
 const INBOUND_DRAFT_COLUMNS = ", document_type, client_ref";
 const INBOUND_LINE_COLUMNS = ", supplier_code, description, line_total_source";
 
+/** P3-80, constatarea F6. Mutarea NOASTRA in `partial`, adaugata de 0054. Un
+ *  sufix separat si o poarta separata, fiindca 0054 este alt fisier. */
+const DERIVED_PARTIAL_COLUMN = ", platform_derived_partial";
+
 /** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
  *
  *  INTREBARI SEPARATE SI NU UNA, fiindca 0033, 0036 si 0043 sunt fisiere separate
@@ -94,9 +99,12 @@ async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocument
   const withModel = (await hasExtractionPageCount(supabase))
     ? withUpload + MODEL_PAGE_COUNT_COLUMN
     : withUpload;
-  return (await hasExtractionInboundFields(supabase))
+  const withInbound = (await hasExtractionInboundFields(supabase))
     ? withModel + INBOUND_DRAFT_COLUMNS
     : withModel;
+  return (await hasExtractionDerivedPartial(supabase))
+    ? withInbound + DERIVED_PARTIAL_COLUMN
+    : withInbound;
 }
 
 const LINE_COLUMNS =
@@ -172,6 +180,9 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // EXT-34. Aceeasi regula ca la liniile de mai sus.
     documentType: (row.document_type as string | null) ?? null,
     clientRef: (row.client_ref as string | null) ?? null,
+    // P3-80. Cand 0054 nu este inca aplicata coloana lipseste din select si
+    // valoarea este null, ceea ce este adevarul: regula nu a rulat.
+    derivedPartial: typeof row.platform_derived_partial === "boolean" ? row.platform_derived_partial : null,
     // EXT-28. Cand 0043 nu este inca aplicata coloana lipseste din select si
     // valoarea este null, ceea ce este adevarul: nimeni nu a numarat.
     uploadPageCount:
