@@ -22,6 +22,24 @@ message, by name:
 - **POC** - point of contact. Owns `decisions/inbox.md`, turns Ivan's Telegram
   answers into committed rulings, unblocks cards. Writes no feature code.
 
+**ORANGE IS A TERMINAL, NOT A FIFTH ROLE, AND IT BOOTS AS ONE OF THE FOUR.**
+Added 2026-09-18 by card P3-78, Ivan's finding F11, under section 9c. The first
+sentence of this section reads, and is kept:
+
+> *"Four roles exist. A session is exactly one of them and says so in its first
+> message, by name: AUTHOR, EXECUTOR, CRITIC, POC."*
+
+It is true about roles and it is INCOMPLETE about terminals, corrected here: it
+never said where ORANGE fits, so a reader could conclude ORANGE does not exist.
+ORANGE is Ivan's own terminal, and it works this repository beside the platform
+owner's terminals. The name says which terminal; the role says which rules. It
+boots as EXECUTOR by the sequence below and signs its reports `Role EXECUTOR
+(ORANGE)`, for example `docs/reports/2026-09-15-executor-orange-andre-fixtures.md`.
+Since 2026-09-14 its scope is the extraction track (the document download route,
+page counting at upload, and the webhook contract with Andre), agreed between Ivan
+and the platform owner and not set by this file. This file has no separate ORANGE
+section: every rule here binds it exactly as it binds any other EXECUTOR.
+
 **Boot sequence, mandatory, before any other action:**
 
 1. State the role name.
@@ -1215,6 +1233,13 @@ in place, no ceremony. This binds a sentence somebody could have **relied on**,
 meaning one that other doctrine, a ruling or a decision was built on top of. The
 test is whether removing it would leave something else in the repository
 unexplained.
+
+**Named failure patterns live in `docs/DOCTRINE-PATTERNS.md`.** Created 2026-09-15
+by ruling R-198; this pointer added 2026-09-18 by card P3-78, Ivan's finding F10.
+Each entry there names a failure shape this project has already paid for, states
+its rule in one sentence and cites the ruling that stays its authority. Read it
+before diagnosing a failure that looks familiar. It corrects its own text by this
+section's quoting rule.
 
 ---
 
