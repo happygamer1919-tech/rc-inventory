@@ -6106,3 +6106,33 @@ which is what the contract's pair means. RULE: **a fixture line copied from the 
 edited by hand takes its `unit` from `ALL_UNITS` in `lib/data/units.ts`, never from the word on the
 document.** Observed and not changed here: a real payload with a unit outside the enum also gets
 500 today, and Make retries a 5xx.
+
+### A comment naming a pending column trips the schema-read check in a file that reads nothing
+**Tag:** ci
+**ERROR:** Card P3-80 (2026-09-18). `npm run check:pending-schema-reads` refused
+`lib/data/reconciliation.ts` with `numeste coloana line_total_source`. The file is pure arithmetic
+and reads no table; the only hits were a comment quoting Ivan's finding F6 and a doc comment on a
+type field, both naming the column in prose. 0053 is still on the pending register, so the check
+searches for its column names as whole words in every source file, comments included.
+**SOLUTION:** the two comments were reworded to describe the field ("the source of the line's
+total") instead of naming it, with a line saying why; the exact quote stays on the card and in the
+callback route, which does import the gate. No tolerance was added: the word is not an ordinary
+word, so tolerating it would only blind the check. RULE: **in a file that imports no schema gate,
+never write a pending column's name, not even in a comment; describe it in words and keep the
+exact name in the file that reads it.**
+
+### The brief assumed platform_arm takes any value; 0037 constrains it to six
+**Tag:** data
+**ERROR:** Card P3-80 (2026-09-18). The task asked for the new derived-line verdict to be recorded
+in `platform_error_code` and `platform_arm` "exactly as every existing classification signal
+already does", with no migration expected. `supabase/migrations/0037_extraction_platform_verdict.sql`
+puts a check constraint `extraction_drafts_platform_arm_known` on that column listing exactly the six
+EXT-23 arms, and its header says a seventh arm costs a migration deliberately. A seventh value
+written without one is refused with 23514, the callback answers 500, and Make retries (INC-05).
+A check constraint also cannot be probed by the `schema-capability.ts` select pattern, so no gate
+could have made the write safe during the minutes between deploy and apply.
+**SOLUTION:** the verdict got its own nullable column, `platform_derived_partial boolean`, in
+additive migration 0054, gated by `hasExtractionDerivedPartial`, the shape P3-75 used for its own
+separate check. `platform_arm` keeps meaning "which EXT-23 arm". RULE: **before a card writes a new
+value into an existing platform_ column, read that column's migration for a check constraint; a
+new kind of verdict gets its own probe-gated column, not a widened constraint nobody can probe.**
