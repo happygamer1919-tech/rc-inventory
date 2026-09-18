@@ -124,18 +124,21 @@ begin
   if declared is distinct from 'DELETE,INSERT,SELECT,UPDATE' then
     raise exception 'P3-15: the documents policies cover %, expected DELETE,INSERT,SELECT,UPDATE', coalesce(declared, 'nothing');
   end if;
+  -- The select clause read `qual = 'true'` until P3-81: 0055 narrowed
+  -- documents_select from every signed-in user to an active profile, so the
+  -- select now has to carry current_app_role(). The writes are unchanged.
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'documents'
     and roles = '{authenticated}'::name[]
     and (
-      (cmd = 'SELECT' and qual = 'true')
+      (cmd = 'SELECT' and qual like '%current_app_role()%')
       or (cmd = 'INSERT' and with_check like '%is_owner()%')
       or (cmd = 'UPDATE' and qual like '%is_owner()%' and with_check like '%is_owner()%')
       or (cmd = 'DELETE' and qual like '%is_owner()%')
     );
   if n <> 4 then
-    raise exception 'P3-15: expected select for every signed-in user and insert, update, delete for owners only, to authenticated, found % matching', n;
+    raise exception 'P3-15: expected select for an active profile (P3-81) and insert, update, delete for owners only, to authenticated, found % matching', n;
   end if;
 
   -- --- the deletion record: one policy, a read, for owners only --------------

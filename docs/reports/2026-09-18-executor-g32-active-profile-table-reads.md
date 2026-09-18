@@ -43,6 +43,8 @@ database within about two minutes, so the owner is asked before it merges.
 | `scripts/poc-free/local-db/assertions/0055_active_profile_table_reads.sql` | NEW. The shape of the four policies, exactly one select policy on each table and one insert policy reaching rc-docs, then behaviour as the authenticated role: an active profile reads the client, project and document and inserts into rc-docs (the control), a deactivated profile and an account with no profile read nothing and are refused the insert, and exactly one object ends up written. |
 | `tests/e2e/active-profile-table-reads.spec.ts` | NEW, the named acceptance spec, below. |
 | `docs/migrations/APPLY-LOG.md` | 0055 added to the pending list, card de aplicare P3-81 (`tests/e2e/headers.spec.ts` requires every migration in exactly one place). |
+| `scripts/poc-free/local-db/assertions/0044_documents.sql` | The `documents_select` clause of P3-15's policy check expected `qual = 'true'`; it now expects `current_app_role()`. Write clauses unchanged. See "Red CI, repaired". |
+| `docs/LEARNINGS.md` | One entry, below. |
 | `lib/data/document-actions.ts` | Comment only: it said `clients_select` and `projects_select` "sunt using (true)", which this migration makes stale; it now says they require an active profile from 0055. No code changed. |
 | `docs/board/rc-board-phase3.json` | Card P3-81 authored, in_flight, shipped. |
 
@@ -116,12 +118,22 @@ Plus the existing specs `clients.spec.ts`, `projects.spec.ts`, `documents.spec.t
 - Off limits, untouched: `app/api/extraction/**`, `app/api/documents/**`, `lib/data/extraction*`,
   `docs/contracts/extraction*`.
 
+## Red CI, repaired (attempt 1 of 3)
+
+`quality` run 35386396370 on the first push applied all 55 migrations and then failed at "Apply every
+migration to a bare postgres, unmodified" on `assertions/0044_documents.sql` (card P3-15's file):
+`expected select for every signed-in user ... found 3 matching`. That file checked
+`documents_select` for `qual = 'true'` literally, and assertion files run against the finished
+schema. It encoded exactly the rule this card removes. Fix: the select clause of that check now
+expects `current_app_role()`, with a comment naming P3-81; the three write clauses are untouched, so
+the assertion is stricter, not looser. No other assertion file pins `qual = 'true'` (grep).
+
 ## LEARNINGS
 
-Nothing new broke. The one trap met, `check:no-destructive-migration` printing `0 file(s)` for a
-migration that is written but not yet committed, is already recorded in `docs/LEARNINGS.md` ("A staged
-migration is invisible to the destructive-statement check", P3-29a); it was re-run after the commit
-and read by its file count. `docs/LEARNINGS.md` is left untouched.
+One new entry in `docs/LEARNINGS.md`: "An earlier migration's assertion file pins the policy text a
+later card changes". The other trap met, `check:no-destructive-migration` printing `0 file(s)` for a
+migration that is written but not yet committed, is already recorded there (P3-29a); it was re-run
+after the commit and read by its file count.
 
 ## Merge
 
