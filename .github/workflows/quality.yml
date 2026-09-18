@@ -264,6 +264,15 @@ jobs:
       - name: Check the numeric field rule
         run: npm run check:numeric-field
 
+      # P3-76, Ivan's finding F9. A key the extraction callback does not know is
+      # logged and warned, never refused. NOT PATH-FILTERED, for the reason the
+      # two steps above give: the end-to-end case proves the response and the
+      # stored rows do not change and needs a database, this proves the warning
+      # itself with a mocked logger, and that the allowlist still equals the keys
+      # the route reads from its own source. No network, no database, no secret.
+      - name: Check the callback key allowlist
+        run: npm run check:callback-keys
+
       # MERGE IS APPLY ON THIS REPOSITORY, so the destructive-statement boundary
       # is the pull request and not the applier. NOT PATH-FILTERED: it resolves
       # its own file list from the diff, and a workflow-level filter would skip

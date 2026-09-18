@@ -42,6 +42,7 @@ import {
   lineMathFailedCount,
 } from "@/lib/data/reconciliation";
 import { numericField } from "@/lib/data/numeric-field.mjs";
+import { warnUnknownCallbackKeys } from "@/lib/data/callback-keys.mjs";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -141,6 +142,14 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "corp invalid" }, { status: CALLBACK_CODES.rejected });
   }
+
+  // P3-76, CONSTATAREA F9 A LUI IVAN. O CHEIE PE CARE NU O CUNOASTEM ESTE SCRISA
+  // IN JURNAL SI ATAT: "we take warn, never refuse". Ruleaza inaintea oricarei
+  // verificari de forma, ca o cheie noua sa se vada si pe un payload care va fi
+  // refuzat, si nu intoarce nimic din ce ruta foloseste: nu muta un cod, un
+  // status sau o valoare stocata, si nu intra in raspuns. Lista si motivele ei
+  // sunt in lib/data/callback-keys.mjs.
+  warnUnknownCallbackKeys(body);
 
   const orderId = str(body.order_id);
   if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
