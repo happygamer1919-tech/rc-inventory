@@ -236,6 +236,39 @@ export const EXTRACTION_INBOUND_LABEL = {
 export const DERIVED_PARTIAL_NOTICE =
   "Marcat parțial de platformă: totalul cel puțin unei poziții a fost calculat la citire, nu tipărit pe document. Comparați acea poziție cu hârtia.";
 
+/** P3-82, constatarea F17, hotararea R-208. Nota unui aviz fara preturi, in
+ *  cuvintele lui Max, VERBATIM. Aici si nu in component, din acelasi motiv ca
+ *  DERIVED_PARTIAL_NOTICE: textul de pe ecran si textul pe care il cauta proba
+ *  sunt acelasi sir. */
+export const QUANTITIES_ONLY_NOTICE =
+  "Document fără prețuri: cantitățile sunt citite, prețurile se completează din factură";
+
+/** P3-82. Este documentul un aviz FARA PRETURI, prin constructie?
+ *
+ *  FORMA ESTE INGUSTA SI ESTE A LUI F17: cel putin o linie, FIECARE linie fara
+ *  total, SI niciun total in antet (nici subtotal, nici total document). Un
+ *  document caruia ii lipsesc NUMAI UNELE totaluri este o citire incompleta, nu un
+ *  aviz, si ramane refuzat ca pana acum (`line_total_missing`). Unul care tipareste
+ *  un total in antet dar nu are totaluri pe linii ramane si el refuzat.
+ *
+ *  O SINGURA DEFINITIE, CU DOI CITITORI. reconcile() o cheama ca sa sara
+ *  comparatia, iar ecranul de verificare o cheama ca sa arate nota. Acest fisier
+ *  poate fi importat de client; reconciliation.ts este server-only. Doua copii ale
+ *  conditiei ar putea sa nu fie de acord, iar dezacordul care conteaza este un
+ *  document acceptat fara nota, sau o nota pe unul care a fost refuzat. */
+export function isQuantitiesOnly(input: {
+  lineTotals: readonly (number | null)[];
+  subtotal: number | null;
+  documentTotal: number | null;
+}): boolean {
+  return (
+    input.lineTotals.length > 0 &&
+    input.lineTotals.every((t) => t === null) &&
+    input.subtotal === null &&
+    input.documentTotal === null
+  );
+}
+
 export function lineTotalSourceLabel(v: string): string {
   if (v === "printed") return "tipărit pe document";
   if (v === "derived") return "calculat";
