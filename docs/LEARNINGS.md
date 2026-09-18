@@ -6136,3 +6136,18 @@ additive migration 0054, gated by `hasExtractionDerivedPartial`, the shape P3-75
 separate check. `platform_arm` keeps meaning "which EXT-23 arm". RULE: **before a card writes a new
 value into an existing platform_ column, read that column's migration for a check constraint; a
 new kind of verdict gets its own probe-gated column, not a widened constraint nobody can probe.**
+
+### An earlier migration's assertion file pins the policy text a later card changes
+**Tag:** ci
+**ERROR:** Card P3-81 (2026-09-18). Migration 0055 narrowed `documents_select` from `using (true)`
+to `using (public.current_app_role() is not null)`. The first `quality` run, 35386396370, applied
+all 55 migrations cleanly and then failed at "Apply every migration to a bare postgres, unmodified"
+on a DIFFERENT card's file: `FAILED: assertions/0044_documents.sql`, `P3-15: expected select for
+every signed-in user ... found 3 matching`. Every assertion file runs against the FINISHED schema,
+not the schema of its own migration, and P3-15's file checked `qual = 'true'` literally. The local
+run that would have shown it (`npm run check:migrations`) needs Docker, which this machine lacks.
+**SOLUTION:** the 0044 assertion now expects `qual like '%current_app_role()%'` for the select, with
+a comment naming P3-81 and quoting the old clause; the three write checks are untouched, so the
+assertion is stricter, not looser. RULE: **before changing an existing policy, grep
+`scripts/poc-free/local-db/assertions/` for its name AND for its current clause text (`qual =
+'true'`), and update every file that pins it in the same pull request.**
