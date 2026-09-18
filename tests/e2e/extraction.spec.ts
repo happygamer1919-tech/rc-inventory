@@ -68,6 +68,25 @@ async function orderWithDocument(page: Page, tag: string) {
 
   // order_id se citeste din ecranul comenzilor, unde randul poarta id-ul.
   await page.goto("/comenzi");
+
+  // P3-77 (F16). LISTA SE RANDEAZA O SINGURA DATA, PE SERVER, si nimic de pe
+  // pagina nu o mai citeste: asteptarea nu poate face sa apara un rand lipsa.
+  // Cand randarea a esuat (ecranul de eroare) sau sesiunea s-a pierdut (redirect
+  // la autentificare), vechiul cod astepta 20 s pe o pagina care nu se mai putea
+  // schimba si raporta 0 randuri, ceea ce se citea ca o lista care a pierdut o
+  // comanda. Acum spune ce pagina a primit, imediat. Cauza erorii este in
+  // iesirea serverului, [WebServer], cu acelasi digest.
+  await expect(page, "/comenzi a fost redirectionat, sesiunea nu mai era valida").toHaveURL(
+    /\/comenzi$/,
+  );
+  const errorScreen = page.getByTestId("error-screen");
+  // Contorul, nu lista: o lista goala are inaltime zero si nu este "vizibila".
+  await expect(page.getByTestId("inbound-count").or(errorScreen)).toBeVisible();
+  if (await errorScreen.isVisible()) {
+    const digest = (await page.getByTestId("error-digest").innerText()).trim();
+    throw new Error(`/comenzi a randat ecranul de eroare, nu lista (digest ${digest}).`);
+  }
+
   const item = page.locator(`[data-testid="inbound-item"][data-reference="${reference}"]`);
   await expect(item).toHaveCount(1, { timeout: 20_000 });
   const orderId = (await item.getAttribute("data-id")) ?? "";
