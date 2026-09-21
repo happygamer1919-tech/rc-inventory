@@ -23,7 +23,12 @@ variable VALUE, secret, token or resolved URL appears anywhere below**, per
 Andre's seven runs never reached our callback. His scenario posts to the
 `callback_url` carried in the intake payload, and he has never received a fire
 from RC, so every one of those runs went to his own capture URL. **End-to-end
-delivery into our store is therefore untested.** A run that proves it must
+delivery into our store is therefore untested FROM HIS SCENARIO, and untested in
+production.** The path itself is covered in the e2e lane, where the suite uploads
+through the UI into a mock Make and then POSTs the callback and reads the stored
+draft back (`tests/e2e/extraction.spec.ts:164-189`, mock at
+`tests/e2e/support/make.ts:10-15`). **What no run has exercised is a callback
+arriving from Andre's scenario at our route.** A run that proves it must
 originate from our fire path, with `order_id`s our platform created. This file
 answers what such a run needs, and names what would stop it.
 
@@ -44,13 +49,29 @@ whose Finding 4 is corrected in the same pull request for exactly this reason.
 | Is there anything marking a row as a fixture? | **No. Nothing exists.** The card that would build it, `EXT-35`, is `todo`. |
 | Is there a staging environment to run this in instead? | **No, on repo evidence.** One Supabase project ref exists in this repository and it is production. |
 
-**THE ONE THING THAT MAKES THIS SAFE ANYWAY, AND IT IS THE REAL FINDING.** A fire
-writes an `extraction_drafts` row and nothing else. No `inbound_orders` row, no
-product, no client, no project is created until somebody presses confirm on the
-review screen. **So a test run that is never confirmed leaves exactly seven draft
-rows and seven storage objects, and touches no business table.** The cost is that
-those seven drafts sit on the operator's review screen permanently, because
-nothing can dismiss a draft either.
+**THE ONE THING THAT MAKES THIS SAFE ANYWAY, AND IT IS THE REAL FINDING.** On the
+upload path, which is the one a test run would use, a fire writes a storage
+object and an `extraction_drafts` row, and nothing else. No `inbound_orders`
+row, no product, no client and no project is created until somebody presses
+confirm on the review screen (`lib/data/extraction-actions.ts:75-79`,
+`:91-98`, `:107`). **So a test run that is never confirmed leaves seven
+`extraction_drafts` rows, seven `rc-docs` storage objects, and one
+`extraction_draft_lines` row per extracted line on each draft that got a
+callback** (the callback deletes the batch at
+`app/api/extraction/callback/route.ts:766-769` and inserts it at `:811`).
+**It touches no business table.**
+
+**This is true of the UPLOAD path only, and the distinction matters when choosing
+how to run.** The third caller, `uploadOrderDocument`, attaches a document to an
+order that ALREADY EXISTS and updates that order's row before firing
+(`lib/data/inbound-actions.ts:193-196`). A test run must use the
+`Încarcă comandă` screen's automatic-reading card, not that one.
+
+The cost of the safe path is that those seven drafts sit on the operator's
+review screen until somebody removes them from OUTSIDE the application: no screen
+and no server action deletes an `extraction_drafts` row, but an owner-authenticated
+delete can, under the policy at
+`supabase/migrations/0008_extraction_drafts.sql:209-210`.
 
 ---
 
@@ -93,7 +114,13 @@ handler at `components/orders/ExtractionReviewPanel.tsx:864` and its label
 
 ### Preconditions, in the order they are checked
 
-**At the caller, before `fireExtraction` is entered:**
+**At the caller, before `fireExtraction` is entered. THESE ARE
+`startExtraction`'S CHECKS.** `uploadOrderDocument` repeats them at
+`lib/data/inbound-actions.ts:174-188`. **`refireExtraction` repeats NONE of the
+file checks**, because it holds no file: it re-fires from the stored row
+(`lib/data/extraction-actions.ts:194-203`) and its only gates are the session
+(`:144-145`), the draft existing (`:166`) and the draft being unconfirmed
+(`:170`).
 
 | precondition | file:line |
 |---|---|
@@ -104,10 +131,13 @@ handler at `components/orders/ExtractionReviewPanel.tsx:864` and its label
 | the document is uploaded to storage FIRST | `lib/data/extraction-actions.ts:95-98`, before the fire at `:107` |
 | refire only: the draft exists and is not confirmed | `lib/data/extraction-actions.ts:166` and `:170` |
 
-**No order state is checked on any path, because on the upload path no order
-exists.** `order_id` is minted with `randomUUID()` at
+**No order STATUS is checked in any of the three actions**, and on the upload
+path no order exists at all: `order_id` is minted with `randomUUID()` at
 `lib/data/extraction-actions.ts:91` and the storage path is built from it at
-`:92`. The file's own header says it: *"Un document intra in lane fara sa existe
+`:92`. **On the third path an order does exist**, its row is updated before the
+fire and that write must succeed (`lib/data/inbound-actions.ts:193-198`), and the
+orders-list entry point is offered only for an order that has no document yet
+(`components/orders/InboundPanel.tsx:106`, wrapping the control at `:111`). The file's own header says it: *"Un document intra in lane fara sa existe
 o comanda ... comanda se naste abia la confirmare"*
 (`lib/data/extraction-actions.ts:75-79`).
 
@@ -251,13 +281,17 @@ result to the same kind of destination Andre's seven went to.
 **Storage path PATTERN**, template not a real path: the extraction path is
 `extractions/<order_id>/<safe file name>`
 (`lib/data/extraction-actions.ts:92`); the order-attachment path is a different
-prefix built in `lib/data/inbound-actions.ts:186-191`.
+prefix, `inbound/<order_id>/<safe file name>`, built at
+`lib/data/inbound-actions.ts:183`.
 
-**A second, different exposure exists for samples and it is not this one.**
-`scripts/ext/serve-sample-documents.mjs` serves documents under the Andre sample
-prefix; its header records that the bucket, the path and the 15 minute TTL are
-unchanged from `lib/data/extraction-fire.ts`
-(`scripts/ext/serve-sample-documents.mjs:44`). It is an owner-run script under
+**A second, different exposure exists for samples, and its TTL is NOT this one.**
+`scripts/ext/serve-sample-documents.mjs` serves documents from the same bucket,
+`rc-docs` (`scripts/ext/serve-sample-documents.mjs:39`), but under the prefix
+`_samples/andre` (`:40`) and **at a 24 hour TTL** (`:45`), raised from two hours
+by ruling R-096 (`:41-42`). Its own comment says in terms that the application's
+two signing paths, `lib/data/inbound-actions.ts` and
+`lib/data/extraction-fire.ts`, are 15 minutes and do NOT change
+(`scripts/ext/serve-sample-documents.mjs:43-44`). It is an owner-run script under
 R-206's closed grant, not part of the application's fire path.
 
 ### d) The clocks
@@ -300,25 +334,36 @@ is where this becomes the headline.
 
 ### Q3e. Do any of these names appear beside a literal value in the repository?
 
-**Two do, both in the same test-only file, and both literals name themselves as
-fake.** `tests/e2e/support/make.ts:14` assigns a literal to
-`MAKE_WEBHOOK_SECRET` and `tests/e2e/support/make.ts:15` assigns one to
-`MAKE_CALLBACK_SECRET`. **Shape: self-labelled test dummy.** Each literal's own
-text says it is not a credential, and the constant block is headed
-*"Secrete false. Deschid exact nimic"* (`tests/e2e/support/make.ts:13`). **The
-values are deliberately not reproduced here**, only their locations.
+**Five of the six do, in two test-only files, and every literal is either a
+self-labelled fake or a loopback address. None is a production value.**
 
-`MAKE_WEBHOOK_URL` is assigned a literal at `tests/e2e/support/make.ts:11`, built
-from a loopback address and a mock port (`:9-10`): **shape: local mock target,
-not a credential.** `playwright.config.ts:232` assigns it the empty string on
-purpose, and the comment beside it says that empty string IS the case under test
+| name | where a literal is assigned | shape |
+|---|---|---|
+| `MAKE_WEBHOOK_SECRET` | `tests/e2e/support/make.ts:14` | self-labelled test dummy |
+| `MAKE_CALLBACK_SECRET` | `tests/e2e/support/make.ts:15` | self-labelled test dummy |
+| `MAKE_WEBHOOK_URL` | `tests/e2e/support/make.ts:11`, and the empty string at `playwright.config.ts:232` | loopback mock target, built from `:9-10` |
+| `RC_CALLBACK_URL` | `playwright.config.ts:204`, `:239`, `:264` | a loopback base plus the route path |
+| `NEXT_PUBLIC_SITE_URL` | `playwright.config.ts:207`, `:240`, `:265` | the same loopback base |
+
+**`SUPABASE_SERVICE_ROLE_KEY` is the one name with no literal anywhere.**
+
+The two secret literals name themselves as not credentials, under a block headed
+*"Secrete false. Deschid exact nimic"* (`tests/e2e/support/make.ts:13`). **The
+values are deliberately not reproduced here**, only their locations. The empty
+string at `playwright.config.ts:232` is deliberate and IS the case under test
 (`playwright.config.ts:230-232`).
 
 **No production value appears anywhere.** `.env*` is gitignored
-(`.gitignore:8`), and no `.env` file is tracked. `.github/workflows/quality.yml`
-carries none of these names beside a value: the check that enforces this is
-`scripts/poc-free/check-no-prod-target.mjs:65`, which greps the workflow for
-`secrets.*SUPABASE|DATABASE` shapes and fails on a hit, and it runs on every pull
+(`.gitignore:8`), and no `.env` file is tracked.
+`.github/workflows/quality.yml` carries none of these names beside a value,
+measured by grep over `.github/workflows/` this session.
+
+**No check enforces that for five of the six names, and the doc says so rather
+than implying coverage it does not have.** The nearest check is
+`scripts/poc-free/check-no-prod-target.mjs:65`, whose pattern matches only a
+`secrets.` reference whose name contains `SUPABASE`, `DATABASE`, `DB_`,
+`POSTGRES`, `SERVICE_ROLE` or `ANON_KEY`. **That covers
+`SUPABASE_SERVICE_ROLE_KEY` and none of the other five.** It runs on every pull
 request at `.github/workflows/quality.yml:377`.
 
 ### Q3f. `scripts/poc/secret-names.sh`
@@ -383,15 +428,20 @@ in this file.
   callback endpoint with `MAKE_CALLBACK_SECRET`"*.
 - The only literal header LINE in the contract is the fire leg's:
   `docs/contracts/extraction-v2.md:96`, `Header: X-RC-Secret: <...>`.
-- A repository-wide grep for `x-rc-callback` across `*.md` and `*.json` returns
-  **zero** hits. The string exists only in
-  `app/api/extraction/callback/route.ts` and in the e2e specs.
+- A repository-wide grep for `x-rc-callback` across `*.md` and `*.json`,
+  **excluding this file**, returns **zero** hits. Before this file existed the
+  string appeared only in `app/api/extraction/callback/route.ts` and in the e2e
+  specs, in no document at all. **This file is now the first document in the
+  repository to write the inbound header name down**, which is a statement about
+  how thin the written record was, not a fix: Andre reads the contract, not
+  this.
 
 **So the only header name Andre has ever been handed in writing is
 `X-RC-Secret`, and the one our route accepts appears in no document he was
 given.** A callback sent with `X-RC-Secret` is answered 401, nothing is stored,
-and Make does not retry a 4xx
-(`app/api/extraction/callback/route.ts:12-14`). At his end that is
+and the contract says Make does not retry a 4xx
+(`docs/contracts/extraction-v2.md:1216`; Make's own behaviour is UNMEASURED from
+here). At his end that is
 indistinguishable from any other 401. **This is the single most likely
 explanation for a callback that never lands, and confirming which header name his
 scenario sends is the cheapest thing to do before any run.**
@@ -402,9 +452,13 @@ the Fetch implementation, stated nowhere in this repository, and nothing was
 executed. There is no in-repo evidence in either direction. **The Make mock is
 not evidence**: it reads a lowercased key off a `node:http` server
 (`tests/e2e/support/make-mock.mjs:62`, server at `:15` and `:40`), a different
-implementation from the Fetch `Headers` object at `route.ts:131`. Every inbound
-spec sends the exact lowercase spelling, enumerated at 20 occurrences over 11
-spec files, so **no repository test covers a differently-cased inbound name**.
+implementation from the Fetch `Headers` object at
+`app/api/extraction/callback/route.ts:131`. Every inbound
+spec sends the exact lowercase spelling, enumerated this session at **18
+occurrences over 10 spec files under `tests/`** (the only other two hits
+repo-wide are the route's own two reads,
+`app/api/extraction/callback/route.ts:131` and `:841`, for 20 in total), so **no
+repository test covers a differently-cased inbound name**.
 What is certainly not folded is the header VALUE, compared byte-exact at
 `app/api/extraction/callback/route.ts:136`.
 
@@ -426,7 +480,8 @@ What is certainly not folded is the header VALUE, compared byte-exact at
 
 ### f) A bad or unknown `order_id`, RE-MEASURED at this sha
 
-**The prior report's `route.ts:538` and `:541` are stale**: that file was 800
+**The prior report's `app/api/extraction/callback/route.ts:538` and `:541` are
+stale**: that file was 800
 lines at `feb4655` and is 880 at `9784cdc`. Do not reuse them.
 
 **The gates are ordered, never simultaneous.** A wrong secret returns 401 at
@@ -441,9 +496,12 @@ Two distinct 400s exist on the POST path:
    `app/api/extraction/callback/route.ts:568-572`, the branch is `:577`, and
    `:580` returns `order_id necunoscut`.
 
-`rejected` is 400 (`lib/data/extraction-types.ts:186`), and Make does not retry
-4xx (`app/api/extraction/callback/route.ts:12-14`), so such a callback is dropped
-once.
+`rejected` is 400 (`lib/data/extraction-types.ts:186`). **Make does not retry a
+4xx per the frozen contract's table** (`docs/contracts/extraction-v2.md:1216`,
+fixed by ruling R-014 and only restated as a comment at
+`app/api/extraction/callback/route.ts:12-14`), so such a callback should be
+dropped once. **Make's actual retry behaviour is a property of a system this
+repository cannot observe: UNMEASURED.**
 
 **What "unknown" actually means, and why it decides the whole dispatch.** The
 lookup at `:569` is against `extraction_drafts`, not against orders. The fire
@@ -486,12 +544,20 @@ public.extraction_drafts (order_id) on delete cascade`
 Seven ORDERS: no, and this is the distinction that matters.**
 
 An `order_id` on the upload path is a fresh uuid minted in the action
-(`lib/data/extraction-actions.ts:91`), not the id of any order row. The order is
-created only when a draft is confirmed, and `confirmed_at` is the fact that
-records it (`supabase/migrations/0011_extraction_confirm_corrections.sql:100`,
-*"THIS is the fact that a draft has been confirmed, and nothing but a confirm
-ever writes it"*). **Seven fired documents that are never confirmed produce seven
-draft rows and zero orders.**
+(`lib/data/extraction-actions.ts:91`), not the id of any order row. **On this
+path** no order is created until the draft is confirmed, and `confirmed_at` is
+the fact that records it
+(`supabase/migrations/0011_extraction_confirm_corrections.sql:100`, *"THIS is the
+fact that a draft has been confirmed, and nothing but a confirm ever writes
+it"*). **Seven fired documents that are never confirmed produce seven draft rows
+and zero orders.**
+
+**An order can also be created with no draft at all**, through the manual order
+form, which calls the `create_inbound_order` RPC directly
+(`lib/data/inbound-actions.ts:101`, function in
+`supabase/migrations/0003_inbound_functions.sql`). That path has nothing to do
+with extraction and is not what a test run would use, but "an order is only ever
+born at confirmation" would be false about the application as a whole.
 
 ### c) A second document fired on an order that already has a draft
 
@@ -503,10 +569,34 @@ place.**
   (`lib/data/extraction-fire.ts:221-223`), which on the primary key replaces the
   row's listed columns.
 - The upsert payload is the six fields at `lib/data/extraction-fire.ts:209-216`
-  plus `upload_page_count` when the column exists (`:217-219`). **It does not
-  carry `status`, `error_code` or `reason`**, so a second fire over a draft that
-  already answered leaves the previous verdict standing on the row until a
-  callback overwrites it.
+  plus `upload_page_count` when the column exists (`:217-219`). **That upsert does
+  not carry `status`, `error_code` or `reason`**, so a fire that actually reaches
+  Make leaves the previous verdict standing.
+- **Two other writes in the same file DO carry all three and overwrite it with
+  `failed`.** The configuration refusal upserts the row already failed and
+  returns before the six-field upsert is ever reached
+  (`lib/data/extraction-fire.ts:144-147` and `:153`, called at `:197`), and the
+  page-limit refusal updates the row to `failed` at `:260-263`. So "the fire
+  never writes a status" is false; it does not write one **on the path that
+  reaches Make**.
+- **The refire ACTION clears them, and that is where it happens.**
+  `lib/data/extraction-actions.ts:188-191` writes
+  `{ status: null, error_code: null, reason: null }` BEFORE calling the fire, so
+  the screen shows "in lucru" rather than the reason for the failure just
+  retried (`lib/data/extraction-actions.ts:172-173`).
+- **`callback_at` is deliberately NOT cleared there, and this bears directly on
+  the 202-versus-200 question.** The reason is written out at
+  `lib/data/extraction-actions.ts:175-187`: clearing it would make the receiver
+  answer 202 for the second extraction of the same document, *"adica sa spuna
+  'prima data' despre o ciorna pe care o INLOCUIESTE"*, and the retry would
+  become the one silent way to reset the contract's idempotency counter. **So a
+  refired document answers 200 duplicate whenever a callback has ALREADY reached
+  us for that `order_id`**, which is the case this reasoning protects. `isRepeat`
+  is `existing.callback_at != null`
+  (`app/api/extraction/callback/route.ts:615`), not "this document was fired
+  twice": **a refire of a draft that never received a callback, for example one
+  our own pre-send refusal marked failed
+  (`lib/data/extraction-fire.ts:153`, `:262`), still answers 202.**
 - On the callback side a second delivery REPLACES rather than appends: the lines
   are deleted as a batch and rewritten
   (`app/api/extraction/callback/route.ts:766-769`, with the reason at
@@ -514,8 +604,11 @@ place.**
   unei CIORNE, niciodata date reale"*), and the status code becomes 200 instead
   of 202 because `isRepeat` is true (`:615` and `:824`).
 - **The refire button is the supported way to do this**, and it reuses the same
-  `order_id` on purpose (`lib/data/extraction-actions.ts:136-141`), refusing only
-  a draft that no longer exists (`:166`) or one already confirmed (`:170`).
+  `order_id` on purpose (`lib/data/extraction-actions.ts:136-141`), refusing a caller with no session (`:145`), a
+  draft that no longer exists (`:166`) and one already confirmed (`:170`), and
+  inheriting the 100-page refusal that `fireExtraction` re-applies so the button
+  cannot bypass it (`lib/data/extraction-actions.ts:200-202`, refusal at
+  `lib/data/extraction-fire.ts:247-264`).
 
 **Firing a NEW document on an order that already has a draft is a different
 thing and the upload path cannot do it**, because that path always mints a new
@@ -541,15 +634,20 @@ choices all stated at
 **The route writes all five behind one capability probe**: the probe at
 `lib/data/schema-capability.ts:550-570`, the gate at
 `app/api/extraction/callback/route.ts:748-749`, the two document columns at
-`:750-751`, the three line columns at `:802-808`, and the per-line value read
-from the payload through `str()` at `:561`. The review screen selects them behind
+`:750-751`, and the three line columns at `:802-808`, each read from the payload through
+`str()` inside that gate. The review screen selects them behind
 the same probe (`lib/data/extraction.ts:102-104` and `:113-116`).
 
-**`line_total_source` is additionally read by our own reconciliation** since
-P3-80: a `derived` line moves an `extracted` document to `partial`
+**The `line_total_source` VALUE is additionally used by our own reconciliation**
+since P3-80, and the distinction matters: **it is read from the INCOMING PAYLOAD,
+never from the stored column** (`app/api/extraction/callback/route.ts:560-561`,
+an UNGATED read that runs before the EXT-34 capability probe at `:748` is even
+called). A `derived` line moves an `extracted` document to `partial`
 (`app/api/extraction/callback/route.ts:531-565`, rule in
-`lib/data/reconciliation.ts`), and that move is itself gated on migration 0054's
-column existing (`app/api/extraction/callback/route.ts:553-556`).
+`lib/data/reconciliation.ts`), and that MOVE is gated on migration 0054's column
+existing (`app/api/extraction/callback/route.ts:553-556`). **So the
+derived-to-partial routing behaves identically on a database where 0053 was never
+applied.**
 
 ---
 
@@ -621,7 +719,8 @@ decision this card does not take."*
 ### d) What the production guard actually guards
 
 **It guards the TEST SUITE, not the application.** `assert-not-prod.mjs` runs as
-Playwright's `globalSetup`, and `check-no-prod-target.mjs:84` and `:89` exist to
+Playwright's `globalSetup`, and `scripts/poc-free/check-no-prod-target.mjs:84`
+and `:89` exist to
 prove that wiring is still in place and that `global-setup.ts` throws on a
 non-zero exit. It stops the e2e suite pointing at production. **It does not and
 cannot stop a person firing a document from the production UI.**
@@ -711,9 +810,17 @@ Ivan by hand (`scripts/reset-test-data.sql:3-14`), and `CLAUDE.md:914-917` names
 it as the single script in this repository exempted from the no-destructive-run
 rule.
 
-**At the RLS layer an owner MAY delete an order, a draft and draft lines.** The
-one table nothing may ever delete from is `status_history`, which carries no
-update and no delete policy for any role, deliberately.
+**At the RLS layer an owner MAY delete a draft and its lines.** The policies are
+`extraction_drafts_delete`, `for delete to authenticated using
+(public.is_owner())`
+(`supabase/migrations/0008_extraction_drafts.sql:209-210`), and the matching one
+on the lines table at `:222`. **So the seven test drafts of a production run
+WOULD be removable by an owner from the Supabase dashboard** (no application
+screen offers it), and that removal is a DELETE, which is the thing the standing
+convention says not to do and which `CLAUDE.md` section 8.6 makes
+owner-confirmable. The one table nothing may ever delete from is
+`status_history`, which carries no update and no delete policy for any role,
+deliberately.
 
 ---
 
@@ -741,23 +848,37 @@ make a preview deployment worse than merely unproven.**
 
 ### b) The specific things checked, and the absences
 
-- **No Ignored Build Step, no branch-deploy config, no `git.deploymentEnabled`.**
-  None can exist: there is no `vercel.json`.
+- **No Ignored Build Step, no branch-deploy config and no `git.deploymentEnabled`
+  is COMMITTED here**, because there is no `vercel.json` to carry one. **That is
+  an absence of repository configuration and nothing more**: all three are Vercel
+  project settings that work from the dashboard with no file in the repository at
+  all. **What Vercel is actually configured to do is UNMEASURED from here.**
 - **No committed preview env override.** `.env*` is gitignored
   (`.gitignore:8`) and no `.env` file is tracked.
 - **ONE Supabase project ref exists in this repository and it is production.**
   `scripts/production-refs.mjs:16-19` holds exactly one entry, annotated at
   `:17-18` as Rapid Construct, eu-west-1, the project serving the live site. A
-  repository-wide grep for a `<ref>.supabase.co` shape hits that same single ref
-  and nothing else. **There is no second project ref anywhere.**
+  repository-wide grep for a `<ref>.supabase.co` shape returns exactly two
+  distinct hosts: the production one, three occurrences, and
+  `someotherprojectref01.supabase.co`, a deliberately fictitious ref quoted in a
+  board note as the guard's own negative control
+  (`docs/board/rc-board-phase2.json:913`). The workflow builds one more at run
+  time from the production ref (`.github/workflows/quality.yml:882-884`).
+  **There is no second REAL project ref anywhere.**
 
 ### c) Two recorded facts that make the preview option worse than unproven
 
 1. **The Supabase GitHub integration on this repository points at the PRODUCTION
-   project.** That is the whole basis of R-124 and of `CLAUDE.md` section 3.1's
-   *"MERGING THE FILE IS APPLYING IT"* (`CLAUDE.md:219-220` and the evidence
-   block following it). A preview branch is therefore not insulated from the
-   production schema by anything in this repository.
+   project, and it is the only project wired to this repository.**
+   `docs/migrations/APPLY-LOG.md:152-154` names it: the `Supabase Preview` check
+   from the GitHub app *"runs on every push to `main` and points at ... the
+   production project"*. **This does NOT mean a preview branch changes the
+   production schema, and the doc says so rather than leaving the inference
+   open**: the integration applies on merge to `main` only
+   (`CLAUDE.md:219-221`), and the control in R-124's own evidence block is
+   exactly an unmerged pull request whose column never appeared
+   (`CLAUDE.md:232-238`). What it does mean is that **there is no separate
+   Supabase project for a preview to point at from anything committed here.**
 2. **Vercel Deployment Protection is enabled**, recorded by ruling R-004
    (`decisions/inbox.md:262-269`), so no `vercel.app` host answers an anonymous
    request. Make's download of `document_url` is an anonymous request. A preview
@@ -766,7 +887,7 @@ make a preview deployment worse than merely unproven.**
 ### d) The local stack, which is the honest alternative
 
 **The fire path IS already exercised end to end locally, with a real `fetch`,
-against a mock Make.** The mock's header states the design and why:
+against a mock Make, on any pull request that is not documentation-only.** The mock's header states the design and why:
 *"APLICATIA FACE FETCH-UL REAL. MAKE_WEBHOOK_URL arata catre 127.0.0.1, deci
 cererea, antetele si tratarea unui raspuns non-2xx sunt exercitate exact ca in
 productie"*, and *"Serverul NU trimite singur callback-ul. Testul il trimite"*
@@ -775,7 +896,15 @@ replays every migration from empty
 (`.github/workflows/quality.yml:948` `Start local Supabase`, running
 `supabase start` at `:959`, and `:961` `Apply migrations to the local stack`,
 running `supabase db reset` at `:966`, which replays `supabase/migrations` from
-empty in file order, `.github/workflows/quality.yml:931`).
+empty in file order, `.github/workflows/quality.yml:931`), then runs the suite at
+`:1044-1046`.
+
+**Every one of those steps is gated**, on
+`if: steps.docs_scope.outputs.docs_only != 'true'`
+(`.github/workflows/quality.yml:949`, `:955`, `:962`, `:1045`). **So a
+documentation-only pull request, this one included, starts no stack and runs no
+Playwright test**, which is the whole point of R-203 and is stated by the
+classifier itself at `.github/workflows/quality.yml:106`.
 
 **What the local stack cannot prove, and it is exactly the untested part:** that
 ANDRE'S scenario, with his HTTP client and his header spelling, reaches our route
@@ -812,9 +941,13 @@ before sending anything and still writes a failed draft row
 body is the seven fields at `lib/data/extraction-fire.ts:337-348`. The supplier
 name arrives only on the callback and is stored as free text with no lookup
 (`app/api/extraction/callback/route.ts:639`). Supplier resolution happens only at
-confirmation, and it CREATES a supplier when the folded name is not found rather
-than refusing (`lib/data/extraction-actions.ts:340`,
-`lib/data/suppliers.ts:80-84`). **Any counterparty on any document passes.**
+confirmation (`lib/data/extraction-actions.ts:337-344`), and it CREATES a
+supplier when the folded name is not found rather than refusing
+(`lib/data/suppliers.ts:80-84`) **but that insert is OWNER-ONLY at the database**
+(`supabase/migrations/0019_suppliers.sql:113-114`, `with check
+(public.is_owner())`), so for a non-owner it comes back `42501` and refuses the
+confirmation. **Any counterparty on any document passes the FIRE; the supplier
+question only arises at confirmation, which a test run would not reach.**
 
 ### c) Rate limits and budgets
 
@@ -847,7 +980,7 @@ extraction.
 |---|---|
 | PDF, PNG or JPEG only | `lib/data/extraction-actions.ts:87-88`, set at `lib/data/inbound-types.ts:30` |
 | at most 10 MB | `lib/data/extraction-actions.ts:89`, `lib/data/inbound-types.ts:31` |
-| fewer than 100 pages | `lib/data/extraction-fire.ts:247-265`, limit at `lib/data/page-count.mjs:30` |
+| fewer than 100 pages, **ONLY while the database knows the `document_too_large` label** | `lib/data/extraction-fire.ts:247-265`: the refusal is `isTooManyPages(...) && await hasDocumentTooLargeCode(...)`, limit at `lib/data/page-count.mjs:30`. When the probe answers false the document IS sent and the counterparty's own cap is the only one, which `lib/data/extraction-fire.ts:243-246` says in terms |
 | page count computed from the bytes at upload | `lib/data/extraction-actions.ts:103` |
 
 - **HEIC is refused by exclusion, not by a named rule**: there is no HEIC line
@@ -890,15 +1023,22 @@ extraction.
   `lib/env-required.ts` (`:34`, `:37-52`), so nothing warns and nothing fails if
   it points elsewhere. **This is exactly the shape of "the result went somewhere
   that is not us".** Confirm it is unset in production before any run.
-- **Two secrets in opposite directions**, Q4 above. Swapping them is 401 with no
-  row written.
+- **Two secrets in opposite directions**, Q4 above. **A swap is 401 either way
+  but it is NOT symmetric.** Inbound, the callback refuses at the header check
+  before any client is built and nothing is written
+  (`app/api/extraction/callback/route.ts:131`). Outbound, the draft row is
+  already upserted before the secret is even read
+  (`lib/data/extraction-fire.ts:221-223` versus `:322` and `:331`), so Make's 401
+  leaves a `failed` draft behind on our side.
 - **`SUPABASE_SERVICE_ROLE_KEY` missing turns every delivery into a 5xx loop**:
   `app/api/extraction/callback/route.ts:298-305` returns 500, and Make retries on
   5xx.
-- **Only two machine paths are exempt from the login redirect**: the callback
-  (`proxy.ts:52`) and the document server (`proxy.ts:69`). If
-  `NEXT_PUBLIC_SITE_URL` names a host that is not this deployment, Make receives
-  HTML instead of a document.
+- **FOUR machine paths are exempt from the login redirect**: the callback
+  (`proxy.ts:52`), the document server (`proxy.ts:69`), the health route
+  (`proxy.ts:80`) and `/api/state` (`proxy.ts:91`), which is the route Andre's
+  scenario reads for the live category and unit lists and is therefore part of
+  this integration. If `NEXT_PUBLIC_SITE_URL` names a host that is not this
+  deployment, Make receives HTML instead of a document.
 - **The signed URL lives 15 minutes** (`lib/data/extraction-fire.ts:41`). A Make
   retry that re-downloads later gets an expired link. Our document route waits at
   most 20 seconds on storage
@@ -920,8 +1060,11 @@ extraction.
 `docs/migrations/APPLY-LOG.md:42-53` lists twelve migrations, `0044` through
 `0055`, as **pending**, which that file defines at `:29-32` as merged but *"NOT
 run against the RC Supabase project"*. Among them are `0053` (the EXT-34
-columns), `0050` and `0055` (the active-profile storage policies) and `0051` (the
-`config_error` label).
+columns), `0050` (the active-profile gate on READING a stored object,
+`supabase/migrations/0050_rc_docs_select_active_profile.sql:62-67`), `0055` (the
+active-profile gate on reading client, project and document ROWS, plus one
+storage insert policy, `supabase/migrations/0055_active_profile_table_reads.sql:105-110`)
+and `0051` (the `config_error` label).
 
 **That pending list rests, at `docs/migrations/APPLY-LOG.md:25-27`, on this
 sentence:**
@@ -929,19 +1072,26 @@ sentence:**
 > *"merging a migration file changes one text file in a git repository and
 > changes nothing in any database"*
 
-**That is word for word the sentence `CLAUDE.md` section 3.1 quotes and marks
-FALSE under ruling R-124**, with a controlled measurement recorded beside it: two
-migrations both numbered `0032`, the merged one live in production within about
-two minutes, the unmerged twin as the control.
+**That is the same premise `CLAUDE.md` section 3.1 quotes and marks FALSE under
+ruling R-124**, in different words: 3.1 quotes *"A pull request that ADDS
+`supabase/migrations/0013_something.sql` changes one text file in a git
+repository and changes nothing in any database"* (`CLAUDE.md:217-218`), and the
+APPLY-LOG states the same thing of a merge. R-124 disproved it with a controlled
+measurement recorded beside it: two migrations both numbered `0032`, the merged
+one live in production within about two minutes, the unmerged twin as the
+control.
 
 **So the pending list is stale doctrine that outlived the ruling which disproved
 its premise, not a second measurement.** Under R-124 those twelve are applied.
 
 **WHAT THIS TERMINAL MEASURED AND WHAT IT DID NOT.** Measured: the files are on
 `main`, and every consumer of their columns sits behind a live capability probe,
-so the application is correct either way
-(`lib/data/schema-capability.ts:550-570`,
-`app/api/extraction/callback/route.ts:748-749`). **Not measured: the production
+so **nothing CRASHES either way** (`lib/data/schema-capability.ts:550-570`,
+`app/api/extraction/callback/route.ts:748-749`). **The BEHAVIOUR is not the same
+either way, and the difference lands on exactly this path**: with `0054`
+unapplied the route stores and answers `extracted` where an applied `0054` would
+store and answer `partial` (`app/api/extraction/callback/route.ts:553-565`). **So
+a run's own result depends on the answer to this question.** **Not measured: the production
 schema.** No database was read. **One query settles it, and correcting the
 APPLY-LOG entries belongs to whoever runs that query**, in the pull request that
 also adds their applied entries, because
@@ -957,7 +1107,13 @@ from the repository:
 
 1. Whether Ivan's production account carries an active `profiles` row.
 2. Whether `MAKE_WEBHOOK_URL`, `NEXT_PUBLIC_SITE_URL` and `MAKE_WEBHOOK_SECRET`
-   are set in the production environment.
+   are set in the production environment. **These three govern the OUTBOUND fire
+   only.**
+2b. **Whether `SUPABASE_SERVICE_ROLE_KEY` is set in the production environment.**
+   The STORING leg needs it and nothing else: the callback builds its client from
+   that variable and answers 500 without writing a row when it is missing
+   (`app/api/extraction/callback/route.ts:298-305`). A fire can therefore succeed
+   completely and still store nothing.
 3. **Whether `RC_CALLBACK_URL` is set in the production environment.** The
    highest-value of the three, because a value there sends our result somewhere
    that is not us.
@@ -965,8 +1121,12 @@ from the repository:
    whitespace, which would never match at
    `app/api/extraction/callback/route.ts:136` because `expected` is untrimmed
    there.
-5. Whether `Headers.get` folds the inbound header name's case. No in-repo
-   evidence in either direction.
+5. Whether `Headers.get` folds the inbound header name's case. No test in this
+   repository sends a case-variant of `x-rc-callback-secret`: every spec sends the
+   lowercase literal (`tests/e2e/extraction.spec.ts:170`). The repository does
+   already rely on case-insensitive header lookup elsewhere, in the document proxy,
+   so "no evidence in either direction" would be too strong; what is absent is a
+   test of THIS header.
 6. Which header name Andre's scenario actually sends on the callback.
 7. Whether the twelve APPLY-LOG entries are live in the production schema.
 8. Which Supabase project a Vercel Preview deployment's environment variables
@@ -980,18 +1140,34 @@ from the repository:
 This file does not recommend a run and does not design a safer one. It records
 what a run would leave behind, from the measurements above:
 
-- **Seven `extraction_drafts` rows and seven `rc-docs` storage objects**, on the
-  production project.
+- **Seven `extraction_drafts` rows, one `extraction_draft_lines` row per
+  extracted line on each of them, and seven `rc-docs` storage objects**, on the
+  production project. The line rows are written by the callback itself
+  (`app/api/extraction/callback/route.ts:811`, previous batch cleared at
+  `:766-769`) and carry the supplier's product names, quantities and prices,
+  including the EXT-34 columns (`:803-807`).
 - **Seven entries on the operator's review screen, permanently**, because the
-  screen lists every draft whose `confirmed_at` is null
-  (`lib/data/extraction.ts:273`) and no action dismisses one.
+  screen lists every unconfirmed draft whose `order_id` names no existing order
+  (`lib/data/extraction.ts:273` and `:283-288`), a fired-and-unconfirmed upload
+  is exactly that, and no action dismisses one.
 - **Zero rows in any business table**, as long as nobody presses confirm
   (`lib/data/extraction-actions.ts:75-79`).
-- **No way to mark any of it as a fixture**, because no such field exists (Q6b),
-  and **no way to cancel it**, because no such status exists (Q7a).
-- **The only cleanup that exists is a DELETE**, in an owner-run script
-  (`scripts/reset-test-data.sql:464`), which is what the dispatch's own standing
-  convention says not to do.
+- **No fixture FIELD exists** (Q6b) and **no cancelled status exists** (Q7a).
+  **But the FILENAME is a marker the uploader already controls with no code, and
+  the one cleanup script already keys on it.** `extraction_drafts.document_filename`
+  is the raw name of the file picked on screen
+  (`lib/data/extraction-actions.ts:110`, written to the row at
+  `lib/data/extraction-fire.ts:212`), and the reset script puts every draft whose
+  `document_filename like 'TEST-%'` into its delete set
+  (`scripts/reset-test-data.sql:233`). **This is a measurement of what exists, not
+  a design**: nothing enforces the prefix, nothing on screen shows it as a marker,
+  and the mechanism that consumes it is a DELETE.
+- **The only cleanup that exists is a DELETE**, in an owner-run script:
+  `scripts/reset-test-data.sql:442-443` for the drafts and `:439-440` for their
+  lines. That is what the dispatch's own standing convention says not to do.
+  **And it would not reach a run fired under a real supplier's filename**, because
+  its delete set is seeded by `document_filename like 'TEST-%'` or by linkage to a
+  seed order (`scripts/reset-test-data.sql:230-235`).
 - If the document is a real supplier document, the run is also the event that
   `CLAUDE.md:935-937` names as ending the migration grant.
 
