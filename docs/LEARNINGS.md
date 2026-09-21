@@ -6223,3 +6223,17 @@ worked there, which is what made it easy to miss.
 in its own state, keyed by the order id, and shows it beside the document link (`doc-warning`).
 RULE: **before relying on a child's state to show a result, check whether the callback it fires
 can unmount it. A message that must survive a parent reload lives in the parent.**
+
+### A substring grep for forbidden SQL words matches the column names the query needs
+**Tag:** data
+**ERROR:** Card P3-87 (2026-09-21, Ivan's finding F21). The task proved an owner-run SQL file read
+only with `grep -inE "insert|update|delete|drop|truncate|alter|grant|create|;.*;"` and expected
+it to match nothing except comment lines. It matched five code lines. Every one named a column
+the task itself required, `created_at` and `created_by`, because `create` is a substring of both.
+Hiding the column (a string concatenation, or dropping the fallback to `created_at`) would have
+made the guard pass by making the file worse.
+**SOLUTION:** Match whole words (`grep -inwE`, with `set` added), check `;.*;` on its own, and
+prove the real thing with the parser: pgsql-parser, the grammar `check:reset-sql` already uses,
+must return exactly one `SelectStmt`, with no SELECT INTO, no row lock and no function outside a
+short read-only list. RULE: **a text guard is a hint, not the proof. When it trips on a required
+identifier, sharpen the guard and lean on the parser; never rename or hide the identifier.**
