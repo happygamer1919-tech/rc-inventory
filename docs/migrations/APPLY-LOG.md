@@ -52,6 +52,64 @@ The format is machine-read, so keep it exactly:
 - `0054_extraction_derived_partial.sql`, card de aplicare P3-80
 - `0055_active_profile_table_reads.sql`, card de aplicare P3-81
 
+### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
+
+**Added under `CLAUDE.md` section 9c. Nothing above is deleted, and the three
+lines stay in the waiting register on purpose.** See the two paragraphs at the
+end of this block for why removing them is not this record's job.
+
+**THE OBSERVATION.** On 2026-09-21 the owner opened the production project's
+**Database Migrations page** and reported that it lists these three as applied:
+
+| file | listed as applied on the production Migrations page |
+|---|---|
+| `0053_extraction_inbound_fields.sql` | yes |
+| `0054_extraction_derived_partial.sql` | yes |
+| `0055_active_profile_table_reads.sql` | yes |
+
+**THE SOURCE IS AN OWNER OBSERVATION, NOT A TERMINAL MEASUREMENT, AND THE
+DIFFERENCE IS THE WHOLE POINT OF WRITING IT THIS WAY.** No terminal connected to
+the production database to produce this. No three-phase apply under section 8.5
+was run, no pre-check or post-check output exists for it, and no `psql` exit code
+backs it. It is a person reading a dashboard and reporting what the screen said.
+That is real evidence and it is weaker than a journalled apply, so it is recorded
+as what it is rather than promoted into an entry that would look like one.
+
+**IT IS CONSISTENT WITH RULING R-124 AND THAT IS NOT A COINCIDENCE.**
+`CLAUDE.md` section 3.1 records, with a controlled measurement, that a Supabase
+GitHub integration applies merged migrations to the production project on every
+push to `main`. All three files merged to `main` before this observation:
+`0053` in pull request #334, `0054` in #335 and `0055` in #336. Under R-124 they
+would be applied, and the owner's screen says they are.
+
+**SO THE PREMISE THE WAITING REGISTER RESTS ON IS THE ONE UNDER DISPUTE.** That
+register is introduced above by this sentence:
+
+> *"merging a migration file changes one text file in a git repository and
+> changes nothing in any database"*
+
+**`CLAUDE.md` section 3.1 quotes that same premise and marks it FALSE under
+ruling R-124**, in its own words at `CLAUDE.md:217-218`. The register was built
+on top of it by R-062 on 2026-08-30, before R-124 existed. This block does not
+resolve that; it records that the owner's screen now agrees with R-124 and not
+with the register.
+
+**WHY THE THREE LINES ARE NOT REMOVED HERE, AND IT IS A RULE RATHER THAN
+CAUTION.** `tests/e2e/headers.spec.ts` requires every migration file to be in
+**exactly one** of the two places, applied or waiting. Removing a waiting line
+without adding a full entry beneath would put these three in neither and turn the
+suite red. Adding an entry would mean writing pre-check and post-check output
+that nobody produced, which is the one failure section 6 says this project has no
+recovery path for.
+
+**WHAT CLOSES THIS PROPERLY.** One SELECT against the production database, by
+whoever holds that access, reading `supabase_migrations.schema_migrations` or the
+three columns themselves. Whoever runs it writes the real entries and deletes the
+three waiting lines in the same pull request, exactly as the register above
+requires. **R-206 does not grant that read**, and this terminal did not attempt
+it.
+
+
 
 # RECONSTRUCTION OF 0028 TO 0031, 2026-09-03. READ THIS BEFORE THE FOUR ENTRIES.
 

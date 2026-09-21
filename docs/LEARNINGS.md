@@ -6162,3 +6162,32 @@ already imports the type. Reading only the top of the file hid it.
 **SOLUTION:** dropped the added import; ES imports are hoisted, so a helper near the top can use a
 type imported further down. RULE: **before adding an import to a long component, grep the whole
 file for `^import` rather than reading only its first lines.**
+
+### A citation copied from a doctrine table pointed at the wrong file entirely
+**Tag:** infra
+**ERROR:** Pull request #338 (2026-09-21). `docs/extraction/e2e-fire-path.md` cited
+`.github/workflows/quality.yml:440-442` for the `Start local Supabase` and `Apply migrations to
+the local stack` steps. Those line numbers are `CLAUDE.md`'s own TABLE OF STEP NAMES, at
+`CLAUDE.md:440-442`, not the workflow's lines. The workflow's steps are at
+`.github/workflows/quality.yml:948` and `:961`. The citation looked right because the quoted step
+NAMES matched exactly; only the file was wrong, and a reader following it would land in doctrine
+prose while believing they were reading CI.
+**SOLUTION:** the citation now names each step at its own line, `:948`, `:959`, `:961`, `:966`,
+`:931`, all re-read. A mechanical pass that opened all 246 cited `path:line` pairs is what caught
+it; two hand-review passes had not. RULE: **when a doctrine file describes another file, a line
+number read out of the DESCRIPTION is a citation of the description. Re-open the described file
+and cite it there, and never carry a line number across a file boundary because the quoted text
+matched.**
+
+### A document that asserts "this grep returns zero hits" falsifies itself once committed
+**Tag:** infra
+**ERROR:** Pull request #338 (2026-09-21). `docs/extraction/e2e-fire-path.md` stated, as a measured
+fact, that a repository-wide grep for `x-rc-callback` across `*.md` and `*.json` returns zero hits,
+which was true when measured. The file itself is a `.md` file in the repository containing that
+string nine times, so the sentence became false the moment the file was committed. The measurement
+was correct; the claim had no shelf life.
+**SOLUTION:** the sentence now scopes the grep as excluding this file, and says plainly that this
+file is the first document in the repository to write the inbound header name down. RULE: **before
+committing a claim of the form "a search of this repository finds nothing", check whether the file
+carrying the claim is inside the search scope. If it is, either scope the claim to exclude itself
+or state the count it will have after landing.**
