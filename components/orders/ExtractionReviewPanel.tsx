@@ -46,7 +46,7 @@ import {
   lineTotalSourceLabel,
   scanReadLines,
 } from "@/lib/data/extraction-types";
-import { formatMoney } from "@/lib/data/format";
+import { formatDate, formatMoney } from "@/lib/data/format";
 
 /** P3-82. Un document citit, cu linii, fara niciun pret si fara niciun total.
  *  Numai pe `extracted` si `partial`: un `failed` nu a fost acceptat. */
@@ -198,6 +198,7 @@ import { ALL_UNITS, unitLabel } from "@/lib/data/units";
 import type { ExtractionDraft, ExtractionLine } from "@/lib/data/extraction-types";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
+  cancelExtractionDraft,
   confirmExtractionDraft,
   refireExtraction,
   startExtraction,
@@ -645,16 +646,124 @@ function ReviewForm({
   );
 }
 
+/** P3-84, constatarea F20. Pasul de confirmare al renuntarii, INAUNTRUL fisei
+ *  documentului si nu o fereastra a browserului: fereastra nu poarta motivul,
+ *  nu se poate citi de test si nu arata ca restul aplicatiei. Pe un ecran ingust
+ *  campul si butoanele se aseaza unul sub altul. */
+function CancelDraftBlock({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+  const router = useRouter();
+  const [reason, setReason] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
+
+  async function confirm() {
+    setPending(true);
+    setError(null);
+    const result = await cancelExtractionDraft(orderId, reason);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <div className="border-t border-rc-line bg-rc-paper px-5 py-4" data-testid="draft-cancel-block">
+      <p className="text-[12.5px] text-rc-black max-w-[80ch]">
+        Documentul dispare din listă, dar rămâne păstrat și poate fi găsit la Documente la care s-a
+        renunțat.
+      </p>
+      <div className="mt-3 flex items-end gap-2.5 max-md:flex-col max-md:items-stretch">
+        <label className="w-[420px] text-[12px] text-rc-muted max-md:w-full">
+          Motiv (opțional)
+          <input
+            data-testid="draft-cancel-reason"
+            value={reason}
+            maxLength={200}
+            onChange={(e) => setReason(e.target.value)}
+            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black max-md:text-[16px]"
+          />
+        </label>
+        <div className="flex items-center gap-2 max-md:flex-col max-md:items-stretch">
+          <Button size="sm" onClick={confirm} disabled={pending} data-testid="draft-cancel-confirm">
+            {pending ? "Se renunță..." : "Da, renunț la document"}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={onClose} disabled={pending} data-testid="draft-cancel-keep">
+            Nu, păstrează
+          </Button>
+        </div>
+      </div>
+      {error ? (
+        <p
+          role="alert"
+          data-testid="draft-cancel-error"
+          className="mt-3 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3 py-2 text-[12.5px] text-rc-black"
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** P3-84, constatarea F20. Documentele la care s-a renuntat, INCHISE implicit
+ *  sub coada. Nu au niciun buton: o renuntare nu se desface in acest card. */
+function CancelledSection({ drafts }: { drafts: ExtractionDraft[] }) {
+  if (drafts.length === 0) return null;
+  return (
+    <details className="border-t border-rc-line" data-testid="cancelled-section">
+      <summary className="cursor-pointer px-5 py-3 text-[13px] font-semibold text-rc-black">
+        Documente la care s-a renunțat ({drafts.length})
+      </summary>
+      <ul className="divide-y divide-rc-line border-t border-rc-line">
+        {drafts.map((draft) => (
+          <li
+            key={draft.orderId}
+            data-testid="cancelled-card"
+            data-order-id={draft.orderId}
+            className="flex items-start justify-between gap-4 px-5 py-3 max-md:flex-col max-md:gap-2"
+          >
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-semibold text-rc-black truncate">{draft.documentFilename}</p>
+              <p className="text-[12.5px] text-rc-muted mt-0.5" data-testid="cancelled-meta">
+                Încărcat la {formatDate(draft.uploadedAt ?? null)}. S-a renunțat la{" "}
+                {formatDate(draft.cancelledAt ?? null)}, de{" "}
+                <span data-testid="cancelled-by">{draft.cancelledBy ?? "un utilizator al cărui nume nu îl poți vedea"}</span>.
+              </p>
+              <p className="text-[12.5px] text-rc-muted mt-0.5" data-testid="cancelled-reason">
+                {draft.cancelReason ? `Motiv: ${draft.cancelReason}` : "Fără motiv."}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <Chip tone="neutral">Renunțat</Chip>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function ExtractionReviewPanel({
   drafts,
   products,
   categories,
+  cancelled = null,
+  canCancel = false,
 }: {
   drafts: ExtractionDraft[];
   products: CatalogProduct[];
   categories: Category[];
+  /** P3-84. null cand 0056 nu este inca aplicata. */
+  cancelled?: ExtractionDraft[] | null;
+  /** P3-84. Numai proprietarul vede butonul "Renunță la document". */
+  canCancel?: boolean;
 }) {
   const router = useRouter();
+  // P3-84. Fisa al carei pas de renuntare este deschis, cel mult una.
+  const [cancelId, setCancelId] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
@@ -824,7 +933,9 @@ export function ExtractionReviewPanel({
                     <ExtractionMetaDetails draft={draft} />
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* P3-84. max-md:flex-wrap: cu butonul de renuntare grupul
+                      depaseste 390px pe telefon; peste 768px nimic nu se schimba. */}
+                  <div className="flex items-center gap-2 shrink-0 max-md:shrink max-md:flex-wrap">
                     <Chip tone={label.tone}>{label.text}</Chip>
                     {draft.status === "extracted" || draft.status === "partial" ? (
                       <Button
@@ -866,8 +977,26 @@ export function ExtractionReviewPanel({
                         {refiring === draft.orderId ? "Se retrimite..." : "Retrimite"}
                       </Button>
                     ) : null}
+                    {/* P3-84, constatarea F20. Pe orice stare, inclusiv "În lucru":
+                        un document de test sau gresit nu trebuie sa astepte un
+                        raspuns ca sa poata iesi din lista. "Renunță" din fisa de
+                        verificare inchide fisa si nu are legatura cu acesta. */}
+                    {canCancel ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        data-testid="draft-cancel"
+                        onClick={() => setCancelId(cancelId === draft.orderId ? null : draft.orderId)}
+                      >
+                        Renunță la document
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
+
+                {canCancel && cancelId === draft.orderId ? (
+                  <CancelDraftBlock orderId={draft.orderId} onClose={() => setCancelId(null)} />
+                ) : null}
 
                 {isOpen && open ? (
                   <div className="border-t border-rc-line bg-rc-paper">
@@ -890,6 +1019,8 @@ export function ExtractionReviewPanel({
           })}
         </ul>
       )}
+
+      {cancelled ? <CancelledSection drafts={cancelled} /> : null}
     </Card>
   );
 }

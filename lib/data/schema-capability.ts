@@ -609,6 +609,44 @@ export async function hasExtractionDerivedPartial(client: ColumnProbe): Promise<
 
 
 // ---------------------------------------------------------------------------
+// P3-84, constatarea F20. Exista coloanele extraction_drafts.cancelled_at,
+// cancelled_by si cancel_reason?
+//
+// ACEEASI FORMA CA P3-80 SI DIN ACELASI MOTIV. 0056 aterizeaza pe productie prin
+// integrarea Supabase la vreo doua minute dupa fuziune, iar codul pleaca din
+// acelasi push. In fereastra aceea un select sau un filtru care numeste o
+// coloana necunoscuta primeste 42703, si /incarca-comanda ar cadea exact pe
+// ecranul pe care se lucreaza documentele.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: lista nu filtreaza
+// nimic in plus, butonul "Renunță la document" nu apare, sectiunea documentelor
+// la care s-a renuntat nu apare, iar confirmarea si retrimiterea nu citesc nimic
+// nou. Cele trei coloane sosesc in aceeasi tranzactie, deci o singura sonda, pe
+// cancelled_at, ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedExtractionCancel: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasExtractionCancel(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedExtractionCancel && now - cachedExtractionCancel.at < TTL_MS) return cachedExtractionCancel.value;
+
+  try {
+    const { error } = await client.from("extraction_drafts").select("cancelled_at").limit(1);
+    cachedExtractionCancel = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedExtractionCancel = { value: false, at: now };
+  }
+  return cachedExtractionCancel.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // P3-43. Exista coloanele clients.stage si clients.follow_up_date?
 //
 // DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar

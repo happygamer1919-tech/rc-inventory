@@ -6191,3 +6191,21 @@ file is the first document in the repository to write the inbound header name do
 committing a claim of the form "a search of this repository finds nothing", check whether the file
 carrying the claim is inside the search scope. If it is, either scope the claim to exclude itself
 or state the count it will have after landing.**
+
+### "Operator" names the account manager role, so "owner or active operator, not account manager" contradicts itself
+**Tag:** auth
+**ERROR:** Card P3-84 (2026-09-21, Ivan's finding F20). The task said a draft may be dismissed by
+"owner or active operator only" and, two paragraphs later, "Account manager is NOT allowed". In
+this code base there are exactly two roles, `owner` and `account_manager`
+(`supabase/migrations/0001_phase2_schema.sql:46`), and `ROLE_LABEL` in `lib/supabase/types.ts`
+shows `account_manager` on screen as "Operator". `review.spec.ts` case 8 calls the manager account
+"OPERATOR, nu administrator", and migrations 0050 and 0055 use "an active operator, owner or
+account manager" to mean any active profile. Read in the repository's own vocabulary, "owner or
+active operator" means every active user, and the exclusion that follows it leaves the owner alone.
+Nothing failed; the two readings would have shipped two different permissions.
+**SOLUTION:** the explicit exclusion was applied (owner only, active, checked in the server action
+through `getSessionUser`) because it is the narrower grant and the one the task stated in terms,
+and the ambiguity went into the card defaults, the report and the owner's merge question so the
+owner can widen it with a one-line change. RULE: **when a brief names a role in words, map each
+word to `app_role` and `ROLE_LABEL` before coding. "Operator" on screen is `account_manager`; a
+sentence that uses it as a third role is ambiguous and is written down, never silently resolved.**
