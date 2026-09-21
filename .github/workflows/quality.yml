@@ -273,6 +273,16 @@ jobs:
       - name: Check the callback key allowlist
         run: npm run check:callback-keys
 
+      # P3-86, Ivan's finding F22. The extraction callback secret is compared
+      # after trimming both sides, as SHA-256 digests through timingSafeEqual,
+      # and every wrong or missing secret is still refused. NOT PATH-FILTERED,
+      # for the reason the steps above give: the end-to-end specs prove the 401
+      # is still wired and need a database, this proves the comparison itself
+      # with fake literals and that both route sites call it. No network, no
+      # database, no secret, no environment read.
+      - name: Check the callback secret comparison
+        run: npm run check:callback-secret
+
       # MERGE IS APPLY ON THIS REPOSITORY, so the destructive-statement boundary
       # is the pull request and not the applier. NOT PATH-FILTERED: it resolves
       # its own file list from the diff, and a workflow-level filter would skip
