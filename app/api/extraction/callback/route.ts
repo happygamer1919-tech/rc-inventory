@@ -492,8 +492,21 @@ export async function POST(request: Request) {
   // platform_arm, unde se vede, iar error_code ramane null, exact ca la P3-29a.
   // Statusul ramane `partial` fiindca liniile sunt motivul pentru care partial
   // exista; mutarea in `failed` este regula scanarilor si nu se extinde aici.
+  //
+  // P3-83, HOTARAREA R-211, FACE PROPOZITIA "error_code ramane null" INCOMPLETA,
+  // si ea ramane scrisa mai sus. Constatarea F8 a lui Ivan, hotarata de Max: un
+  // `partial` digital fara cod, cu `prices_include_vat` null si cu liniile care nu
+  // se potrivesc cu niciunul dintre cele doua totaluri, adica bratul
+  // `anchor_unknown`, STOCHEAZA codul acelui brat, cel pe care il poarta si
+  // platform_error_code, ca cine citeste numai ciorna sa vada de ce este partiala.
+  //
+  // CONDITIA ESTE BRATUL, NU CODUL. `unreadable_document` il poarta cinci brate;
+  // a testa codul ar furniza si header_inconsistent, target_missing si
+  // line_total_missing, pe care hotararea nu le numeste. Acelea raman null, iar
+  // cazul 31 al lui P3-29a ramane neschimbat. Statusul nu se muta nici aici:
+  // `!digitalPartialWithoutCode` de mai jos il tine `partial` oricare ar fi codul.
   const suppliedCode = digitalPartialWithoutCode
-    ? platformCode === "reconciliation_failed"
+    ? platformCode === "reconciliation_failed" || platformArm === "anchor_unknown"
       ? platformCode
       : null
     : platformCode;

@@ -13389,6 +13389,17 @@ with `error_code` null and no verdict of ours, because our classification ran on
 scans only. The counterparty's trace may predate that deploy; this ruling does
 not guess which.
 
+**SUPERSEDED IN PART ON 2026-09-21 BY RULING R-211, CARD P3-83, UNDER CLAUDE.md
+SECTION 9c. THE RULE NOW, FIRST:** when `prices_include_vat` is null and our
+reconciliation cannot decide, which is the `anchor_unknown` arm, the draft's
+`error_code` is set to the same code `platform_error_code` carries,
+`unreadable_document`, so a reader of the draft alone sees why it is partial. The
+status still stays `partial` and the lines are still kept. Every arm other than
+`line_sum_missed` and `anchor_unknown` still stores no code. The paragraph below is
+kept as written; its sentence *"`error_code` stays null in that case."* is
+superseded by R-211 for the `anchor_unknown` arm, and stays true for every other
+arm.
+
 **WHEN OURS DOES NOT SAY `reconciliation_failed` ON SUCH A PAYLOAD, NO CODE IS
 INVENTED.** The dispatch names one code and says no other state is reachable. A
 payload that reaches another arm therefore contradicts the premise, and the
@@ -13417,6 +13428,14 @@ reading this terminal chose, and it is flagged.**
    every payload of this shape the field could only ever hold
    `reconciliation_failed`, and a field that can hold one value carries no
    information the status does not already carry.
+
+   **INCOMPLETE SINCE 2026-09-21, RULING R-211, UNDER CLAUDE.md SECTION 9c.** The
+   draft's `error_code` on this shape can now also hold `unreadable_document`, on
+   the `anchor_unknown` arm, so the sentence *"On every payload of this shape the
+   field could only ever hold `reconciliation_failed`"* is no longer true of what
+   we store. The rejection stands on its first reason alone: adding `error_code`
+   to the lines structure is still a change on both sides, both schemas and both
+   validators, and R-211 changes neither side's wire shape.
 
 #### (d) `_meta.model` ON A FAILURE PATH IS THE CONFIGURED MODEL, NEVER THE RESOLVED SNAPSHOT
 
@@ -14266,3 +14285,69 @@ access and does not reach the production database.
 
 **Unblocks:** the close criteria for R-199 are now stated in one place.
 **Supersedes:** none. It stands on R-205's pass condition and does not relax it.
+
+### R-211 - A digital partial with an unknown VAT flag whose lines match neither total stores the anchor_unknown arm's code as its error_code, not only as our verdict
+
+**Date:** 2026-09-21
+**Asked on:** Ivan's finding F8, held since the operator factory's question q058
+(F8 contradicts R-197), decided by Max as platform owner on 2026-09-20, goal G38
+of the operator factory
+**Answer, verbatim:**
+> F8, decided by Max as platform owner 2026-09-20 ("we both don't know, do as you
+> recommend"; POC recommended building it): a digital partial with an unknown VAT
+> flag STORES an error code, not only our verdict. This supersedes ruling R-197
+> part (a) under repo CLAUDE.md section 9c: quote its sentence "error_code stays
+> null in that case", mark it superseded by the new ruling, keep it, and state the
+> new rule first: when `prices_include_vat` is null and reconciliation cannot
+> decide, the draft's `error_code` is set to the same code `platform_error_code`
+> carries (the `anchor_unknown` arm's code), so a reader of the draft alone sees
+> why it is partial. Named e2e test with such a payload asserting `error_code` is
+> stored; existing extraction tests unchanged. No migration expected.
+
+**Ruling: adopted. Built by card P3-83.**
+
+**THE RULE.** A `partial` with `document_source` `digital`, no `error_code`, at
+least one line, `prices_include_vat` null, a header that agrees with itself, and
+line totals that match neither `subtotal` nor `document_total` falls on our
+classification's `anchor_unknown` arm. Its code, `unreadable_document`, is now
+stored as the draft's `error_code` as well as in `platform_error_code`, with
+`platform_arm` `anchor_unknown`. The status stays `partial` and the lines are kept,
+exactly as under R-197. The review screen shows that code's Romanian sentence on
+the draft, as it does for any stored code.
+
+**WHAT IT SUPERSEDES, QUOTED AND KEPT.** R-197 part (a) says, of such a payload
+reaching an arm other than `line_sum_missed`: *"`error_code` stays null in that
+case."* That sentence is superseded by this ruling for the `anchor_unknown` arm
+and marked where it stands. R-197 part (c) item 2 says *"On every payload of this
+shape the field could only ever hold `reconciliation_failed`"*; that is no longer
+true of what we store, it is marked where it stands too, and the rejection it
+supports still stands on its other reason.
+
+**WHAT DOES NOT CHANGE.**
+- The other arms. `header_inconsistent`, `no_lines`, `target_missing` and
+  `line_total_missing` also carry `unreadable_document`, and on a code-less digital
+  partial they still store no `error_code`. The route tests the ARM, not the code,
+  for exactly that reason. P3-29a's case 31 is unchanged.
+- The status. A code-less digital partial never moves to `failed`, whatever code
+  it stores.
+- The wire. No HTTP code moves for any payload, the response body does not carry
+  `error_code`, nothing accepted before is refused, and nothing refused before is
+  accepted.
+- No migration: `unreadable_document` is in the `error_code` enum since 0008.
+
+**WHAT ANDRE'S SIDE MUST CHANGE: NOTHING.** This changes what we store for one
+payload shape and what our review screen shows for it. It does not change what
+the callback accepts, refuses or answers. This factory has no channel to Andre,
+and nothing here needs one.
+
+**LEFT FOR A FOLLOW-UP, NAMED RATHER THAN SILENT.** `docs/contracts/extraction-v2.md`
+section 5.3a, in the note that R-197 added, says that when our classification says
+anything other than `reconciliation_failed` on such a payload "it is recorded and
+no code is stored". For the `anchor_unknown` arm that is now incomplete. The task
+that built P3-83 kept the contract documents read-only, so the note is not edited
+here; the next card allowed to touch that file should mark it under CLAUDE.md
+section 9c and cite this ruling.
+
+**Unblocks:** card P3-83, and with it the last open item of goal G28.
+**Supersedes:** R-197 part (a), the sentence quoted above, for the `anchor_unknown`
+arm only. The rest of R-197 stands.

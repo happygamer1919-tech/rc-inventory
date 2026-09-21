@@ -428,11 +428,22 @@ console.log('\n9. EXT-23: which code carries the refusal, arm by arm');
   // only as a side effect of the 400 at route.ts:139, which refuses an error_code
   // on an `extracted` payload; a precedence that exists as a consequence of a
   // neighbouring rule reverses itself the day that rule changes.
+  //
+  // P3-83 WIDENED THE SUPPLIED CODE BY ONE NAMED ARM, UNDER RULING R-211, AND THIS
+  // PIN FIRED ON IT, AS IT SHOULD. Kept here under CLAUDE.md 9c. Until 2026-09-21
+  // the second half read:
+  //
+  //   && /const suppliedCode = digitalPartialWithoutCode\s*\?\s*platformCode === "reconciliation_failed"\s*\?\s*platformCode\s*:\s*null\s*:\s*platformCode;/.test(ROUTE)
+  //   ok("the sender's error_code wins, and on a code-less digital partial ours is supplied only as reconciliation_failed");
+  //
+  // R-211 (Ivan's F8, Max's decision): on a code-less digital partial the
+  // anchor_unknown arm's code is supplied too. The pin is the ARM and nothing
+  // wider: a test on the code unreadable_document would let four more arms through.
   if (/const effectiveErrorCode = errorCodeRaw !== null \? errorCodeRaw : suppliedCode;/.test(ROUTE)
-      && /const suppliedCode = digitalPartialWithoutCode\s*\?\s*platformCode === "reconciliation_failed"\s*\?\s*platformCode\s*:\s*null\s*:\s*platformCode;/.test(ROUTE)) {
-    ok("the sender's error_code wins, and on a code-less digital partial ours is supplied only as reconciliation_failed");
+      && /const suppliedCode = digitalPartialWithoutCode\s*\?\s*platformCode === "reconciliation_failed" \|\| platformArm === "anchor_unknown"\s*\?\s*platformCode\s*:\s*null\s*:\s*platformCode;/.test(ROUTE)) {
+    ok("the sender's error_code wins, and on a code-less digital partial ours is supplied only as reconciliation_failed or on the anchor_unknown arm (R-211)");
   } else {
-    bad("the sender's error_code is no longer the first branch of effectiveErrorCode, or a digital partial can receive a code other than reconciliation_failed");
+    bad("the sender's error_code is no longer the first branch of effectiveErrorCode, or a digital partial can receive a code on an arm other than line_sum_missed and anchor_unknown");
   }
 
   // AND OUR VERDICT MAY NOT MOVE A STATUS THE SENDER SET. `effectiveStatus` flips
