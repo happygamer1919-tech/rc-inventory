@@ -374,8 +374,7 @@ async function profileNames(
       throw new Error(`Nu s-au putut citi numele celor care au renuntat: ${error.message}`);
     }
     for (const p of (data ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
-      const name = p.full_name?.trim() || p.email?.trim();
-      if (name) names.set(String(p.id), name);
+      names.set(String(p.id), p.full_name?.trim() || p.email?.trim() || "Fără nume");
     }
   }
   return names;
