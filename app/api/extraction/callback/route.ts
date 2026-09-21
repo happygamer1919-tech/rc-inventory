@@ -46,6 +46,7 @@ import {
 } from "@/lib/data/reconciliation";
 import { numericField } from "@/lib/data/numeric-field.mjs";
 import { warnUnknownCallbackKeys } from "@/lib/data/callback-keys.mjs";
+import { secretMatches } from "@/lib/data/callback-secret.mjs";
 import {
   CALLBACK_CODES,
   effectiveSource,
@@ -129,12 +130,7 @@ export async function POST(request: Request) {
   // --- 401 inainte de orice altceva ----------------------------------------
   const expected = process.env.MAKE_CALLBACK_SECRET;
   const provided = request.headers.get("x-rc-callback-secret");
-  if (
-    typeof expected !== "string" ||
-    expected.trim().length === 0 ||
-    provided === null ||
-    provided !== expected
-  ) {
+  if (!secretMatches(expected, provided)) {
     return NextResponse.json({ error: "secret invalid" }, { status: CALLBACK_CODES.badSecret });
   }
 
@@ -852,12 +848,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const expected = process.env.MAKE_CALLBACK_SECRET;
   const provided = request.headers.get("x-rc-callback-secret");
-  if (
-    typeof expected !== "string" ||
-    expected.trim().length === 0 ||
-    provided === null ||
-    provided !== expected
-  ) {
+  if (!secretMatches(expected, provided)) {
     return NextResponse.json({ error: "secret invalid" }, { status: CALLBACK_CODES.badSecret });
   }
 
