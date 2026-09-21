@@ -47,7 +47,7 @@ whose Finding 4 is corrected in the same pull request for exactly this reason.
 | Do seven documents need seven orders? | **No. Seven `order_id`s, zero orders.** The order is born at confirmation. A fired document that is never confirmed creates no order. |
 | Can the test rows be cancelled afterwards? | **No. There is no cancelled state for an order in this system at all.** The convention's word does not exist in the schema. |
 | Is there anything marking a row as a fixture? | **No. Nothing exists.** The card that would build it, `EXT-35`, is `todo`. |
-| Is there a staging environment to run this in instead? | **No, on repo evidence.** One Supabase project ref exists in this repository and it is production. |
+| Is there a staging environment to run this in instead? | **No, on repo evidence.** Exactly one REAL Supabase project ref appears in this repository and it is production. What a Vercel Preview points at lives in the dashboard: UNMEASURED. |
 
 **THE ONE THING THAT MAKES THIS SAFE ANYWAY, AND IT IS THE REAL FINDING.** On the
 upload path, which is the one a test run would use, a fire writes a storage
@@ -1146,10 +1146,12 @@ what a run would leave behind, from the measurements above:
   (`app/api/extraction/callback/route.ts:811`, previous batch cleared at
   `:766-769`) and carry the supplier's product names, quantities and prices,
   including the EXT-34 columns (`:803-807`).
-- **Seven entries on the operator's review screen, permanently**, because the
-  screen lists every unconfirmed draft whose `order_id` names no existing order
-  (`lib/data/extraction.ts:273` and `:283-288`), a fired-and-unconfirmed upload
-  is exactly that, and no action dismisses one.
+- **Seven entries on the operator's review screen, until removed from outside the
+  application**, because the screen lists every unconfirmed draft whose
+  `order_id` names no existing order (`lib/data/extraction.ts:273` and
+  `:283-288`), a fired-and-unconfirmed upload is exactly that, and no screen and
+  no server action dismisses one. An owner-authenticated DELETE can
+  (`supabase/migrations/0008_extraction_drafts.sql:209-210`).
 - **Zero rows in any business table**, as long as nobody presses confirm
   (`lib/data/extraction-actions.ts:75-79`).
 - **No fixture FIELD exists** (Q6b) and **no cancelled status exists** (Q7a).
