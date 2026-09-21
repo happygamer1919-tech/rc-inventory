@@ -64,9 +64,13 @@ export type InboundOrder = {
   history: StatusEvent[];
 };
 
+/** P3-85. `saved` apare numai pe un esec DUPA care documentul este totusi
+ *  pastrat: fisierul este in depozit, dar citirea automata nu a pornit. Ecranul
+ *  arata mesajul SI se reimprospateaza, ca documentul si randul esuat sa se vada.
+ *  Fara `saved`, nu s-a pastrat nimic, exact ca pana la acest card. */
 export type ActionResult<T = undefined> =
   | { ok: true; value: T }
-  | { ok: false; message: string; field?: string };
+  | { ok: false; message: string; field?: string; saved?: { orderId?: string } };
 
 export type NewOrderLine = {
   productId: string;

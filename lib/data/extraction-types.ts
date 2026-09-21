@@ -87,6 +87,13 @@ export type StoredErrorCode = ExtractionErrorCode | LocalErrorCode;
 export const ACTION_RESCAN = "Încarcă o scanare mai bună.";
 export const ACTION_ENTER_BY_HAND = "Documentul trebuie introdus manual.";
 
+/** P3-85, constatarea F21 a lui Ivan. INCEPUTUL MESAJULUI CARE SPUNE LA
+ *  INCARCARE CA CITIREA AUTOMATA NU A PORNIT. Dupa el vine motivul intors de
+ *  fireExtraction, NESCHIMBAT: acelasi motiv sta pe randul de ciorna si este
+ *  verificat de alte teste. Un singur sir pentru amandoua caile de incarcare si
+ *  pentru proba, din motivul scris la ACTION_RESCAN. */
+export const EXTRACTION_NOT_STARTED = "Citirea automată nu a pornit. ";
+
 /** EXT-23. CELE DOUA REMEDII, NUMITE SEPARAT, fiindca propozitia lui
  *  `unreadable_document` le poarta acum pe amandoua si o proba trebuie sa poata
  *  arata catre fiecare in parte.

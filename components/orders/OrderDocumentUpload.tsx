@@ -21,7 +21,9 @@ export function OrderDocumentUpload({
   onUploaded,
 }: {
   orderId: string;
-  onUploaded?: () => void;
+  /** P3-85. `warning` este mesajul unui document pastrat a carui citire
+   *  automata nu a pornit; lipseste cand totul a mers. */
+  onUploaded?: (warning?: string) => void;
 }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -61,6 +63,14 @@ export function OrderDocumentUpload({
 
     if (!result.ok) {
       setError(result.message);
+      // P3-85. Documentul este atasat, dar citirea automata nu a pornit. NU
+      // "Document atasat.", ca si cum totul ar fi mers: mesajul ramane, iar
+      // ecranul se reimprospateaza ca documentul sa se vada. Panoul comenzii
+      // primeste mesajul, fiindca reincarcarea lui ascunde aceasta casuta.
+      if (result.saved) {
+        onUploaded?.(result.message);
+        router.refresh();
+      }
       return;
     }
     setDone(true);

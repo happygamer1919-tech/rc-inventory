@@ -22,7 +22,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
-import { effectiveSource } from "./extraction-types";
+import { EXTRACTION_NOT_STARTED, effectiveSource } from "./extraction-types";
 import { countPages } from "./page-count.mjs";
 import {
   hasExtractionCancel,
@@ -112,6 +112,10 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
 
   // Trimiterea nu poate rasturna incarcarea. Motivul unui esec ajunge pe randul
   // de ciorna si se vede pe ecran, care este exact ce cere clauza 4.
+  //
+  // P3-85, constatarea F21. Dar un esec NU mai intoarce ok: pana la acest card
+  // omul vedea o incarcare reusita si nu afla ca nu s-a citit nimic. Documentul
+  // ramane pastrat si randul ramane scris; rezultatul spune asta prin `saved`.
   const fired = await fireExtraction({
     orderId,
     documentPath: path,
@@ -132,6 +136,8 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
         reason: fired.reason,
       })
       .eq("order_id", orderId);
+    revalidatePath("/incarca-comanda");
+    return { ok: false, message: `${EXTRACTION_NOT_STARTED}${fired.reason}`, saved: { orderId } };
   }
 
   revalidatePath("/incarca-comanda");
