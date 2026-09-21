@@ -2,7 +2,11 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
-import { EXTRACTION_ERROR_CODES, EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
+import {
+  EXTRACTION_ERROR_CODES,
+  EXTRACTION_ERROR_LABEL,
+  EXTRACTION_NOT_STARTED,
+} from "@/lib/data/extraction-types";
 
 // extraction-webhook-missing.spec - linia de acceptanta a cardului P3-71,
 // constatarea F3 a lui Ivan: "silent upload failure when MAKE_WEBHOOK_URL is
@@ -154,4 +158,123 @@ test.describe("Extragere fara MAKE_WEBHOOK_URL", () => {
     expect(r.status(), "un cod din afara multimii contractului este 400, ca inainte").toBe(400);
     expect((await r.json()).error).toBe("error_code in afara multimii");
   });
+
+  // P3-85, constatarea F21 a lui Ivan, partea 1: "a refused extraction fire must
+  // show failure to the user at upload". Cazurile 1 si 2 de mai sus raman
+  // neschimbate. Cele de mai jos afirma ce vede omul IN CLIPA incarcarii: pana la
+  // P3-85 actiunea intorcea ok si ecranul nu spunea nimic, desi randul era scris.
+
+  test("3. G40 F21: incarcarea pe /incarca-comanda fara MAKE_WEBHOOK_URL spune pe loc ca citirea nu a pornit, iar ciorna esuata apare in lista", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    const filename = `TEST-G40-draft-${RUN}.pdf`;
+    await page.goto("/incarca-comanda");
+    await page.getByTestId("extraction-input").setInputFiles({
+      name: filename,
+      mimeType: "application/pdf",
+      buffer: Buffer.from(
+        `%PDF-1.4\n% RC test g40 draft\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`,
+        "utf8",
+      ),
+    });
+
+    // FISA ESUATA APARE FARA NICIO NAVIGARE: asta dovedeste ca ecranul s-a
+    // reimprospatat si dupa un esec, nu doar dupa o reusita.
+    const card = page.locator('[data-testid="draft-card"]').filter({ hasText: filename });
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    const orderId = (await card.getAttribute("data-order-id")) ?? "";
+    expect(orderId).toMatch(/^[0-9a-f-]{36}$/i);
+
+    expect(await firedFor(request, orderId), "nimic nu a plecat catre transport").toHaveLength(0);
+
+    const d = await draftState(request, orderId);
+    expect(d, "ciorna exista").not.toBeNull();
+    expect(d.status).toBe("failed");
+    expect(d.error_code).toBe("config_error");
+
+    // MESAJUL, EXACT: inceputul numit plus motivul stocat pe rand, neschimbat.
+    // Ambele se citesc din sursa lor, nu dintr-o a doua copie scrisa in test.
+    const banner = page.getByTestId("extraction-error");
+    await expect(banner).toBeVisible();
+    await expect(banner).toHaveText(`${EXTRACTION_NOT_STARTED}${String(d.reason)}`);
+    await expect(banner).toHaveAttribute("role", "alert");
+  });
+
+  test("4. G40 F21: documentul atasat unei comenzi fara MAKE_WEBHOOK_URL ramane atasat, dar ecranul spune ca citirea nu a pornit si nu scrie Document atasat", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    const sku = await makeProduct(page, "g40doc");
+    const reference = await createOrder(page, sku);
+
+    await page.getByTestId("doc-input").setInputFiles({
+      name: `TEST-G40-comanda-${RUN}.pdf`,
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"),
+    });
+
+    const error = page.getByTestId("doc-error");
+    await expect(error).toBeVisible({ timeout: 30_000 });
+    // Motivul lui fireExtraction pentru adresa lipsa, neschimbat, dupa inceputul
+    // numit. Acelasi text pe care cazul 1 il citeste de pe rand.
+    await expect(error).toHaveText(
+      `${EXTRACTION_NOT_STARTED}Variabila de mediu MAKE_WEBHOOK_URL lipsește. ` +
+        "Documentul a fost încărcat și păstrat, dar nu a fost trimis la extragere.",
+    );
+    await expect(page.getByTestId("doc-done")).toHaveCount(0);
+
+    // DOCUMENTUL RAMANE ATASAT: nimic nu s-a desfacut din cauza refuzului.
+    await page.goto("/comenzi");
+    const item = page.locator(`[data-testid="inbound-item"][data-reference="${reference}"]`);
+    await expect(item).toHaveCount(1, { timeout: 20_000 });
+    await expect(item).toContainText("document atașat");
+  });
 });
+
+/* ----------------------------------------------- ajutoare pentru cazul 4 -- */
+
+// Aceeasi forma ca in inbound.spec, fiindca acela este ecranul pe care il
+// probeaza: o comanda se creeaza intai, apoi i se ataseaza documentul.
+const TEST_CATEGORY = "TEST-Categorie";
+
+async function ensureTestCategory(page: Page) {
+  await page.goto("/setari");
+  const existing = page.locator(`[data-testid="category-row"][data-name="${TEST_CATEGORY}"]`);
+  if ((await existing.count()) > 0) return;
+  await page.getByTestId("category-name").fill(TEST_CATEGORY);
+  await page.getByTestId("category-add").click();
+  await expect(existing).toHaveCount(1, { timeout: 15_000 });
+}
+
+async function makeProduct(page: Page, tag: string): Promise<string> {
+  await ensureTestCategory(page);
+  const sku = `TEST-G40-${tag}-${RUN}`;
+  await page.goto("/inventar");
+  await page.getByTestId("product-new").click();
+  await page.getByTestId("field-sku").fill(sku);
+  await page.getByTestId("field-name").fill(`Produs G40 ${tag}`);
+  await page.getByTestId("field-category").selectOption({ label: TEST_CATEGORY });
+  await page.getByTestId("field-unit").selectOption("pcs");
+  await page.getByTestId("field-unit-value").fill("10");
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  return sku;
+}
+
+async function createOrder(page: Page, sku: string): Promise<string> {
+  await page.goto("/adauga-manual");
+  await expect(page.getByTestId("inbound-form")).toBeVisible();
+  await page.getByTestId("order-supplier").fill(`TEST Furnizor G40 ${RUN}`);
+  await page.getByTestId("order-expected-at").fill("2026-12-01");
+  const option = page.getByTestId("line-product-0").locator("option").filter({ hasText: sku });
+  await page.getByTestId("line-product-0").selectOption((await option.getAttribute("value")) ?? "");
+  await page.getByTestId("line-quantity-0").fill("2");
+  await page.getByTestId("line-price-0").fill("5");
+  await page.getByTestId("order-confirm").click();
+  await expect(page.getByTestId("order-created")).toBeVisible({ timeout: 20_000 });
+  return (await page.getByTestId("created-reference").innerText()).trim();
+}

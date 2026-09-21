@@ -3,7 +3,7 @@ import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 import { FIRE_FIELDS, MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 import { buildPdf } from "./support/pdf-builder.mjs";
-import { EXTRACTION_ERROR_LABEL } from "@/lib/data/extraction-types";
+import { EXTRACTION_ERROR_LABEL, EXTRACTION_NOT_STARTED } from "@/lib/data/extraction-types";
 
 // extraction.spec - linia de acceptanta a cardului P2-08a.
 //
@@ -2041,6 +2041,26 @@ test.describe("Extragere documente", () => {
     expect(d.lines[0].line_total_source, "sursa totalului absenta este NULL").toBeNull();
   });
 
+  test("37. G40 F21: o incarcare trimisa NU arata niciun mesaj de esec, iar una refuzata la 100 de pagini il arata pe loc", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+
+    // REUSITA NESCHIMBATA: pleaca o trimitere, fisa apare, si niciun mesaj.
+    const sent = await uploadForExtraction(page, request, "g40ok");
+    expect((await draftState(request, sent)).status).toBeNull();
+    await expect(page.getByTestId("extraction-error")).toHaveCount(0);
+
+    // REFUZUL NOSTRU, pe serverul cu adresa de webhook: acelasi mesaj, cu motivul
+    // stocat pe rand, si fisa esuata apare fara nicio navigare.
+    const refused = await uploadForExtraction(page, request, "g40pages100", buildPdf(100), 0);
+    const d = await draftState(request, refused);
+    expect(d.error_code).toBe("document_too_large");
+    await expect(page.getByTestId("extraction-error")).toHaveText(
+      `${EXTRACTION_NOT_STARTED}${String(d.reason)}`,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
