@@ -278,12 +278,40 @@ test.describe("G39 F20: renunțarea la un document de pe ecranul de verificare",
     await expect(section).toBeVisible();
   });
 
-  test("G39 F20: 2. un document încă în lucru poate fi abandonat și iese din coadă", async ({ page, request }) => {
+  test("G39 F20: 2. un document încă în lucru poate fi abandonat și iese din coadă", async ({
+    page,
+    request,
+  }, testInfo) => {
     await signIn(page, ownerAccount());
     const orderId = await uploadForExtraction(page, request, "inlucru");
 
     const before = await draftState(request, orderId);
     expect(before.status, "niciun raspuns inca").toBeNull();
+
+    // PE TELEFON, O DATA: pasul de confirmare se aseaza unul sub altul si nu
+    // iese din ecran la 390px. Se masoara numai blocul acestui card, nu tot
+    // ecranul, care are propriile lui teste de telefon.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(UPLOAD);
+    const phoneCard = draftCard(page, orderId);
+    await expect(phoneCard).toHaveCount(1, { timeout: 30_000 });
+    await phoneCard.getByTestId("draft-cancel").click();
+    const block = phoneCard.getByTestId("draft-cancel-block");
+    await expect(block).toBeVisible();
+    for (const id of ["draft-cancel-block", "draft-cancel-reason", "draft-cancel-confirm", "draft-cancel-keep"]) {
+      const box = await phoneCard.getByTestId(id).boundingBox();
+      expect(box, `${id} este pe ecran`).not.toBeNull();
+      expect(box!.x + box!.width, `${id} nu iese din ecran la 390px`).toBeLessThanOrEqual(390 + 0.5);
+    }
+    const confirmBox = await block.getByTestId("draft-cancel-confirm").boundingBox();
+    const keepBox = await block.getByTestId("draft-cancel-keep").boundingBox();
+    expect(keepBox!.y, "butoanele se aseaza unul sub altul pe telefon").toBeGreaterThan(confirmBox!.y);
+    await page.screenshot({ path: testInfo.outputPath("g39-f20-cancel-block-390.png") });
+    await block.getByTestId("draft-cancel-keep").click();
+    await expect(block, "Nu, păstrează inchide pasul fara sa renunte").toHaveCount(0);
+    expect((await draftState(request, orderId)).cancelled_at, "nimic scris").toBeNull();
+    // Inapoi la marimea proiectului, Desktop Chrome.
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     await cancelFromScreen(page, orderId, "");
     await openCancelledSection(page);
