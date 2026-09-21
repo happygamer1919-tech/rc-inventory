@@ -513,6 +513,18 @@ export type ExtractionDraft = {
   meta: ExtractionMeta | null;
   firedAt: string | null;
   callbackAt: string | null;
+  /** P3-84, constatarea F20. Cand s-a renuntat la document. Lipseste pe
+   *  ciornele din coada, care prin definitie nu sunt renuntate; il poarta
+   *  numai randurile citite de listCancelledDrafts. */
+  cancelledAt?: string | null;
+  /** P3-84. Numele celui care a renuntat, rezolvat din profiles. null cand
+   *  profilul nu se poate citi cu sesiunea curenta. */
+  cancelledBy?: string | null;
+  /** P3-84. Motivul scris la renuntare, sau null cand nu s-a dat unul. */
+  cancelReason?: string | null;
+  /** P3-84. Cand s-a incarcat documentul, din created_at. Il poarta numai
+   *  randurile citite de listCancelledDrafts, unde ecranul il arata. */
+  uploadedAt?: string | null;
   lines: ExtractionLine[];
 };
 

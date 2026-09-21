@@ -22,6 +22,7 @@ import {
   hasExtractionUploadPageCount,
   hasExtractionInboundFields,
   hasExtractionDerivedPartial,
+  hasExtractionCancel,
   hasSupplierDocumentRef,
 } from "./schema-capability";
 import type { ExtractionDraft, ExtractionStatus, StoredErrorCode } from "./extraction-types";
@@ -226,6 +227,10 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   // el citeste campurile pe nume dintr-un Record si nu depinde de inferenta.
   const draftColumns: string = await draftColumnsFor(supabase);
   const lineColumns: string = await lineColumnsFor(supabase);
+  // P3-84, constatarea F20. O ciorna la care s-a renuntat NU ESTE IN COADA. Se
+  // filtreaza numai daca exista coloana: pana la aplicarea lui 0056 lista este
+  // exact cea de astazi, fiindca atunci nu exista nicio ciorna renuntata.
+  const withCancel = await hasExtractionCancel(supabase);
 
   // P3-38. LINIILE VIN IMBRICATE, INTR-O SINGURA CERERE, FARA NICIO LISTA DE
   // ID-URI.
@@ -263,14 +268,16 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   const rows = await readAllPages<Record<string, unknown>>(
     "ciornele de extragere",
     async (from, to) => {
-      const { data, count, error } = await supabase
+      let query = supabase
         .from("extraction_drafts")
         .select(`${draftColumns}, extraction_draft_lines(${lineColumns})`, { count: "exact" })
         // confirmed_at, NU cheia straina. Vezi antetul migratiei 0011: pointerul
         // catre comanda poarta on delete set null, deci poate redeveni null, iar o
         // ciorna consumata ar reaparea aici si s-ar putea confirma a doua oara.
         // confirmed_at nu il scrie nimic altceva decat o confirmare.
-        .is("confirmed_at", null)
+        .is("confirmed_at", null);
+      if (withCancel) query = query.is("cancelled_at", null);
+      const { data, count, error } = await query
         .order("fired_at", { ascending: false, nullsFirst: false })
         .order("order_id", { ascending: true })
         .range(from, to);
@@ -289,6 +296,89 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   if (pending.length === 0) return [];
 
   return pending.map((r) => mapDraft(r, linesOf(r)));
+}
+
+/** P3-84. Coloanele pe care le citeste NUMAI sectiunea documentelor la care s-a
+ *  renuntat. Un sufix, din motivul scris la SUPPLIER_REF_COLUMNS. */
+const CANCEL_COLUMNS = ", created_at, cancelled_at, cancelled_by, cancel_reason";
+
+/**
+ * P3-84, constatarea F20. Ciornele la care s-a renuntat, cea mai recenta
+ * renuntare prima.
+ *
+ * null, NU O LISTA GOALA, cand 0056 nu este inca aplicata. Lista goala
+ * inseamna "nu s-a renuntat la niciun document"; null inseamna "functia nu este
+ * inca activa pe baza aceasta", si ecranul nu arata atunci nici butonul, nici
+ * sectiunea.
+ *
+ * DE CE AICI SI NU PE O COMANDA. O ciorna neconfirmata nu are comanda: comanda
+ * se naste abia la confirmare (antetul migratiei 0010), deci "gasita de pe
+ * comanda ei" nu poate fi adevarat pentru ea. Ramane gasita pe acelasi ecran.
+ *
+ * ACEEASI DISCIPLINA CA listReviewDrafts: liniile imbricate, pagini citite pana
+ * la capat cu totalul cerut in aceeasi cerere, niciodata o taietura tacuta.
+ */
+export async function listCancelledDrafts(): Promise<ExtractionDraft[] | null> {
+  const supabase = await createClient();
+  if (!(await hasExtractionCancel(supabase))) return null;
+
+  const draftColumns: string = (await draftColumnsFor(supabase)) + CANCEL_COLUMNS;
+  const lineColumns: string = await lineColumnsFor(supabase);
+
+  const rows = await readAllPages<Record<string, unknown>>(
+    "documentele la care s-a renuntat",
+    async (from, to) => {
+      const { data, count, error } = await supabase
+        .from("extraction_drafts")
+        .select(`${draftColumns}, extraction_draft_lines(${lineColumns})`, { count: "exact" })
+        .not("cancelled_at", "is", null)
+        .order("cancelled_at", { ascending: false })
+        .order("order_id", { ascending: true })
+        .range(from, to);
+      return { data: data as unknown as Record<string, unknown>[] | null, count, error };
+    },
+  );
+  if (rows.length === 0) return [];
+
+  const names = await profileNames(
+    supabase,
+    [...new Set(rows.map((r) => r.cancelled_by).filter((v): v is string => typeof v === "string"))],
+  );
+
+  return rows.map((r) => ({
+    ...mapDraft(r, linesOf(r)),
+    uploadedAt: (r.created_at as string | null) ?? null,
+    cancelledAt: (r.cancelled_at as string | null) ?? null,
+    cancelledBy: typeof r.cancelled_by === "string" ? (names.get(r.cancelled_by) ?? null) : null,
+    cancelReason: (r.cancel_reason as string | null) ?? null,
+  }));
+}
+
+/**
+ * P3-84. Numele de afisat pentru fiecare id, citite INTR-O SINGURA TRECERE, in
+ * loturi, niciodata cate unul pe rand.
+ *
+ * Aceeasi regula de afisare ca responsabilul unui client (P3-48): numele
+ * complet, altfel emailul. Un profil pe care sesiunea nu il poate citi lipseste
+ * din harta, iar ecranul spune asta in cuvinte: politica de select de pe
+ * profiles (0001) arata unui manager de cont numai profilul lui.
+ */
+async function profileNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  for (const batch of inBatches(ids)) {
+    const { data, error } = await supabase.from("profiles").select("id, full_name, email").in("id", batch);
+    if (error) {
+      throw new Error(`Nu s-au putut citi numele celor care au renuntat: ${error.message}`);
+    }
+    for (const p of (data ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+      const name = p.full_name?.trim() || p.email?.trim();
+      if (name) names.set(String(p.id), name);
+    }
+  }
+  return names;
 }
 
 /**

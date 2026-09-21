@@ -25,6 +25,7 @@ import { ALL_UNITS } from "./units";
 import { effectiveSource } from "./extraction-types";
 import { countPages } from "./page-count.mjs";
 import {
+  hasExtractionCancel,
   hasExtractionDocumentSource,
   hasExtractionUploadPageCount,
   hasSupplierDocumentRef,
@@ -68,6 +69,13 @@ function translate(code: string | undefined, message: string): ActionResult<neve
   if (code === "P0001" || code === "P0002") return { ok: false, message };
   return { ok: false, message: `Operațiunea a eșuat. ${message}` };
 }
+
+/** P3-84. Refuzul confirmarii si al retrimiterii pentru un document la care s-a
+ *  renuntat. O singura propozitie, folosita de amandoua pazele. */
+const CANCELLED_REFUSAL = "S-a renunțat la acest document. Nu mai poate fi confirmat sau retrimis.";
+
+/** P3-84. Cat poate avea motivul scris la renuntare. */
+const CANCEL_REASON_MAX = 200;
 
 /* --------------------------------------------------------- pornirea -- */
 
@@ -153,9 +161,12 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
   // UN `string` LARG SI NU UN LITERAL CONDITIONAL, din motivul scris la
   // draftColumnsFor in lib/data/extraction.ts: parserul de tipuri al lui
   // supabase-js renunta pe o uniune de literale.
-  const columns: string = (await hasExtractionUploadPageCount(supabase))
+  const baseColumns: string = (await hasExtractionUploadPageCount(supabase))
     ? "order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at, upload_page_count"
     : "order_id, document_path, document_filename, mime_type, size_bytes, confirmed_at";
+  // P3-84. cancelled_at se cere numai daca exista, din motivul lui
+  // hasExtractionCancel. Fara coloana nicio ciorna nu poate fi renuntata.
+  const columns: string = (await hasExtractionCancel(supabase)) ? `${baseColumns}, cancelled_at` : baseColumns;
   const { data } = await supabase
     .from("extraction_drafts")
     .select(columns)
@@ -168,6 +179,10 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
   // null si poate redeveni null, iar o ciorna consumata ar redeveni retrimisa.
   // Antetul migratiei 0011 poarta motivul intreg.
   if (draft.confirmed_at) return { ok: false, message: "Ciorna a fost deja confirmată." };
+  // P3-84, constatarea F20. UN DOCUMENT LA CARE S-A RENUNTAT NU SE MAI TRIMITE.
+  // Ecranul nu ofera butonul, dar o actiune de server este o cale de executie de
+  // sine statatoare, deci paza este aici, citita din baza.
+  if (draft.cancelled_at) return { ok: false, message: CANCELLED_REFUSAL };
 
   // Starea se sterge inaintea retrimiterii, ca ecranul sa arate "in lucru" si
   // nu motivul vechi al unui esec pe care tocmai l-am reincercat.
@@ -220,6 +235,88 @@ export async function refireExtraction(orderId: string): Promise<ActionResult<{ 
   return { ok: true, value: { orderId } };
 }
 
+/* -------------------------------------------------------- renuntarea -- */
+
+/**
+ * P3-84, constatarea F20. Documentul iese din coada, iar randul RAMANE.
+ *
+ * Pana la acest card o ciorna de test sau gresita statea pe ecranul de
+ * verificare pana cand cineva ii stergea randul in productie, iar asta este
+ * blocat pe proprietar. Conventia pentru inregistrari, anulat si niciodata
+ * sters (P2-07, P2-13, hotararea R-009), este forma folosita aici.
+ *
+ * SE SCRIU NUMAI CELE TREI COLOANE DIN 0056, intr-o singura scriere. Nu se
+ * sterge nimic: nici randul, nici liniile, nici fisierul din bucket. status si
+ * error_code raman cum erau, ca sa se vada si dupa renuntare ce se citise.
+ *
+ * NUMAI PROPRIETARUL, ACTIV. getSessionUser intoarce un utilizator numai pentru
+ * un profil activ. Politica de scriere de pe extraction_drafts este "to
+ * authenticated using (true)", deci regula de rol traieste aici si nu in baza.
+ *
+ * IDEMPOTENT. O a doua renuntare la acelasi document raspunde ok si NU rescrie
+ * cine si cand: prima renuntare este faptul.
+ */
+export async function cancelExtractionDraft(
+  orderId: string,
+  reason: string,
+): Promise<ActionResult<{ orderId: string }>> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner") return { ok: false, message: "Nu ai dreptul să renunți la un document." };
+
+  const supabase = await createClient();
+  if (!(await hasExtractionCancel(supabase)))
+    return { ok: false, message: "Renunțarea la documente nu este încă activă." };
+
+  const { data } = await supabase
+    .from("extraction_drafts")
+    .select("order_id, confirmed_at, cancelled_at")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  const draft = data as { confirmed_at: unknown; cancelled_at: unknown } | null;
+
+  if (!draft) return { ok: false, message: "Documentul nu mai există." };
+  if (draft.confirmed_at)
+    return { ok: false, message: "Documentul a fost deja confirmat și nu mai poate fi abandonat." };
+  if (draft.cancelled_at) return { ok: true, value: { orderId } };
+
+  const trimmed = (typeof reason === "string" ? reason : "").trim().slice(0, CANCEL_REASON_MAX);
+
+  // PAZA ESTE SI IN SCRIERE, NU NUMAI IN CITIREA DE MAI SUS. O confirmare sau o
+  // alta renuntare intre citire si scriere face ca scrierea sa nu potriveasca
+  // niciun rand, in loc sa suprascrie ce s-a intamplat intre timp.
+  const { data: written, error } = await supabase
+    .from("extraction_drafts")
+    .update({
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user.id,
+      cancel_reason: trimmed.length === 0 ? null : trimmed,
+    })
+    .eq("order_id", orderId)
+    .is("cancelled_at", null)
+    .is("confirmed_at", null)
+    .select("order_id");
+  if (error) return translate(error.code, error.message);
+
+  if ((written ?? []).length === 0) {
+    // Nimic potrivit: intre citire si scriere documentul a fost confirmat sau
+    // renuntat de altcineva. Se spune care dintre ele, citit din nou din baza.
+    const { data: now } = await supabase
+      .from("extraction_drafts")
+      .select("confirmed_at, cancelled_at")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    const after = now as { confirmed_at: unknown; cancelled_at: unknown } | null;
+    if (after?.cancelled_at) return { ok: true, value: { orderId } };
+    if (after?.confirmed_at)
+      return { ok: false, message: "Documentul a fost deja confirmat și nu mai poate fi abandonat." };
+    return { ok: false, message: "Documentul nu mai există." };
+  }
+
+  revalidatePath("/incarca-comanda");
+  return { ok: true, value: { orderId } };
+}
+
 /* ------------------------------------------------------ confirmarea -- */
 
 /** SKU pentru un produs marcat. Prefixul spune de unde a venit. */
@@ -241,6 +338,24 @@ export async function confirmExtractionDraft(
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
 
+  // P3-84, constatarea F20. UN DOCUMENT LA CARE S-A RENUNTAT NU SE CONFIRMA.
+  //
+  // Aceeasi doctrina ca paza EXT-15 de mai jos: ecranul nu mai arata ciorna in
+  // coada, dar actiunea poate fi chemata direct. Starea se citeste din baza, nu
+  // din ce a trimis apelantul, si inaintea oricarei validari de camp, ca un
+  // formular ramas deschis sa primeasca refuzul adevarat si nu o eroare de camp.
+  const supabase = await createClient();
+  if (await hasExtractionCancel(supabase)) {
+    const { data: row } = await supabase
+      .from("extraction_drafts")
+      .select("cancelled_at")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if ((row as { cancelled_at?: unknown } | null)?.cancelled_at) {
+      return { ok: false, message: CANCELLED_REFUSAL };
+    }
+  }
+
   const supplierName = input.supplierName.trim();
   // undefined pana la prima folosire, ca un document fara produse noi sa nu creeze
   // un furnizor de care nu are nimeni nevoie.
@@ -251,8 +366,6 @@ export async function confirmExtractionDraft(
     return { ok: false, message: "Alege moneda comenzii.", field: "currency" };
   if (input.expectedAt.trim().length === 0)
     return { ok: false, message: "Completează data estimată de livrare.", field: "expectedAt" };
-
-  const supabase = await createClient();
 
   // EXT-15. O SCANARE AL CAREI CONTINUT NU A FOST CITIT NU SE POATE INREGISTRA,
   // SI REFUZUL ESTE AICI SI NU NUMAI PE ECRAN.
