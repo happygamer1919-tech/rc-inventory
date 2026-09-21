@@ -6209,3 +6209,17 @@ and the ambiguity went into the card defaults, the report and the owner's merge 
 owner can widen it with a one-line change. RULE: **when a brief names a role in words, map each
 word to `app_role` and `ROLE_LABEL` before coding. "Operator" on screen is `account_manager`; a
 sentence that uses it as a third role is ambiguous and is written down, never silently resolved.**
+
+### A banner inside a box the parent reloads away dies with the box
+**Tag:** frontend
+**ERROR:** Card P3-85 (2026-09-21, Ivan's finding F21). The order panel on /comenzi renders the
+upload box `OrderDocumentUpload` only while the order has no document, and passes `onUploaded`,
+which reloads the order. Once a refused extraction fire kept the file (document_path set) and the
+box set its own `doc-error` banner, calling `onUploaded` to show the attached document reloaded the
+order, `documentPath` became set, the box unmounted and the banner vanished with it: the person
+would again have seen nothing. On the two creation screens the box stays mounted, so the same code
+worked there, which is what made it easy to miss.
+**SOLUTION:** `onUploaded` now receives the message (`onUploaded(warning)`), and the panel keeps it
+in its own state, keyed by the order id, and shows it beside the document link (`doc-warning`).
+RULE: **before relying on a child's state to show a result, check whether the callback it fires
+can unmount it. A message that must survive a parent reload lives in the parent.**

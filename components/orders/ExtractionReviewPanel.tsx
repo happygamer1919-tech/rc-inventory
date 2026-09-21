@@ -789,6 +789,9 @@ export function ExtractionReviewPanel({
     if (inputRef.current) inputRef.current.value = "";
     if (!result.ok) {
       setUploadError(result.message);
+      // P3-85. Documentul este pastrat, dar citirea nu a pornit: mesajul ramane
+      // pe ecran SI lista se reimprospateaza, ca fisa esuata sa apara sub el.
+      if (result.saved) router.refresh();
       return;
     }
     router.refresh();

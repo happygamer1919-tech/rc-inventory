@@ -37,6 +37,12 @@ export function InboundPanel({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  // P3-85. Mesajul unui document atasat a carui citire automata nu a pornit.
+  // Sta aici si nu in casuta de incarcare, fiindca reincarcarea comenzii o ascunde.
+  // Tine si id-ul comenzii, ca mesajul sa nu treaca pe alta comanda deschisa aici.
+  const [docWarning, setDocWarning] = React.useState<{ orderId: string; text: string } | null>(
+    null,
+  );
 
   const refresh = React.useCallback(async () => {
     const detail = await loadInboundDetail(initialOrder.id);
@@ -108,8 +114,24 @@ export function InboundPanel({
           <p className="text-[12.5px] text-rc-muted mb-2">
             Nu există document atașat. PDF, PNG sau JPG, până în 10 MB.
           </p>
-          <OrderDocumentUpload orderId={order.id} onUploaded={refresh} />
+          <OrderDocumentUpload
+            orderId={order.id}
+            onUploaded={(warning) => {
+              setDocWarning(warning ? { orderId: order.id, text: warning } : null);
+              void refresh();
+            }}
+          />
         </div>
+      ) : null}
+
+      {docWarning && docWarning.orderId === order.id && order.documentPath ? (
+        <p
+          role="alert"
+          data-testid="doc-warning"
+          className="mx-6 mt-4 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+        >
+          {docWarning.text}
+        </p>
       ) : null}
 
       {notice ? (

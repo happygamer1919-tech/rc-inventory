@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { fireExtraction } from "./extraction-fire";
+import { EXTRACTION_NOT_STARTED } from "./extraction-types";
 import { nextInboundReference } from "./inbound";
 import { countPages } from "./page-count.mjs";
 import { one, safeFileName } from "./row";
@@ -198,14 +199,20 @@ export async function uploadOrderDocument(
   if (error) return translateWriteError(error.code, error.message);
 
   // P2-08a. Documentul este incarcat: acum pleaca spre extragere. Trimiterea
-  // NU poate rasturna incarcarea, care s-a scris deja, si nici nu poate face
-  // actiunea sa para esuata: motivul unui esec ajunge pe randul de ciorna si se
-  // vede pe ecran la P2-09. Aceeasi regula ca la mementouri.
+  // NU poate rasturna incarcarea, care s-a scris deja: fisierul si
+  // document_path raman, orice ar raspunde trimiterea.
+  //
+  // P3-85, constatarea F21 a lui Ivan. DAR UN ESEC AL TRIMITERII SE SPUNE, pe
+  // loc, omului care a incarcat. Pana la acest card rezultatul era ignorat, iar
+  // ecranul arata "Document atasat." pentru un document pe care nimeni nu il
+  // citea; intre 14 si 21 septembrie asa au trecut incarcari fara nicio citire.
+  // Rezultatul este deci un esec cu `saved`: mesajul spune ca citirea nu a
+  // pornit si de ce, iar `saved` spune ecranului ca documentul este pastrat.
   //
   // EXT-28. Paginile se numara si aici, din acelasi motiv ca la startExtraction:
   // aceasta este a treia cale care trimite, iar refuzul de la 100 de pagini si
   // campul din webhook trebuie sa o acopere si pe ea.
-  await fireExtraction({
+  const fired = await fireExtraction({
     orderId,
     documentPath: path,
     documentFilename: file.name,
@@ -215,6 +222,9 @@ export async function uploadOrderDocument(
   });
 
   revalidatePath("/comenzi");
+  if (!fired.ok) {
+    return { ok: false, message: `${EXTRACTION_NOT_STARTED}${fired.reason}`, saved: { orderId } };
+  }
   return { ok: true, value: { path } };
 }
 
