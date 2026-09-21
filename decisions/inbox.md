@@ -14139,3 +14139,130 @@ decided here.
 **Unblocks:** card P3-82.
 **Supersedes:** none. It adds one accepted shape to the reconciliation; R-202's
 frozen shapes and R-190's precedence stand.
+
+### R-209 - Callback authentication clarification: the inbound header is `x-rc-callback-secret`, the outbound header is `X-RC-Secret`, and the contract names only the outbound one
+
+**Date:** 2026-09-21
+**Asked on:** the owner dispatch of 2026-09-21, following the fire-path measurement in pull request #338
+**Answer, verbatim:**
+> R-209 Callback authentication clarification. The callback leg (Make to RC)
+> authenticates with header `x-rc-callback-secret` compared against
+> `MAKE_CALLBACK_SECRET`. The fire leg (RC to Make) carries `X-RC-Secret` from
+> `MAKE_WEBHOOK_SECRET`. `docs/contracts/extraction-v2.md` names only the
+> fire-leg header, so the inbound header name was never given to Andre in
+> writing. This records existing behaviour. It does not amend the frozen
+> contract under R-202 and changes no code.
+
+**Ruling: adopted as written.**
+
+**THIS RECORDS BEHAVIOUR. IT CHANGES NOTHING.** No code is edited, no contract
+clause is amended, and R-202's freeze on the callback route is untouched. The
+route behaves today exactly as it behaved before this ruling; what changes is
+that the inbound header name is now written down somewhere Andre's side can be
+pointed at.
+
+**THE TWO LEGS, MEASURED AT `main` `b24909c`.**
+
+| leg | direction | header | variable | file:line |
+|---|---|---|---|---|
+| callback | Make to RC | `x-rc-callback-secret` | `MAKE_CALLBACK_SECRET` | `app/api/extraction/callback/route.ts:130-131` |
+| fire | RC to Make | `X-RC-Secret` | `MAKE_WEBHOOK_SECRET` | `lib/data/extraction-fire.ts:322` and `:335` |
+
+The read-only `GET` on the same route uses the SAME inbound header and the SAME
+variable, not a weaker path: `app/api/extraction/callback/route.ts:840-841`.
+
+**THE MANIFEST ALREADY PAIRED THEM AND NOBODY READ IT ACROSS.**
+`lib/env-required.ts:43-45` says of `MAKE_WEBHOOK_SECRET`: *"Antetul X-RC-Secret
+cu care scenariul Make autentifica cererea NOASTRA. Perechea lui
+MAKE_CALLBACK_SECRET, si in directia cealalta."* and `lib/env-required.ts:46-47`
+says of `MAKE_CALLBACK_SECRET`: *"Antetul cu care se verifica un callback venit
+de la Make."* Two secrets, two headers, opposite directions.
+
+**WHAT THE CONTRACT ACTUALLY WRITES DOWN, AND THIS IS THE GAP.**
+`docs/contracts/extraction-v2.md:96` carries the only literal header line in the
+whole contract, and it is the FIRE leg's: `Header: X-RC-Secret: <...>`. The
+callback clause at `docs/contracts/extraction-v2.md:26-27` names the VARIABLE
+`MAKE_CALLBACK_SECRET` and no header at all. A repository-wide grep for
+`x-rc-callback` across `*.md` and `*.json` returned zero hits before pull request
+#338 added `docs/extraction/e2e-fire-path.md`.
+
+**THE CONSEQUENCE, STATED PLAINLY BECAUSE IT IS THE REASON THIS RULING EXISTS.**
+The only header name Andre has ever been handed in writing is `X-RC-Secret`, and
+that is the wrong one for the callback. A callback posted with `X-RC-Secret` is
+answered `401` at `app/api/extraction/callback/route.ts:138`, nothing is stored,
+and under the contract's own table at `docs/contracts/extraction-v2.md:1216` a
+`4xx` is not retried. At his end that is indistinguishable from any other `401`.
+
+**WHY THIS IS NOT AN AMENDMENT UNDER R-202.** R-202 freezes what the route
+accepts, refuses and answers until close under R-199. This ruling changes none of
+the three. Writing the existing header name into a ruling is a record, not a
+change, and the route is not edited.
+
+**WHAT IS NOT DECIDED HERE.** Whether the contract should be amended to carry the
+inbound header name, and whether Andre's scenario currently sends the right one.
+The second is a question for him and is the cheapest thing to ask before any
+end-to-end run.
+
+**Unblocks:** nothing. It is a record.
+**Supersedes:** none.
+
+### R-210 - Close evidence standard for R-199: the three pre-model bodies close on written confirmation, end-to-end delivery into stored rows is required, and the seven runs of 2026-09-18 are not evidence
+
+**Date:** 2026-09-21
+**Asked on:** the owner dispatch of 2026-09-21
+**Answer, verbatim:**
+> R-210 Close evidence standard for R-199. Owner decisions 2026-09-21: (a) the
+> three pre-model bodies (rejected file, download failure, oversized document)
+> are accepted on Andre's written confirmation and are not proven inside the
+> R-205 regression; (b) end-to-end delivery into stored `extraction_drafts` rows
+> is required before close. Andre's seven runs of 2026-09-18 went to his own
+> capture URL, never to RC, and are not close evidence.
+
+**Ruling: adopted as written.**
+
+**(a) THE THREE PRE-MODEL BODIES CLOSE ON WRITTEN CONFIRMATION.** The rejected
+file, the download failure and the oversized document are accepted on Andre's
+written word and are NOT required to be reproduced inside the R-205 regression
+run. They are shapes his side produces before our model is reached, so a
+regression driven from our fire path cannot exercise them without asking him to
+break his own scenario on purpose.
+
+**(b) END-TO-END DELIVERY INTO STORED ROWS IS REQUIRED BEFORE CLOSE.** A close
+under R-199 needs at least one payload that reached
+`app/api/extraction/callback/route.ts` and left a row in
+`public.extraction_drafts`. R-205's pass condition stands on top of this and is
+not relaxed: the stored draft must show `supplier_name` and `_meta.page_count`
+populated, and a `2xx` status alone is not a pass.
+
+**THE SEVEN RUNS OF 2026-09-18 ARE NOT CLOSE EVIDENCE, AND THE REASON IS
+STRUCTURAL RATHER THAN A JUDGEMENT ABOUT THEM.** Those runs posted to the
+`callback_url` carried in an intake payload Andre built himself, which was his own
+capture URL. Not one of them reached this route, so not one of them wrote or read
+an `extraction_drafts` row.
+
+**WHY NO RUN OF THAT SHAPE COULD EVER HAVE BEEN CLOSE EVIDENCE.** A draft row
+exists only for a document THIS platform fired: the row is upserted at
+`lib/data/extraction-fire.ts:221-223`, before the outbound POST at `:331`. A
+callback naming an `order_id` this platform never created is refused `400
+order_id necunoscut` at `app/api/extraction/callback/route.ts:580`. So a run that
+does not originate from our fire path cannot leave a stored row whatever it
+reports, and a report of seven successes says nothing about our store.
+
+**WHAT THIS MEANS FOR PULL REQUEST #332's ANALYSIS.** That report's finding on
+`202` versus `200` remains correct about our handler and applies to no stored
+row, because none of the seven reached it. The forward fix is already recorded in
+`docs/reports/2026-09-18-executor-andre-regression-verification-blocked.md` under
+CLAUDE.md section 9c.
+
+**WHAT A QUALIFYING RUN LOOKS LIKE.** It originates from our own fire path, with
+`order_id` values this platform minted, and it is verified by reading the stored
+rows rather than by reading a status code reported from the other side. The
+measurement is keyed on `extraction_drafts.document_filename`, because the
+`order_id` values exist nowhere in this repository.
+
+**WHAT IS NOT DECIDED HERE.** Where such a run happens, what the test documents
+are called, and who reads the rows afterwards. R-206 still governs terminal
+access and does not reach the production database.
+
+**Unblocks:** the close criteria for R-199 are now stated in one place.
+**Supersedes:** none. It stands on R-205's pass condition and does not relax it.
