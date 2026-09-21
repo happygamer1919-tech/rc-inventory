@@ -772,8 +772,10 @@ cererea, antetele si tratarea unui raspuns non-2xx sunt exercitate exact ca in
 productie"*, and *"Serverul NU trimite singur callback-ul. Testul il trimite"*
 (`tests/e2e/support/make-mock.mjs:4-13`). CI starts a real local Supabase and
 replays every migration from empty
-(`.github/workflows/quality.yml`, the `Start local Supabase` and
-`Apply migrations to the local stack` steps, named at `:440-442`).
+(`.github/workflows/quality.yml:948` `Start local Supabase`, running
+`supabase start` at `:959`, and `:961` `Apply migrations to the local stack`,
+running `supabase db reset` at `:966`, which replays `supabase/migrations` from
+empty in file order, `.github/workflows/quality.yml:931`).
 
 **What the local stack cannot prove, and it is exactly the untested part:** that
 ANDRE'S scenario, with his HTTP client and his header spelling, reaches our route
