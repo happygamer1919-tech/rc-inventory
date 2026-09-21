@@ -9,6 +9,23 @@
 was sourced, and nothing was written anywhere. The measurement pass arrives as a
 separate dispatch, with values pasted from Max.
 
+**FORWARD FIX, 2026-09-21, added under `CLAUDE.md` section 9c. Nothing below is
+deleted.** Two things this report says are false at `main` `9784cdc`, and the
+corrections are written where the false statements stand, not in place of them:
+
+- **Finding 3 is false.** `line_total_source` and the other four EXT-34 columns
+  are stored, as of migration `0053`, merged in pull request #334 as `a2ff2fa`
+  on 2026-09-18. See the correction block under that heading.
+- **Finding 4's analysis applies to no stored row.** Andre's seven runs were
+  delivered to his own capture URL and never reached our callback route, so the
+  202-versus-200 reasoning, which is still correct about our handler, was never
+  exercised by those seven. See the correction block under that heading.
+
+Line numbers in the body below were measured at `feb4655`, where
+`app/api/extraction/callback/route.ts` was 800 lines. It is 880 lines at
+`9784cdc`, so those citations resolve at the sha this report names and not at
+current `main`. The correction blocks carry citations re-measured at `9784cdc`.
+
 ---
 
 ## BOOT
@@ -141,6 +158,97 @@ puts it the same way: the only key ever read out of `meta` by the route is
 
 ### Finding 3. `line_total_source` is stored nowhere, so no access level answers it
 
+**FORWARD FIX, 2026-09-21. THIS FINDING IS FALSE, AND IT IS KEPT WHERE IT IS**,
+under `CLAUDE.md` section 9c. The true statement goes first; the false one is
+quoted below it with the evidence that disproved it. Every citation in this
+block was measured at `main` `9784cdc` in the session that wrote it.
+
+**`line_total_source` IS STORED, AND SO ARE THE OTHER FOUR EXT-34 COLUMNS.**
+Card `EXT-34` shipped in **pull request #334**, merged as **`a2ff2fa`** on
+2026-09-18, carrying `supabase/migrations/0053_extraction_inbound_fields.sql`.
+Merging that file is what applied it: `CLAUDE.md` section 3.1 under ruling
+**R-124**, *"MERGING THE FILE IS APPLYING IT"*.
+
+**ONE FILE IN THIS REPOSITORY STILL SAYS OTHERWISE, AND IT IS NAMED HERE RATHER
+THAN RESOLVED IN PASSING.** `docs/migrations/APPLY-LOG.md:51` lists
+`0053_extraction_inbound_fields.sql` on its PENDING list, which that file defines
+at `docs/migrations/APPLY-LOG.md:29-32` as *"authored ... and merged. It has NOT
+run against the RC Supabase project."* That list rests, at
+`docs/migrations/APPLY-LOG.md:25-27`, on this sentence:
+
+> *"merging a migration file changes one text file in a git repository and
+> changes nothing in any database"*
+
+**That is word for word the sentence `CLAUDE.md` section 3.1 quotes and marks
+FALSE under R-124**, with a controlled measurement: two migrations both numbered
+`0032`, the merged one live in production within two minutes and the unmerged
+twin as the control. So the pending line is stale doctrine that outlived the
+ruling which disproved its premise, not a second measurement.
+
+**WHAT THIS TERMINAL MEASURED AND WHAT IT DID NOT.** Measured: the migration file
+is on `main` at `a2ff2fa`, and the route and the review screen both read and write
+the five columns behind a live capability probe, so the application is correct
+whether or not the columns are there yet. **Not measured: the production schema
+itself.** No database was read in this session or in the one this report records.
+Under R-124 the columns are live; the contrary line in `APPLY-LOG.md` is the only
+thing in the repository that disputes it, and it disputes it with a sentence that
+is already marked false. **Whoever next reads production settles it in one query,
+and the APPLY-LOG entry is theirs to correct, not this report's.**
+
+The five columns, each `text`, nullable, no default and no check constraint
+(`0053_extraction_inbound_fields.sql:15-29` states all three choices and why):
+
+| column | table | file:line |
+|---|---|---|
+| `document_type` | `extraction_drafts` | `supabase/migrations/0053_extraction_inbound_fields.sql:40-41` |
+| `client_ref` | `extraction_drafts` | `supabase/migrations/0053_extraction_inbound_fields.sql:43-44` |
+| `supplier_code` | `extraction_draft_lines` | `supabase/migrations/0053_extraction_inbound_fields.sql:46-47` |
+| `description` | `extraction_draft_lines` | `supabase/migrations/0053_extraction_inbound_fields.sql:49-50` |
+| `line_total_source` | `extraction_draft_lines` | `supabase/migrations/0053_extraction_inbound_fields.sql:52-53` |
+
+**And the route writes them**, behind one capability probe over both tables:
+
+| fact | file:line |
+|---|---|
+| the probe, one `select` per table on the caller's own client | `lib/data/schema-capability.ts:550-570` |
+| the gate is read once, on the service-role client | `app/api/extraction/callback/route.ts:748-749` |
+| `document_type` and `client_ref` written on the draft | `app/api/extraction/callback/route.ts:750-751` |
+| `supplier_code`, `description`, `line_total_source` written per line | `app/api/extraction/callback/route.ts:802-808` |
+| the per-line value is read from the payload through `str()` | `app/api/extraction/callback/route.ts:561` |
+| the review screen selects the five behind the same probe | `lib/data/extraction.ts:102-104` and `lib/data/extraction.ts:113-116` |
+
+**The board entry quoted below is stale in this report, not on the board.**
+`EXT-34` reads `status: shipped`, `blocked_on: null` on
+`docs/board/rc-board-phase3.json` at `9784cdc`.
+
+The false statements, quoted and kept:
+
+> *"Finding 3. `line_total_source` is stored nowhere, so no access level answers
+> it"*
+
+> *"`EXT-34` is `status: blocked`, `blocked_on: max`, `owner_terminal: max` on
+> the phase 3 board. No migration adds the column and the route writes no such
+> field. The single reference in the repository is `lib/data/callback-keys.mjs:70`,
+> which lists it among `EXT34_LINE_KEYS` precisely so the validator's key
+> allowlist tolerates it."*
+
+**WHAT SURVIVES IN THE FINDING.** R-199 does exclude EXT-34 from close, so the
+absence was never a gap in the regression, and P3-76's unknown-key behaviour is
+unchanged for any key still unknown.
+
+**WHAT REPLACES ITS CONCLUSION.** The sentence *"no access level answers it"* is
+now false about the schema and remains true about this terminal's access: the
+column exists, so a SELECT on `extraction_draft_lines.line_total_source` would
+answer the per-line question, and R-206 still does not grant that SELECT. **What
+such a read would return for the seven runs is `NULL` or no row at all**, on two
+independent grounds, both stated here rather than left to be inferred: every row
+written before `a2ff2fa` predates the column and no backfill was run
+(`0053_extraction_inbound_fields.sql:35-36`, *"ADDITIVE ONLY ... No existing row
+is updated"*), and, per the correction under Finding 4 below, those seven
+callbacks never reached this route at all. **That second ground does not depend
+on the APPLY-LOG question above**, which is why it is stated separately: a
+callback that never arrived writes nothing whatever the schema holds.
+
 `EXT-34` is `status: blocked`, `blocked_on: max`, `owner_terminal: max` on the
 phase 3 board. No migration adds the column and the route writes no such field.
 The single reference in the repository is
@@ -152,6 +260,15 @@ Andre's build sends `line_total_source`, P3-76's behaviour applies: an unknown k
 is logged and warned, never refused, so it is accepted and dropped.
 
 ### Finding 4. Our route answers `200` only for a DUPLICATE. A first delivery is `202`
+
+**FORWARD FIX, 2026-09-21, one line, under `CLAUDE.md` section 9c: THIS ANALYSIS
+APPLIES TO NO STORED ROW.** Andre's seven runs posted to the `callback_url` his
+own intake payload carried, which is his capture URL and not ours, so not one of
+the seven reached this route, no `extraction_drafts` row was written or read by
+them, and the 202-versus-200 reasoning below, which remains correct about our
+handler, was never exercised by that run. This is the owner's statement in the
+2026-09-21 dispatch, recorded as such and not measured by any terminal; what
+follows it below is unchanged and still measured.
 
 This one bears directly on the claim under verification and is stated here with
 its evidence rather than as an inference.
