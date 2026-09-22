@@ -6265,3 +6265,33 @@ each line said before (CLAUDE.md 9c's spirit), and put the new rule's full proof
 card's own assertion file. RULE: **an assertion file states what is true of today's schema, not
 of the schema its migration left behind. A migration that reverses an earlier rule has to find
 and correct every older assertion of that rule, and say so in the report.**
+
+### Adding output columns to a list function the application calls: a new name, not a drop
+**Tag:** data
+**ERROR:** Card P3-89 (2026-09-22, goal G44). The brief asked to add two output columns to
+`search_clients_by_stage` by `drop function` then `create or replace`, because PostgreSQL
+refuses to change a return type with `create or replace` alone. Read before writing it:
+`check:removal-safety` parses every PENDING migration in `docs/migrations/APPLY-LOG.md`, reads
+a `DROP FUNCTION` as a removal, and refuses while any file under `lib`, `app` or `components`
+still calls `.rpc("<that name>")`, which `lib/data/clients.ts` does. The PR would have gone red
+on a check that is right about the general case. The drop would also have left a window in
+which the old code calls the new shape, or the new code the old one.
+**SOLUTION:** A new function, `search_clients_next_action`, same seven parameters and body plus
+the two columns, and the application calls it only behind the schema gate that probes the new
+columns (same transaction). The old function, its assertions and every spec that calls it stay
+untouched. RULE: **to widen a function's result that deployed code calls, add a sibling under a
+new name behind a gate. A drop and recreate of a called name is a removal to every guard here,
+and to the two minutes between code and migration.**
+
+### A sort key swapped to a new column orders every existing row as "no value"
+**Tag:** data
+**ERROR:** Card P3-89. The brief proposed sorting the Leaduri view by the new `next_action_at`
+alone, on the premise that it equals `follow_up_date` at De reluat "once this card lands".
+That holds only for rows saved after the card: an additive migration writes no row, so every
+lead already at De reluat would read null in the new column and fall to the bottom, losing the
+oldest-overdue-first order the team uses to decide whom to call.
+**SOLUTION:** `coalesce(next_action_at, follow_up_date)`: a lead with a next step sorts by it,
+every other lead exactly as before. The P3-45 and P3-88 order assertions and specs therefore
+needed no edit. RULE: **when a new nullable column takes over a sort, fall back to the old key
+for rows that have not been written since, unless the migration backfills, and a backfill is an
+UPDATE of real rows that needs the owner.**
