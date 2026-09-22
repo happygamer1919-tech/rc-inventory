@@ -32,7 +32,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { hasClientLeaduri, hasClientNextAction, hasClientStage } from "./schema-capability";
+import {
+  hasClientLeaduri,
+  hasClientNextAction,
+  hasClientNotes,
+  hasClientStage,
+} from "./schema-capability";
 import { createContact } from "./contact-actions";
 import {
   FOLLOW_UP_DATE_REQUIRED,
@@ -188,9 +193,11 @@ function validateLeaduri(
  *  EXPLICIT in acelasi apel castiga, fiindca cineva a scris-o anume; formularul de
  *  client nu o trimite la De reluat, deci pe ecran cele doua raman egale.
  *
- *  follow_up_date NU se scrie de aici. Ramane numai a lui set_client_stage. */
+ *  follow_up_date NU se scrie de aici. Ramane numai a lui set_client_stage.
+ *
+ *  P3-90. Fila Note o cheama si ea, fara etapa, pentru pasul salvat odata cu nota. */
 function validateNextAction(
-  input: ClientInput,
+  input: Pick<ClientInput, "nextActionAt" | "nextAction">,
   stage: StageChoice | null,
 ): { ok: true; value: Record<string, unknown> } | { ok: false; message: string; field: string } {
   const value: Record<string, unknown> = {};
@@ -393,4 +400,80 @@ export async function updateClientRecord(
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${id}`);
   return { ok: true, value: { id } };
+}
+
+/** P3-90. Propozitia pentru o nota goala, aceeasi in formular si din baza. */
+const NOTE_REQUIRED = "Scrie ce s-a discutat.";
+
+/** P3-90, goal G45. O nota "Ce s-a discutat" pe un lead sau client, si, daca
+ *  formularul a trimis si Următorul pas, pasul, din aceeasi salvare.
+ *
+ *  NUMAI ADMINISTRATORUL, ca orice scriere pe clienti: client_notes_insert din 0059
+ *  este is_owner(), ca clients_insert. Verificarea de aici este a doua plasa si
+ *  exista pentru mesajul romanesc.
+ *
+ *  O SALVARE, DOUA CERERI, IN ORDINEA CARE NU DUBLEAZA NIMIC. Totul se verifica
+ *  inainte de prima scriere. Pasul se scrie INTAI: daca nota cade dupa el, o noua
+ *  apasare pe Salvează scrie din nou acelasi pas, fara urma. Invers, o nota scrisa
+ *  si un pas refuzat ar lasa operatorul sa apese din nou si sa salveze nota de
+ *  doua ori. Un RPC intr-o singura tranzactie nu este cerut: ordinea aceasta nu
+ *  lasa nicio stare pe care o a doua apasare sa o strice.
+ *
+ *  Pasul trece prin validateNextAction, aceeasi verificare ca in Modifică. Un camp
+ *  netrimis inseamna "nu atinge", ca acolo. */
+export async function addClientNote(
+  clientId: string,
+  body: string,
+  nextAction?: { at?: string; text?: string },
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner") return OWNER_ONLY;
+
+  const text = body.trim();
+  if (text === "") return { ok: false, message: NOTE_REQUIRED, field: "body" };
+
+  const next = validateNextAction(
+    {
+      ...(nextAction?.at !== undefined ? { nextActionAt: nextAction.at } : {}),
+      ...(nextAction?.text !== undefined ? { nextAction: nextAction.text } : {}),
+    },
+    null,
+  );
+  if (!next.ok) return next;
+
+  const supabase = await createClient();
+  if (!(await hasClientNotes(supabase)))
+    return { ok: false, message: "Notele nu sunt încă disponibile. Încearcă din nou peste câteva minute." };
+
+  const withNext = Object.keys(next.value).length > 0;
+  if (withNext) {
+    if (!(await hasClientNextAction(supabase)))
+      return { ok: false, message: "Următorul pas nu poate fi salvat încă. Salvează nota fără el." };
+    const { data, error } = await supabase
+      .from("clients")
+      .update(next.value)
+      .eq("id", clientId)
+      .select("id");
+    if (error) return translateWriteError(error.code, error.message);
+    if (!data || data.length === 0) return { ok: false, message: "Clientul nu mai există." };
+  }
+
+  const { data, error } = await supabase
+    .from("client_notes")
+    .insert({ client_id: clientId, body: text })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    const saved = withNext ? " Următorul pas a fost salvat." : "";
+    if (error?.code === "23514") return { ok: false, message: NOTE_REQUIRED, field: "body" };
+    if (error?.code === "23503") return { ok: false, message: "Clientul nu mai există." };
+    if (error?.code === "42501") return OWNER_ONLY;
+    return { ok: false, message: `Nota nu s-a salvat.${saved} ${error?.message ?? ""}`.trim() };
+  }
+
+  if (withNext) revalidatePath("/clienti");
+  revalidatePath(`/clienti/${clientId}`);
+  return { ok: true, value: { id: data.id as string } };
 }
