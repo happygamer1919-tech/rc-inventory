@@ -240,8 +240,9 @@ export async function listClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
 }
 
 /** P3-48. Cum se arata un responsabil, o singura data: numele complet, altfel
- *  emailul. Lista de responsabili si fisa clientului il citesc amandoua de aici. */
-function ownerDisplayName(p: { full_name: string | null; email: string | null }): string {
+ *  emailul. Lista de responsabili si fisa clientului il citesc amandoua de aici.
+ *  P3-90: si autorii de pe fila Note, deci este exportat. */
+export function ownerDisplayName(p: { full_name: string | null; email: string | null }): string {
   return p.full_name?.trim() || p.email?.trim() || "Fără nume";
 }
 

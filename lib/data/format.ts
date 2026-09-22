@@ -56,6 +56,29 @@ export function formatDate(iso: string | null): string {
   return `${d}.${m}.${y}`;
 }
 
+// P3-90. Momentul unei note, in ora Chisinaului. Partile sunt cifre si se lipesc
+// aici, nu se ia sirul formatat intreg: separatorii din ICU pot diferi intre Node
+// si browser, iar ecranul este randat in amandoua.
+const DATE_TIME_PARTS = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Chisinau",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Un moment `timestamptz` in forma zi.luna.an, ora:minut, ora Chisinaului. */
+export function formatDateTime(iso: string | null): string {
+  if (!iso) return "-";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return formatDate(iso);
+  const parts = DATE_TIME_PARTS.formatToParts(at);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}.${part("month")}.${part("year")}, ${part("hour")}:${part("minute")}`;
+}
+
 // Locale-ul este ro-MD, acelasi ca la numere, ca fisierul sa aiba unul singur.
 // Pentru o data scrisa in cuvinte scrie identic cu ro-RO, cu t si s cu virgula
 // (verificat in Node si in Chromium). Fusul este UTC la construire si la
