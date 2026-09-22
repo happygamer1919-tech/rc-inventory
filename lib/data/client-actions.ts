@@ -132,10 +132,21 @@ function validateStage(
   if (input.stage === "follow_up" && date === "")
     return { ok: false, message: FOLLOW_UP_DATE_REQUIRED, field: "followUpDate" };
 
-  // P3-45. O DATA SCRISA SE PASTREAZA LA ORICE ETAPA. Formularul de lead cere data
-  // de reluare la orice etapa, iar lista Leaduri sorteaza dupa ea, fiindca o data
-  // pusa de cineva este tot o promisiune. O data lipsa se trimite null, iar functia
-  // pastreaza data stocata: parasirea etapei De reluat nu sterge ce a scris cineva.
+  // P3-88, CORECTIE, decizia proprietarului din 2026-09-22. Paragraful de mai jos
+  // era adevarat pana la migratia 0057 si nu mai este:
+  //
+  //   "P3-45. O DATA SCRISA SE PASTREAZA LA ORICE ETAPA. Formularul de lead cere
+  //   data de reluare la orice etapa, iar lista Leaduri sorteaza dupa ea, fiindca
+  //   o data pusa de cineva este tot o promisiune. O data lipsa se trimite null, iar
+  //   functia pastreaza data stocata: parasirea etapei De reluat nu sterge ce a
+  //   scris cineva."
+  //
+  // ACUM: o data scrisa se salveaza la orice etapa, ca inainte. O data lipsa se
+  // trimite null, iar functia din 0057 pastreaza data stocata la aceeasi etapa si
+  // la orice mutare care NU pleaca din De reluat. PARASIREA ETAPEI DE RELUAT FARA
+  // O DATA NOUA STERGE DATA: null este chiar semnalul de stergere, decis in baza
+  // dupa etapa de la care se pleaca. De aceea formularul de client trimite data
+  // numai la De reluat, singura etapa la care campul se vede.
   return { ok: true, value: { stage: input.stage, followUpDate: date === "" ? null : date } };
 }
 
