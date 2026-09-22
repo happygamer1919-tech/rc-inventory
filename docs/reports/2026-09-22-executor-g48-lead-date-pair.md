@@ -252,10 +252,62 @@ body and no row. Nothing in the work suggested that a real client record was at 
 been in production since 2026-09-14, and this pull request adds a migration, so it is held for the
 owner's approval per the close-out block.
 
+## CI, first run: three failures, two of them mine
+
+Run `35779502889`, 53m54s, `quality` red with **387 passed, 3 failed**. Every gate step before the
+end to end suite passed, `Refuse a migration that removes rows`, `Apply every migration to a bare
+postgres, unmodified`, `Prove the migration applier against the Docker shim` and `Prove every
+applier assertion can fail` included, so 0060 and its assertion file were proven before the suite
+ran at all.
+
+**1. `headers.spec.ts:128`, mine, a real omission.** `migratia
+0060_lead_next_action_cleared_with_follow_up.sql nu are nici intrare in APPLY-LOG.md, nici linie
+in registrul de asteptare`. R-062's invariant is that every file under `supabase/migrations` is in
+exactly one of two places in `docs/migrations/APPLY-LOG.md`. A new file is in neither until the
+pending line is written. Fixed by adding
+`` - `0060_lead_next_action_cleared_with_follow_up.sql`, card de aplicare P3-92 ``, in the format
+that file states. No local check catches this: the assertion lives in the end to end suite, which
+needs Docker.
+
+**2. `lead-follow-up-date-cleared.spec.ts:293`, mine, a false expectation I wrote.** The case
+"De reluat salvat din nou la De reluat" expected `next_action_at: null` after a form save and got
+the date. **That is not a regression and the fix is not in the application.** The lead is created
+through REST, so `next_action_at` starts null; the case then saves it FROM THE FORM without
+changing anything, the form sends stage `follow_up` with its date, and `validateNextAction`
+deliberately mirrors that date into `next_action_at`. That is P3-89's "setting one sets both",
+working exactly as written, on a path this card does not touch. **The expectation was corrected to
+the date**, with the reason written beside it in the spec. The case's assertions on `stage` and
+`follow_up_date` are character for character what they were before this card; only the
+`next_action_at` expectation this card ADDED was wrong, and it was corrected to an exact value,
+not loosened. The same test's earlier assertion, after the RPC-only move, correctly stayed null
+and passed, which is what proves the two writers are being told apart.
+
+**3. `sheet-options-admin.spec.ts:167`, not mine.** `page.waitForURL: net::ERR_CONNECTION_REFUSED`
+inside `signIn`, that is the web server not accepting a connection, on a spec that drives the
+product form in Setări: no date field, no `set_client_stage`, no `next_action_at`, and nothing this
+card changed is on its path. It is an infrastructure failure of the run, not an assertion. It was
+not re-run on its own, because failures 1 and 2 required a push anyway and a push starts a fresh
+full run on the new head sha. If it recurs on that run it will be diagnosed rather than re-run
+blind.
+
+**The factory's `KNOWN-FAILURES.md` was NOT appended to**, although the close-out block asks for
+it: this card's own definition of done says "Do not touch `GOALS.md` or anything in the factory
+folder; you work inside the repo worktree only", and that is the more specific instruction. The
+two new signatures are written up in `docs/LEARNINGS.md` instead, and are quoted in the final
+report so the owner can carry them across.
+
 ## Learnings
 
-Two entries appended to `docs/LEARNINGS.md`: "A mirrored column is unmirrored by the same single
-writer that owns the original" and "A field that reports invalid and cleared as the same value
-must tell its parent which one it is". Nothing broke during the work: type check and build passed
-on the first run, and the only local refusal was `check:board-edit` behaving correctly on an
-`in_flight` card.
+Four entries appended to `docs/LEARNINGS.md`:
+
+- "A mirrored column is unmirrored by the same single writer that owns the original".
+- "A field that reports invalid and cleared as the same value must tell its parent which one it
+  is", including the two traps met while wiring `onValidityChange`: the inline callback that
+  changes identity every render, and the unmount that would otherwise leave Salvează disabled
+  forever.
+- "A new migration file needs its line in the pending register, or the end to end suite fails".
+- "Widening what a test READS can encode a false expectation about a rule the card did not touch".
+
+Nothing broke locally: type check and build passed on the first run, and the only local refusal
+was `check:board-edit` behaving correctly on an `in_flight` card. The two real defects of this
+card were both found by CI, and both are recorded above.

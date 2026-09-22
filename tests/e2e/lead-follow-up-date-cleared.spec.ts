@@ -304,10 +304,18 @@ test.describe("Leaduri, data de reluare la plecarea din De reluat (P3-88)", () =
     expect(await stored(rest, id)).toEqual({ stage: "follow_up", follow_up_date: kept, next_action_at: null });
 
     // Si din formular, salvat fara nicio schimbare de etapa sau de data.
+    //
+    // P3-92. AICI OGLINDA SE SCRIE, si asta nu este o abatere, este chiar regula
+    // lui P3-89: formularul trimite etapa De reluat cu data ei, iar
+    // validateNextAction o scrie si in next_action_at ("setting one sets both").
+    // Leadul a fost facut prin REST, deci pana la aceasta salvare next_action_at
+    // era gol; dupa ea poarta aceeasi zi. Afirmatia pe etapa si pe data de reluare
+    // este neatinsa, cuvant cu cuvant, iar cea noua pune un capat exact, nu il
+    // slabeste.
     await openEdit(page, id);
     await page.getByTestId("client-submit").click();
     await expect(page.getByTestId("client-form")).toHaveCount(0, { timeout: 20_000 });
-    await expect.poll(async () => stored(rest, id)).toEqual({ stage: "follow_up", follow_up_date: kept, next_action_at: null });
+    await expect.poll(async () => stored(rest, id)).toEqual({ stage: "follow_up", follow_up_date: kept, next_action_at: kept });
 
     expect(await historyCount(rest, id)).toBe(before);
 

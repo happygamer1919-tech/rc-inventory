@@ -6430,3 +6430,33 @@ disappeared while red would have left Salvează disabled forever. RULE: **a cont
 two different meanings into one outward value owes its parent a second signal saying which, and
 any such signal needs an unmount cleanup, because a form cannot clear a flag set by a child that
 no longer exists.**
+
+### A new migration file needs its line in the pending register, or the end to end suite fails
+**Tag:** ci
+**ERROR:** P3-92 added `supabase/migrations/0060_lead_next_action_cleared_with_follow_up.sql`,
+passed every local check and every migration gate in CI, including both applier proofs and the
+bare-postgres apply, and then failed the end to end suite on
+`headers.spec.ts:128`: `migratia 0060_... nu are nici intrare in APPLY-LOG.md, nici linie in
+registrul de asteptare`. The invariant R-062 wrote is that every file in `supabase/migrations` sits
+in EXACTLY ONE of two places in `docs/migrations/APPLY-LOG.md`: an applied entry, or a pending
+line. A new file is in neither until somebody writes the pending line.
+**SOLUTION:** add the line in the same commit as the migration, in the machine-read format the
+file itself states: `` - `0060_....sql`, card de aplicare P3-92 ``. RULE: **adding a file under
+`supabase/migrations/` is two edits, never one; the second is the pending line in
+`docs/migrations/APPLY-LOG.md`, and no local check catches its absence because the assertion lives
+in the end to end suite, which needs Docker and therefore runs only in CI.**
+
+### Widening what a test READS can encode a false expectation about a rule the card did not touch
+**Tag:** ci
+**ERROR:** F16 asked for `next_action_at` to be asserted beside `stage` and `follow_up_date` in
+every case of `lead-follow-up-date-cleared.spec.ts`. The leads there are created through REST, so
+`next_action_at` is null, and `null` was written into all five expectations. Four were right. The
+fifth saves the De reluat lead FROM THE FORM without changing anything, and a form save at De
+reluat sends the stage with its date, which `validateNextAction` deliberately mirrors into
+`next_action_at` (P3-89, "setting one sets both"). The correct value there is the date, not null.
+CI failed on it after 48 minutes of end to end.
+**SOLUTION:** the expectation was corrected to the date, with the reason written beside it; the
+case's assertions on `stage` and `follow_up_date` were left character for character as they were.
+RULE: **when adding a column to what an existing test reads, derive the expected value from the
+write path each case actually exercises, not from the value the other cases happen to share; a
+case that goes through a form exercises a different writer than one that goes through REST.**

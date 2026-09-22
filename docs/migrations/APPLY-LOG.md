@@ -55,6 +55,7 @@ The format is machine-read, so keep it exactly:
 - `0057_lead_follow_up_date_cleared.sql`, card de aplicare P3-88
 - `0058_client_next_action.sql`, card de aplicare P3-89
 - `0059_client_notes.sql`, card de aplicare P3-90
+- `0060_lead_next_action_cleared_with_follow_up.sql`, card de aplicare P3-92
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
