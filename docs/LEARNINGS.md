@@ -6332,3 +6332,14 @@ character, unlike JavaScript's `trim()`, which removes every white space charact
 assertion stayed as written. RULE: **an "is not blank" check in SQL uses a white-space class
 (`~ '[^[:space:]]'`), never one-argument `btrim`, and its assertion tries a newline, not only
 spaces.**
+
+### A board timestamp written ahead of the clock fails quality
+**Tag:** ci
+**ERROR:** Card P3-90. The shipped card carried `last_checkpoint` and `evidence.at` of
+`2026-09-22T14:58:00Z`, a time chosen for "about when this will be committed" instead of read from
+the clock. The commit landed at 14:44 and `check:board-clock` refused: "2 of 255 timestamp(s) are
+AHEAD of the commit that wrote them".
+**SOLUTION:** Re-stamped from `date -u` immediately before the commit, and `npm run
+check:board-clock` added to the local gate run. RULE: **a board timestamp is read from `date -u`
+right before the commit that writes it, never estimated, and `check:board-clock` runs locally
+before the push.**

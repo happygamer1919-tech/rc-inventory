@@ -150,6 +150,11 @@ PostgreSQL strips only spaces, so an empty-text check needs a white-space class.
    included, applied cleanly; `assertions/0059_client_notes.sql` then refused: "an empty or blank
    note was stored (empty refused, blank yes)". Cause: the check used `btrim`. Fix: the check
    became `body ~ '[^[:space:]]'`; the assertion was not changed.
+2. Run 35742812737: the migration and every assertion passed; red at "Refuse a board timestamp
+   from the future". I had stamped the shipped card `2026-09-22T14:58:00Z`, a time I wrote ahead
+   instead of reading the clock, and the commit was made at 14:44. Fix: every P3-90 timestamp
+   re-stamped from `date -u` at the moment of the commit; `npm run check:board-clock` run locally
+   before pushing.
 
 ## Merge
 
