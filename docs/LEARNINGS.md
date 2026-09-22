@@ -6320,3 +6320,15 @@ it does not return, "Alt membru al echipei", the words the client screen already
 unreadable responsible person; "Sistem" for a stage change with no recorded actor. RULE: **a name
 resolved through `profiles` needs a fallback for the account manager's view; test the screen as
 that account.**
+
+### PostgreSQL btrim strips only spaces, so btrim(x) <> '' lets a line break through
+**Tag:** data
+**ERROR:** Card P3-90. Migration 0059's first push refused an empty note with
+`check (btrim(body) <> '')`. The assertion file tried a body of two spaces, a newline and a space,
+and `quality` failed at "Apply every migration to a bare postgres": "an empty or blank note was
+stored (empty refused, blank yes)". `btrim(text)` with one argument removes only the space
+character, unlike JavaScript's `trim()`, which removes every white space character.
+**SOLUTION:** `check (body ~ '[^[:space:]]')`: at least one character that is not white space. The
+assertion stayed as written. RULE: **an "is not blank" check in SQL uses a white-space class
+(`~ '[^[:space:]]'`), never one-argument `btrim`, and its assertion tries a newline, not only
+spaces.**

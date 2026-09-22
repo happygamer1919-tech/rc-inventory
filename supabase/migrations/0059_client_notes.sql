@@ -8,7 +8,7 @@
 --
 --   table     public.client_notes                          new, append-only
 --   index     client_notes_client_created_idx              (client_id, created_at desc)
---   check     client_notes_body_not_empty                  a note has a non-space character
+--   check     client_notes_body_not_empty                  a note has a character that is not white space
 --   policy    client_notes_select                          any ACTIVE profile, as clients_select today
 --   policy    client_notes_insert                          the owner only, as clients_insert
 --
@@ -39,10 +39,12 @@
 --    contacts and documents do; clients have no delete policy, so in practice a
 --    note outlives nothing.
 --
---    AN EMPTY NOTE IS REFUSED HERE AS WELL AS IN THE SERVER ACTION. The shape is
---    0046's `model <> '' and model = btrim(model)`, loosened to btrim(body) <> ''
---    because a note may keep its own line breaks and spaces inside; the action
---    trims before it writes, so a stored note never starts or ends with spaces.
+--    AN EMPTY NOTE IS REFUSED HERE AS WELL AS IN THE SERVER ACTION: the body must
+--    hold at least one character that is not white space. NOT btrim(body) <> '',
+--    the first draft of this file: btrim removes only the space character, so a
+--    note of spaces and a line break passed it, and the assertion file caught it.
+--    A note keeps its own line breaks inside; the action trims before it writes,
+--    so a stored note never starts or ends with white space.
 --
 -- 2. THE INDEX. The Note tab reads one client's notes newest first, the read
 --    status_history_entity_idx exists for in 0001; the foreign key is its first
@@ -87,7 +89,7 @@ create table if not exists public.client_notes (
   body        text         not null,
   created_by  uuid         default auth.uid() references auth.users (id) on delete set null,
   created_at  timestamptz  not null default now(),
-  constraint client_notes_body_not_empty check (btrim(body) <> '')
+  constraint client_notes_body_not_empty check (body ~ '[^[:space:]]')
 );
 
 comment on table public.client_notes is

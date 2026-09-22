@@ -62,8 +62,10 @@ Authored `in_flight`, flipped to `shipped` in the last commit of this pull reque
    history that can be edited is not history, the reason 0001 gives for `status_history`. The goal
    asked for no delete policy; no update follows the same logic and the brief's default.
 4. **Empty note refused twice.** In the action (`Scrie ce s-a discutat.`, trimmed first) and by a
-   check on the column, `btrim(body) <> ''`, the shape 0046 uses for `sheet_options.model`,
-   loosened so a note keeps its own inner spaces and line breaks.
+   check on the column, `body ~ '[^[:space:]]'` (at least one character that is not white space).
+   The first push used `btrim(body) <> ''`; the 0059 assertion file refused it in `quality` run
+   35742471327, because `btrim` removes only spaces and a note of spaces and a line break got
+   through. Fixed in the migration before any merge; see Learnings.
 5. **Reader in a new file**, `lib/data/client-notes.ts`, following the file-per-concern convention
    (`client-detail.ts`, `client-actions.ts`). `lib/data/clients.ts` is already the list and
    detail reader and is long.
@@ -138,8 +140,16 @@ millisecond keep each source's own order.
 
 ## Learnings
 
-Two entries appended to `docs/LEARNINGS.md`: "RLS like the clients table" means the policies after
-0055; and `profiles_select` is self-or-owner, so author names need a fallback.
+Three entries appended to `docs/LEARNINGS.md`: "RLS like the clients table" means the policies
+after 0055; `profiles_select` is self-or-owner, so author names need a fallback; and `btrim` in
+PostgreSQL strips only spaces, so an empty-text check needs a white-space class.
+
+## CI attempts
+
+1. Run 35742471327: red at "Apply every migration to a bare postgres". Every migration, 0059
+   included, applied cleanly; `assertions/0059_client_notes.sql` then refused: "an empty or blank
+   note was stored (empty refused, blank yes)". Cause: the check used `btrim`. Fix: the check
+   became `body ~ '[^[:space:]]'`; the assertion was not changed.
 
 ## Merge
 
