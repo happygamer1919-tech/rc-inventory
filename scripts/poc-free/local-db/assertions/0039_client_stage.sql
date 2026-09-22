@@ -193,18 +193,24 @@ begin
     raise exception 'P3-43: follow_up with a date stored stage % date %', s, d;
   end if;
 
-  -- --- LEAVING DE RELUAT KEEPS THE DATE ------------------------------------
+  -- --- LEAVING DE RELUAT CLEARS THE DATE, SINCE 0057 -------------------------
+  -- Card P3-88, the owner's decision of 2026-09-22. These assertions run against
+  -- the finished schema, so they state today's rule. The heading here read
+  -- "LEAVING DE RELUAT KEEPS THE DATE" and the check expected quoted with
+  -- 2026-10-15 still stored; that was 0039's rule and 0057 reversed it.
   perform public.set_client_stage(v_client,'quoted');
   select stage::text, follow_up_date into s, d from public.clients where id = v_client;
-  if s is distinct from 'quoted' or d is distinct from date '2026-10-15' then
-    raise exception 'P3-43: leaving follow_up gave stage % date %, expected quoted and the date kept', s, d;
+  if s is distinct from 'quoted' or d is not null then
+    raise exception 'P3-43/P3-88: leaving follow_up gave stage % date %, expected quoted and the date cleared', s, d;
   end if;
 
   -- --- NOT A STATE MACHINE: backwards moves work, and each one is recorded ---
   perform public.set_client_stage(v_client,'cold');
   perform public.set_client_stage(v_client,'client');
-  -- Back to De reluat with no date passed: the kept date satisfies the constraint.
-  perform public.set_client_stage(v_client,'follow_up');
+  -- Back to De reluat, with a date passed, because since 0057 none is left stored.
+  -- This line read "Back to De reluat with no date passed: the kept date satisfies
+  -- the constraint." and called the writer with no date.
+  perform public.set_client_stage(v_client,'follow_up', '2026-10-20');
   select count(*) into n from public.status_history where entity_type = 'client' and entity_id = v_client;
   if n <> 6 then
     raise exception 'P3-43: expected 6 history rows after 6 real stage changes, found %', n;

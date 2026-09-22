@@ -241,9 +241,13 @@ begin
   end if;
 
   -- --- OVERDUE MEANS BEFORE TODAY IN CHISINAU; TODAY IS DUE, NOT OVERDUE -----
+  -- Since 0057 (card P3-88) overdue is also only at stage follow_up, so
+  -- Z intarziat, a past date at nurture, is no longer overdue: the expected string
+  -- read 'Z intarziat=true'. Its order above is unchanged, because the sort did
+  -- not change. The follow_up case is asserted in the 0057 assertion file.
   select string_agg(substr(r.name, length(tag) + 2) || '=' || r.overdue::text, '|' order by r.name) into s
   from public.search_clients_by_stage(tag, '', 'active', 'leaduri', null, 25, 0) r;
-  if s is distinct from '0 fara data=false|A viitor=false|M azi=false|Z intarziat=true' then
+  if s is distinct from '0 fara data=false|A viitor=false|M azi=false|Z intarziat=false' then
     raise exception 'P3-45: the overdue flags are %', coalesce(s, 'nothing');
   end if;
 
