@@ -1007,3 +1007,37 @@ export async function hasClientNextAction(client: ColumnProbe): Promise<boolean>
   }
   return cachedClientNextAction.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-90. Exista migratia 0059: tabela public.client_notes?
+//
+// DE CE ARE POARTA EI. 0059 este un fisier separat si ajunge in productie pe
+// fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul
+// pleaca din acelasi push si NU aterizeaza in aceeasi secunda. Fara ea, fila Note
+// ar cere o tabela care nu exista inca, iar Salvează ar scrie in ea.
+//
+// ESTE O TABELA INTREAGA, deci sonda este a lui hasDocuments: `select id limit 1`.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: fila Note arata starea
+// goala, fara formular si fara lista.
+// ---------------------------------------------------------------------------
+
+let cachedClientNotes: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasClientNotes(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedClientNotes && now - cachedClientNotes.at < TTL_MS) return cachedClientNotes.value;
+  try {
+    const { error } = await client.from("client_notes").select("id").limit(1);
+    cachedClientNotes = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": fila arata ce exista azi, in loc sa cada.
+    cachedClientNotes = { value: false, at: now };
+  }
+  return cachedClientNotes.value;
+}
