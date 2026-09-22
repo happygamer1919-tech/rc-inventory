@@ -185,3 +185,25 @@ export type ClientListQuery = {
  *  tabel nemarginit. Numarul este aici, o singura data, ca ecranul si testul sa
  *  nu tina fiecare propria copie. */
 export const CLIENTS_PAGE_SIZE = 25;
+
+/** P3-90. Un rand din istoria de pe fila Note: o nota scrisa de cineva, sau o
+ *  mutare de etapa din client_stage_history (0039). Amandoua intr-o singura lista,
+ *  cele mai noi primele, ca istoria unui lead sa se citeasca dintr-o privire. */
+export type ClientTimelineEntry =
+  | {
+      kind: "note";
+      id: string;
+      body: string;
+      /** Numele autorului, deja rezolvat; niciodata un id. */
+      author: string;
+      createdAt: string;
+    }
+  | {
+      kind: "stage";
+      id: string;
+      /** Null la prima etapa, cand leadul a intrat in lista. */
+      fromStage: ClientStage | null;
+      toStage: ClientStage;
+      author: string;
+      createdAt: string;
+    };

@@ -6295,3 +6295,51 @@ every other lead exactly as before. The P3-45 and P3-88 order assertions and spe
 needed no edit. RULE: **when a new nullable column takes over a sort, fall back to the old key
 for rows that have not been written since, unless the migration backfills, and a backfill is an
 UPDATE of real rows that needs the owner.**
+
+### "RLS like the clients table" means the clients policies as they are today, not as 0013 wrote them
+**Tag:** data
+**ERROR:** Card P3-90 (2026-09-22, goal G45). The brief spelled the new table's read policy as
+`client_notes_select using (true)`, copied from 0013's `clients_select`. Migration 0055 (P3-81)
+had since replaced `clients_select` with `using (public.current_app_role() is not null)`, so a
+deactivated account reads no client. A notes table built from 0013's text would have let that same
+deactivated account read every conversation note about every client through the database API.
+**SOLUTION:** `client_notes_select` copies the CURRENT `clients_select`, found by grepping every
+migration for `on public.clients` rather than reading the migration that created the table, and
+the assertion file proves a deactivated profile reads zero notes. RULE: **"like table X" means X's
+policies after every later migration; grep `drop policy` and `create policy` for X across all
+migrations before copying one.**
+
+### Not every author name is readable by every account: profiles_select is self-or-owner
+**Tag:** auth
+**ERROR:** Card P3-90. The brief stated that `profiles_select` from 0001 shows every row, so note
+authors could be named for anyone. It is `using (id = auth.uid() or public.is_owner())`: an account
+manager reads only its own profile, so every note the owner wrote would have rendered with an empty
+author for that account.
+**SOLUTION:** One batched `profiles` select for all author ids, and a Romanian fallback for any id
+it does not return, "Alt membru al echipei", the words the client screen already uses for an
+unreadable responsible person; "Sistem" for a stage change with no recorded actor. RULE: **a name
+resolved through `profiles` needs a fallback for the account manager's view; test the screen as
+that account.**
+
+### PostgreSQL btrim strips only spaces, so btrim(x) <> '' lets a line break through
+**Tag:** data
+**ERROR:** Card P3-90. Migration 0059's first push refused an empty note with
+`check (btrim(body) <> '')`. The assertion file tried a body of two spaces, a newline and a space,
+and `quality` failed at "Apply every migration to a bare postgres": "an empty or blank note was
+stored (empty refused, blank yes)". `btrim(text)` with one argument removes only the space
+character, unlike JavaScript's `trim()`, which removes every white space character.
+**SOLUTION:** `check (body ~ '[^[:space:]]')`: at least one character that is not white space. The
+assertion stayed as written. RULE: **an "is not blank" check in SQL uses a white-space class
+(`~ '[^[:space:]]'`), never one-argument `btrim`, and its assertion tries a newline, not only
+spaces.**
+
+### A board timestamp written ahead of the clock fails quality
+**Tag:** ci
+**ERROR:** Card P3-90. The shipped card carried `last_checkpoint` and `evidence.at` of
+`2026-09-22T14:58:00Z`, a time chosen for "about when this will be committed" instead of read from
+the clock. The commit landed at 14:44 and `check:board-clock` refused: "2 of 255 timestamp(s) are
+AHEAD of the commit that wrote them".
+**SOLUTION:** Re-stamped from `date -u` immediately before the commit, and `npm run
+check:board-clock` added to the local gate run. RULE: **a board timestamp is read from `date -u`
+right before the commit that writes it, never estimated, and `check:board-clock` runs locally
+before the push.**
