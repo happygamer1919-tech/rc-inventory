@@ -14,7 +14,7 @@ import "server-only";
 // care, intr-o zi, nu mai sunt de acord asupra unui rand.
 
 import { createClient } from "@/lib/supabase/server";
-import { hasClientLeaduri, hasClientStage } from "./schema-capability";
+import { hasClientLeaduri, hasClientNextAction, hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
   CLIENT_STAGES,
@@ -35,6 +35,8 @@ export type ClientListResult = {
   total: number;
   page: number;
   pageCount: number;
+  /** P3-89. Daca randurile poarta urmatorul pas, adica 0058 exista. */
+  nextActionAvailable: boolean;
 };
 
 /** Citeste filtrele din sirul de interogare, cu valori implicite sigure.
@@ -90,6 +92,8 @@ type SearchRow = {
   stage?: string;
   follow_up_date?: string | null;
   overdue?: boolean;
+  next_action_at?: string | null;
+  next_action?: string | null;
 };
 
 /**
@@ -109,6 +113,11 @@ type SearchRow = {
  * public.search_clients_by_stage, care stie vederile, etapa si ordinea dupa data
  * de reluare. Pana atunci trece prin public.search_clients din 0020, exact ca
  * inainte de card, iar vederea si etapa sunt ignorate: ecranul nici nu le ofera.
+ *
+ * P3-89. A TREIA CALE, ACEEASI FUNCTIE. Cand migratia 0058 exista, lista trece prin
+ * public.search_clients_next_action: aceleasi sapte argumente si aceleasi randuri
+ * ca search_clients_by_stage, plus urmatorul pas, iar Leaduri se ordoneaza dupa
+ * data urmatorului pas, altfel dupa data de reluare. Pana atunci, calea din 0040.
  */
 export async function listClients(query: ClientListQuery): Promise<ClientListResult> {
   const supabase = await createClient();
@@ -122,13 +131,17 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
   };
 
   const withLeaduri = await hasClientLeaduri(supabase);
-  const { data, error } = withLeaduri
-    ? await supabase.rpc("search_clients_by_stage", {
-        ...common,
-        p_view: query.view === "" ? null : query.view,
-        p_stage: query.stage === "" ? null : query.stage,
-      })
-    : await supabase.rpc("search_clients", common);
+  const withNextAction = withLeaduri && (await hasClientNextAction(supabase));
+  const staged = {
+    ...common,
+    p_view: query.view === "" ? null : query.view,
+    p_stage: query.stage === "" ? null : query.stage,
+  };
+  const { data, error } = withNextAction
+    ? await supabase.rpc("search_clients_next_action", staged)
+    : withLeaduri
+      ? await supabase.rpc("search_clients_by_stage", staged)
+      : await supabase.rpc("search_clients", common);
 
   if (error) throw new Error(`Nu s-au putut citi clienții: ${error.message}`);
 
@@ -167,10 +180,13 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
       followUpDate: r.follow_up_date ?? null,
       overdue: r.overdue === true,
       interest: interestById.get(r.id) ?? null,
+      nextActionAt: withNextAction ? (r.next_action_at ?? null) : null,
+      nextAction: withNextAction ? (r.next_action ?? null) : null,
     })),
     total,
     page: query.page,
     pageCount: Math.max(1, Math.ceil(total / CLIENTS_PAGE_SIZE)),
+    nextActionAvailable: withNextAction,
   };
 }
 
@@ -244,8 +260,11 @@ export async function getClient(id: string): Promise<ClientDetail | null> {
   // P3-48. Sursa, interesul si responsabilul, din 0040, sub poarta lor, din acelasi
   // motiv: un select care le numeste pe o baza fara ele ar face fisa un 404.
   const withLeaduri = await hasClientLeaduri(supabase);
+  // P3-89. Urmatorul pas, din 0058, sub poarta lui, din acelasi motiv.
+  const withNextAction = await hasClientNextAction(supabase);
   let columns: string = withStage ? `${CLIENT_COLUMNS}, stage, follow_up_date` : CLIENT_COLUMNS;
   if (withLeaduri) columns = `${columns}, source, interest, owner_id`;
+  if (withNextAction) columns = `${columns}, next_action_at, next_action`;
 
   const { data } = await supabase.from("clients").select(columns).eq("id", id).maybeSingle();
 
@@ -286,5 +305,8 @@ export async function getClient(id: string): Promise<ClientDetail | null> {
     interest: withLeaduri ? ((row.interest as string | null) ?? null) : null,
     ownerId,
     ownerName,
+    nextActionAvailable: withNextAction,
+    nextActionAt: withNextAction ? ((row.next_action_at as string | null) ?? null) : null,
+    nextAction: withNextAction ? ((row.next_action as string | null) ?? null) : null,
   };
 }

@@ -67,6 +67,7 @@ export default async function ClientsPage({
       // politica.
       canWrite={user?.role === "owner"}
       stageAvailable={stageAvailable}
+      nextActionAvailable={result.nextActionAvailable}
       leaduri={counts ? { counts, owners } : null}
     />
   );

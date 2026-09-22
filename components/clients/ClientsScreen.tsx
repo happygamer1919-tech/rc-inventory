@@ -28,6 +28,10 @@
 // P3-48. INTERES ESTE O COLOANA NUMAI A VEDERII LEADURI, imediat dupa Denumire:
 // spune ce vrea omul, adica de ce il suni. Vederea Clienți si lista fara vedere isi
 // pastreaza coloanele. Un text lung se taie pe un rand, cu textul intreg in title.
+//
+// P3-89. URMATORUL PAS ESTE O COLOANA A VEDERII LEADURI, imediat dupa Data de
+// reluare, numai cand migratia 0058 exista. Lista vine ordonata din baza dupa data
+// pasului, altfel dupa data de reluare.
 
 import * as React from "react";
 import Link from "next/link";
@@ -83,6 +87,7 @@ export function ClientsScreen({
   query,
   canWrite,
   stageAvailable,
+  nextActionAvailable = false,
   leaduri,
 }: {
   rows: ClientRow[];
@@ -93,6 +98,8 @@ export function ClientsScreen({
   canWrite: boolean;
   /** P3-43. Daca formularul de client nou poate oferi etapa. */
   stageAvailable: boolean;
+  /** P3-89. Daca vederea Leaduri arata coloana Următorul pas, adica 0058 exista. */
+  nextActionAvailable?: boolean;
   /** P3-45. Null cat timp migratia 0040 nu exista pe baza: atunci ecranul nu
    *  ofera vederile, cipurile si formularul de lead, exact ca inainte de card. */
   leaduri: { counts: ClientStageCounts; owners: ClientOwnerChoice[] } | null;
@@ -368,6 +375,7 @@ export function ClientsScreen({
                 <Th>Interes</Th>
                 <Th>Etapă</Th>
                 <Th>Data de reluare</Th>
+                {nextActionAvailable ? <Th>Următorul pas</Th> : null}
                 <Th>Telefon</Th>
                 <Th>Stare</Th>
               </tr>
@@ -425,6 +433,25 @@ export function ClientsScreen({
                       ) : null}
                     </span>
                   </Td>
+                  {nextActionAvailable ? (
+                    // P3-89. La De reluat data pasului este data de reluare din
+                    // coloana alaturata, deci aici se scrie numai textul: aceeasi
+                    // data de doua ori ar fi zgomot.
+                    <Td data-label="Următorul pas" className={PHONE_WIDE}>
+                      <span
+                        className="block max-w-[240px] truncate max-md:max-w-none max-md:overflow-visible max-md:whitespace-normal"
+                        title={c.nextAction?.trim() || undefined}
+                        data-testid="row-next-action"
+                      >
+                        {[
+                          c.stage !== "follow_up" && c.nextActionAt ? formatDate(c.nextActionAt) : null,
+                          c.nextAction?.trim() || null,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "-"}
+                      </span>
+                    </Td>
+                  ) : null}
                   <Td data-label="Telefon" className={PHONE_CELL}>
                     {c.phone ?? "-"}
                   </Td>

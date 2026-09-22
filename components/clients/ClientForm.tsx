@@ -30,6 +30,7 @@ export function ClientForm({
   client,
   stageAvailable,
   owners,
+  nextActionAvailable = false,
   onClose,
   onSaved,
 }: {
@@ -41,6 +42,9 @@ export function ClientForm({
    *  hasClientLeaduri nu a raspuns da: atunci formularul nu ofera Sursă, Interes si
    *  Responsabil si nu le trimite. */
   owners?: ClientOwnerChoice[];
+  /** P3-89. Adevarat numai cand hasClientNextAction a raspuns da, citit de pe
+   *  client. Fals inseamna ca formularul nu ofera Următorul pas si nu il trimite. */
+  nextActionAvailable?: boolean;
   onClose: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -60,6 +64,8 @@ export function ClientForm({
   const [source, setSource] = React.useState<string>(client?.source ?? "");
   const [interest, setInterest] = React.useState(client?.interest ?? "");
   const [ownerId, setOwnerId] = React.useState(client?.ownerId ?? "");
+  const [nextActionAt, setNextActionAt] = React.useState(client?.nextActionAt ?? "");
+  const [nextAction, setNextAction] = React.useState(client?.nextAction ?? "");
 
   // Un responsabil al carui profil a fost dezactivat nu mai este in lista, dar
   // ramane responsabilul clientului: optiunea lui se pastreaza, altfel selectorul
@@ -68,6 +74,9 @@ export function ClientForm({
     owners && client?.ownerId && !owners.some((o) => o.id === client.ownerId)
       ? [...owners, { id: client.ownerId, fullName: client.ownerName ?? "Responsabil inactiv" }]
       : (owners ?? []);
+
+  // P3-89. La De reluat exista o singura casuta de data, cea de reluare.
+  const followUpBox = stageAvailable && stage === "follow_up";
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -108,6 +117,15 @@ export function ClientForm({
       ...(owners && source !== (client?.source ?? "") ? { source } : {}),
       ...(owners && interest !== (client?.interest ?? "") ? { interest } : {}),
       ...(owners && ownerId !== (client?.ownerId ?? "") ? { ownerId } : {}),
+      // P3-89. URMATORUL PAS, NUMAI CE S-A SCHIMBAT, ca mai sus. La De reluat
+      // formularul nu are o a doua casuta de data si nu trimite data pasului:
+      // actiunea scrie data de reluare in ambele coloane ("setting one sets both").
+      ...(nextActionAvailable &&
+      !followUpBox &&
+      nextActionAt !== (client?.nextActionAt ?? "")
+        ? { nextActionAt }
+        : {}),
+      ...(nextActionAvailable && nextAction !== (client?.nextAction ?? "") ? { nextAction } : {}),
     };
     const result = editing
       ? await updateClientRecord(client!.id, input)
@@ -220,6 +238,41 @@ export function ClientForm({
                   />
                 </Field>
               ) : null}
+            </div>
+          ) : null}
+
+          {nextActionAvailable ? (
+            // P3-89. URMATORUL PAS, CHIAR SUB ETAPA. La De reluat data lui este data
+            // de reluare de mai sus, deci aici ramane numai textul.
+            <div
+              className={`grid ${followUpBox ? "grid-cols-1" : "grid-cols-2"} gap-4 ${PHONE_STACK}`}
+              data-testid="client-next-action-fields"
+            >
+              {followUpBox ? null : (
+                <Field label="Data următorului pas">
+                  <DateField
+                    value={nextActionAt}
+                    onChange={setNextActionAt}
+                    className={fieldClass("nextActionAt")}
+                    testId="field-client-next-action-at"
+                  />
+                </Field>
+              )}
+              <Field
+                label="Următorul pas"
+                hint={
+                  followUpBox
+                    ? "Data pasului este data de reluare."
+                    : "Un rând, de exemplu: trimit oferta."
+                }
+              >
+                <Input
+                  value={nextAction}
+                  onChange={(e) => setNextAction(e.target.value)}
+                  className={fieldClass("nextAction")}
+                  data-testid="field-client-next-action"
+                />
+              </Field>
             </div>
           ) : null}
 

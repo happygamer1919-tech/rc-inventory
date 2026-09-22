@@ -123,6 +123,9 @@ export function ClientDetailScreen({
   const ownerLabel =
     client.ownerId === null ? null : (client.ownerName ?? "Alt membru al echipei");
 
+  const nextActionDate =
+    client.nextActionAt ?? (client.stage === "follow_up" ? client.followUpDate : null);
+
   return (
     <>
       <PageHeader
@@ -202,6 +205,23 @@ export function ClientDetailScreen({
               />
             </>
           ) : null}
+          {client.nextActionAvailable ? (
+            // P3-89. URMATORUL PAS, SUB ETAPA. La De reluat data lui este data de
+            // reluare, aceeasi casuta in formular; un lead ajuns la De reluat
+            // inainte de 0058 are data numai in follow_up_date, si se arata aceea.
+            <Row
+              label="Următorul pas"
+              value={
+                [
+                  nextActionDate ? formatDate(nextActionDate) : null,
+                  client.nextAction?.trim() || null,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || null
+              }
+              testId="client-next-action"
+            />
+          ) : null}
           {client.leaduriAvailable ? (
             <>
               <Row label="Interes" value={client.interest} testId="client-interest" />
@@ -246,6 +266,7 @@ export function ClientDetailScreen({
           client={client}
           stageAvailable={client.stage !== null}
           owners={client.leaduriAvailable ? owners : undefined}
+          nextActionAvailable={client.nextActionAvailable}
           onClose={() => setEditing(false)}
         />
       ) : null}

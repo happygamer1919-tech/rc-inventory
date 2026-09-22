@@ -118,6 +118,10 @@ export type ClientRow = {
    *  Leaduri; NULL in celelalte, cand nu l-a scris nimeni, sau pe calea de dinainte
    *  de 0040. */
   interest: string | null;
+  /** P3-89. Urmatorul pas, data `YYYY-MM-DD` si nota de un rand. NULL cand nu l-a
+   *  scris nimeni, sau cand lista merge pe calea de dinainte de 0058. */
+  nextActionAt: string | null;
+  nextAction: string | null;
 };
 
 /** Un client cu tot ce stie sistemul despre el, pentru ruta de detaliu. */
@@ -150,6 +154,14 @@ export type ClientDetail = {
    *  uita: profiles_select din 0001 arata altcuiva decat administratorului doar
    *  profilul propriu. Niciodata id-ul in locul numelui. */
   ownerName: string | null;
+  /** P3-89. Adevarat numai cand hasClientNextAction a raspuns da. Fals inseamna
+   *  "nu arata Următorul pas si nu il oferi", nu "necompletat". */
+  nextActionAvailable: boolean;
+  /** Data urmatorului pas, `YYYY-MM-DD`. La De reluat este aceeasi cu data de
+   *  reluare: formularul are o singura casuta de data la etapa aceea. */
+  nextActionAt: string | null;
+  /** Urmatorul pas in cuvinte, un rand, de exemplu "trimit oferta". */
+  nextAction: string | null;
 };
 
 /** Filtrele listei, toate in sirul de interogare din URL.
