@@ -79,6 +79,36 @@ export function formatDateTime(iso: string | null): string {
   return `${part("day")}.${part("month")}.${part("year")}, ${part("hour")}:${part("minute")}`;
 }
 
+// P3-91, ecranul Azi. ZIUA CALENDARISTICA DIN CHISINAU, ca sir `YYYY-MM-DD`.
+// Aceleasi parti numerice, lipite aici, din acelasi motiv ca mai sus.
+const DAY_PARTS = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Chisinau",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Ziua in Chisinau a unui moment, `YYYY-MM-DD`. Pentru un `timestamptz`, de
+ *  exemplu ziua in care s-a scris o nota. */
+export function chisinauDateOf(at: Date | string): string {
+  const parts = DAY_PARTS.formatToParts(typeof at === "string" ? new Date(at) : at);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/** Azi in Chisinau, `YYYY-MM-DD`.
+ *
+ *  SE COMPARA CA SIR CU COLOANE `date`, SI ASA TREBUIE SA RAMANA. follow_up_date si
+ *  next_action_at sunt zile calendaristice, fara ora, deci "2026-09-22" <=
+ *  "2026-09-22" este exact comparatia pe care o face baza cu
+ *  `(now() at time zone 'Europe/Chisinau')::date` (0040, 0057, 0058). Un `new
+ *  Date("2026-09-22")` ar fi miezul noptii UTC, adica ora 3 in Chisinau, si ar
+ *  muta ziua pentru o parte din fiecare zi: capcana moment-contra-zi pe care o
+ *  descriu comentariile din 0040. Nu se "repara" intr-o comparatie de Date. */
+export function chisinauToday(): string {
+  return chisinauDateOf(new Date());
+}
+
 // Locale-ul este ro-MD, acelasi ca la numere, ca fisierul sa aiba unul singur.
 // Pentru o data scrisa in cuvinte scrie identic cu ro-RO, cu t si s cu virgula
 // (verificat in Node si in Chromium). Fusul este UTC la construire si la
