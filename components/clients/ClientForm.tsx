@@ -96,7 +96,13 @@ export function ClientForm({
       email,
       notes,
       active,
-      ...(stageAvailable ? { stage, followUpDate } : {}),
+      // P3-88. DATA PLEACA NUMAI LA DE RELUAT. La orice alta etapa campul este
+      // ascuns, iar starea lui tine inca data stocata: trimisa, ar fi pastrat-o pe
+      // nevazute la plecarea din De reluat. Sirul vid ajunge null, iar functia din
+      // 0057 sterge data cand etapa pleaca din De reluat si o lasa neatinsa altfel.
+      ...(stageAvailable
+        ? { stage, followUpDate: stage === "follow_up" ? followUpDate : "" }
+        : {}),
       // P3-48. NUMAI CE S-A SCHIMBAT. Un camp netrimis inseamna "nu atinge" pentru
       // validateLeaduri, deci o modificare fara legatura cu cele trei nu le rescrie.
       ...(owners && source !== (client?.source ?? "") ? { source } : {}),
