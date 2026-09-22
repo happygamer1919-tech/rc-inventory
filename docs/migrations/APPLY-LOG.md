@@ -54,6 +54,7 @@ The format is machine-read, so keep it exactly:
 - `0056_extraction_draft_cancel.sql`, card de aplicare P3-84
 - `0057_lead_follow_up_date_cleared.sql`, card de aplicare P3-88
 - `0058_client_next_action.sql`, card de aplicare P3-89
+- `0059_client_notes.sql`, card de aplicare P3-90
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
