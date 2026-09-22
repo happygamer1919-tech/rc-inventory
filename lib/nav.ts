@@ -90,8 +90,19 @@ export const NAV: NavGroup[] = [
     // P3-46. O SINGURA INTRARE, CRM, in locul lui Clienți si Proiecte. Deschide
     // ecranul cu cele trei carduri, iar pe listele de clienti si de proiecte ramane
     // marcata, fiindca ele tin de CRM.
+    //
+    // P3-91, goal G46. AZI ESTE PRIMA INTRARE A GRUPULUI, inaintea lui CRM: lista
+    // celor de sunat azi este locul din care porneste ziua. Sta direct in NAV, nu
+    // in CRM_SCREENS, fiindca are intrarea ei in meniu si nu se ajunge la ea prin
+    // CRM; asa o citesc si labelForPath, si ALL_ROUTES.
     title: "Relații",
     items: [
+      {
+        href: "/azi",
+        label: "Azi",
+        icon: "bell",
+        description: "Leadurile și clienții de sunat azi, cei întârziați primii",
+      },
       {
         href: "/crm",
         label: "CRM",
