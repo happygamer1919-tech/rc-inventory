@@ -403,7 +403,9 @@ test.describe("Leaduri (P3-45)", () => {
     const undated = `${tag} 0 fara data`;
     await createFixture(rest, [
       { name: upcoming, stage: "nurture", date: chisinauDay(10) },
-      { name: overdue, stage: "nurture", date: chisinauDay(-10) },
+      // P3-88: De reluat, fiindca din migratia 0057 numai acolo o data trecuta este
+      // intarziata. Randul spunea stage "nurture"; ordinea dovedita este aceeasi.
+      { name: overdue, stage: "follow_up", date: chisinauDay(-10) },
       { name: today, stage: "quoted", date: chisinauDay(0) },
       { name: undated, stage: "cold" },
     ]);
