@@ -52,6 +52,7 @@ The format is machine-read, so keep it exactly:
 - `0054_extraction_derived_partial.sql`, card de aplicare P3-80
 - `0055_active_profile_table_reads.sql`, card de aplicare P3-81
 - `0056_extraction_draft_cancel.sql`, card de aplicare P3-84
+- `0057_lead_follow_up_date_cleared.sql`, card de aplicare P3-88
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
