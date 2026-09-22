@@ -19,7 +19,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createClientRecord } from "@/lib/data/client-actions";
 import {
@@ -57,6 +57,9 @@ export function LeaduriForm({
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
   const [pending, setPending] = React.useState(false);
 
+  // P3-92, constatarea F4. Salvează sta oprit cat timp casuta de data este in rosu.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -67,6 +70,10 @@ export function LeaduriForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // P3-92, constatarea F4. Cat timp data de reluare arata mesajul rosu, nu se
+    // salveaza nimic: sirul gol pe care campul il da parintelui nu se deosebeste
+    // de o casuta golita anume.
+    if (dateInvalid) return;
     setError(null);
     setErrorField(undefined);
     setPending(true);
@@ -209,6 +216,7 @@ export function LeaduriForm({
               <DateField
                 value={followUpDate}
                 onChange={setFollowUpDate}
+                onValidityChange={mark("followUpDate")}
                 className={fieldClass("followUpDate")}
                 testId="field-leaduri-follow-up"
               />
@@ -254,7 +262,7 @@ export function LeaduriForm({
             <Button type="button" variant="secondary" onClick={onClose}>
               Renunță
             </Button>
-            <Button type="submit" disabled={pending} data-testid="leaduri-submit">
+            <Button type="submit" disabled={pending || dateInvalid} data-testid="leaduri-submit">
               {pending ? "Se salvează..." : "Salvează"}
             </Button>
           </div>

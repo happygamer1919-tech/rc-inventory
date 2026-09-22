@@ -99,9 +99,33 @@ function formatAsTyped(raw: string, previous: string): string {
 const CONTROL =
   "w-full rounded-[10px] border border-rc-line-strong bg-white px-3 py-2 pr-11 text-[14px] text-rc-black placeholder:text-rc-muted-2 focus:border-rc-orange focus:ring-2 focus:ring-rc-orange/25 outline-none transition max-md:min-h-11 max-md:pr-12 max-md:text-base";
 
+/** P3-92, constatarea F4 din maturarea de erori. CATE CASUTE DE DATA SUNT IN ROSU
+ *  ACUM, ca formularul sa poata opri Salvează cat timp exista vreuna.
+ *
+ *  DE CE ARE FORMULARUL NEVOIE DE ASA CEVA. `commit` trimite parintelui sirul gol
+ *  si pentru o data imposibila, si pentru o casuta golita anume: cele doua nu se
+ *  deosebesc din afara. Fara aceasta stare, o data tastata pe jumatate ajunge la
+ *  server ca "sterge data" si valoarea stocata dispare fara niciun mesaj.
+ *
+ *  `mark` intoarce o functie noua la fiecare randare, si asta nu strica nimic:
+ *  DateField o tine intr-un ref si nu isi leaga efectul de ea. */
+export function useInvalidDates(): {
+  anyInvalid: boolean;
+  mark: (key: string) => (invalid: boolean) => void;
+} {
+  const [invalid, setInvalid] = React.useState<Record<string, boolean>>({});
+  const mark = React.useCallback(
+    (key: string) => (bad: boolean) =>
+      setInvalid((prev) => (prev[key] === bad ? prev : { ...prev, [key]: bad })),
+    [],
+  );
+  return { anyInvalid: Object.values(invalid).some(Boolean), mark };
+}
+
 export function DateField({
   value,
   onChange,
+  onValidityChange,
   testId,
   disabled,
   className,
@@ -111,6 +135,9 @@ export function DateField({
   value: string;
   /** Primeste tot yyyy-mm-dd, sau sir gol cat timp data nu este intreaga. */
   onChange: (value: string) => void;
+  /** P3-92. Adevarat cat timp campul arata mesajul rosu. Formularul opreste
+   *  Salvează pe el. Lipsa lui lasa campul exact cum era inainte de card. */
+  onValidityChange?: (invalid: boolean) => void;
   testId: string;
   disabled?: boolean;
   className?: string;
@@ -151,6 +178,22 @@ export function DateField({
   const parsed = isoFromRomanian(text);
   const digitCount = text.replace(/\D/g, "").length;
   const invalid = parsed === null && (touched || digitCount >= 8);
+
+  // P3-92. Parintele afla cand mesajul rosu apare si cand pleaca.
+  //
+  // PRINTR-UN REF, ca efectul sa atarne numai de `invalid`: functia primita este
+  // de obicei scrisa direct in JSX, deci alta la fiecare randare, si un efect
+  // legat de ea ar porni la fiecare tasta.
+  //
+  // SI LA DEMONTARE SE ANUNTA CA NU MAI ESTE ROSU. Formularul de client ascunde
+  // casuta de reluare cand etapa pleaca din De reluat: fara curatare, un camp
+  // ramas rosu la disparitie ar tine Salvează blocat pentru totdeauna.
+  const notify = React.useRef(onValidityChange);
+  notify.current = onValidityChange;
+  React.useEffect(() => {
+    notify.current?.(invalid);
+    return () => notify.current?.(false);
+  }, [invalid]);
 
   return (
     <span className="block">

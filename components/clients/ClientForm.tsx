@@ -13,7 +13,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { PHONE_CHECK, PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createClientRecord, updateClientRecord } from "@/lib/data/client-actions";
 import {
@@ -78,6 +78,32 @@ export function ClientForm({
   // P3-89. La De reluat exista o singura casuta de data, cea de reluare.
   const followUpBox = stageAvailable && stage === "follow_up";
 
+  // P3-92, constatarea F4. Cat timp o casuta de data arata mesajul rosu, Salvează
+  // este oprit: altfel o data tastata pe jumatate pleaca spre server ca sir gol si
+  // sterge data stocata fara niciun mesaj.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
+
+  // P3-92, constatarea F3. CASUTA PASULUI NU PASTREAZA OGLINDA DE RELUAT.
+  //
+  // La De reluat cele doua date sunt o singura casuta ("setting one sets both",
+  // P3-89), deci un lead salvat acolo are aceeasi data in next_action_at. Cand
+  // etapa pleaca din De reluat, casuta de reluare dispare si apare cea a pasului,
+  // care ar arata tocmai acea oglinda: o data pe care salvarea o sterge oricum,
+  // fiindca proprietarul a hotarat ca plecarea din De reluat le incheie pe amandoua.
+  // O aratam goala in aceeasi clipa in care etapa se schimba, ca operatorul sa vada
+  // ce se salveaza si sa poata scrie un pas adevarat daca vrea unul.
+  const mirroredStep =
+    client?.stage === "follow_up" &&
+    (client?.nextActionAt ?? "") !== "" &&
+    client?.nextActionAt === client?.followUpDate
+      ? client.nextActionAt
+      : null;
+
+  React.useEffect(() => {
+    if (mirroredStep === null || stage === "follow_up") return;
+    setNextActionAt((prev) => (prev === mirroredStep ? "" : prev));
+  }, [mirroredStep, stage]);
+
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
   const [pending, setPending] = React.useState(false);
@@ -92,6 +118,10 @@ export function ClientForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // P3-92. A doua plasa sub butonul oprit: tasta Enter intr-un camp de text
+    // trimite formularul, si un browser care nu tine cont de butonul dezactivat ar
+    // trece pe langa singura oprire.
+    if (dateInvalid) return;
     setError(null);
     setErrorField(undefined);
     setPending(true);
@@ -233,6 +263,7 @@ export function ClientForm({
                   <DateField
                     value={followUpDate}
                     onChange={setFollowUpDate}
+                    onValidityChange={mark("followUpDate")}
                     className={fieldClass("followUpDate")}
                     testId="field-client-follow-up"
                   />
@@ -253,6 +284,7 @@ export function ClientForm({
                   <DateField
                     value={nextActionAt}
                     onChange={setNextActionAt}
+                    onValidityChange={mark("nextActionAt")}
                     className={fieldClass("nextActionAt")}
                     testId="field-client-next-action-at"
                   />
@@ -388,7 +420,7 @@ export function ClientForm({
             <Button type="button" variant="secondary" onClick={onClose}>
               Renunță
             </Button>
-            <Button type="submit" disabled={pending} data-testid="client-submit">
+            <Button type="submit" disabled={pending || dateInvalid} data-testid="client-submit">
               {pending ? "Se salvează..." : "Salvează"}
             </Button>
           </div>

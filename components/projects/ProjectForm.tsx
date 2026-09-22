@@ -11,7 +11,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { PHONE_CHECK, PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createProjectRecord, updateProjectRecord } from "@/lib/data/project-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
@@ -57,8 +57,14 @@ export function ProjectForm({
 
   const noClients = clients.length === 0;
 
+  // P3-92, constatarea F4. Salvează sta oprit cat timp una dintre cele doua casute
+  // de data arata mesajul rosu: altfel o data tastata pe jumatate ar ajunge la
+  // server ca sir gol si ar sterge termenul stocat, fara niciun mesaj.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (dateInvalid) return;
     setError(null);
     setErrorField(undefined);
     setPending(true);
@@ -183,6 +189,7 @@ export function ProjectForm({
               <DateField
                 value={startDate}
                 onChange={setStartDate}
+                onValidityChange={mark("startDate")}
                 testId="field-project-start"
               />
             </Field>
@@ -190,6 +197,7 @@ export function ProjectForm({
               <DateField
                 value={plannedEndDate}
                 onChange={setPlannedEndDate}
+                onValidityChange={mark("plannedEndDate")}
                 className={fieldClass("plannedEndDate")}
                 testId="field-project-end"
               />
@@ -242,7 +250,11 @@ export function ProjectForm({
             <Button type="button" variant="secondary" onClick={onClose}>
               Renunță
             </Button>
-            <Button type="submit" disabled={pending || noClients} data-testid="project-submit">
+            <Button
+              type="submit"
+              disabled={pending || noClients || dateInvalid}
+              data-testid="project-submit"
+            >
               {pending ? "Se salvează..." : "Salvează"}
             </Button>
           </div>

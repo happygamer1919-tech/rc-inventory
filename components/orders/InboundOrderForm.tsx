@@ -25,7 +25,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import {
   PHONE_CELL,
   PHONE_CLOSE,
@@ -120,6 +120,10 @@ export function InboundOrderForm({
   const [pending, setPending] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
 
+  // P3-92, constatarea F4. Cele doua casute de data ale antetului, urmarite
+  // impreuna: cat timp una este in rosu, butonul de confirmare sta oprit.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
+
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const setLine = (key: string, patch: Partial<FormLine>) =>
@@ -150,6 +154,9 @@ export function InboundOrderForm({
   async function confirm() {
     setTouched(true);
     setServerError(null);
+    // P3-92, constatarea F4. O casuta de data in rosu opreste salvarea, ca mai jos
+    // butonul insusi. Campul isi arata singur mesajul, deci nu se adauga al doilea.
+    if (dateInvalid) return;
     if (problems.length > 0) return;
 
     setPending(true);
@@ -241,6 +248,7 @@ export function InboundOrderForm({
             <DateField
               value={orderedAt}
               onChange={setOrderedAt}
+              onValidityChange={mark("orderedAt")}
               testId="order-ordered-at"
             />
             <DateInWords value={orderedAt} testId="order-ordered-at-words" />
@@ -249,6 +257,7 @@ export function InboundOrderForm({
             <DateField
               value={expectedAt}
               onChange={setExpectedAt}
+              onValidityChange={mark("expectedAt")}
               testId="order-expected-at"
             />
             <DateInWords value={expectedAt} testId="order-expected-at-words" />
@@ -412,7 +421,12 @@ export function InboundOrderForm({
           <span className="font-semibold text-rc-muted">În așteptare</span>. Loturile se creează abia
           la recepție.
         </p>
-        <Button onClick={confirm} type="button" disabled={pending} data-testid="order-confirm">
+        <Button
+          onClick={confirm}
+          type="button"
+          disabled={pending || dateInvalid}
+          data-testid="order-confirm"
+        >
           {pending ? "Se salvează..." : "Confirmă comanda"}
         </Button>
       </div>
