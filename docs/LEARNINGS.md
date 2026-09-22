@@ -6237,3 +6237,31 @@ prove the real thing with the parser: pgsql-parser, the grammar `check:reset-sql
 must return exactly one `SelectStmt`, with no SELECT INTO, no row lock and no function outside a
 short read-only list. RULE: **a text guard is a hint, not the proof. When it trips on a required
 identifier, sharpen the guard and lean on the parser; never rename or hide the identifier.**
+
+### A form field hidden by a condition still sends the value its state holds
+**Tag:** frontend
+**ERROR:** Card P3-88 (2026-09-22, the owner's report). Moving a lead from De reluat to În
+cultivare in the client edit form kept the old follow-up date, and the Leaduri list still said
+Întârziat. The date field is rendered only while the chosen stage is De reluat, but its React
+state was initialised from the stored date and was sent on every save. So even a database rule
+"a null date on leaving De reluat clears it" would never have fired from the screen: the form
+sent the stored date back, unseen, as if the operator had typed it.
+**SOLUTION:** The form sends the date only when the chosen stage is De reluat, and the empty
+string otherwise, which the action turns into null; migration 0057 clears the date when a move
+leaves De reluat with a null date. RULE: **when a field is shown only under a condition, send
+it only under the same condition. A hidden input whose state still holds a value is a write
+nobody on screen can see.**
+
+### Assertion files run against the finished schema, so reversing a rule edits the old card's file
+**Tag:** data
+**ERROR:** Card P3-88. `scripts/poc-free/local-db/apply.mjs` applies every migration and only
+then runs every assertion file, in filename order. `assertions/0039_client_stage.sql` asserted
+that leaving De reluat KEEPS the date and then moved back to De reluat relying on that kept
+date; `assertions/0040_client_leaduri.sql` asserted that a past date at nurture is overdue.
+Migration 0057 reverses both on the owner's decision, so both files would fail in CI even
+though 0039 and 0040 themselves are untouched.
+**SOLUTION:** Edit the lines in the older assertion files in the same pull request, quoting what
+each line said before (CLAUDE.md 9c's spirit), and put the new rule's full proof in the new
+card's own assertion file. RULE: **an assertion file states what is true of today's schema, not
+of the schema its migration left behind. A migration that reverses an earlier rule has to find
+and correct every older assertion of that rule, and say so in the report.**
