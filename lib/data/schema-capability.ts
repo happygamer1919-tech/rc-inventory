@@ -967,3 +967,43 @@ export async function hasProductSourceNote(client: ColumnProbe): Promise<boolean
   }
   return cachedProductSourceNote.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-89. Exista migratia 0058: coloanele clients.next_action_at si next_action, si
+// functia listei search_clients_next_action?
+//
+// DE CE ARE POARTA EI SI NU O IMPARTE CU hasClientLeaduri. Aceea raspunde despre
+// 0040, care este deja aplicata. 0058 este un fisier separat si ajunge in
+// productie pe fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua
+// minute, iar codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda.
+//
+// FARA EA, FEREASTRA ACEEA ESTE INC-05 DIN NOU. Fisa clientului ar cere
+// next_action_at, PostgREST ar raspunde 42703, iar lista Leaduri ar chema o
+// functie care nu exista inca.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: fara "Următorul pas" pe
+// formular, pe fisa si in lista, iar lista merge prin search_clients_by_stage.
+// Coloanele si functia sosesc in aceeasi tranzactie, deci o singura sonda ajunge.
+// ---------------------------------------------------------------------------
+
+let cachedClientNextAction: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasClientNextAction(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedClientNextAction && now - cachedClientNextAction.at < TTL_MS) {
+    return cachedClientNextAction.value;
+  }
+  try {
+    const { error } = await client.from("clients").select("next_action_at, next_action").limit(1);
+    cachedClientNextAction = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranele arata ce exista azi, in loc sa cada.
+    cachedClientNextAction = { value: false, at: now };
+  }
+  return cachedClientNextAction.value;
+}

@@ -32,7 +32,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { hasClientLeaduri, hasClientStage } from "./schema-capability";
+import { hasClientLeaduri, hasClientNextAction, hasClientStage } from "./schema-capability";
 import { createContact } from "./contact-actions";
 import {
   FOLLOW_UP_DATE_REQUIRED,
@@ -63,6 +63,10 @@ export type ClientInput = {
   source?: string;
   interest?: string;
   ownerId?: string;
+  /** P3-89. Urmatorul pas: data `YYYY-MM-DD` sau sirul vid, si nota de un rand.
+   *  Lipsa inseamna "nu atinge", ca la sursa; sirul vid inseamna "sterge". */
+  nextActionAt?: string;
+  nextAction?: string;
   /** Persoana de contact. Devine un rand in public.contacts, nu o coloana. */
   contactName?: string;
   /** P3-45. Etapa aleasa se inregistreaza ca PRIMA, de la nicio etapa, chiar si
@@ -175,6 +179,36 @@ function validateLeaduri(
   return { ok: true, value };
 }
 
+/** P3-89. Urmatorul pas, numai ce a trimis formularul, plus aceeasi casuta la De
+ *  reluat.
+ *
+ *  ACEEASI CASUTA. La etapa De reluat formularul are o singura casuta de data, iar
+ *  cuvintele proprietarului sunt "setting one sets both": data de reluare scrisa in
+ *  acelasi apel se scrie si in next_action_at. O data a urmatorului pas trimisa
+ *  EXPLICIT in acelasi apel castiga, fiindca cineva a scris-o anume; formularul de
+ *  client nu o trimite la De reluat, deci pe ecran cele doua raman egale.
+ *
+ *  follow_up_date NU se scrie de aici. Ramane numai a lui set_client_stage. */
+function validateNextAction(
+  input: ClientInput,
+  stage: StageChoice | null,
+): { ok: true; value: Record<string, unknown> } | { ok: false; message: string; field: string } {
+  const value: Record<string, unknown> = {};
+
+  if (input.nextActionAt !== undefined) {
+    const date = input.nextActionAt.trim();
+    if (date !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(date))
+      return { ok: false, message: "Data următorului pas nu este o dată validă.", field: "nextActionAt" };
+    value.next_action_at = date === "" ? null : date;
+  } else if (stage?.stage === "follow_up" && stage.followUpDate !== null) {
+    value.next_action_at = stage.followUpDate;
+  }
+
+  if (input.nextAction !== undefined) value.next_action = input.nextAction.trim() || null;
+
+  return { ok: true, value };
+}
+
 /** Traduce codul masinal in propozitia romaneasca pe care o vede operatorul. */
 function translateWriteError(code: string | undefined, message: string): ActionResult<never> {
   if (code === "23505")
@@ -228,6 +262,8 @@ export async function createClientRecord(
   if (!stage.ok) return stage;
   const leaduri = validateLeaduri(input);
   if (!leaduri.ok) return leaduri;
+  const next = validateNextAction(input, stage.value);
+  if (!next.ok) return next;
 
   const supabase = await createClient();
 
@@ -238,10 +274,17 @@ export async function createClientRecord(
     Object.keys(leaduri.value).length > 0 || input.firstStage === true
       ? await hasClientLeaduri(supabase)
       : false;
+  // P3-89. Coloanele din 0058, din acelasi motiv si sub poarta lor.
+  const nextAvailable =
+    Object.keys(next.value).length > 0 ? await hasClientNextAction(supabase) : false;
 
   const { data, error } = await supabase
     .from("clients")
-    .insert(leaduriAvailable ? { ...checked.value, ...leaduri.value } : checked.value)
+    .insert({
+      ...checked.value,
+      ...(leaduriAvailable ? leaduri.value : {}),
+      ...(nextAvailable ? next.value : {}),
+    })
     .select("id")
     .single();
 
@@ -317,16 +360,26 @@ export async function updateClientRecord(
   // Un camp netrimis lipseste din valoare si ramane cum era in baza.
   const leaduri = validateLeaduri(input);
   if (!leaduri.ok) return leaduri;
+  const next = validateNextAction(input, stage.value);
+  if (!next.ok) return next;
 
   const supabase = await createClient();
 
   // Coloanele din 0040 se scriu numai daca exista, din acelasi motiv ca la creare.
   const leaduriAvailable =
     Object.keys(leaduri.value).length > 0 ? await hasClientLeaduri(supabase) : false;
+  // P3-89. Urmatorul pas in acelasi update generic: o coloana simpla, fara istoric,
+  // deci nu are nevoie de o functie a ei.
+  const nextAvailable =
+    Object.keys(next.value).length > 0 ? await hasClientNextAction(supabase) : false;
 
   const { error } = await supabase
     .from("clients")
-    .update(leaduriAvailable ? { ...checked.value, ...leaduri.value } : checked.value)
+    .update({
+      ...checked.value,
+      ...(leaduriAvailable ? leaduri.value : {}),
+      ...(nextAvailable ? next.value : {}),
+    })
     .eq("id", id);
   if (error) return translateWriteError(error.code, error.message);
 
