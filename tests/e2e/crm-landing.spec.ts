@@ -195,8 +195,12 @@ test.describe("Ecranul CRM (P3-46)", () => {
 
     // IN LOCUL LOR: dupa ultima intrare din Intrări si inaintea primei din Stoc,
     // exact unde stateau Clienți si Proiecte.
+    //
+    // P3-91, goal G46: Azi este prima intrare a aceluiasi grup, chiar inaintea lui
+    // CRM, deci intre Adăugare manuală si CRM sta acum Azi si nimic altceva.
     const crm = labels.indexOf("CRM");
-    expect(labels[crm - 1]).toBe("Adăugare manuală");
+    expect(labels[crm - 1]).toBe("Azi");
+    expect(labels[crm - 2]).toBe("Adăugare manuală");
     expect(labels[crm + 1]).toBe("Inventar");
 
     await links.nth(crm).click();

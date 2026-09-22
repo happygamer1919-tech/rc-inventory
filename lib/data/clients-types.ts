@@ -186,6 +186,25 @@ export type ClientListQuery = {
  *  nu tina fiecare propria copie. */
 export const CLIENTS_PAGE_SIZE = 25;
 
+/** P3-91. Un rand de pe ecranul Azi: un lead sau client de sunat azi sau intarziat. */
+export type AziRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  stage: ClientStage | null;
+  /** Ziua care l-a adus pe lista, `YYYY-MM-DD`: data urmatorului pas, altfel data
+   *  de reluare. */
+  dueDate: string;
+  /** De unde vine ziua: pasul urmator (G44) sau data de reluare (De reluat). */
+  dueFrom: "next_action" | "follow_up";
+  /** Ziua este inainte de azi in Chisinau. Azi este de facut, nu intarziat. */
+  overdue: boolean;
+  /** Urmatorul pas in cuvinte, daca l-a scris cineva. */
+  nextAction: string | null;
+  /** Responsabilul, pentru filtru. NULL cand nu are, sau inainte de 0040. */
+  ownerId: string | null;
+};
+
 /** P3-90. Un rand din istoria de pe fila Note: o nota scrisa de cineva, sau o
  *  mutare de etapa din client_stage_history (0039). Amandoua intr-o singura lista,
  *  cele mai noi primele, ca istoria unui lead sa se citeasca dintr-o privire. */
