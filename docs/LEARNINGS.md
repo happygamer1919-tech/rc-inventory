@@ -6366,3 +6366,34 @@ coloana next_action_at", although the file reads no table at all.
 **SOLUTION:** The comment says "data urmatorului pas" instead of the column name. Same shape as
 the P3-80 entry above. RULE: **in a file that imports no schema gate, name a pending column in
 words, not by its identifier, even in a comment.**
+
+### A CRITIC sweep told to "drive the screens" on a machine with no database
+**Tag:** process
+**ERROR:** Goal G47 asked for every screen shipped since 2026-09-14 to be driven by hand at 1280
+and at 390 wide. This machine has no Docker and no Supabase CLI, and the only `.env*` file in any
+checkout is a placeholder that names a 127.0.0.1 Supabase which does not run. `npm run dev`
+starts and every route compiles, but `/`, `/azi`, `/clienti`, `/incarca-comanda` and `/inventar`
+all answer with the same login page, because no session can be established. Nothing renders.
+**SOLUTION:** The answer was established first, in three steps (find every `.env*`, check
+`which docker supabase`, actually start the server and fetch five routes), written as the first
+section of the report, and then the sweep pivoted to a code read plus a read of what each shipped
+spec actually asserts. Three of the eighteen findings are coverage gaps found only by reading the
+specs. RULE: **when a task's method needs a running stack, prove whether the stack runs before
+starting, say the result in the deliverable's first section, and mark every finding with the
+evidence that actually produced it; a read is real evidence as long as it names its lines and
+does not claim to be a click.**
+
+### Two cards can each be correct and still contradict each other on a third screen
+**Tag:** data
+**ERROR:** P3-88 made leaving De reluat clear `follow_up_date`, on the owner's own words that a
+lead moved on "says it is late" when it is not. P3-89 then made a De reluat date also write
+`next_action_at`, deliberately, as "setting one sets both". P3-91 then built Azi to read
+`next_action_at` first. Nothing clears `next_action_at` on a stage move, so a lead moved off De
+reluat loses its follow-up date, is correctly not late on the Leaduri list, and comes straight
+back onto Azi in red. Each card's own tests pass: the P3-88 spec reads only `stage` and
+`follow_up_date`, and seeds its leads through REST, which never writes the mirrored date the form
+writes.
+**SOLUTION:** Found by a read, filed as finding F3 of the 2026-09-22 bug sweep; no fix in that
+pull request. RULE: **when a card mirrors one column into another, the card that later clears the
+first column must say what happens to the mirror, and the test that proves the clearing must read
+both columns, not only the one the card is named after.**
