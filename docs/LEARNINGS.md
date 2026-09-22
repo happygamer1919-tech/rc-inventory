@@ -6397,3 +6397,36 @@ writes.
 pull request. RULE: **when a card mirrors one column into another, the card that later clears the
 first column must say what happens to the mirror, and the test that proves the clearing must read
 both columns, not only the one the card is named after.**
+
+### A mirrored column is unmirrored by the same single writer that owns the original
+**Tag:** data
+**ERROR:** Fixing F3 looked like a choice between three places: clear `next_action_at` from
+`ClientForm` when the stage leaves De reluat, gate `/azi`'s overdue computation the way the two
+list functions already gate theirs, or clear it inside `set_client_stage`. The first two both
+pass a test written against the screen they fix and both leave the stored row wrong for every
+other caller: a spec that posts to the RPC, a future bulk-action screen, any second form. The
+row, not the screen, is what the next card reads.
+**SOLUTION:** migration 0060 clears it inside `set_client_stage`, the single writer of
+`clients.stage`, in the same row update that already clears `follow_up_date`, and only while
+`next_action_at` still equals the follow-up date being left, so a next step somebody set
+independently at another stage survives. RULE: **when column B was written as a mirror of column
+A, the rule that ends A ends B in the same statement that ends A, guarded by "B still equals A";
+a mirror undone anywhere else is a rule the next caller has to remember.**
+
+### A field that reports "invalid" and "cleared" as the same value must tell its parent which one it is
+**Tag:** frontend
+**ERROR:** `DateField.commit` calls `onChange(iso ?? "")`, so a half-typed or impossible date and
+a deliberately emptied box both reach the parent as the empty string. The red
+`DATE_INVALID_MESSAGE` was local to the component, no form consulted it, every submit button read
+only `pending`, and the empty string reached the server action as "clear this date". A mistyped
+digit therefore deleted a stored date and the save reported success.
+**SOLUTION:** an optional `onValidityChange` prop plus a `useInvalidDates` hook, and all six
+callers extend their own submit `disabled` expression with it. Two traps met while wiring it, both
+worth the next reader's time: the callback is written inline in JSX, so it is a new function every
+render and an effect depending on it fires on every keystroke, which is why it is held in a ref
+and the effect depends on `invalid` alone; and `ClientForm` UNMOUNTS its follow-up date box when
+the stage leaves De reluat, so without a cleanup that reports `false` on unmount a field that
+disappeared while red would have left Salvează disabled forever. RULE: **a control that collapses
+two different meanings into one outward value owes its parent a second signal saying which, and
+any such signal needs an unmount cleanup, because a form cannot clear a flag set by a child that
+no longer exists.**
