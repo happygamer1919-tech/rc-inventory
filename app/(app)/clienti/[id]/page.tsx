@@ -11,6 +11,7 @@ import {
   listClientProjects,
 } from "@/lib/data/client-detail";
 import { listDocuments } from "@/lib/data/documents";
+import { getClientTimeline } from "@/lib/data/client-notes";
 import { ClientDetailScreen } from "@/components/clients/ClientDetailScreen";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export default async function ClientDetailPage({
   const query = await searchParams;
   const rawDocumentsPage = query["pagina-documente"];
 
-  const [user, contacts, projects, materials, documents] = await Promise.all([
+  const [user, contacts, projects, materials, documents, timeline] = await Promise.all([
     getSessionUser(),
     listClientContacts(id),
     listClientProjects(id),
@@ -57,6 +58,8 @@ export default async function ClientDetailPage({
         page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
       },
     ),
+    // P3-90. Notele si mutarile de etapa, pentru fila Note. Null inainte de 0059.
+    getClientTimeline(id),
   ]);
 
   // P3-48. Responsabilii pentru Modifică, din aceeasi lista ca formularul de lead,
@@ -71,6 +74,7 @@ export default async function ClientDetailPage({
       projects={projects}
       materials={materials}
       documents={documents}
+      timeline={timeline}
       canWrite={user?.role === "owner"}
       owners={owners}
     />

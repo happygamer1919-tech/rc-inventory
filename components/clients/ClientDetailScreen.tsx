@@ -20,6 +20,7 @@ import {
   CLIENT_TYPE_LABEL,
   type ClientDetail,
   type ClientOwnerChoice,
+  type ClientTimelineEntry,
 } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
 import { updateClientRecord } from "@/lib/data/client-actions";
@@ -60,6 +61,7 @@ export function ClientDetailScreen({
   projects,
   materials,
   documents,
+  timeline,
   canWrite,
   owners,
 }: {
@@ -69,6 +71,8 @@ export function ClientDetailScreen({
   materials: ClientMaterials;
   /** P3-15. null cand migratia 0044 nu este inca aplicata. */
   documents: DocumentsView | null;
+  /** P3-90. Fila Note. null cand migratia 0059 nu este inca aplicata. */
+  timeline: ClientTimelineEntry[] | null;
   canWrite: boolean;
   /** P3-48. Responsabilii pentru Modifică. Lipsa inseamna fara Sursă, Interes si
    *  Responsabil in formular. */
@@ -257,6 +261,9 @@ export function ClientDetailScreen({
           projects={projects}
           materials={materials}
           documents={documents}
+          timeline={timeline}
+          stage={client.stage}
+          nextActionAvailable={client.nextActionAvailable}
           canWrite={canWrite}
         />
       </div>

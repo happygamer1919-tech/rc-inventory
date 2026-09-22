@@ -36,6 +36,8 @@ import type {
 import { ContactForm } from "./ContactForm";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import type { ClientStage, ClientTimelineEntry } from "@/lib/data/clients-types";
+import { ClientNotesPanel } from "./ClientNotesPanel";
 import {
   PHONE_ACTIONS_CELL,
   PHONE_CELL,
@@ -67,6 +69,9 @@ export function ClientTabs({
   projects,
   materials,
   documents,
+  timeline,
+  stage,
+  nextActionAvailable,
   canWrite,
 }: {
   clientId: string;
@@ -74,6 +79,10 @@ export function ClientTabs({
   projects: ClientProject[];
   materials: ClientMaterials;
   documents: DocumentsView | null;
+  /** P3-90. null cand migratia 0059 nu este inca aplicata. */
+  timeline: ClientTimelineEntry[] | null;
+  stage: ClientStage | null;
+  nextActionAvailable: boolean;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -335,13 +344,14 @@ export function ClientTabs({
         ) : null}
 
         {active === "note" ? (
-          <Card>
-            <CardHeader title="Note" />
-            <EmptyState
-              title="Nicio notă"
-              hint="Notele cu dată de revenire ajung aici odată cu cardul care le aduce."
-            />
-          </Card>
+          // P3-90 a umplut fila: "Ce s-a discutat", Salvează si istoria.
+          <ClientNotesPanel
+            clientId={clientId}
+            timeline={timeline}
+            stage={stage}
+            nextActionAvailable={nextActionAvailable}
+            canWrite={canWrite}
+          />
         ) : null}
       </div>
 
