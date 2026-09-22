@@ -6343,3 +6343,26 @@ AHEAD of the commit that wrote them".
 check:board-clock` added to the local gate run. RULE: **a board timestamp is read from `date -u`
 right before the commit that writes it, never estimated, and `check:board-clock` runs locally
 before the push.**
+
+### A cleared next step falls back to the De reluat date, so "clear the step" alone cannot take a De reluat lead off a due list
+**Tag:** data
+**ERROR:** Card P3-91, the Azi screen. The brief proposed that Am sunat on a De reluat lead due
+only by its follow-up date could set `next_action_at` to that date and clear it "on the same
+save". That cannot be expressed: one `addClientNote` call sends one value per column, and the end
+state is `next_action_at` null, which is exactly the state that makes the list fall back to
+`follow_up_date`, so the lead would stay on Azi after the call. `addClientNote` never writes
+`follow_up_date`, by design (0039: only `set_client_stage` does).
+**SOLUTION:** The due list reads `client_notes` for the rows that only the follow-up date brought
+in, and drops a row when a note exists on or after that date, as a day in Europe/Chisinau. No new
+write path and no migration; the follow-up date stays until somebody sets a new one. RULE: **when
+a list derives "due" from two dates with a fallback, clearing the first one re-exposes the second;
+decide what "done" means for the fallback row before wiring the button that clears.**
+
+### check:pending-schema-reads also reads comments
+**Tag:** ci
+**ERROR:** Card P3-91. A doc comment on `chisinauToday()` in `lib/data/format.ts` named the
+column `next_action_at`, and `npm run check:pending-schema-reads` refused the file: "numeste
+coloana next_action_at", although the file reads no table at all.
+**SOLUTION:** The comment says "data urmatorului pas" instead of the column name. Same shape as
+the P3-80 entry above. RULE: **in a file that imports no schema gate, name a pending column in
+words, not by its identifier, even in a comment.**

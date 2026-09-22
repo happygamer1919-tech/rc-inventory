@@ -98,8 +98,8 @@ export function chisinauDateOf(at: Date | string): string {
 
 /** Azi in Chisinau, `YYYY-MM-DD`.
  *
- *  SE COMPARA CA SIR CU COLOANE `date`, SI ASA TREBUIE SA RAMANA. follow_up_date si
- *  next_action_at sunt zile calendaristice, fara ora, deci "2026-09-22" <=
+ *  SE COMPARA CA SIR CU COLOANE `date`, SI ASA TREBUIE SA RAMANA. Data de reluare
+ *  si data urmatorului pas sunt zile calendaristice, fara ora, deci "2026-09-22" <=
  *  "2026-09-22" este exact comparatia pe care o face baza cu
  *  `(now() at time zone 'Europe/Chisinau')::date` (0040, 0057, 0058). Un `new
  *  Date("2026-09-22")` ar fi miezul noptii UTC, adica ora 3 in Chisinau, si ar
