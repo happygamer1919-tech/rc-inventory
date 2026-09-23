@@ -5993,6 +5993,40 @@ first and convert second, and when a coercion guard is the only thing standing b
 payload and a stored figure, write the failing values out as cases: `""`, `"   "`, `true`,
 `false`, `[]` and `[5]` are the six that pass a finite check and mean nothing.**
 
+### A refresh after a refused action can destroy the message the refusal just wrote
+**Tag:** frontend
+**ERROR:** P3-93 (G49, the CRITIC sweep's F5). The obvious fix for a handler that discards an
+`ActionResult` is to keep the message and leave the existing `router.refresh()` where it was.
+On this screen that is wrong for one of the five refusals: `refireExtraction` answers
+`Documentul nu mai există.` when the draft row is gone, the queue is a server-rendered list
+keyed by that row, and the refresh therefore removes the very card the message was rendered
+inside. The operator would press the button, the card would vanish, and he would still not
+know why, which is the exact defect the card exists to end.
+**SOLUTION:** the refusal branch returns without refreshing, and only the success branch
+refreshes. RULE: **before adding or keeping a refresh next to an error message, ask whether the
+refresh can remove the element the message lives in.** An error rendered inside a row of a
+server-rendered list survives only as long as that row does, and the refusals most worth
+showing are exactly the ones that say the row is gone. Where a refusal really did write
+something, either the action revalidates itself, or it must say so in its result the way
+`ActionResult.saved` does for the upload path (P3-85), because the client cannot otherwise
+tell the two kinds of refusal apart.
+
+### The board clock caught a composed `last_checkpoint` again, with the same four minutes
+**Tag:** ci
+**ERROR:** P3-93's card was authored with `last_checkpoint` and `as_of` written as a round
+`2026-09-23T01:10:00Z` while the commit that carried them landed at `01:06:25Z`.
+`node docs/board/validate-board.mjs` passed all three boards, and `npm run check:board-clock`
+refused with `1 of 260 timestamp(s) are AHEAD of the commit that wrote them, 4 minute(s)
+ahead`. This is character for character the GATE-01 failure already recorded in this file,
+including the four minutes and the round `:00`.
+**SOLUTION:** the timestamps were re-read from `date -u` at the moment the card was flipped,
+so they sit before their commit. RULE, restated because writing it once was not enough: **a
+board timestamp is read from `date -u` in the same breath as the commit, never composed and
+never rounded.** The tell is the round number, and the reason the rule keeps being broken is
+that the AUTHOR step writes the card minutes before the commit exists, so a composed time is
+always a guess about the future. Run `check:board-clock` beside the board validator; the
+validator says the JSON is well shaped and says nothing about whether it is true.
+
 ### Waiting on a server-rendered list that never refetches turns a failed page into "0 rows"
 **Tag:** ci
 **ERROR:** `orderWithDocument` in `tests/e2e/extraction.spec.ts` went to `/comenzi` and waited

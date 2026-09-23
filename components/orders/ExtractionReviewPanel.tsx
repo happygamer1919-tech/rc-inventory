@@ -777,6 +777,12 @@ export function ExtractionReviewPanel({
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [refiring, setRefiring] = React.useState<string | null>(null);
+  // P3-93, constatarea F5. REFUZUL RETRIMITERII, PE FISA CARE L-A PRIMIT.
+  // Numarul comenzii sta in stare alaturi de mesaj fiindca butonul este unul pe
+  // fiecare fisa: un singur sir ar aseza motivul unui document sub altul.
+  const [refireError, setRefireError] = React.useState<{ orderId: string; message: string } | null>(
+    null,
+  );
   // CRIT-16. Reusita traieste AICI, deasupra listei, nu inauntrul fisei.
   const [created, setCreated] = React.useState<{ reference: string; flagged: number } | null>(null);
 
@@ -805,9 +811,24 @@ export function ExtractionReviewPanel({
   }
 
   async function onRefire(orderId: string) {
+    // Orice motiv ramas de la o apasare precedenta pleaca ACUM, si nu numai cel
+    // al acestei fise: altfel motivul unui document ar sta pe ecran in timp ce
+    // altul se retrimite.
+    setRefireError(null);
     setRefiring(orderId);
-    await refireExtraction(orderId);
+    const result = await refireExtraction(orderId);
     setRefiring(null);
+    if (!result.ok) {
+      setRefireError({ orderId, message: result.message });
+      // NU SE REIMPROSPATEAZA DUPA UN REFUZ, aceeasi disciplina ca onFile mai
+      // sus (P3-85): patru dintre cele cinci refuzuri se intorc INAINTE de orice
+      // scriere, deci o reimprospatare nu ar avea ce aduce, iar unul dintre ele
+      // ("Documentul nu mai există.") ar scoate din lista chiar fisa sub care
+      // tocmai s-a scris mesajul. Al cincilea, esecul trimiterii, scrie randul
+      // si isi cheama singur revalidatePath inauntrul actiunii, iar motivul lui
+      // este exact textul de mai sus, deci ajunge la operator oricum.
+      return;
+    }
     router.refresh();
   }
 
@@ -1003,6 +1024,21 @@ export function ExtractionReviewPanel({
                     ) : null}
                   </div>
                 </div>
+
+                {/* P3-93, constatarea F5. Motivul pentru care retrimiterea a
+                    fost refuzata, sub randul cu butonul care a primit refuzul.
+                    Aceeasi cutie rosie ca eroarea de incarcare si ca cea a
+                    renuntarii; mx-5 fiindca aici nu mai suntem inauntrul
+                    randului cu px-5. */}
+                {refireError?.orderId === draft.orderId ? (
+                  <p
+                    role="alert"
+                    data-testid="draft-refire-error"
+                    className="mx-5 mb-4 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3 py-2 text-[12.5px] text-rc-black"
+                  >
+                    {refireError.message}
+                  </p>
+                ) : null}
 
                 {canCancel && cancelId === draft.orderId ? (
                   <CancelDraftBlock orderId={draft.orderId} onClose={() => setCancelId(null)} />
