@@ -38,10 +38,44 @@ loadEnvConfig(process.cwd());
 // competitie intr-un sistem de stocuri este un numar gresit intr-un depozit. Un
 // test instabil se repara sau se sterge, niciodata nu se reincearca.
 //
-// Serverul de dezvoltare este pornit de Playwright si citeste .env.local, unde
-// stau adresa proiectului, cheia anonima si datele celor doua conturi de test.
+// Serverele sunt pornite de Playwright si citesc .env.local, unde stau adresa
+// proiectului, cheia anonima si datele celor doua conturi de test. P3-95: cel
+// principal nu mai este `next dev`, ci un build de productie servit cu
+// `next start`; vezi nota de langa MAIN_DIST.
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
+
+// P3-95. SERVERUL PRINCIPAL RULEAZA UN BUILD DE PRODUCTIE, NU `next dev`.
+//
+// Serverul de dezvoltare se repornea singur o data pe rulare, undeva pe la testul
+// 374 din 395, si lua cu el testul aflat in zbor. Semnatura, de patru ori la rand
+// in patru rulari (PR #352 rularea 35805338724, PR #353 incercarile 1, 2 si 3 ale
+// rularii 35814037940): o singura linie
+// `Server is approaching the used memory threshold, restarting...`, iar LINIA
+// URMATOARE din jurnal este testul cazut. De fiecare data alt test, fiindca nu
+// testul este cauza, ci momentul.
+//
+// Cauza sta in Next, nu in acest repozitoriu, si este numai a modului dezvoltare:
+// `getMemoryRestartStats` din node_modules/next/dist/server/lib/utils.js iese
+// imediat cand `isDev` este fals, iar cand este adevarat si gramada trece de 80%
+// din limita ei, serverul iese cu `process.exit(RESTART_EXIT_CODE)` si este
+// pornit din nou. Cererea aflata in zbor moare odata cu el: de aici
+// `ERR_CONNECTION_REFUSED`, `Failed to fetch`, `The destination stream closed
+// early` si `Failed to find Server Action ... older or newer deployment`, fiindca
+// identificatorii actiunilor sunt ai compilarii care tocmai a murit.
+//
+// Un server de productie nu are acest comportament DELOC, nu recompileaza la
+// cerere si nu tine in gramada rezultatele compilarilor a 395 de teste. Steagul
+// `experimental.devMemoryThresholdRestart: false` exista, dar este experimental,
+// iar next.config.ts interzice steagurile experimentale cu motivul scris acolo;
+// si oricum ar stinge supapa, nu cresterea de memorie care o deschide.
+//
+// DOSAR DE BUILD PROPRIU, din acelasi motiv ca la celelalte doua servere: trei
+// servere care scriu in acelasi dosar se calca unul pe altul. Dosarul `.next` al
+// pasului `Build` din workflow NU poate fi refolosit: acela ruleaza inainte ca
+// stiva locala Supabase sa existe, deci ar coace in pachet un
+// NEXT_PUBLIC_SUPABASE_URL gol.
+const MAIN_DIST = ".next-main";
 
 // P2-11. AL DOILEA SERVER, IN MOD PRODUCTIE.
 //
@@ -188,11 +222,23 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: `npm run dev -- --port ${PORT}`,
+      // P3-95. Build de productie, apoi next start, in dosarul lui separat.
+      // Motivul complet este sus, langa MAIN_DIST.
+      //
+      // TIMPUL DE PORNIRE URCA DE LA 120 LA 300 DE SECUNDE, si nu ca sa
+      // supravietuiasca ceva: serverul acesta face acum exact ce face serverul
+      // "productie" de mai jos, un build urmat de un start, deci primeste acelasi
+      // buget pe care acela il are de la P2-11. Cele 120 de secunde erau croite
+      // pentru un server care porneste FARA sa compileze nimic. Build-ul insusi
+      // este ieftin cu Turbopack: pasul `Build` al workflow-ului a compilat in
+      // 7,0 secunde si s-a incheiat in 10,4 secunde cap la cap, in rularea
+      // 35814037940 (05:04:09,7 pana la 05:04:20,1).
+      command: `NEXT_DIST_DIR=${MAIN_DIST} npm run build && NEXT_DIST_DIR=${MAIN_DIST} npx next start --port ${PORT}`,
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 300_000,
       env: {
+        NEXT_DIST_DIR: MAIN_DIST,
         RESEND_API_KEY: RESEND_MOCK_KEY,
         RESEND_BASE_URL: RESEND_MOCK_URL,
         RESEND_FROM: RESEND_MOCK_FROM,
@@ -215,6 +261,12 @@ export default defineConfig({
       // MOD DEZVOLTARE, NU PRODUCTIE, spre deosebire de cel de mai jos: nimic din
       // ce dovedeste cazul acesta nu tine de un build de productie, si un al
       // doilea `npm run build` ar adauga minute de CI pentru nimic.
+      //
+      // P3-95 A MASURAT ACELE "MINUTE": build-ul este de aproximativ 10 secunde cu
+      // Turbopack, deci estimarea de mai sus nu mai tine. Serverul acesta ramane
+      // totusi in mod dezvoltare, si nu din inertie: el serveste UN SINGUR spec,
+      // nu se apropie niciodata de pragul de memorie care a impins serverul
+      // principal in productie, si modul lui nu schimba nimic din ce dovedeste.
       //
       // NEXT_DIST_DIR PROPRIU, din acelasi motiv ca acolo: trei servere care scriu
       // in acelasi dosar de build se calca unul pe altul.
