@@ -249,6 +249,148 @@ test.describe("Comenzi de intrare", () => {
   });
 });
 
+// P3-94, CONSTATAREA F8 A MATURARII DIN 2026-09-22. O POZITIE UMPLUTA PE
+// JUMATATE ERA ARUNCATA IN TACERE.
+//
+// Fisa trimitea catre server doar randurile cu produs SI cantitate pozitiva, iar
+// singura plangere despre pozitii aparea cand TOATE randurile cadeau. Operatorul
+// care umplea trei pozitii din patru si lasa cantitatea celei de a patra goala
+// primea ecranul de reusita, iar pozitia a patra disparea fara un cuvant.
+//
+// Cazurile de mai jos merg pe /adauga-manual. Drumul comenzii tastate din josul
+// paginii /incarca-comanda deseneaza ACELASI component, InboundOrderForm cu
+// mode="manual" (components/orders/UploadOrderScreen.tsx:104-107), deci aceeasi
+// verificare il acopera; nu se dubleaza aici, se spune in raport.
+test.describe("G50: o poziție umplută pe jumătate", () => {
+  /** Deschide fisa manuala cu antetul completat. Intoarce valoarea optiunii produsului. */
+  async function openManualForm(page: Page, sku: string): Promise<string> {
+    await page.goto("/adauga-manual");
+    await expect(page.getByTestId("inbound-form")).toBeVisible();
+    await page.getByTestId("order-supplier").fill(`TEST Furnizor ${RUN}`);
+    await page.getByTestId("order-expected-at").fill("2026-12-01");
+    const option = page.getByTestId("line-product-0").locator("option").filter({ hasText: sku });
+    return (await option.getAttribute("value")) ?? "";
+  }
+
+  /** Umple complet pozitia de pe indicele dat. Randul trebuie sa existe deja. */
+  async function fillPosition(page: Page, index: number, value: string, quantity: string) {
+    await page.getByTestId(`line-product-${index}`).selectOption(value);
+    await page.getByTestId(`line-quantity-${index}`).fill(quantity);
+    await page.getByTestId(`line-price-${index}`).fill("5");
+  }
+
+  test("G50: o poziție cu produs și fără cantitate este refuzată pe nume", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const sku = await makeProduct(page, "halfqty");
+    const value = await openManualForm(page, sku);
+
+    // Doua pozitii complete. Acelasi produs pe mai multe randuri este permis:
+    // order_lines nu are constrangere de unicitate pe (comanda, produs), iar o
+    // comanda poate cumpara acelasi material la doua preturi.
+    await fillPosition(page, 0, value, "10");
+    await page.getByTestId("order-add-line").click();
+    await fillPosition(page, 1, value, "20");
+
+    // A treia: produs ales, cantitate lasata goala. Exact cazul din constatare.
+    await page.getByTestId("order-add-line").click();
+    await page.getByTestId("line-product-2").selectOption(value);
+
+    await page.getByTestId("order-confirm").click();
+
+    const problems = page.getByTestId("order-problems");
+    await expect(problems).toBeVisible();
+    await expect(problems).toContainText("Poziția 3 nu are cantitate.");
+    // Un singur mesaj: antetul este complet si celelalte doua pozitii sunt bune.
+    // Mesajul general NU apare, fiindca exista o pozitie care poate fi numita.
+    await expect(problems.locator("li")).toHaveCount(1);
+    await expect(problems).not.toContainText("Adaugă cel puțin o poziție cu produs și cantitate.");
+
+    // Salvarea chiar este oprita: nu se ajunge la ecranul de reusita.
+    await expect(page.getByTestId("order-created")).toHaveCount(0);
+
+    // Se completeaza cantitatea lipsa si aceeasi comanda trece, cu trei pozitii.
+    await page.getByTestId("line-quantity-2").fill("30");
+    await page.getByTestId("line-price-2").fill("5");
+    await page.getByTestId("order-confirm").click();
+    await expect(page.getByTestId("order-created")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("order-created")).toContainText("cu 3 poziții");
+  });
+
+  test("G50: o cantitate fără produs ales este refuzată pe nume", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const sku = await makeProduct(page, "halfprod");
+    const value = await openManualForm(page, sku);
+
+    await fillPosition(page, 0, value, "10");
+    await page.getByTestId("order-add-line").click();
+    await fillPosition(page, 1, value, "20");
+
+    // A treia: cantitate tastata, niciun produs ales. Acelasi defect, campurile
+    // inversate, aruncat de acelasi filtru.
+    await page.getByTestId("order-add-line").click();
+    await page.getByTestId("line-quantity-2").fill("7");
+
+    await page.getByTestId("order-confirm").click();
+
+    const problems = page.getByTestId("order-problems");
+    await expect(problems).toBeVisible();
+    await expect(problems).toContainText("Poziția 3 nu are produs ales.");
+    await expect(problems.locator("li")).toHaveCount(1);
+    await expect(problems).not.toContainText("Adaugă cel puțin o poziție cu produs și cantitate.");
+    await expect(page.getByTestId("order-created")).toHaveCount(0);
+  });
+
+  test("G50: un rând complet gol nu oprește salvarea", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const sku = await makeProduct(page, "emptyrow");
+    const value = await openManualForm(page, sku);
+
+    await fillPosition(page, 0, value, "10");
+    await page.getByTestId("order-add-line").click();
+    await fillPosition(page, 1, value, "20");
+    await page.getByTestId("order-add-line").click();
+    await fillPosition(page, 2, value, "30");
+
+    // Al patrulea rand: adaugat si niciodata atins. Nu este o pozitie umpluta pe
+    // jumatate, deci nu se semnaleaza si nu opreste nimic.
+    await page.getByTestId("order-add-line").click();
+
+    await page.getByTestId("order-confirm").click();
+    await expect(page.getByTestId("order-created")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("order-created")).toContainText("cu 3 poziții");
+    const reference = (await page.getByTestId("created-reference").innerText()).trim();
+
+    // Si in baza sunt exact trei pozitii, nu patru.
+    await page.goto("/comenzi");
+    await orderItem(page, reference).click();
+    await expect(page.getByTestId("inbound-panel")).toBeVisible();
+    await expect(page.getByTestId("inbound-line")).toHaveCount(3);
+  });
+
+  test("G50: fără nicio poziție, mesajul general rămâne", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const sku = await makeProduct(page, "allempty");
+    await openManualForm(page, sku);
+
+    // Operatorul a apasat de doua ori pe Adaugă poziție si nu a atins niciun rand.
+    await page.getByTestId("order-add-line").click();
+    await page.getByTestId("order-add-line").click();
+
+    await page.getByTestId("order-confirm").click();
+
+    const problems = page.getByTestId("order-problems");
+    await expect(problems).toContainText("Adaugă cel puțin o poziție cu produs și cantitate.");
+    // Niciun rand gol nu este numit: mesajul pe pozitie este pentru jumatati.
+    await expect(problems).not.toContainText("Poziția");
+    await expect(problems.locator("li")).toHaveCount(1);
+    await expect(page.getByTestId("order-created")).toHaveCount(0);
+  });
+});
+
 // P3-41. ZIUA ALEASA, SCRISA IN CUVINTE LANGA FIECARE CAMP DE DATA.
 //
 // Campul nativ <input type="date"> aseaza ziua si luna dupa LIMBA BROWSERULUI, nu
