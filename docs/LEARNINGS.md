@@ -6589,3 +6589,18 @@ terminal that runs that list in full still never runs this one. RULE: **run `npm
 check:board-clock` as part of the local gate set, after the last board commit and before the push,
 and never type a rounded or future time into a board: a card's `last_checkpoint` and
 `evidence.at` get ZERO slack, unlike `as_of`, which gets sixty minutes.**
+
+### A poll on a value that is already correct is not a wait
+**Tag:** ci
+**ERROR:** run 35893527451 on PR #356 failed one case of 398, the new G51 case for Șterge
+filtrele, with `expect(params.get("etapa")).toBeNull()` receiving `"nurture"`. The case pressed
+the button and then waited with `expect.poll(() => ...get("vedere")).toBe("leaduri")` before
+reading the rest of the URL. But `vedere` was ALREADY `leaduri` before the click, because the
+whole point of the card is that the button keeps it, so the poll returned on its first evaluation,
+before the click's navigation had landed, and every line after it read the URL from before the
+click.
+**SOLUTION:** wait on what the action CHANGES, not on what it preserves: poll `etapa` and `q`
+becoming absent, then read `vedere`, `tip` and the chips. RULE: **a poll whose predicate already
+holds when the action starts is a no-op, and it is most tempting exactly where a card is about
+something being PRESERVED. In that shape, always anchor the wait on a value that must move, and
+assert the preserved one afterwards.**

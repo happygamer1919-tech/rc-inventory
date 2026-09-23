@@ -1019,22 +1019,28 @@ test.describe("Leaduri, Șterge filtrele (P3-96)", () => {
 
     await page.getByTestId("clients-clear").click();
 
-    // (1) VEDEREA RAMANE LEADURI. Pana la acest card butonul ducea pe /clienti gol,
+    // (1) FILTRELE PE CARE BUTONUL LE NUMESTE SUNT STERSE, si numai ele.
+    //
+    // SE ASTEAPTA PE CE SE SCHIMBA, si asta nu este un amanunt: `vedere` este deja
+    // `leaduri` inainte de clic, deci o asteptare pe el ar trece pe loc, inainte ca
+    // navigarea ceruta de buton sa fi ajuns, si ar citi URL-ul de dinainte. Prima
+    // rulare a acestui caz a picat exact asa, cu `etapa=nurture` inca in URL.
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("etapa"), { timeout: 20_000 })
+      .toBeNull();
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBeNull();
+    expect(new URL(page.url()).searchParams.get("tip")).toBeNull();
+    await expect(page.getByTestId("stage-chip-all")).toHaveAttribute("aria-pressed", "true");
+
+    // (2) VEDEREA RAMANE LEADURI. Pana la acest card butonul ducea pe /clienti gol,
     // adica pe vederea Toți: alt titlu, alt subtitlu, alt buton principal si cinci
     // coloane in loc de sase.
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("vedere"), { timeout: 20_000 })
-      .toBe("leaduri");
+    expect(new URL(page.url()).searchParams.get("vedere")).toBe("leaduri");
     await expect(page.getByTestId("view-leaduri")).toHaveAttribute("aria-pressed", "true");
     await expect(topbarTitle(page)).toHaveText("Leaduri", { timeout: 20_000 });
     await expect(pageHeader(page).getByTestId("leaduri-new")).toHaveText("Lead nou");
-
-    // (2) FILTRELE PE CARE BUTONUL LE NUMESTE SUNT STERSE, si numai ele.
-    const params = new URL(page.url()).searchParams;
-    expect(params.get("etapa")).toBeNull();
-    expect(params.get("q")).toBeNull();
-    expect(params.get("tip")).toBeNull();
-    await expect(page.getByTestId("stage-chip-all")).toHaveAttribute("aria-pressed", "true");
 
     // (3) SI CASUTA DE CAUTARE ESTE GOALA PE ECRAN, nu numai in URL. O lista
     // nefiltrata sub o casuta care arata inca un termen este acelasi defect ca F7,

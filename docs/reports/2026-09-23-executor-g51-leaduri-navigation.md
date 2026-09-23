@@ -219,7 +219,7 @@ checkout. `git fetch origin` and `git merge origin/main` before the push. No reb
 no push to `main`. There was no board conflict to resolve; had there been one, both sides would have
 been kept.
 
-## Red CI, once, and the repair
+## Red CI, twice, and the two repairs
 
 **Run 35893179067 failed in 1m39s** at "Refuse a board timestamp from the future", with
 `card P3-96.last_checkpoint = 2026-09-23T17:20:00Z, 16 minute(s) ahead` and the same line for
@@ -235,12 +235,25 @@ that runs that list in full still misses it, and that is the part appended to `d
 rather than a fourth copy of the lesson itself. **No test was weakened, skipped or deleted to make
 this pass, and nothing about the application code changed in the repair.**
 
+**Run 35893527451 then went 34m58s and failed on ONE case, my own F6 case, with 397 of 398
+passed.** The failure was `expect(params.get("etapa")).toBeNull()` receiving `"nurture"`, and it was
+a hole in the TEST, not in the fix. The case pressed the button and then waited on
+`vedere === "leaduri"`, which was ALREADY true before the click, so the poll returned immediately,
+before the button's navigation had landed, and the next line read the URL from before it. The
+repair waits on what CHANGES, `etapa` and `q` becoming absent, and only then reads `vedere`, `tip`
+and the rest. **Again nothing about the application code changed, and no assertion was removed or
+loosened: the case now asserts strictly more than it did, because the two polls are themselves
+assertions.** That the other 397 cases passed, the F7 case and the typing guard among them, is what
+says the product side of this card was already right.
+
 ## Defects found
 
-Two entries appended to `docs/LEARNINGS.md`: *"A URL-as-truth input needs to know which of its own
-pushes has landed, not just the last one"*, which is the trap this card's own fix walked up to, and
+Three entries appended to `docs/LEARNINGS.md`: *"A URL-as-truth input needs to know which of its own
+pushes has landed, not just the last one"*, which is the trap this card's own fix walked up to,
 *"The board clock rule is written down three times and was still paid for a fourth"*, which is the
-red run above. Nothing else broke: the typecheck, the build and every runnable check passed on their
+first red run above, and *"A poll on a value that is already correct is not a wait"*, which is the
+second one and is the more interesting of the two: the shape is most tempting precisely on a card
+about something being PRESERVED. Nothing else broke: the typecheck, the build and every runnable check passed on their
 first run, and the only other red was `check:board-edit` before the card flip, which is that check
 working exactly as written.
 
