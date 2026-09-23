@@ -219,7 +219,7 @@ checkout. `git fetch origin` and `git merge origin/main` before the push. No reb
 no push to `main`. There was no board conflict to resolve; had there been one, both sides would have
 been kept.
 
-## Red CI, twice, and the two repairs
+## Red CI, three runs, two of them mine and one not
 
 **Run 35893179067 failed in 1m39s** at "Refuse a board timestamp from the future", with
 `card P3-96.last_checkpoint = 2026-09-23T17:20:00Z, 16 minute(s) ahead` and the same line for
@@ -246,6 +246,17 @@ loosened: the case now asserts strictly more than it did, because the two polls 
 assertions.** That the other 397 cases passed, the F7 case and the typing guard among them, is what
 says the product side of this card was already right.
 
+**Run 35897784133 (sha `373f6ec`) then failed three times without reaching a single test**, at
+`Launch database, auth and storage`, with `toomanyrequests: retry-after: ...` on the Docker Hub
+image pull for the local Supabase stack, once on the push and once on each of the two
+`gh run rerun --failed` the close-out block allows, the second after a nine-minute wait. **That is
+infrastructure and not this diff:** the step pulls images before any code of ours runs, and nothing
+in this pull request touches the workflow, the stack or the images. It is a new signature and is
+appended to the factory's `KNOWN-FAILURES.md`.
+
+The two reruns are spent. What the branch needs is one `quality` run that gets past that pull; the
+branch itself needs no change, which is why the fix is not a fourth attempt at anything.
+
 ## Defects found
 
 Three entries appended to `docs/LEARNINGS.md`: *"A URL-as-truth input needs to know which of its own
@@ -259,8 +270,14 @@ working exactly as written.
 
 ## State at the end
 
-P3-96 is `shipped` on the phase 3 board with its evidence, and the pull request is open for the
-owner. **No self-merge:** real client data has been in production since 2026-09-14, so the
+P3-96 is `shipped` on the phase 3 board, and its `evidence` names **what has run rather than what is
+hoped for**: the three run ids above, what each proved, and the plain statement that the acceptance
+is the green `quality` run on the head sha. It does not claim a green run that has not happened. If
+the head sha's run comes back red on the Docker Hub pull again, the card is `shipped` ahead of its
+proof and the owner is told so in the mailbox rather than left to find out, and the flip to `blocked`
+on `infra` is then one commit.
+
+The pull request is open for the owner. **No self-merge:** real client data has been in production since 2026-09-14, so the
 close-out block's step 8 revokes the section 3.1 grant on every path, whatever the pull request
 touches. The merge-approval question is in the factory's mailbox for the owner.
 
