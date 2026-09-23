@@ -6494,3 +6494,22 @@ case's assertions on `stage` and `follow_up_date` were left character for charac
 RULE: **when adding a column to what an existing test reads, derive the expected value from the
 write path each case actually exercises, not from the value the other cases happen to share; a
 case that goes through a form exercises a different writer than one that goes through REST.**
+
+### A new per-position guard on a shared form can be refused by a spec in a different file
+**Tag:** frontend
+**ERROR:** F8's fix adds a per-row refusal to `InboundOrderForm`, the one component both
+`/adauga-manual` and the typed-order path of `/incarca-comanda` render. The obvious shape,
+"complain about any row that is not fully filled", would have refused an order that
+`tests/e2e/phone-forms.spec.ts` case (g) saves today: that case fills one position, presses
+`order-add-line`, and confirms with the second row never touched. The form also OPENS with one
+empty row, and `+ Adaugă poziție` exists to make more, so the obvious shape would have refused a
+share of every order anybody has ever entered. Nothing in `inbound.spec.ts`, the file being
+edited, would have shown it: the trap sits in another file, in another describe, on a phone
+viewport.
+**SOLUTION:** the guard fires only when EXACTLY ONE of the two fields is present, where a quantity
+counts as present only when `Number(q) > 0`, which is the same test the send filter already
+applies; a row with neither is not a position and is never named. RULE: **before adding a
+validation to a shared form component, grep every e2e spec for the component's own test ids
+(`git grep -n "line-quantity\|order-add-line" tests/e2e`) and read what the rows in each case
+actually contain at the moment of submit; a form used by two screens is asserted by specs that do
+not mention either screen's name.**
