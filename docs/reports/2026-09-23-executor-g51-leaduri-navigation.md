@@ -172,6 +172,7 @@ that case asserts.
     npm run check:pending-schema-reads
     npm run check:removal-safety
     npm run check:assertion-register
+    npm run check:board-clock
     npx playwright test --list
 
 `check:board-edit` refused on its first run, correctly and by design: it had `P3-96` at
@@ -218,12 +219,30 @@ checkout. `git fetch origin` and `git merge origin/main` before the push. No reb
 no push to `main`. There was no board conflict to resolve; had there been one, both sides would have
 been kept.
 
+## Red CI, once, and the repair
+
+**Run 35893179067 failed in 1m39s** at "Refuse a board timestamp from the future", with
+`card P3-96.last_checkpoint = 2026-09-23T17:20:00Z, 16 minute(s) ahead` and the same line for
+`evidence.at`. Every later step, End to end included, was skipped. The cause was mine and it was a
+ROUNDED time typed into the board edit while the commit that carried it was made at `17:03:35Z`. The
+signature is in the factory's `KNOWN-FAILURES.md` ("A board time ahead of its commit") and in
+`docs/LEARNINGS.md` three times over.
+
+Repaired by re-reading `date -u +%Y-%m-%dT%H:%M:%SZ` and committing the board immediately after,
+then running `npm run check:board-clock` locally before the push, which is the step that would have
+caught it. That check is NOT in the close-out block's list of local gates, which is why a terminal
+that runs that list in full still misses it, and that is the part appended to `docs/LEARNINGS.md`
+rather than a fourth copy of the lesson itself. **No test was weakened, skipped or deleted to make
+this pass, and nothing about the application code changed in the repair.**
+
 ## Defects found
 
-One entry appended to `docs/LEARNINGS.md`: *"A URL-as-truth input needs to know which of its own
-pushes has landed, not just the last one."* Nothing broke while working this card: the typecheck,
-the build and every runnable check passed on their first run, and the only red was
-`check:board-edit` before the card flip, which is the check working as written.
+Two entries appended to `docs/LEARNINGS.md`: *"A URL-as-truth input needs to know which of its own
+pushes has landed, not just the last one"*, which is the trap this card's own fix walked up to, and
+*"The board clock rule is written down three times and was still paid for a fourth"*, which is the
+red run above. Nothing else broke: the typecheck, the build and every runnable check passed on their
+first run, and the only other red was `check:board-edit` before the card flip, which is that check
+working exactly as written.
 
 ## State at the end
 

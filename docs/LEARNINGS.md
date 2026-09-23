@@ -6573,3 +6573,19 @@ never arrives. RULE: **when an existing pattern is copied onto an asynchronous s
 whether the original could ever see its own updates arrive out of order. A prop set by a parent
 cannot. A value that comes back from a navigation can, and a single last-value ref silently
 becomes a keystroke eater.**
+
+### The board clock rule is written down three times and was still paid for a fourth
+**Tag:** ci
+**ERROR:** `quality` on PR #356 (P3-96) failed in 1m39s at "Refuse a board timestamp from the
+future" with `card P3-96.last_checkpoint = 2026-09-23T17:20:00Z, 16 minute(s) ahead` and the same
+line for `evidence.at`, and every later step including End to end was skipped. The cause was a
+ROUNDED time typed into the board edit, `17:20:00Z`, while the commit that carried it was made at
+`17:03:35Z`. This file already carries the same lesson three times, from PR #286 and from two
+earlier cards.
+**SOLUTION:** the timestamps were re-read from `date -u +%Y-%m-%dT%H:%M:%SZ` and the board
+committed immediately after. The reason it was paid for a fourth time is not that the lesson was
+missing, it is that `check:board-clock` is NOT in the close-out block's list of local gates, so a
+terminal that runs that list in full still never runs this one. RULE: **run `npm run
+check:board-clock` as part of the local gate set, after the last board commit and before the push,
+and never type a rounded or future time into a board: a card's `last_checkpoint` and
+`evidence.at` get ZERO slack, unlike `as_of`, which gets sixty minutes.**
