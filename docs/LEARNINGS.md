@@ -6553,3 +6553,23 @@ time, so every run pays it. The card was blocked on a mailbox question rather th
 deterministic, and it gets a card rather than a rerun. RULE: **when a known-failures entry has
 cost more than one run, stop rerunning and ask what makes it recur; a rerun is for a race that
 may not happen again, never for a resource that runs out at the same place every time.**
+
+### A URL-as-truth input needs to know which of its own pushes has landed, not just the last one
+**Tag:** frontend
+**ERROR:** found while fixing F7 and caught before it was committed, so nothing went red. The
+search box on the clients list is local state pushed to the URL on a 300ms debounce, and the fix
+for F7 is to resynchronise it whenever the URL changes for a reason OTHER than that push. The
+obvious shape, one ref holding the last value the screen sent, is the `seen` ref from
+`components/ui/DateField.tsx`, and it is not enough here: DateField reads a prop its parent sets
+synchronously, while this screen reads a value that comes back from a SERVER round trip. With a
+300ms debounce and a page that queries the database, the render for "abc" can arrive after the
+screen has already sent "abcd". A single remembered value reads that late render as an outside
+change and resynchronises the box backwards, eating the last keystrokes, which is the exact
+failure the resynchronisation exists to avoid.
+**SOLUTION:** remember the LIST of values the screen has sent and not yet seen come back. A URL
+value found in that list belongs to the screen and the box is left alone; finding one discards
+everything sent before it, so the list cannot grow when an intermediate render is superseded and
+never arrives. RULE: **when an existing pattern is copied onto an asynchronous source, ask
+whether the original could ever see its own updates arrive out of order. A prop set by a parent
+cannot. A value that comes back from a navigation can, and a single last-value ref silently
+becomes a keystroke eater.**
