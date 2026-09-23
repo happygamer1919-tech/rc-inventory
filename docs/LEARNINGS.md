@@ -6513,3 +6513,43 @@ validation to a shared form component, grep every e2e spec for the component's o
 (`git grep -n "line-quantity\|order-add-line" tests/e2e`) and read what the rows in each case
 actually contain at the moment of submit; a form used by two screens is asserted by specs that do
 not mention either screen's name.**
+
+### A suite that loses one random test per run to its own web server, not to any test
+**Tag:** ci
+**ERROR:** across four full runs the end to end suite reported 394 passed and 1 failed, a
+DIFFERENT case each time, always between case 374 and case 385 of 395, with WebServer lines
+saying `The destination stream closed early`, `Failed to find Server Action ... This request
+might be from an older or newer deployment`, `Failed to fetch` and `ERR_CONNECTION_REFUSED`.
+Reruns were spent on it, three in a row on PR #353, about two and a half hours of CI on a change
+that never failed a test. The shared cause is one line that appears EXACTLY ONCE in each of those
+logs, with the failing case on the very next line:
+`Server is approaching the used memory threshold, restarting...`. It comes from Next itself and
+not from this repository: `getMemoryRestartStats` in
+`node_modules/next/dist/server/lib/utils.js` returns undefined the moment `isDev` is false, and
+in development it fires when the used heap passes 80 percent of the heap size limit, after which
+`start-server.js` calls `process.exit(RESTART_EXIT_CODE)`. Whatever request is in flight dies
+with the process, and a Server Action id minted before the restart is unknown to the process that
+comes back. It fires once per process, which is why there was exactly one lost case per run, and
+late in the run, because the heap has to fill first.
+**SOLUTION:** the main Playwright project serves a PRODUCTION build (`npm run build` then
+`next start`) in its own `NEXT_DIST_DIR`, the shape P2-11 already proved with the `productie`
+server, instead of `npm run dev`. A production server has no memory-threshold restart at all and
+does not accumulate compilation output across 395 cases. The cost was measured and not guessed:
+about 10 seconds of CI, because Turbopack compiles this application in 7 seconds. RULE: **before
+rerunning a suite that failed one unrelated case, grep its log for `memory threshold` and read
+the line after it; a failure whose neighbour in the log is the server restarting itself is not a
+flaky test, and a long serial suite on a development server will hit that window again. Proving
+52 minutes of behaviour on a development server is proving it on a program that is allowed to
+restart itself mid sentence.**
+
+### The rerun allowance is the wrong instrument for a failure that recurs by design
+**Tag:** ci
+**ERROR:** the close-out block allows two `gh run rerun --failed` on a known flaky spec, and
+`KNOWN-FAILURES.md` had already recorded this exact signature once, on PR #352, with the advice
+to rerun. On PR #353 that advice consumed three runs and still did not produce a green, because
+the restart is not a coin flip: the heap fills at roughly the same point of a serial suite every
+time, so every run pays it. The card was blocked on a mailbox question rather than on a fix.
+**SOLUTION:** a signature that recurs at the SAME point of every run is not flaky, it is
+deterministic, and it gets a card rather than a rerun. RULE: **when a known-failures entry has
+cost more than one run, stop rerunning and ask what makes it recur; a rerun is for a race that
+may not happen again, never for a resource that runs out at the same place every time.**
