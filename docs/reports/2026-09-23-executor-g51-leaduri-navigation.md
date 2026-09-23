@@ -247,15 +247,21 @@ assertions.** That the other 397 cases passed, the F7 case and the typing guard 
 says the product side of this card was already right.
 
 **Run 35897784133 (sha `373f6ec`) then failed three times without reaching a single test**, at
-`Launch database, auth and storage`, with `toomanyrequests: retry-after: ...` on the Docker Hub
+`Launch database, auth and storage`, with `toomanyrequests: retry-after: ...` on the container
 image pull for the local Supabase stack, once on the push and once on each of the two
-`gh run rerun --failed` the close-out block allows, the second after a nine-minute wait. **That is
-infrastructure and not this diff:** the step pulls images before any code of ours runs, and nothing
-in this pull request touches the workflow, the stack or the images. It is a new signature and is
-appended to the factory's `KNOWN-FAILURES.md`.
+`gh run rerun --failed` the close-out block allows, the second after a nine-minute wait. **Run
+35900378422 (sha `862273c`) then failed the same way a fourth time**, 3m17s, and that one named the
+image: `ghcr.io/supabase/storage-api:v1.70.3`. So the registry is **ghcr.io**, not Docker Hub, which
+is worth writing down because the first three logs did not say which registry and guessing Docker
+Hub would have sent the next reader to the wrong place.
+
+**That is infrastructure and not this diff:** the step pulls images before any code of ours runs, and
+nothing in this pull request touches the workflow, the stack, the images or anything under
+`scripts/poc-free/local-db/`. It is a new signature and is appended to the factory's
+`KNOWN-FAILURES.md`.
 
 The two reruns are spent. What the branch needs is one `quality` run that gets past that pull; the
-branch itself needs no change, which is why the fix is not a fourth attempt at anything.
+branch itself needs no change, which is why this is not a fourth attempt at fixing anything.
 
 ## Defects found
 
@@ -270,14 +276,22 @@ working exactly as written.
 
 ## State at the end
 
-P3-96 is `shipped` on the phase 3 board, and its `evidence` names **what has run rather than what is
-hoped for**: the three run ids above, what each proved, and the plain statement that the acceptance
-is the green `quality` run on the head sha. It does not claim a green run that has not happened. If
-the head sha's run comes back red on the Docker Hub pull again, the card is `shipped` ahead of its
-proof and the owner is told so in the mailbox rather than left to find out, and the flip to `blocked`
-on `infra` is then one commit.
+**P3-96 is `blocked` on `infra`, not `shipped`, and that is the honest state.** Every line of the
+card is written, committed and pushed; what is missing is a `quality` run that can start. CLAUDE.md
+section 6 is explicit: no acceptance, no ship, and a card whose acceptance cannot be run yet is
+`blocked`, never `shipped`. The card was briefly `shipped` on this branch, which is how the work was
+pushed, and flipping it back rather than leaving it is the point: an `evidence` field asserting a
+green run that four jobs could not start would be the one failure this project says it has no
+recovery path for.
 
-The pull request is open for the owner. **No self-merge:** real client data has been in production since 2026-09-14, so the
+The card's `evidence` is kept and names **what each run actually proved**, and its `question` carries
+the structured decision-needed text with a recommendation: rerun `quality` on #356's head sha once
+the registry's window clears. **The flip back to `shipped` is one commit** with that run id.
+
+Pull request **#356** is open, with all the work in it, and it is **not green**. It is not merged, and
+the reason is stated plainly rather than guessed at: `quality` has never concluded successfully on
+this branch's head, and no merge condition in section 5b is met. No self-merge was available anyway:
+real client data has been in production since 2026-09-14. **No self-merge:** real client data has been in production since 2026-09-14, so the
 close-out block's step 8 revokes the section 3.1 grant on every path, whatever the pull request
 touches. The merge-approval question is in the factory's mailbox for the owner.
 
