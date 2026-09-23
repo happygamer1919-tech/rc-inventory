@@ -193,14 +193,74 @@ command with a different port and a different build directory, and CI is where i
 
 ## Proof: five consecutive green full runs on one commit
 
-PENDING. Filled in by the final commit on this branch, with the run ids, the attempt numbers, the
-mechanism used to trigger each, the suite duration of each, and the confirmation that none of them
-printed the memory-threshold line.
+All five on sha `1afd327aaaedf7ce72fbbab4f5a87c7ad17d040b`, PR #354, run id **35862555558**,
+attempts 1 to 5. Every one green. Every one ran the COMPLETE suite, `npx playwright test` with no
+filter, all three projects, 391 of 391 cases. **`memory threshold` appears zero times in all five
+logs**, checked with `grep -c` against each attempt's own downloaded log, not inferred from the
+green.
 
-Note on sequencing, stated plainly rather than glossed: the five proof runs are taken on the sha
-that carries the fix, and the commit that writes their ids into this file necessarily creates a
-sixth sha, which gets its own full green run before the merge. The proof is five runs on one
-commit; this paragraph exists so nobody has to reconcile six run ids with a five-run acceptance.
+| # | run id | attempt | result | suite | whole job |
+|---|---|---|---|---|---|
+| 1 | 35862555558 | 1 | green | 391 passed (27.2m) | 12:45:50 to 13:18:05, 32.3m |
+| 2 | 35862555558 | 2 | green | 391 passed (28.1m) | 13:26:28 to 13:59:39, 33.2m |
+| 3 | 35862555558 | 3 | green | 391 passed (18.4m) | 14:03:30 to 14:26:23, 22.9m |
+| 4 | 35862555558 | 4 | green | 391 passed (24.9m) | 14:33:47 to 15:03:34, 29.8m |
+| 5 | 35862555558 | 5 | green | 391 passed (28.0m) | 15:03:58 to 15:37:08, 33.2m |
+
+**How each was triggered, exactly.** Attempt 1 by `gh pr create`, which is the `pull_request`
+event the workflow subscribes to. Attempts 2 to 5 each by
+`gh run rerun 35862555558 --repo happygamer1919-tech/rc-inventory`, with NO `--failed`: that
+re-runs the entire `quality` job from the checkout down, which is an independent full run of
+everything. `gh workflow run` is not available here and was not used: `quality.yml` has only
+`pull_request` and `push: branches: [main]` triggers, no `workflow_dispatch`. An empty commit was
+not used either, because it would change the sha the acceptance asks to prove five times over.
+
+The consequence of using reruns is that GitHub keeps ONE run id with five attempt numbers rather
+than five run ids. Each attempt has its own log and its own URL
+(`.../actions/runs/35862555558/attempts/N`), and each is a full independent execution, so the
+acceptance is met; the ids are recorded above in the form GitHub actually produces rather than in
+a form that would have to be invented.
+
+They were run one after another on purpose: `quality.yml` sets
+`concurrency: cancel-in-progress: true` on the branch ref, so two runs on the same ref would
+cancel each other rather than both count.
+
+### The CI-time delta observed, which is the opposite sign from the one expected
+
+The build was expected to cost about 10 seconds. It did, and the suite then gave back about 25
+minutes.
+
+- **Server startup, all five webServers including now two production builds:** 35.4 s in run 5
+  (15:09:04.7 to 15:09:40.1), against 27.3 s before the change (old run 35814037940 attempt 3,
+  05:08:35.2 to 05:09:02.5). **About 8 seconds added.**
+- **The suite itself:** 27.2, 28.1, 18.4, 24.9 and 28.0 minutes, mean about 25.3, against 51.7,
+  38.3, 52.5 and 51.8 minutes on the development server. **About 24 minutes saved per run**, which
+  is the on-demand compilation that is simply not there in a built app.
+- **The whole `quality` job:** roughly 22.9 to 33.2 minutes, against roughly 57 minutes before.
+
+This card therefore costs no CI time at all. It refunds about half an hour per run, on top of
+removing the failure. The owner's unweighed cost from the task brief did not materialise.
+
+### Sequencing, stated plainly rather than glossed
+
+**PR #354 was merged by the owner's auto-merger at 13:18:42, thirty-seven seconds after run 1 went
+green, while runs 2 to 5 were still to come.** That is the auto-merger working exactly as it is
+meant to, on a green required check. It means the fix reached `main` as merge commit `f670842`
+after one green run rather than five, and the four remaining proof runs were taken afterwards on
+the same sha `1afd327`, which is the same code, merged or not. Nothing about the proof is weaker
+for it: the question the acceptance asks is whether that code can produce five greens in a row,
+and it did.
+
+It does mean this report's own proof section, and the run ids on the card's evidence, missed the
+merge by minutes. They arrive in a follow-up pull request from branch `card/p3-95-r2`, cut from
+`main` after the merge, carrying nothing but this file and the card's evidence. No code, no test,
+no board card added or removed, no migration.
+
+The lesson for whoever queues the next card with a multi-run acceptance: **an acceptance that
+needs N green runs is incompatible with an auto-merger that merges on the first one.** Either the
+pull request is held as a draft until the runs are done, or the acceptance has to say out loud
+that the later runs are taken post-merge. This one was not, and the result is a second pull
+request that should have been one.
 
 ## Left for the owner
 
