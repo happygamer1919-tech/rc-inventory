@@ -18,6 +18,12 @@ import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 //
 // DATELE DE TEST SE RENUNTA, NU SE STERG. Specul nu sterge niciun rand; fiecare
 // fisier poarta eticheta RUN, ca in review.spec.
+//
+// AL DOILEA GRUP DE CAZURI, ADAUGAT DE CARDUL P3-93 (G49, constatarile F5 si
+// F15), sta la finalul fisierului: acolo se citeste ce VEDE operatorul cand o
+// retrimitere este refuzata, si nu ce raspunde serverul. Motivul pentru care
+// traieste aici este ca refuzul folosit este chiar cel al renuntarii, pe care
+// numai acest fisier stie sa il produca. Antetul lui isi poarta explicatia.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 const CALLBACK = "/api/extraction/callback";
@@ -461,5 +467,91 @@ test.describe("G39 F20: renunțarea la un document de pe ecranul de verificare",
     for (const id of cancelledIds) {
       expect(queueIds, `documentul ${id} nu este si in coada`).not.toContain(id);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G49, constatarile F5 si F15 ale maturarii CRITIC din 2026-09-22, cardul P3-93.
+//
+// CE LIPSEA. Cazul 3 de mai sus dovedeste ca SERVERUL refuza retrimiterea unui
+// document la care s-a renuntat, prin cererea prinsa si trimisa din nou, si nu
+// citeste ecranul deloc. review.spec si extraction.spec apasa "Retrimite" si se
+// uita la ce a ajuns la webhook. Niciun spec nu intreba CE I SE SPUNE
+// OPERATORULUI cand o retrimitere este refuzata, si exact de aceea F5 a putut
+// trece neobservat: butonul arunca raspunsul actiunii.
+//
+// CAZUL DE AICI APASA BUTONUL PE ECRAN si citeste cutia rosie de pe fisa.
+//
+// FILA LASATA DESCHISA, si nu un truc de test: coada se citeste pe server la
+// randare, deci o fila deschisa inainte de renuntare arata mai departe butonul
+// "Retrimite" pentru un document care intre timp nu mai poate fi retrimis.
+// Aceasta este forma reala a defectului, aceeasi cu a sesiunii expirate peste
+// noapte, si singura dintre cele cinci refuzuri care se poate produce fara
+// schele noi: renuntarea este deja stiuta de acest fisier.
+//
+// DE CE NU SI SESIUNEA EXPIRATA. Proxy-ul din proxy.ts redirecteaza catre
+// ecranul de autentificare ORICE cerere fara sesiune catre o cale care nu este
+// pe lista permisa, iar actiunea de server este o astfel de cerere. Dupa un
+// signOut apasarea butonului nu ar mai ajunge niciodata la refireExtraction, si
+// cazul ar dovedi proxy-ul in locul ecranului. Refuzul acela ramane acoperit de
+// tipul actiunii, nu de un spec.
+// ---------------------------------------------------------------------------
+
+test.describe("G49 F15: refuzul retrimiterii ajunge pe ecran", () => {
+  test.describe.configure({ timeout: 180_000 });
+
+  test("G49 F15: retrimiterea refuzată spune pe fișă de ce a fost refuzată", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "refuz");
+
+    // "Partial" este starea pe care fisa arata butonul "Retrimite".
+    expect(
+      (
+        await post(
+          request,
+          callbackBody(orderId, {
+            status: "partial",
+            error_code: "extraction_failed",
+            reason: `O pozitie nu a putut fi citita ${RUN}`,
+          }),
+        )
+      ).status(),
+    ).toBe(202);
+
+    // FILA UNU, deschisa cat documentul se mai poate retrimite.
+    await page.goto(UPLOAD);
+    const card = draftCard(page, orderId);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await expect(card.getByTestId("draft-refire")).toHaveText("Retrimite");
+    await expect(page.getByTestId("draft-refire-error"), "nimic rosu inainte de apasare").toHaveCount(0);
+
+    // FILA DOI, acelasi proprietar, renunta la document.
+    const other = await page.context().newPage();
+    await cancelFromScreen(other, orderId, `Renunțare G49 ${RUN}`);
+    await other.close();
+
+    const firedBefore = (await firedFor(request, orderId)).length;
+
+    // FILA UNU APASA BUTONUL, fara sa stie nimic despre renuntare.
+    await card.getByTestId("draft-refire").click();
+
+    const message = card.getByTestId("draft-refire-error");
+    await expect(message, "motivul este pe ecran").toBeVisible({ timeout: 20_000 });
+    await expect(message).toHaveText(CANCELLED_REFUSAL);
+    await expect(message).toHaveAttribute("role", "alert");
+    // PE FISA CARE A PRIMIT REFUZUL, si nicaieri altundeva in lista.
+    await expect(page.getByTestId("draft-refire-error"), "un singur mesaj in toata coada").toHaveCount(1);
+    // Butonul s-a intors la starea lui, deci ecranul nu ramane blocat.
+    await expect(card.getByTestId("draft-refire")).toHaveText("Retrimite");
+
+    // SI NIMIC NU S-A INTAMPLAT DINCOLO DE MESAJ.
+    expect((await firedFor(request, orderId)).length, "nicio trimitere noua").toBe(firedBefore);
+    const after = await draftState(request, orderId);
+    expect(after.cancelled_at, "documentul a ramas abandonat").not.toBeNull();
+    expect(after.status, "retrimiterea refuzata nu a golit statusul").toBe("partial");
+    expect(after.confirmed_at, "nicio comanda creata").toBeNull();
   });
 });
