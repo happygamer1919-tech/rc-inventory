@@ -6397,3 +6397,66 @@ writes.
 pull request. RULE: **when a card mirrors one column into another, the card that later clears the
 first column must say what happens to the mirror, and the test that proves the clearing must read
 both columns, not only the one the card is named after.**
+
+### A mirrored column is unmirrored by the same single writer that owns the original
+**Tag:** data
+**ERROR:** Fixing F3 looked like a choice between three places: clear `next_action_at` from
+`ClientForm` when the stage leaves De reluat, gate `/azi`'s overdue computation the way the two
+list functions already gate theirs, or clear it inside `set_client_stage`. The first two both
+pass a test written against the screen they fix and both leave the stored row wrong for every
+other caller: a spec that posts to the RPC, a future bulk-action screen, any second form. The
+row, not the screen, is what the next card reads.
+**SOLUTION:** migration 0060 clears it inside `set_client_stage`, the single writer of
+`clients.stage`, in the same row update that already clears `follow_up_date`, and only while
+`next_action_at` still equals the follow-up date being left, so a next step somebody set
+independently at another stage survives. RULE: **when column B was written as a mirror of column
+A, the rule that ends A ends B in the same statement that ends A, guarded by "B still equals A";
+a mirror undone anywhere else is a rule the next caller has to remember.**
+
+### A field that reports "invalid" and "cleared" as the same value must tell its parent which one it is
+**Tag:** frontend
+**ERROR:** `DateField.commit` calls `onChange(iso ?? "")`, so a half-typed or impossible date and
+a deliberately emptied box both reach the parent as the empty string. The red
+`DATE_INVALID_MESSAGE` was local to the component, no form consulted it, every submit button read
+only `pending`, and the empty string reached the server action as "clear this date". A mistyped
+digit therefore deleted a stored date and the save reported success.
+**SOLUTION:** an optional `onValidityChange` prop plus a `useInvalidDates` hook, and all six
+callers extend their own submit `disabled` expression with it. Two traps met while wiring it, both
+worth the next reader's time: the callback is written inline in JSX, so it is a new function every
+render and an effect depending on it fires on every keystroke, which is why it is held in a ref
+and the effect depends on `invalid` alone; and `ClientForm` UNMOUNTS its follow-up date box when
+the stage leaves De reluat, so without a cleanup that reports `false` on unmount a field that
+disappeared while red would have left Salvează disabled forever. RULE: **a control that collapses
+two different meanings into one outward value owes its parent a second signal saying which, and
+any such signal needs an unmount cleanup, because a form cannot clear a flag set by a child that
+no longer exists.**
+
+### A new migration file needs its line in the pending register, or the end to end suite fails
+**Tag:** ci
+**ERROR:** P3-92 added `supabase/migrations/0060_lead_next_action_cleared_with_follow_up.sql`,
+passed every local check and every migration gate in CI, including both applier proofs and the
+bare-postgres apply, and then failed the end to end suite on
+`headers.spec.ts:128`: `migratia 0060_... nu are nici intrare in APPLY-LOG.md, nici linie in
+registrul de asteptare`. The invariant R-062 wrote is that every file in `supabase/migrations` sits
+in EXACTLY ONE of two places in `docs/migrations/APPLY-LOG.md`: an applied entry, or a pending
+line. A new file is in neither until somebody writes the pending line.
+**SOLUTION:** add the line in the same commit as the migration, in the machine-read format the
+file itself states: `` - `0060_....sql`, card de aplicare P3-92 ``. RULE: **adding a file under
+`supabase/migrations/` is two edits, never one; the second is the pending line in
+`docs/migrations/APPLY-LOG.md`, and no local check catches its absence because the assertion lives
+in the end to end suite, which needs Docker and therefore runs only in CI.**
+
+### Widening what a test READS can encode a false expectation about a rule the card did not touch
+**Tag:** ci
+**ERROR:** F16 asked for `next_action_at` to be asserted beside `stage` and `follow_up_date` in
+every case of `lead-follow-up-date-cleared.spec.ts`. The leads there are created through REST, so
+`next_action_at` is null, and `null` was written into all five expectations. Four were right. The
+fifth saves the De reluat lead FROM THE FORM without changing anything, and a form save at De
+reluat sends the stage with its date, which `validateNextAction` deliberately mirrors into
+`next_action_at` (P3-89, "setting one sets both"). The correct value there is the date, not null.
+CI failed on it after 48 minutes of end to end.
+**SOLUTION:** the expectation was corrected to the date, with the reason written beside it; the
+case's assertions on `stage` and `follow_up_date` were left character for character as they were.
+RULE: **when adding a column to what an existing test reads, derive the expected value from the
+write path each case actually exercises, not from the value the other cases happen to share; a
+case that goes through a form exercises a different writer than one that goes through REST.**

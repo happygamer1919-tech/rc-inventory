@@ -28,7 +28,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
   DERIVED_PARTIAL_NOTICE,
@@ -242,6 +242,11 @@ function ReviewForm({
   const [orderRef, setOrderRef] = React.useState(draft.orderRef ?? "");
   const [orderRefSeries, setOrderRefSeries] = React.useState(draft.orderRefSeries ?? "");
   const [expectedAt, setExpectedAt] = React.useState("");
+  // P3-92, constatarea F4. Cat timp una dintre cele doua date ale foii arata
+  // mesajul rosu, confirmarea sta oprita: sirul gol pe care campul il da nu se
+  // deosebeste de o casuta golita anume, iar aici el ar sterge data citita din
+  // document.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
   const [lines, setLines] = React.useState<ReviewedLine[]>(() =>
     draft.lines.map((l) => ({
       // Nimic nu se potriveste automat pe un SKU asemanator. Operatorul alege,
@@ -421,6 +426,7 @@ function ReviewForm({
               testId="review-ordered-at"
               value={orderedAt}
               onChange={setOrderedAt}
+              onValidityChange={mark("orderedAt")}
               className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
             />
           </span>
@@ -432,6 +438,7 @@ function ReviewForm({
               testId="review-expected-at"
               value={expectedAt}
               onChange={setExpectedAt}
+              onValidityChange={mark("expectedAt")}
               className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
             />
           </span>
@@ -635,7 +642,7 @@ function ReviewForm({
       ) : null}
 
       <div className="mt-5 flex items-center gap-2.5">
-        <Button onClick={confirm} disabled={pending} data-testid="review-confirm">
+        <Button onClick={confirm} disabled={pending || dateInvalid} data-testid="review-confirm">
           {pending ? "Se confirmă..." : "Confirmă și creează comanda"}
         </Button>
         <Button variant="secondary" onClick={onDone} disabled={pending}>

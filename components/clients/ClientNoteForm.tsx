@@ -12,7 +12,7 @@
 
 import * as React from "react";
 import { Button, Field, Input, Textarea } from "@/components/ui/primitives";
-import { DateField } from "@/components/ui/DateField";
+import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { PHONE_STACK } from "@/components/ui/phone";
 import { addClientNote } from "@/lib/data/client-actions";
 
@@ -47,8 +47,12 @@ export function ClientNoteForm({
 
   const showNextAction = nextActionAvailable && !clearNextAction;
 
+  // P3-92, constatarea F4. Salvează sta oprit cat timp data pasului este in rosu.
+  const { anyInvalid: dateInvalid, mark } = useInvalidDates();
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (dateInvalid) return;
     setPending(true);
     setError(null);
     const result = await addClientNote(
@@ -96,6 +100,7 @@ export function ClientNoteForm({
               <DateField
                 value={nextActionAt}
                 onChange={setNextActionAt}
+                onValidityChange={mark("nextActionAt")}
                 testId="note-next-action-at"
               />
             </Field>
@@ -139,7 +144,7 @@ export function ClientNoteForm({
             Renunță
           </Button>
         ) : null}
-        <Button type="submit" disabled={pending} data-testid="note-save">
+        <Button type="submit" disabled={pending || dateInvalid} data-testid="note-save">
           Salvează
         </Button>
       </div>
