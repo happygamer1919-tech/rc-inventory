@@ -528,3 +528,121 @@ test.describe("Clienți, etapa (P3-43)", () => {
     await rest.api.dispose();
   });
 });
+
+// ---------------------------------------------------------------------------
+// P3-96, constatarea F7 din maturarea de erori. CASUTA DE CAUTARE URMEAZA URL-UL.
+//
+// CAZURILE STAU AICI, langa cazul de continuitate al lui P3-06, si nu in
+// leaduri.spec, fiindca defectul este al casutei de cautare a acestui ecran, in
+// ambele vederi, si fiindca scaffoldingul de care au nevoie, createClient si
+// clientName, este deja aici.
+//
+// SI SUNT UN CAZ DIFERIT DE CEL DE SUS, care nu acopera aceasta constatare.
+// "un clic pe rand deschide fisa, iar butonul inapoi intoarce la lista cu
+// cautarea intacta" merge lista -> fisa -> inapoi LA ACELASI q pe care lista il
+// avea deja: dovedeste continuitatea unei valori NESCHIMBATE. F7 este intoarcerea
+// la o valoare DIFERITA, mai veche, adica exact ce lipsea.
+//
+// DATELE DE TEST NU SE STERG. Clientii de aici poarta prefixul TEST, ca toti
+// ceilalti din acest fisier.
+// ---------------------------------------------------------------------------
+
+test.describe("Clienți, cautarea si URL-ul (P3-96)", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test("G51: butonul înapoi aduce căsuța de căutare la termenul din URL", async ({ page }) => {
+    await signIn(page, ownerAccount());
+
+    // DOI CLIENTI, ca lista nefiltrata sa aiba sigur mai mult de un rand chiar si
+    // cand cazul acesta este rulat singur, cu --grep, pe o baza abia pornita.
+    const name = clientName("Inapoi");
+    await createClient(page, { name, fiscal: idno(6) });
+    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+    await createClient(page, { name: clientName("Inapoi vecin"), fiscal: idno(7) });
+    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+
+    // Lista FARA termen: aceasta este intrarea din istoric la care se intoarce.
+    await page.goto("/clienti");
+    await expect(page.getByTestId("clients-filters")).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(async () => page.getByTestId("client-row").count(), { timeout: 20_000 })
+      .toBeGreaterThan(1);
+
+    // Termenul se TASTEAZA, nu se pune in URL: F7 este despre starea locala a
+    // casutei, care exista numai cand omul scrie in ea.
+    await page.getByTestId("clients-search").fill(name);
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBe(name);
+    await expect(page.getByTestId("client-row")).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.locator(`[data-testid="client-row"][data-name="${name}"]`)).toHaveCount(1);
+
+    await page.goBack();
+
+    // URL-UL SI LISTA SE INTORC, si asta functiona si inainte de card.
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBeNull();
+    await expect
+      .poll(async () => page.getByTestId("client-row").count(), { timeout: 20_000 })
+      .toBeGreaterThan(1);
+
+    // CASUTA SE INTOARCE CU ELE. Aici era defectul: ea ramanea cu termenul tastat,
+    // deasupra unei liste care nu mai era filtrata de el, iar Șterge filtrele
+    // disparea in aceeasi clipa fiindca el se uita la URL.
+    await expect(page.getByTestId("clients-search")).toHaveValue("");
+    await expect(page.getByTestId("clients-clear")).toHaveCount(0);
+
+    // SI INAINTE ADUCE TERMENUL INAPOI, fiindca URL-ul este adevarul in ambele
+    // sensuri, nu doar in cel al butonului de inapoi.
+    await page.goForward();
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBe(name);
+    await expect(page.getByTestId("clients-search")).toHaveValue(name);
+  });
+
+  test("G51: scrisul normal ajunge întreg în URL, fără resincronizare care fură taste", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+
+    const name = clientName("Tastare");
+    await createClient(page, { name, fiscal: idno(8) });
+    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+
+    await page.goto("/clienti");
+    const box = page.getByTestId("clients-search");
+    await expect(box).toBeVisible({ timeout: 20_000 });
+
+    // PAUZA INTRE TASTE ESTE SUB CELE 300ms ale intarzierii, deci tot textul este o
+    // singura navigare, la sfarsit, cu valoarea INTREAGA. O resincronizare facuta la
+    // orice randare, fara sa deosebeasca de unde vine schimbarea, ar taia aici
+    // numele la ce era in casuta cand a plecat prima cerere.
+    const first = name.slice(0, -4);
+    const tail = name.slice(-4);
+    await box.pressSequentially(first, { delay: 60 });
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBe(first);
+    await expect(box).toHaveValue(first);
+
+    // A DOUA BUCATA, tastata dupa ce prima a ajuns in URL: ajunge tot textul, nu
+    // doar prima bucata, si casuta arata exact ce s-a tastat.
+    await box.pressSequentially(tail, { delay: 60 });
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBe(name);
+    await expect(box).toHaveValue(name);
+    await expect(page.locator(`[data-testid="client-row"][data-name="${name}"]`)).toHaveCount(1, {
+      timeout: 15_000,
+    });
+
+    // SI NIMIC NU SE MAI MISCA DUPA INTARZIERE. O asteptare fixa este unealta
+    // potrivita aici: ce se dovedeste este ca NU se intampla nimic dupa cele 300ms,
+    // iar o afirmatie care trece imediat nu ar dovedi asta.
+    await page.waitForTimeout(700);
+    expect(new URL(page.url()).searchParams.get("q")).toBe(name);
+    await expect(box).toHaveValue(name);
+  });
+});
