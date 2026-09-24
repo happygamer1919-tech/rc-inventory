@@ -273,6 +273,26 @@ on the EXT-34 detail row, which also carries `max-md:[overflow-wrap:anywhere]` b
 supplier's free text. This is the same class and the same reason `PHONE_CELL` in
 `components/ui/phone.ts` has carried `max-md:min-w-0` since P3-64. Nothing above 768px is touched.
 
+**The collision this card was warned about happened, and it resolved cleanly.** Pull request #356
+(card P3-96), which edits the same `components/clients/ClientsScreen.tsx` this card's F14 fix
+edits, merged to `main` while attempt 2 was being prepared. `git merge origin/main` auto-merged
+that file with no conflict, exactly as expected: P3-96's change is in the navigation and the
+search box and this card's is in the module constants and the import list. Two files did conflict,
+both by appending at the end:
+
+- `docs/board/rc-board-phase3.json`, where both sides added one card at the tail of `cards` and
+  git interleaved them into a single object. **Rebuilt from both parents rather than hand-edited
+  around the markers**, per R-052: a script read the array from `HEAD` and from `MERGE_HEAD`, kept
+  main's list in main's order, appended only the card this branch adds, and then PROVED card by
+  card that every kept card equals main's copy, every added card equals this branch's copy, and
+  nothing was lost from either side. 145 cards on main, 145 on this branch, 146 after the merge.
+  `as_of` was set to a time later than both, so neither clock moves backwards.
+- `docs/LEARNINGS.md`, where both sides appended entries. Both blocks are kept, main's first
+  because it landed first.
+
+`npm run check:conflict-residue` passes on the resolved tree, which is the check that matters here
+rather than a grep for markers: a bad resolution deletes exactly the characters a grep looks for.
+
 **And the measurement was improved so the next reader does not repeat this.** The failure printed
 `Expected: <= 324, Received: 350` and nothing else. The existing `outside` list could not have
 named the culprit: it measures against the 390px viewport, and an element 350px wide starting at
