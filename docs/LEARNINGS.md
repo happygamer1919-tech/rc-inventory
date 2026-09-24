@@ -6604,3 +6604,99 @@ becoming absent, then read `vedere`, `tip` and the chips. RULE: **a poll whose p
 holds when the action starts is a no-op, and it is most tempting exactly where a card is about
 something being PRESERVED. In that shape, always anchor the wait on a value that must move, and
 assert the preserved one afterwards.**
+
+### Changing a grid's column count on a phone leaves every `col-span-N` child pointing at columns that no longer exist
+**Tag:** frontend
+**ERROR:** `ExtractionReviewPanel`'s per line row is `grid-cols-[1fr_1fr_110px_110px]`, and three
+of its children carry `col-span-4` to stretch across it: the scan notice, the EXT-34 detail row
+and the new-product block. Adding `max-md:grid-cols-2` to the row alone would have left those
+three asking for four columns inside a two column grid. CSS grid does not clamp that: it creates
+two IMPLICIT columns to satisfy the span, so the row becomes four columns wide again and the
+fix pushes the content further off a 390px screen than it was before.
+**SOLUTION:** every `col-span-N` child of a grid whose column count changes under a breakpoint
+gets the matching variant in the same edit, here `max-md:col-span-2`. RULE: **before changing
+`grid-cols-*` under a breakpoint, grep the same subtree for `col-span-` and `row-span-` and
+retarget every hit; a span wider than the track count silently grows the grid instead of being
+clipped, so the failure looks like the fix not working rather than like a mistake.**
+
+### A phone class copied into a screen instead of imported is a class that stops being the same class
+**Tag:** frontend
+**ERROR:** finding F14 of the 2026-09-22 bug sweep named `ClientsScreen.tsx` for declaring its own
+`PHONE_TABLE`, `PHONE_ROW`, `PHONE_CELL`, `PHONE_WIDE` and `PHONE_LINK` beside the exports of the
+same names in `components/ui/phone.ts`, two of which had already drifted (`px-5 pb-5` against
+`p-4`, `flex` against `inline-flex`). Measured across the whole application while fixing that one
+screen, the pattern is much wider: **10 other files hold 53 local copies of a name the shared file
+already exports, and 8 of those copies have drifted.** `ProjectsScreen.tsx` carries the identical
+two drifts F14 named, so the Proiecte list and the Clienți list were wrong in exactly the same way
+for exactly the same reason, and only one of them was reported.
+**SOLUTION:** P3-97 fixed the screen its card named and left the other ten alone, per CLAUDE.md
+section 3's no-self-invented-scope rule, recording the measurement here and in its report so the
+remainder can be carded. RULE: **when a fix removes a duplicate definition, measure how many
+other copies of the same name exist before writing the commit message; a card that says the
+classes now live in one place while 53 copies remain has documented a belief rather than a
+change. The measurement is a ten line script over `^const PHONE_` against the shared file's
+exports, with template literals resolved before comparing, or two copies written differently and
+meaning the same thing read as drift.**
+
+### A grid item does not shrink below its longest `<option>`, and `minmax(0, 1fr)` does not save it
+**Tag:** frontend
+**ERROR:** P3-97 gave the extraction review sheet `max-md:grid-cols-2` on its per line row, and the
+sheet still scrolled sideways on a phone: `scrollWidth` 350 against `clientWidth` 324, from
+`tests/e2e/phone-forms.spec.ts` at 390px, run 36004256617, the only failure of 399 cases. The
+grid itself was correct. Tailwind's `grid-cols-2` is `repeat(2, minmax(0, 1fr))`, so the TRACKS
+shrink as they should, and the CSS order was checked in the built stylesheet to confirm the
+`max-md:` rule really did beat the arbitrary `grid-cols-[1fr_1fr_110px_110px]` underneath it.
+The overflow came from the ITEM: a grid item has `min-width: auto`, which is an automatic minimum
+size equal to its min-content width, and the min-content width of a `<select>` in Chrome is its
+longest `<option>`. `Produs din catalog` holds the whole catalogue, SKU and name. `w-full` on the
+select does not help, because the element that refuses to shrink is the `<label>` around it.
+**SOLUTION:** `max-md:min-w-0` on every `<label>` that is a direct grid item in the sheet, which
+is the same reason `PHONE_CELL` in `components/ui/phone.ts` has carried `max-md:min-w-0` since
+P3-64. RULE: **when a grid or flex container stops overflowing but its contents still do, the
+fault is the item's automatic minimum size and not the track sizing; `minmax(0, 1fr)` only
+promises the TRACK will shrink. Any item holding a select, a long unbroken string or a nested
+table needs `min-w-0` at the same breakpoint. Check the item before re-reading the container.**
+
+### A phone measurement that reports only two numbers sends the next reader back to the start
+**Tag:** ci
+**ERROR:** the failure above printed `Expected: <= 324, Received: 350` and nothing else. `outside`,
+the existing list of elements that leave the screen, was empty and could not have caught it: it
+measures against the 390px VIEWPORT, and an element 350px wide starting at x=33 ends at 383,
+inside the screen and outside its own 324px root. Diagnosing it meant downloading the Playwright
+artifact and reasoning about CSS ordering in the built stylesheet.
+**SOLUTION:** `readPhone` now also returns `wider`, every descendant whose right edge passes the
+root's content edge, and the horizontal-scroll assertion names them in its own message. RULE:
+**an assertion on a total (a scroll width, a count, a sum) carries the list of items that produced
+it, or the next reader re-derives the diagnosis the assertion already had in hand.**
+
+### Two buttons side by side do not wrap, because the button primitive says `whitespace-nowrap`
+**Tag:** frontend
+**ERROR:** with the extraction review sheet's grids and fields all fitting a 390px phone, the
+sheet still scrolled sideways by one element, and the improved measurement named it exactly:
+`iese: button[] "Renunță" 293..383`, run 36009200265, the only failure of 402 cases. The sheet's
+footer is `flex items-center gap-2.5` holding `Confirmă și creează comanda` and `Renunță`. The
+first measured 250px of the 284px available and the second started at 293 and ended at 383, well
+past the sheet's content edge. The row cannot relieve itself: `Button` in
+`components/ui/primitives.tsx` carries `whitespace-nowrap`, deliberately, so a label never breaks
+mid-phrase, and a flex row of nowrap children has a min-content width equal to their sum.
+**SOLUTION:** `max-md:flex-col max-md:items-stretch` on the footer, which is exactly what the
+cancel block twenty lines below it already does since P3-84. RULE: **a row of two or more buttons
+is the last thing to check when making a screen fit a phone, and the first thing that will not fix
+itself. `flex-wrap` is not enough when one label is long; stack them and let them stretch. Search
+for `flex items-center gap` holding more than one `Button` in any component being brought to a
+phone.**
+
+### Three CI runs for one screen, and each one could only see the next fault
+**Tag:** ci
+**ERROR:** P3-97's F9 case went red three times for three different reasons, in a strict order the
+assertions imposed: a board timestamp (1m27s, before the suite ran at all), then a grid item that
+would not shrink (34m), then a button row that would not wrap (33m). Roughly 70 minutes of CI to
+learn three things that a single pass could have reported together, because `expectFitsPhone`
+asserts the horizontal scroll FIRST and aborts, so every later clause stayed unmeasured each time.
+**SOLUTION:** nothing was weakened and no assertion was reordered, because the order is right: a
+screen that scrolls sideways cannot be judged for tap targets meaningfully. What changed is that
+the first assertion now names every element that overflows rather than printing two numbers, so
+one run reports one COMPLETE fault instead of one symptom. RULE: **when a helper asserts a chain
+of clauses about the same object, make the first clause report the full set of offenders it
+already knows about. Ordering the clauses is correct; discarding the diagnosis the first one
+gathered is what costs the extra runs.**

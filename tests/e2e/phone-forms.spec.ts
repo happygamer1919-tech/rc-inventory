@@ -1,6 +1,7 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
+import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 
 // phone-forms.spec - linia de acceptanta a cardului P3-65 (G23 partea 3).
 //
@@ -57,6 +58,12 @@ type Reading = {
   smallFonts: string[];
   outside: string[];
   clipped: string[];
+  /** P3-97. Cine anume iese din radacina, cand radacina deruleaza lateral.
+   *  `outside` masoara fata de ECRAN si nu prinde un element care iese dintr-un
+   *  panou ingust fara sa treaca de 390px, ceea ce este tocmai cazul unei fise
+   *  desenate inauntrul unui card. Fara lista asta mesajul spune numai ca 350
+   *  este mai mult decat 324, si urmatorul om reia ancheta de la zero. */
+  wider: string[];
   visibleTheads: number;
 };
 
@@ -109,11 +116,20 @@ async function readPhone(page: Page, rootSelector = "main"): Promise<Reading> {
 
       const outside: string[] = [];
       const clipped: string[] = [];
+      // P3-97. Marginea din dreapta a cutiei de continut a radacinii, care este
+      // limita pe care un copil nu are voie sa o treaca.
+      const rootBox = root.getBoundingClientRect();
+      const rootPad = parseFloat(getComputedStyle(root).paddingRight) || 0;
+      const rootRight = rootBox.right - rootPad;
+      const wider: string[] = [];
       for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
         if (!visible(el)) continue;
         const rect = el.getBoundingClientRect();
         if (rect.left < -0.5 || rect.right > width + 0.5) {
           outside.push(`${name(el)} ${rect.left.toFixed(0)}..${rect.right.toFixed(0)}`);
+        }
+        if (rect.right > rootRight + 0.5) {
+          wider.push(`${name(el)} ${rect.left.toFixed(0)}..${rect.right.toFixed(0)}`);
         }
         // Un camp isi taie mereu textul in propria caseta; restul nu au voie.
         const field = ["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
@@ -138,11 +154,41 @@ async function readPhone(page: Page, rootSelector = "main"): Promise<Reading> {
         smallFonts,
         outside,
         clipped,
+        wider,
         visibleTheads: Array.from(root.querySelectorAll("thead")).filter(visible).length,
       };
     },
     { selector: rootSelector, minTap: MIN_TAP, minFont: MIN_INPUT_FONT },
   );
+}
+
+/**
+ * P3-97, constatarea F9. ACELEASI CLAUZE, FARA CEA A LATIMII PANOULUI.
+ *
+ * expectFitsPhone cere, cand radacina nu este `main`, ca radacina sa aiba exact
+ * latimea ecranului: asta este adevarat despre un panou lateral, care se deschide
+ * peste pagina, si este fals despre o fisa desenata INAUNTRUL unui card din
+ * pagina, care sta la latimea cardului minus marginile lui. Fisa de verificare a
+ * extragerii este a doua. Restul clauzelor sunt cuvant cu cuvant aceleasi si se
+ * masoara la fel, in pagina, nu citite din clase.
+ */
+async function expectFitsPhoneInPlace(page: Page, where: string, rootSelector: string): Promise<void> {
+  const r = await readPhone(page, rootSelector);
+  expect(r.viewportWidth, `latimea ecranului pe ${where}`).toBe(PHONE.width);
+  expect(r.document.scrollWidth, `derulare laterala a documentului pe ${where}`).toBeLessThanOrEqual(
+    r.document.clientWidth,
+  );
+  expect(r.main.scrollWidth, `derulare laterala in <main> pe ${where}`).toBeLessThanOrEqual(r.main.clientWidth);
+  // Cine iese este in mesaj: o pereche de numere singura nu spune ce sa repari.
+  expect(
+    r.root.scrollWidth,
+    `derulare laterala in ${rootSelector} pe ${where}, iese: ${r.wider.join(" | ") || "nimeni"}`,
+  ).toBeLessThanOrEqual(r.root.clientWidth);
+  expect(r.smallTargets, `tinte sub ${MIN_TAP}px pe ${where}`).toEqual([]);
+  expect(r.smallFonts, `campuri sub ${MIN_INPUT_FONT}px pe ${where}`).toEqual([]);
+  expect(r.outside, `elemente in afara ecranului pe ${where}`).toEqual([]);
+  expect(r.clipped, `text taiat pe ${where}`).toEqual([]);
+  expect(r.visibleTheads, `antet de tabel vizibil pe ${where}`).toBe(0);
 }
 
 /** Clauzele 1 si 2, pe ecranul sau panoul deschis. */
@@ -153,9 +199,10 @@ async function expectFitsPhone(page: Page, where: string, rootSelector = "main")
     r.document.clientWidth,
   );
   expect(r.main.scrollWidth, `derulare laterala in <main> pe ${where}`).toBeLessThanOrEqual(r.main.clientWidth);
-  expect(r.root.scrollWidth, `derulare laterala in ${rootSelector} pe ${where}`).toBeLessThanOrEqual(
-    r.root.clientWidth,
-  );
+  expect(
+    r.root.scrollWidth,
+    `derulare laterala in ${rootSelector} pe ${where}, iese: ${r.wider.join(" | ") || "nimeni"}`,
+  ).toBeLessThanOrEqual(r.root.clientWidth);
   if (rootSelector !== "main") {
     expect(Math.abs(r.root.width - PHONE.width), `panoul nu are latimea ecranului pe ${where}`).toBeLessThanOrEqual(
       0.5,
@@ -469,5 +516,280 @@ test.describe("P3-65: formularele si panourile pe telefon (390x844)", () => {
     const supplier = await page.getByTestId("order-supplier").boundingBox();
     const currency = await page.getByTestId("order-currency").boundingBox();
     expect(Math.abs(currency!.y - supplier!.y), "Furnizor si Monedă nu mai stau alaturi").toBeLessThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P3-97 (G52): cele doua formulare pe care maturarile de telefon le-au sarit
+// ---------------------------------------------------------------------------
+//
+// Constatarile F9 si F10 ale raportului CRITIC din 2026-09-22. Aceleasi clauze
+// ca mai sus si acelasi fel de masuratoare, in pagina si nu citita din clase.
+//
+// Categoria semanata de migratia 0007, aceeasi pe care o foloseste review.spec.
+const MAPPED_CATEGORY = "Acoperișuri și tablă";
+
+/** Un PDF minim, valid cat ii trebuie bucketului. Nu se citeste niciodata:
+ *  extragerea este mocata la transport, exact ca in review.spec. */
+function extractionPdf(tag: string): Buffer {
+  return Buffer.from(
+    `%PDF-1.4\n% RC test ${tag}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`,
+    "utf8",
+  );
+}
+
+/** Incarca un document pe banda de extragere si intoarce order_id-ul mintit. */
+async function uploadForExtraction(
+  page: Page,
+  request: APIRequestContext,
+  tag: string,
+): Promise<string> {
+  const filename = `TEST-${tag}-${RUN}.pdf`;
+  await page.goto("/incarca-comanda");
+  await page.getByTestId("extraction-input").setInputFiles({
+    name: filename,
+    mimeType: "application/pdf",
+    buffer: extractionPdf(tag),
+  });
+
+  const card = page.locator(`[data-testid="draft-card"]`).filter({ hasText: filename });
+  await expect(card).toHaveCount(1, { timeout: 30_000 });
+  const orderId = (await card.getAttribute("data-order-id")) ?? "";
+  expect(orderId).toMatch(/^[0-9a-f-]{36}$/i);
+
+  const fired = await firedFor(request, orderId);
+  expect(fired).toHaveLength(1);
+  return orderId;
+}
+
+/** Acelasi corp de callback ca in review.spec, cu un singur rand. `digital` este
+ *  deliberat: EXT-16 refuza o scanare ale carei numere nu se aduna, iar numerele
+ *  acestea sunt cele istorice ale fixturii si nu se aduna. Aici se verifica
+ *  asezarea fisei, nu reconcilierea. */
+function extractionCallbackBody(orderId: string, productName: string) {
+  return {
+    order_id: orderId,
+    status: "extracted",
+    error_code: null,
+    reason: null,
+    supplier_name: "Bilka Steel SRL",
+    document_source: "digital",
+    order_date: "2026-08-14",
+    subtotal: 18450.0,
+    vat_amount: 3690.0,
+    document_total: 22140.0,
+    prices_include_vat: false,
+    vat_rate: 20.0,
+    currency: "MDL",
+    currency_raw: "lei",
+    confidence: 0.94,
+    lines: [
+      {
+        product_name: productName,
+        quantity: 240.5,
+        unit: "m2",
+        unit_raw: "mp",
+        unit_price: 76.72,
+        line_total: 18452.36,
+        currency: "MDL",
+        currency_raw: "lei",
+        category: null,
+        category_raw: "Invelitori",
+        confidence: 0.91,
+      },
+    ],
+    _meta: {
+      model: "gpt-4o-mini",
+      prompt_version: "v2.0",
+      page_count: 2,
+      characters_extracted: 4820,
+      duration_ms: 8140,
+    },
+  };
+}
+
+test.describe("P3-97: formularul de produs si fisa de verificare pe telefon (390x844)", () => {
+  test.describe.configure({ timeout: 300_000 });
+
+  test("G52: (F10) Adaugă produs, Modifică produsul si legatura de pe Memento, toate pe telefon", async ({
+    page,
+  }, testInfo) => {
+    await signInOnPhone(page);
+    const sku = `TEST-G52-${RUN}`.toUpperCase();
+    const name = `TEST Produs Telefon ${RUN} Țiglă metalică cu o denumire lungă`;
+
+    // Adaugă produs: panoul pe toata latimea, campurile unul sub altul.
+    await page.goto("/inventar");
+    await page.getByTestId("product-new").click();
+    await expect(page.getByTestId("product-form")).toBeVisible({ timeout: 20_000 });
+    await expectFitsPhone(page, "Adaugă produs", "[data-testid='product-form']");
+    await page.screenshot({ path: testInfo.outputPath("phone-forms-product-form-new.png") });
+
+    // Randul de doua campuri se aseaza unul sub altul: Valoare unitară incepe
+    // sub Prag recomandă, nu langa el.
+    const threshold = await page.getByTestId("field-threshold").boundingBox();
+    const unitValue = await page.getByTestId("field-unit-value").boundingBox();
+    expect(
+      unitValue!.y,
+      "Valoare unitară nu sta sub Prag recomandă",
+    ).toBeGreaterThanOrEqual(threshold!.y + threshold!.height);
+
+    // Si se completeaza si se salveaza la aceasta latime.
+    await page.getByTestId("field-sku").fill(sku);
+    await page.getByTestId("field-name").fill(name);
+    await page.getByTestId("field-category").selectOption({ label: MAPPED_CATEGORY });
+    await page.getByTestId("field-unit").selectOption("m2");
+    await page.getByTestId("field-threshold").fill("12");
+    await page.getByTestId("field-unit-value").fill("76.72");
+    await page.getByTestId("form-submit").click();
+    await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
+      timeout: 30_000,
+    });
+
+    // Modifică produsul: acelasi panou, prin butonul din fisa produsului.
+    await page.goto(`/inventar?produs=${sku}`);
+    await expect(page.getByTestId("product-panel")).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId("panel-edit").click();
+    await expect(page.getByTestId("product-form")).toBeVisible();
+    await expect(page.getByTestId("field-sku")).toHaveValue(sku);
+    await expectFitsPhone(page, "Modifică produsul", "[data-testid='product-form']");
+    await page.screenshot({ path: testInfo.outputPath("phone-forms-product-form-edit.png") });
+
+    // Modificarea se salveaza la aceasta latime.
+    await page.getByTestId("field-unit-value").fill("80.5");
+    await page.getByTestId("form-submit").click();
+    await expect(page.getByTestId("product-form")).toHaveCount(0, { timeout: 30_000 });
+
+    // LEGATURA DE PE MEMENTO. Un prag apasat pe /memento duce aici, cu pragul in
+    // focus. Mecanismul nu se schimba de cardul acesta: se verifica doar ca
+    // aterizeaza pe un formular pe care il poti folosi pe telefon.
+    await page.goto(`/inventar?produs=${sku}&camp=prag`);
+    const form = page.getByTestId("product-form");
+    await expect(form).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("field-threshold")).toBeFocused();
+    await expectFitsPhone(page, "legatura de pe Memento", "[data-testid='product-form']");
+    await page.getByTestId("field-threshold").fill("20");
+    await expect(page.getByTestId("field-threshold")).toHaveValue("20");
+    await page.screenshot({ path: testInfo.outputPath("phone-forms-product-form-prag.png") });
+  });
+
+  test("G52: (F9) fisa de verificare a extragerii: campurile incap, si ciorna se confirma pe telefon", async ({
+    page,
+    request,
+  }, testInfo) => {
+    await signInOnPhone(page);
+    const productName = `TEST Extragere Telefon ${RUN} Țiglă metalică Bilka Classic`;
+    const orderId = await uploadForExtraction(page, request, "g52-review");
+
+    const callback = await request.post("/api/extraction/callback", {
+      headers: {
+        "Content-Type": "application/json",
+        "x-rc-callback-secret": MAKE_CALLBACK_SECRET,
+      },
+      data: extractionCallbackBody(orderId, productName),
+      maxRetries: 2,
+    });
+    expect(callback.status(), "callback-ul nu a fost acceptat").toBe(202);
+
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${orderId}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await card.getByTestId("draft-review").click();
+    await expect(page.getByTestId("review-form")).toBeVisible({ timeout: 20_000 });
+
+    await expectFitsPhoneInPlace(page, "fisa de verificare", "[data-testid='review-form']");
+    await page.screenshot({ path: testInfo.outputPath("phone-forms-review-sheet.png") });
+
+    // Randul de sus se aseaza unul sub altul: Monedă incepe sub Furnizor.
+    const supplier = await page.getByTestId("review-supplier").boundingBox();
+    const currency = await page.getByTestId("review-currency").boundingBox();
+    expect(currency!.y, "Monedă nu sta sub Furnizor").toBeGreaterThanOrEqual(
+      supplier!.y + supplier!.height,
+    );
+    // Randul pozitiei trece la doua coloane: produsul din catalog sta sub numele
+    // de pe document, iar pretul sta LANGA cantitate, pe acelasi rand.
+    const lineName = await page.getByTestId("review-line-name-0").boundingBox();
+    const lineProduct = await page.getByTestId("review-line-product-0").boundingBox();
+    const lineQuantity = await page.getByTestId("review-line-quantity-0").boundingBox();
+    const linePrice = await page.getByTestId("review-line-price-0").boundingBox();
+    expect(lineProduct!.y, "Produs din catalog nu sta sub Nume pe document").toBeGreaterThanOrEqual(
+      lineName!.y + lineName!.height,
+    );
+    expect(
+      Math.abs(linePrice!.y - lineQuantity!.y),
+      "Preț unitar si Cantitate nu mai stau alaturi",
+    ).toBeLessThanOrEqual(1);
+
+    // SI SE COMPLETEAZA SI SE CONFIRMA LA ACEASTA LATIME, nu doar arata asezata.
+    await page.getByTestId("review-supplier").fill(`TEST Furnizor Telefon ${RUN}`);
+    await page.getByTestId("review-line-quantity-0").fill("9");
+    await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
+    await page.getByTestId("review-expected-at").fill("2026-12-01");
+    await expectFitsPhoneInPlace(page, "fisa de verificare, completata", "[data-testid='review-form']");
+    await page.getByTestId("review-confirm").click();
+
+    const created = page.getByTestId("review-created");
+    await expect(created).toBeVisible({ timeout: 60_000 });
+    const reference = (await created.getAttribute("data-reference")) ?? "";
+    expect(reference.length, "confirmarea nu a intors nicio referinta").toBeGreaterThan(0);
+    await expectValueOnScreen(created, "mesajul de reusita");
+
+    await page.goto("/comenzi");
+    await expect(
+      page.locator(`[data-testid="inbound-item"][data-reference="${reference}"]`),
+    ).toHaveCount(1, { timeout: 30_000 });
+  });
+
+  test("G52: (4) desktop neschimbat: la 1440px panoul produsului are 520px si randul fisei ramane pe patru coloane", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(DESKTOP);
+    await signIn(page, ownerAccount());
+
+    // F10 pe desktop: panoul are latimea de azi si randurile raman pe doua coloane.
+    await page.goto("/inventar");
+    await page.getByTestId("product-new").click();
+    const form = page.getByTestId("product-form");
+    await expect(form).toBeVisible({ timeout: 20_000 });
+    expect(await form.evaluate((el) => el.getBoundingClientRect().width)).toBe(520);
+    const threshold = await page.getByTestId("field-threshold").boundingBox();
+    const unitValue = await page.getByTestId("field-unit-value").boundingBox();
+    expect(
+      Math.abs(unitValue!.y - threshold!.y),
+      "Prag recomandă si Valoare unitară nu mai stau alaturi",
+    ).toBeLessThanOrEqual(1);
+
+    // F9 pe desktop: randul de sus ramane pe patru coloane si randul pozitiei la fel.
+    const productName = `TEST Extragere Desktop ${RUN} Țiglă metalică Bilka Classic`;
+    const orderId = await uploadForExtraction(page, request, "g52-desktop");
+    const callback = await request.post("/api/extraction/callback", {
+      headers: {
+        "Content-Type": "application/json",
+        "x-rc-callback-secret": MAKE_CALLBACK_SECRET,
+      },
+      data: extractionCallbackBody(orderId, productName),
+      maxRetries: 2,
+    });
+    expect(callback.status()).toBe(202);
+
+    await page.goto("/incarca-comanda");
+    const card = page.locator(`[data-testid="draft-card"][data-order-id="${orderId}"]`);
+    await expect(card).toHaveCount(1, { timeout: 30_000 });
+    await card.getByTestId("draft-review").click();
+    await expect(page.getByTestId("review-form")).toBeVisible({ timeout: 20_000 });
+
+    const supplier = await page.getByTestId("review-supplier").boundingBox();
+    const currency = await page.getByTestId("review-currency").boundingBox();
+    expect(
+      Math.abs(currency!.y - supplier!.y),
+      "Furnizor si Monedă nu mai stau alaturi la 1440px",
+    ).toBeLessThanOrEqual(1);
+    const lineName = await page.getByTestId("review-line-name-0").boundingBox();
+    const linePrice = await page.getByTestId("review-line-price-0").boundingBox();
+    expect(
+      Math.abs(linePrice!.y - lineName!.y),
+      "randul pozitiei nu mai este pe un singur rand la 1440px",
+    ).toBeLessThanOrEqual(1);
   });
 });
