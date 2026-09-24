@@ -61,3 +61,10 @@ export const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
 /** Celula de actiuni, fara antet: pe toata latimea cardului si fara eticheta. */
 export const PHONE_ACTIONS_CELL =
   "max-md:col-span-2 max-md:block max-md:border-b-0 max-md:p-0 max-md:text-left";
+
+// P3-100. UN TEXT LUNG DINTR-UN RAND: pe telefon se rupe, nu se taie. Doua
+// fisiere scriau numele acesta, deci el intra aici; valoarea este cea din
+// app/(app)/page.tsx, neschimbata. Un apel care porneste de la `truncate` mai
+// adauga si `max-md:overflow-visible` la locul lui, cum face deja randul de pe
+// tabloul de bord, fiindca nu orice text lung are nevoie de asta.
+export const PHONE_WRAP = "max-md:whitespace-normal max-md:[overflow-wrap:anywhere]";

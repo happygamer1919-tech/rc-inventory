@@ -22,6 +22,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import {
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
 import { formatNumber, formatQty, plural } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
@@ -37,15 +44,15 @@ const NEED_STATUSES: ProjectStatus[] = ["lead", "offer", "contract", "active"];
 // fiindca procurement.spec citeste celulele dupa data-testid. Eticheta fiecarei
 // celule este textul antetului coloanei ei, pus in data-label si desenat din CSS.
 // Tabelul sta deja intr-un chenar cu margini, deci corpul lui nu mai primeste altele.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** O legatura sau un buton de text: pe telefon o tinta de 44px. */
-const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:[overflow-wrap:anywhere]";
+//
+// P3-100. Aceleasi doua deosebiri ca pe fila de comparatie, si se rezolva la fel.
+// (1) PHONE_TABLE de aici nu avea deloc clauza de margine interioara, din motivul
+// scris in randul de mai sus; acum se importa cel comun, care pune 16px, iar
+// chenarul isi tine cele 20px DOAR peste 768px (md:px-5 md:py-4), ca sa nu se adune
+// 36px pe telefon. (2) PHONE_LINK de aici avea in plus max-md:[overflow-wrap:anywhere],
+// fiindca numele lungi de produs si de proiect trebuie sa se rupa; clasa aceea trece
+// pe cele patru locuri unde se foloseste, scrisa acolo si nu sub un nume nou, deci
+// setul de clase desenat ramane exact cel de azi.
 
 function qty(value: number, unit: UnitCode | null): string {
   return unit ? formatQty(value, unit) : formatNumber(value);
@@ -70,7 +77,7 @@ function NeedRow({ row }: { row: ProcurementRow }) {
               key={p.projectId}
               href={`/proiecte/${p.projectId}?fila=comparatie`}
               data-testid={`need-project-${key}-${p.projectId}`}
-              className={`text-[12px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK}`}
+              className={`text-[12px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK} max-md:[overflow-wrap:anywhere]`}
             >
               {p.projectName} ({PROJECT_STATUS_LABEL[p.status]})
             </Link>
@@ -168,7 +175,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                       key={p.id}
                       href={`/proiecte/${p.id}?fila=deviz`}
                       data-testid={`need-exclus-${p.id}`}
-                      className={`text-[12.5px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK}`}
+                      className={`text-[12.5px] text-rc-muted hover:text-rc-black underline decoration-dotted ${PHONE_LINK} max-md:[overflow-wrap:anywhere]`}
                     >
                       {p.name} ({PROJECT_STATUS_LABEL[p.status]}): {p.reason}
                     </Link>
@@ -177,7 +184,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                 <Link
                   href="/proiecte"
                   data-testid="need-excluse-link"
-                  className={`mt-2 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
+                  className={`mt-2 inline-block text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK} max-md:[overflow-wrap:anywhere]`}
                 >
                   Vezi toate șantierele
                 </Link>
@@ -199,7 +206,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
             hint="Nu există șantiere cu deviz acceptat care să mai aștepte material."
           />
         ) : (
-          <div className={`px-5 py-4 ${PHONE_TABLE}`}>
+          <div className={`md:px-5 md:py-4 ${PHONE_TABLE}`}>
             <Table>
               <thead>
                 <tr>
@@ -226,7 +233,7 @@ export function ProcurementScreen({ need }: { need: ProcurementNeed }) {
                 type="button"
                 data-testid="need-more"
                 onClick={() => setShown((n) => n + PAGE)}
-                className={`mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
+                className={`mt-3 text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK} max-md:[overflow-wrap:anywhere]`}
               >
                 Arată încă {Math.min(PAGE, rows.length - shown)} din {rows.length - shown} rămase
               </button>

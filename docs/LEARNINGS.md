@@ -6853,3 +6853,51 @@ opens the dead address, asserts the Contacte panel is active, asserts no `panel-
 registers a `pageerror` listener so a thrown error cannot pass as a blank region. RULE: **when a URL
 addressable surface is removed, the acceptance names the dead URL and asserts what it does now.
 Behaviour that is correct only because nobody has changed the fallback is behaviour with no test.**
+
+### A sweep whose acceptance is a grep can be broken by the sweep's own new constant
+**Tag:** frontend
+**ERROR:** P3-100 removes every `const PHONE_*` that repeats a name `components/ui/phone.ts`
+already exports, and its acceptance is that `grep -rn "^const PHONE_" components/ app/` returns
+only the two names the card declares deliberately local. While moving
+`components/inventory/ProcurementScreen.tsx`'s extra `max-md:[overflow-wrap:anywhere]` off its
+local `PHONE_LINK` and onto the call sites, the obvious tidy move was to give the leftover class a
+name, `const PHONE_WRAP_LINK = ...`, so the four call sites could share it. That constant matches
+the acceptance grep exactly. The card would have shipped an acceptance line that its own
+implementation fails, and the failure would have read as a missed file rather than as a new name.
+**SOLUTION:** the class is written out at each of the four call sites instead, which is also what
+the critic report asked for in words ("a class added at the call site"). RULE: **when a card's
+acceptance is a pattern over the source, run that pattern against every name the card is about to
+introduce, before introducing it. A tidying constant that matches the acceptance pattern is not
+tidying, it is a new instance of the thing being removed.**
+
+### A class absent from the source is still present in the built stylesheet, because Tailwind scans docs
+**Tag:** frontend
+**ERROR:** after the sweep, a local probe read `.next/static/chunks/*.css` to confirm the three
+drifted padding values were gone, and found all of them still emitted:
+`tbody:not(:empty)\]\:px-5`, `\:pb-5` and `\:p-3`, alongside the shared `\:p-4`. Nothing in
+`components/` or `app/` writes them any more. Read as a source problem it says the sweep missed
+three files; there are no such files.
+**SOLUTION:** Tailwind's content globs in this repository include `docs/`, so any class name
+written as TEXT in a report, in `docs/LEARNINGS.md` or in a board card's prose is scanned and
+emitted. `docs/reports/2026-09-24-executor-g52-phone-leftovers.md` and the phase 3 board both quote
+the drifted values in their own tables, which is why they survive. The CSS is dead, not applied.
+RULE: **presence of a class in the built stylesheet proves nothing about the components in this
+repository, and ABSENCE is the only direction a CSS probe can argue in. Prove a class is gone by
+grepping the source; prove a value is applied by reading `getComputedStyle` in the page.**
+
+### Importing a shared padding into a screen whose wrapper already pads doubles the padding
+**Tag:** frontend
+**ERROR:** `components/projects/DevizComparisonPanel.tsx` and
+`components/inventory/ProcurementScreen.tsx` each declared a `PHONE_TABLE` with no
+`[&_tbody:not(:empty)]` padding clause at all, and each said why in a comment: the table sits in a
+`div` that already reads `px-5 py-4`. Replacing those two local constants with the shared one,
+which carries `p-4`, would have stacked 16px on top of 20px and given those two panels 36px of side
+padding on a phone. A drift sweep that adopts the shared value everywhere without reading the call
+site turns a correct screen into a wrong one and reports it as a fix.
+**SOLUTION:** the two wrappers become `md:px-5 md:py-4`, so above 768px they are exactly what they
+were and below it the shared 16px is the only padding. `max-md:p-0` on the wrapper was considered
+and refused: it collides with `px-5` at equal specificity, so which one applies is decided by the
+order Tailwind happens to emit the two rules in, not by the class list. RULE: **before adopting a
+shared layout constant, read every call site of the local one. A constant that is missing a clause
+other copies have is not always drift; sometimes the clause lives on the element above it, and the
+comment next to the constant usually says so.**

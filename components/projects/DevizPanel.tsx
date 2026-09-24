@@ -48,30 +48,38 @@ import {
   updateDevizLineQuantity,
 } from "@/lib/data/deviz-actions";
 import type { CatalogProduct } from "@/lib/data/products";
+import {
+  PHONE_ACTIONS_CELL,
+  PHONE_CELL,
+  PHONE_CONTROL,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_TAP,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 
 // P3-67. PE TELEFON (sub 768px) fiecare versiune si fiecare linie devin un card,
 // iar peste 768px nimic nu se schimba: fiecare clasa de mai jos poarta max-md.
 // ACELASI DOM, ca in P3-64, fiindca deviz.spec citeste celulele dupa data-testid si
 // data-value-mdl. Eticheta fiecarei celule este textul antetului coloanei ei, pus in
 // data-label si desenat din CSS, deci textul si atributele celulei raman cele de azi.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** Celula de actiuni, fara antet: pe toata latimea cardului si fara eticheta. */
-const PHONE_ACTIONS_CELL = "max-md:col-span-2 max-md:block max-md:border-b-0 max-md:p-0";
+//
+// P3-100. Cele sapte nume erau scrise aici; sase se importa acum din
+// components/ui/phone.ts, unul singur se departase de fisierul comun:
+// PHONE_ACTIONS_CELL nu avea max-md:text-left, fara motiv scris, deci celula de
+// actiuni a unei linii mostenea alinierea la dreapta a Td-ului ei. Se ia valoarea
+// comuna, deci pe telefon butoanele acelei celule pornesc din stanga cardului.
+//
+// PHONE_SUM_ROW si PHONE_SUM_CELL RAMAN LOCALE INTENTIONAT, si de aceea sunt
+// singurele doua `const PHONE_` pe care le mai gaseste greparea din acceptanta
+// cardului: descriu randurile Subtotal, Adaos si Total ale unui deviz, nu randul
+// obisnuit de lista, si niciun alt fisier nu are randurile acelea. Daca un al
+// doilea ecran ajunge sa aiba nevoie de ele, se mutau in fisierul comun atunci.
 /** Randurile Subtotal, Adaos si Total: eticheta si suma pe un rand, celulele goale ascunse. */
 const PHONE_SUM_ROW = "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:px-4";
 const PHONE_SUM_CELL = "max-md:block max-md:border-b-0 max-md:py-1.5 max-md:px-0 max-md:empty:hidden";
 /** Cele cinci coloane goale dintre eticheta unui rand de suma si suma lui. */
 const SUM_GAP = [1, 2, 3, 4, 5];
-/** Un camp: pe telefon 44px si text de 16px, altfel iOS mareste pagina. */
-const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
-/** Un buton: pe telefon o tinta de 44px. */
-const PHONE_TAP = "max-md:min-h-11";
 
 const STATUS_TONE: Record<DevizStatus, "neutral" | "info" | "ok" | "danger" | "warn"> = {
   draft: "neutral",

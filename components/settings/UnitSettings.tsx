@@ -5,6 +5,7 @@
 // fiecare cantitate stocata este interpretata prin unitatea produsului ei.
 // Ecranul spune asta pe fata, ca nimeni sa nu caute butonul care lipseste.
 
+import { PHONE_CELL, PHONE_ROW, PHONE_TABLE, PHONE_WIDE } from "@/components/ui/phone";
 import { Card, CardHeader, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 
@@ -31,13 +32,10 @@ const UNIT_MEANING: Record<UnitCode, string> = {
 // nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in
 // P3-64. Eticheta fiecarei celule este textul antetului coloanei ei, pus in
 // data-label si desenat din CSS.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
+//
+// P3-100. Cele patru nume erau scrise aici, cuvant cu cuvant identice cu cele din
+// components/ui/phone.ts, deci copia a fost stearsa si se importa. Nimic nu se
+// schimba pe ecran.
 
 export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: number }> }) {
   return (
