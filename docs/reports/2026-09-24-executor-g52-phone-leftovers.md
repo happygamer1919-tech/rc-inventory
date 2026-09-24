@@ -116,6 +116,9 @@ goal's own sentence ("Memento's threshold link then lands on a usable form") tur
   had the treatment through `DateField`'s own `CONTROL` string and were left alone.
 - **All twelve `<label>`s that are direct grid items** take `max-md:min-w-0`, without which the
   sheet still scrolled sideways. Section 5b has the measurement and the reason.
+- **The footer's two buttons** take `max-md:flex-col max-md:items-stretch`, the same treatment the
+  cancel block below them has had since P3-84, because `Button` carries `whitespace-nowrap` and a
+  row of two nowrap labels cannot fit 284px. Section 5b again.
 - **The seven pre-existing `max-md` classes were not touched.** `grep -c max-md` on the file goes
   from 7 to 14 and every one of the original seven is still on the line it was on.
 
@@ -256,7 +259,8 @@ layout classes, their shared definitions, two test files and these documents.
 |---|---|---|
 | first push | 36003920985 | **red in 1m27s**, `Refuse a board timestamp from the future`. A rounded card timestamp, ten minutes ahead of its own commit. Section 6. |
 | attempt 1 | 36004256617 | **red after 34m9s, 398 passed and 1 failed**, and the one failure was this card's own new F9 case: `derulare laterala in [data-testid='review-form']`, `scrollWidth` 350 against `clientWidth` 324. The other three `G52:` cases passed, and so did every pre-existing case in the suite. |
-| attempt 2 | this push | the fix below. |
+| attempt 2 | 36009200265 | **red after 33m33s, 401 passed and 1 failed**, the same case again and a different fault, which the improved measurement named exactly: `iese: button[] "Renunță" 293..383`. |
+| attempt 3 | this push | the button row fix below. |
 
 **What attempt 1 found, and it was a real defect in the fix rather than a flaky test.** The per
 line grid was correct: `max-md:grid-cols-2` is `repeat(2, minmax(0, 1fr))`, and the built
@@ -272,6 +276,25 @@ that will not shrink is the label around it.
 on the EXT-34 detail row, which also carries `max-md:[overflow-wrap:anywhere]` because it prints a
 supplier's free text. This is the same class and the same reason `PHONE_CELL` in
 `components/ui/phone.ts` has carried `max-md:min-w-0` since P3-64. Nothing above 768px is touched.
+
+**What attempt 2 found, and the improved measurement paid for itself on its first run.** With
+every grid and every field now fitting, one element still did not: the sheet's footer is
+`flex items-center gap-2.5` holding `Confirmă și creează comanda` and `Renunță`. The first
+measured 250px of the 284px available and the second started at 293 and ended at 383. The row
+cannot relieve itself, because `Button` in `components/ui/primitives.tsx` carries
+`whitespace-nowrap` deliberately, so a label never breaks mid-phrase, and a flex row of nowrap
+children has a min-content width equal to their sum. Attempt 3 adds
+`max-md:flex-col max-md:items-stretch` to that footer, which is exactly what the cancel block
+twenty lines below it has done since P3-84. Without the `wider` list added in attempt 2, this
+would have been another guess.
+
+**Three runs for one screen, and that is worth naming rather than glossing.** The three faults
+were independent and the assertion order made them strictly sequential: `expectFitsPhone` asserts
+the horizontal scroll first and aborts, so every later clause stayed unmeasured each time. The
+order is correct and was not changed: a screen that scrolls sideways cannot be judged for tap
+targets meaningfully. What changed is that the first clause now reports the complete set of
+offenders instead of two numbers, so one run reports one whole fault rather than one symptom of
+it. That is in `docs/LEARNINGS.md` as its own entry.
 
 **The collision this card was warned about happened, and it resolved cleanly.** Pull request #356
 (card P3-96), which edits the same `components/clients/ClientsScreen.tsx` this card's F14 fix
@@ -302,7 +325,7 @@ scroll assertions name them in their own message.
 
 ## 6. Learnings
 
-Four entries appended to `docs/LEARNINGS.md`:
+Six entries appended to `docs/LEARNINGS.md`:
 
 1. **Changing a grid's column count on a phone leaves every `col-span-N` child pointing at columns
    that no longer exist.** A span wider than the track count makes CSS grid create implicit
@@ -315,6 +338,12 @@ Four entries appended to `docs/LEARNINGS.md`:
    contents still do, the fault is the item's automatic minimum size and not the track sizing.
 4. **A phone measurement that reports only two numbers sends the next reader back to the start**,
    with the rule that an assertion on a total carries the list of items that produced it.
+5. **Two buttons side by side do not wrap, because the button primitive says `whitespace-nowrap`.**
+   What attempt 2 found, with the rule that a row of buttons is the last thing to check when
+   making a screen fit a phone and the first thing that will not fix itself.
+6. **Three CI runs for one screen, and each one could only see the next fault**, with the rule
+   that a chain of assertions about one object should have its first clause report every offender
+   it already knows about rather than the bare total.
 
 **A third thing broke and gets no LEARNINGS entry, on purpose.** The first CI run, 36003920985,
 failed in 1 minute 27 seconds at `Refuse a board timestamp from the future`: the card's

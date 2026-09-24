@@ -26,13 +26,19 @@
 //
 // P3-97, constatarea F9. FISA DE VERIFICARE PE TELEFON, si ea a fost singura
 // din aplicatie ramasa pe dinafara celor patru carduri de telefon, P3-60, P3-64,
-// P3-65 si P3-67. Trei lucruri, toate sub 768px si niciunul peste:
+// P3-65 si P3-67. Patru lucruri, toate sub 768px si niciunul peste:
 //   - randul de sus, sase controale in patru coloane, se aseaza unul sub altul;
 //   - randul fiecarei pozitii, din care 220px erau doua coloane fixe de 110px,
 //     trece la doua coloane, cu cele doua campuri late pe randul intreg;
 //   - fiecare camp si fiecare lista scrise de mana aici, adica in afara lui Input
 //     si Select din primitives, primesc PHONE_CONTROL: 44px inaltime si text de
-//     16px, sub care iOS Safari mareste pagina la atingerea campului.
+//     16px, sub care iOS Safari mareste pagina la atingerea campului;
+//   - cele doua butoane de la capatul fisei stau unul sub altul. Button din
+//     primitives poarta whitespace-nowrap, deliberat, ca o eticheta sa nu se
+//     rupa la mijlocul unei expresii, iar un rand de asemenea butoane are
+//     latimea minima egala cu suma lor: masurat la 390px, "Confirmă și creează
+//     comanda" tinea 250px din cei 284 ai fisei, iar "Renunță" pleca de la 293
+//     si se termina la 383. Acelasi tratament ca blocul de renuntare, din P3-84.
 //
 // SI FIECARE ETICHETA DIN CELE DOUA GRILE POARTA max-md:min-w-0, care nu este
 // decor. Un element de grila are min-width: auto, adica nu se strange niciodata
@@ -42,6 +48,7 @@
 // cum trebuie, dar eticheta dinauntru iese din ea, si atunci fisa deruleaza
 // lateral degeaba. Acelasi motiv pentru care PHONE_CELL din fisierul comun
 // poarta max-md:min-w-0 de la P3-64.
+//
 // Cele sapte clase max-md de dinainte, de pe blocul de renuntare si de pe capul
 // fisei documentului, raman neatinse.
 
@@ -682,7 +689,13 @@ function ReviewForm({
         </p>
       ) : null}
 
-      <div className="mt-5 flex items-center gap-2.5">
+      {/* P3-97, constatarea F9. CELE DOUA BUTOANE STAU UNUL SUB ALTUL PE TELEFON,
+          la fel ca butoanele blocului de renuntare de mai jos, care au primit
+          acelasi tratament in P3-84. Butoanele poarta whitespace-nowrap din
+          primitives, deci randul nu se rupe singur: masurat la 390px, Confirmă
+          si creează comanda tine 250px din cei 284 ai fisei, iar Renunță pleca
+          de la 293 si se termina la 383, adica in afara fisei. */}
+      <div className="mt-5 flex items-center gap-2.5 max-md:flex-col max-md:items-stretch">
         <Button onClick={confirm} disabled={pending || dateInvalid} data-testid="review-confirm">
           {pending ? "Se confirmă..." : "Confirmă și creează comanda"}
         </Button>

@@ -6668,3 +6668,35 @@ artifact and reasoning about CSS ordering in the built stylesheet.
 root's content edge, and the horizontal-scroll assertion names them in its own message. RULE:
 **an assertion on a total (a scroll width, a count, a sum) carries the list of items that produced
 it, or the next reader re-derives the diagnosis the assertion already had in hand.**
+
+### Two buttons side by side do not wrap, because the button primitive says `whitespace-nowrap`
+**Tag:** frontend
+**ERROR:** with the extraction review sheet's grids and fields all fitting a 390px phone, the
+sheet still scrolled sideways by one element, and the improved measurement named it exactly:
+`iese: button[] "Renunță" 293..383`, run 36009200265, the only failure of 402 cases. The sheet's
+footer is `flex items-center gap-2.5` holding `Confirmă și creează comanda` and `Renunță`. The
+first measured 250px of the 284px available and the second started at 293 and ended at 383, well
+past the sheet's content edge. The row cannot relieve itself: `Button` in
+`components/ui/primitives.tsx` carries `whitespace-nowrap`, deliberately, so a label never breaks
+mid-phrase, and a flex row of nowrap children has a min-content width equal to their sum.
+**SOLUTION:** `max-md:flex-col max-md:items-stretch` on the footer, which is exactly what the
+cancel block twenty lines below it already does since P3-84. RULE: **a row of two or more buttons
+is the last thing to check when making a screen fit a phone, and the first thing that will not fix
+itself. `flex-wrap` is not enough when one label is long; stack them and let them stretch. Search
+for `flex items-center gap` holding more than one `Button` in any component being brought to a
+phone.**
+
+### Three CI runs for one screen, and each one could only see the next fault
+**Tag:** ci
+**ERROR:** P3-97's F9 case went red three times for three different reasons, in a strict order the
+assertions imposed: a board timestamp (1m27s, before the suite ran at all), then a grid item that
+would not shrink (34m), then a button row that would not wrap (33m). Roughly 70 minutes of CI to
+learn three things that a single pass could have reported together, because `expectFitsPhone`
+asserts the horizontal scroll FIRST and aborts, so every later clause stayed unmeasured each time.
+**SOLUTION:** nothing was weakened and no assertion was reordered, because the order is right: a
+screen that scrolls sideways cannot be judged for tap targets meaningfully. What changed is that
+the first assertion now names every element that overflows rather than printing two numbers, so
+one run reports one COMPLETE fault instead of one symptom. RULE: **when a helper asserts a chain
+of clauses about the same object, make the first clause report the full set of offenders it
+already knows about. Ordering the clauses is correct; discarding the diagnosis the first one
+gathered is what costs the extra runs.**
