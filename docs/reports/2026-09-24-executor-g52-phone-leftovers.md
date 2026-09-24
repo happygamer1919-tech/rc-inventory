@@ -114,6 +114,8 @@ goal's own sentence ("Memento's threshold link then lands on a usable form") tur
   `max-md:grid-cols-1`, because its two fields are selects with long option text.
 - **All ten hand rolled inputs and selects** take `PHONE_CONTROL`. The two `DateField`s already
   had the treatment through `DateField`'s own `CONTROL` string and were left alone.
+- **All twelve `<label>`s that are direct grid items** take `max-md:min-w-0`, without which the
+  sheet still scrolled sideways. Section 5b has the measurement and the reason.
 - **The seven pre-existing `max-md` classes were not touched.** `grep -c max-md` on the file goes
   from 7 to 14 and every one of the original seven is still on the line it was on.
 
@@ -248,9 +250,39 @@ layout classes, their shared definitions, two test files and these documents.
 
 ---
 
+## 5b. The CI attempts, in order
+
+| attempt | run | result |
+|---|---|---|
+| first push | 36003920985 | **red in 1m27s**, `Refuse a board timestamp from the future`. A rounded card timestamp, ten minutes ahead of its own commit. Section 6. |
+| attempt 1 | 36004256617 | **red after 34m9s, 398 passed and 1 failed**, and the one failure was this card's own new F9 case: `derulare laterala in [data-testid='review-form']`, `scrollWidth` 350 against `clientWidth` 324. The other three `G52:` cases passed, and so did every pre-existing case in the suite. |
+| attempt 2 | this push | the fix below. |
+
+**What attempt 1 found, and it was a real defect in the fix rather than a flaky test.** The per
+line grid was correct: `max-md:grid-cols-2` is `repeat(2, minmax(0, 1fr))`, and the built
+stylesheet was read to confirm the `max-md:` rule is emitted after the arbitrary
+`grid-cols-[1fr_1fr_110px_110px]` and therefore wins below 768px. The tracks were shrinking. The
+**items** were not: a grid item has `min-width: auto`, an automatic minimum equal to its
+min-content width, and the min-content width of a `<select>` in Chrome is its longest `<option>`.
+`Produs din catalog` holds the whole catalogue, SKU and name, so its `<label>` refused to shrink
+below roughly 350px inside a 284px column. `w-full` on the select cannot help, because the element
+that will not shrink is the label around it.
+
+**The fix:** `max-md:min-w-0` on all twelve `<label>`s that are direct grid items in the sheet, and
+on the EXT-34 detail row, which also carries `max-md:[overflow-wrap:anywhere]` because it prints a
+supplier's free text. This is the same class and the same reason `PHONE_CELL` in
+`components/ui/phone.ts` has carried `max-md:min-w-0` since P3-64. Nothing above 768px is touched.
+
+**And the measurement was improved so the next reader does not repeat this.** The failure printed
+`Expected: <= 324, Received: 350` and nothing else. The existing `outside` list could not have
+named the culprit: it measures against the 390px viewport, and an element 350px wide starting at
+x=33 ends at 383, inside the screen and outside its own root. `readPhone` now also returns
+`wider`, every descendant whose right edge passes the root's content edge, and both horizontal
+scroll assertions name them in their own message.
+
 ## 6. Learnings
 
-Two entries appended to `docs/LEARNINGS.md`:
+Four entries appended to `docs/LEARNINGS.md`:
 
 1. **Changing a grid's column count on a phone leaves every `col-span-N` child pointing at columns
    that no longer exist.** A span wider than the track count makes CSS grid create implicit
@@ -258,6 +290,11 @@ Two entries appended to `docs/LEARNINGS.md`:
 2. **A phone class copied into a screen instead of imported is a class that stops being the same
    class**, with the measurement of section 3 and the rule that a fix removing a duplicate should
    count the remaining copies before the commit message claims they are gone.
+3. **A grid item does not shrink below its longest `<option>`, and `minmax(0, 1fr)` does not save
+   it.** What attempt 1 found, with the rule that when a container stops overflowing and its
+   contents still do, the fault is the item's automatic minimum size and not the track sizing.
+4. **A phone measurement that reports only two numbers sends the next reader back to the start**,
+   with the rule that an assertion on a total carries the list of items that produced it.
 
 **A third thing broke and gets no LEARNINGS entry, on purpose.** The first CI run, 36003920985,
 failed in 1 minute 27 seconds at `Refuse a board timestamp from the future`: the card's

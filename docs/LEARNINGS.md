@@ -6586,3 +6586,34 @@ classes now live in one place while 53 copies remain has documented a belief rat
 change. The measurement is a ten line script over `^const PHONE_` against the shared file's
 exports, with template literals resolved before comparing, or two copies written differently and
 meaning the same thing read as drift.**
+
+### A grid item does not shrink below its longest `<option>`, and `minmax(0, 1fr)` does not save it
+**Tag:** frontend
+**ERROR:** P3-97 gave the extraction review sheet `max-md:grid-cols-2` on its per line row, and the
+sheet still scrolled sideways on a phone: `scrollWidth` 350 against `clientWidth` 324, from
+`tests/e2e/phone-forms.spec.ts` at 390px, run 36004256617, the only failure of 399 cases. The
+grid itself was correct. Tailwind's `grid-cols-2` is `repeat(2, minmax(0, 1fr))`, so the TRACKS
+shrink as they should, and the CSS order was checked in the built stylesheet to confirm the
+`max-md:` rule really did beat the arbitrary `grid-cols-[1fr_1fr_110px_110px]` underneath it.
+The overflow came from the ITEM: a grid item has `min-width: auto`, which is an automatic minimum
+size equal to its min-content width, and the min-content width of a `<select>` in Chrome is its
+longest `<option>`. `Produs din catalog` holds the whole catalogue, SKU and name. `w-full` on the
+select does not help, because the element that refuses to shrink is the `<label>` around it.
+**SOLUTION:** `max-md:min-w-0` on every `<label>` that is a direct grid item in the sheet, which
+is the same reason `PHONE_CELL` in `components/ui/phone.ts` has carried `max-md:min-w-0` since
+P3-64. RULE: **when a grid or flex container stops overflowing but its contents still do, the
+fault is the item's automatic minimum size and not the track sizing; `minmax(0, 1fr)` only
+promises the TRACK will shrink. Any item holding a select, a long unbroken string or a nested
+table needs `min-w-0` at the same breakpoint. Check the item before re-reading the container.**
+
+### A phone measurement that reports only two numbers sends the next reader back to the start
+**Tag:** ci
+**ERROR:** the failure above printed `Expected: <= 324, Received: 350` and nothing else. `outside`,
+the existing list of elements that leave the screen, was empty and could not have caught it: it
+measures against the 390px VIEWPORT, and an element 350px wide starting at x=33 ends at 383,
+inside the screen and outside its own 324px root. Diagnosing it meant downloading the Playwright
+artifact and reasoning about CSS ordering in the built stylesheet.
+**SOLUTION:** `readPhone` now also returns `wider`, every descendant whose right edge passes the
+root's content edge, and the horizontal-scroll assertion names them in its own message. RULE:
+**an assertion on a total (a scroll width, a count, a sum) carries the list of items that produced
+it, or the next reader re-derives the diagnosis the assertion already had in hand.**

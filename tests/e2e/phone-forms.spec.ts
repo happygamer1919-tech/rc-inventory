@@ -58,6 +58,12 @@ type Reading = {
   smallFonts: string[];
   outside: string[];
   clipped: string[];
+  /** P3-97. Cine anume iese din radacina, cand radacina deruleaza lateral.
+   *  `outside` masoara fata de ECRAN si nu prinde un element care iese dintr-un
+   *  panou ingust fara sa treaca de 390px, ceea ce este tocmai cazul unei fise
+   *  desenate inauntrul unui card. Fara lista asta mesajul spune numai ca 350
+   *  este mai mult decat 324, si urmatorul om reia ancheta de la zero. */
+  wider: string[];
   visibleTheads: number;
 };
 
@@ -110,11 +116,20 @@ async function readPhone(page: Page, rootSelector = "main"): Promise<Reading> {
 
       const outside: string[] = [];
       const clipped: string[] = [];
+      // P3-97. Marginea din dreapta a cutiei de continut a radacinii, care este
+      // limita pe care un copil nu are voie sa o treaca.
+      const rootBox = root.getBoundingClientRect();
+      const rootPad = parseFloat(getComputedStyle(root).paddingRight) || 0;
+      const rootRight = rootBox.right - rootPad;
+      const wider: string[] = [];
       for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
         if (!visible(el)) continue;
         const rect = el.getBoundingClientRect();
         if (rect.left < -0.5 || rect.right > width + 0.5) {
           outside.push(`${name(el)} ${rect.left.toFixed(0)}..${rect.right.toFixed(0)}`);
+        }
+        if (rect.right > rootRight + 0.5) {
+          wider.push(`${name(el)} ${rect.left.toFixed(0)}..${rect.right.toFixed(0)}`);
         }
         // Un camp isi taie mereu textul in propria caseta; restul nu au voie.
         const field = ["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
@@ -139,6 +154,7 @@ async function readPhone(page: Page, rootSelector = "main"): Promise<Reading> {
         smallFonts,
         outside,
         clipped,
+        wider,
         visibleTheads: Array.from(root.querySelectorAll("thead")).filter(visible).length,
       };
     },
@@ -163,9 +179,11 @@ async function expectFitsPhoneInPlace(page: Page, where: string, rootSelector: s
     r.document.clientWidth,
   );
   expect(r.main.scrollWidth, `derulare laterala in <main> pe ${where}`).toBeLessThanOrEqual(r.main.clientWidth);
-  expect(r.root.scrollWidth, `derulare laterala in ${rootSelector} pe ${where}`).toBeLessThanOrEqual(
-    r.root.clientWidth,
-  );
+  // Cine iese este in mesaj: o pereche de numere singura nu spune ce sa repari.
+  expect(
+    r.root.scrollWidth,
+    `derulare laterala in ${rootSelector} pe ${where}, iese: ${r.wider.join(" | ") || "nimeni"}`,
+  ).toBeLessThanOrEqual(r.root.clientWidth);
   expect(r.smallTargets, `tinte sub ${MIN_TAP}px pe ${where}`).toEqual([]);
   expect(r.smallFonts, `campuri sub ${MIN_INPUT_FONT}px pe ${where}`).toEqual([]);
   expect(r.outside, `elemente in afara ecranului pe ${where}`).toEqual([]);
@@ -181,9 +199,10 @@ async function expectFitsPhone(page: Page, where: string, rootSelector = "main")
     r.document.clientWidth,
   );
   expect(r.main.scrollWidth, `derulare laterala in <main> pe ${where}`).toBeLessThanOrEqual(r.main.clientWidth);
-  expect(r.root.scrollWidth, `derulare laterala in ${rootSelector} pe ${where}`).toBeLessThanOrEqual(
-    r.root.clientWidth,
-  );
+  expect(
+    r.root.scrollWidth,
+    `derulare laterala in ${rootSelector} pe ${where}, iese: ${r.wider.join(" | ") || "nimeni"}`,
+  ).toBeLessThanOrEqual(r.root.clientWidth);
   if (rootSelector !== "main") {
     expect(Math.abs(r.root.width - PHONE.width), `panoul nu are latimea ecranului pe ${where}`).toBeLessThanOrEqual(
       0.5,

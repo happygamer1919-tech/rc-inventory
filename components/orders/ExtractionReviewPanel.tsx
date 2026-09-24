@@ -33,6 +33,15 @@
 //   - fiecare camp si fiecare lista scrise de mana aici, adica in afara lui Input
 //     si Select din primitives, primesc PHONE_CONTROL: 44px inaltime si text de
 //     16px, sub care iOS Safari mareste pagina la atingerea campului.
+//
+// SI FIECARE ETICHETA DIN CELE DOUA GRILE POARTA max-md:min-w-0, care nu este
+// decor. Un element de grila are min-width: auto, adica nu se strange niciodata
+// sub latimea lui de continut minim, iar continutul minim al unei liste de
+// selectie este optiunea ei cea mai lunga: "Produs din catalog" tine tot
+// catalogul, cu SKU si denumire. Coloana este minmax(0, 1fr) si se stramteaza
+// cum trebuie, dar eticheta dinauntru iese din ea, si atunci fisa deruleaza
+// lateral degeaba. Acelasi motiv pentru care PHONE_CELL din fisierul comun
+// poarta max-md:min-w-0 de la P3-64.
 // Cele sapte clase max-md de dinainte, de pe blocul de renuntare si de pe capul
 // fisei documentului, raman neatinse.
 
@@ -191,7 +200,7 @@ function InboundLineDetails({ line, index }: { line: ExtractionLine | undefined;
   if (!line || (!line.supplierCode && !line.lineDescription && !line.lineTotalSource)) return null;
   return (
     <p
-      className="col-span-4 max-md:col-span-2 flex flex-wrap gap-x-5 text-[11.5px] text-rc-muted-2"
+      className="col-span-4 max-md:col-span-2 max-md:min-w-0 max-md:[overflow-wrap:anywhere] flex flex-wrap gap-x-5 text-[11.5px] text-rc-muted-2"
       data-testid={`review-line-inbound-${index}`}
     >
       {line.supplierCode ? (
@@ -420,7 +429,7 @@ function ReviewForm({
           de calendar este singur o tinta de 44px, si nu incap la jumatate de
           latime. Peste 768px raman cele patru coloane de azi. */}
       <div className={`grid grid-cols-4 gap-3 ${PHONE_STACK}`}>
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Furnizor
           <input
             data-testid="review-supplier"
@@ -429,7 +438,7 @@ function ReviewForm({
             className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           />
         </label>
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Monedă
           <select
             data-testid="review-currency"
@@ -442,7 +451,7 @@ function ReviewForm({
             <option value="RON">RON</option>
           </select>
         </label>
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Data documentului
           <span className="mt-1 block">
             <DateField
@@ -454,7 +463,7 @@ function ReviewForm({
             />
           </span>
         </label>
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Livrare estimată
           <span className="mt-1 block">
             <DateField
@@ -470,7 +479,7 @@ function ReviewForm({
             camp este doua fapte lipite la tastare, si nimic nu le mai poate
             dezlipi: un ecran care le vrea impreuna le poate alatura, unul care
             cauta dupa numar nu poate desface ce a fost concatenat. */}
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Seria documentului
           <input
             data-testid="review-order-ref-series"
@@ -480,7 +489,7 @@ function ReviewForm({
             className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           />
         </label>
-        <label className="text-[12.5px] text-rc-muted">
+        <label className="text-[12.5px] text-rc-muted max-md:min-w-0">
           Numărul documentului
           <input
             data-testid="review-order-ref"
@@ -548,7 +557,7 @@ function ReviewForm({
             ) : null}
             {/* P3-97, constatarea F9. Cele doua campuri late tin randul intreg
                 pe telefon; cantitatea si pretul, amandoua scurte, il impart. */}
-            <label className="text-[12px] text-rc-muted max-md:col-span-2">
+            <label className="text-[12px] text-rc-muted max-md:col-span-2 max-md:min-w-0">
               Nume pe document
               <input
                 data-testid={`review-line-name-${index}`}
@@ -557,7 +566,7 @@ function ReviewForm({
                 className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               />
             </label>
-            <label className="text-[12px] text-rc-muted max-md:col-span-2">
+            <label className="text-[12px] text-rc-muted max-md:col-span-2 max-md:min-w-0">
               Produs din catalog
               <select
                 data-testid={`review-line-product-${index}`}
@@ -573,7 +582,7 @@ function ReviewForm({
                 ))}
               </select>
             </label>
-            <label className="text-[12px] text-rc-muted">
+            <label className="text-[12px] text-rc-muted max-md:min-w-0">
               Cantitate
               <input
                 data-testid={`review-line-quantity-${index}`}
@@ -582,7 +591,7 @@ function ReviewForm({
                 className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               />
             </label>
-            <label className="text-[12px] text-rc-muted">
+            <label className="text-[12px] text-rc-muted max-md:min-w-0">
               Preț unitar
               <input
                 data-testid={`review-line-price-${index}`}
@@ -606,7 +615,7 @@ function ReviewForm({
                 className="col-span-4 max-md:col-span-2 grid grid-cols-[1fr_1fr] gap-2.5 max-md:grid-cols-1"
                 data-testid={`review-line-new-${index}`}
               >
-                <label className="text-[12px] text-rc-muted">
+                <label className="text-[12px] text-rc-muted max-md:min-w-0">
                   Categorie pentru produsul nou
                   <select
                     data-testid={`review-line-category-${index}`}
@@ -633,7 +642,7 @@ function ReviewForm({
                   ) : null}
                 </label>
 
-                <label className="text-[12px] text-rc-muted">
+                <label className="text-[12px] text-rc-muted max-md:min-w-0">
                   Unitate pentru produsul nou
                   <select
                     data-testid={`review-line-unit-${index}`}
