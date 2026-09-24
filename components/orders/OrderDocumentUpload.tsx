@@ -16,6 +16,58 @@ import { uploadOrderDocument } from "@/lib/data/inbound-actions";
 const ACCEPT = "application/pdf,image/png,image/jpeg";
 const MAX_BYTES = 10 * 1024 * 1024;
 
+// P3-98, CONSTATAREA F18 A MATURARII DIN 2026-09-22.
+//
+// `File.type` este ce s-au inteles sistemul de operare si browserul sa spuna, si
+// este PE BUNA DREPTATE sirul gol cand sistemul nu are o potrivire pentru
+// extensie. Unele sisteme scriu si `image/jpg` in loc de `image/jpeg`. Pana la
+// cardul acesta casuta compara sirul exact, deci un PDF bun era refuzat inainte
+// sa plece, cu un mesaj care spunea ca fisierul este de alt fel cand nu era.
+//
+// CUM SE REPARA, SI DE CE ASA. Tipul se DUCE LA FORMA LUI CANONICA aici, inainte
+// de trimitere: aliasul se indreapta, iar tipul gol se citeste din extensie,
+// exact ce ar fi facut sistemul daca ar fi cunoscut-o. Fisierul pleaca apoi cu
+// acel tip.
+//
+// VERIFICAREA DE PE SERVER RAMANE NEATINSA, si asta este chiar motivul pentru
+// care indreptarea se face inainte de trimitere si nu doar in dreptul mesajului:
+// `uploadOrderDocument` (lib/data/inbound-actions.ts) compara si el `file.type`
+// cu aceleasi trei tipuri, iar un File cu tipul gol ajunge acolo ca
+// `application/octet-stream` (asa cere serializarea multipart cand tipul
+// lipseste, masurat pe Chromium, nu presupus). O reparatie numai in dreptul
+// mesajului ar fi mutat refuzul de pe ecran pe server, cu acelasi text, si nu ar
+// fi schimbat nimic pentru operator. Nimic nu slabeste: serverul refuza in
+// continuare orice nu este PDF, PNG sau JPG, iar bucketul isi aplica limitele
+// lui din migratia 0002.
+//
+// UN FEL CHIAR GRESIT ESTE REFUZAT MAI DEPARTE: un .exe sau un .zip nu are nici
+// tip acceptat, nici extensie acceptata, deci primeste acelasi mesaj romanesc.
+
+/** Tipul pe care il are un fel de fisier acceptat, dupa extensie. Se foloseste
+ *  NUMAI cand browserul nu a spus niciun tip. */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+};
+
+/** Tipuri pe care unele sisteme le scriu in locul celui canonic. */
+const TYPE_ALIASES: Record<string, string> = {
+  "image/jpg": "image/jpeg",
+};
+
+/** Tipul canonic cu care pleaca fisierul, sau null cand nu este un fel acceptat. */
+function acceptedType(file: File): string | null {
+  const canonical = TYPE_ALIASES[file.type] ?? file.type;
+  if (ACCEPT.split(",").includes(canonical)) return canonical;
+  // Un tip spus si neacceptat ramane refuzat: extensia nu il poate salva.
+  if (file.type !== "") return null;
+  const dot = file.name.lastIndexOf(".");
+  const extension = dot === -1 ? "" : file.name.slice(dot).toLowerCase();
+  return TYPE_BY_EXTENSION[extension] ?? null;
+}
+
 export function OrderDocumentUpload({
   orderId,
   onUploaded,
@@ -44,7 +96,8 @@ export function OrderDocumentUpload({
     setFileName(file?.name ?? null);
     if (!file) return;
 
-    if (!ACCEPT.split(",").includes(file.type)) {
+    const type = acceptedType(file);
+    if (type === null) {
       setError("Se acceptă doar PDF, PNG sau JPG.");
       clearChoice();
       return;
@@ -57,7 +110,8 @@ export function OrderDocumentUpload({
 
     setPending(true);
     const formData = new FormData();
-    formData.set("file", file);
+    // Acelasi fisier, cu tipul dus la forma canonica doar cand a fost nevoie.
+    formData.set("file", type === file.type ? file : new File([file], file.name, { type }));
     const result = await uploadOrderDocument(orderId, formData);
     setPending(false);
 
