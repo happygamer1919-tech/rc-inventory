@@ -6,11 +6,27 @@
 // Erorile sunt romanesti si se aseaza pe campul vinovat. Un mesaj brut de
 // Postgres pe ecran este un defect: "duplicate key value violates unique
 // constraint products_sku_unique" devine "Există deja un produs cu acest cod SKU."
+//
+// P3-97, constatarea F10. PE TELEFON, ACELASI TRATAMENT CA LA FORMULARUL DE
+// CLIENT, din care este copiat rand cu rand: panoul ia toata latimea ecranului,
+// butonul de inchidere este o tinta de 44px, iar fiecare rand de doua campuri se
+// aseaza unul sub altul. P3-65 a adus acest tratament la ClientForm, LeaduriForm
+// si ProductPanel si a lasat deoparte formularul acesta ("ProductForm not
+// included"), iar P3-67 nu l-a ridicat; asta il ridica.
+//
+// CONTEAZA FIINDCA MEMENTO TRIMITE AICI: un prag apasat pe /memento deschide
+// tocmai acest formular, cu pragul in focus, iar Memento este de mult un ecran
+// de telefon. Legatura si focusul nu se ating aici: numai asezarea formularului.
+//
+// Campurile sunt Input si Select din primitives, care poarta deja de la P3-65
+// inaltimea de 44px si textul de 16px, deci nu au nevoie de nimic in plus.
+// Peste 768px nimic nu se schimba: fiecare clasa de mai jos poarta max-md.
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Select } from "@/components/ui/primitives";
 import { FilePicker } from "@/components/ui/FilePicker";
+import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
@@ -331,7 +347,7 @@ export function ProductForm({
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
       <aside
-        className="relative w-[520px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl"
+        className={`relative w-[520px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="product-form"
       >
         <div className="sticky top-0 bg-rc-white text-rc-black border-b border-rc-line px-6 py-4 flex items-start justify-between gap-4">
@@ -349,7 +365,7 @@ export function ProductForm({
             type="button"
             onClick={onClose}
             aria-label="Închide"
-            className="shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors"
+            className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
             ✕
           </button>
@@ -374,7 +390,7 @@ export function ProductForm({
                   ? "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria, furnizorul și valoarea unitară se completează singure, iar apoi se pot modifica."
                   : "Opțional. Alege modelul, seria și grosimea: denumirea, unitatea, categoria și furnizorul se completează singure, iar denumirea se poate modifica."}
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid grid-cols-2 gap-3 ${PHONE_STACK}`}>
                 <Field label="Model">
                   <Select
                     value={sheetModel}
@@ -486,7 +502,7 @@ export function ProductForm({
             </Select>
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${PHONE_STACK}`}>
             <Field label="Prag recomandă">
               <Input
                 value={threshold}
@@ -543,7 +559,7 @@ export function ProductForm({
               Doar dacă furnizorul facturează altfel decât unitatea de stoc. Lasă gol
               dacă facturează la fel.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid grid-cols-2 gap-3 ${PHONE_STACK}`}>
               <Field label="Ambalaj (opțional)">
                 <Input
                   value={packageUnit}

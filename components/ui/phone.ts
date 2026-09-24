@@ -20,6 +20,16 @@ export const PHONE_STACK = "max-md:grid-cols-1";
 /** O tinta de atingere de 44px, pentru butoane si legaturi scrise de mana. */
 export const PHONE_TAP = "max-md:min-h-11";
 
+// P3-97, constatarea F14. UN CAMP SCRIS DE MANA, care nu trece prin Input sau
+// Select din primitives si deci nu mosteneste tratamentul lor. Doua lucruri
+// deodata, fiindca pe telefon nu are rost unul fara celalalt: 44px inaltime, si
+// text de 16px, sub care iOS Safari mareste pagina la atingerea campului.
+//
+// Aceasta clasa a trait pana acum numai in ClientsScreen.tsx, ca al saselea
+// nume local de acolo. Fisa de verificare a extragerii are nevoie exact de
+// aceeasi combinatie, deci se muta aici in loc sa fie scrisa a doua oara.
+export const PHONE_CONTROL = `${PHONE_TAP} max-md:text-base`;
+
 /** O legatura in text sau intr-un rand: pe telefon o tinta de 44px, nu doar textul. */
 export const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
 
