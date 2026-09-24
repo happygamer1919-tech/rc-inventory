@@ -6807,3 +6807,19 @@ test that encodes a bug is fixed by fixing the bug, and the line is corrected ra
 the record shows what it used to claim. RULE: **when a finding names a string on screen, grep the
 suite for that string before writing the repair: an existing assertion on it is part of the card,
 and finding it afterwards costs a red run.**
+
+### Grepping for a literal misses the assertion that builds the same string by interpolation
+**Tag:** ci
+**ERROR:** P3-98 changed the Clienti list header from `48 clienți` to `48 de clienți` and grepped
+the suite for the affected strings first, exactly as the entry above prescribes. It still cost a
+red case. `tests/e2e/crm-landing.spec.ts:342` reads
+`page.getByText(\`${total} clienți\`, { exact: true })`, where `total` comes from a live count, and
+the searched-for literal `"48 clienți"` does not appear anywhere in the repository: only the two
+words `} clienți` do, and only inside a template. The red run named it in one line,
+`waiting for getByText('48 clienți', { exact: true })`, but the whole suite had to run first.
+**SOLUTION:** the assertion now builds its expected string with the same three form rule,
+re-implemented locally rather than imported, so it still demands the exact text on the stored count
+and is not weakened. RULE: **when a repair changes the SHAPE of a rendered sentence and not just
+one literal, grep for the stable part of it, the noun alone and the `} <noun>` of a template, not
+for the sentence you are replacing. A count that comes from the database is never in the source as
+a literal, and that is the assertion that will find you.**

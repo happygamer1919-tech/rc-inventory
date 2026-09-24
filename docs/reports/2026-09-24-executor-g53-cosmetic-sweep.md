@@ -234,7 +234,7 @@ the one box, so it is not touched here. It wants a card of its own.
 
 ---
 
-## 7. The two findings this card recorded and did not fix
+## 7. The findings this card recorded and did not fix
 
 Written as one line each, as the task asked, for follow-up cards:
 
@@ -242,14 +242,76 @@ Written as one line each, as the task asked, for follow-up cards:
    elsewhere, and it is the hint colour under every page title and on several small captions.
 2. **`lib/data/extraction-actions.ts:95-96` compares the browser's MIME string exactly**, the same
    shape as F18, so the same valid PDF is refused by the upload box on `/incarca-comanda`.
+3. **Eleven more hand rolled two form plurals remain**, which the critic report's F12 table did not
+   list and this card therefore did not touch: `components/projects/ProjectsScreen.tsx:128`,
+   `components/projects/ProjectTabs.tsx:278`, `components/documents/DocumentsPanel.tsx:438`,
+   `components/inventory/ProcurementScreen.tsx:161`, `components/outbound/OutboundScreen.tsx:199`,
+   `components/orders/OrdersScreen.tsx:137` and `:194`, `components/orders/InboundPanel.tsx:74` and
+   `:86`, and `components/orders/ExtractionReviewPanel.tsx:937`.
+
+**On the third one, and it is a judgement worth stating rather than burying.** One of those eleven
+is in the same file as a counter this card did repair: `DocumentsPanel.tsx:438` is the pager line
+`Pagina 1 din 1, N documente`, twelve lines below the `Vezi toate cele N documente` link that is
+repaired here. At twenty documents the two lines will disagree with each other on the same screen.
+It was left alone anyway, because CLAUDE.md section 3 says a defect noticed in passing becomes a new
+card and not a quiet extra commit, and eleven sites with no named acceptance is a sweep and not a
+footnote: each wants a case, and the review queue and the orders list are not screens to change
+without one. The goal line's word "everywhere" is the argument for doing them, and that argument
+belongs to the owner, not to this card.
+
+**The seventh site was different and was repaired**, because the task named it and asked for it to
+be checked and said so: `UploadOrderScreen.tsx` holds the identical ternary the report named in
+`ManualOrderScreen.tsx` and was read on that instruction.
 
 ---
 
 ## 8. CI, in order
 
-To be resumed when the runs conclude. The first push is a deliberate red arm and the pull request is
-opened as a **draft**, because the owner auto-merger merges on the first green and does not merge a
-draft (`docs/LEARNINGS.md`, the P3-97 entry).
+The pull request is **#359** and it was opened as a **draft**, because the owner auto-merger merges
+on the first green and does not merge a draft (`docs/LEARNINGS.md`, the P3-97 entry). The first push
+is a deliberate red arm.
+
+### The red arm: run 36033175839, head 2898326, FAILURE in 25.6 minutes, 411 passed and 6 failed
+
+Every step before `End to end` passed. `Refuse a migration that removes rows` parsed 0 files, and
+both applier proof steps are correctly SKIPPED by `applier_scope`. This is not a documentation only
+diff, so `Build`, `Apply every migration to a bare postgres, unmodified` and the whole `End to end`
+block RAN.
+
+**Five of the six failures are the proof this run exists for**, and they are exactly the five
+predicted in the card's evidence before the run started:
+
+| Case | What the browser measured |
+|---|---|
+| `cipul portocaliu de pe /setari ... atinge 4.5:1` | `text rgb(240, 104, 1) pe rgb(255, 245, 234), raport 2.92:1` |
+| `cipul chihlimbar de pe /memento ... atinge 4.5:1` | `text rgb(183, 121, 31) pe rgb(255, 248, 230), raport 3.44:1` |
+| `fiecare ton de cip atinge 4.5:1` | `neutral 4.93:1, ok 4.99:1, warn 3.44:1, danger 4.93:1, info 5.83:1, orange 2.92:1` |
+| `F18: un .pdf ... fara niciun tip este primit` | refused; the premise assertion passed, so the empty type did reach the guard |
+| `F18: un .jpg dat ca image/jpg este primit` | refused |
+
+**The browser's own numbers are the critic report's numbers, to the hundredth**: 2.92 and 3.44 for
+the two failing tones, and 4.93, 4.99, 4.93 and 5.83 for the four that pass. The report measured
+them from the hex values; this run measured them from `getComputedStyle` in a real page, and they
+agree. The two F18 refusing cases passed in the same run, so the guard was refusing the right things
+and the wrong things at the same time, which is the defect stated precisely.
+
+**The sixth failure was mine and was not predicted**, and it is the useful part of the run.
+`tests/e2e/crm-landing.spec.ts:342` asserts
+`page.getByText(\`${total} clienți\`, { exact: true })` on a count read live from the database. F12
+changes that header to `48 de clienți`, so the assertion could not match. The suite had been grepped
+for the affected strings before the repair was written, and the grep missed it because the literal
+`48 clienți` exists nowhere in the repository: only `} clienți` does, inside a template. The
+assertion is repaired by building its expected string with the same three form rule, re-implemented
+locally, so it still demands the exact text on the stored count and is **not** weakened. The lesson
+is in `docs/LEARNINGS.md`.
+
+Nothing else in the suite moved: 411 cases passed, including the three pre-existing button contrast
+cases, every pre-existing Azi case, and all seven new F12 counter cases.
+
+### The second push
+
+Carries the two colour tokens, the F18 guard, the `crm-landing` repair, this resume and the card's
+evidence. The pull request is marked ready for review at that point.
 
 ---
 
@@ -259,7 +321,22 @@ This machine has no Docker and no Supabase CLI, so the end to end suite and the 
 only in CI. Everything that needs no database was run here. Each command was run alone, with no
 pipe, and its exit code read on the next line, per CLAUDE.md section 6.
 
-To be completed in section 8's resume.
+Each of these exited 0, before each push: `npx tsc --noEmit`, `npm run build`,
+`node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json`,
+`npm run check:card-ids`, `npm run check:board-edit`, `npm run check:board-clock`,
+`npm run check:unique-ids`, `npm run check:open-branch-ids`,
+`npm run check:no-destructive-migration`, `npm run check:conflict-residue` (run AFTER `git add`, per
+the known failure that it only scans tracked files), `npm run check:categories`,
+`npm run check:ledger-rows`, `npm run check:no-prod-target`, `npm run check:pending-schema-reads`,
+`npm run check:removal-safety`, `npm run check:assertion-register`, and `npx playwright test --list`,
+which collects 417 cases in 59 files, fifteen of them new here.
+
+**A probe on the built stylesheet** stands in for the browser this machine cannot drive against a
+database. After the colour change, `.next/static/chunks/*.css` carries
+`--color-rc-orange-chip:#b34e00`, `--color-rc-warn-chip:#96600f`,
+`.text-rc-orange-chip{color:var(--color-rc-orange-chip)}` and
+`.text-rc-warn-chip{color:var(--color-rc-warn-chip)}`, so the classes the chip now uses are emitted
+and resolve to the measured colours.
 
 ---
 
@@ -281,6 +358,7 @@ To be completed in section 8's resume.
 | `tests/e2e/romanian-counts.spec.ts` | new: F12, seven cases |
 | `tests/e2e/button-contrast.spec.ts` | F13 and F17, three cases added, three unchanged |
 | `tests/e2e/order-document-type.spec.ts` | new: F18, four cases |
+| `tests/e2e/crm-landing.spec.ts` | F12, an assertion that built the old two form plural |
 | `docs/board/rc-board-phase3.json` | the card |
 | `docs/LEARNINGS.md` | the ERROR/SOLUTION pairs |
 | `docs/reports/2026-09-24-executor-g53-cosmetic-sweep.md` | this file |
