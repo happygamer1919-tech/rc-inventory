@@ -6901,3 +6901,25 @@ order Tailwind happens to emit the two rules in, not by the class list. RULE: **
 shared layout constant, read every call site of the local one. A constant that is missing a clause
 other copies have is not always drift; sometimes the clause lives on the element above it, and the
 comment next to the constant usually says so.**
+
+### The OsteoJP read for a comparison report is refused by a working-directory gate, not a file permission
+**Tag:** infra
+**ERROR:** goal G57 asked for a Facturare design report that reads
+`/Users/sm33xy/Projects/OsteoJP` read-only as a reference for a finished invoicing feature. A plain
+`ls /Users/sm33xy/Projects/OsteoJP/apps/web/lib/invoices` answered `ls in '...' was blocked. For
+security, Claude Code may only list files in the allowed working directories for this session`, and
+named the three allowed roots: the factory folder, `rc-inventory`, and the worktrees folder. It is
+not a file permission, not a missing folder and not anything about OsteoJP. Every one of the seven
+paths the brief named is behind the same gate. YELLOW hit the same gate the same day while preparing
+the task, so the run was the second attempt at the same wall.
+**SOLUTION:** one attempt, then stop, exactly as the brief said: no retry in pieces, through the
+Read tool, or from another directory, since each of those is the same refused read wearing a
+different hat. The factory question `q083-g57-osteojp-read-denied.md` records which path was refused
+and in what words, and the report was written from this repository's own code instead, with a section
+naming the paths that were NOT read and what that costs. It cost craft details and no decisions: the
+one hard part of the design was Moldova's e-Factura system, which a Portuguese invoicing feature
+could never have answered. RULE: **a cross-repository reference read is a session capability, not a
+task instruction, and it either exists when the session starts or it does not. Check it with one
+cheap `ls` BEFORE planning a report around it, then either write the report without it or stop and
+ask for the directory to be added. A task whose deliverable depends on a second repository says in
+its own text what to deliver when that repository cannot be opened.**
