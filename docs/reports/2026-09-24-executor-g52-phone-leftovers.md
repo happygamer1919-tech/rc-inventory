@@ -1,5 +1,11 @@
 # EXECUTOR: P3-97, the phone leftovers (goal G52, findings F9, F10 and F14)
 
+**STATUS: HALTED at the failure ceiling, one line of test data short of green. Not shipped, not
+merged.** Pull request #357 is open and red on one case of 402. Three of the four new cases are
+green, and the fourth is green on every layout clause and red on its fill-and-confirm half because
+the test omitted a required field. Section 5b has the whole account; the decision is in
+`mailbox/questions/q078-p3-97-halted-one-line-from-green.md`.
+
 Role: AUTHOR first, then EXECUTOR, in one pull request.
 Branch: `card/p3-97`. Card: **P3-97**, phase 3 board.
 Source: the operator factory's goal G52, against findings F9, F10 and F14 of
@@ -260,7 +266,35 @@ layout classes, their shared definitions, two test files and these documents.
 | first push | 36003920985 | **red in 1m27s**, `Refuse a board timestamp from the future`. A rounded card timestamp, ten minutes ahead of its own commit. Section 6. |
 | attempt 1 | 36004256617 | **red after 34m9s, 398 passed and 1 failed**, and the one failure was this card's own new F9 case: `derulare laterala in [data-testid='review-form']`, `scrollWidth` 350 against `clientWidth` 324. The other three `G52:` cases passed, and so did every pre-existing case in the suite. |
 | attempt 2 | 36009200265 | **red after 33m33s, 401 passed and 1 failed**, the same case again and a different fault, which the improved measurement named exactly: `iese: button[] "Renunță" 293..383`. |
-| attempt 3 | this push | the button row fix below. |
+| attempt 3 | 36013778375 | **red after 31m13s, 401 passed and 1 failed**, the same case, and **every layout assertion in it passed**. It failed on its own second half, the fill and confirm. |
+
+**THE CARD IS HALTED AT THE FAILURE CEILING, NOT SHIPPED.** CLAUDE.md section 10 allows three
+distinct fix attempts and this card used all three, each on a different root cause and each fully
+diagnosed rather than guessed. The board carries `status: halted`, `blocked_on: max` and the
+structured decision-needed text; `mailbox/questions/q078-p3-97-halted-one-line-from-green.md` in
+the operator factory carries the same question with its recommended default.
+
+**What attempt 3 found, and it is not a layout fault.** The review sheet now fits a 390px phone on
+every clause the suite measures: no horizontal scroll in the document, in `<main>` or in the sheet,
+no visible target under 44px, no field under 16px, nothing outside the screen, no clipped text.
+The case failed at `expect(page.getByTestId("review-created")).toBeVisible()` after the confirm,
+and the failure screenshot shows the application **behaving correctly**: it refused the
+confirmation and printed `Completează data estimată de livrare.` in Romanian, in the sheet, on
+screen. The expected delivery date is required and **the new test never filled it**.
+`tests/e2e/review.spec.ts` cases 1 and 2 do fill it, with
+`page.getByTestId("review-expected-at").fill("2026-12-01")`, and that line was deliberately left
+out of the new case to keep it minimal. That judgement was wrong, and this is what it cost.
+
+**The three application changes this card exists for are proven green in that run**: the F10
+product form case, the F14 clients list case and the desktop case all passed, and so did the whole
+layout half of the F9 case. What is missing is one line of test data. The obvious fourth push was
+not made, because the ceiling exists precisely to stop a terminal that is certain the next one
+will work, and a rule that bends whenever the terminal feels confident is not a rule.
+
+**Nothing was weakened at any point.** No assertion was relaxed, no case skipped or deleted, no
+threshold loosened, no `|| true`, and no rerun used to paper over a real failure. Option (c) in the
+mailbox question, dropping the confirm half so the check passes without proving the sheet can be
+USED, is written down there only so it can be refused out loud.
 
 **What attempt 1 found, and it was a real defect in the fix rather than a flaky test.** The per
 line grid was correct: `max-md:grid-cols-2` is `repeat(2, minmax(0, 1fr))`, and the built
@@ -383,8 +417,24 @@ Nothing else broke while working this card.
   header grid at one column, not two, because of the date fields.
 - **The wider duplication reported and not fixed**, per CLAUDE.md section 3.
 
-Nothing on the R-057 escalation list was reached, so nothing was asked.
+Nothing on the R-057 escalation list was reached during the work itself. The one question that was
+asked is the failure ceiling in CLAUDE.md section 10, which is not a decision about the product at
+all: it asks whether to spend a fourth attempt on a fault that is already diagnosed.
 
 ---
 
-Role EXECUTOR. Card P3-97. Branch `card/p3-97`.
+## 8. What is left, in one paragraph
+
+Pull request #357 is open, red on one case of 402, and carries three application fixes that are
+each proven green: the product form works on a phone including the reminders deep link, the
+clients list uses the shared phone classes, and the extraction review sheet fits a 390px phone on
+every clause the suite measures. The one red case needs one line of test data, named exactly, with
+the fix copied verbatim from a case that has been green for weeks. The card is `halted` with
+`blocked_on: max` because the failure ceiling was reached, and the question in the operator
+factory's mailbox asks for one more push rather than anything about the product. Nothing reaches
+production either way: no migration, no schema, and the whole diff is layout classes, two test
+files and these documents.
+
+---
+
+Role EXECUTOR. Card P3-97. Branch `card/p3-97`. Halted at the ceiling.
