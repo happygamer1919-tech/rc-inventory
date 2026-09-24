@@ -724,6 +724,7 @@ test.describe("P3-97: formularul de produs si fisa de verificare pe telefon (390
     await page.getByTestId("review-supplier").fill(`TEST Furnizor Telefon ${RUN}`);
     await page.getByTestId("review-line-quantity-0").fill("9");
     await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
+    await page.getByTestId("review-expected-at").fill("2026-12-01");
     await expectFitsPhoneInPlace(page, "fisa de verificare, completata", "[data-testid='review-form']");
     await page.getByTestId("review-confirm").click();
 
