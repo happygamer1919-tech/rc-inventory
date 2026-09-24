@@ -15,6 +15,7 @@ import { Button, Card, Chip, PageHeader } from "@/components/ui/primitives";
 import { EMPTY_INITIAL, InboundOrderForm } from "./InboundOrderForm";
 import { OrderDocumentUpload } from "./OrderDocumentUpload";
 import type { CatalogProduct } from "@/lib/data/products";
+import { plural } from "@/lib/data/format";
 
 type Created = { id: string; reference: string; lineCount: number };
 
@@ -42,8 +43,7 @@ export function ManualOrderScreen({
               {created.reference}
             </p>
             <p className="text-[13.5px] text-rc-muted mt-1.5">
-              Introdusă manual, cu {created.lineCount}{" "}
-              {created.lineCount === 1 ? "poziție" : "poziții"}.
+              Introdusă manual, cu {plural(created.lineCount, "poziție", "poziții")}.
             </p>
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare</Chip>

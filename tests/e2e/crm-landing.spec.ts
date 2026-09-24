@@ -28,6 +28,21 @@ const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 /** Proiectul semanat de scripts/seed-test-crm.mjs, acelasi ca in cross-links.spec. */
 const SEED_PROJECT = "TEST Șantier E2E";
 
+// P3-98, constatarea F12. Antetul listei de clienti se acorda cu numarul lui dupa
+// regula romaneasca CU TREI FORME, deci la 48 scrie "48 de clienți". Pana la acel
+// card scria "48 clienți", si linia de mai jos astepta chiar forma gresita.
+// Clauza nu se inmoaie: se cere in continuare textul EXACT, pe numarul STOCAT.
+// Regula este scrisa aici, nu importata din aplicatie, ca in copy-fixes.spec.
+const NF = new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 0 });
+
+function counted(n: number, one: string, many: string): string {
+  const shown = NF.format(n);
+  if (n === 1) return `${shown} ${one}`;
+  const lastTwo = n % 100;
+  if (n === 0 || (lastTwo >= 1 && lastTwo <= 19)) return `${shown} ${many}`;
+  return `${shown} de ${many}`;
+}
+
 /** Cele trei carduri ale ecranului CRM, in ordine, fiecare cu culoarea lui. */
 const CARDS = [
   { label: "Clienți", colour: "green" },
@@ -339,7 +354,9 @@ test.describe("Ecranul CRM (P3-46)", () => {
     // amandoua randurile.
     const total = await activeClientCount(rest);
     await page.goto("/clienti");
-    await expect(page.getByText(`${total} clienți`, { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(counted(total, "client", "clienți"), { exact: true })).toBeVisible({
+      timeout: 20_000,
+    });
     await page.goto(`/clienti?q=${encodeURIComponent(tag)}`);
     await expect(page.getByTestId("client-row")).toHaveCount(2, { timeout: 20_000 });
     expect(sorted(await rowIds(page))).toEqual(sorted([ids[leadName]!, ids[clientName]!]));

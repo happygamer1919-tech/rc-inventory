@@ -1,5 +1,12 @@
 import * as React from "react";
 
+import {
+  CHIP_BASE,
+  CHIP_TONES,
+  CHIP_TONE_NAMES,
+  type ChipTone,
+} from "@/components/ui/chip-tones";
+
 // Primitivele comune ale sistemului de design RC-01.
 // Suprafata este alba, fundalul este negru, accentul este portocaliu.
 
@@ -81,16 +88,11 @@ export function Button({
 
 /* ------------------------------------------------------------------ chip -- */
 
-export type ChipTone = "neutral" | "ok" | "warn" | "danger" | "info" | "orange";
-
-const CHIP_TONES: Record<ChipTone, string> = {
-  neutral: "bg-rc-paper text-rc-muted border-rc-line-strong",
-  ok: "bg-rc-ok-soft text-rc-ok border-rc-ok/25",
-  warn: "bg-rc-warn-soft text-rc-warn border-rc-warn/25",
-  danger: "bg-rc-danger-soft text-rc-danger border-rc-danger/25",
-  info: "bg-rc-info-soft text-rc-info border-rc-info/25",
-  orange: "bg-rc-orange-soft text-rc-orange-deep border-rc-orange/30",
-};
+// P3-98, constatarea F17. Clasele stau in components/ui/chip-tones.ts, ca
+// spec-ul de contrast sa le poata importa fara sa importe React. Numele se
+// reexporta de aici, fiindca restul aplicatiei le cere de la primitives.
+export type { ChipTone };
+export { CHIP_BASE, CHIP_TONES, CHIP_TONE_NAMES };
 
 export function Chip({
   tone = "neutral",
@@ -103,11 +105,7 @@ export function Chip({
 }) {
   return (
     <span
-      className={cx(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold leading-none whitespace-nowrap",
-        CHIP_TONES[tone],
-        className,
-      )}
+      className={cx(CHIP_BASE, CHIP_TONES[tone], className)}
     >
       {children}
     </span>

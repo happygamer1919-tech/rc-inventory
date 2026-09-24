@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/phone";
 import { createClient } from "@/lib/supabase/client";
 import { DOCS_BUCKET } from "@/lib/data/inbound-types";
-import { formatDate } from "@/lib/data/format";
+import { formatDate, plural } from "@/lib/data/format";
 import {
   confirmDocumentUpload,
   deleteDocument,
@@ -423,7 +423,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
             className={`text-[12.5px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
             data-testid="documents-all"
           >
-            Vezi toate cele {documents.total} documente
+            Vezi toate cele {plural(documents.total, "document", "documente")}
           </Link>
         </div>
       ) : null}

@@ -75,7 +75,7 @@ import {
   lineTotalSourceLabel,
   scanReadLines,
 } from "@/lib/data/extraction-types";
-import { formatDate, formatMoney } from "@/lib/data/format";
+import { formatDate, formatMoney, plural } from "@/lib/data/format";
 
 /** P3-82. Un document citit, cu linii, fara niciun pret si fara niciun total.
  *  Numai pe `extracted` si `partial`: un `failed` nu a fost acceptat. */
@@ -989,8 +989,7 @@ export function ExtractionReviewPanel({
                     ) : null}
                     {draft.status === "partial" ? (
                       <p className="text-[12.5px] text-rc-muted mt-1" data-testid="draft-kept-lines">
-                        {draft.lines.length}{" "}
-                        {draft.lines.length === 1 ? "poziție citită" : "poziții citite"} au fost
+                        {plural(draft.lines.length, "poziție citită", "poziții citite")} au fost
                         păstrate.
                       </p>
                     ) : null}

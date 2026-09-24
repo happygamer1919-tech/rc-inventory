@@ -288,7 +288,10 @@ test.describe("Ecranul Azi (P3-91)", () => {
     await openAzi(page);
     const r = row(page, id);
     await expect(r).toHaveCount(1, { timeout: 20_000 });
-    await expect(r.getByTestId("azi-next-action")).toHaveText("De reluat");
+    // P3-98, constatarea B1. Aici statea `toHaveText("De reluat")`, adica un test
+    // care scria in piatra chiar defectul: numele etapei intr-o coloana care
+    // promite un pas urmator. Un lead fara pas scris arata liniuta.
+    await expect(r.getByTestId("azi-next-action")).toHaveText("-");
     await expect(r.getByTestId("azi-date")).toHaveText(onScreen(date));
 
     // Textul se poate schimba inainte de salvare.
@@ -366,6 +369,59 @@ test.describe("Ecranul Azi (P3-91)", () => {
     await r.getByTestId("azi-called").click();
     await expect(page.locator(`[data-testid="azi-note"][data-id="${id}"]`).getByTestId("note-body")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("azi-390.png") });
+
+    await rest.api.dispose();
+  });
+
+  // P3-98, CONSTATAREA B1 A MATURARII DIN 2026-09-22.
+  //
+  // Coloana "Următorul pas" scria "De reluat" pentru un lead pe care nimeni nu
+  // scrisese un pas. Sirul acela este ETICHETA ETAPEI, nu o propozitie scrisa de
+  // cineva, iar randul o arata oricum in alta parte: operatorul nu mai putea
+  // deosebi dintr-o privire un lead cu pas scris de unul fara.
+  //
+  // CAZUL ACESTA TINE AMANDOUA JUMATATILE DEODATA, fiindca despartite nu ar
+  // spune nimic: liniuta la cel fara pas, textul la cel cu pas, si amandoua pe
+  // lista, in ordinea corecta, ca sa se vada ca nu s-a schimbat decat textul.
+  test("B1: un lead De reluat fără pas scris arată liniuță, unul cu pas își arată textul, iar ordinea rămâne", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    const rest = await restAs(ownerAccount());
+
+    // Cel fara pas este INTARZIAT, deci trebuie sa stea deasupra celui de azi.
+    const yesterday = chisinauDay(-1);
+    const bare = await createLead(rest, leadName("B1 fără pas"), "follow_up", yesterday);
+    const written = await createLead(rest, leadName("B1 cu pas"), "follow_up", chisinauDay(0));
+    await patchClient(rest, written, {
+      next_action_at: chisinauDay(0),
+      next_action: "trimit deviz revizuit",
+    });
+
+    await openAzi(page);
+    await expect(row(page, bare)).toHaveCount(1, { timeout: 20_000 });
+    await expect(row(page, written)).toHaveCount(1);
+
+    // Liniuta, si nimic din numele etapei.
+    const bareCell = row(page, bare).getByTestId("azi-next-action");
+    await expect(bareCell).toHaveText("-");
+    await expect(bareCell).not.toContainText("De reluat");
+    // Nici titlul ajutator al celulei nu mai poarta un nume de etapa.
+    expect(await bareCell.getAttribute("title")).toBeNull();
+
+    // Pasul scris se vede neschimbat.
+    await expect(row(page, written).getByTestId("azi-next-action")).toHaveText(
+      "trimit deviz revizuit",
+    );
+
+    // Randul fara pas este tot pe lista, tot din ziua lui, tot rosu si tot primul
+    // dintre cele doua: regulile care aduc randurile nu s-au atins.
+    await expect(row(page, bare)).toHaveAttribute("data-overdue", "true");
+    await expect(row(page, bare).getByTestId("azi-overdue")).toHaveText("Întârziat");
+    await expect(row(page, bare).getByTestId("azi-date")).toHaveText(onScreen(yesterday));
+    const ids = await rowIds(page);
+    expect(ids.indexOf(bare)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(bare)).toBeLessThan(ids.indexOf(written));
 
     await rest.api.dispose();
   });

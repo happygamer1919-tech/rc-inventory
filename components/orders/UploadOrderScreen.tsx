@@ -12,6 +12,7 @@ import { Button, Card, Chip, PageHeader } from "@/components/ui/primitives";
 import { EMPTY_INITIAL, InboundOrderForm } from "./InboundOrderForm";
 import { OrderDocumentUpload } from "./OrderDocumentUpload";
 import { PHONE_LINK } from "@/components/ui/phone";
+import { plural } from "@/lib/data/format";
 import type { CatalogProduct } from "@/lib/data/products";
 
 type Created = { id: string; reference: string; lineCount: number };
@@ -42,7 +43,7 @@ export function UploadOrderScreen({
               {created.reference}
             </p>
             <p className="text-[13.5px] text-rc-muted mt-1.5">
-              {created.lineCount} {created.lineCount === 1 ? "poziție" : "poziții"}.
+              {plural(created.lineCount, "poziție", "poziții")}.
             </p>
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare</Chip>

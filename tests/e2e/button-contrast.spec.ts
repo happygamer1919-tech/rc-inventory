@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
+import { CHIP_BASE, CHIP_TONES, CHIP_TONE_NAMES } from "@/components/ui/chip-tones";
 
 // button-contrast.spec - linia de acceptanta a cardului P3-53.
 //
@@ -158,5 +159,117 @@ test.describe("Contrastul textului alb pe portocaliu", () => {
     const reading = await read(avatar);
     expect(reading.opaque, explain(reading)).toBe(true);
     expect(reading.ratio, explain(reading)).toBeGreaterThanOrEqual(MIN_RATIO);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P3-98, CONSTATARILE F17 SI F13. CIPURILE, PE CARE SPEC-UL NU LE MASURA DELOC.
+//
+// Pana aici fisierul masura NUMAI etichete albe pe portocaliu: trei cazuri
+// despre butonul principal si unul despre cercul cu initialele. Niciun cip nu
+// trecea pe sub formula, si de aceea doua tonuri au putut sta luni de zile sub
+// prag fara ca CI sa spuna ceva (maturarea din 2026-09-22, constatarea F13:
+// portocaliu 2.92:1, chihlimbar 3.44:1, pe fundalurile lor palide).
+//
+// TEXTUL CIPULUI ESTE DE 12px SI GROS, deci NU este "text mare" dupa WCAG (acela
+// incepe la 18.66px gros): pragul care se aplica este acelasi 4.5:1 de mai sus.
+//
+// CUM SE MASOARA CELE SASE TONURI. Doua dintre ele se gasesc pe ecran fara nicio
+// pregatire, si se masoara exact acolo, pe elementul pe care il randeaza
+// aplicatia: portocaliu pe /setari ("Doar administrator") si chihlimbar pe
+// /memento ("N sub prag"). Celelalte patru nu exista pe niciun ecran fara date
+// potrivite - tonul `info` se vede doar pe un deviz emis - asa ca se randeaza
+// cate unul din fiecare ton IN PAGINA ADEVARATA, cu foaia de stil adevarata, din
+// clasele aplicatiei insesi (components/ui/chip-tones.ts). Ca randarea aceea sa
+// nu poata ramane in urma componentului, cazul de mai jos verifica intai ca
+// cipul adevarat de pe /setari poarta exact `CHIP_BASE` plus tonul lui.
+//
+// Cazurile acestea CITESC. Nu creeaza si nu modifica niciun rand.
+
+const CHIP_PROBE = "data-chip-probe";
+
+/** Randeaza cate un cip din fiecare ton, in pagina deschisa, din clasele
+ *  aplicatiei. Elementele raman pana la urmatoarea navigare. */
+async function renderEveryTone(page: Page) {
+  await page.evaluate(
+    ({ base, tones, attr }) => {
+      document.querySelectorAll(`[${attr}]`).forEach((node) => node.remove());
+      const host = document.createElement("div");
+      host.setAttribute(attr, "host");
+      document.body.appendChild(host);
+      for (const [tone, toneClasses] of Object.entries(tones)) {
+        const chip = document.createElement("span");
+        chip.className = `${base} ${toneClasses}`;
+        chip.setAttribute(attr, tone);
+        chip.textContent = tone;
+        host.appendChild(chip);
+      }
+    },
+    { base: CHIP_BASE, tones: CHIP_TONES, attr: CHIP_PROBE },
+  );
+}
+
+test.describe("Contrastul textului din cipuri", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, ownerAccount());
+  });
+
+  test("cipul portocaliu de pe /setari, așa cum îl randează aplicația, atinge 4.5:1", async ({
+    page,
+  }) => {
+    await page.goto("/setari");
+    const chip = page.getByText("Doar administrator", { exact: true });
+    await expect(chip).toBeVisible({ timeout: 25_000 });
+
+    const reading = await read(chip);
+    expect(reading.opaque, `cip portocaliu: ${explain(reading)}`).toBe(true);
+    expect(reading.ratio, `cip portocaliu: ${explain(reading)}`).toBeGreaterThanOrEqual(MIN_RATIO);
+  });
+
+  test("cipul chihlimbar de pe /memento, așa cum îl randează aplicația, atinge 4.5:1", async ({
+    page,
+  }) => {
+    await page.goto("/memento");
+    const chip = page.getByText(/^\d+ sub prag$/).first();
+    await expect(chip).toBeVisible({ timeout: 25_000 });
+
+    const reading = await read(chip);
+    expect(reading.opaque, `cip chihlimbar: ${explain(reading)}`).toBe(true);
+    expect(reading.ratio, `cip chihlimbar: ${explain(reading)}`).toBeGreaterThanOrEqual(MIN_RATIO);
+  });
+
+  test("fiecare ton de cip atinge 4.5:1, măsurat în pagină pe clasele aplicației", async ({
+    page,
+  }) => {
+    await page.goto("/setari");
+
+    // Puntea dintre cipul adevarat si cele randate mai jos: aceleasi clase, in
+    // aceeasi ordine. Daca Chip ar inceta sa mai fie CHIP_BASE plus ton, cazul
+    // acesta pica aici, inainte sa masoare ceva ce nu mai seamana cu ecranul.
+    const real = page.getByText("Doar administrator", { exact: true });
+    await expect(real).toBeVisible({ timeout: 25_000 });
+    expect(
+      await real.getAttribute("class"),
+      "cipul adevărat nu mai poartă CHIP_BASE plus tonul lui",
+    ).toBe(`${CHIP_BASE} ${CHIP_TONES.orange}`);
+
+    await renderEveryTone(page);
+
+    const failures: string[] = [];
+    const measured: string[] = [];
+    for (const tone of CHIP_TONE_NAMES) {
+      const chip = page.locator(`[${CHIP_PROBE}="${tone}"]`);
+      await expect(chip, `tonul ${tone} nu a fost randat`).toHaveCount(1);
+      const reading = await read(chip);
+      measured.push(`${tone}: ${explain(reading)}`);
+      if (!reading.opaque) failures.push(`${tone} nu este opac: ${explain(reading)}`);
+      if (reading.ratio < MIN_RATIO) failures.push(`${tone}: ${explain(reading)}`);
+    }
+
+    // Toate tonurile deodata, ca o rulare rosie sa spuna TOT ce este sub prag si
+    // sa nu ceara o rulare noua pentru tonul urmator.
+    expect(failures, `măsurat: ${measured.join(" | ")}`).toEqual([]);
   });
 });
