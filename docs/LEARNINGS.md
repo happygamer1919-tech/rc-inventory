@@ -6553,3 +6553,36 @@ time, so every run pays it. The card was blocked on a mailbox question rather th
 deterministic, and it gets a card rather than a rerun. RULE: **when a known-failures entry has
 cost more than one run, stop rerunning and ask what makes it recur; a rerun is for a race that
 may not happen again, never for a resource that runs out at the same place every time.**
+
+### Changing a grid's column count on a phone leaves every `col-span-N` child pointing at columns that no longer exist
+**Tag:** frontend
+**ERROR:** `ExtractionReviewPanel`'s per line row is `grid-cols-[1fr_1fr_110px_110px]`, and three
+of its children carry `col-span-4` to stretch across it: the scan notice, the EXT-34 detail row
+and the new-product block. Adding `max-md:grid-cols-2` to the row alone would have left those
+three asking for four columns inside a two column grid. CSS grid does not clamp that: it creates
+two IMPLICIT columns to satisfy the span, so the row becomes four columns wide again and the
+fix pushes the content further off a 390px screen than it was before.
+**SOLUTION:** every `col-span-N` child of a grid whose column count changes under a breakpoint
+gets the matching variant in the same edit, here `max-md:col-span-2`. RULE: **before changing
+`grid-cols-*` under a breakpoint, grep the same subtree for `col-span-` and `row-span-` and
+retarget every hit; a span wider than the track count silently grows the grid instead of being
+clipped, so the failure looks like the fix not working rather than like a mistake.**
+
+### A phone class copied into a screen instead of imported is a class that stops being the same class
+**Tag:** frontend
+**ERROR:** finding F14 of the 2026-09-22 bug sweep named `ClientsScreen.tsx` for declaring its own
+`PHONE_TABLE`, `PHONE_ROW`, `PHONE_CELL`, `PHONE_WIDE` and `PHONE_LINK` beside the exports of the
+same names in `components/ui/phone.ts`, two of which had already drifted (`px-5 pb-5` against
+`p-4`, `flex` against `inline-flex`). Measured across the whole application while fixing that one
+screen, the pattern is much wider: **10 other files hold 53 local copies of a name the shared file
+already exports, and 8 of those copies have drifted.** `ProjectsScreen.tsx` carries the identical
+two drifts F14 named, so the Proiecte list and the Clienți list were wrong in exactly the same way
+for exactly the same reason, and only one of them was reported.
+**SOLUTION:** P3-97 fixed the screen its card named and left the other ten alone, per CLAUDE.md
+section 3's no-self-invented-scope rule, recording the measurement here and in its report so the
+remainder can be carded. RULE: **when a fix removes a duplicate definition, measure how many
+other copies of the same name exist before writing the commit message; a card that says the
+classes now live in one place while 53 copies remain has documented a belief rather than a
+change. The measurement is a ten line script over `^const PHONE_` against the shared file's
+exports, with template literals resolved before comparing, or two copies written differently and
+meaning the same thing read as drift.**
