@@ -64,7 +64,7 @@ import {
   type ClientRow,
   type ClientStageCounts,
 } from "@/lib/data/clients-types";
-import { formatDate } from "@/lib/data/format";
+import { formatDate, plural } from "@/lib/data/format";
 import {
   PHONE_CELL,
   PHONE_CONTROL,
@@ -258,13 +258,7 @@ export function ClientsScreen({
         <CardHeader
           title="Listă"
           hint={
-            inLeaduri
-              ? total === 1
-                ? "1 lead"
-                : `${total} leaduri`
-              : total === 1
-                ? "1 client"
-                : `${total} clienți`
+            inLeaduri ? plural(total, "lead", "leaduri") : plural(total, "client", "clienți")
           }
         />
 
