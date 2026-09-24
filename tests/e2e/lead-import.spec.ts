@@ -10,10 +10,21 @@ import { signIn } from "./support/auth";
 // adevarat nu ajunge in acest fisier, nici intr-un commit si nici intr-un pull
 // request. Fiecare rand de aici poarta prefixul TEST si un sufix unic pe rulare.
 //
-// TELEFOANELE SUNT UNICE PE RULARE, si asta nu este cosmetica: importul cauta
-// dublatul dupa telefonul normalizat PRINTRE TOTI CLIENTII STOCATI, iar baza de
-// test pastreaza randurile rularilor de dinainte. Un numar fix ar face ca a doua
-// rulare sa gaseasca prima si sa dovedeasca altceva decat crede.
+// TELEFOANELE SUNT UNICE PE RULARE SI PE CAZ, si nici una dintre cele doua nu
+// este cosmetica. Importul cauta dublatul dupa telefonul normalizat PRINTRE TOTI
+// CLIENTII STOCATI, iar datele de test nu se sterg niciodata:
+//
+//   - unice pe RULARE, fiindca altfel a doua rulare ar gasi randurile primei
+//   - unice pe CAZ, fiindca altfel al treilea caz ar gasi randurile pe care le-a
+//     creat primul, IN ACEEASI RULARE
+//
+// A doua jumatate lipsea si rularea 36069677308 a cazut pe ea, de doua ori:
+// cazul dublatelor si-a completat campul gol pe clientul creat de primul caz, iar
+// cazul numerelor a vazut un rand nou raportat ca dublat fiindca al patrulea caz
+// il crease deja cu acelasi numar. Aplicatia avea dreptate de fiecare data:
+// dublatele acelea EXISTAU. Fixturile erau cele care se ciocneau.
+//
+// De aceea fiecare caz isi ia cifra lui, intre 1 si 6, si o pune in numar.
 //
 // SE CITESTE DIN RANDURILE STOCATE, NU DE PE ECRAN, prin PostgREST, cu jetonul
 // administratorului: ecranul poate arata un numar pe care baza nu l-a primit.
@@ -22,21 +33,37 @@ import { signIn } from "./support/auth";
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 
-/** Cinci cifre care fac telefoanele rularii unice. */
-const RUN5 = String(Math.floor(Math.random() * 90000) + 10000);
+/** Patru cifre care fac telefoanele rularii unice. Cu cifra cazului si cifra
+ *  randului alaturi, numarul are exact opt cifre dupa +373. */
+const RUN4 = String(Math.floor(Math.random() * 9000) + 1000);
+
+/** Cifra fiecarui caz. Numerele a doua cazuri nu se pot atinge niciodata. */
+const CASE = {
+  import: 1,
+  duplicate: 2,
+  error: 3,
+  counts: 4,
+  phone: 5,
+} as const;
 
 /** Numar moldovenesc local, scris cum il scrie un om: 0 urmat de opt cifre. */
-function localPhone(n: number): string {
-  return `069${RUN5}${n}`;
+function localPhone(caseDigit: number, n: number): string {
+  return `069${RUN4}${caseDigit}${n}`;
 }
 
 /** Acelasi numar in forma pe care o stocheaza importul. */
-function canonicalPhone(n: number): string {
-  return `+37369${RUN5}${n}`;
+function canonicalPhone(caseDigit: number, n: number): string {
+  return `+37369${RUN4}${caseDigit}${n}`;
 }
 
-function testEmail(label: string): string {
-  return `test.${RUN}.${label}@example.test`;
+/** Acelasi numar scris international si cu spatii, cum il tasteaza un om. */
+function spacedPhone(caseDigit: number, n: number): string {
+  return `+373 69 ${RUN4}${caseDigit}${n}`;
+}
+
+/** Emailul poarta si el eticheta cazului, din acelasi motiv ca telefonul. */
+function testEmail(caseLabel: string, label: string): string {
+  return `test.${RUN}.${caseLabel}.${label}@example.test`;
 }
 
 function testName(label: string): string {
@@ -220,11 +247,12 @@ test("G58: un CSV se importa si fiecare lead creat poarta nota de import", async
   const tag = testName("import");
 
   const fileName = "leaduri-test.csv";
+  const c = CASE.import;
   const body = csv([
     HEADERS,
-    [`${tag} unu`, localPhone(1), "", "Lead rece", "acoperiș", responsible, "", "Chișinău"],
-    [`${tag} doi`, "", testEmail("doi"), "În cultivare", "țiglă", responsible, "", ""],
-    [`${tag} trei`, localPhone(3), "", "De reluat", "jgheaburi", "", "14.03.2027", ""],
+    [`${tag} unu`, localPhone(c, 1), "", "Lead rece", "acoperiș", responsible, "", "Chișinău"],
+    [`${tag} doi`, "", testEmail("import", "doi"), "În cultivare", "țiglă", responsible, "", ""],
+    [`${tag} trei`, localPhone(c, 3), "", "De reluat", "jgheaburi", "", "14.03.2027", ""],
   ]);
 
   await openImport(page);
@@ -244,7 +272,7 @@ test("G58: un CSV se importa si fiecare lead creat poarta nota de import", async
 
   const unu = stored.find((c) => c.name === `${tag} unu`)!;
   expect(unu.stage).toBe("cold");
-  expect(unu.phone).toBe(canonicalPhone(1));
+  expect(unu.phone).toBe(canonicalPhone(c, 1));
   expect(unu.source).toBe("recomandare");
   expect(unu.interest).toBe("acoperiș");
   expect(unu.owner_id).toBe(rest.userId);
@@ -252,7 +280,7 @@ test("G58: un CSV se importa si fiecare lead creat poarta nota de import", async
 
   const doi = stored.find((c) => c.name === `${tag} doi`)!;
   expect(doi.stage).toBe("nurture");
-  expect(doi.email).toBe(testEmail("doi"));
+  expect(doi.email).toBe(testEmail("import", "doi"));
   expect(doi.owner_id).toBe(rest.userId);
 
   const trei = stored.find((c) => c.name === `${tag} trei`)!;
@@ -293,17 +321,18 @@ test("G58: XLSX cere salvarea ca CSV, in romana", async ({ page }) => {
 test("G58: dublatul se sare peste, iar completarea umple numai golurile", async ({ page }) => {
   const rest = await ownerRest();
   const tag = testName("dubl");
+  const c = CASE.duplicate;
 
   // Un client stocat cu telefonul scris LOCAL si fara interes, si unul cu email
   // scris cu majuscule. Amandoua trebuie sa fie gasite dupa forma normalizata.
   const storedPhoneId = await seedClient(rest, {
     name: `${tag} telefon`,
-    phone: localPhone(1),
+    phone: localPhone(c, 1),
     address: "Bălți",
   });
   const storedEmailId = await seedClient(rest, {
     name: `${tag} email`,
-    email: testEmail("stocat").toUpperCase(),
+    email: testEmail("dubl", "stocat").toUpperCase(),
   });
 
   const before = {
@@ -314,12 +343,12 @@ test("G58: dublatul se sare peste, iar completarea umple numai golurile", async 
   const first = csv([
     HEADERS,
     // Acelasi telefon, scris international si cu spatii.
-    [`${tag} din fisier A`, `+373 69 ${RUN5}1`, "", "", "interes nou", "", "", "Orhei"],
+    [`${tag} din fisier A`, spacedPhone(c, 1), "", "", "interes nou", "", "", "Orhei"],
     // Acelasi email, scris cu litere mici.
-    [`${tag} din fisier B`, "", testEmail("stocat"), "", "", "", "", ""],
+    [`${tag} din fisier B`, "", testEmail("dubl", "stocat"), "", "", "", "", ""],
     // Doua randuri ale aceluiasi om IN ACELASI FISIER.
-    [`${tag} din fisier C`, localPhone(7), "", "", "", "", "", ""],
-    [`${tag} din fisier C bis`, localPhone(7), "", "", "interes bis", "", "", ""],
+    [`${tag} din fisier C`, localPhone(c, 7), "", "", "", "", "", ""],
+    [`${tag} din fisier C bis`, localPhone(c, 7), "", "", "interes bis", "", "", ""],
   ]);
 
   await openImport(page);
@@ -356,8 +385,8 @@ test("G58: dublatul se sare peste, iar completarea umple numai golurile", async 
     HEADERS,
     [
       `${tag} alt nume cu totul`,
-      `+373 69 ${RUN5}1`,
-      testEmail("completat"),
+      spacedPhone(c, 1),
+      testEmail("dubl", "completat"),
       "",
       "interes completat",
       "",
@@ -378,7 +407,7 @@ test("G58: dublatul se sare peste, iar completarea umple numai golurile", async 
 
   const after = await storedById(rest, storedPhoneId);
   // GOLURILE S-AU COMPLETAT: emailul si interesul erau NULL si acum nu mai sunt.
-  expect(after.email).toBe(testEmail("completat"));
+  expect(after.email).toBe(testEmail("dubl", "completat"));
   expect(after.interest).toBe("interes completat");
   // CE ERA SCRIS A RAMAS CUM ERA: denumirea, adresa si telefonul nu se ating.
   expect(after.name).toBe(before.phone.name);
@@ -390,12 +419,13 @@ test("G58: dublatul se sare peste, iar completarea umple numai golurile", async 
 test("G58: un rand fara denumire este raportat, sarit si descarcabil", async ({ page }) => {
   const rest = await ownerRest();
   const tag = testName("eroare");
+  const c = CASE.error;
 
   const body = csv([
     HEADERS,
-    [`${tag} bun unu`, localPhone(1), "", "", "", "", "", ""],
-    ["", localPhone(2), "", "", "fără nume", "", "", ""],
-    [`${tag} bun doi`, localPhone(3), "", "", "", "", "", ""],
+    [`${tag} bun unu`, localPhone(c, 1), "", "", "", "", "", ""],
+    ["", localPhone(c, 2), "", "", "fără nume", "", "", ""],
+    [`${tag} bun doi`, localPhone(c, 3), "", "", "", "", "", ""],
   ]);
 
   await openImport(page);
@@ -419,7 +449,7 @@ test("G58: un rand fara denumire este raportat, sarit si descarcabil", async ({ 
   // Si randul refuzat nu a intrat pe nicio cale.
   const orphan = await restGet<{ id: string }[]>(
     rest,
-    `/rest/v1/clients?select=id&phone=eq.${encodeURIComponent(canonicalPhone(2))}`,
+    `/rest/v1/clients?select=id&phone=eq.${encodeURIComponent(canonicalPhone(c, 2))}`,
   );
   expect(orphan).toHaveLength(0);
 
@@ -431,23 +461,24 @@ test("G58: un rand fara denumire este raportat, sarit si descarcabil", async ({ 
   expect(download.suggestedFilename()).toBe("randuri-nepreluate.csv");
   const text = await readFile(await download.path(), "utf8");
   expect(text).toContain("Rândul nu are denumire.");
-  expect(text).toContain(localPhone(2));
+  expect(text).toContain(localPhone(c, 2));
   expect(text).toContain("fără nume");
 });
 
 test("G58: numerele din rezumat sunt cele scrise", async ({ page }) => {
   const rest = await ownerRest();
   const tag = testName("numere");
+  const c = CASE.counts;
 
-  const existingId = await seedClient(rest, { name: `${tag} stocat`, phone: localPhone(1) });
+  const existingId = await seedClient(rest, { name: `${tag} stocat`, phone: localPhone(c, 1) });
 
   const body = csv([
     HEADERS,
-    [`${tag} nou unu`, localPhone(2), "", "", "", "", "", ""],
-    [`${tag} nou doi`, localPhone(3), "", "", "", "", "", ""],
-    [`${tag} dublat`, localPhone(1), "", "", "", "", "", ""],
-    ["", localPhone(4), "", "", "", "", "", ""],
-    [`${tag} data rea`, localPhone(5), "", "De reluat", "", "", "32.13.2027", ""],
+    [`${tag} nou unu`, localPhone(c, 2), "", "", "", "", "", ""],
+    [`${tag} nou doi`, localPhone(c, 3), "", "", "", "", "", ""],
+    [`${tag} dublat`, localPhone(c, 1), "", "", "", "", "", ""],
+    ["", localPhone(c, 4), "", "", "", "", "", ""],
+    [`${tag} data rea`, localPhone(c, 5), "", "De reluat", "", "", "32.13.2027", ""],
   ]);
 
   await openImport(page);
@@ -483,7 +514,16 @@ test("G58: cei patru pasi la 390x844", async ({ page }) => {
 
   const body = csv([
     HEADERS,
-    [`${tag} unu`, localPhone(1), "", "", "un interes destul de lung ca sa se rupa pe randuri", "", "", ""],
+    [
+      `${tag} unu`,
+      localPhone(CASE.phone, 1),
+      "",
+      "",
+      "un interes destul de lung ca sa se rupa pe randuri",
+      "",
+      "",
+      "",
+    ],
   ]);
 
   const sheet = page.getByTestId("lead-import");

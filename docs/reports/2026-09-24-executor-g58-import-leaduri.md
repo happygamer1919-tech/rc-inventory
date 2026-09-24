@@ -172,6 +172,34 @@ is the only place the note, the stage, the owner and the untouched duplicate can
 stored rows. **The probe was seen failing before it passed**, on the row numbering of a within-file
 duplicate, which is the only reason its green means anything.
 
+## The first CI run went red, and why
+
+Run **36069677308** on PR #363: **425 passed, 2 failed**, both of them cases added by this card.
+Every step before End to end passed, including the fourteen validators and the bare postgres apply.
+
+- `G58: dublatul se sare peste, iar completarea umple numai golurile` failed asserting that the
+  filled email was on the client it seeded. It read `null`.
+- `G58: numerele din rezumat sunt cele scrise` read `created 1, skipped 4` where it expected
+  `created 2, skipped 3`.
+
+**One cause, and it was in the fixtures, not in the application.** The spec built phone numbers as
+`069` plus five digits drawn once per run plus a row number, which is unique against earlier RUNS
+and identical across the six cases of the SAME run. Test data is never deleted in this repository,
+so every row a case writes is visible to every case after it, and the importer searches for
+duplicates across every stored client. Case 3 seeded a client on `...1` that case 1 had already
+imported under another name, so the fill landed on case 1's row; case 5 declared a row new that case
+4 had already created with the same number.
+
+**The importer was right both times: those duplicates genuinely existed.** Nothing in the
+application changed. The helper now takes a case digit as well as a row number, and a frozen `CASE`
+map gives each of the six cases its own, so the collision cannot be reintroduced by copying a line
+from the case above. The signature is written into the factory's `KNOWN-FAILURES.md` and into
+`docs/LEARNINGS.md` as the sixth pair, with the wider rule: a fixture value the code under test
+searches for across the whole table is unique per run AND per case; a value used only to read back
+one case's own rows needs only the run.
+
+This is fix attempt 1 of the 3 that section 10 allows.
+
 ## Real client data
 
 Real client data has been in production since 2026-09-14. Nothing in this run opened the live site,

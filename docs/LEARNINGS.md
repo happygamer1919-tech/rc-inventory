@@ -6996,3 +6996,22 @@ later row for the same person still finds the stored client. The local probe at
 the row numbering, before it passed. RULE: **an index of "what has been seen so far" holds only rows
 that will actually exist afterwards. Anything skipped, refused or merged elsewhere must not be
 matchable, or a later row is pointed at a target that is never created.**
+
+### A fixture value unique per run, and shared by every case inside that run
+**Tag:** ci
+**ERROR:** `tests/e2e/lead-import.spec.ts` built its phone numbers as `069` plus five digits drawn
+once per run plus a row number, with a comment explaining, correctly, that a fixed number would make
+the second run find the first run's rows. It is unique across runs and **identical across the six
+cases of one run**. Run 36069677308 went red on two of them while 425 other tests passed. The
+duplicate case seeded a client on `...1` that the first case had already imported under a different
+name, so `loadExisting` resolved that phone to the first case's row, "Completează câmpurile goale"
+filled that row instead, and the assertion read `null`. The counts case declared a row new that the
+error case had already created with the same number, so the summary read `created 1, skipped 4`
+against an expected `created 2, skipped 3`. Every assertion passes when the case is run alone.
+**SOLUTION:** the helper takes `(caseDigit, rowNumber)` and a frozen `CASE` map gives each of the
+six cases its own digit inside the number, so two cases cannot collide even if somebody copies a
+line from the case above. The importer was right every time and nothing in the application changed.
+RULE: **a fixture value that the code under test SEARCHES FOR across the whole table, a phone, an
+email, an IDNO, a slug, is unique per run AND per case. Test data is never deleted here, so every
+row a case writes is visible to every case after it. A value used only to read back the rows one
+case wrote, like a `TEST <run> <label>` name, needs only the run.**
