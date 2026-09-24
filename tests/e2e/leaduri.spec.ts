@@ -977,3 +977,87 @@ test.describe("Leaduri (P3-50)", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// P3-96, constatarea F6 din maturarea de erori. ȘTERGE FILTRELE RAMANE IN VEDERE.
+//
+// CAZUL STA AICI fiindca ce se dovedeste este ca vederea Leaduri supravietuieste
+// apasarii butonului, iar tot ce descrie vederea, cipul apasat, titlul din bara de
+// sus si butonul principal, se citeste cu helperii acestui fisier.
+//
+// Butonul numeste patru filtre: cautarea, tipul, starea si etapa. Vederea nu este
+// un filtru, este ecranul pe care operatorul se afla, si pana la acest card butonul
+// o arunca impreuna cu ele.
+// ---------------------------------------------------------------------------
+
+test.describe("Leaduri, Șterge filtrele (P3-96)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("G51: Șterge filtrele pe vederea Leaduri șterge exact filtrele și rămâne în Leaduri", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    const rest = await ownerRest();
+    const tag = `TEST Stergere ${RUN}`;
+
+    const ids = await createFixture(rest, [
+      { name: `${tag} Alfa`, stage: "cold" },
+      { name: `${tag} Beta`, stage: "nurture" },
+    ]);
+
+    // Vederea Leaduri, cu termenul de cautare in URL si un cip de etapa apasat:
+    // exact starea in care butonul se vede.
+    await page.goto(listUrl({ vedere: "leaduri", q: tag }));
+    await expect
+      .poll(async () => sorted(await rowIds(page)), { timeout: 20_000 })
+      .toEqual(sorted([ids[`${tag} Alfa`]!, ids[`${tag} Beta`]!]));
+    await expect(page.getByTestId("clients-search")).toHaveValue(tag);
+
+    await page.locator('[data-testid="stage-chip"][data-stage="nurture"]').click();
+    await expect(page).toHaveURL(/[?&]etapa=nurture(&|$)/);
+    await expect.poll(() => rowIds(page), { timeout: 20_000 }).toEqual([ids[`${tag} Beta`]]);
+
+    await page.getByTestId("clients-clear").click();
+
+    // (1) FILTRELE PE CARE BUTONUL LE NUMESTE SUNT STERSE, si numai ele.
+    //
+    // SE ASTEAPTA PE CE SE SCHIMBA, si asta nu este un amanunt: `vedere` este deja
+    // `leaduri` inainte de clic, deci o asteptare pe el ar trece pe loc, inainte ca
+    // navigarea ceruta de buton sa fi ajuns, si ar citi URL-ul de dinainte. Prima
+    // rulare a acestui caz a picat exact asa, cu `etapa=nurture` inca in URL.
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("etapa"), { timeout: 20_000 })
+      .toBeNull();
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("q"), { timeout: 20_000 })
+      .toBeNull();
+    expect(new URL(page.url()).searchParams.get("tip")).toBeNull();
+    await expect(page.getByTestId("stage-chip-all")).toHaveAttribute("aria-pressed", "true");
+
+    // (2) VEDEREA RAMANE LEADURI. Pana la acest card butonul ducea pe /clienti gol,
+    // adica pe vederea Toți: alt titlu, alt subtitlu, alt buton principal si cinci
+    // coloane in loc de sase.
+    expect(new URL(page.url()).searchParams.get("vedere")).toBe("leaduri");
+    await expect(page.getByTestId("view-leaduri")).toHaveAttribute("aria-pressed", "true");
+    await expect(topbarTitle(page)).toHaveText("Leaduri", { timeout: 20_000 });
+    await expect(pageHeader(page).getByTestId("leaduri-new")).toHaveText("Lead nou");
+
+    // (3) SI CASUTA DE CAUTARE ESTE GOALA PE ECRAN, nu numai in URL. O lista
+    // nefiltrata sub o casuta care arata inca un termen este acelasi defect ca F7,
+    // vazut din alt loc.
+    await expect(page.getByTestId("clients-search")).toHaveValue("");
+
+    // (4) Si butonul pleaca, fiindca nu mai exista niciun filtru pus.
+    await expect(page.getByTestId("clients-clear")).toHaveCount(0);
+
+    // (5) TERMENUL NU SE INTOARCE DUPA INTARZIEREA DE 300ms. O asteptare fixa este
+    // unealta potrivita: ce se dovedeste este ca nu se intampla NIMIC dupa ea, iar o
+    // afirmatie care trece imediat nu ar dovedi asta.
+    await page.waitForTimeout(700);
+    expect(new URL(page.url()).searchParams.get("q")).toBeNull();
+    expect(new URL(page.url()).searchParams.get("vedere")).toBe("leaduri");
+    await expect(page.getByTestId("clients-search")).toHaveValue("");
+
+    await rest.api.dispose();
+  });
+});

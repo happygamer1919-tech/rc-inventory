@@ -32,6 +32,13 @@
 // P3-89. URMATORUL PAS ESTE O COLOANA A VEDERII LEADURI, imediat dupa Data de
 // reluare, numai cand migratia 0058 exista. Lista vine ordonata din baza dupa data
 // pasului, altfel dupa data de reluare.
+//
+// P3-96, constatarile F6 si F7 din maturarea de erori. REGULA DIN ANTETUL DE MAI
+// SUS SE APLICA SI CELOR DOUA LOCURI CARE O INCALCAU. Șterge filtrele scoate exact
+// campurile pe care `filtered` le citeste si lasa `vedere` in URL, in loc sa arunce
+// tot si sa mute operatorul din Leaduri in Toți. Iar casuta de cautare urmeaza
+// URL-ul: cand `q` se schimba din butonul de inapoi, dintr-o legatura primita sau
+// din Șterge filtrele, casuta se resincronizeaza, fara sa atinga scrisul de moment.
 
 import * as React from "react";
 import Link from "next/link";
@@ -112,11 +119,48 @@ export function ClientsScreen({
   const [creating, setCreating] = React.useState(false);
   const [creatingLead, setCreatingLead] = React.useState(false);
 
+  // P3-96, constatarea F7. CASUTA DE CAUTARE URMEAZA URL-UL, care este adevarul.
+  //
+  // Ecranul isi tine minte fiecare valoare a lui `q` pe care a TRIMIS-O el in URL si
+  // care nu s-a intors inca. Cand `q` din URL devine o valoare care nu este a lui,
+  // adica butonul de inapoi sau de inainte, o legatura primita sau Șterge filtrele,
+  // casuta se resincronizeaza. Cand devine una trimisa de el, casuta nu se atinge:
+  // altfel un nume pe jumatate tastat ar fi sters la fiecare tasta. Acelasi tipar ca
+  // `seen` din components/ui/DateField.tsx, pentru exact aceeasi problema.
+  //
+  // FARA ASTA, lista si casuta spuneau lucruri diferite: dupa butonul de inapoi lista
+  // se refacea din URL, iar casuta ramanea cu termenul tastat inainte, si Șterge
+  // filtrele disparea in aceeasi clipa, fiindca `filtered` citeste URL-ul.
+  //
+  // O LISTA SI NU O SINGURA VALOARE, fiindca o navigare ceruta de ecran poate ajunge
+  // DUPA cea de dupa ea: la 300ms de intarziere si o pagina care isi cere randurile
+  // din baza, randarea pentru "abc" poate veni dupa ce ecranul a trimis deja "abcd",
+  // iar o singura valoare ar citi-o ca venita din afara si ar taia tastele de la
+  // urma. Gasirea unei valori trimise arunca si tot ce a fost trimis inaintea ei,
+  // deci lista nu creste cand o randare intermediara nu mai ajunge.
+  const urlQ = React.useRef(query.q);
+  const sent = React.useRef<string[]>([]);
+  if (urlQ.current !== query.q) {
+    urlQ.current = query.q;
+    const mine = sent.current.indexOf(query.q);
+    if (mine >= 0) {
+      sent.current = sent.current.slice(mine + 1);
+    } else {
+      sent.current = [];
+      if (q !== query.q) setQ(query.q);
+    }
+  }
+
   // Casuta de cautare se scrie local si se trimite in URL cu intarziere. Fara
   // debounce, fiecare tasta ar fi o navigare si o interogare.
+  //
+  // P3-96. Comparatia nu se mai face cu `query.q`, ci cu ultima valoare pe care
+  // ecranul a cerut-o, fiindca o cerere in drum spre server nu se vede inca in
+  // `query.q` si un al doilea push ar trimite acelasi text a doua oara.
+  // Intarzierea ramane 300ms si nici o tasta nu se pierde.
   React.useEffect(() => {
-    if (q === query.q) return;
-    const t = setTimeout(() => push({ q, pagina: "1" }), 300);
+    if (q === (sent.current.at(-1) ?? urlQ.current)) return;
+    const t = setTimeout(() => pushQ(q, { pagina: "1" }), 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
@@ -128,6 +172,13 @@ export function ClientsScreen({
       else next.delete(k);
     }
     router.push(`${pathname}?${next.toString()}`);
+  }
+
+  /** P3-96. Acelasi `push`, plus valoarea lui `q` tinuta minte ca trimisa de ecran:
+   *  numai asa resincronizarea de mai sus deosebeste o schimbare venita din afara. */
+  function pushQ(next: string, patch: Record<string, string>) {
+    sent.current = [...sent.current, next];
+    push({ ...patch, q: next });
   }
 
   const filtered =
@@ -316,7 +367,26 @@ export function ClientsScreen({
           {filtered ? (
             <Button
               variant="secondary"
-              onClick={() => router.push(pathname)}
+              // P3-96, constatarea F6. STERGE EXACT FILTRELE PE CARE LE NUMESTE SI
+              // RAMANE IN VEDEREA DE ACUM. `router.push(pathname)` arunca fiecare
+              // parametru, `vedere` inclusiv, deci operatorul care voia sa scoata un
+              // cip de etapa ajungea din Leaduri in Toți: alt titlu, alt subtitlu,
+              // alt buton principal si alt numar de coloane. Acum trece prin acelasi
+              // `push` ca fiecare alt control de pe ecran, cu exact cele patru campuri
+              // pe care `filtered` le citeste. `stare` se intoarce la "active", care
+              // este lipsa filtrului pentru acel camp, nu la sirul gol, care nu este
+              // o valoare a lui.
+              //
+              // SI CASUTA DE CAUTARE SE GOLESTE AICI, nu numai in URL. Cu un cip de
+              // etapa pus, butonul se vede si cat timp textul tastat nu a ajuns inca
+              // in URL: atunci `q` din URL nu se schimba, deci resincronizarea de mai
+              // sus nu s-ar declansa, iar intarzierea de 300ms ar aduce termenul
+              // inapoi imediat dupa ce filtrele au fost sterse. Golirea trece prin
+              // `pushQ`, ca stergerea sa fie si ea o valoare trimisa de ecran.
+              onClick={() => {
+                setQ("");
+                pushQ("", { tip: "", stare: "active", etapa: "", pagina: "1" });
+              }}
               data-testid="clients-clear"
               className="max-md:min-h-11"
             >
