@@ -216,8 +216,13 @@ npm run check:no-prod-target
 npm run check:pending-schema-reads
 npm run check:removal-safety
 npm run check:assertion-register
+npm run check:board-clock
 npx playwright test --list --project=chromium tests/e2e/phone-forms.spec.ts tests/e2e/phone-lists.spec.ts
 ```
+
+`check:board-clock` is not in the close-out block's gate list. It is run anyway, after the commit
+that writes the board and before the push, because it is the one check that reads the commit and
+therefore cannot be satisfied before the commit exists. Section 6 records what it caught.
 
 `npx playwright test --list` collects 16 cases in the two files, four of them the new `G52:` ones.
 
@@ -253,6 +258,23 @@ Two entries appended to `docs/LEARNINGS.md`:
 2. **A phone class copied into a screen instead of imported is a class that stops being the same
    class**, with the measurement of section 3 and the rule that a fix removing a duplicate should
    count the remaining copies before the commit message claims they are gone.
+
+**A third thing broke and gets no LEARNINGS entry, on purpose.** The first CI run, 36003920985,
+failed in 1 minute 27 seconds at `Refuse a board timestamp from the future`: the card's
+`last_checkpoint` and `evidence.at` were typed as a rounded `13:20:00Z` while the commit that
+wrote them landed at `13:09:47Z`, ten minutes earlier, and a card timestamp gets zero slack where
+the top-level `as_of` gets sixty. Attempt 1 replaced all four occurrences with the output of
+`date -u +%Y-%m-%dT%H:%M:%SZ` read immediately before the edit, committed, and ran
+`npm run check:board-clock` locally, which now reports every timestamp at or before its commit.
+
+No entry was appended for it because **this file already carries the rule six times** (around
+lines 4156, 4174, 4810, 5398, 5945, 6374) and the factory's `KNOWN-FAILURES.md` carries the exact
+signature under "A board time ahead of its commit", each saying the same sentence: read the time
+from `date -u` just before the edit, and run `check:board-clock` after the commit and before the
+push, **because it is not in the close-out gate list**. A seventh copy of a rule that has been
+written down six times and broken seven is noise, not a learning. The failure here was not
+reading what was already written, and the honest record of that is this paragraph rather than
+another entry.
 
 Nothing else broke while working this card.
 
