@@ -25,6 +25,7 @@ import {
 import { formatDate } from "@/lib/data/format";
 import { updateClientRecord } from "@/lib/data/client-actions";
 import { ClientForm } from "./ClientForm";
+import { ClientNotesPanel } from "./ClientNotesPanel";
 import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
 import { PHONE_ROW_LABEL, PHONE_ROW_PAIR, PHONE_ROW_VALUE } from "@/components/ui/phone";
@@ -254,6 +255,28 @@ export function ClientDetailScreen({
         </div>
       </Card>
 
+      {/* P3-99, constatarea B2 a maturarii din 2026-09-22. "Ce s-a discutat" si
+          istoria stau DEASUPRA BENZII DE FILE, nu in a cincea fila. Goal G45 a
+          cerut casuta "sus pe pagina"; ce a livrat P3-90 era sus intr-o fila care
+          stă ea insasi jos, deci a scrie ce s-a discutat costa o derulare si un
+          clic pe a cincea fila.
+
+          UN SINGUR ECRAN SERVESTE SI LEADUL SI CLIENTUL. Un lead este un rand de
+          client cu etapa: nu exista tabela de leaduri si nu exista o a doua pagina
+          de detaliu, deci mutarea de aici le rezolva pe amandoua dintr-o data.
+
+          SUB CARDUL "Date de identificare", nu deasupra lui: atat spun cuvintele
+          goalului, si restul paginii nu isi schimba ordinea. */}
+      <div className="mt-5" data-testid="client-notes">
+        <ClientNotesPanel
+          clientId={client.id}
+          timeline={timeline}
+          stage={client.stage}
+          nextActionAvailable={client.nextActionAvailable}
+          canWrite={canWrite}
+        />
+      </div>
+
       <div className="mt-5">
         <ClientTabs
           clientId={client.id}
@@ -261,9 +284,6 @@ export function ClientDetailScreen({
           projects={projects}
           materials={materials}
           documents={documents}
-          timeline={timeline}
-          stage={client.stage}
-          nextActionAvailable={client.nextActionAvailable}
           canWrite={canWrite}
         />
       </div>

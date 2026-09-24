@@ -1,12 +1,18 @@
 "use client";
 
-// Cele cinci file de pe fisa clientului. Cardul P3-08.
+// Filele de pe fisa clientului. Cardul P3-08.
 //
-// BANDA DE FILE ESTE AUTORATA COMPLETA AICI, toate cinci, in ordinea din card.
-// Documente si Note randeaza o stare goala romaneasca pana cand cardurile lor le
-// umplu. A autora trei file acum si a adauga doua mai tarziu inseamna ca
-// aspectul, schema de URL si componentul de file se schimba de doua ori, iar a
-// doua schimbare ateriza intr-un card care trebuia sa fie despre documente.
+// BANDA DE FILE ESTE AUTORATA COMPLETA AICI, in ordinea din card. Documente si
+// Note randau o stare goala romaneasca pana cand cardurile lor le-au umplut. A
+// autora trei file atunci si a adauga doua mai tarziu ar fi insemnat ca aspectul,
+// schema de URL si componentul de file se schimba de doua ori, iar a doua
+// schimbare ateriza intr-un card care trebuia sa fie despre documente.
+//
+// ERAU CINCI FILE PANA LA CARDUL P3-99, iar a cincea era Note. P3-99 a scos-o si
+// a mutat panoul "Ce s-a discutat" deasupra acestei benzi, in
+// ClientDetailScreen.tsx, fiindca goal G45 ceruse casuta sus pe pagina si ea
+// ajunsese sus intr-o fila care sta jos (constatarea B2). Filele ramase sunt
+// patru, iar ordinea si implicitul lor nu s-au atins.
 //
 // FILA ACTIVA ESTE UN PARAMETRU DE URL, nu stare de component, ca o fila sa
 // poata fi trimisa ca legatura si ca butonul de inapoi sa functioneze.
@@ -36,8 +42,6 @@ import type {
 import { ContactForm } from "./ContactForm";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
-import type { ClientStage, ClientTimelineEntry } from "@/lib/data/clients-types";
-import { ClientNotesPanel } from "./ClientNotesPanel";
 import {
   PHONE_ACTIONS_CELL,
   PHONE_CELL,
@@ -54,7 +58,6 @@ const TABS = [
   { id: "proiecte", label: "Proiecte" },
   { id: "consum", label: "Consum materiale" },
   { id: "documente", label: "Documente" },
-  { id: "note", label: "Note" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -69,9 +72,6 @@ export function ClientTabs({
   projects,
   materials,
   documents,
-  timeline,
-  stage,
-  nextActionAvailable,
   canWrite,
 }: {
   clientId: string;
@@ -79,10 +79,6 @@ export function ClientTabs({
   projects: ClientProject[];
   materials: ClientMaterials;
   documents: DocumentsView | null;
-  /** P3-90. null cand migratia 0059 nu este inca aplicata. */
-  timeline: ClientTimelineEntry[] | null;
-  stage: ClientStage | null;
-  nextActionAvailable: boolean;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -91,7 +87,9 @@ export function ClientTabs({
 
   const raw = params.get("fila") ?? "";
   // O fila necunoscuta din URL revine la prima, nu da eroare: cineva a trimis o
-  // legatura veche sau a scris in bara de adrese.
+  // legatura veche sau a scris in bara de adrese. De la P3-99 acelasi drum il ia
+  // si `?fila=note`, adresa filei scoase, care circula in legaturi trimise: se
+  // deschide Contacte, iar "Ce s-a discutat" este oricum deasupra benzii.
   const active: TabId = isTab(raw) ? raw : "contacte";
 
   const [editingContact, setEditingContact] = React.useState<ClientContact | null>(null);
@@ -339,17 +337,6 @@ export function ClientTabs({
           <DocumentsPanel
             owner={{ type: "client", id: clientId }}
             documents={documents}
-            canWrite={canWrite}
-          />
-        ) : null}
-
-        {active === "note" ? (
-          // P3-90 a umplut fila: "Ce s-a discutat", Salvează si istoria.
-          <ClientNotesPanel
-            clientId={clientId}
-            timeline={timeline}
-            stage={stage}
-            nextActionAvailable={nextActionAvailable}
             canWrite={canWrite}
           />
         ) : null}
