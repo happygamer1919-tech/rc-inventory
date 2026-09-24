@@ -6554,6 +6554,57 @@ deterministic, and it gets a card rather than a rerun. RULE: **when a known-fail
 cost more than one run, stop rerunning and ask what makes it recur; a rerun is for a race that
 may not happen again, never for a resource that runs out at the same place every time.**
 
+### A URL-as-truth input needs to know which of its own pushes has landed, not just the last one
+**Tag:** frontend
+**ERROR:** found while fixing F7 and caught before it was committed, so nothing went red. The
+search box on the clients list is local state pushed to the URL on a 300ms debounce, and the fix
+for F7 is to resynchronise it whenever the URL changes for a reason OTHER than that push. The
+obvious shape, one ref holding the last value the screen sent, is the `seen` ref from
+`components/ui/DateField.tsx`, and it is not enough here: DateField reads a prop its parent sets
+synchronously, while this screen reads a value that comes back from a SERVER round trip. With a
+300ms debounce and a page that queries the database, the render for "abc" can arrive after the
+screen has already sent "abcd". A single remembered value reads that late render as an outside
+change and resynchronises the box backwards, eating the last keystrokes, which is the exact
+failure the resynchronisation exists to avoid.
+**SOLUTION:** remember the LIST of values the screen has sent and not yet seen come back. A URL
+value found in that list belongs to the screen and the box is left alone; finding one discards
+everything sent before it, so the list cannot grow when an intermediate render is superseded and
+never arrives. RULE: **when an existing pattern is copied onto an asynchronous source, ask
+whether the original could ever see its own updates arrive out of order. A prop set by a parent
+cannot. A value that comes back from a navigation can, and a single last-value ref silently
+becomes a keystroke eater.**
+
+### The board clock rule is written down three times and was still paid for a fourth
+**Tag:** ci
+**ERROR:** `quality` on PR #356 (P3-96) failed in 1m39s at "Refuse a board timestamp from the
+future" with `card P3-96.last_checkpoint = 2026-09-23T17:20:00Z, 16 minute(s) ahead` and the same
+line for `evidence.at`, and every later step including End to end was skipped. The cause was a
+ROUNDED time typed into the board edit, `17:20:00Z`, while the commit that carried it was made at
+`17:03:35Z`. This file already carries the same lesson three times, from PR #286 and from two
+earlier cards.
+**SOLUTION:** the timestamps were re-read from `date -u +%Y-%m-%dT%H:%M:%SZ` and the board
+committed immediately after. The reason it was paid for a fourth time is not that the lesson was
+missing, it is that `check:board-clock` is NOT in the close-out block's list of local gates, so a
+terminal that runs that list in full still never runs this one. RULE: **run `npm run
+check:board-clock` as part of the local gate set, after the last board commit and before the push,
+and never type a rounded or future time into a board: a card's `last_checkpoint` and
+`evidence.at` get ZERO slack, unlike `as_of`, which gets sixty minutes.**
+
+### A poll on a value that is already correct is not a wait
+**Tag:** ci
+**ERROR:** run 35893527451 on PR #356 failed one case of 398, the new G51 case for Șterge
+filtrele, with `expect(params.get("etapa")).toBeNull()` receiving `"nurture"`. The case pressed
+the button and then waited with `expect.poll(() => ...get("vedere")).toBe("leaduri")` before
+reading the rest of the URL. But `vedere` was ALREADY `leaduri` before the click, because the
+whole point of the card is that the button keeps it, so the poll returned on its first evaluation,
+before the click's navigation had landed, and every line after it read the URL from before the
+click.
+**SOLUTION:** wait on what the action CHANGES, not on what it preserves: poll `etapa` and `q`
+becoming absent, then read `vedere`, `tip` and the chips. RULE: **a poll whose predicate already
+holds when the action starts is a no-op, and it is most tempting exactly where a card is about
+something being PRESERVED. In that shape, always anchor the wait on a value that must move, and
+assert the preserved one afterwards.**
+
 ### Changing a grid's column count on a phone leaves every `col-span-N` child pointing at columns that no longer exist
 **Tag:** frontend
 **ERROR:** `ExtractionReviewPanel`'s per line row is `grid-cols-[1fr_1fr_110px_110px]`, and three

@@ -304,14 +304,21 @@ the top-level `as_of` gets sixty. Attempt 1 replaced all four occurrences with t
 `date -u +%Y-%m-%dT%H:%M:%SZ` read immediately before the edit, committed, and ran
 `npm run check:board-clock` locally, which now reports every timestamp at or before its commit.
 
-No entry was appended for it because **this file already carries the rule six times** (around
-lines 4156, 4174, 4810, 5398, 5945, 6374) and the factory's `KNOWN-FAILURES.md` carries the exact
-signature under "A board time ahead of its commit", each saying the same sentence: read the time
-from `date -u` just before the edit, and run `check:board-clock` after the commit and before the
-push, **because it is not in the close-out gate list**. A seventh copy of a rule that has been
-written down six times and broken seven is noise, not a learning. The failure here was not
-reading what was already written, and the honest record of that is this paragraph rather than
-another entry.
+No entry was appended for it because **`docs/LEARNINGS.md` already carried the rule six times when
+this card started**, and the factory's `KNOWN-FAILURES.md` carries the exact signature under "A
+board time ahead of its commit", each saying the same sentence: read the time from `date -u` just
+before the edit, and run `check:board-clock` after the commit and before the push, **because it is
+not in the close-out gate list**. While this card was in flight, P3-96 merged a seventh, titled
+"The board clock rule is written down three times and was still paid for a fourth", which reaches
+the same conclusion from its own run on PR #356 the day before. An eighth copy would be noise. The
+failure here was not reading what was already written, and the honest record of that is this
+paragraph rather than another entry.
+
+**The one thing worth someone's attention, since two cards have now paid for it in two days:**
+`npm run check:board-clock` is the only check in this repository that reads the COMMIT, so it
+cannot be satisfied before the commit exists, and it is the only one missing from the close-out
+block's gate list. Both P3-96's entry and this paragraph ask for the same thing, which is that the
+gate list gain a line saying to run it after the last board commit and before the push.
 
 Nothing else broke while working this card.
 
