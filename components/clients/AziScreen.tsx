@@ -39,7 +39,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import type { AziRow, ClientOwnerChoice } from "@/lib/data/clients-types";
-import { formatDate } from "@/lib/data/format";
+import { formatDate, plural } from "@/lib/data/format";
 import { ClientNoteForm } from "./ClientNoteForm";
 
 /** Textul cu care porneste nota, cuvintele proprietarului pentru buton. */
@@ -79,8 +79,11 @@ export function AziScreen({
             rows.length === 0
               ? undefined
               : [
-                  rows.length === 1 ? "1 de sunat" : `${rows.length} de sunat`,
-                  overdue === 0 ? null : overdue === 1 ? "1 întârziat" : `${overdue} întârziați`,
+                  // "de sunat" este o expresie verbala, nu un substantiv numarat:
+                  // `plural` nu se aplica, si de aceea randul acesta ramane cum a
+                  // fost. Constatarea F12 il lasa anume in afara tabelului ei.
+                  `${rows.length} de sunat`,
+                  overdue === 0 ? null : plural(overdue, "întârziat", "întârziați"),
                 ]
                   .filter(Boolean)
                   .join(", ")
@@ -153,13 +156,21 @@ export function AziScreen({
                         "-"
                       )}
                     </Td>
+                    {/* P3-98, constatarea B1. CAND NIMENI NU A SCRIS UN PAS,
+                        coloana arata liniuta, ca si cealalta ramura de langa ea.
+                        Scria "De reluat", care nu este o propozitie scrisa de
+                        cineva, ci ETICHETA ETAPEI (CLIENT_STAGE_LABEL.follow_up),
+                        aratata oricum in rest pe acelasi rand: operatorul nu mai
+                        putea deosebi un lead cu pas scris de unul fara.
+                        `dueFrom` ramane neschimbat si tot ce aduce randul pe
+                        lista ramane neschimbat: se schimba numai textul. */}
                     <Td data-label="Următorul pas" className={PHONE_WIDE}>
                       <span
                         className="block max-w-[320px] truncate max-md:max-w-none max-md:overflow-visible max-md:whitespace-normal"
                         title={r.nextAction ?? undefined}
                         data-testid="azi-next-action"
                       >
-                        {r.nextAction ?? (r.dueFrom === "follow_up" ? "De reluat" : "-")}
+                        {r.nextAction ?? "-"}
                       </span>
                     </Td>
                     <Td data-label="Data" className={PHONE_CELL}>
