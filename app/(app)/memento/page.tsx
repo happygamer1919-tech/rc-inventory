@@ -16,6 +16,13 @@
 // altfel decat fisa. Doar administratorul o vede, pentru ca doar el poate
 // modifica pragul; operatorul vede valoarea, ca pana acum.
 
+import {
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { Card, CardHeader, Chip, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
 import { RecordLink } from "@/components/ui/RecordLink";
 import { loadThresholds } from "@/lib/data/dashboard";
@@ -30,15 +37,10 @@ export const dynamic = "force-dynamic";
 // nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, ca in P3-64,
 // fiindca spec-urile numara threshold-row si alert-row. Eticheta fiecarei celule
 // este textul antetului coloanei ei, pus in data-label si desenat din CSS.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** Legatura catre prag: pe telefon o tinta de 44px, nu doar inaltimea textului. */
-const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
+//
+// P3-100. Cele cinci nume erau scrise aici, cuvant cu cuvant identice cu cele din
+// components/ui/phone.ts, deci copia a fost stearsa si se importa. Nimic nu se
+// schimba pe ecran.
 
 /** Data si ora, pentru randurile de alerta. */
 function formatMoment(iso: string): string {

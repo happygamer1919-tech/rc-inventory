@@ -18,6 +18,14 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
+import {
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+  PHONE_WRAP,
+} from "@/components/ui/phone";
 import { StatCard } from "@/components/ui/StatCard";
 import { loadDashboard } from "@/lib/data/dashboard";
 import {
@@ -37,17 +45,12 @@ export const dynamic = "force-dynamic";
 // jos poarta max-md. ACELASI DOM, nu o a doua copie ascunsa, ca in P3-64. Eticheta
 // fiecarei celule este textul antetului coloanei ei, pus pe celula in data-label si
 // desenat din CSS, deci textul celulei ramane cel de azi.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-4";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** O legatura: pe telefon o tinta de 44px, nu doar inaltimea textului. */
-const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
-/** Un text tinut pe un rand pe desktop se rupe pe telefon, unde nu exista hover. */
-const PHONE_WRAP = "max-md:whitespace-normal max-md:[overflow-wrap:anywhere]";
+//
+// P3-100. Cele sase nume erau scrise aici, cuvant cu cuvant identice cu cele din
+// components/ui/phone.ts, deci copiile au fost sterse si se importa. PHONE_WRAP,
+// pe care fisierul comun nu il avea, s-a mutat acolo cu valoarea de aici,
+// neschimbata, fiindca si components/orders/OrdersScreen.tsx scria numele acesta.
+// Nimic nu se schimba pe ecran.
 
 export default async function Dashboard() {
   const d = await loadDashboard();

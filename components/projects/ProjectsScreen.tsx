@@ -43,16 +43,23 @@ import { ProjectForm } from "./ProjectForm";
 // fiecare numar pe desktop. Eticheta fiecarui camp este textul din antetul
 // coloanei, pus pe celula in data-label si desenat din CSS, deci textul celulei
 // ramane exact cel de azi. Textele starilor goale nu se ating.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:px-5 max-md:[&_tbody:not(:empty)]:pb-5";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** Legatura din rand: pe telefon o tinta de 44px, nu doar inaltimea textului. */
-const PHONE_LINK = "max-md:flex max-md:min-h-11 max-md:items-center";
-const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+//
+// P3-100, constatarea F14. ECRANUL ACESTA ISI SCRIA PROPRIILE COPII ale celor sase
+// nume si doua dintre ele apucasera sa se departeze de fisierul comun, EXACT cele
+// doua pe care raportul criticului le-a numit pe lista Clienti: marginea cardului
+// era px-5 pb-5 in loc de p-4, iar legatura din rand era flex in loc de inline-flex.
+// Amandoua sunt rezolvate catre fisierul comun, deci pe telefon un card de proiect
+// are de acum 16px de jur imprejur in loc de 20px pe laturi si nimic sus, iar
+// numele proiectului este o casuta in linie, nu un bloc. Peste 768px nimic nu se
+// misca: toate clasele poarta max-md.
+import {
+  PHONE_CELL,
+  PHONE_CONTROL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 
 export function ProjectsScreen({
   rows,

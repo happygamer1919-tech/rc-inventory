@@ -27,6 +27,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import {
+  PHONE_CELL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, Table, Td, Th } from "@/components/ui/primitives";
 import { formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { DEVIZ_STATUS_LABEL } from "@/lib/data/deviz-types";
@@ -45,15 +52,13 @@ function qty(value: number, unit: UnitCode | null): string {
 // fiecarei celule este textul antetului coloanei ei, pus in data-label si desenat
 // din CSS. Tabelul sta deja intr-un chenar cu margini, deci corpul lui nu mai
 // primeste altele.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** O legatura sau un buton de text: pe telefon o tinta de 44px. */
-const PHONE_LINK = "max-md:inline-flex max-md:min-h-11 max-md:items-center";
+//
+// P3-100. Propozitia de mai sus era motivul pentru care PHONE_TABLE de aici nu
+// avea deloc clauza de margine interioara, singura lui deosebire fata de fisierul
+// comun. Acum se importa cel comun, care pune 16px pe corpul tabelului, iar
+// chenarul de deasupra isi tine cele 20px DOAR peste 768px (md:px-5 md:py-4), ca
+// sa nu se adune 36px pe telefon. Peste 768px chenarul arata exact ca azi; sub
+// 768px marginea cardului devine 16px de jur imprejur, ca pe orice alta lista.
 
 /** Semnul explicit, ca "+120" sa nu se citeasca la fel ca "120". */
 function signed(value: number): string {
@@ -215,7 +220,7 @@ export function DevizComparisonPanel({
           hint="Adaugă linii pe fila Deviz sau eliberează material către acest proiect."
         />
       ) : (
-        <div className={`px-5 py-4 ${PHONE_TABLE}`}>
+        <div className={`md:px-5 md:py-4 ${PHONE_TABLE}`}>
           <Table>
             <thead>
               <tr>

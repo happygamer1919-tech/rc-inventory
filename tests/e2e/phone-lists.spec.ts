@@ -464,3 +464,69 @@ test.describe("P3-97: Clienți foloseste clasele de telefon comune (390x844)", (
     expect(desktop.display, "afisarea de telefon se vede la 1440px").not.toBe("inline-flex");
   });
 });
+
+// ---------------------------------------------------------------------------
+// P3-100 (G56), constatarea F14 pe cealalta jumatate: lista Proiecte
+// ---------------------------------------------------------------------------
+//
+// Raportul criticului a numit cele doua abateri pe lista Clienți, iar P3-97 le-a
+// rezolvat acolo. Lista Proiecte le purta pe AMANDOUA, cuvant cu cuvant, si nimeni
+// nu raportase jumatatea aceasta: marginea interioara a cardului era px-5 pb-5 in
+// loc de p-4, iar legatura din rand era flex in loc de inline-flex. P3-100 sterge
+// copia locala si importa fisierul comun, deci un card de proiect si un card de pe
+// orice alta lista au de acum aceeasi margine si aceeasi asezare a numelui.
+//
+// SE MASOARA VALOAREA CALCULATA IN PAGINA, nu sirul de clase, din acelasi motiv ca
+// la cazul geaman de mai sus: un test care numara clase trece si atunci cand o a
+// doua definitie le scrie pe toate la fel azi si se departeaza saptamana viitoare.
+// 16px este p-4, si inline-flex este PHONE_LINK, amandoua asa cum le defineste
+// components/ui/phone.ts.
+//
+// DATELE sunt proiectele semanate in CI de scripts/seed-test-procurement.mjs, cele
+// pe care le foloseste si cazul (3) de mai sus. Nu se creeaza si nu se sterge nimic.
+test.describe("P3-100: Proiecte foloseste clasele de telefon comune (390x844)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("G56: (F14) randul de pe Proiecte are marginea si afisarea din fisierul comun", async ({
+    page,
+  }) => {
+    await signInOnPhone(page);
+    const path = `/proiecte?stare=toate&q=${encodeURIComponent("TEST Necesar")}`;
+    await page.goto(path);
+
+    const rows = page.getByTestId("project-row");
+    await expect.poll(() => rows.count(), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
+
+    const phone = await rows.first().evaluate((tr) => {
+      const body = tr.closest("tbody")!;
+      const link = tr.querySelector<HTMLElement>("[data-testid='project-link']")!;
+      const s = getComputedStyle(body);
+      return {
+        padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(" "),
+        display: getComputedStyle(link).display,
+        linkHeight: link.getBoundingClientRect().height,
+      };
+    });
+    expect(phone.padding, "marginea cardului nu este cea comuna, p-4").toBe("16px 16px 16px 16px");
+    expect(phone.display, "legatura din rand nu este cea comuna, inline-flex").toBe("inline-flex");
+    expect(phone.linkHeight, `legatura sub ${MIN_TAP}px`).toBeGreaterThanOrEqual(MIN_TAP);
+
+    // Si lista intreaga incape in continuare la 390px cu marginea cea noua.
+    await expectFitsPhone(page, path);
+
+    // Si peste 768px nimic din toate acestea nu se aplica.
+    await page.setViewportSize(DESKTOP);
+    await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(1);
+    const desktop = await rows.first().evaluate((tr) => {
+      const body = tr.closest("tbody")!;
+      const link = tr.querySelector<HTMLElement>("[data-testid='project-link']")!;
+      const s = getComputedStyle(body);
+      return {
+        padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(" "),
+        display: getComputedStyle(link).display,
+      };
+    });
+    expect(desktop.padding, "marginea de telefon se vede la 1440px").toBe("0px 0px 0px 0px");
+    expect(desktop.display, "afisarea de telefon se vede la 1440px").not.toBe("inline-flex");
+  });
+});

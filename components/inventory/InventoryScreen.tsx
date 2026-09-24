@@ -18,6 +18,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
+import { PHONE_CELL, PHONE_CONTROL, PHONE_ROW, PHONE_TABLE } from "@/components/ui/phone";
 import { formatMoney, formatNumber, formatQty, normalizeText, plural } from "@/lib/data/format";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
@@ -41,13 +42,16 @@ const STOCK_LEVELS: Array<{ value: StockLevel; label: string }> = [
 // copie ar dubla fiecare numar pe desktop. Eticheta fiecarui camp este textul din
 // antetul coloanei, pus pe celula in data-label si desenat din CSS, deci textul
 // celulei ramane exact cel de azi.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:p-3";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:[&>span]:whitespace-normal max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+//
+// P3-100. Doua dintre cele patru nume scrise aici se departasera de fisierul comun
+// si se rezolva diferit, fiindca sunt deosebiri de feluri diferite.
+// (1) PHONE_TABLE avea p-3 acolo unde fisierul comun are p-4, fara niciun motiv
+// scris: se ia valoarea comuna, deci pe telefon un card de produs are 16px de jur
+// imprejur in loc de 12px, ca pe orice alta lista.
+// (2) PHONE_CELL avea IN PLUS max-md:[&>span]:whitespace-normal, ca eticheta din
+// casuta de stoc sa se rupa in loc sa fie tinuta pe un rand: clasa aceea trece pe
+// cele sapte celule unde se foloseste, scrisa acolo si nu sub un nume nou, deci
+// setul de clase desenat ramane exact cel de azi.
 
 type Visibility = "active" | "toate" | "inactive";
 
@@ -284,7 +288,7 @@ export function InventoryScreen({
                           : "hover:bg-rc-paper",
                   ].join(" ")}
                 >
-                  <Td data-label="SKU" className={PHONE_CELL}>
+                  <Td data-label="SKU" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="rc-num text-[12.5px] font-semibold text-rc-muted whitespace-nowrap">
                       {p.sku}
                     </span>
@@ -292,7 +296,7 @@ export function InventoryScreen({
                   {/* Pe telefon denumirea deschide cardul, pe tot randul lui. */}
                   <Td
                     data-label="Denumire"
-                    className={`${PHONE_CELL} max-md:order-first max-md:col-span-2`}
+                    className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal max-md:order-first max-md:col-span-2`}
                   >
                     <span className="text-[13.5px] font-medium text-rc-black">{p.name}</span>
                     {!p.active ? (
@@ -306,15 +310,15 @@ export function InventoryScreen({
                       </span>
                     ) : null}
                   </Td>
-                  <Td data-label="Categorie" className={PHONE_CELL}>
+                  <Td data-label="Categorie" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="text-[12.5px] text-rc-muted whitespace-nowrap">
                       {p.category}
                     </span>
                   </Td>
-                  <Td data-label="Furnizor" className={PHONE_CELL}>
+                  <Td data-label="Furnizor" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="text-[12.5px] text-rc-muted">{p.supplierName ?? "-"}</span>
                   </Td>
-                  <Td align="right" data-label="Stoc" className={PHONE_CELL}>
+                  <Td align="right" data-label="Stoc" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     {empty ? (
                       <Chip tone="danger">Epuizat</Chip>
                     ) : (
@@ -328,12 +332,12 @@ export function InventoryScreen({
                       </span>
                     )}
                   </Td>
-                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
+                  <Td align="right" data-label="Prag" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
                       {formatNumber(p.threshold)} {unitLabel(p.unit)}
                     </span>
                   </Td>
-                  <Td align="right" data-label="Valoare" className={PHONE_CELL}>
+                  <Td align="right" data-label="Valoare" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="rc-num text-[13px] text-rc-black whitespace-nowrap">
                       {formatMoney(p.stock * p.unitValueMdl)}
                     </span>

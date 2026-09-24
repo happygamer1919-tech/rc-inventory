@@ -17,6 +17,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { PHONE_WRAP } from "@/components/ui/phone";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
 import { formatDate, formatMoney } from "@/lib/data/format";
@@ -32,7 +33,12 @@ type Selection = { kind: "in"; id: string } | { kind: "out"; id: string } | null
 // P3-64. PE TELEFON (sub 768px) cele doua liste stau una sub alta, iar un nume
 // lung se rupe pe randuri in loc sa fie taiat, fiindca pe telefon nu exista nimic
 // care sa arate restul. Peste 768px nimic nu se schimba: clasele poarta max-md.
-const PHONE_WRAP = "max-md:overflow-visible max-md:whitespace-normal max-md:[overflow-wrap:anywhere]";
+//
+// P3-100. PHONE_WRAP era scris si aici si in app/(app)/page.tsx, cu valori
+// diferite, deci a trecut in components/ui/phone.ts cu valoarea de baza. Cele doua
+// locuri de aici pornesc de la `truncate`, deci mai au nevoie si de
+// max-md:overflow-visible, scris acolo la locul lui: exact ce face deja randul de
+// pe tabloul de bord. Setul de clase desenat ramane cel de azi.
 
 const inboundTone = (s: string): ChipTone => (s === "arrived" ? "ok" : "warn");
 const outboundTone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
@@ -126,7 +132,7 @@ export function OrdersScreen({
                     <Chip tone={inboundTone(o.status)}>{INBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
-                    <span className={`text-[12.5px] text-rc-muted truncate ${PHONE_WRAP}`}>
+                    <span className={`text-[12.5px] text-rc-muted truncate max-md:overflow-visible ${PHONE_WRAP}`}>
                       {o.supplierName ?? "Fără furnizor"}
                     </span>
                     <span className="rc-num text-[12.5px] text-rc-muted shrink-0">
@@ -185,7 +191,7 @@ export function OrdersScreen({
                     <Chip tone={outboundTone(o.status)}>{OUTBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
-                    <span className={`text-[12.5px] text-rc-black truncate ${PHONE_WRAP}`}>
+                    <span className={`text-[12.5px] text-rc-black truncate max-md:overflow-visible ${PHONE_WRAP}`}>
                       {o.projectName}
                     </span>
                   </div>
