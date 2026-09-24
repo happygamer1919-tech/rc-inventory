@@ -438,3 +438,89 @@ files and these documents.
 ---
 
 Role EXECUTOR. Card P3-97. Branch `card/p3-97`. Halted at the ceiling.
+
+---
+
+## 9. Resume, 2026-09-24: the one approved line, and the green run
+
+This card was halted at the failure ceiling in CLAUDE.md section 10 with three distinct fix
+attempts spent. It was resumed for exactly one push, on one line, under the answer in the operator
+factory's mailbox, `q078-p3-97-halted-one-line-from-green`: "YES, push once more. Approved as
+recommended. One push, one line. Exactly `await page.getByTestId("review-expected-at").fill("2026-12-01");`
+and nothing else. No other edit rides along." The same answer said the ceiling is NOT reset by it:
+this is a tie broken by the named blocker, not a fresh allowance of three, and a red run on any new
+fault would have stopped the card again.
+
+**The line, and why it was the right one.** The F9 case filled the supplier, the line quantity and
+the line category, then pressed Confirm and waited for `review-created`. In run 36013778375 it
+waited the full 60 seconds and the failure screenshot showed the application refusing the
+confirmation with `Completează data estimată de livrare.` printed in Romanian inside the sheet. The
+estimated delivery date is required and the case never filled it. The fault was in the TEST, not in
+the application, and the fix is test data rather than product code: the identical line already sits
+at `tests/e2e/review.spec.ts:513` and `:541`, and four more times at `:643`, `:676`, `:1040` and
+`:1094`, and the `review-expected-at` test id is in live use at
+`tests/e2e/romanian-file-date.spec.ts:428`.
+
+**What was deliberately NOT done.** No application code, no assertion, no threshold and no timeout
+was touched: the three application fixes this card exists for, findings F9, F10 and F14, were
+already green in run 36013778375 and touching them would have risked work that was already proven.
+The fill-and-confirm half of the case was NOT deleted, although deleting it would have turned the
+run green at once. That is refused under the three laws in the close-out block: it would prove the
+sheet LOOKS right on a phone without proving it can be USED on one, which is the whole point of the
+card. The wider phone-class drift found while building this card, ten files with 53 local copies and
+eight of them drifted, is goal G56 in the factory's `GOALS.md` and was left alone here.
+
+**The green run: 36022773224, head `d2018a6`, `quality` SUCCESS, 402 passed in 21.7 minutes,
+0 failed and 0 flaky.** All four `G52:` cases green, and every one of them named in the log:
+`G52: (F10) Adaugă produs, Modifică produsul si legatura de pe Memento, toate pe telefon` (3.2s),
+`G52: (F9) fisa de verificare a extragerii: campurile incap, si ciorna se confirma pe telefon`
+(2.6s), `G52: (4) desktop neschimbat: la 1440px panoul produsului are 520px si randul fisei ramane
+pe patru coloane` (3.7s), and
+`G52: (F14) randul de pe Clienți are marginea si afisarea din fisierul comun` (1.3s).
+`npm run checks:state 357` exits 0 and reports the result belongs to head `d2018a6`.
+
+**NO MIGRATION.** This pull request adds and changes no file under `supabase/migrations/`.
+`Refuse a migration that removes rows` parsed 0 files and passed, and both applier proof steps,
+`Prove the migration applier against the Docker shim` and `Prove every applier assertion can fail`,
+are correctly SKIPPED by `applier_scope`. It is NOT a documentation-only diff, so Build, the
+migration apply and the whole End to end block RAN and passed.
+
+**Local before the push**, each command run alone and each exit 0: `npx tsc --noEmit`,
+`npm run build`, the board validator on all three boards, `check:card-ids`, `check:unique-ids`,
+`check:open-branch-ids`, `check:no-destructive-migration`, `check:conflict-residue` run after
+`git add`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`,
+`check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`, and
+`check:board-clock` after the commit. `npx playwright test --list` collects the same 10 cases in
+`tests/e2e/phone-forms.spec.ts`, so no case was added, removed or renamed by this push.
+
+**The card is `shipped` and the merge is NOT taken here.** Real client data has been in production
+since 2026-09-14, so the close-out block's step 8 revokes the section 3.1 self-merge grant on every
+path, whatever the pull request touches. The merge question is filed for the owner.
+
+Role EXECUTOR. Card P3-97. Branch `card/p3-97`. Shipped on run 36022773224.
+
+---
+
+## 10. The board flip rides a second pull request, and why
+
+Pull request #357 was MERGED at `2026-09-24T16:15:49Z` as merge commit `d477db1`, by the owner
+auto-merger, on the green head `d2018a6` of run 36022773224. That head still carried card P3-97 at
+`halted`, because the card is only flipped once the run it names has concluded, and an evidence line
+cannot quote a run id that does not exist yet. The run concluded at about 16:14 and the flip was
+committed at 16:19. The merge landed in between.
+
+A squash-merged branch takes no further commit and a merged pull request cannot be reopened, so for
+those minutes `main` carried a card reading `"status": "halted"` with evidence beginning
+`THE ACCEPTANCE HAS NOT PASSED IN FULL AND THIS CARD IS HALTED, NOT SHIPPED`, while the work it
+describes was merged and green. That is a false record under CLAUDE.md section 6 and it is corrected
+on branch `card/p3-97-r2`, cut fresh from `main`.
+
+**That follow-up carries NO code.** `components/` and `tests/` are untouched and every line of the
+product change is already on `main` under `d477db1`. It carries the board flip, this section, and
+the two `docs/LEARNINGS.md` entries. **It re-claims no acceptance:** the acceptance passed in run
+36022773224 on the head that merged, and the follow-up only writes that fact down.
+
+The lesson is in `docs/LEARNINGS.md`: with an auto-merger watching the branch, anything that has to
+happen AFTER a green run has to be arranged BEFORE the push, either by pushing the card already at
+`shipped` or by opening the pull request as a draft, because the auto-merger does not merge a draft
+and does not wait for anything else.

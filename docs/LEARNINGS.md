@@ -6700,3 +6700,49 @@ one run reports one COMPLETE fault instead of one symptom. RULE: **when a helper
 of clauses about the same object, make the first clause report the full set of offenders it
 already knows about. Ordering the clauses is correct; discarding the diagnosis the first one
 gathered is what costs the extra runs.**
+
+### A new phone case written "minimally" left out a required field and read as a hang
+**Tag:** testing
+**ERROR:** P3-97's F9 case for the extraction review sheet filled the supplier, the line quantity
+and the line category, then pressed `Confirmă și creează comanda` and waited for `review-created`.
+It never arrived, and run 36013778375 was red on that one case of 402 after the full 60 second
+timeout, with `element(s) not found`. Every layout assertion of the same case had passed, so the
+screen was correct and the case still failed. The failure screenshot showed the application working
+exactly as designed: it refused the confirmation and printed `Completează data estimată de livrare.`
+in red, in Romanian, inside the sheet. The expected delivery date is required and the new case never
+filled it. The line was omitted on purpose, to keep the new case minimal, on the reasoning that a
+phone layout case only needs the fields the layout assertions measure.
+**SOLUTION:** one line of test data, `await page.getByTestId("review-expected-at").fill("2026-12-01");`,
+copied verbatim from `tests/e2e/review.spec.ts` cases 1 and 2, which have filled it for weeks.
+Nothing in the application changed, no assertion moved, no threshold loosened and the
+fill-and-confirm half of the case stayed, because the card exists to prove the sheet can be USED on
+a phone and not only that it looks right. Green in run 36022773224, 402 passed in 21.7 minutes.
+RULE: **a new case that submits an existing form copies EVERY `fill` the existing spec for that form
+performs before its own submit, and drops one only with a reason written down. "Minimal" is a
+property of the assertions, never of the fixture data.** RULE: **when a wait for a success element
+times out, read the failure screenshot BEFORE the trace: a refusal shown on screen in Romanian is
+the application working, and it is a faster answer than any network dump.** Half an hour of CI, plus
+a halt at the failure ceiling and an owner question, were spent on one missing `fill`.
+
+### The auto-merger lands the branch on green, so a board flip that waits for green arrives too late
+**Tag:** process
+**ERROR:** P3-97's last push was pushed with the card at `halted`, on purpose, because the card is
+only flipped to `shipped` once the run it names has concluded and an evidence line cannot quote a
+run id that does not exist yet. Run 36022773224 concluded SUCCESS at about 16:14. The owner
+auto-merger squash-merged pull request #357 at 16:15:49Z, as d477db1, on that same head. The board
+flip was committed at 16:19. For those four minutes, and until this correction, `main` carried card
+P3-97 reading `"status": "halted"` with evidence beginning `THE ACCEPTANCE HAS NOT PASSED IN FULL
+AND THIS CARD IS HALTED, NOT SHIPPED`, while the work it describes was merged, deployed and green.
+That is a false record under CLAUDE.md section 6, and nothing can repair it in place: a squash-merged
+branch takes no further commit and a merged pull request cannot be reopened.
+**SOLUTION:** the correction is a second pull request, cut fresh from `main` on `card/p3-97-r2`,
+carrying the board flip, the report resume and this entry and NO code at all. It re-claims nothing:
+the acceptance passed in run 36022773224 on the head that merged, and the follow-up only writes that
+fact down. RULE: **with an auto-merger watching the branch, the board flip cannot wait for the run to
+conclude, because the merge does not wait either. Push the head with the card already at `shipped`
+and evidence that names the run it is waiting on by branch and pull request rather than by id, then
+correct the id only if the run goes red.** RULE: **whenever a task needs anything to happen AFTER a
+green run on a branch, a second green run, a board flip, an evidence id, open the pull request as a
+DRAFT, because the auto-merger does not merge a draft.** The same trap already cost a multi-run
+proof task; that one was about needing several consecutive green runs, this one about needing four
+minutes after the first.
