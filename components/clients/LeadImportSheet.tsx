@@ -16,7 +16,10 @@
 //
 // CLASELE DE TELEFON SE IMPORTA din components/ui/phone.ts, niciodata scrise aici:
 // G56 tocmai le-a adunat pe toate intr-un singur fisier si o copie noua ar desface
-// exact ce a facut el.
+// exact ce a facut el. PHONE_TAP apare O SINGURA DATA, pe cipul unui pas, fiindca
+// acela este scris de mana; Button, Input si Select din primitives poarta deja
+// max-md:min-h-11 si max-md:text-base in clasa lor de baza, deci a le mai da o data
+// aceleasi clase ar fi zgomot, nu 44px in plus.
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -24,7 +27,6 @@ import { Button, Field, Select } from "@/components/ui/primitives";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
   PHONE_CLOSE,
-  PHONE_CONTROL,
   PHONE_SHEET,
   PHONE_STACK,
   PHONE_TAP,
@@ -324,7 +326,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 chooseTestId="import-choose"
                 nameTestId="import-file-name"
                 ariaLabel="Alege fișierul cu leaduri"
-                buttonClassName={PHONE_TAP}
               />
 
               <Button
@@ -332,7 +333,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 variant="secondary"
                 onClick={() => download(templateCsv(), TEMPLATE_FILE_NAME)}
                 data-testid="import-template"
-                className={PHONE_TAP}
               >
                 Descarcă șablonul gol
               </Button>
@@ -381,7 +381,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                       }
                       data-testid="import-column-select"
                       aria-label={`Câmpul pentru coloana ${header.trim() || i + 1}`}
-                      className={PHONE_CONTROL}
                     >
                       <option value={IMPORT_SKIP}>{IMPORT_SKIP_LABEL}</option>
                       {IMPORT_FIELDS.map((field) => (
@@ -435,7 +434,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                         }
                         data-testid="import-duplicate-choice"
                         aria-label={`Ce se face cu rândul ${entry.line}`}
-                        className={PHONE_CONTROL}
                       >
                         <option value="skip">Sari peste</option>
                         <option value="fill" disabled={entry.fillable.length === 0}>
@@ -492,7 +490,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                         download(skippedCsv(headers, outcome.skippedRows), SKIPPED_FILE_NAME)
                       }
                       data-testid="import-download-skipped"
-                      className={PHONE_TAP}
                     >
                       Descarcă rândurile nepreluate
                     </Button>
@@ -513,7 +510,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                       value={source}
                       onChange={(e) => setSource(e.target.value)}
                       data-testid="import-source"
-                      className={PHONE_CONTROL}
                     >
                       <option value="">Nespecificată</option>
                       {CLIENT_SOURCES.map((s) => (
@@ -548,14 +544,13 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                   setStep(step - 1);
                 }}
                 data-testid="import-back"
-                className={PHONE_TAP}
               >
                 Înapoi
               </Button>
             ) : null}
 
             {outcome ? (
-              <Button type="button" onClick={onClose} data-testid="import-done" className={PHONE_TAP}>
+              <Button type="button" onClick={onClose} data-testid="import-done">
                 Închide
               </Button>
             ) : step === 0 ? (
@@ -564,7 +559,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 disabled={!ready}
                 onClick={toMatching}
                 data-testid="import-next"
-                className={PHONE_TAP}
               >
                 Continuă
               </Button>
@@ -574,7 +568,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 disabled={pending}
                 onClick={toVerify}
                 data-testid="import-next"
-                className={PHONE_TAP}
               >
                 {pending ? "Se verifică..." : "Verifică"}
               </Button>
@@ -586,7 +579,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                   setStep(3);
                 }}
                 data-testid="import-next"
-                className={PHONE_TAP}
               >
                 Continuă
               </Button>
@@ -596,7 +588,6 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 disabled={pending}
                 onClick={onRun}
                 data-testid="import-run"
-                className={PHONE_TAP}
               >
                 {pending ? "Se importă..." : "Importă"}
               </Button>
