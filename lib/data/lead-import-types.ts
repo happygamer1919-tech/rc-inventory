@@ -299,6 +299,13 @@ export function templateCsv(): string {
 export const TEMPLATE_FILE_NAME = "sablon-leaduri.csv";
 export const SKIPPED_FILE_NAME = "randuri-nepreluate.csv";
 
+/** Nota lasata pe fiecare lead creat, exact formula ceruta de goal G58. Sta aici
+ *  si nu in fisierul de actiuni, fiindca un fisier "use server" nu poate exporta
+ *  decat functii asincrone, iar testul citeste acelasi text. */
+export function importNoteBody(fileName: string, day: string): string {
+  return `Importat din ${fileName}, ${day}`;
+}
+
 // ---------------------------------------------------------------------------
 // Telefon: forma canonica +373
 // ---------------------------------------------------------------------------
