@@ -21,6 +21,15 @@
      si conturul de focus nu poarta text alb. */
   --color-rc-orange-button: #c25401;
   --color-rc-orange-button-hover: #a84900;
+  /* P3-98, constatarea F13. TEXTUL cipului portocaliu, pe fundalul lui palid.
+     #f06801 pe #fff5ea da 2.92:1, mult sub pragul WCAG AA de 4.5:1; #b34e00 da
+     4.87:1. Textul cipului are 12px si este gros, deci NU este "text mare" dupa
+     WCAG (acela incepe la 18.66px gros) si pragul care se aplica este 4.5:1.
+     TOKEN PROPRIU, si nu o mutare a celor de mai sus: --color-rc-orange ramane
+     marcajul din meniu, sublinierea taburilor si conturul de focus, iar
+     --color-rc-orange-deep este culoarea legaturilor de pe unsprezece ecrane.
+     Nuanta este aceeasi la grad, 26, deci cipul ramane portocaliu. */
+  --color-rc-orange-chip: #b34e00;
 
   /* fundal (negru) */
   --color-rc-black: #0b0b0c;
@@ -42,6 +51,12 @@
   --color-rc-danger-soft: #fff0f0;
   --color-rc-warn: #b7791f;
   --color-rc-warn-soft: #fff8e6;
+  /* P3-98, constatarea F13. TEXTUL cipului chihlimbar, pe fundalul lui palid.
+     #b7791f pe #fff8e6 da 3.44:1, sub 4.5:1; #96600f da 4.98:1. Token propriu
+     din acelasi motiv ca la portocaliu: --color-rc-warn este si fundal
+     (bg-rc-warn, bulina de etapa si cea de pe CRM) si contur, nu doar text.
+     Nuanta este aceeasi la grad, 36, deci cipul ramane chihlimbar. */
+  --color-rc-warn-chip: #96600f;
   --color-rc-ok: #1f7a45;
   --color-rc-ok-soft: #eefaf2;
   --color-rc-info: #1e5fa8;

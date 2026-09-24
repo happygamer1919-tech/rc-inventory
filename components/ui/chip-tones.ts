@@ -35,8 +35,12 @@ export const CHIP_BASE =
 export const CHIP_TONES: Record<ChipTone, string> = {
   neutral: "bg-rc-paper text-rc-muted border-rc-line-strong",
   ok: "bg-rc-ok-soft text-rc-ok border-rc-ok/25",
-  warn: "bg-rc-warn-soft text-rc-warn border-rc-warn/25",
+  // P3-98, constatarea F13. Numai TEXTUL celor doua tonuri de mai jos s-a mutat,
+  // pe token-urile lui din app/globals.css: portocaliu de la 2.92:1 la 4.87:1 si
+  // chihlimbar de la 3.44:1 la 4.98:1, pe aceleasi fundaluri palide. Fundalurile
+  // si conturile sunt neatinse, ca si celelalte patru tonuri, care treceau deja.
+  warn: "bg-rc-warn-soft text-rc-warn-chip border-rc-warn/25",
   danger: "bg-rc-danger-soft text-rc-danger border-rc-danger/25",
   info: "bg-rc-info-soft text-rc-info border-rc-info/25",
-  orange: "bg-rc-orange-soft text-rc-orange-deep border-rc-orange/30",
+  orange: "bg-rc-orange-soft text-rc-orange-chip border-rc-orange/30",
 };
