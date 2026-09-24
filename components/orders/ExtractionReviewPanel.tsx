@@ -23,6 +23,18 @@
 // RETRIMITEREA FOLOSESTE ACELASI order_id. Prin regula de idempotenta a
 // contractului rezultatul inlocuieste extragerea precedenta in loc sa adauge a
 // doua ciorna, deci butonul este sigur apasat de doua ori.
+//
+// P3-97, constatarea F9. FISA DE VERIFICARE PE TELEFON, si ea a fost singura
+// din aplicatie ramasa pe dinafara celor patru carduri de telefon, P3-60, P3-64,
+// P3-65 si P3-67. Trei lucruri, toate sub 768px si niciunul peste:
+//   - randul de sus, sase controale in patru coloane, se aseaza unul sub altul;
+//   - randul fiecarei pozitii, din care 220px erau doua coloane fixe de 110px,
+//     trece la doua coloane, cu cele doua campuri late pe randul intreg;
+//   - fiecare camp si fiecare lista scrise de mana aici, adica in afara lui Input
+//     si Select din primitives, primesc PHONE_CONTROL: 44px inaltime si text de
+//     16px, sub care iOS Safari mareste pagina la atingerea campului.
+// Cele sapte clase max-md de dinainte, de pe blocul de renuntare si de pe capul
+// fisei documentului, raman neatinse.
 
 import * as React from "react";
 import Link from "next/link";
@@ -30,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Chip } from "@/components/ui/primitives";
 import { DateField, useInvalidDates } from "@/components/ui/DateField";
 import { FilePicker } from "@/components/ui/FilePicker";
+import { PHONE_CONTROL, PHONE_STACK } from "@/components/ui/phone";
 import {
   DERIVED_PARTIAL_NOTICE,
   EXTRACTION_ERROR_LABEL,
@@ -168,12 +181,17 @@ function ExtractionMetaDetails({ draft }: { draft: ExtractionDraft }) {
 }
 /** EXT-34. Codul furnizorului, descrierea si sursa totalului unei linii, asa
  *  cum le-a trimis citirea. Numai citite: nu intra in formular si nu schimba
- *  nimic din ce se salveaza. */
+ *  nimic din ce se salveaza.
+ *
+ *  P3-97. Randul acesta sta INAUNTRUL grilei pozitiei si o traverseaza, deci
+ *  intinderea lui urmeaza numarul de coloane al grilei: patru peste 768px, doua
+ *  sub. Un col-span-4 intr-o grila de doua coloane ar naste doua coloane
+ *  implicite si ar impinge randul inapoi in afara ecranului. */
 function InboundLineDetails({ line, index }: { line: ExtractionLine | undefined; index: number }) {
   if (!line || (!line.supplierCode && !line.lineDescription && !line.lineTotalSource)) return null;
   return (
     <p
-      className="col-span-4 flex flex-wrap gap-x-5 text-[11.5px] text-rc-muted-2"
+      className="col-span-4 max-md:col-span-2 flex flex-wrap gap-x-5 text-[11.5px] text-rc-muted-2"
       data-testid={`review-line-inbound-${index}`}
     >
       {line.supplierCode ? (
@@ -396,14 +414,19 @@ function ReviewForm({
         ecran acum.
       </p>
 
-      <div className="grid grid-cols-4 gap-3">
+      {/* P3-97, constatarea F9. PE TELEFON CELE SASE CONTROALE STAU UNUL SUB
+          ALTUL, nu patru coloane intr-un ecran de 390px. Nu doua coloane, ca la
+          liniile de mai jos: doua dintre ele sunt casute de data, al caror buton
+          de calendar este singur o tinta de 44px, si nu incap la jumatate de
+          latime. Peste 768px raman cele patru coloane de azi. */}
+      <div className={`grid grid-cols-4 gap-3 ${PHONE_STACK}`}>
         <label className="text-[12.5px] text-rc-muted">
           Furnizor
           <input
             data-testid="review-supplier"
             value={supplierName}
             onChange={(e) => setSupplierName(e.target.value)}
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+            className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           />
         </label>
         <label className="text-[12.5px] text-rc-muted">
@@ -412,7 +435,7 @@ function ReviewForm({
             data-testid="review-currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+            className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           >
             <option value="MDL">MDL</option>
             <option value="EUR">EUR</option>
@@ -454,7 +477,7 @@ function ReviewForm({
             value={orderRefSeries}
             onChange={(e) => setOrderRefSeries(e.target.value)}
             placeholder="TG"
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+            className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           />
         </label>
         <label className="text-[12.5px] text-rc-muted">
@@ -464,7 +487,7 @@ function ReviewForm({
             value={orderRef}
             onChange={(e) => setOrderRef(e.target.value)}
             placeholder="0009312"
-            className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+            className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
           />
         </label>
       </div>
@@ -488,6 +511,13 @@ function ReviewForm({
         </p>
       ) : null}
 
+      {/* P3-97, constatarea F9. RANDUL UNEI POZITII: PE TELEFON DOUA COLOANE, ca
+          la pozitiile comenzii manuale, care au aceeasi forma si au primit
+          tratamentul in P3-65. Cele doua campuri late, numele de pe document si
+          produsul din catalog, tin randul intreg; cantitatea si pretul, amandoua
+          scurte, il impart. Cele doua coloane de 110px sunt exact ce nu incape:
+          220px fixe dintr-un ecran de 390px lasau celorlalte doua cate vreo 70px.
+          Peste 768px raman cele patru coloane de azi. */}
       <div className="mt-5 space-y-2.5">
         {lines.map((line, index) => (
           <div
@@ -495,7 +525,7 @@ function ReviewForm({
             data-testid="review-line"
             data-index={String(index)}
             data-scan-read={scanRead ? "true" : "false"}
-            className="grid grid-cols-[1fr_1fr_110px_110px] gap-2.5 items-end border-t border-rc-line pt-2.5"
+            className="grid grid-cols-[1fr_1fr_110px_110px] gap-2.5 items-end border-t border-rc-line pt-2.5 max-md:grid-cols-2"
           >
             {/* EXT-17. MARCAJUL STA PE LINIE, NU NUMAI PE PAGINA.
                 Un banner in capul ecranului se citeste o data si apoi se
@@ -510,28 +540,30 @@ function ReviewForm({
                 fotografie. */}
             {scanRead ? (
               <p
-                className="col-span-4 text-[11.5px] text-rc-muted-2"
+                className="col-span-4 max-md:col-span-2 text-[11.5px] text-rc-muted-2"
                 data-testid={`review-line-scan-${index}`}
               >
                 {SCAN_LINE_NOTICE}
               </p>
             ) : null}
-            <label className="text-[12px] text-rc-muted">
+            {/* P3-97, constatarea F9. Cele doua campuri late tin randul intreg
+                pe telefon; cantitatea si pretul, amandoua scurte, il impart. */}
+            <label className="text-[12px] text-rc-muted max-md:col-span-2">
               Nume pe document
               <input
                 data-testid={`review-line-name-${index}`}
                 value={line.productName}
                 onChange={(e) => setLine(index, { productName: e.target.value })}
-                className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               />
             </label>
-            <label className="text-[12px] text-rc-muted">
+            <label className="text-[12px] text-rc-muted max-md:col-span-2">
               Produs din catalog
               <select
                 data-testid={`review-line-product-${index}`}
                 value={line.productId}
                 onChange={(e) => setLine(index, { productId: e.target.value })}
-                className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               >
                 <option value="">Produs nou, marcat pentru verificare</option>
                 {products.map((p) => (
@@ -547,7 +579,7 @@ function ReviewForm({
                 data-testid={`review-line-quantity-${index}`}
                 value={line.quantity}
                 onChange={(e) => setLine(index, { quantity: e.target.value })}
-                className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               />
             </label>
             <label className="text-[12px] text-rc-muted">
@@ -556,7 +588,7 @@ function ReviewForm({
                 data-testid={`review-line-price-${index}`}
                 value={line.unitPrice}
                 onChange={(e) => setLine(index, { unitPrice: e.target.value })}
-                className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
               />
             </label>
 
@@ -571,7 +603,7 @@ function ReviewForm({
                 uitandu-te la ce scria acolo. */}
             {line.productId === "" ? (
               <div
-                className="col-span-4 grid grid-cols-[1fr_1fr] gap-2.5"
+                className="col-span-4 max-md:col-span-2 grid grid-cols-[1fr_1fr] gap-2.5 max-md:grid-cols-1"
                 data-testid={`review-line-new-${index}`}
               >
                 <label className="text-[12px] text-rc-muted">
@@ -580,7 +612,7 @@ function ReviewForm({
                     data-testid={`review-line-category-${index}`}
                     value={line.categoryId}
                     onChange={(e) => setLine(index, { categoryId: e.target.value })}
-                    className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                    className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
                   >
                     <option value="">Alege categoria</option>
                     {categories
@@ -607,7 +639,7 @@ function ReviewForm({
                     data-testid={`review-line-unit-${index}`}
                     value={line.unit}
                     onChange={(e) => setLine(index, { unit: e.target.value })}
-                    className="mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black"
+                    className={`mt-1 block w-full rounded-[9px] border border-rc-line px-2.5 py-1.5 text-[13px] text-rc-black ${PHONE_CONTROL}`}
                   >
                     <option value="">Alege unitatea</option>
                     {ALL_UNITS.map((u) => (
