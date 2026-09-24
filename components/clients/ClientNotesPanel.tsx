@@ -1,6 +1,12 @@
 "use client";
 
-// Fila Note de pe fisa clientului, cardul P3-90, goal G45.
+// Panoul "Ce s-a discutat" de pe fisa clientului si a leadului, cardul P3-90,
+// goal G45.
+//
+// PANA LA CARDUL P3-99 ACEST PANOU ERA FILA NOTE, a cincea din banda. P3-99 l-a
+// mutat deasupra benzii de file, in ClientDetailScreen.tsx, si nimic din ce
+// urmeaza nu s-a schimbat odata cu mutarea: maturarea din 2026-09-22 a spus
+// anume ca inauntru asezarea era deja buna, formularul deasupra istoriei.
 //
 // SUS, CASUTA "Ce s-a discutat" si Salvează; DEDESUBT, ISTORIA. Istoria este o
 // singura lista, cele mai noi primele: notele scrise de oameni, in textul normal,

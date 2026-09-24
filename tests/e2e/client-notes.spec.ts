@@ -12,13 +12,31 @@ import { signIn } from "./support/auth";
 // lighter style, so it reads as one timeline." Testul cerut: "add a note, see it
 // first in the list with the right author."
 //
-// NOTELE SE SCRIU DIN FILA NOTE, acolo unde le scrie omul; pregatirea randurilor si
-// citirea randurilor stocate trec direct prin PostgREST, cu jetonul contului.
+// NOTELE SE SCRIU DE PE PAGINA LEADULUI SI A CLIENTULUI, acolo unde le scrie omul;
+// pregatirea randurilor si citirea randurilor stocate trec direct prin PostgREST,
+// cu jetonul contului.
+//
+// PANA LA CARDUL P3-99 SE SCRIAU DIN FILA NOTE, a cincea din banda, si fiecare
+// caz de aici deschidea `?fila=note`. Maturarea din 2026-09-22, constatarea B2, a
+// aratat ca goal G45 ceruse casuta sus pe pagina si ca ce a livrat P3-90 era sus
+// intr-o fila care sta jos. P3-99 a mutat panoul deasupra benzii de file. Fiecare
+// caz de mai jos dovedeste exact ce dovedea inainte, din pozitia noua, si s-au
+// adaugat trei: casuta si istoria se vad pe amandoua paginile fara sa se deschida
+// vreo fila, stau deasupra benzii, si totul incape pe un telefon de 390x844.
+//
+// UN SINGUR ECRAN SERVESTE SI LEADUL SI CLIENTUL. Un lead este un rand de client
+// cu etapa: nu exista tabela de leaduri si nici o a doua pagina de detaliu.
 //
 // DATELE DE TEST NU SE STERG NICIODATA. Fiecare rand poarta prefixul TEST si un
 // sufix unic pe rulare; o nota nici nu se poate sterge, si asta este testat.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
+
+// P3-99, clauza de telefon. Aceleasi praguri ca in phone-forms.spec.ts: 44px
+// tinta de atingere, 16px text de camp, sub care iOS Safari mareste pagina.
+const PHONE = { width: 390, height: 844 };
+const MIN_TAP = 44;
+const MIN_INPUT_FONT = 16;
 
 type Stage = "cold" | "nurture" | "follow_up" | "quoted" | "client";
 
@@ -123,9 +141,86 @@ function onScreen(iso: string): string {
 // Ecranul
 // ---------------------------------------------------------------------------
 
+/**
+ * P3-99. Pagina leadului sau a clientului, FARA niciun parametru de fila si fara
+ * nicio atingere de fila: panoul notelor este pe pagina, deasupra benzii.
+ */
 async function openNotes(page: Page, id: string) {
-  await page.goto(`/clienti/${id}?fila=note`);
-  await expect(page.getByTestId("panel-note")).toBeVisible({ timeout: 25_000 });
+  await page.goto(`/clienti/${id}`);
+  await expect(page.getByTestId("client-notes")).toBeVisible({ timeout: 25_000 });
+}
+
+/** Marginile unui element, ca sa se poata compara ordinea pe verticala. */
+async function edges(page: Page, testId: string): Promise<{ top: number; bottom: number; right: number }> {
+  const b = await page.getByTestId(testId).boundingBox();
+  expect(b, `${testId} nu are casuta pe ecran`).toBeTruthy();
+  return { top: b!.y, bottom: b!.y + b!.height, right: b!.x + b!.width };
+}
+
+/**
+ * P3-99. Ce trebuie sa incapa la 390px, citit intr-o singura trecere in panoul
+ * notelor. Aceleasi clauze ca readPhone din phone-forms.spec.ts, restranse la
+ * radacina acestui panou, si cu lista celor care ies din ea in mesaj: o pereche
+ * de numere singura nu spune ce sa repari (KNOWN-FAILURES, P3-97).
+ */
+async function readNotesPhone(page: Page) {
+  return page.evaluate(
+    ({ minTap, minFont }) => {
+      const root = document.querySelector<HTMLElement>('[data-testid="client-notes"]');
+      if (!root) throw new Error("panoul notelor lipseste");
+      const main = document.querySelector("main");
+      if (!main) throw new Error("pagina nu are <main>");
+
+      const visible = (el: Element) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== "hidden";
+      };
+      const name = (el: Element) =>
+        `${el.tagName.toLowerCase()}[${el.getAttribute("data-testid") ?? ""}] "${(
+          el.textContent ?? ""
+        )
+          .trim()
+          .slice(0, 40)}"`;
+
+      const smallTargets: string[] = [];
+      for (const el of Array.from(root.querySelectorAll("input, select, textarea, button, a[href]"))) {
+        if (!visible(el)) continue;
+        const height = el.getBoundingClientRect().height;
+        if (height < minTap) smallTargets.push(`${name(el)} ${height.toFixed(1)}px`);
+      }
+
+      const smallFonts: string[] = [];
+      for (const el of Array.from(root.querySelectorAll("input, select, textarea"))) {
+        if (!visible(el)) continue;
+        const size = parseFloat(getComputedStyle(el).fontSize);
+        if (size < minFont) smallFonts.push(`${name(el)} ${size}px`);
+      }
+
+      const rootRight = root.getBoundingClientRect().right - (parseFloat(getComputedStyle(root).paddingRight) || 0);
+      const wider: string[] = [];
+      for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+        if (!visible(el)) continue;
+        if (el.getBoundingClientRect().right > rootRight + 0.5) {
+          const r = el.getBoundingClientRect();
+          wider.push(`${name(el)} ${r.left.toFixed(0)}..${r.right.toFixed(0)}`);
+        }
+      }
+
+      return {
+        viewportWidth: window.innerWidth,
+        document: {
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        },
+        main: { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth },
+        root: { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth },
+        smallTargets,
+        smallFonts,
+        wider,
+      };
+    },
+    { minTap: MIN_TAP, minFont: MIN_INPUT_FONT },
+  );
 }
 
 async function saveNote(page: Page, body: string) {
@@ -191,7 +286,7 @@ test.describe("Note pe lead și client, Ce s-a discutat (P3-90)", () => {
     // Mutarea trece prin functia pe care o cheama aplicatia, cu randul ei de istoric.
     await setStage(rest, id, "quoted", null);
     await page.reload();
-    await expect(page.getByTestId("panel-note")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("client-notes")).toBeVisible({ timeout: 25_000 });
 
     expect(await timelineKinds(page)).toEqual(["timeline-stage", "timeline-note"]);
     const stage = page.getByTestId("timeline-stage").first();
@@ -331,6 +426,94 @@ test.describe("Note pe lead și client, Ce s-a discutat (P3-90)", () => {
     expect(date!.y).toBeGreaterThan(body!.y + body!.height - 1);
     expect(text!.y).toBeGreaterThan(date!.y + date!.height - 1);
     expect(list!.y).toBeGreaterThan(save!.y);
+
+    await rest.api.dispose();
+  });
+
+  // P3-99, constatarea B2. CASUTA SE VEDE FARA SA SE DESCHIDA NIMIC, pe amandoua
+  // paginile, si sta DEASUPRA benzii de file. Se masoara casutele pe ecran, ca in
+  // spec-urile de telefon, fiindca "deasupra" este o afirmatie despre asezare si
+  // nu despre ordinea din fisier. Nicio fila nu se atinge in acest caz: daca
+  // panoul ar mai fi in fila a cincea, fiecare asertiune de aici ar cadea.
+  test("P3-99: pe pagina leadului și pe a clientului, casuța și istoria se văd fără nicio filă, deasupra benzii", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    const rest = await restAs(ownerAccount());
+    const lead = await createLead(rest, leadName("Sus lead"), "nurture");
+    const client = await createLead(rest, leadName("Sus client"), "client");
+
+    for (const [what, id] of [
+      ["fișa leadului", lead],
+      ["fișa clientului", client],
+    ] as const) {
+      await openNotes(page, id);
+
+      // Implicitul benzii este tot Contacte, si nimeni nu a atins nicio fila.
+      await expect(page.getByTestId("tab-contacte"), what).toHaveAttribute("data-active", "true");
+      await expect(page.getByTestId("tab-note"), what).toHaveCount(0);
+
+      // Casuta "Ce s-a discutat", butonul si istoria, toate vizibile pe loc.
+      await expect(page.getByTestId("note-form"), what).toBeVisible();
+      await expect(page.getByTestId("note-body"), what).toBeVisible();
+      await expect(page.getByTestId("note-save"), what).toBeVisible();
+      await expect(page.getByTestId("client-notes"), what).toContainText("Ce s-a discutat");
+      await expect(page.getByTestId("timeline"), what).toBeVisible({ timeout: 15_000 });
+
+      // Si tot panoul se termina inainte sa inceapa banda de file.
+      const notes = await edges(page, "client-notes");
+      const form = await edges(page, "note-form");
+      const list = await edges(page, "timeline");
+      const tabs = await edges(page, "client-tabs");
+      expect(notes.bottom, `panoul notelor deasupra benzii pe ${what}`).toBeLessThanOrEqual(tabs.top);
+      expect(form.bottom, `casuta deasupra benzii pe ${what}`).toBeLessThanOrEqual(tabs.top);
+      expect(list.bottom, `istoria deasupra benzii pe ${what}`).toBeLessThanOrEqual(tabs.top);
+      // Si inauntru, casuta ramane deasupra istoriei, cum a livrat P3-90.
+      expect(form.bottom, `casuta deasupra istoriei pe ${what}`).toBeLessThanOrEqual(list.top);
+
+      // Si sub cardul de identificare, nu deasupra lui: atat a cerut goalul.
+      const detail = await edges(page, "client-detail");
+      expect(detail.bottom, `panoul notelor sub datele de identificare pe ${what}`).toBeLessThanOrEqual(
+        notes.top,
+      );
+    }
+
+    await rest.api.dispose();
+  });
+
+  // P3-99, clauza de telefon. Panoul a ajuns pe o pagina care are deasupra lui
+  // cardul de identificare si dedesubt banda de file, deci incaperea lui la 390px
+  // se masoara din nou aici, in pozitia noua, pe fisa unui LEAD.
+  test("P3-99: pe telefon, la 390x844, pagina leadului nu derulează lateral și casuța se poate atinge", async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE);
+    await signIn(page, ownerAccount());
+    const rest = await restAs(ownerAccount());
+    const id = await createLead(rest, leadName("Telefon sus"), "nurture");
+
+    await openNotes(page, id);
+    await expect(page.getByTestId("note-body")).toBeVisible({ timeout: 15_000 });
+
+    const r = await readNotesPhone(page);
+    expect(r.viewportWidth, "latimea ecranului").toBe(PHONE.width);
+    expect(r.document.scrollWidth, "derulare laterala a documentului").toBeLessThanOrEqual(
+      r.document.clientWidth,
+    );
+    expect(r.main.scrollWidth, "derulare laterala in <main>").toBeLessThanOrEqual(r.main.clientWidth);
+    expect(
+      r.root.scrollWidth,
+      `derulare laterala in panoul notelor, iese: ${r.wider.join(" | ") || "nimeni"}`,
+    ).toBeLessThanOrEqual(r.root.clientWidth);
+    expect(r.smallTargets, `tinte sub ${MIN_TAP}px in panoul notelor`).toEqual([]);
+    expect(r.smallFonts, `campuri sub ${MIN_INPUT_FONT}px in panoul notelor`).toEqual([]);
+
+    // SE POATE ATINGE: se deruleaza pana la ea si se scrie, fara nicio fila.
+    const body = `Scris de pe telefon, ${RUN}`;
+    await page.getByTestId("note-body").scrollIntoViewIfNeeded();
+    await saveNote(page, body);
+    await expect(page.getByTestId("timeline-note")).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.getByTestId("timeline-body")).toHaveText(body);
 
     await rest.api.dispose();
   });

@@ -6823,3 +6823,33 @@ and is not weakened. RULE: **when a repair changes the SHAPE of a rendered sente
 one literal, grep for the stable part of it, the noun alone and the `} <noun>` of a template, not
 for the sentence you are replacing. A count that comes from the database is never in the source as
 a literal, and that is the assertion that will find you.**
+
+### A tab list lives in the component and in a second spec that names the same tabs
+**Tag:** frontend
+**ERROR:** P3-99 removes the Note entry from `TABS` in `components/clients/ClientTabs.tsx`. The task
+named the two specs that reference `fila=note`, `tab-note` and `panel-note`, and both were updated.
+A third file, `tests/e2e/client-project-tabs.spec.ts`, holds its own hand written copy of the client
+tab list, `const CLIENT_TABS = ["contacte", "proiecte", "consum", "documente", "note"]`, and clicks
+every entry of it to measure contrast. It contains none of the three strings the task named, so a
+grep for those three would have left it behind and the run would have failed on a card that had
+nothing to do with contrast.
+**SOLUTION:** the repository was grepped for the component and panel NAMES as well, `ClientTabs`,
+`ClientNotesPanel`, and for each surviving `tab-`, `panel-` test id, before any edit. That found the
+second copy, and its list drops `note` in the same pull request. RULE: **before removing an entry
+from a list that a component renders by iteration, grep for the component's own name and for the
+test id PREFIX, not only for the entry being removed. A spec that walks a whole strip names the
+strip, not the item, so the item's own string cannot find it.**
+
+### Moving a panel out of a tab is not finished until the old tab address is proved
+**Tag:** frontend
+**ERROR:** `/clienti/<id>?fila=note` was a real, sendable address for as long as Note was the fifth
+tab. Removing the tab leaves that address in messages, bookmarks and browser history, and nothing in
+the change itself says what it now does. It could plausibly have raised, rendered a blank panel
+region, or rendered a tab strip with no tab active, and none of those would have failed an existing
+case, because every existing case asked for a tab that still exists.
+**SOLUTION:** `ClientTabs` already returned an unknown `fila` to the first tab rather than raising,
+so the behaviour was correct by construction rather than by repair, and the card added a case that
+opens the dead address, asserts the Contacte panel is active, asserts no `panel-note` exists, and
+registers a `pageerror` listener so a thrown error cannot pass as a blank region. RULE: **when a URL
+addressable surface is removed, the acceptance names the dead URL and asserts what it does now.
+Behaviour that is correct only because nobody has changed the fallback is behaviour with no test.**

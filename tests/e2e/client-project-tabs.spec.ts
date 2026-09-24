@@ -34,7 +34,8 @@ const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 
 const MIN_CONTRAST = 4.5;
 
-const CLIENT_TABS = ["contacte", "proiecte", "consum", "documente", "note"] as const;
+// P3-99 a scos fila Note din banda clientului si a mutat panoul deasupra ei.
+const CLIENT_TABS = ["contacte", "proiecte", "consum", "documente"] as const;
 const PROJECT_TABS = ["consum", "cost", "deviz", "comparatie", "documente", "istoric"] as const;
 
 type Measure = { color: string; background: string; ratio: number };

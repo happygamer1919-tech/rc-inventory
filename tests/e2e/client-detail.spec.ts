@@ -4,20 +4,25 @@ import { signIn } from "./support/auth";
 
 // client-detail.spec - linia de acceptanta a cardului P3-08.
 //
-// Acopera exact ce numeste cardul: toate cele cinci file se randeaza si se pot
-// atinge; fila activa este in URL si supravietuieste unei reincarcari si unui
-// buton de inapoi; Contacte listeaza contactele clientului si il marcheaza pe cel
+// Acopera exact ce numeste cardul: toate filele se randeaza si se pot atinge;
+// fila activa este in URL si supravietuieste unei reincarcari si unui buton de
+// inapoi; Contacte listeaza contactele clientului si il marcheaza pe cel
 // principal; Proiecte listeaza proiectele lui cu starea si leaga in fiecare;
 // Consum materiale arata materialul eliberat catre client, cel mult 5 randuri, cu
-// o legatura catre istoricul complet; Documente si Note isi randeaza starile
-// goale romanesti fara sa arunce; un client fara contacte, fara proiecte si fara
+// o legatura catre istoricul complet; Documente isi randeaza starea goala
+// romaneasca fara sa arunce; un client fara contacte, fara proiecte si fara
 // iesiri randeaza fiecare fila ca stare goala si nu ca prabusire.
+//
+// FILELE ERAU CINCI PANA LA CARDUL P3-99, iar a cincea era Note. P3-99 a scos-o
+// si a mutat panoul "Ce s-a discutat" deasupra benzii; panoul si tot ce dovedea
+// el sunt in client-notes.spec.ts. Aici a ramas ce este despre banda, plus un caz
+// nou: `?fila=note`, adresa filei scoase, deschide Contacte si nu o eroare.
 //
 // DATELE DE TEST NU SE STERG NICIODATA, conform conventiei P2-07.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 
-const TABS = ["contacte", "proiecte", "consum", "documente", "note"] as const;
+const TABS = ["contacte", "proiecte", "consum", "documente"] as const;
 
 async function createClientRecord(page: Page, name: string): Promise<string> {
   await page.goto("/clienti");
@@ -47,16 +52,19 @@ async function addContact(
 test.describe("Fișa clientului", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test("toate cele cinci file se randează, iar fila activă trăiește în URL", async ({ page }) => {
+  test("toate filele se randează, iar fila activă trăiește în URL", async ({ page }) => {
     await signIn(page, ownerAccount());
     const id = await createClientRecord(page, `TEST Fise ${RUN}`);
 
-    // BANDA ESTE COMPLETA DIN ACEST CARD. Documente si Note isi randeaza starile
-    // goale pana cand cardurile lor le umplu; a autora trei file acum si doua mai
-    // tarziu ar schimba aspectul si schema de URL de doua ori.
+    // BANDA ESTE COMPLETA DIN ACEST CARD. Documente isi randa starea goala pana
+    // cand cardul ei a umplut-o; a autora trei file atunci si doua mai tarziu ar
+    // fi schimbat aspectul si schema de URL de doua ori.
     for (const tab of TABS) {
       await expect(page.getByTestId(`tab-${tab}`)).toBeVisible();
     }
+
+    // P3-99. Nu mai exista a cincea fila, si nici butonul ei.
+    await expect(page.getByTestId("tab-note")).toHaveCount(0);
 
     // Implicitul este prima fila.
     await expect(page.getByTestId("panel-contacte")).toBeVisible();
@@ -69,17 +77,45 @@ test.describe("Fișa clientului", () => {
     }
 
     // FILA ACTIVA SUPRAVIETUIESTE UNEI REINCARCARI, pentru ca traieste in URL si
-    // nu in starea componentului.
+    // nu in starea componentului. Ultima atinsa in bucla este Documente.
     await page.reload();
-    await expect(page.getByTestId("panel-note")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("panel-documente")).toBeVisible({ timeout: 20_000 });
 
     // SI BUTONULUI DE INAPOI, care este cealalta jumatate a aceluiasi motiv.
     await page.goBack();
-    await expect(page.getByTestId("panel-documente")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("panel-consum")).toBeVisible({ timeout: 15_000 });
 
     // O fila necunoscuta din URL revine la prima, nu da eroare.
     await page.goto(`/clienti/${id}?fila=inexistenta`);
     await expect(page.getByTestId("panel-contacte")).toBeVisible({ timeout: 15_000 });
+  });
+
+  // P3-99, constatarea B2. LEGATURILE VECHI TREBUIE SA SE DESCHIDA. `?fila=note`
+  // a circulat cat timp Note era a cincea fila, deci adresa exista in mesaje si in
+  // marcaje. Cu fila scoasa, `fila` devine o valoare necunoscuta si drumul este
+  // cel scris deja in ClientTabs: se revine la prima fila, fara eroare si fara
+  // panou gol. Iar ce cauta cine deschide adresa aceea este oricum pe ecran, sus.
+  test("o legătură veche cu fila Note deschide pagina pe Contacte, fără eroare", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    const id = await createClientRecord(page, `TEST Fila Veche ${RUN}`);
+
+    const failures: string[] = [];
+    page.on("pageerror", (e) => failures.push(String(e)));
+
+    await page.goto(`/clienti/${id}?fila=note`);
+
+    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("panel-contacte")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("tab-contacte")).toHaveAttribute("data-active", "true");
+    await expect(page.getByTestId("panel-note")).toHaveCount(0);
+
+    // Si casuta este chiar acolo, fara nicio fila deschisa.
+    await expect(page.getByTestId("client-notes")).toBeVisible();
+    await expect(page.getByTestId("note-body")).toBeVisible();
+
+    expect(failures).toEqual([]);
   });
 
   test("un client gol randează fiecare filă ca stare goală și nu ca prăbușire", async ({
@@ -93,7 +129,6 @@ test.describe("Fișa clientului", () => {
       proiecte: "Niciun proiect",
       consum: "Niciun consum înregistrat",
       documente: "Niciun document",
-      note: "Nicio notă",
     };
 
     for (const tab of TABS) {
@@ -102,6 +137,10 @@ test.describe("Fișa clientului", () => {
         timeout: 15_000,
       });
     }
+
+    // P3-99. Starea goala a notelor nu s-a pierdut odata cu fila: este acum in
+    // panoul de deasupra benzii, cu acelasi text.
+    await expect(page.getByTestId("client-notes")).toContainText("Nicio notă");
   });
 
   test("Contacte listează persoanele și marchează contactul principal", async ({ page }) => {
