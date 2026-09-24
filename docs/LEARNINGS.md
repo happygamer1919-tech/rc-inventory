@@ -6746,3 +6746,64 @@ green run on a branch, a second green run, a board flip, an evidence id, open th
 DRAFT, because the auto-merger does not merge a draft.** The same trap already cost a multi-run
 proof task; that one was about needing several consecutive green runs, this one about needing four
 minutes after the first.
+
+### Playwright fills in a MIME type from the extension, so it cannot make a file with no type
+**Tag:** frontend
+**ERROR:** P3-98 had to reproduce the 2026-09-22 sweep's finding F18, a valid PDF refused because
+`File.type` is the empty string. The obvious test is
+`setInputFiles({ name: "factura.pdf", mimeType: "", buffer })`. Measured on Chromium through
+Playwright 1.62.1, that produces a file whose type is **application/pdf**: Playwright fills the type
+in from the extension when the payload gives none. A test written that way goes green against the
+unrepaired guard and proves nothing at all, which is the worst outcome available.
+**SOLUTION:** build the file in the page and place it on the input yourself. A `File` constructed
+with no third argument keeps the empty type, a `DataTransfer` puts it on the input, and a bubbling
+`change` event starts the same handler the operator starts. RULE: **a case about a missing or
+unusual file type asserts its own premise first, reading the type back off the input and comparing
+it, before it asserts anything about the screen.** Without that line the case can pass on a path
+nobody described.
+
+### An empty file type arrives at a server action as application/octet-stream
+**Tag:** frontend
+**ERROR:** finding F18 names one line in the browser, and repairing only that line would have
+delivered nothing. `uploadOrderDocument` in `lib/data/inbound-actions.ts` repeats the same exact
+string comparison against the same three types, and multipart serialisation writes
+`Content-Type: application/octet-stream` for a file whose type is missing. Measured, not reasoned: a
+typeless file posted from Chromium through `FormData` to a local server arrived with that part
+header, and `formData()` on the other side returned a file carrying it. So a browser-only repair
+moves the refusal from the screen to the server, prints the identical Romanian sentence, and leaves
+the operator where he started.
+**SOLUTION:** the browser takes the type to its canonical form BEFORE sending, and only when the
+browser gave none: the extension supplies what the operating system would have supplied had it known
+the extension. The server check is then untouched and still refuses everything that is not a PDF, a
+PNG or a JPEG. RULE: **before repairing a guard, find every other place the same value is checked. A
+guard that is repeated downstream is not repaired by changing one copy, and which copy the user
+meets first is not the same question as which copy decides the outcome.**
+
+### A contrast spec that measures one component certifies only that component
+**Tag:** ci
+**ERROR:** `tests/e2e/button-contrast.spec.ts` shipped with P3-53 and stayed green while two chip
+tones sat at 2.92:1 and 3.44:1, both under the 4.5:1 the same file enforces. The spec had three
+tests, all about white labels on the primary button background. No chip, no hint, no secondary
+surface. CI reported a contrast rule green while the application was breaking it on every screen
+that shows a chip.
+**SOLUTION:** the spec now measures all six chip tones as well. Two of them are found on screen and
+measured where the application renders them; the other four have no guaranteed place on any screen,
+so they are rendered in the real page from the application's own class strings, which moved into
+`components/ui/chip-tones.ts` precisely so a spec can import them instead of re-typing them. The
+case asserts that a real chip's class attribute equals the shared base plus its tone before it
+measures anything, so the rendering cannot drift from the component in silence. RULE: **a spec named
+after a rule, contrast or tap size or language, is read as covering that rule everywhere and must
+enumerate what it actually covers; a spec that covers one component is named after that component.**
+
+### A test that asserts the defect makes the defect permanent
+**Tag:** ci
+**ERROR:** finding B1 is that the Azi next step column printed the stage label `De reluat` for a
+lead nobody wrote a step for. `tests/e2e/azi-screen.spec.ts` asserted exactly that string in exactly
+that cell, so the defect was not merely untested, it was pinned. Any repair would have turned the
+suite red and looked like a regression.
+**SOLUTION:** the assertion is corrected to the dash the column now shows, with the reason written
+beside it, and the bug is fixed in the application. Under the three laws in the close-out block a
+test that encodes a bug is fixed by fixing the bug, and the line is corrected rather than deleted so
+the record shows what it used to claim. RULE: **when a finding names a string on screen, grep the
+suite for that string before writing the repair: an existing assertion on it is part of the card,
+and finding it afterwards costs a red run.**
