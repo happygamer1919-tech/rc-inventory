@@ -74,6 +74,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { ClientForm } from "./ClientForm";
+import { LeadImportSheet } from "./LeadImportSheet";
 import { LeaduriForm } from "./LeaduriForm";
 import { StageMark } from "./StageMark";
 
@@ -136,6 +137,9 @@ export function ClientsScreen({
   const [q, setQ] = React.useState(query.q);
   const [creating, setCreating] = React.useState(false);
   const [creatingLead, setCreatingLead] = React.useState(false);
+  // P3-101. Importul este un panou al vederii Leaduri, nu un ecran nou, exact ca
+  // formularul de lead de mai sus.
+  const [importing, setImporting] = React.useState(false);
 
   // P3-96, constatarea F7. CASUTA DE CAUTARE URMEAZA URL-UL, care este adevarul.
   //
@@ -223,13 +227,26 @@ export function ClientsScreen({
         }
         actions={
           !canWrite ? null : inLeaduri ? (
-            <Button
-              onClick={() => setCreatingLead(true)}
-              data-testid="leaduri-new"
-              className="max-md:min-h-11"
-            >
-              Lead nou
-            </Button>
+            // P3-101. Importa leaduri sta LANGA Lead nou, ca buton secundar: a
+            // adauga un lead pe rand ramane actiunea principala a vederii, iar
+            // importul este drumul pe care il face cineva o data, la inceput.
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setImporting(true)}
+                data-testid="leaduri-import"
+                className="max-md:min-h-11"
+              >
+                Importă leaduri
+              </Button>
+              <Button
+                onClick={() => setCreatingLead(true)}
+                data-testid="leaduri-new"
+                className="max-md:min-h-11"
+              >
+                Lead nou
+              </Button>
+            </>
           ) : (
             <>
               {leaduri ? (
@@ -637,6 +654,8 @@ export function ClientsScreen({
           }}
         />
       ) : null}
+
+      {importing ? <LeadImportSheet onClose={() => setImporting(false)} /> : null}
 
       {creatingLead && leaduri ? (
         <LeaduriForm
