@@ -404,3 +404,63 @@ test.describe("P3-64: listele pe telefon (390x844), un card pe rand", () => {
     expect(outList!.x, "iesirile nu stau in dreapta intrarilor").toBeGreaterThan(inList!.x + inList!.width);
   });
 });
+
+// ---------------------------------------------------------------------------
+// P3-97 (G52), constatarea F14: garda impotriva celei de a doua definitii
+// ---------------------------------------------------------------------------
+//
+// Pana la cardul acesta ecranul Clienți isi scria propriile PHONE_TABLE si
+// PHONE_LINK, si amandoua apucasera sa se departeze de cele comune: marginea
+// interioara a cardului era px-5 pb-5 in loc de p-4, iar legatura din rand era
+// flex in loc de inline-flex. Un rand de pe Clienți si un rand de pe orice alta
+// lista aratau deci altfel pe telefon, fara ca cineva sa fi cerut asta.
+//
+// SE MASOARA VALOAREA CALCULATA IN PAGINA, nu sirul de clase: un test care
+// numara clase trece si atunci cand o a doua definitie le scrie pe toate la fel
+// si se departeaza saptamana viitoare. 16px este p-4, si inline-flex este
+// PHONE_LINK, amandoua asa cum le defineste components/ui/phone.ts.
+test.describe("P3-97: Clienți foloseste clasele de telefon comune (390x844)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("G52: (F14) randul de pe Clienți are marginea si afisarea din fisierul comun", async ({ page }) => {
+    const rest = await ownerRest();
+    const tag = `TEST Telefon F14 ${RUN}`;
+    await createClients(rest, [{ name: `${tag} client`, client: true }]);
+    await rest.api.dispose();
+
+    await signInOnPhone(page);
+    const path = `/clienti?q=${encodeURIComponent(tag)}`;
+    await page.goto(path);
+    const rows = page.getByTestId("client-row");
+    await expect(rows).toHaveCount(1, { timeout: 20_000 });
+
+    const phone = await rows.first().evaluate((tr) => {
+      const body = tr.closest("tbody")!;
+      const link = tr.querySelector<HTMLElement>("[data-testid='client-link']")!;
+      const s = getComputedStyle(body);
+      return {
+        padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(" "),
+        display: getComputedStyle(link).display,
+        linkHeight: link.getBoundingClientRect().height,
+      };
+    });
+    expect(phone.padding, "marginea cardului nu este cea comuna, p-4").toBe("16px 16px 16px 16px");
+    expect(phone.display, "legatura din rand nu este cea comuna, inline-flex").toBe("inline-flex");
+    expect(phone.linkHeight, `legatura sub ${MIN_TAP}px`).toBeGreaterThanOrEqual(MIN_TAP);
+
+    // Si peste 768px nimic din toate acestea nu se aplica.
+    await page.setViewportSize(DESKTOP);
+    await expect(rows).toHaveCount(1);
+    const desktop = await rows.first().evaluate((tr) => {
+      const body = tr.closest("tbody")!;
+      const link = tr.querySelector<HTMLElement>("[data-testid='client-link']")!;
+      const s = getComputedStyle(body);
+      return {
+        padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(" "),
+        display: getComputedStyle(link).display,
+      };
+    });
+    expect(desktop.padding, "marginea de telefon se vede la 1440px").toBe("0px 0px 0px 0px");
+    expect(desktop.display, "afisarea de telefon se vede la 1440px").not.toBe("inline-flex");
+  });
+});

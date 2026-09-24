@@ -58,26 +58,44 @@ import {
   type ClientStageCounts,
 } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
+import {
+  PHONE_CELL,
+  PHONE_CONTROL,
+  PHONE_LINK,
+  PHONE_ROW,
+  PHONE_TABLE,
+  PHONE_WIDE,
+} from "@/components/ui/phone";
 import { ClientForm } from "./ClientForm";
 import { LeaduriForm } from "./LeaduriForm";
 import { StageMark } from "./StageMark";
 
 // P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
-// nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
-// doua lista ascunsa, fiindca spec-urile numara client-row si o copie ar dubla
-// fiecare numar pe desktop. Eticheta fiecarui camp este textul din antetul
+// nimic nu se schimba: fiecare clasa importata mai sus poarta max-md. ACELASI DOM,
+// nu o a doua lista ascunsa, fiindca spec-urile numara client-row si o copie ar
+// dubla fiecare numar pe desktop. Eticheta fiecarui camp este textul din antetul
 // coloanei, pus pe celula in data-label si desenat din CSS, deci textul celulei
 // ramane exact cel de azi. Textele starilor goale nu se ating.
-const PHONE_TABLE =
-  "max-md:[&_table]:block max-md:[&_thead]:hidden max-md:[&_tbody]:grid max-md:[&_tbody]:gap-3 max-md:[&_tbody:not(:empty)]:px-5 max-md:[&_tbody:not(:empty)]:pb-5";
-const PHONE_ROW =
-  "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:rounded-[12px] max-md:border max-md:border-rc-line max-md:p-4";
-const PHONE_CELL =
-  "max-md:block max-md:min-w-0 max-md:border-b-0 max-md:p-0 max-md:text-left max-md:[overflow-wrap:anywhere] max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-rc-muted max-md:before:content-[attr(data-label)]";
-const PHONE_WIDE = `${PHONE_CELL} max-md:col-span-2`;
-/** Legatura din rand: pe telefon o tinta de 44px, nu doar inaltimea textului. */
-const PHONE_LINK = "max-md:flex max-md:min-h-11 max-md:items-center";
-const PHONE_CONTROL = "max-md:min-h-11 max-md:text-base";
+//
+// P3-97, constatarea F14. CLASELE SE IMPORTA, NU SE MAI SCRIU AICI. Ecranul
+// acesta isi declara pana acum propriile PHONE_TABLE, PHONE_ROW, PHONE_CELL,
+// PHONE_WIDE si PHONE_LINK, cu aceleasi nume ca ale fisierului comun pe care il
+// importa AziScreen, ClientTabs, InboundOrderForm si restul. Doua dintre ele
+// apucasera deja sa se departeze:
+//
+//   PHONE_TABLE, marginea interioara   aici px-5 pb-5   comun p-4
+//   PHONE_LINK, afisarea               aici flex        comun inline-flex
+//
+// Adica un rand de pe Clienți si un rand de pe Azi aratau altfel pe telefon fara
+// ca cineva sa fi cerut asta, si orice reparatie viitoare a fisierului comun ar
+// fi ocolit tacut ecranul acesta. Se iau valorile comune asa cum sunt: nici
+// raportul CRITIC, nici cardul nu au gasit vreun motiv pentru care lista de
+// clienti ar avea nevoie de alta margine sau de alta afisare decat orice alta
+// lista, deci nu se adauga nici o clasa in plus la locul folosirii.
+//
+// PHONE_CONTROL era al saselea nume local si singurul fara pereche in fisierul
+// comun. Acum este acolo, fiindca fisa de verificare a extragerii are nevoie de
+// exact aceeasi combinatie (constatarea F9).
 
 export function ClientsScreen({
   rows,
