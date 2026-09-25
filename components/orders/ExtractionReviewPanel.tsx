@@ -229,6 +229,12 @@ function InboundLineDetails({ line, index }: { line: ExtractionLine | undefined;
   );
 }
 import { ALL_UNITS, unitLabel } from "@/lib/data/units";
+import {
+  foldSupplierName,
+  foldUnitWord,
+  unitFromDocumentWord,
+  type UnitAliasMap,
+} from "@/lib/data/unit-synonyms";
 import type { ExtractionDraft, ExtractionLine } from "@/lib/data/extraction-types";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import {
@@ -249,16 +255,70 @@ function stateLabel(draft: ExtractionDraft): { text: string; tone: "ok" | "warn"
   return { text: "Eșuat", tone: "danger" };
 }
 
+/** P3-102, constatarea F23. CANTITATEA 0 SE SPUNE PE ECRAN.
+ *
+ *  Propozitia este una singura si sta aici, langa conditia care o aprinde, ca cele
+ *  doua sa nu poata ajunge sa nu fie de acord. */
+const ZERO_LINE_NOTICE = "Cantitate 0: nu intră în stoc";
+
+/** P3-102, constatarea F23. Este linia aceasta o linie care a sosit cu zero si
+ *  care nu a primit inca o cantitate?
+ *
+ *  EXCLUDEREA NU ESTE NOUA SI NU SE SCHIMBA AICI. confirmExtractionDraft sare
+ *  peste orice linie a carei cantitate nu este peste zero, si o face de cand
+ *  exista. Ce lipsea era ca cineva sa AFLE: pe MPC-ul din 2026-09-24 pozitia 5
+ *  avea 0 ("stoc epuizat"), nu spunea nimic pe ecran, si numaratoarea de la capat
+ *  nu se potrivea cu documentul fara niciun motiv vizibil.
+ *
+ *  CONDITIA ARE DOUA JUMATATI SI AMANDOUA CONTEAZA. Cantitatea a SOSIT 0 de la
+ *  citire, SI casuta nu poarta acum un numar peste zero. Prima o deosebeste de o
+ *  casuta pe care operatorul tocmai a golit-o; a doua face ca propozitia si
+ *  grizarea sa plece in clipa in care se tasteaza o cantitate, ceea ce include
+ *  linia inapoi prin filtrul care exista deja, fara nicio a doua regula la
+ *  confirmare.
+ *
+ *  O FUNCTIE SI NU O VARIABILA IN CORPUL LUI map, ca randul sa ramana o expresie
+ *  si diff-ul acestui card sa nu reindenteze doua sute de linii de JSX pe care nu
+ *  le-a atins. */
+function zeroExcluded(read: ExtractionLine | undefined, typed: string): boolean {
+  if (read?.quantity !== 0) return false;
+  const n = Number(String(typed).replace(",", "."));
+  return !(Number.isFinite(n) && n > 0);
+}
+
+/** P3-102, constatarea F23. Ce unitate se preselecteaza pe o linie.
+ *
+ *  TREI PASI, IN ORDINEA INCREDERII:
+ *    1. ce a mapat CITIREA, daca a mapat ceva. Contractul, sectiunea 4.4: ce nu se
+ *       mapeaza vine null, deci o valoare aici este o afirmatie, nu o ghicire.
+ *    2. harta de sinonime, care este o tabela scrisa de mana in
+ *       lib/data/unit-synonyms.ts: `set` inseamna set, `litri` inseamna l. Nu
+ *       atinge baza de date, deci merge si inainte ca 0063 sa fie aplicata.
+ *    3. ce a ales operatorul ultima oara pentru ACEST cuvant si ACEST furnizor.
+ *
+ *  SIRUL GOL INSEAMNA "NU STIM" si ramane calea de astazi: lista pe "Alege
+ *  unitatea", cuvantul documentului dedesubt. Nimic nu se ghiceste si nimic nu se
+ *  converteste: pasul 2 si pasul 3 REDENUMESC o unitate, nu inmultesc o cantitate. */
+function preselectedUnit(line: ExtractionLine, remembered: UnitAliasMap): string {
+  if (line.unit) return line.unit;
+  const mapped = unitFromDocumentWord(line.unitRaw);
+  if (mapped) return mapped;
+  return remembered[foldUnitWord(line.unitRaw)] ?? "";
+}
+
 function ReviewForm({
   draft,
   products,
   categories,
+  unitAliases,
   onDone,
   onCreated,
 }: {
   draft: ExtractionDraft;
   products: CatalogProduct[];
   categories: Category[];
+  /** P3-102. Pe furnizor pliat, apoi pe cuvant pliat. Gol inainte de 0063. */
+  unitAliases: Record<string, UnitAliasMap>;
   onDone: () => void;
   /** CRIT-16. Reusita se raporteaza in sus si se afiseaza acolo, NU aici. */
   onCreated: (result: { reference: string; flagged: number }) => void;
@@ -289,11 +349,16 @@ function ReviewForm({
       productName: l.productName,
       quantity: l.quantity === null ? "" : String(l.quantity),
       unitPrice: l.unitPrice === null ? "" : String(l.unitPrice),
-      // NICIUN GHICIT AICI. Unitatea si categoria se precompleteaza numai daca
-      // extragerea CHIAR le-a mapat; altfel raman goale si operatorul alege.
-      // Contractul, sectiunea 4.4: ce nu se mapeaza este null, iar unit_raw si
-      // category_raw poarta oricum cuvintele documentului, dedesubt pe ecran.
-      unit: l.unit ?? "",
+      // NICIUN GHICIT AICI. Categoria se precompleteaza numai daca extragerea
+      // CHIAR a mapat-o; altfel ramane goala si operatorul alege. Contractul,
+      // sectiunea 4.4: ce nu se mapeaza este null, iar unit_raw si category_raw
+      // poarta oricum cuvintele documentului, dedesubt pe ecran.
+      //
+      // P3-102, constatarea F23. UNITATEA TRECE ACUM PRIN preselectedUnit, si
+      // asta nu este o ghicire: `set` si `litri` sunt cuvinte pe care le stim,
+      // scrise intr-o tabela pe care o poate citi oricine, iar un cuvant pe care
+      // nu il stim ramane exact cum era, adica gol.
+      unit: preselectedUnit(l, unitAliases[foldSupplierName(draft.supplierName)] ?? {}),
       categoryId: categories.find((c) => c.name === l.category)?.id ?? "",
     })),
   );
@@ -541,8 +606,22 @@ function ReviewForm({
             data-testid="review-line"
             data-index={String(index)}
             data-scan-read={scanRead ? "true" : "false"}
-            className="grid grid-cols-[1fr_1fr_110px_110px] gap-2.5 items-end border-t border-rc-line pt-2.5 max-md:grid-cols-2"
+            data-zero-excluded={zeroExcluded(draft.lines[index], line.quantity) ? "true" : "false"}
+            className={`grid grid-cols-[1fr_1fr_110px_110px] gap-2.5 items-end border-t border-rc-line pt-2.5 max-md:grid-cols-2 ${
+              zeroExcluded(draft.lines[index], line.quantity) ? "opacity-60" : ""
+            }`}
           >
+            {/* P3-102, constatarea F23. Propozitia sta PE LINIE, ca marcajul de
+                scanare de mai jos si pentru acelasi motiv: un banner in capul
+                ecranului se citeste o data si apoi se deruleaza pe langa el. */}
+            {zeroExcluded(draft.lines[index], line.quantity) ? (
+              <p
+                className="col-span-4 max-md:col-span-2 text-[11.5px] text-rc-muted-2"
+                data-testid={`review-line-zero-${index}`}
+              >
+                {ZERO_LINE_NOTICE}
+              </p>
+            ) : null}
             {/* EXT-17. MARCAJUL STA PE LINIE, NU NUMAI PE PAGINA.
                 Un banner in capul ecranului se citeste o data si apoi se
                 deruleaza pe langa el. Linia este ce se uita cineva cand decide,
@@ -811,12 +890,18 @@ export function ExtractionReviewPanel({
   drafts,
   products,
   categories,
+  unitAliases = {},
   cancelled = null,
   canCancel = false,
 }: {
   drafts: ExtractionDraft[];
   products: CatalogProduct[];
   categories: Category[];
+  /** P3-102, constatarea F23. Ce a ales operatorul ultima oara pentru cuvantul
+   *  unui furnizor, pe furnizor pliat si apoi pe cuvant pliat. Gol pana cand 0063
+   *  este aplicata, si atunci ecranul se poarta ca astazi plus harta de sinonime,
+   *  care nu are nevoie de nicio tabela. */
+  unitAliases?: Record<string, UnitAliasMap>;
   /** P3-84. null cand 0056 nu este inca aplicata. */
   cancelled?: ExtractionDraft[] | null;
   /** P3-84. Numai proprietarul vede butonul "Renunță la document". */
@@ -1103,6 +1188,7 @@ export function ExtractionReviewPanel({
                       draft={open}
                       products={products}
                       categories={categories}
+                      unitAliases={unitAliases}
                       onDone={() => setOpenId(null)}
                       onCreated={(result) => {
                         // Fisa se inchide, ciorna dispare din lista fiindca a

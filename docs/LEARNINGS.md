@@ -7015,3 +7015,48 @@ RULE: **a fixture value that the code under test SEARCHES FOR across the whole t
 email, an IDNO, a slug, is unique per run AND per case. Test data is never deleted here, so every
 row a case writes is visible to every case after it. A value used only to read back the rows one
 case wrote, like a `TEST <run> <label>` name, needs only the run.**
+
+### An assertion file that pins a TOTAL its own migration never decided
+**Tag:** data
+**ERROR:** `scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql` carried two checks
+reading `expected 9`, one for the number of labels on `unit_code` and one for the number of rows in
+`public.units`. Card P3-102 added a tenth unit, `set`, and the bare postgres apply went red on a file
+three cards older than the change, with `unit_code carries 10 labels, expected 9`. Every file in that
+directory runs after EVERY migration, so a total pinned by an early file is a claim that nobody will
+ever add another one, and 0030 and 0031 never decided that.
+**SOLUTION:** 0031's assertion now pins exactly what its own two migrations left behind: the nine
+labels in order, taken with `order by enumsortorder limit 9` rather than by comparing the sort order
+to a number, and the nine rows at `sort_order` 1 to 9. The TOTAL moved to
+`assertions/0062_unit_set_row.sql`, the file of the migration that decides it, which is the same move
+`assertions/0049` made when it took the category total off `assertions/0029`. Nothing was weakened:
+the two new labels, the two new rows, their order and the agreement between labels and rows are all
+still asserted, in both files. RULE: **an assertion file asserts what ITS OWN migration did. A total,
+a count of everything, or "and nothing else exists" belongs in the file of the migration that last
+changed that total, and moving it there when a new card arrives is the fix, never relaxing it.**
+
+### A diacritic range written as raw characters instead of as an escape
+**Tag:** frontend
+**ERROR:** `lib/data/unit-synonyms.ts` needs to strip NFD combining marks so that `bucăți` and
+`bucati` fold to one key. Written as a character-class range of the combining block, the file ended
+up holding the raw combining characters themselves rather than the escape sequence, which `grep`
+showed as `/[<mojibake>-ͯ]/g`. It compiles, and what it matches is no longer what anybody reading the
+file thinks it matches.
+**SOLUTION:** `/\p{Mn}/gu`, the Unicode property class for a nonspacing mark. It says on its face
+what it is looking for, it cannot be corrupted into a different range by an editor or a tool, and the
+compile target here is ES2022 so the `u` flag and property classes are available. The older
+`flaggedSku` in `lib/data/extraction-actions.ts` keeps its numeric range and is left alone: it is
+correct and this is not its card. RULE: **a character class over a non-ASCII range is written as a
+named Unicode property, or as escapes, and never as the characters themselves. A range you cannot
+read in a diff is a range nobody can review.**
+
+### A substring assertion that the fixture's own name satisfies
+**Tag:** ci
+**ERROR:** the case proving that a zero-quantity line comes back into the order once a quantity is
+typed asserted `toContainText("3")` on the created position. The product name in that fixture is
+`TEST F23 Vopsea email stoc epuizat <run> c2`, and `F23` contains a `3`, so the assertion passed
+without reading the quantity at all. It would have passed with the line excluded, with the wrong
+number stored, and with no quantity rendered.
+**SOLUTION:** `toContainText("3 l")`, the number beside its unit label, which nothing else in the row
+produces. RULE: **before asserting a short substring, read the whole rendered row for it. A one or
+two character assertion inside a fixture whose own identifiers carry digits proves nothing, and it
+fails silently in the direction that looks green.**

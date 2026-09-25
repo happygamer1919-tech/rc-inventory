@@ -1041,3 +1041,44 @@ export async function hasClientNotes(client: ColumnProbe): Promise<boolean> {
   }
   return cachedClientNotes.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-102, constatarea F23. Exista migratia 0063: tabela
+// public.supplier_unit_aliases?
+//
+// DE CE ARE POARTA EI. 0063 este un fisier separat si ajunge in productie pe
+// fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul
+// pleaca din acelasi push si NU aterizeaza in aceeasi secunda. Fara ea, ecranul de
+// verificare ar cere o tabela care nu exista inca, si asta chiar pe calea prin care
+// intra fiecare document de furnizor.
+//
+// ESTE O TABELA INTREAGA, deci sonda este a lui hasClientNotes: `select id limit 1`.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI PLUS HARTA DE SINONIME.
+// Harta din lib/data/unit-synonyms.ts nu atinge baza de date deloc, deci `set` si
+// `litri` se mapeaza si fara aceasta tabela. Ce lipseste pana la aplicare este
+// numai tinerea de minte a unui cuvant pe care harta nu il stie: operatorul alege
+// unitatea de fiecare data, exact ca astazi.
+// ---------------------------------------------------------------------------
+
+let cachedSupplierUnitAliases: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasSupplierUnitAliases(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedSupplierUnitAliases && now - cachedSupplierUnitAliases.at < TTL_MS) {
+    return cachedSupplierUnitAliases.value;
+  }
+  try {
+    const { error } = await client.from("supplier_unit_aliases").select("id").limit(1);
+    cachedSupplierUnitAliases = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedSupplierUnitAliases = { value: false, at: now };
+  }
+  return cachedSupplierUnitAliases.value;
+}

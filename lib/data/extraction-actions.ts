@@ -22,6 +22,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
 import { nextInboundReference } from "./inbound";
 import { ALL_UNITS } from "./units";
+import { rememberUnitAliases } from "./unit-aliases";
 import { EXTRACTION_NOT_STARTED, effectiveSource } from "./extraction-types";
 import { countPages } from "./page-count.mjs";
 import {
@@ -401,6 +402,28 @@ export async function confirmExtractionDraft(
     }
   }
 
+  // P3-102, constatarea F23. CUVINTELE DOCUMENTULUI, CITITE INAINTE DE RPC.
+  //
+  // Confirmarea consuma ciorna, deci unit_raw trebuie luat cat inca exista. Se
+  // citeste din BAZA si nu din ce a trimis apelantul, aceeasi doctrina ca pazele
+  // de mai sus: apelantul este exact lucrul de care ne aparam, iar un cuvant venit
+  // de la el ar putea scrie in tabela de memorie o pereche pe care niciun document
+  // nu a purtat-o. Ordinea dupa line_no este ordinea in care ecranul a randat
+  // liniile, deci indicele se potriveste cu input.lines.
+  //
+  // UN ESEC AL ACESTEI CITIRI NU OPRESTE NIMIC: fara cuvinte nu se tine minte
+  // nimic, iar comanda se creeaza la fel.
+  const { data: rawLines } = await supabase
+    .from("extraction_draft_lines")
+    .select("line_no, unit_raw")
+    .eq("order_id", orderId)
+    .order("line_no");
+  const unitRawByIndex = (rawLines ?? []).map((r) =>
+    typeof (r as { unit_raw?: unknown }).unit_raw === "string"
+      ? ((r as { unit_raw: string }).unit_raw)
+      : null,
+  );
+
   const resolved: { product_id: string; quantity: number; unit_price: number | null }[] = [];
   let flagged = 0;
 
@@ -542,6 +565,24 @@ export async function confirmExtractionDraft(
       })
       .eq("id", String(data));
   }
+
+  // P3-102, constatarea F23. CE A ALES OPERATORUL SE TINE MINTE PENTRU DATA VIITOARE.
+  //
+  // Numai perechile pe care harta de sinonime NU le stie: un rand pentru `litri`
+  // ar fi o a doua sursa de adevar despre acelasi cuvant. rememberUnitAliases
+  // filtreaza inca o data, fiindca doua cai de executie inseamna doua ocazii de a
+  // uita.
+  //
+  // DUPA RPC SI FARA SA POATA RASTURNA NIMIC, acelasi rationament ca mutarea
+  // referintei furnizorului mai jos: comanda ESTE DEJA CREATA, si a pierde
+  // livrarea ca sa salvezi o preferinta ar fi schimbul gresit. Functia inghite
+  // orice esec si intoarce cate randuri a scris.
+  await rememberUnitAliases(
+    supabase,
+    supplierName,
+    user.id,
+    input.lines.map((l, i) => ({ word: unitRawByIndex[i] ?? null, unit: l.unit.trim() })),
+  );
 
   revalidatePath("/comenzi");
   revalidatePath("/inventar");

@@ -26,6 +26,18 @@ const UNIT_MEANING: Record<UnitCode, string> = {
   // sa afiseze o unitate fara explicatie si nimic nu ar fi observat.
   t: "Tonă, pentru materiale vrac livrate la camion",
   l: "Litru, pentru vopsele, lacuri și solvenți",
+  // P3-102, constatarea F23 a lui Ivan. Adaugata de migratiile 0061 si 0062.
+  //
+  // TIPUL A CERUT SI ACEST RAND, exact ca la t si l mai sus, si din acelasi motiv:
+  // UNIT_MEANING este Record<UnitCode, string>, deci extinderea enumului a facut
+  // fisierul sa nu compileze pana cand cineva a spus la ce se foloseste unitatea
+  // noua. Nu este un deranj, este proprietatea pe care o promite comentariul de
+  // deasupra fisierului.
+  //
+  // CANTITATEA ESTE NUMARUL DE SETURI, nu numarul de bucati dinauntru. Un card
+  // care ar vrea altceva ar fi un card despre conversii, si acela ar trebui sa
+  // spuna ce se intampla cu tot ce este deja salvat.
+  set: "Set, pentru articole livrate ambalat ca un tot, de exemplu o cutie de șuruburi vândută la set",
 };
 
 // P3-67. PE TELEFON (sub 768px) fiecare unitate devine un card, iar peste 768px
