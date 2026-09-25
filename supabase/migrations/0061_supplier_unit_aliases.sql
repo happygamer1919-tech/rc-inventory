@@ -1,15 +1,23 @@
--- 0063_supplier_unit_aliases.sql
+-- 0061_supplier_unit_aliases.sql
 -- RC Inventory phase 3, card P3-102, Ivan's finding F23, goal G59.
 -- What this supplier's word for a unit means, remembered after the operator has
 -- answered it once.
 --
 -- WHY. The synonym map in lib/data/unit-synonyms.ts knows the words this project
--- has seen: set, litri, buc, mp, ml, kg and their spellings. It cannot know every
--- word every supplier prints. When a word does not map, the operator picks an
--- existing unit from the dropdown, and until this table that answer died with the
--- document: the next delivery note from the same supplier asked the same question
--- again. The word stays visible as "Pe document: <word>" either way, so nothing
--- the supplier wrote is lost.
+-- has seen: litri, buc, mp, ml, kg and their spellings. It cannot know every word
+-- every supplier prints, and some words it MUST NOT know, because they are
+-- packaging rather than units: `set`, `cutie`, `palet` and `bax` are refused as
+-- unit_code labels by card EXT-10 and by
+-- scripts/poc-free/local-db/assertions/0035_products_package.sql, on the ground
+-- that products.unit means what a stored quantity is COUNTED IN and a packaging
+-- label in it would make that column mean two things.
+--
+-- THIS TABLE IS WHAT ANSWERS BOTH CASES WITHOUT TOUCHING THAT DECISION. When a
+-- word does not map, whatever the reason, the operator picks an EXISTING unit
+-- from the dropdown, and until this table that answer died with the document: the
+-- next delivery note from the same supplier asked the same question again. The
+-- word stays visible as "Pe document: <word>" either way, so nothing the supplier
+-- wrote is lost, and products.unit keeps meaning exactly one thing.
 --
 -- WHAT IT ADDS, AND IT CHANGES AND REMOVES NOTHING
 --
@@ -71,7 +79,7 @@
 --
 -- PROVEN BEFORE IT WAS MERGED by `npm run check:migrations`, which applies it
 -- unmodified to a throwaway postgres:16 and then runs every assertion file,
--- scripts/poc-free/local-db/assertions/0063_supplier_unit_aliases.sql among them.
+-- scripts/poc-free/local-db/assertions/0061_supplier_unit_aliases.sql among them.
 
 begin;
 

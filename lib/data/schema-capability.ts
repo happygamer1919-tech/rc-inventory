@@ -1044,10 +1044,10 @@ export async function hasClientNotes(client: ColumnProbe): Promise<boolean> {
 
 
 // ---------------------------------------------------------------------------
-// P3-102, constatarea F23. Exista migratia 0063: tabela
+// P3-102, constatarea F23. Exista migratia 0061: tabela
 // public.supplier_unit_aliases?
 //
-// DE CE ARE POARTA EI. 0063 este un fisier separat si ajunge in productie pe
+// DE CE ARE POARTA EI. 0061 este un fisier separat si ajunge in productie pe
 // fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua minute, iar codul
 // pleaca din acelasi push si NU aterizeaza in aceeasi secunda. Fara ea, ecranul de
 // verificare ar cere o tabela care nu exista inca, si asta chiar pe calea prin care

@@ -10,64 +10,84 @@ Goal: G59 in the operator factory's `GOALS.md`, carrying Ivan's finding F23 of 2
 
 A supplier writes a unit on a delivery note and Rapid Construct has to understand it. On an MPC
 confirmation on 2026-09-24 two words did not land: `set` on a box of self-drilling screws and
-`litri` on paint thinner. The screen showed an empty dropdown saying "Alege unitatea" with "Pe
-document: set" underneath, and the operator had to answer a question the paper had already
-answered. Two of them now land by themselves, and so do the ordinary spellings of pieces, square
-metres, linear metres and kilograms. `set` becomes a real unit.
+`litri` on paint thinner. The screen showed an empty dropdown saying "Alege unitatea" with
+"Pe document: set" underneath, and the operator had to answer the same question on every document.
 
-A word we still do not know keeps showing what the supplier wrote, the operator picks a unit from
-the list once, and the system remembers that answer for that supplier's next document. The word
-stays on screen either way, so nothing the supplier wrote is lost.
+**`litri` now lands by itself**, along with the ordinary spellings of pieces, square metres, linear
+metres and kilograms.
+
+**`set` does not become a unit, and that turned out not to be mine to decide.** An earlier piece of
+work, card EXT-10, decided that packaging words are not units and wrote a check that refuses
+`palet`, `cutie`, `set` and `bax` by name. I tried it anyway, on the goal's instruction, and the
+check stopped it inside 74 seconds. The reason is good: a "set" does not say HOW MUCH, it says what
+it came in, and if six sets and six pieces sit in the same column meaning different things, nobody
+can read a stock level again.
+
+**What `set` gets instead is the other half of the goal, and it fixes the actual complaint.** A word
+the system does not know keeps showing what the supplier wrote, the operator picks a unit from the
+list **once**, and the system remembers that answer for that supplier's next document. Ivan's
+complaint was that the question is asked on every document. It now gets asked once.
 
 And line 5 of that same document had arrived with a quantity of zero, marked "stoc epuizat". It was
 already being left out of stock, correctly, and nothing on screen said so, so the count at the
-bottom did not match the paper and there was no way to see why. It is now greyed with the sentence
-"Cantitate 0: nu intră în stoc". Typing a quantity above zero brings it back.
+bottom did not match the paper. It is now greyed with the sentence "Cantitate 0: nu intră în stoc".
+Typing a quantity above zero brings it back.
 
 **Nothing in this card multiplies a number.** A set is not taught to be a thousand pieces, a litre
-is not taught to be a kilogram. A synonym renames a unit, it never converts one.
+is not taught to be a kilogram.
 
-## The question filed before anything was written
+## The collision that stopped the first attempt, in full
 
-`mailbox/questions/q086-g59-new-unit-from-dropdown-contradicts-unitsettings.md`, to the owner.
+**Attempt 1**, head `b002d79`, run `36078834380`, red in 1m14s at "Apply every migration to a bare
+postgres, unmodified":
 
-Goal G59 part (2) asks for the operator to be able to **add the document's word as a new unit from
-the same dropdown**. `components/settings/UnitSettings.tsx` opens by recording the opposite, on
-purpose, and the screen repeats it to the user:
+```
+FAILED: assertions/0035_products_package.sql
+ERROR:  EXT-10: 1 packaging label(s) reached public.unit_code,
+        and the quantity column now means two things
+```
 
-> "Unitatile de masura. Doar vizualizare, si asta este o decizie, nu o lipsa. Setul este fixat de
-> enumul unit_code din migratia 0001. O unitate noua inseamna o migratie numerotata, nu un rand
-> introdus dintr-un ecran, pentru ca fiecare cantitate stocata este interpretata prin unitatea
-> produsului ei. Ecranul spune asta pe fata, ca nimeni sa nu caute butonul care lipseste."
+That assertion is card EXT-10's, and its last block says why:
 
-Repo `CLAUDE.md` section 9c: a recorded decision is superseded by a formal correction that quotes
-it, marks it and states the new rule, never by a quiet code change. That is the same shape as
-finding F8 against ruling R-197. So the question was filed with a recommended default of
-**re-scope**, and the build went ahead on that default rather than idling:
+> "The whole reason packaging is not an enum value: products.unit still means what a stored quantity
+> is counted in, and no packaging label reached it."
 
-- when a document word does not map, the operator picks an **existing** RC unit;
-- that choice is remembered for that supplier's next document;
-- the word stays visible as "Pe document: <word>".
+It names `palet`, `cutie`, `set` and `bax`, one by one. EXT-10 built the real mechanism for the case
+instead: `products.package_unit` (free text) and `products.package_factor` (numeric), paired by
+`products_package_pair_complete` so that neither can exist without the other, with a factor that
+must be above zero and may be fractional.
 
-Nothing here is blocked on the answer. If the owner supersedes the decision, adding "create a unit
-from the dropdown" is its own card plus a ruling id from `npm run id:free`.
+**Neither goal G59, nor the task brief, nor the two files the brief told me to read first mentioned
+any of it.** The brief's own Step 0 anticipated exactly this shape of conflict, at
+`components/settings/UnitSettings.tsx`. It turned out there were two recorded decisions in the way,
+not one, and the second is machine-enforced.
+
+**The check was not touched.** Three laws, close-out step 7: never make a check pass by weakening
+what it checks. Reaching the goal's literal wording would need either an owner ruling superseding
+EXT-10 under `CLAUDE.md` section 9c, or a much bigger card that captures a packaging factor on the
+review screen and multiplies by it, which is a conversion and which G59 forbids in the same breath
+as it asks for `set`. Both are the owner's call, both are named in `q086`, and neither is a thing a
+terminal decides at midnight.
+
+**So attempt 2 shipped the part that contradicts nothing**, which is most of the value: the synonym
+map for the words that ARE units, the remembered per-supplier answer for the words that are not, and
+the whole zero-line half.
 
 ## Three things this card deliberately did NOT do
 
-1. **`l` already existed.** Migration 0030 added it, with the label `l`. Diluant nitro was never a
-   missing unit, it was a missing SYNONYM, and the map alone fixes it. No migration was needed for
-   litri and none was written.
-2. **`cutie` is deliberately left unmapped.** The goal mentions the word without listing it among
-   the units to create. A unit born from a passing mention is a unit every future quantity is read
-   through. It stays unmapped, takes the "does not map" path, and case 3 of the spec uses it for
-   exactly that. It is named in q086 so the owner can say the word.
+1. **`l` already existed.** Migration 0030 added it. Diluant nitro was never a missing unit, it was a
+   missing SYNONYM, and the map alone fixes it. No migration was needed for litri and none was
+   written.
+2. **No packaging word became a unit.** `set`, `cutie`, `palet` and `bax` are all left unmapped, on
+   purpose, and both `lib/data/units.ts` and `lib/data/unit-synonyms.ts` now carry the refusal in
+   writing with the reason and the assertion path, so the next card does not try it again. They are
+   not mapped to `pcs` either: that would be a silent conversion with factor 1, written for every
+   supplier at once, where the right answer differs from one to the next.
 3. **The zero line's exclusion is not new and was not changed.** `lib/data/extraction-actions.ts`
    has carried `if (!Number.isFinite(quantity) || quantity <= 0) continue;` since it was written.
-   The line was already excluded, silently. What this card adds is that the screen SAYS so. A card
-   that claimed to have built an exclusion that already existed would be a card misreporting itself,
-   so it is said here, in the card's `defaults`, in the card's `notes` and in the spec's own header.
-   There is no second rule at confirmation: typing a quantity above zero includes the line through
-   the filter that already exists, and case 2 proves that rather than adding a branch.
+   The line was already excluded, silently. What this card adds is that the screen SAYS so. There is
+   no second rule at confirmation: typing a quantity above zero includes the line through the filter
+   that already exists, and case 2 proves that rather than adding a branch.
 
 ## What was built
 
@@ -79,7 +99,6 @@ collapse white space, trim) and looks it up:
 
 | the document says | the RC unit |
 |---|---|
-| set, set., seturi | `set` |
 | l, L, litri, litru | `l` |
 | buc, buc., bucăți, pcs | `pcs` |
 | m2, m², mp | `m2` |
@@ -87,30 +106,14 @@ collapse white space, trim) and looks it up:
 | kg | `kg` |
 
 Every key goes through the same fold at load time, so a row added later with diacritics or capitals
-still lands on the right key and nobody has to remember the convention. `m²` gets its own row
-because the superscript is not a combining mark and folding does not turn it into `m2`.
+still lands on the right key. `m²` gets its own row because the superscript is not a combining mark
+and folding does not turn it into `m2`.
 
 The file carries migration 0030's capitals verbatim: **NICIO CONVERSIE NU ESTE INTRODUSA AICI SAU
-ORIUNDE.** There is no factor anywhere in it.
+ORIUNDE.** There is no factor anywhere in it. The `set`, `set.`, `seturi` rows that attempt 1 carried
+are gone, and the comment where they stood says why, naming EXT-10 and the assertion file.
 
-### The unit `set`, in two migration files because PostgreSQL requires it
-
-- `supabase/migrations/0061_unit_set.sql`: `alter type public.unit_code add value if not exists
-  'set';` and nothing else, with no transaction block.
-- `supabase/migrations/0062_unit_set_row.sql`: the row in `public.units` at `sort_order` 10,
-  `on conflict (code) do nothing`.
-
-This is 0030 and 0031's trap, recorded in their own headers: a newly added enum label cannot be USED
-in the transaction that added it (55P04), and `supabase db reset`, which CI uses, wraps each
-migration file in a transaction of its own and swallows an explicit `commit`. Two files are two
-transactions under all three runners.
-
-`lib/data/units.ts` learns the label and `ALL_UNITS`. `components/settings/UnitSettings.tsx` learns
-its meaning: "Set, pentru articole livrate ambalat ca un tot, de exemplu o cutie de șuruburi vândută
-la set". That file's `UNIT_MEANING` is a `Record<UnitCode, string>` on purpose, so the build failed
-until somebody wrote what the new unit is for, which is the property that file's own comment claims.
-
-### Part 2 as re-scoped: `supabase/migrations/0063_supplier_unit_aliases.sql`
+### Part 2 as re-scoped: `supabase/migrations/0061_supplier_unit_aliases.sql`
 
 An **append only** table: `id`, `supplier_key`, `unit_raw_key`, `unit` (the `unit_code` enum, not
 free text), `created_by`, `created_at`. One lookup index. Two filled-key checks. Row level security
@@ -152,20 +155,26 @@ past.
 The condition has two halves and both matter: the quantity **arrived** as 0 from the reading, AND
 the box does not currently hold a number above zero. The first half distinguishes it from a box the
 operator has just emptied. The second makes the grey and the sentence leave the instant a quantity
-is typed, which includes the line through the filter that already exists.
+is typed.
+
+It is a function rather than a variable inside the `map` body, deliberately, so the row stays an
+expression and this card's diff does not reindent two hundred lines of JSX it did not touch.
 
 ## Acceptance, and where it is proved
 
 `tests/e2e/extraction-units-and-zero-line.spec.ts`, five named cases, fixture built by hand inside
 `tests/`, every row prefixed `TEST`, no production data read and the live site never opened.
 
-1. `1. set si litri se mapeaza, iar linia cu cantitatea 0 spune pe ecran ca nu intra in stoc`
+1. `1. litri se mapeaza singur, set isi arata cuvantul, iar linia cu cantitatea 0 spune pe ecran ca nu intra in stoc`
 2. `2. o cantitate peste zero tastata in linia cu 0 o include inapoi`
 3. `3. un cuvant care nu se mapeaza se alege o data si se tine minte pentru urmatorul document al aceluiasi furnizor`
-4. `4. niciun numar nu s-a schimbat acolo unde s-a aplicat un sinonim`
+4. `4. niciun numar nu s-a schimbat acolo unde s-a aplicat un sinonim sau s-a ales o unitate`
 5. `5. fisa de verificare se poarta la 390x844, cu propozitia liniei de zero pe ecran`
 
-Case 4 is the no-conversion clause and it reads the stored position: `6 set`, never `6000`, and
+Case 3 uses **`set`**, which is Ivan's own word, precisely because `set` is the case the goal cared
+about and the remembered alias is how it is answered.
+
+Case 4 is the no-conversion clause and it reads the stored position: `6 buc`, never `6000`, and
 `12 l`. The unit label beside the number comes from the product's own unit through `unitLabel` in
 `InboundPanel`, so those two lines prove the stored unit and the untouched number at once.
 
@@ -177,38 +186,32 @@ not enough: this card's own logic searches the whole alias table on the supplier
 is never deleted here, so two cases of one run sharing a supplier would see each other's answers.
 That is the class `KNOWN-FAILURES.md` records after P3-101.
 
-Two SQL assertion files run against the bare postgres after every migration:
-`scripts/poc-free/local-db/assertions/0062_unit_set_row.sql` and `0063_supplier_unit_aliases.sql`.
-
-## The older assertion that had to be amended, and why it was not weakened
-
-`scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql` pinned `expected 9` twice: the
-number of labels on `unit_code` and the number of rows in `public.units`. Adding a tenth unit broke
-it. That is the signature `KNOWN-FAILURES.md` calls "An older assertion pins a whole enum label set",
-and the fix it prescribes is the one applied: the old file now pins only what its own two migrations
-decided, the nine labels **in order** and the nine rows at `sort_order` 1 to 9, and the TOTAL moved to
-`assertions/0062`, the file of the migration that decides it. `assertions/0049` made the same move
-when it took the category total off `assertions/0029`.
-
-Nothing was relaxed. The two new labels, the two new rows, their order, the agreement between labels
-and rows, and now the whole set of ten, are all asserted, across the two files. The header of 0031's
-assertion quotes what it used to say and why it was a trap, under `CLAUDE.md` section 9c.
+One SQL assertion file runs against the bare postgres after every migration:
+`scripts/poc-free/local-db/assertions/0061_supplier_unit_aliases.sql`.
 
 ## Migrations, by path, and what merging them does
 
-- `supabase/migrations/0061_unit_set.sql`
-- `supabase/migrations/0062_unit_set_row.sql`
-- `supabase/migrations/0063_supplier_unit_aliases.sql`
+- `supabase/migrations/0061_supplier_unit_aliases.sql`
 
-**MERGE IS APPLY** (`CLAUDE.md` 8.0, ruling R-124): merging this pull request adds one enum label,
-one row in `public.units` and one empty table to the production database within about two minutes.
+One file, down from three: attempt 1's `0061_unit_set.sql` and `0062_unit_set_row.sql` were removed
+with the `set` unit, and the alias table was renumbered from 0063 to 0061 so the ledger has no gap.
+A gap is its own CI failure and `KNOWN-FAILURES.md` records it.
 
-All three are additive only. No `DROP TABLE`, no `TRUNCATE`, no `DELETE`, no `DROP COLUMN` and no
-`UPDATE` of an existing row runs in any of them. No existing unit is renamed, reordered or removed,
-and no product changes unit: assertion 0062 checks that zero products sit on the new unit.
+**MERGE IS APPLY** (`CLAUDE.md` 8.0, ruling R-124): merging this pull request adds **one empty
+table** to the production database within about two minutes. Nothing else.
 
-All three are listed in the waiting register in `docs/migrations/APPLY-LOG.md` with P3-102 as the
-applying card, which is what `tests/e2e/headers.spec.ts` requires.
+It is additive only. No `DROP TABLE`, no `TRUNCATE`, no `DELETE`, no `DROP COLUMN` and no `UPDATE`
+of an existing row. No unit, no product and no stored quantity is touched or reinterpreted, and no
+existing table, column, function, policy or grant changes.
+
+It is listed in the waiting register in `docs/migrations/APPLY-LOG.md` with P3-102 as the applying
+card, which is what `tests/e2e/headers.spec.ts` requires.
+
+`scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql`, which attempt 1 amended, is
+back to exactly what is on `main`. That amendment only existed because a tenth unit was arriving. The
+trap it was fixing is real and will bite the next card that legitimately adds one, so it is written
+into `docs/LEARNINGS.md` as an entry rather than carried here as scope this card no longer needs,
+which is what repo `CLAUDE.md` section 3 prescribes.
 
 ## The extraction callback route
 
@@ -226,24 +229,27 @@ Run locally, each command alone, each exit 0: `npx tsc --noEmit`, `npm run build
 validator on all three boards, `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`,
 `check:no-destructive-migration`, `check:conflict-residue` (run AFTER `git add`, for the reason
 `KNOWN-FAILURES.md` records), `check:categories`, `check:ledger-rows`, `check:no-prod-target`,
-`check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`,
+`check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`, `check:board-edit`,
 `check:board-clock`, and `npx playwright test --list`.
-
-`check:board-edit` was red until the commit that carries the board card, which is that check working
-exactly as written.
 
 ## Merge
 
 **No self-merge.** Real client data has been in production since 2026-09-14, so the close-out
-block's step 8 revokes the section 3.1 grant on every path, and a pull request that adds files under
-`supabase/migrations/` never self-merges under any circumstances. The owner is told before the live
-database changes: the merge question is filed in the factory mailbox with the pull request number,
-the head sha, every migration path, and one plain sentence of what changes in the live database.
+block's step 8 revokes the section 3.1 grant on every path, and a pull request that adds a file
+under `supabase/migrations/` never self-merges. The owner is told before the live database changes:
+the merge question is filed in the factory mailbox with the pull request number, the head sha, the
+migration path, and one plain sentence of what changes in the live database.
 
 ## Left for the owner
 
-1. **q086**, the doctrine question above: supersede the recorded decision under section 9c and let a
-   unit be created from the dropdown, or keep the re-scope this card shipped.
-2. **`cutie`**, and any other word the owner wants in the synonym map. Adding a row to
-   `RAW_SYNONYMS` is one line; adding a UNIT is a migration pair plus a meaning sentence.
-3. **The merge approval**, with the three migration paths above.
+1. **`q086`**, now carrying TWO collisions, not one. The recorded decision in
+   `components/settings/UnitSettings.tsx` that a new unit means a numbered migration and never a row
+   typed into a screen, and the recorded decision in card EXT-10 and
+   `assertions/0035_products_package.sql` that a packaging word is never a unit at all. Goal G59's
+   request for a `set` unit runs into the second one. Superseding it needs a ruling id under section
+   9c, and the honest alternative is a card that uses EXT-10's own `package_unit` and
+   `package_factor` columns, which means introducing a conversion on the review screen, which G59
+   forbids in the same breath. That contradiction is the owner's to resolve.
+2. **Words for the synonym map.** Adding a row to `RAW_SYNONYMS` is one line, for any word that is
+   genuinely a unit. A word that is packaging is not a candidate and the file says so.
+3. **The merge approval**, with the migration path above.

@@ -7016,23 +7016,46 @@ email, an IDNO, a slug, is unique per run AND per case. Test data is never delet
 row a case writes is visible to every case after it. A value used only to read back the rows one
 case wrote, like a `TEST <run> <label>` name, needs only the run.**
 
+### A goal that asks for a new enum value an older card decided must never exist
+**Tag:** data
+**ERROR:** goal G59 asked, in terms, for a unit called `set`, because a production document billed
+`Șurub autoforant, cutie 1000 buc` with UM `set`. Card P3-102 added the label, the row, the
+TypeScript union and the Romanian meaning sentence, and `quality` went red in 74 seconds on a file
+the card had never read: `EXT-10: 1 packaging label(s) reached public.unit_code, and the quantity
+column now means two things`, from
+`scripts/poc-free/local-db/assertions/0035_products_package.sql`. Card EXT-10 had already decided
+that packaging is not a unit, named `palet`, `cutie`, `set` and `bax` one by one, built
+`products.package_unit` and `products.package_factor` with a paired constraint for the real case, and
+closed the decision with an assertion that runs on every pull request. Nothing in the goal, the task
+brief or the two files the brief named mentioned any of it.
+**SOLUTION:** the label was removed and the card shipped the half that contradicts nothing: `set`
+stays an UNMAPPED word, the operator picks an existing unit once, and
+`public.supplier_unit_aliases` remembers that answer for that supplier. That fixes the complaint as
+it was actually made, which was that the question is asked on every document, without touching
+EXT-10. `lib/data/units.ts` and `lib/data/unit-synonyms.ts` both now carry the refusal in writing so
+the next card does not try again, and the owner question q086 carries the collision.
+RULE: **before adding a value to an enum, grep the assertion files for its NAME, not only for the
+type. A decision this project has already taken is often enforced nowhere near the code the change
+touches, and `scripts/poc-free/local-db/assertions/` is where it is written down. A red assertion
+older than your card is almost always a decision, not an obstacle, and the fix is to read the card
+that wrote it.**
+
 ### An assertion file that pins a TOTAL its own migration never decided
 **Tag:** data
-**ERROR:** `scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql` carried two checks
-reading `expected 9`, one for the number of labels on `unit_code` and one for the number of rows in
-`public.units`. Card P3-102 added a tenth unit, `set`, and the bare postgres apply went red on a file
-three cards older than the change, with `unit_code carries 10 labels, expected 9`. Every file in that
-directory runs after EVERY migration, so a total pinned by an early file is a claim that nobody will
-ever add another one, and 0030 and 0031 never decided that.
-**SOLUTION:** 0031's assertion now pins exactly what its own two migrations left behind: the nine
-labels in order, taken with `order by enumsortorder limit 9` rather than by comparing the sort order
-to a number, and the nine rows at `sort_order` 1 to 9. The TOTAL moved to
-`assertions/0062_unit_set_row.sql`, the file of the migration that decides it, which is the same move
-`assertions/0049` made when it took the category total off `assertions/0029`. Nothing was weakened:
-the two new labels, the two new rows, their order and the agreement between labels and rows are all
-still asserted, in both files. RULE: **an assertion file asserts what ITS OWN migration did. A total,
-a count of everything, or "and nothing else exists" belongs in the file of the migration that last
-changed that total, and moving it there when a new card arrives is the fix, never relaxing it.**
+**ERROR:** noticed while working P3-102 and NOT fixed there, because that card stopped adding a unit
+and no longer needs it. `scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql`
+carries two checks reading `expected 9`, one for the number of labels on `unit_code` and one for the
+number of rows in `public.units`. Every file in that directory runs after EVERY migration, so the
+next card that legitimately adds a unit will go red on a file three cards older than its change, with
+`unit_code carries 10 labels, expected 9`. 0030 and 0031 never decided that nobody would add a tenth.
+**SOLUTION:** not applied, so that this stays an entry and not a quiet extra commit. When it bites:
+pin in 0031 exactly what its own two migrations left behind, the nine labels in order taken with
+`order by enumsortorder limit 9` rather than by comparing the sort order to a number, and the nine
+rows at `sort_order` 1 to 9; then put the TOTAL in the assertion file of the migration that decides
+it. That is the move `assertions/0049` already made when it took the category total off
+`assertions/0029`. RULE: **an assertion file asserts what ITS OWN migration did. A total, a count of
+everything, or "and nothing else exists" belongs in the file of the migration that last changed that
+total, and moving it there when a new card arrives is the fix, never relaxing it.**
 
 ### A diacritic range written as raw characters instead of as an escape
 **Tag:** frontend

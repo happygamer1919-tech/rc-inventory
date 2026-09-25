@@ -9,22 +9,34 @@ import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
 // CE S-A VAZUT IN PRODUCTIE PE 2026-09-24, pe confirmarea unei comenzi MPC:
 //   - UM `set` (Șurub autoforant, cutie 1000 buc) si `litri` (Diluant nitro) nu
 //     se mapeaza, deci lista de selectie arata "Alege unitatea" cu "Pe document:
-//     set" dedesubt, si operatorul raspunde de mana la o intrebare pe care
-//     documentul o lamureste;
+//     set" dedesubt, si operatorul raspunde de mana, pe fiecare document, la o
+//     intrebare la care a raspuns deja;
 //   - pozitia 5 sosise cu cantitatea 0 ("stoc epuizat"), nu spunea nimic pe ecran,
 //     si numaratoarea de la capat nu se potrivea cu documentul fara niciun motiv
 //     vizibil.
 //
+// CELE DOUA CUVINTE AU DOUA LEACURI DIFERITE, SI ASTA ESTE HOTARAREA CARDULUI.
+// `litri` este un sinonim al unitatii `l`, care exista de la migratia 0030, si se
+// mapeaza. `set` este un AMBALAJ, iar cardul EXT-10 a hotarat ca un ambalaj nu
+// poate fi o unitate, cu o aserttiune care numeste pe nume `palet`, `cutie`, `set`
+// si `bax`: scripts/poc-free/local-db/assertions/0035_products_package.sql. Prima
+// incercare a acestui card a adaugat eticheta `set` pe unit_code si a picat exact
+// acolo, in rularea 36078834380. `set` ia deci calea cuvantului nemapat, care este
+// jumatatea a doua a cardului si care rezolva plangerea lui Ivan asa cum a fost
+// pusa: intrebarea nu se mai repeta.
+//
 // CE DOVEDESTE FIECARE CAZ, si de ce cazul 1 nu este suficient singur:
-//   1. `set` si `litri` se mapeaza, linia cu 0 este grizata si isi spune motivul,
-//      confirmarea o lasa afara, iar comanda creata nu are pozitie pentru ea.
+//   1. `litri` se mapeaza singur, `set` NU si isi arata cuvantul, linia cu 0 este
+//      grizata si isi spune motivul, confirmarea o lasa afara, iar comanda creata
+//      nu are pozitie pentru ea.
 //   2. o cantitate peste zero tastata in acea casuta o include inapoi, prin
 //      filtrul care exista deja si fara nicio a doua regula la confirmare.
 //   3. un cuvant pe care harta NU il stie ramane pe "Alege unitatea", isi arata
 //      cuvantul, primeste un raspuns de la operator, si raspunsul acela este
-//      precompletat pe urmatorul document al ACELUIASI furnizor.
-//   4. nicio cantitate nu s-a schimbat acolo unde s-a aplicat un sinonim. Un set
-//      ramane un set si nu devine o mie de bucati.
+//      precompletat pe urmatorul document al ACELUIASI furnizor. Cu `set`, adica
+//      exact cuvantul constatarii.
+//   4. nicio cantitate nu s-a schimbat acolo unde s-a aplicat un sinonim, si
+//      niciun ambalaj nu a fost inmultit: sase seturi raman sase, nu sase mii.
 //   5. fisa se poarta la 390x844.
 //
 // EXCLUDEREA NU ESTE NOUA SI CAZUL 1 NU PRETINDE CA ESTE. confirmExtractionDraft
@@ -219,7 +231,7 @@ function mpcLines(caseDigit: number): FixtureLine[] {
 test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test("1. set si litri se mapeaza, iar linia cu cantitatea 0 spune pe ecran ca nu intra in stoc", async ({
+  test("1. litri se mapeaza singur, set isi arata cuvantul, iar linia cu cantitatea 0 spune pe ecran ca nu intra in stoc", async ({
     page,
     request,
   }) => {
@@ -233,13 +245,19 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     await page.goto(UPLOAD);
     await openReview(page, orderId);
 
-    // --- CLAUZA 1: NICIO LISTA GOALA PE set SI PE litri ----------------------
-    // Citirea a trimis unit null pe amandoua, deci ce se vede aici este harta de
+    // --- CLAUZA 1: litri SE MAPEAZA, SI NICIO LISTA NU RAMANE GOALA DEGEABA ---
+    // Citirea a trimis unit null pe toate trei, deci ce se vede aici este harta de
     // sinonime si nimic altceva.
-    await expect(page.getByTestId("review-line-unit-0")).toHaveValue("set");
-    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: set");
     await expect(page.getByTestId("review-line-unit-1")).toHaveValue("l");
     await expect(page.getByTestId("review-line-unit-raw-1")).toContainText("Pe document: litri");
+
+    // --- CLAUZA 1b: `set` NU SE MAPEAZA, SI ASTA ESTE DELIBERAT --------------
+    // Un ambalaj nu este o unitate, hotararea EXT-10, inchisa cu aserttiunea
+    // assertions/0035_products_package.sql. Ce trebuie sa fie adevarat este ca
+    // ecranul SPUNE ce scria pe hartie si ca intrebarea se pune o singura data,
+    // ceea ce dovedeste cazul 3.
+    await expect(page.getByTestId("review-line-unit-0")).toHaveValue("");
+    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: set");
 
     // --- CLAUZA 2: LINIA CU 0 ESTE GRIZATA SI ISI SPUNE MOTIVUL --------------
     await expect(reviewLine(page, 2)).toHaveAttribute("data-zero-excluded", "true");
@@ -258,6 +276,8 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     await page.getByTestId("review-expected-at").fill("2026-12-10");
     await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
     await page.getByTestId("review-line-category-1").selectOption({ label: MAPPED_CATEGORY });
+    // Linia 0 nu are unitate mapata, deci operatorul alege una care exista.
+    await page.getByTestId("review-line-unit-0").selectOption("pcs");
     await page.getByTestId("review-confirm").click();
 
     const created = page.getByTestId("review-created");
@@ -307,6 +327,8 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     for (const index of [0, 1, 2]) {
       await page.getByTestId(`review-line-category-${index}`).selectOption({ label: MAPPED_CATEGORY });
     }
+    // Linia 0 poarta `set`, care nu se mapeaza: operatorul alege.
+    await page.getByTestId("review-line-unit-0").selectOption("pcs");
     await page.getByTestId("review-confirm").click();
 
     const created = page.getByTestId("review-created");
@@ -333,13 +355,15 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     const supplier = supplierFor(3);
     const unmapped: FixtureLine[] = [
       {
-        product_name: productFor(3, "Holsuruburi la cutie"),
+        product_name: productFor(3, "Surub autoforant la set"),
         quantity: 4,
         unit: null,
-        // `cutie` NU ESTE IN HARTA, deliberat: tinta G59 pomeneste cuvantul fara
-        // sa il treaca printre unitatile de creat. Exact de asta este cuvantul
-        // potrivit pentru acest caz.
-        unit_raw: "cutie",
+        // `set` NU ESTE IN HARTA SI NU ARE VOIE SA FIE O UNITATE, hotararea
+        // EXT-10 si aserttiunea assertions/0035_products_package.sql. Este exact
+        // cuvantul din constatarea F23, deci este cuvantul care trebuie sa treaca
+        // prin acest caz: plangerea nu a fost ca lipseste o unitate, a fost ca
+        // intrebarea se pune la fiecare document.
+        unit_raw: "set",
         unit_price: 120,
         line_total: 480,
       },
@@ -354,11 +378,12 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     await page.goto(UPLOAD);
     await openReview(page, first);
     await expect(page.getByTestId("review-line-unit-0")).toHaveValue("");
-    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: cutie");
+    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: set");
 
-    // Operatorul alege o unitate care EXISTA. Nu poate crea una, si ecranul de
-    // setari spune de ce: fiecare cantitate salvata este citita prin unitatea
-    // produsului ei.
+    // Operatorul alege o unitate care EXISTA. Nu poate crea una, si doua locuri
+    // din cod spun de ce: ecranul de setari, fiindca fiecare cantitate salvata
+    // este citita prin unitatea produsului ei, si cardul EXT-10, fiindca `set`
+    // este un ambalaj si nu o cantitate.
     await page.getByTestId("review-line-unit-0").selectOption("pcs");
     await page.getByTestId("review-expected-at").fill("2026-12-12");
     await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
@@ -372,7 +397,7 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
         await post(
           request,
           callbackBody(second, supplier, [
-            { ...unmapped[0]!, product_name: productFor(3, "Holsuruburi la cutie, alt cod") },
+            { ...unmapped[0]!, product_name: productFor(3, "Surub autoforant la set, alt cod") },
           ]),
         )
       ).status(),
@@ -384,14 +409,14 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     // Raspunsul de data trecuta este precompletat, si cuvantul documentului este
     // TOT acolo: tinerea de minte nu are voie sa ascunda ce a scris furnizorul.
     await expect(page.getByTestId("review-line-unit-0")).toHaveValue("pcs");
-    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: cutie");
+    await expect(page.getByTestId("review-line-unit-raw-0")).toContainText("Pe document: set");
 
     // SI NU ESTE O HOTARARE. Operatorul o poate schimba, ca orice valoare extrasa.
     await page.getByTestId("review-line-unit-0").selectOption("bag");
     await expect(page.getByTestId("review-line-unit-0")).toHaveValue("bag");
   });
 
-  test("4. niciun numar nu s-a schimbat acolo unde s-a aplicat un sinonim", async ({
+  test("4. niciun numar nu s-a schimbat acolo unde s-a aplicat un sinonim sau s-a ales o unitate", async ({
     page,
     request,
   }) => {
@@ -407,13 +432,15 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
 
     // Cantitatile de pe ecran sunt cele de pe document, nu cele inmultite cu
     // continutul ambalajului. Documentul spune "cutie 1000 buc" in DENUMIRE, si
-    // asta nu este o conversie: sunt sase seturi.
+    // nimic nu citeste denumirea aceea: sunt sase, si raman sase.
     await expect(page.getByTestId("review-line-quantity-0")).toHaveValue("6");
     await expect(page.getByTestId("review-line-quantity-1")).toHaveValue("12");
 
     await page.getByTestId("review-expected-at").fill("2026-12-13");
     await page.getByTestId("review-line-category-0").selectOption({ label: MAPPED_CATEGORY });
     await page.getByTestId("review-line-category-1").selectOption({ label: MAPPED_CATEGORY });
+    // Linia 0 poarta `set`, care nu se mapeaza: operatorul alege bucata.
+    await page.getByTestId("review-line-unit-0").selectOption("pcs");
     await page.getByTestId("review-confirm").click();
 
     const created = page.getByTestId("review-created");
@@ -427,9 +454,10 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
       .locator(`[data-testid="inbound-line"]`)
       .filter({ hasText: lines[0]!.product_name });
     await expect(setLine).toHaveCount(1, { timeout: 20_000 });
-    // Sase seturi. NU sase mii de bucati, care este exact ce ar scrie aici daca
-    // cineva ar fi invatat sistemul ca un set este o mie de bucati.
-    await expect(setLine).toContainText("6 set");
+    // SASE bucati. NU sase mii, care este exact ce ar scrie aici daca alegerea
+    // unei unitati pentru cuvantul `set` ar fi tras dupa ea si o inmultire cu
+    // continutul ambalajului. O alegere de unitate redenumeste, nu converteste.
+    await expect(setLine).toContainText("6 buc");
     await expect(setLine).not.toContainText("6000");
 
     const litreLine = page
@@ -458,7 +486,8 @@ test.describe("Unitati de pe document si linia cu cantitatea zero", () => {
     await openReview(page, orderId);
 
     await expect(page.getByTestId("review-line-zero-2")).toBeVisible();
-    await expect(page.getByTestId("review-line-unit-0")).toHaveValue("set");
+    await expect(page.getByTestId("review-line-unit-1")).toHaveValue("l");
+    await expect(page.getByTestId("review-line-unit-raw-0")).toBeVisible();
 
     // DERULARE LATERALA: documentul nu are voie sa fie mai lat decat ecranul.
     // Aceeasi masura pe care o face phone-forms.spec, scrisa aici ca acest caz sa

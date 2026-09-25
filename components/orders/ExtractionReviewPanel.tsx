@@ -293,7 +293,7 @@ function zeroExcluded(read: ExtractionLine | undefined, typed: string): boolean 
  *       mapeaza vine null, deci o valoare aici este o afirmatie, nu o ghicire.
  *    2. harta de sinonime, care este o tabela scrisa de mana in
  *       lib/data/unit-synonyms.ts: `set` inseamna set, `litri` inseamna l. Nu
- *       atinge baza de date, deci merge si inainte ca 0063 sa fie aplicata.
+ *       atinge baza de date, deci merge si inainte ca 0061 sa fie aplicata.
  *    3. ce a ales operatorul ultima oara pentru ACEST cuvant si ACEST furnizor.
  *
  *  SIRUL GOL INSEAMNA "NU STIM" si ramane calea de astazi: lista pe "Alege
@@ -317,7 +317,7 @@ function ReviewForm({
   draft: ExtractionDraft;
   products: CatalogProduct[];
   categories: Category[];
-  /** P3-102. Pe furnizor pliat, apoi pe cuvant pliat. Gol inainte de 0063. */
+  /** P3-102. Pe furnizor pliat, apoi pe cuvant pliat. Gol inainte de 0061. */
   unitAliases: Record<string, UnitAliasMap>;
   onDone: () => void;
   /** CRIT-16. Reusita se raporteaza in sus si se afiseaza acolo, NU aici. */
@@ -898,7 +898,7 @@ export function ExtractionReviewPanel({
   products: CatalogProduct[];
   categories: Category[];
   /** P3-102, constatarea F23. Ce a ales operatorul ultima oara pentru cuvantul
-   *  unui furnizor, pe furnizor pliat si apoi pe cuvant pliat. Gol pana cand 0063
+   *  unui furnizor, pe furnizor pliat si apoi pe cuvant pliat. Gol pana cand 0061
    *  este aplicata, si atunci ecranul se poarta ca astazi plus harta de sinonime,
    *  care nu are nevoie de nicio tabela. */
   unitAliases?: Record<string, UnitAliasMap>;

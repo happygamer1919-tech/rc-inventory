@@ -9,7 +9,7 @@ import "server-only";
 // card raspunsul acela murea odata cu documentul: urmatorul aviz al aceluiasi
 // furnizor punea aceeasi intrebare.
 //
-// TABELA ESTE public.supplier_unit_aliases, din migratia 0063, si este DOAR
+// TABELA ESTE public.supplier_unit_aliases, din migratia 0061, si este DOAR
 // ADAUGARE. Nu exista cheie unica si nu exista politica de update: un raspuns dat
 // alta data ramane citibil, iar cititorul ia cel mai NOU rand pentru o pereche.
 //
@@ -22,7 +22,7 @@ import "server-only";
 // oricum il citeste si o poate schimba, exact ca orice alta valoare extrasa: ce se
 // salveaza este ce este pe ecran la confirmare.
 //
-// FIECARE APEL TRECE PRIN hasSupplierUnitAliases. 0063 ajunge in productie pe
+// FIECARE APEL TRECE PRIN hasSupplierUnitAliases. 0061 ajunge in productie pe
 // fuziune si codul pleaca din acelasi push, deci intre cele doua momente tabela nu
 // exista, si asta este chiar calea prin care intra fiecare document de furnizor.
 // Pana la aplicare ecranul se poarta ca astazi plus harta de sinonime, care nu

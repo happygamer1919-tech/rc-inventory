@@ -56,9 +56,7 @@ The format is machine-read, so keep it exactly:
 - `0058_client_next_action.sql`, card de aplicare P3-89
 - `0059_client_notes.sql`, card de aplicare P3-90
 - `0060_lead_next_action_cleared_with_follow_up.sql`, card de aplicare P3-92
-- `0061_unit_set.sql`, card de aplicare P3-102
-- `0062_unit_set_row.sql`, card de aplicare P3-102
-- `0063_supplier_unit_aliases.sql`, card de aplicare P3-102
+- `0061_supplier_unit_aliases.sql`, card de aplicare P3-102
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

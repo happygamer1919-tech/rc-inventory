@@ -6,6 +6,11 @@
 // "Alege unitatea" cu "Pe document: set" dedesubt, iar operatorul completeaza de
 // mana un lucru pe care documentul il spune raspicat.
 //
+// DIN CELE DOUA CUVINTE, UNUL SE MAPEAZA AICI SI CELALALT NU ARE VOIE. `litri`
+// este un sinonim si se rezolva mai jos. `set` este un AMBALAJ, iar cardul EXT-10
+// a hotarat ca un ambalaj nu poate fi o unitate. Antetul de la RAW_SYNONYMS spune
+// tot, si spune si ce se intampla cu `set` in schimb.
+//
 // UN SINONIM REDENUMESTE O UNITATE, NU INMULTESTE NICIODATA O CANTITATE. Antetul
 // migratiei 0030 o scrie cu majuscule, "NICIO CONVERSIE NU ESTE INTRODUSA AICI SAU
 // ORIUNDE", si aici este aceeasi regula. `litri` inseamna unitatea `l`; nu inseamna
@@ -16,13 +21,29 @@
 //
 // `l` EXISTA DEJA, de la migratia 0030. Diluant nitro nu a fost niciodata o unitate
 // lipsa, a fost un SINONIM lipsa, iar harta de mai jos este intreg leacul lui.
-// `set` nu exista si se adauga, prin 0061 si 0062.
 //
-// `cutie` NU ESTE IN HARTA, DELIBERAT. Tinta G59 pomeneste cuvantul fara sa il
-// treaca printre unitatile de creat, iar o unitate nascuta dintr-o pomenire in
-// trecere este o unitate prin care se citeste de acum inainte fiecare cantitate.
-// Cuvantul ramane nemapat, ia calea "acest cuvant nu se mapeaza", si alegerea
-// operatorului pentru el se tine minte pe furnizor prin 0063.
+// `set` NU ESTE IN HARTA SI NU ESTE O UNITATE, DESI TINTA G59 CEREA SA FIE.
+//
+// Cardul EXT-10 a hotarat contrariul si l-a inchis cu o aserttiune care ruleaza
+// pe fiecare pull request, scripts/poc-free/local-db/assertions/
+// 0035_products_package.sql: "The whole reason packaging is not an enum value:
+// products.unit still means what a stored quantity is counted in, and no
+// packaging label reached it." Aserttiunea numeste pe nume `palet`, `cutie`,
+// `set` si `bax`. Prima incercare a acestui card a adaugat eticheta si a picat
+// exact acolo, in rularea 36078834380, ceea ce este aserttiunea aceea lucrand
+// exact cum a fost scrisa.
+//
+// MOTIVUL, PE SCURT: un set nu spune CAT, spune in ce a venit. Sase seturi si
+// sase bucati ar sta in aceeasi coloana insemnand lucruri diferite. Ambalajul are
+// coloanele lui, products.package_unit si products.package_factor, legate de o
+// restrictie care le cere pe amandoua sau pe niciuna.
+//
+// `set` SI `cutie` RAMAN DECI NEMAPATE, amandoua, si iau calea "acest cuvant nu
+// se mapeaza": operatorul alege o data o unitate care exista, alegerea se tine
+// minte pe furnizor prin migratia 0061, si cuvantul ramane scris pe ecran. Asta
+// rezolva plangerea lui Ivan, care era ca intrebarea se pune la fiecare document,
+// fara sa atinga hotararea EXT-10. Intrebarea q086 din casuta operatorului duce
+// la proprietar si aceasta ciocnire, nu doar pe cea cu ecranul de setari.
 //
 // FISIERUL NU ATINGE BAZA DE DATE, deci il poate importa si un component de client.
 // Tinerea de minte pe furnizor, care are nevoie de baza, sta in
@@ -84,10 +105,12 @@ export function foldSupplierName(raw: string | null | undefined): string {
  * nu trebuie sa tina minte conventia ca sa adauge un rand.
  */
 const RAW_SYNONYMS: Array<[string, UnitCode]> = [
-  // Setul, unitatea noua a acestui card.
-  ["set", "set"],
-  ["set.", "set"],
-  ["seturi", "set"],
+  // NICIUN RAND PENTRU set, set. SAU seturi, SI NICIUNUL PENTRU cutie, palet SAU
+  // bax. Vezi antetul: sunt ambalaje, nu unitati, si asta este hotararea EXT-10.
+  // Un rand aici care le-ar trimite catre `pcs` ar fi si mai rau decat eticheta
+  // de enum incercata intai: ar fi o conversie tacuta cu factorul 1, scrisa
+  // pentru toti furnizorii deodata, acolo unde raspunsul corect difera de la unul
+  // la altul. Alegerea se face o data, pe furnizor, si se tine minte.
 
   // Litrul. Unitatea exista de la 0030; lipseau numai cuvintele.
   ["l", "l"],

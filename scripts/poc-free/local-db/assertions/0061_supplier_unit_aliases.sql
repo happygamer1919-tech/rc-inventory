@@ -1,4 +1,4 @@
--- assertions/0063_supplier_unit_aliases.sql
+-- assertions/0061_supplier_unit_aliases.sql
 -- Card P3-102, Ivan's finding F23, goal G59. public.supplier_unit_aliases exists
 -- with its six columns, its index and its two filled-key checks; an active profile
 -- reads the aliases and writes one as itself, a deactivated one reads none; nobody
