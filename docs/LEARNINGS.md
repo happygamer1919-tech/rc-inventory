@@ -6923,3 +6923,95 @@ task instruction, and it either exists when the session starts or it does not. C
 cheap `ls` BEFORE planning a report around it, then either write the report without it or stop and
 ask for the directory to be added. A task whose deliverable depends on a second repository says in
 its own text what to deliver when that repository cannot be opened.**
+
+### A "use server" file cannot export anything that is not an async function
+**Tag:** frontend
+**ERROR:** `lib/data/lead-import-actions.ts` is a `"use server"` module and it exported a two line
+synchronous helper, `importNoteBody(fileName, day)`, so that the spec and the screen could read the
+same sentence as the writer. Next refuses that: every export of a server-action module has to be an
+async function, because each one is compiled into a callable endpoint. The failure does not arrive
+at the point of the export, it arrives in the build of whatever imports it, which is several files
+away from the mistake.
+**SOLUTION:** the helper moved to `lib/data/lead-import-types.ts`, the pure module beside it that
+carries no directive at all, and the action imports it from there. RULE: **a `"use server"` file
+holds actions and nothing else. Any constant, type or plain function that the screen or a test also
+needs goes in the pure module next to it, which is where it belonged anyway: a helper exported from
+an action file is a helper that has been turned into a network endpoint by accident.**
+
+### A unicode escape typed into a write tool can land as the invisible byte it names
+**Tag:** frontend
+**ERROR:** the diacritic stripper in `normaliseKey` was written as a character-class range spelled
+with two backslash-u escapes, and it landed in the file as `/[` followed by two literal combining
+marks and `]/g`: two bytes no editor shows, which `od -c` reveals as `**-**`. The same happened to
+the byte order mark Excel writes in front of a CSV, so the source ended up carrying a real BOM inside
+a regex literal and inside a template string. Both forms behave identically at runtime, which is
+exactly why this survives a typecheck, a build and a code read, and then breaks the day somebody's
+editor normalises the file or an encoding changes on the way through a tool.
+**SOLUTION:** a throwaway node script rebuilt the two literals from `String.fromCharCode` and
+replaced them with escape TEXT assembled from `String.fromCharCode(92)` plus the four characters, and
+was deleted in the same commit. `grep -n "u0300|uFEFF" lib/data/lead-import-types.ts` then shows the
+escapes rather than nothing. RULE: **after writing source that should contain a unicode escape, grep
+for the escape text itself. If the grep finds nothing, the escape was interpreted rather than
+written, and the file now carries invisible bytes where a reader expects six visible characters.**
+
+### `npx tsc <file>` refuses to run at all when a tsconfig.json is present
+**Tag:** ci
+**ERROR:** the local probe of the pure import logic compiles two files on their own, outside the
+Next build, so that the CSV reader and the phone normaliser can be exercised on a machine with no
+Docker and no Supabase. `npx tsc lib/data/lead-import-types.ts --outDir .probe-out` exited 1 with
+`TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline`. It
+is not a compile error and there is no output to read: the command refuses before it starts.
+**SOLUTION:** `--ignoreConfig`, which is the flag the message itself names, plus every option that
+would otherwise have been inherited spelled out on the command line. RULE: **read the exit code from
+the compiler and not from the script wrapping it. This one surfaced two frames further down as a
+module resolution failure on the output directory, which is a true statement about a directory that
+was never written and says nothing about why.**
+
+### Button and Select already carry the phone classes, so passing them again is noise, not 44px
+**Tag:** frontend
+**ERROR:** the import screen was written with `className={PHONE_TAP}` on nine buttons and
+`className={PHONE_CONTROL}` on four selects, on the reasoning that G23's phone rules have to be
+applied deliberately. They were already there: `components/ui/primitives.tsx` puts `max-md:min-h-11`
+in the `Button` base string and `max-md:min-h-11 max-md:text-base` in the `CONTROL` string that
+`Input`, `Select` and `Textarea` all share. Tailwind emits one rule either way, so nothing on screen
+was wrong; what was wrong is a new file that looks like it needs thirteen local phone classes right
+after G56 spent a whole card removing fifty three of them.
+**SOLUTION:** every redundant one removed. `PHONE_TAP` survives exactly once, on the step chip,
+which is an `li` written by hand and inherits nothing, with a comment saying why it is the only one.
+RULE: **before putting a phone class on an element, check whether the primitive already carries it.
+`components/ui/phone.ts` says in its own text that `PHONE_CONTROL` is for a field written by hand
+that does not go through `Input` or `Select`; a class on a primitive is a copy a future sweep has to
+read and decide about.**
+
+### A duplicate of a stored client must not become an anchor for later rows of the same file
+**Tag:** backend
+**ERROR:** the first version of the import planner pushed every row it had read into the two
+within-file indexes, including rows it had just classified as duplicates of a client already in the
+database. The third appearance of one person in a spreadsheet then reported "duplicate of row 7 in
+the same file" and, if the operator chose to fill empty fields, the fill was aimed at row 7, a row
+that was never going to be written to anything.
+**SOLUTION:** a row that matched a stored client returns immediately without being indexed, so a
+later row for the same person still finds the stored client. The local probe at
+`docs/reports/assets/p3-101/probe-lead-import.mjs` asserts both shapes, and it was seen failing, on
+the row numbering, before it passed. RULE: **an index of "what has been seen so far" holds only rows
+that will actually exist afterwards. Anything skipped, refused or merged elsewhere must not be
+matchable, or a later row is pointed at a target that is never created.**
+
+### A fixture value unique per run, and shared by every case inside that run
+**Tag:** ci
+**ERROR:** `tests/e2e/lead-import.spec.ts` built its phone numbers as `069` plus five digits drawn
+once per run plus a row number, with a comment explaining, correctly, that a fixed number would make
+the second run find the first run's rows. It is unique across runs and **identical across the six
+cases of one run**. Run 36069677308 went red on two of them while 425 other tests passed. The
+duplicate case seeded a client on `...1` that the first case had already imported under a different
+name, so `loadExisting` resolved that phone to the first case's row, "Completează câmpurile goale"
+filled that row instead, and the assertion read `null`. The counts case declared a row new that the
+error case had already created with the same number, so the summary read `created 1, skipped 4`
+against an expected `created 2, skipped 3`. Every assertion passes when the case is run alone.
+**SOLUTION:** the helper takes `(caseDigit, rowNumber)` and a frozen `CASE` map gives each of the
+six cases its own digit inside the number, so two cases cannot collide even if somebody copies a
+line from the case above. The importer was right every time and nothing in the application changed.
+RULE: **a fixture value that the code under test SEARCHES FOR across the whole table, a phone, an
+email, an IDNO, a slug, is unique per run AND per case. Test data is never deleted here, so every
+row a case writes is visible to every case after it. A value used only to read back the rows one
+case wrote, like a `TEST <run> <label>` name, needs only the run.**
