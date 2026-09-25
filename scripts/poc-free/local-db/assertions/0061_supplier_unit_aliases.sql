@@ -206,7 +206,10 @@ begin
   perform set_config('p3_102.manager_seen', seen::text, true);
   begin
     insert into public.supplier_unit_aliases (supplier_key, unit_raw_key, unit) values
-      ('test p3-102 furnizor', 'set', 'set');
+      -- `set` AS A WORD, `pcs` AS THE UNIT, and that pair is the whole point of
+      -- this table. EXT-10 refuses `set` as a unit_code label, so the only place
+      -- the word can be recorded at all is here, against a unit that exists.
+      ('test p3-102 furnizor', 'set', 'pcs');
   exception when insufficient_privilege then result := 'refused';
   end;
   perform set_config('p3_102.manager_insert', result, true);
@@ -281,7 +284,7 @@ begin
   -- The refused writes wrote nothing, and the three that were allowed are there.
   select string_agg(unit_raw_key || '=' || unit::text, '|' order by unit_raw_key) into s
   from public.supplier_unit_aliases where supplier_key = 'test p3-102 furnizor';
-  if s is distinct from 'bax=pcs|cutie=pcs|set=set' then
+  if s is distinct from 'bax=pcs|cutie=pcs|set=pcs' then
     raise exception 'P3-102: the aliases on the test supplier are %', coalesce(s, 'none');
   end if;
 end

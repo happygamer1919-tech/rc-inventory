@@ -73,6 +73,21 @@ terminal decides at midnight.
 map for the words that ARE units, the remembered per-supplier answer for the words that are not, and
 the whole zero-line half.
 
+**Attempt 2**, head `133db63`, run `36079715879`, red in 1m16s on the same step but on this card's
+OWN new file:
+
+```
+FAILED: assertions/0061_supplier_unit_aliases.sql
+ERROR:  invalid input value for enum unit_code: "set"
+```
+
+One seed row in the new assertion still wrote `'set'` into a `unit_code` column, left over from
+attempt 1. `npx tsc --noEmit` had nothing to say about it, because a `.sql` file is not typechecked,
+and this machine has no database to run the assertions against. **Attempt 3** fixes that row to
+`('test p3-102 furnizor', 'set', 'pcs')`, which is a better row anyway: the word `set` against a unit
+that exists is exactly what this table is for. The lesson is in `docs/LEARNINGS.md`: after removing
+an enum label, grep every `.sql` file for the label in quotes, not only the TypeScript.
+
 ## Three things this card deliberately did NOT do
 
 1. **`l` already existed.** Migration 0030 added it. Diluant nitro was never a missing unit, it was a

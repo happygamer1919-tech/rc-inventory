@@ -7034,6 +7034,13 @@ stays an UNMAPPED word, the operator picks an existing unit once, and
 it was actually made, which was that the question is asked on every document, without touching
 EXT-10. `lib/data/units.ts` and `lib/data/unit-synonyms.ts` both now carry the refusal in writing so
 the next card does not try again, and the owner question q086 carries the collision.
+**AND WITHDRAWING AN ENUM VALUE LEAVES DANGLING USES OF IT IN SQL, WHICH `tsc` CANNOT SEE.** The
+next run, `36079715879`, was red on the card's OWN new assertion file with `invalid input value for
+enum unit_code: "set"`: one seed row in it still wrote `'set'` into a `unit_code` column. TypeScript
+had nothing to say, because a `.sql` file is not typechecked, and the local gate set has no database
+to run it against. RULE for the withdrawal half: **after removing an enum label, grep every `.sql`
+file for the label in quotes, not only the `.ts` files. `npx tsc --noEmit` passing proves nothing
+about the SQL, and on a machine with no Docker the first thing that can tell you is CI.**
 RULE: **before adding a value to an enum, grep the assertion files for its NAME, not only for the
 type. A decision this project has already taken is often enforced nowhere near the code the change
 touches, and `scripts/poc-free/local-db/assertions/` is where it is written down. A red assertion
