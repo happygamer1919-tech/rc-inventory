@@ -7090,3 +7090,50 @@ number stored, and with no quantity rendered.
 produces. RULE: **before asserting a short substring, read the whole rendered row for it. A one or
 two character assertion inside a fixture whose own identifiers carry digits proves nothing, and it
 fails silently in the direction that looks green.**
+
+### A finding's title named the wrong code path, and the finding's own numbers settled it
+**Tag:** backend
+**ERROR:** Ivan's finding F25 is titled "'Retrimite' leaves the old draft in the queue", and card
+P3-103 was queued to fix the resend button. The button cannot do what the title says:
+`refireExtraction` passes the SAME `order_id` to `fireExtraction`, deliberately, and its own doc
+comment says why ("un order_id nou ar produce exact duplicatul pe care cheia de idempotenta exista sa
+il previna"). Building on that path would have removed the contract's idempotency key to fix a defect
+it was preventing. This machine has no Docker and no Supabase CLI, so there was no local stack to
+reproduce on and settle it by clicking.
+**SOLUTION:** the finding's own counts decided it. FIVE executions and FIVE order_ids for THREE
+documents: a refire adds an execution WITHOUT adding an order_id, so had the button been pressed once
+the executions would have outnumbered the order_ids. Equal counts mean every send was a fresh upload
+through `startExtraction`, which mints `randomUUID()` per upload. The fix went on the upload path and
+`refireExtraction` was not edited. RULE: **when a report names a cause and the code contradicts it,
+look for a COUNT in the report that the two explanations predict differently. A ratio between two
+observed quantities settles which path ran without a stack to reproduce on, and it settles it before
+any code is written.**
+
+### A migration assertion file is not typechecked, and there is no local database to run it against
+**Tag:** data
+**ERROR:** `assertions/0062_extraction_draft_supersede.sql` seeded a draft with `status = 'failed'`
+and no `error_code`, copying the shape of `assertions/0056`, which seeds `'partial'`. Migration 0041
+replaced the constraint `extraction_drafts_error_code_matches_status` so that `error_code` is REQUIRED
+on `failed` and optional on `partial`. `npx tsc --noEmit` cannot see a `.sql` file and this machine
+has no database, so the only place it would have surfaced is the bare-postgres apply in CI, about
+twenty minutes later. P3-102 lost a whole CI run to exactly this class one card earlier.
+**SOLUTION:** read the CURRENT constraint before copying a seed row, not the constraint the migration
+that created the table declared. `grep -n "error_code_matches_status" supabase/migrations/*.sql`
+returns 0008 and 0041, and only the last one is in force. RULE: **a seed row in an assertion file is
+copied from the neighbouring file for its SHAPE and then checked against every constraint that has
+been replaced since. Nothing on a machine without a database will tell you, and the cost of being
+wrong is a full CI cycle.**
+
+### The webhook receives the fire before the server action has finished writing
+**Tag:** ci
+**ERROR:** the acceptance spec learns the new `order_id` from the fake Make server, because the
+screen shows one card or two while it refreshes. `fireExtraction` POSTs to Make BEFORE
+`startExtraction` writes the checksum and marks earlier sends superseded, so an `order_id` read from
+the mock is not a signal that the action finished. A case reading "superseded_at is still null" right
+after that read could pass by being early rather than by being right, which is the direction that
+looks green.
+**SOLUTION:** the upload helper ends by waiting for the new card to appear in the queue. That render
+comes from `router.refresh()`, which runs only after the server action has returned, so it is a real
+barrier for every write the action makes. RULE: **a signal emitted in the MIDDLE of a server action
+is not a signal that the action completed. Wait on something the action produces LAST, and prefer a
+rendered consequence over a message the action sent on its way through.**
