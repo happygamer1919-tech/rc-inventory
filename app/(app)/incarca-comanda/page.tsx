@@ -16,7 +16,8 @@
 
 import { listActiveProducts, listCategories, listSupplierNames } from "@/lib/data/products";
 import { listCancelledDrafts, listReviewDrafts } from "@/lib/data/extraction";
-import { getSessionUser } from "@/lib/supabase/server";
+import { loadUnitAliases } from "@/lib/data/unit-aliases";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ExtractionReviewPanel } from "@/components/orders/ExtractionReviewPanel";
 import { UploadOrderScreen } from "@/components/orders/UploadOrderScreen";
 
@@ -34,12 +35,25 @@ export default async function UploadOrderPage() {
     getSessionUser(),
   ]);
 
+  // P3-102, constatarea F23. Ce s-a raspuns ultima oara despre cuvintele
+  // furnizorilor de pe ecran, si numai despre ei.
+  //
+  // DUPA ciorne fiindca are nevoie de numele lor, deci nu poate sta in Promise.all
+  // de mai sus. O tabela neaplicata, o eroare de citire si un furnizor despre care
+  // nu s-a tinut minte nimic dau toate acelasi raspuns, o harta goala, iar ecranul
+  // se poarta atunci exact ca astazi plus harta de sinonime, care nu atinge baza.
+  const unitAliases = await loadUnitAliases(
+    await createClient(),
+    drafts.map((d) => d.supplierName),
+  );
+
   return (
     <>
       <ExtractionReviewPanel
         drafts={drafts}
         products={products}
         categories={categories}
+        unitAliases={unitAliases}
         cancelled={cancelled}
         // P3-84. Butonul numai pentru proprietar. Actiunea refuza oricum pe
         // oricine altcineva; ecranul doar nu ofera ce ar fi refuzat.

@@ -32,6 +32,26 @@ const UNIT_LABEL: Record<UnitCode, string> = {
   l: "l",
 };
 
+// P3-102, constatarea F23 a lui Ivan. `set` A FOST INCERCAT AICI SI NU ARE VOIE
+// SA FIE O UNITATE, si se scrie, ca urmatorul card sa nu o mai incerce.
+//
+// Tinta G59 cerea o unitate `set`, fiindca documentul MPC din 2026-09-24 scrie UM
+// `set` pe "Șurub autoforant, cutie 1000 buc". Cardul EXT-10 a hotarat contrariul
+// si l-a si inchis cu o aserttiune, scripts/poc-free/local-db/assertions/
+// 0035_products_package.sql, care refuza pe nume etichetele `palet`, `cutie`,
+// `set` si `bax` pe unit_code: "products.unit still means what a stored quantity
+// is counted in, and no packaging label reached it".
+//
+// MOTIVUL, PE SCURT: un set nu spune CAT, spune in ce a venit. O cantitate de
+// sase seturi si o cantitate de sase bucati ar sta in aceeasi coloana insemnand
+// lucruri diferite, si nimeni nu ar mai putea citi un stoc. Ambalajul are
+// coloanele lui, products.package_unit si products.package_factor, legate de o
+// restrictie care le cere pe amandoua sau pe niciuna.
+//
+// CE FACE ACEST CARD IN SCHIMB: `set` ramane un cuvant NEMAPAT, ca `cutie`.
+// Operatorul alege o data o unitate care exista, iar alegerea se tine minte pe
+// furnizor prin migratia 0061. Cuvantul ramane scris pe ecran.
+
 /** Ordinea de afisare, aceeasi cu sort_order din tabela units. */
 export const ALL_UNITS: UnitCode[] = ["m2", "lm", "pcs", "bag", "kg", "roll", "m3", "t", "l"];
 

@@ -7015,3 +7015,78 @@ RULE: **a fixture value that the code under test SEARCHES FOR across the whole t
 email, an IDNO, a slug, is unique per run AND per case. Test data is never deleted here, so every
 row a case writes is visible to every case after it. A value used only to read back the rows one
 case wrote, like a `TEST <run> <label>` name, needs only the run.**
+
+### A goal that asks for a new enum value an older card decided must never exist
+**Tag:** data
+**ERROR:** goal G59 asked, in terms, for a unit called `set`, because a production document billed
+`Șurub autoforant, cutie 1000 buc` with UM `set`. Card P3-102 added the label, the row, the
+TypeScript union and the Romanian meaning sentence, and `quality` went red in 74 seconds on a file
+the card had never read: `EXT-10: 1 packaging label(s) reached public.unit_code, and the quantity
+column now means two things`, from
+`scripts/poc-free/local-db/assertions/0035_products_package.sql`. Card EXT-10 had already decided
+that packaging is not a unit, named `palet`, `cutie`, `set` and `bax` one by one, built
+`products.package_unit` and `products.package_factor` with a paired constraint for the real case, and
+closed the decision with an assertion that runs on every pull request. Nothing in the goal, the task
+brief or the two files the brief named mentioned any of it.
+**SOLUTION:** the label was removed and the card shipped the half that contradicts nothing: `set`
+stays an UNMAPPED word, the operator picks an existing unit once, and
+`public.supplier_unit_aliases` remembers that answer for that supplier. That fixes the complaint as
+it was actually made, which was that the question is asked on every document, without touching
+EXT-10. `lib/data/units.ts` and `lib/data/unit-synonyms.ts` both now carry the refusal in writing so
+the next card does not try again, and the owner question q086 carries the collision.
+**AND WITHDRAWING AN ENUM VALUE LEAVES DANGLING USES OF IT IN SQL, WHICH `tsc` CANNOT SEE.** The
+next run, `36079715879`, was red on the card's OWN new assertion file with `invalid input value for
+enum unit_code: "set"`: one seed row in it still wrote `'set'` into a `unit_code` column. TypeScript
+had nothing to say, because a `.sql` file is not typechecked, and the local gate set has no database
+to run it against. RULE for the withdrawal half: **after removing an enum label, grep every `.sql`
+file for the label in quotes, not only the `.ts` files. `npx tsc --noEmit` passing proves nothing
+about the SQL, and on a machine with no Docker the first thing that can tell you is CI.**
+RULE: **before adding a value to an enum, grep the assertion files for its NAME, not only for the
+type. A decision this project has already taken is often enforced nowhere near the code the change
+touches, and `scripts/poc-free/local-db/assertions/` is where it is written down. A red assertion
+older than your card is almost always a decision, not an obstacle, and the fix is to read the card
+that wrote it.**
+
+### An assertion file that pins a TOTAL its own migration never decided
+**Tag:** data
+**ERROR:** noticed while working P3-102 and NOT fixed there, because that card stopped adding a unit
+and no longer needs it. `scripts/poc-free/local-db/assertions/0031_units_tonne_litre_rows.sql`
+carries two checks reading `expected 9`, one for the number of labels on `unit_code` and one for the
+number of rows in `public.units`. Every file in that directory runs after EVERY migration, so the
+next card that legitimately adds a unit will go red on a file three cards older than its change, with
+`unit_code carries 10 labels, expected 9`. 0030 and 0031 never decided that nobody would add a tenth.
+**SOLUTION:** not applied, so that this stays an entry and not a quiet extra commit. When it bites:
+pin in 0031 exactly what its own two migrations left behind, the nine labels in order taken with
+`order by enumsortorder limit 9` rather than by comparing the sort order to a number, and the nine
+rows at `sort_order` 1 to 9; then put the TOTAL in the assertion file of the migration that decides
+it. That is the move `assertions/0049` already made when it took the category total off
+`assertions/0029`. RULE: **an assertion file asserts what ITS OWN migration did. A total, a count of
+everything, or "and nothing else exists" belongs in the file of the migration that last changed that
+total, and moving it there when a new card arrives is the fix, never relaxing it.**
+
+### A diacritic range written as raw characters instead of as an escape
+**Tag:** frontend
+**ERROR:** `lib/data/unit-synonyms.ts` needs to strip NFD combining marks so that `bucăți` and
+`bucati` fold to one key. Written as a character-class range of the combining block, the file ended
+up holding the raw combining characters themselves rather than the escape sequence, which `grep`
+showed as `/[<mojibake>-ͯ]/g`. It compiles, and what it matches is no longer what anybody reading the
+file thinks it matches.
+**SOLUTION:** `/\p{Mn}/gu`, the Unicode property class for a nonspacing mark. It says on its face
+what it is looking for, it cannot be corrupted into a different range by an editor or a tool, and the
+compile target here is ES2022 so the `u` flag and property classes are available. The older
+`flaggedSku` in `lib/data/extraction-actions.ts` keeps its numeric range and is left alone: it is
+correct and this is not its card. RULE: **a character class over a non-ASCII range is written as a
+named Unicode property, or as escapes, and never as the characters themselves. A range you cannot
+read in a diff is a range nobody can review.**
+
+### A substring assertion that the fixture's own name satisfies
+**Tag:** ci
+**ERROR:** the case proving that a zero-quantity line comes back into the order once a quantity is
+typed asserted `toContainText("3")` on the created position. The product name in that fixture is
+`TEST F23 Vopsea email stoc epuizat <run> c2`, and `F23` contains a `3`, so the assertion passed
+without reading the quantity at all. It would have passed with the line excluded, with the wrong
+number stored, and with no quantity rendered.
+**SOLUTION:** `toContainText("3 l")`, the number beside its unit label, which nothing else in the row
+produces. RULE: **before asserting a short substring, read the whole rendered row for it. A one or
+two character assertion inside a fixture whose own identifiers carry digits proves nothing, and it
+fails silently in the direction that looks green.**
