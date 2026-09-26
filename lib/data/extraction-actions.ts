@@ -16,7 +16,7 @@
 //   si consumarea ciornei se intampla impreuna sau deloc, prin functia din
 //   migratia 0010.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fireExtraction } from "./extraction-fire";
@@ -28,6 +28,7 @@ import { countPages } from "./page-count.mjs";
 import {
   hasExtractionCancel,
   hasExtractionDocumentSource,
+  hasExtractionSupersede,
   hasExtractionUploadPageCount,
   hasSupplierDocumentRef,
 } from "./schema-capability";
@@ -78,6 +79,89 @@ const CANCELLED_REFUSAL = "S-a renunțat la acest document. Nu mai poate fi conf
 /** P3-84. Cat poate avea motivul scris la renuntare. */
 const CANCEL_REASON_MAX = 200;
 
+/**
+ * P3-103, constatarea F25. TRIMITERILE MAI VECHI ALE ACELORASI BYTES IES DIN
+ * COADA, MARCATE, NU STERSE.
+ *
+ * DE CE AICI SI NU IN refireExtraction, care este ce spune titlul constatarii.
+ * Butonul "Retrimite" trimite ACELASI order_id, deliberat, si nu poate lasa un al
+ * doilea rand: comentariul lui refireExtraction poarta motivul intreg, iar
+ * cheia de idempotenta a contractului exista tocmai ca sa previna duplicatul.
+ * Cifrele lui Ivan spun care cale l-a produs: CINCI executii si CINCI order_id-uri
+ * pentru TREI documente. O retrimitere adauga o executie FARA un order_id nou,
+ * deci daca butonul ar fi fost apasat macar o data executiile ar fi depasit
+ * order_id-urile. Sunt egale, deci toate cinci au fost INCARCARI noi, iar
+ * startExtraction bate randomUUID() la fiecare incarcare. Aici se repara.
+ *
+ * BYTES SI NU NUMELE FISIERULUI. Multi furnizori trimit "factura.pdf". O
+ * potrivire pe nume ar marca inlocuit un ALT document si l-ar scoate din coada,
+ * iar cele doua greseli nu sunt simetrice: o potrivire ratata lasa exact
+ * comportamentul de azi, doua randuri, pe cand o potrivire gresita ascunde un
+ * document real pe care il asteapta cineva. Suma de control se ia din bufferul pe
+ * care incarcarea il tine oricum in mana ca sa numere paginile, deci nu costa o a
+ * doua citire a fisierului.
+ *
+ * NUMAI DUPA O TRIMITERE CARE A PLECAT CU ADEVARAT. Apelul sta dupa `fired.ok`.
+ * O trimitere care nu a plecat (lipseste MAKE_WEBHOOK_URL, lipseste
+ * NEXT_PUBLIC_SITE_URL, refuzul de 100 de pagini) scrie un rand deja esuat, iar a
+ * ascunde in spatele lui o ciorna mai veche care se putea confirma ar fi schimbul
+ * gresit.
+ *
+ * NICIODATA O CIORNA CONFIRMATA SI NICIODATA UNA LA CARE S-A RENUNTAT. Amandoua
+ * sunt excluse in WHERE-ul scrierii si nu doar intr-o citire dinaintea ei: o
+ * confirmare a devenit o comanda reala, iar o renuntare este decizia unui om si
+ * nu se rescrie cu una a masinii.
+ *
+ * PRIMA INLOCUIRE ESTE FAPTUL. Randurile care poarta deja superseded_at sunt
+ * excluse, deci un document incarcat de trei ori face un lant si niciodata o
+ * legatura rescrisa. Aceeasi idempotenta pe care o tine cancelExtractionDraft.
+ *
+ * CELE PATRU COLOANE ALE LUI 0056 SE POT CITI AICI FARA O A DOUA SONDA.
+ * Migratiile se aplica in ordinea fisierelor, iar 0056 este inaintea lui 0062,
+ * deci o baza pe care 0062 exista are intotdeauna si cancelled_at. Invers nu ar fi
+ * fost adevarat, si de aceea sonda este pe coloana CEA MAI NOUA.
+ *
+ * O CIORNA DIN CEALALTA LANE NU SE POATE POTRIVI: uploadOrderDocument nu scrie
+ * nicio suma de control, deci nu are cu ce sa se potriveasca, iar coada nu o
+ * oferea oricum spre confirmare.
+ *
+ * NU ARUNCA SI NU RASTURNA INCARCAREA. Documentul a plecat deja spre citire cand
+ * se ajunge aici. A intoarce un esec fiindca o scriere de curatenie a cazut ar
+ * pierde trimiterea ca sa salveze eticheta ei, acelasi rationament pe care il
+ * poarta mutarea referintei furnizorului din confirmare.
+ */
+async function supersedeEarlierSends(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+  sha256: string,
+  userId: string,
+): Promise<void> {
+  if (!(await hasExtractionSupersede(supabase))) return;
+
+  // Suma de control se scrie INTAI pe randul nou, fiindca urmatoarea scriere il
+  // numeste prin cheia straina superseded_by: randul trebuie sa existe si sa
+  // poarte deja suma, altfel a treia incarcare a aceluiasi document nu l-ar mai
+  // gasi. Randul insusi exista de la fireExtraction.
+  const { error: hashError } = await supabase
+    .from("extraction_drafts")
+    .update({ document_sha256: sha256 })
+    .eq("order_id", orderId);
+  if (hashError) return;
+
+  await supabase
+    .from("extraction_drafts")
+    .update({
+      superseded_at: new Date().toISOString(),
+      superseded_by: orderId,
+      superseded_by_user: userId,
+    })
+    .eq("document_sha256", sha256)
+    .neq("order_id", orderId)
+    .is("confirmed_at", null)
+    .is("cancelled_at", null)
+    .is("superseded_at", null);
+}
+
 /* --------------------------------------------------------- pornirea -- */
 
 /**
@@ -109,7 +193,14 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
   // EXT-28. PAGINILE SE NUMARA AICI, DIN BYTES-II PE CARE II TINEM DEJA. Acesta
   // este singurul moment in care aplicatia are fisierul in mana: retrimiterea
   // citeste numai randul, deci numarul ajunge pe rand prin fireExtraction.
-  const pageCount = countPages(await file.arrayBuffer(), file.type);
+  //
+  // P3-103, constatarea F25. ACELASI BUFFER RASPUNDE LA A DOUA INTREBARE: este
+  // acesta un document pe care l-am mai primit? Se citea o singura data si
+  // inainte; acum se tine intr-o variabila in loc sa fie dat direct mai departe,
+  // ca suma de control sa nu ceara o a doua citire a fisierului.
+  const bytes = await file.arrayBuffer();
+  const pageCount = countPages(bytes, file.type);
+  const sha256 = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 
   // Trimiterea nu poate rasturna incarcarea. Motivul unui esec ajunge pe randul
   // de ciorna si se vede pe ecran, care este exact ce cere clauza 4.
@@ -140,6 +231,11 @@ export async function startExtraction(formData: FormData): Promise<ActionResult<
     revalidatePath("/incarca-comanda");
     return { ok: false, message: `${EXTRACTION_NOT_STARTED}${fired.reason}`, saved: { orderId } };
   }
+
+  // P3-103, constatarea F25. Documentul a plecat cu adevarat, deci trimiterile
+  // mai vechi ale acelorasi bytes ies din coada, marcate si pastrate. Vezi
+  // antetul lui supersedeEarlierSends pentru de ce aici si nu in retrimitere.
+  await supersedeEarlierSends(supabase, orderId, sha256, user.id);
 
   revalidatePath("/incarca-comanda");
   return { ok: true, value: { orderId } };

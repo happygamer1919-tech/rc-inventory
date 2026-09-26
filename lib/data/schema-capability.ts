@@ -647,6 +647,50 @@ export async function hasExtractionCancel(client: ColumnProbe): Promise<boolean>
 
 
 // ---------------------------------------------------------------------------
+// P3-103, constatarea F25. Exista coloanele extraction_drafts.document_sha256,
+// superseded_at, superseded_by si superseded_by_user?
+//
+// ACEEASI FORMA CA P3-84 SI DIN ACELASI MOTIV. 0062 aterizeaza pe productie prin
+// integrarea Supabase la vreo doua minute dupa fuziune, iar codul pleaca din
+// acelasi push. In fereastra aceea un select, un filtru sau o scriere care
+// numeste o coloana necunoscuta primeste 42703, si /incarca-comanda ar cadea
+// exact pe ecranul pe care se lucreaza documentele. Este chiar defectul pe care
+// comentariul lui P3-45 il descrie si pe care INC-05 l-a platit o data.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE ESTE CEL DE ASTAZI: incarcarea nu scrie
+// nicio suma de control, nicio ciorna nu este inlocuita, lista nu filtreaza nimic
+// in plus, si fisa unei ciorne nu poarta blocul pliat al trimiterilor inlocuite.
+// Adica exact doua randuri pentru acelasi document, care este starea de azi si
+// nu o stare mai rea.
+//
+// CELE PATRU COLOANE SOSESC IN ACEEASI TRANZACTIE, deci o singura sonda, pe
+// superseded_at, ajunge. Aceeasi judecata pe care o scrie hasExtractionCancel
+// despre cele trei coloane ale lui.
+// ---------------------------------------------------------------------------
+
+let cachedExtractionSupersede: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasExtractionSupersede(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedExtractionSupersede && now - cachedExtractionSupersede.at < TTL_MS)
+    return cachedExtractionSupersede.value;
+
+  try {
+    const { error } = await client.from("extraction_drafts").select("superseded_at").limit(1);
+    cachedExtractionSupersede = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedExtractionSupersede = { value: false, at: now };
+  }
+  return cachedExtractionSupersede.value;
+}
+
+
+// ---------------------------------------------------------------------------
 // P3-43. Exista coloanele clients.stage si clients.follow_up_date?
 //
 // DE CE ARE POARTA EI, SI DE CE hasPhase3Schema NU AJUNGE. Aceea sondeaza doar

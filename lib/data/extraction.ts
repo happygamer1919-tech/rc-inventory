@@ -23,9 +23,15 @@ import {
   hasExtractionInboundFields,
   hasExtractionDerivedPartial,
   hasExtractionCancel,
+  hasExtractionSupersede,
   hasSupplierDocumentRef,
 } from "./schema-capability";
-import type { ExtractionDraft, ExtractionStatus, StoredErrorCode } from "./extraction-types";
+import type {
+  ExtractionDraft,
+  ExtractionStatus,
+  StoredErrorCode,
+  SupersededSend,
+} from "./extraction-types";
 
 /** EXT-15. Aceeasi lista, plus coloana pe care 0032 o adauga.
  *
@@ -231,6 +237,11 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   // filtreaza numai daca exista coloana: pana la aplicarea lui 0056 lista este
   // exact cea de astazi, fiindca atunci nu exista nicio ciorna renuntata.
   const withCancel = await hasExtractionCancel(supabase);
+  // P3-103, constatarea F25. NICI O CIORNA INLOCUITA DE O TRIMITERE MAI NOUA A
+  // ACELUIASI DOCUMENT. Exact aceeasi forma si acelasi motiv: pana la aplicarea
+  // lui 0062 nicio ciorna nu poate fi inlocuita, deci lista este cea de astazi.
+  // Randul nu se pierde: el se citeste de pe fisa care l-a inlocuit, mai jos.
+  const withSupersede = await hasExtractionSupersede(supabase);
 
   // P3-38. LINIILE VIN IMBRICATE, INTR-O SINGURA CERERE, FARA NICIO LISTA DE
   // ID-URI.
@@ -277,6 +288,7 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
         // confirmed_at nu il scrie nimic altceva decat o confirmare.
         .is("confirmed_at", null);
       if (withCancel) query = query.is("cancelled_at", null);
+      if (withSupersede) query = query.is("superseded_at", null);
       const { data, count, error } = await query
         .order("fired_at", { ascending: false, nullsFirst: false })
         .order("order_id", { ascending: true })
@@ -295,7 +307,73 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
   const pending = rows.filter((r) => !taken.has(String(r.order_id)));
   if (pending.length === 0) return [];
 
-  return pending.map((r) => mapDraft(r, linesOf(r)));
+  const drafts = pending.map((r) => mapDraft(r, linesOf(r)));
+
+  // P3-103, constatarea F25. CE A INLOCUIT FIECARE FISA, citit INTR-O SINGURA
+  // TRECERE, in loturi, niciodata cate una pe rand. Aceeasi disciplina ca
+  // profileNames si ca existingOrderIds: lista de id-uri ajunge in adresa
+  // cererii, deci se taie in loturi si nu se trimite intreaga.
+  //
+  // CAMPUL LIPSESTE CU TOTUL CAND 0062 NU ESTE APLICATA, si asta nu este acelasi
+  // lucru cu un vector gol. Gol inseamna "aceasta fisa nu a inlocuit nimic";
+  // lipsa inseamna "nu se poate sti inca", iar ecranul nu arata atunci blocul.
+  if (!withSupersede) return drafts;
+
+  const replaced = await supersededSendsBy(
+    supabase,
+    drafts.map((d) => d.orderId),
+  );
+  return drafts.map((d) => ({ ...d, supersededSends: replaced.get(d.orderId) ?? [] }));
+}
+
+/** P3-103. Ce citeste blocul trimiterilor inlocuite, si nimic mai mult: fara
+ *  linii, fara totaluri. Vezi SupersededSend pentru de ce. */
+const SUPERSEDED_SEND_COLUMNS =
+  "order_id, document_filename, created_at, status, error_code, superseded_at, superseded_by";
+
+/**
+ * P3-103, constatarea F25. Trimiterile inlocuite ale fiecarei ciorne din coada,
+ * pliate pe order_id-ul ciornei care le-a inlocuit, cea mai recent inlocuita
+ * prima.
+ *
+ * EROAREA SE CITESTE, ca peste tot in acest fisier. O citire cazuta este un ESEC
+ * VIZIBIL si nu o harta goala: o harta goala ar spune "nimic nu a fost inlocuit",
+ * care este exact afirmatia pe care cardul o face verificabila, si ar face din
+ * defectul lui F25 o tacere in loc de un raspuns.
+ */
+async function supersededSendsBy(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: readonly string[],
+): Promise<Map<string, SupersededSend[]>> {
+  const byNewer = new Map<string, SupersededSend[]>();
+  if (ids.length === 0) return byNewer;
+
+  for (const batch of inBatches(ids)) {
+    const { data, error } = await supabase
+      .from("extraction_drafts")
+      .select(SUPERSEDED_SEND_COLUMNS)
+      .in("superseded_by", batch)
+      .order("superseded_at", { ascending: false })
+      .order("order_id", { ascending: true });
+    if (error) {
+      throw new Error(`Nu s-au putut citi trimiterile inlocuite: ${error.message}`);
+    }
+    for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+      const newer = String(row.superseded_by);
+      const list = byNewer.get(newer) ?? [];
+      list.push({
+        orderId: String(row.order_id),
+        documentFilename: String(row.document_filename),
+        uploadedAt: (row.created_at as string | null) ?? null,
+        supersededAt: (row.superseded_at as string | null) ?? null,
+        status: (row.status as ExtractionStatus | null) ?? null,
+        errorCode: (row.error_code as StoredErrorCode | null) ?? null,
+      });
+      byNewer.set(newer, list);
+    }
+  }
+
+  return byNewer;
 }
 
 /** P3-84. Coloanele pe care le citeste NUMAI sectiunea documentelor la care s-a
@@ -324,14 +402,23 @@ export async function listCancelledDrafts(): Promise<ExtractionDraft[] | null> {
 
   const draftColumns: string = (await draftColumnsFor(supabase)) + CANCEL_COLUMNS;
   const lineColumns: string = await lineColumnsFor(supabase);
+  // P3-103, constatarea F25. O CIORNA INLOCUITA NU SE NUMARA NICI AICI. Ea este
+  // gasita de pe fisa care a inlocuit-o, iar a o numara si in "Documente la care
+  // s-a renuntat" ar spune despre ea a doua poveste, si ar strica numarul din
+  // titlul sectiunii, pe care cardul il cere curat. Cele doua stari nu se produc
+  // impreuna pe nicio cale a ecranului: butonul de renuntare exista numai pe
+  // fisele din coada, iar o fisa inlocuita nu mai este in coada.
+  const withSupersede = await hasExtractionSupersede(supabase);
 
   const rows = await readAllPages<Record<string, unknown>>(
     "documentele la care s-a renuntat",
     async (from, to) => {
-      const { data, count, error } = await supabase
+      let query = supabase
         .from("extraction_drafts")
         .select(`${draftColumns}, extraction_draft_lines(${lineColumns})`, { count: "exact" })
-        .not("cancelled_at", "is", null)
+        .not("cancelled_at", "is", null);
+      if (withSupersede) query = query.is("superseded_at", null);
+      const { data, count, error } = await query
         .order("cancelled_at", { ascending: false })
         .order("order_id", { ascending: true })
         .range(from, to);

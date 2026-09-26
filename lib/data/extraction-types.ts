@@ -459,6 +459,27 @@ export function formatExtractionDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
 }
 
+/**
+ * P3-103, constatarea F25. O trimitere MAI VECHE a aceluiasi document, inlocuita
+ * de una mai noua si pastrata.
+ *
+ * O FORMA PROPRIE SI NU UN ExtractionDraft INTREG, deliberat: blocul pliat de pe
+ * fisa noua spune ce s-a inlocuit si cand, nu ofera nicio cale de confirmare, si
+ * nu are deci nevoie nici de linii, nici de totaluri. O citire care le-ar aduce
+ * ar face lucrarea de pe fiecare randare a cozii pentru un bloc pe care de cele
+ * mai multe ori nimeni nu il deschide.
+ */
+export type SupersededSend = {
+  orderId: string;
+  documentFilename: string;
+  /** Cand s-a incarcat trimiterea inlocuita, din created_at. */
+  uploadedAt: string | null;
+  /** Cand a fost inlocuita, adica momentul trimiterii mai noi. */
+  supersededAt: string | null;
+  status: ExtractionStatus | null;
+  errorCode: StoredErrorCode | null;
+};
+
 export type ExtractionDraft = {
   orderId: string;
   documentPath: string;
@@ -532,6 +553,12 @@ export type ExtractionDraft = {
   /** P3-84. Cand s-a incarcat documentul, din created_at. Il poarta numai
    *  randurile citite de listCancelledDrafts, unde ecranul il arata. */
   uploadedAt?: string | null;
+  /** P3-103, constatarea F25. Trimiterile mai vechi ale ACELUIASI document, pe
+   *  care aceasta ciorna le-a inlocuit, cea mai recent inlocuita prima. Un vector
+   *  GOL inseamna ca nu a inlocuit nimic; lipsa campului inseamna ca 0062 nu este
+   *  inca aplicata, si atunci ecranul nu arata blocul deloc. Il poarta numai
+   *  randurile citite de listReviewDrafts, unde fisa noua il arata. */
+  supersededSends?: SupersededSend[];
   lines: ExtractionLine[];
 };
 

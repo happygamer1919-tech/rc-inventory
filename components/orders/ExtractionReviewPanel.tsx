@@ -848,6 +848,55 @@ function CancelDraftBlock({ orderId, onClose }: { orderId: string; onClose: () =
   );
 }
 
+/**
+ * P3-103, constatarea F25. Trimiterile mai vechi ale ACELUIASI document, pe care
+ * aceasta fisa le-a inlocuit.
+ *
+ * INAUNTRUL FISEI NOI SI PLIAT, fiindca tinta cere ca randul inlocuit sa ramana
+ * citibil DE PE randul care l-a inlocuit. O ciorna neconfirmata nu are comanda pe
+ * care sa se agate (antetul migratiei 0010), iar sectiunea "Documente la care s-a
+ * renuntat" spune altceva despre alt act si nu este locul ei.
+ *
+ * NICIUN BUTON. Nu se desface nimic aici: fisa care conteaza este cea care
+ * contine blocul, iar trimiterea inlocuita este pastrata ca dovada, nu oferita
+ * spre confirmare.
+ *
+ * LIPSA CAMPULUI SI UN VECTOR GOL DUC IN ACELASI LOC PE ECRAN, si asta este
+ * corect: fara 0062 nu se poate sti ce a inlocuit fisa, iar cu 0062 si zero
+ * randuri nu a inlocuit nimic. In amandoua cazurile nu este nimic de spus.
+ */
+function SupersededSends({ draft }: { draft: ExtractionDraft }) {
+  const sends = draft.supersededSends ?? [];
+  if (sends.length === 0) return null;
+
+  return (
+    <details
+      className="mt-2"
+      data-testid="draft-superseded"
+      data-order-id={draft.orderId}
+      data-count={String(sends.length)}
+    >
+      <summary className="cursor-pointer text-[12px] text-rc-muted" data-testid="draft-superseded-toggle">
+        {plural(sends.length, "trimitere anterioară înlocuită", "trimiteri anterioare înlocuite")}
+      </summary>
+      <ul className="mt-2 space-y-2.5" data-testid="draft-superseded-body">
+        {sends.map((send) => (
+          <li key={send.orderId} data-testid="superseded-send" data-order-id={send.orderId}>
+            <p className="text-[12.5px] text-rc-black truncate">{send.documentFilename}</p>
+            <p className="text-[12px] text-rc-muted mt-0.5" data-testid="superseded-notice">
+              Înlocuit de retrimiterea din {formatDate(send.supersededAt ?? null)}
+            </p>
+            <p className="text-[12px] text-rc-muted mt-0.5" data-testid="superseded-kept">
+              Încărcat la {formatDate(send.uploadedAt ?? null)}. Documentul este păstrat, nu a fost
+              șters.
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /** P3-84, constatarea F20. Documentele la care s-a renuntat, INCHISE implicit
  *  sub coada. Nu au niciun buton: o renuntare nu se desface in acest card. */
 function CancelledSection({ drafts }: { drafts: ExtractionDraft[] }) {
@@ -1100,6 +1149,9 @@ export function ExtractionReviewPanel({
                     ) : null}
                     {/* P3-72, constatarea F5. Diagnosticul modelului, inchis. */}
                     <ExtractionMetaDetails draft={draft} />
+                    {/* P3-103, constatarea F25. Ce a inlocuit aceasta fisa,
+                        inchis. Randul vechi ramane citibil de pe cel nou. */}
+                    <SupersededSends draft={draft} />
                   </div>
 
                   {/* P3-84. max-md:flex-wrap: cu butonul de renuntare grupul
