@@ -15,13 +15,14 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { inBatches, readAllPages } from "./id-list";
-import { isDocumentSource, readExtractionMeta } from "./extraction-types";
+import { isDocumentSource, isScanArm, readExtractionMeta } from "./extraction-types";
 import {
   hasExtractionDocumentSource,
   hasExtractionPageCount,
   hasExtractionUploadPageCount,
   hasExtractionInboundFields,
   hasExtractionDerivedPartial,
+  hasExtractionPlatformVerdict,
   hasExtractionCancel,
   hasExtractionSupersede,
   hasSupplierDocumentRef,
@@ -87,6 +88,20 @@ const INBOUND_LINE_COLUMNS = ", supplier_code, description, line_total_source";
  *  sufix separat si o poarta separata, fiindca 0054 este alt fisier. */
 const DERIVED_PARTIAL_COLUMN = ", platform_derived_partial";
 
+/** P3-105, constatarea F26. VERDICTUL NOSTRU, perechea pe care 0037 o adauga.
+ *
+ *  AMANDOUA COLOANELE PE O SINGURA POARTA, si aici asta este corect: ele sosesc
+ *  IN ACELASI FISIER DE MIGRATIE, deci nu pot fi aplicate una fara cealalta.
+ *  `hasExtractionPlatformVerdict` spune acelasi lucru in antetul lui si le cere
+ *  pe amandoua intr-un singur select, din acelasi motiv.
+ *
+ *  FARA POARTA, ECRANUL AR CADEA IN FEREASTRA DE DOUA MINUTE dintre fuziunea
+ *  codului si aplicarea migratiei: o coloana necunoscuta intr-un select este
+ *  42703 la PostgREST si citirea arunca. Cu poarta, o baza fara coloane
+ *  randeaza exact ca astazi si randul nou pur si simplu nu apare, care este
+ *  raspunsul gol corect: nu stim ce am fi spus noi. */
+const PLATFORM_VERDICT_COLUMNS = ", platform_error_code, platform_arm";
+
 /** Ce coloane exista CHIAR ACUM pe baza catre care arata aplicatia.
  *
  *  INTREBARI SEPARATE SI NU UNA, fiindca 0033, 0036 si 0043 sunt fisiere separate
@@ -109,9 +124,14 @@ async function draftColumnsFor(supabase: Parameters<typeof hasExtractionDocument
   const withInbound = (await hasExtractionInboundFields(supabase))
     ? withModel + INBOUND_DRAFT_COLUMNS
     : withModel;
-  return (await hasExtractionDerivedPartial(supabase))
+  const withDerived = (await hasExtractionDerivedPartial(supabase))
     ? withInbound + DERIVED_PARTIAL_COLUMN
     : withInbound;
+  // P3-105. Aceeasi forma ca toate cele de deasupra, si o poarta proprie fiindca
+  // 0037 este alt fisier decat 0054.
+  return (await hasExtractionPlatformVerdict(supabase))
+    ? withDerived + PLATFORM_VERDICT_COLUMNS
+    : withDerived;
 }
 
 const LINE_COLUMNS =
@@ -190,6 +210,17 @@ function mapDraft(row: Record<string, unknown>, lines: LineRow[]): ExtractionDra
     // P3-80. Cand 0054 nu este inca aplicata coloana lipseste din select si
     // valoarea este null, ceea ce este adevarul: regula nu a rulat.
     derivedPartial: typeof row.platform_derived_partial === "boolean" ? row.platform_derived_partial : null,
+    // P3-105, constatarea F26. Verdictul NOSTRU, citit langa al expeditorului si
+    // niciodata in locul lui. Cand 0037 nu este aplicata coloanele lipsesc din
+    // select si amandoua sunt null, ceea ce este adevarul despre randul acela:
+    // nu se stie ce am fi spus noi.
+    //
+    // BRATUL SE INTREABA, NU SE CASTIGA PRINTR-UN CAST. Un rand vechi sau o
+    // valoare pe care nimeni nu o mai recunoaste se citeste ca null, adica "nu
+    // avem verdict", si ecranul nu adauga nimic. Un cast ar duce un sir necunoscut
+    // pana la PLATFORM_ARM_LABEL, unde ar da `undefined` pe ecran.
+    platformErrorCode: (row.platform_error_code as StoredErrorCode | null) ?? null,
+    platformArm: isScanArm(row.platform_arm) ? row.platform_arm : null,
     // EXT-28. Cand 0043 nu este inca aplicata coloana lipseste din select si
     // valoarea este null, ceea ce este adevarul: nimeni nu a numarat.
     uploadPageCount:

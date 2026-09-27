@@ -62,6 +62,7 @@ import { PHONE_CONTROL, PHONE_STACK } from "@/components/ui/phone";
 import {
   DERIVED_PARTIAL_NOTICE,
   EXTRACTION_ERROR_LABEL,
+  platformVerdictSentence,
   EXTRACTION_INBOUND_LABEL,
   EXTRACTION_META_ABSENT,
   EXTRACTION_META_LABEL,
@@ -1116,9 +1117,30 @@ export function ExtractionReviewPanel({
                         {EXTRACTION_ERROR_LABEL[draft.errorCode]}
                       </p>
                     ) : null}
+                    {/* P3-105, constatarea F26, hotararea R-214. CE AM GASIT NOI,
+                        SI NUMAI CAND NU ESTE ACELASI LUCRU CU CE A SPUS EL.
+                        Propozitia expeditorului ramane deasupra, neatinsa si la
+                        locul ei: R-190 spune ca el este autoritar si nimic de aici
+                        nu il reordoneaza, nu il inlocuieste si nu il ascunde.
+                        Doua coduri egale nu sunt un dezacord, iar un verdict
+                        absent inseamna ca verificarea noastra nu a rulat: in
+                        amandoua cazurile nu se adauga NIMIC, nici eticheta goala,
+                        nici cuvantul necunoscut. Bratul sta si intr-un atribut, ca
+                        proba sa il poata cere pe nume fara sa citeasca romana. */}
                     {draft.reason ? (
                       <p className="text-[12.5px] text-rc-muted mt-1" data-testid="draft-reason">
                         {draft.reason}
+                      </p>
+                    ) : null}
+                    {draft.platformArm !== null &&
+                    draft.platformErrorCode !== null &&
+                    draft.platformErrorCode !== draft.errorCode ? (
+                      <p
+                        className="text-[12.5px] text-rc-muted mt-1"
+                        data-testid="draft-platform-verdict"
+                        data-platform-arm={draft.platformArm}
+                      >
+                        {platformVerdictSentence(draft.platformArm)}
                       </p>
                     ) : null}
                     {draft.status === "partial" ? (

@@ -7,6 +7,16 @@
 // Acelasi motiv de separare ca la inbound-types.ts: un fisier "use server" nu
 // are voie sa exporte decat functii async, iar un fisier cu "server-only" nu
 // poate fi atins de un component de client nici macar pentru o constanta.
+//
+// P3-105, constatarea F26. SINGURUL IMPORT DIN ACEST FISIER, SI ESTE `import
+// type`. `reconciliation.ts` poarta "server-only" si importa el insusi din acest
+// fisier, deci un import de VALOARE de acolo ar fi si un ciclu la rulare si un
+// fisier de server ajuns intr-un component de client. Un `import type` este
+// sters la compilare: nu emite niciun `require`, nu inchide niciun ciclu si nu
+// aduce nimic de server. Tipul se importa si nu se copiaza tocmai ca `ScanArm` sa
+// ramana definit intr-un singur loc: un al saptelea brat trebuie sa strice
+// compilarea lui PLATFORM_ARM_LABEL de mai jos, iar o copie a uniunii nu ar face-o.
+import type { ScanArm } from "./reconciliation";
 
 export const EXTRACTION_STATUSES = ["extracted", "partial", "failed"] as const;
 export type ExtractionStatus = (typeof EXTRACTION_STATUSES)[number];
@@ -183,6 +193,61 @@ export const EXTRACTION_ERROR_LABEL: Record<StoredErrorCode, string> = {
   config_error:
     "Documentul a fost încărcat și păstrat, dar nu a putut fi trimis la citirea automată: o setare a sistemului lipsește. Anunță administratorul, apoi retrimite documentul.",
 };
+
+/** P3-105, constatarea F26, hotararea R-214. CE AM GASIT NOI, IN CUVINTELE
+ *  OPERATORULUI.
+ *
+ *  BRATUL SI NU CODUL, SI ACEASTA ESTE TOATA ALEGEREA. Cinci din cele sase brate
+ *  poarta `unreadable_document`, lucru pe care il spune si comentariul coloanei
+ *  din migratia 0037: codul singur nu poate spune DE CE. Bratul poate, si
+ *  propozitia de pe ecran este bratul spus pe intelesul omului care verifica
+ *  documentul, nu pe al celui care a construit verificarea.
+ *
+ *  AICI SI NU IN COMPONENT, exact ca la `EXTRACTION_ERROR_LABEL`,
+ *  `SCAN_LINE_NOTICE` si `EXTRACTION_META_LABEL`: sirul pe care il vede
+ *  operatorul si sirul pe care il cauta proba trebuie sa fie acelasi sir, nu doua
+ *  care pot sa se desparta intr-o zi in care cineva rescrie unul din ele.
+ *
+ *  `Record` SI NU `Partial`, din acelasi motiv pentru care `UNIT_MEANING` din
+ *  `components/settings/UnitSettings.tsx` este tot un `Record`: un al saptelea
+ *  brat trebuie sa STRICE COMPILAREA pana cand cineva scrie ce inseamna. Un
+ *  `Partial` ar livra in tacere un rand gol pe ecran, adica exact esecul pe care
+ *  cardul acesta il repara. */
+export const PLATFORM_ARM_LABEL: Record<ScanArm, string> = {
+  header_inconsistent: "cifrele din antetul documentului nu se potrivesc între ele",
+  no_lines: "nu am găsit linii în document",
+  line_total_missing: "o linie nu are total",
+  target_missing: "lipsește totalul cu care ar trebui comparate liniile",
+  anchor_unknown: "nu am putut afla cu care total să comparăm liniile",
+  line_sum_missed: "liniile nu se adună la totalul documentului",
+};
+
+/** P3-105. CE SCRIE INAINTEA PROPOZITIEI DE MAI SUS.
+ *
+ *  O CONSTANTA SI NU UN SIR IN COMPONENT, din acelasi motiv ca labelurile: proba
+ *  afirma randul intreg, iar randul intreg este prefixul plus bratul. Cuvintele
+ *  sunt ale proprietarului, din G62: "Verificarea noastra: <ours in plain words>".
+ *
+ *  SPUNE A CUI ESTE PAREREA. Fara "noastra", al doilea rand ar parea tot al
+ *  cititorului, iar operatorul ar citi doua propozitii contradictorii de la
+ *  acelasi vorbitor. Hotararea R-214 este intreaga despre faptul ca sunt doi
+ *  vorbitori care raspund la doua intrebari diferite. */
+export const PLATFORM_VERDICT_PREFIX = "Verificarea noastră: ";
+
+/** P3-105. Randul intreg, compus dintr-un singur loc. */
+export function platformVerdictSentence(arm: ScanArm): string {
+  return `${PLATFORM_VERDICT_PREFIX}${PLATFORM_ARM_LABEL[arm]}`;
+}
+
+/** P3-105. Este `v` unul dintre cele sase brate?
+ *
+ *  COLOANA ESTE TEXT LIBER PENTRU CINE CITESTE RANDUL. `platform_arm` soseste de
+ *  la PostgREST ca `unknown`, iar un cast la `ScanArm` ar minti despre un rand
+ *  vechi sau stricat. Se intreaba, si un raspuns necunoscut se citeste ca "nu
+ *  avem niciun verdict", adica exact cazul in care ecranul nu adauga nimic. */
+export function isScanArm(v: unknown): v is ScanArm {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(PLATFORM_ARM_LABEL, v);
+}
 
 /** Codurile de raspuns ale callback-ului, sectiunea 6. Fixate prin contract:
  *  Make reincearca pe 5xx si NU reincearca pe 4xx, deci impartirea aceasta
@@ -566,6 +631,16 @@ export type ExtractionDraft = {
    *  tiparit. false cand regula a rulat si nu a mutat nimic. null cand nu a
    *  rulat, sau cand 0054 nu este inca aplicata. */
   derivedPartial: boolean | null;
+  /** P3-105, constatarea F26. CODUL PE CARE L-AR FI DAT VERIFICAREA NOASTRA
+   *  pentru acelasi payload, din coloana pe care 0037 o adauga. NU este
+   *  `errorCode`: acela este al expeditorului si ramane autoritar prin R-190.
+   *  null inseamna ca nu a rulat clasificarea noastra, ca nu a refuzat nimic, sau
+   *  ca 0037 nu este inca aplicata pe baza catre care arata aplicatia. */
+  platformErrorCode: StoredErrorCode | null;
+  /** P3-105. CARE BRAT a produs codul de mai sus, din aceeasi coloana pereche.
+   *  Cinci din cele sase brate poarta `unreadable_document`, deci bratul este
+   *  singurul care poate spune de ce. null se citeste la fel ca mai sus. */
+  platformArm: ScanArm | null;
   /** EXT-28. Paginile NUMARATE DE NOI la incarcare, din bytes. null inseamna ca
    *  nu am putut numara cu siguranta, sau ca randul este de dinaintea migratiei
    *  0043. Nu este numarul raportat de model, care ramane in `_meta`. */
