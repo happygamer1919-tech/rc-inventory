@@ -7137,3 +7137,54 @@ comes from `router.refresh()`, which runs only after the server action has retur
 barrier for every write the action makes. RULE: **a signal emitted in the MIDDLE of a server action
 is not a signal that the action completed. Wait on something the action produces LAST, and prefer a
 rendered consequence over a message the action sent on its way through.**
+
+### Narrowing a ruling and leaving its twin sentence standing leaves the doctrine contradicting itself
+**Tag:** backend
+**ERROR:** card P3-104's dispatch asked for R-190's clause *"when the payload carries an error_code,
+it is authoritative. Our classification runs anyway and is recorded, never substituted."* to be
+narrowed for one case. R-208, written seven days after R-190 and about EXACTLY this payload, carries
+the same claim in its own words: *"A payload that carries its own `error_code` is authoritative under
+R-190, so such a payload stays failed on our side after this ruling too."* A ruling that narrowed
+only R-190 would have left the two rulings asserting opposite things about one payload, with nothing
+in either pointing at the other. That is not a hypothetical: it is the exact shape of Ivan's finding
+F19, which found CLAUDE.md section 3.1 stating two different rules for the word "green" because card
+P3-73 corrected one copy of a sentence and missed a second.
+**SOLUTION:** before writing the narrowing, grep the doctrine for the CLAIM rather than for the
+ruling id. `grep -n "authoritative" decisions/inbox.md` returns both sentences; a grep for `R-190`
+returns the citation but not the restatement. Then narrow every copy in ONE ruling, quoting, marking
+and keeping each where it stands per CLAUDE.md section 9c. RULE: **a recorded claim is narrowed
+everywhere it is ASSERTED, not everywhere it is CITED, and the search that finds the second copy is a
+search for the words, not for the id.**
+
+### The status a draft may be stored under is decided by a CHECK constraint, not by preference
+**Tag:** data
+**ERROR:** "lands in review" has two candidate statuses, because `ExtractionReviewPanel` offers the
+"Verifică" button on `extracted` and on `partial`. `extracted` is the wrong one and the reason is not
+visible in any TypeScript file: migration 0041 replaced
+`extraction_drafts_error_code_matches_status` so that `error_code` is required on `failed`, FORBIDDEN
+on `extracted` and optional on `partial`. Storing this card's payload as `extracted` would therefore
+have had to discard the sender's `unreadable_document`, which is what R-190 exists to forbid, and an
+update that kept the code would have been refused `23514` by the database, answered `500` to Make,
+which retries on `5xx`. That is INC-05's shape, and this machine has no database, so nothing local
+would have said so.
+**SOLUTION:** the status was chosen by reading the constraint first, not by running into it.
+`grep -rn "error_code_matches_status" supabase/migrations/` returns 0008 and 0041, and only the last
+one is in force. RULE: **when a card changes which status a row is written under, read the CHECK
+constraints on that column before choosing, and read the LAST migration that replaced them. On a
+machine with no database the constraint is the specification and the type checker knows nothing
+about it.**
+
+### A new arm can be unreachable for a whole document_source without one line of new code saying so
+**Tag:** backend
+**ERROR:** R-212's condition names no document source, so the obvious reading is that it applies to
+scans as well. It cannot. EXT-20 answers `400` to a SCAN failure that carries the `lines` key at all,
+and a scan failure that omits the key has no lines, so no scan-sourced payload can ever carry "at
+least one line item with a quantity above zero" alongside `status: failed`. Writing a source gate
+into the new condition would have looked like prudence and would in fact have been a SECOND
+enforcement of a rule already enforced upstream, which is the thing that silently reverses the day
+somebody changes the upstream rule.
+**SOLUTION:** the condition is written exactly as the owner stated it, with no source clause, and the
+reachability is recorded in the ruling, in the function's own comment and in the spec's header
+instead. RULE: **when an upstream refusal already makes a case unreachable, do not restate it in the
+new condition. Write down WHERE it is enforced, so that the day the upstream rule changes the new
+behaviour changes with it instead of being quietly pinned by a duplicate nobody remembers.**
