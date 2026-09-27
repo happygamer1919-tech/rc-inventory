@@ -276,6 +276,47 @@ export function isQuantitiesOnly(input: {
   );
 }
 
+/** P3-104, constatarea F24, hotararea R-212. A spus cititorul ca nu poate citi
+ *  documentul SI a trimis totusi linii cu cantitati?
+ *
+ *  CONDITIA ESTE A PROPRIETARULUI, LITERAL, SI ESTE UNA SINGURA: statusul
+ *  expeditorului este `failed`, codul lui este `unreadable_document`, SI cel putin
+ *  o linie poarta o cantitate PESTE ZERO. Atat. O cheie `lines` absenta, `null`,
+ *  sirul gol sau un tablou gol nu o indeplinesc, fiindca nu poarta nicio linie; o
+ *  linie a carei cantitate este null, zero, negativa sau nefinita nu o
+ *  indeplineste nici ea. Payload-ul lui R-205 pentru aviz-silvamat-0044213.pdf
+ *  poarta `lines []`, deci nu poate ajunge aici si ramane esuat.
+ *
+ *  NU CERE SI FORMA "FARA PRETURI", FIINDCA HOTARAREA NU O CERE. Consecinta este
+ *  scrisa, nu descoperita: un payload care indeplineste conditia si poarta totusi
+ *  preturi sau un total in antet ajunge in verificare ca `partial` FARA nota,
+ *  fiindca `isQuantitiesOnly` este fals despre el. Acela este raspunsul corect:
+ *  nota spune ca documentul nu are preturi, iar acela are.
+ *
+ *  AICI, LANGA isQuantitiesOnly, SI NU IN RUTA. Sunt doua intrebari de forme
+ *  diferite despre acelasi document: una despre CE A SPUS EXPEDITORUL, cealalta
+ *  despre CE S-A STOCAT. Fiecare este scrisa o singura data, in fisierul pe care il
+ *  pot importa si clientul si serverul, ca ecranul si reconcilierea sa nu poata
+ *  ajunge sa nu fie de acord. Ecranul citeste mai departe isQuantitiesOnly si nu
+ *  este editat de acest card: un payload care trece pe aici se stocheaza `partial`,
+ *  iar quantitiesOnlyDraft accepta de la P3-82 si `extracted` si `partial`.
+ *
+ *  DIGITAL PRIN CONSTRUCTIE, SI NIMIC NOU NU O IMPUNE. EXT-20 raspunde 400 unei
+ *  scanari esuate care poarta cheia `lines`, iar una care nu o poarta nu are linii,
+ *  deci niciun payload de scanare nu poate indeplini conditia. Refuzul acela nu
+ *  este atins si nu este folosit aici a doua oara. */
+export function isUnreadableWithReadQuantities(input: {
+  status: unknown;
+  errorCode: unknown;
+  quantities: readonly (number | null)[];
+}): boolean {
+  return (
+    input.status === "failed" &&
+    input.errorCode === "unreadable_document" &&
+    input.quantities.some((q) => q !== null && Number.isFinite(q) && q > 0)
+  );
+}
+
 export function lineTotalSourceLabel(v: string): string {
   if (v === "printed") return "tipărit pe document";
   if (v === "derived") return "calculat";
