@@ -549,6 +549,84 @@ console.log('\n10. P3-82: quantities only, nothing to reconcile, accepted and ne
   }
 }
 
+// ===========================================================================
+// P3-106, SECTION 11. THE DERIVED-PARTIAL GATE, WITH NO DATABASE.
+// Goal G63, Ivan's finding F27. Ruling R-190 and card P3-80 are unchanged by
+// this section: it adds a proof, it does not add a rule.
+//
+// WHY IT IS HERE AND NOT ONLY IN THE END-TO-END SPEC. The spec
+// tests/e2e/extraction-derived-line-routes-partial.spec.ts proves the gate is
+// WIRED IN, and it needs a database, a server and a browser. This proves the
+// PREDICATE ITSELF, and it needs nothing. They fail for different reasons, which
+// is the same argument sections 1 and 10 above make for themselves.
+//
+// AND IT PINS THE BRANCH NOTHING CAN EXERCISE. The route moves the document only
+// when the move can be WRITTEN: `canRecordDerivedPartial && routeToPartial`,
+// because an unwritten substitution is exactly what R-190 forbids. The column
+// extraction_drafts.platform_derived_partial exists in every CI stack, migration
+// 0054 having merged, so no test can make that guard answer false and the branch
+// cannot be exercised by behaviour anywhere. What CAN be proven is that the guard
+// is still written, and that the column is still written under the same
+// condition. That is a source guard against deletion, NOT a proof of the runtime
+// behaviour when the column is absent, and it is recorded as the weaker thing it
+// is rather than the stronger thing it is not.
+// ===========================================================================
+
+console.log('\n11. P3-106: the derived-partial gate, its predicate and its unwritable branch');
+{
+  const ROUTE = readFileSync(`${ROOT}/app/api/extraction/callback/route.ts`, 'utf8');
+
+  // THE RULE, read out of the implementation. Three clauses and an AND.
+  const shape = [
+    [SOURCE, /const derivedLines = input\.lineTotalSources\.filter\(\(s\) => s === "derived"\)\.length;/, 'only the exact string derived counts, and it is counted, not guessed'],
+    [SOURCE, /routeToPartial:\s*input\.status === "extracted" && input\.senderErrorCode === null && derivedLines > 0,/, 'the gate needs extracted AND no sender code AND at least one derived line'],
+    [ROUTE, /const routedToPartial = canRecordDerivedPartial && derivedRoute\.routeToPartial;/, 'the route moves the document ONLY when the move can be written (R-190)'],
+    [ROUTE, /if \(canRecordDerivedPartial\) \{\s*draftUpdate\.platform_derived_partial = routedToPartial;/, 'the column is written under the very same condition, never behind it'],
+  ];
+  for (const [src, re, what] of shape) {
+    if (re.test(src)) ok(what);
+    else bad(`the implementation no longer shows: ${what}`);
+  }
+
+  // ORDER. The gate runs AFTER the status and the dropped lines are decided and
+  // feeds neither, which is what keeps one of our own `failed` verdicts failed.
+  const iEffective = ROUTE.indexOf('const canRecordDerivedPartial');
+  const iStored = ROUTE.indexOf('const storedStatus = routedToPartial');
+  if (iEffective > 0 && iStored > iEffective) ok('the gate is asked after effectiveStatus, and only storedStatus depends on it');
+  else bad('the gate no longer sits between effectiveStatus and storedStatus');
+
+  // THE SPECIFICATION, on the shapes G63 and P3-80 name. Each row: sender status,
+  // sender error code, the line sources, whether the document moves to partial.
+  const spec = (status, code, sources) =>
+    status === 'extracted' && code === null && sources.filter((s) => s === 'derived').length > 0;
+  const rows = [
+    ['extracted', null, ['printed', 'derived'], true, 'one derived line of two: MOVED, which is the F6 line itself'],
+    ['extracted', null, ['printed', 'printed', 'printed', 'derived', 'printed'], true, 'one derived line of FIVE, neither first nor last: MOVED, because the rule is at least one'],
+    ['extracted', null, ['derived'], true, 'a one-line document whose only total was calculated: MOVED'],
+    ['extracted', null, ['derived', 'derived'], true, 'every line calculated: MOVED, the count is a floor and not an equality'],
+    ['extracted', null, ['printed', 'printed'], false, 'every line printed: untouched'],
+    ['extracted', null, [undefined, undefined], false, 'the key absent on every line: untouched'],
+    ['extracted', null, ['printed', 'Derived'], false, 'an unknown value is stored as it arrived and never guessed at'],
+    ['extracted', null, [], false, 'no lines at all: nothing to move'],
+    ['extracted', 'extraction_failed', ['derived'], false, "the sender's own code wins, R-190"],
+    ['partial', null, ['derived'], false, 'a document the sender already called partial: nothing to move'],
+    ['failed', null, ['derived'], false, 'one of OUR failed verdicts is not softened by a derived line'],
+  ];
+  for (const [status, code, sources, want, what] of rows) {
+    if (spec(status, code, sources) === want) ok(what);
+    else bad(`the specification disagrees on: ${what}`);
+  }
+
+  // AND THE SENTENCE ON SCREEN IS ONE STRING, so the proof and the screen cannot
+  // drift apart. Same reason extraction-types.ts gives for holding it.
+  const TYPES11 = readFileSync(`${ROOT}/lib/data/extraction-types.ts`, 'utf8');
+  if (/export const DERIVED_PARTIAL_NOTICE =\s*"Marcat parțial de platformă: totalul cel puțin unei poziții a fost calculat la citire, nu tipărit pe document\. Comparați acea poziție cu hârtia\.";/.test(TYPES11)) {
+    ok('the Romanian sentence the review screen shows is still one exported string');
+  } else {
+    bad('the derived-partial sentence changed or moved, so the screen and the proof can drift');
+  }
+}
+
 console.log('');
 if (problems.length > 0) {
   console.error(`check-reconciliation: ${problems.length} assertion(s) failed.`);
