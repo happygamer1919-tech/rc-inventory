@@ -14745,3 +14745,106 @@ by the owner).
 **Supersedes:** none. It closes R-199 as R-199 and R-210 define close, with
 R-199(2) waived by the owner. R-208's close-date sentence is corrected under 9c,
 not superseded.
+
+---
+
+### R-214 - The sender's failure code and our own answer two different questions, they may disagree, and the review screen shows both: R-190 is CONFIRMED, not narrowed
+
+**Date:** 2026-09-27
+**Asked on:** Ivan's finding F26, decided by Max as platform owner (R-207), goal
+G62 of the operator factory
+**Answer, verbatim:**
+> F26: two failure codes for one event. Matnord, order 4164defa: `error_code =
+> reconciliation_failed` (the sender's, which Andre reported) and
+> `platform_error_code = unreadable_document`, `platform_arm = no_lines` (ours).
+> The review screen shows only the reconciliation text. Decision (POC, recorded as
+> a ruling): the two fields answer different questions and MAY disagree;
+> `error_code` stays the sender's and stays authoritative for what Andre said
+> (R-190 unchanged); `platform_error_code` is our own reading. When they differ,
+> the review screen shows both in Romanian: the sender's message first, then one
+> line "Verificarea noastra: <ours in plain words>" (e.g. "nu am gasit linii in
+> document").
+
+**Ruling: adopted. Built by card P3-105.**
+
+#### THIS RULING NARROWS NOTHING. IT CONFIRMS R-190 AND SAYS SO IN R-190'S OWN WORDS
+
+The two cards before this one moved doctrine: R-212 narrowed R-190 and R-208 for
+one payload shape, and P3-83 superseded part of R-197. **This one moves nothing.**
+R-190 already ruled the whole of what this card relies on, in the owner's words:
+
+> *"when the payload carries an error_code, it is authoritative. Our
+> classification runs anyway and is recorded, never substituted. ... when ours and
+> theirs disagree, persist theirs, record both plus the arm name. The disagreement
+> is data, not an error."*
+
+**That sentence is CONFIRMED here, in full, and no clause of it is narrowed,
+superseded or qualified.** R-212's one narrowing of its first clause, for
+`unreadable_document` accompanied by a line with a quantity above zero, is
+untouched and is the only narrowing R-190 carries.
+
+**WHAT THIS RULING ADDS IS A PRESENTATION, NOT A PRECEDENCE.** R-190's last clause
+says the disagreement is data. Data that no screen shows is data nobody has. Until
+this card the platform stored both codes faithfully and displayed one of them, so
+the half of R-190 that says "record both" was shipped and the half that makes it
+worth recording was invisible to the only person who looks at these documents.
+
+#### THE TWO FIELDS ANSWER DIFFERENT QUESTIONS, AND THAT IS WHY THEY MAY DISAGREE
+
+- `error_code` answers **"what did the reader say happened?"** It is the sender's,
+  it is stored exactly as sent, and it stays authoritative. Mihai is told what
+  Andre's service reported, and no card changes that.
+- `platform_error_code` with `platform_arm` answers **"what did our own arithmetic
+  make of the same payload?"** It is ours, it never decides anything, and it is
+  recorded whether it agrees or not.
+
+**A DISAGREEMENT IS THEREFORE NOT A DEFECT IN EITHER FIELD.** R-190 already gave
+the reason and it is kept here rather than restated loosely: the sender tests
+`line_count` before the sums comparison and sees the page count, and we see
+neither. Two readers with different evidence reach different conclusions about the
+same document, and the record of that is the only dataset anybody will ever have
+about which reader is better.
+
+**THE FINDING'S OWN SHAPE IS THE PROOF THAT THEY DIFFER IN PRACTICE.** Matnord,
+order `4164defa`: the sender sent `reconciliation_failed`, and our classifier, on
+a scan-sourced failure that by EXT-20 carries no lines at all, reached
+`unreadable_document` on the `no_lines` arm. Both are right about the question
+each one answers. Only the first reached the screen.
+
+#### WHAT THE SCREEN DOES NOW
+
+- **The sender's sentence stays first and stays unchanged**, in the same place,
+  with the same markers a proof reads it by. `reason` is still shown exactly as
+  the sender sent it and is never rewritten.
+- **Only when the two codes differ**, one line is added underneath:
+  `Verificarea noastra: <our arm in plain Romanian>`.
+- **When they are the same, or ours is absent, nothing is added.** Not an empty
+  label, not the word "necunoscut". Absent means our classifier did not run, and a
+  screen that printed something for it would be inventing a second opinion nobody
+  held.
+
+**THE PLAIN WORDS ARE THE ARM'S, NOT THE CODE'S, AND THAT IS THE POINT.** Five of
+the six arms carry `unreadable_document`, so the code alone cannot say why. The arm
+can, and the sentence on screen is the arm in the operator's language.
+
+#### WHAT DOES NOT CHANGE
+
+- **Which code is authoritative.** R-190 stands. `error_code` is the sender's and
+  it is what Mihai is told happened. A second sentence beside it does not reorder,
+  replace or hide the first.
+- **Our classification still runs and is still stored on every path it ran on
+  before.** Storing it was never made conditional on a screen wanting it, and it
+  is not made conditional now.
+- **Nothing in what the callback route accepts, refuses or returns to Andre.**
+  This is a screen and a read. No status code moves, no error text moves, no
+  payload shape is newly accepted or newly refused.
+- **No migration.** `extraction_drafts.platform_error_code` and `platform_arm`
+  have existed since 0037, under EXT-26, and `hasExtractionPlatformVerdict`
+  already probes for them. This card reads what is already written.
+- **R-202's frozen failure shapes, R-208's accepted shape, R-211 and R-212** are
+  each untouched.
+
+**Unblocks:** card P3-105, authored and shipped in the same pull request as this
+ruling.
+**Supersedes:** nothing. It CONFIRMS R-190's fourth clause and presents it. No
+sentence of this repository's doctrine is marked false or narrowed by it.
