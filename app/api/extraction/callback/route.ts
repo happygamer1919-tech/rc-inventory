@@ -53,6 +53,7 @@ import {
   isDocumentSource,
   isExtractionErrorCode,
   isExtractionStatus,
+  isUnreadableWithReadQuantities,
 } from "@/lib/data/extraction-types";
 
 export const dynamic = "force-dynamic";
@@ -507,8 +508,64 @@ export async function POST(request: Request) {
       : null
     : platformCode;
   const effectiveErrorCode = errorCodeRaw !== null ? errorCodeRaw : suppliedCode;
-  const effectiveStatus =
-    errorCodeRaw === null && suppliedCode !== null && !digitalPartialWithoutCode
+
+  // --- P3-104, CONSTATAREA F24, HOTARAREA R-212 -------------------------------
+  //
+  // UN DOCUMENT PE CARE CITITORUL IL NUMESTE NECITIBIL SI TOTUSI II TRIMITE
+  // LINIILE CU CANTITATI AJUNGE IN VERIFICARE, NU IN ESUAT. Cuvintele lui Max:
+  // "when the sender's status is failed with error_code = unreadable_document AND
+  // the payload carries at least one line item with a quantity above zero, store
+  // the draft as the quantity-only partial of R-208 ... not as Esuat."
+  //
+  // CE SE INGUSTEAZA, SI ESTE SCRIS INTR-O HOTARARE INAINTE DE A FI SCRIS AICI.
+  // R-190 spune "when the payload carries an error_code, it is authoritative", iar
+  // R-208 spune acelasi lucru despre exact acest payload. Amandoua sunt citate,
+  // marcate ingustate si PASTRATE in decisions/inbox.md, sub CLAUDE.md sectiunea
+  // 9c. Regula care ramane: codul expeditorului este autoritar in FIECARE caz in
+  // afara de `unreadable_document` insotit de cel putin o linie cu cantitatea peste
+  // zero. Niciun alt cod nu este atins.
+  //
+  // CODUL EXPEDITORULUI NU SE ARUNCA. `effectiveErrorCode` se calculeaza deasupra
+  // acestei linii si nu este atins: `unreadable_document` se stocheaza pe rand, iar
+  // ecranul arata propozitia lui romaneasca. A muta bratul in care ajunge ciorna nu
+  // este acelasi lucru cu a sterge ce a spus cititorul, iar jumatatea de
+  // inregistrare a lui R-190 ramane intreaga.
+  //
+  // `partial` SI NU ALTCEVA, SI NU ESTE O PREFERINTA. Doua lucruri sunt cerute in
+  // acelasi timp: documentul trebuie sa ajunga in verificare, iar codul
+  // expeditorului trebuie sa ramana pe rand. Butonul "Verifica" exista numai pe
+  // `extracted` si pe `partial`, iar constrangerea
+  // extraction_drafts_error_code_matches_status din 0041 cere un cod pe `failed`, il
+  // interzice pe `extracted` si il permite pe `partial`. `extracted` ar fi trebuit
+  // deci sa arunce codul, adica exact ce interzice R-190, iar `failed` nu ajunge in
+  // verificare. Ramane `partial`, si eticheta de pe ecran citeste deja "Parțial".
+  //
+  // NOTA SE DERIVEAZA, NU SE SCRIE, hotararea R-208 verbatim: "THE NOTE IS DERIVED
+  // FROM THE STORED DOCUMENT, NOT WRITTEN INTO reason." `reason` este campul
+  // expeditorului si se stocheaza asa cum a sosit, mai jos, neatins. Ecranul aprinde
+  // nota prin isQuantitiesOnly, singura conditie pe care R-208 a construit-o, si nu
+  // este editat de acest card: quantitiesOnlyDraft accepta de la P3-82 si
+  // `extracted` si `partial`.
+  //
+  // CELE DOUA RAMURI SUNT DISJUNCTE, SI ORDINEA ESTE SCRISA OICUM. Conditia de
+  // dedesubt cere `errorCodeRaw === null`, iar aceasta cere `unreadable_document`,
+  // deci nu se pot intalni. Ordinea este explicita ca precedenta sa fie o
+  // propozitie si nu un efect secundar al unei reguli vecine, aceeasi grija ca la
+  // EXT-26.
+  //
+  // R-205 NU ESTE ATINSA. Payload-ul ei pentru aviz-silvamat-0044213.pdf poarta
+  // `lines []`, deci conditia nu se poate aprinde pe el si el ramane `failed`.
+  const unreadableWithReadQuantities = isUnreadableWithReadQuantities({
+    status,
+    errorCode: errorCodeRaw,
+    quantities: (rawLines as unknown[]).map(
+      (l): number | null => num((l as Record<string, unknown>).quantity),
+    ),
+  });
+
+  const effectiveStatus = unreadableWithReadQuantities
+    ? "partial"
+    : errorCodeRaw === null && suppliedCode !== null && !digitalPartialWithoutCode
       ? "failed"
       : status;
 
