@@ -7228,3 +7228,39 @@ two codes differ; otherwise nothing is emitted at all, and the spec asserts `toH
 than an empty string. RULE: **the empty answer for a derived opinion is an absent element. A label
 with a placeholder turns "we did not look" into "we looked and found nothing", and those are
 different claims.**
+
+### A card asked for a test that already existed, and writing it would have been the defect
+**Tag:** ci
+**ERROR:** goal G63, from Ivan's finding F27, asked for "a fixture where the sender declares
+`extracted` with at least one line whose `line_total_source` is derived, and a named e2e test that
+our gate moves it to partial and sets `platform_derived_partial = true`". That test had existed since
+2026-09-18 as the acceptance line of card P3-80, four cases in
+`tests/e2e/extraction-derived-line-routes-partial.spec.ts`, green in `quality` run 35380235203. Taken
+at face value the brief would have produced a second file asserting the same thing, which is exactly
+the duplication finding F14 and goal G56 existed to clean up: two acceptance specs for one rule drift,
+and then neither is the truth. The word in the finding was "unproven", and it was true about
+PRODUCTION (no real document has ever triggered the gate, because Lumicast was partial by the
+sender's own word) and false about the suite.
+**SOLUTION:** read the named spec and the CI log that ran it BEFORE writing a line, then report which
+half of the claim is true, name the file and the case line numbers, and add only the case that was
+genuinely absent (five lines with one derived, where the two-line fixture could not distinguish "at
+least one" from "one of two"). RULE: **a brief that says a thing is unproven is a claim to check,
+not an instruction to obey. Separate "the suite does not prove it" from "it has never happened in
+production": the first is a test to write, the second is a wait on somebody outside the repository,
+and only one of them is work.**
+
+### A deliberate branch that no test in CI can reach, and the honest way to cover it
+**Tag:** backend
+**ERROR:** the callback route moves a document to partial only when the move can be recorded:
+`routedToPartial = canRecordDerivedPartial && derivedRoute.routeToPartial`, because an unwritten
+substitution is what R-190 forbids. Migration 0054 has merged, so the column exists in every CI
+stack, `hasExtractionDerivedPartial` answers true everywhere, and the guard's false branch cannot be
+exercised by any test. The two tempting moves are both wrong: add an override to the route so a test
+can force it (changing production behaviour to satisfy a test), or claim the branch is covered because
+a case ran nearby.
+**SOLUTION:** assert the branch is still WRITTEN, by reading the route's own source in
+`scripts/poc-free/check-reconciliation.mjs`, and label it in the check's comment and in the report as
+a guard against deletion rather than a proof of the runtime behaviour. RULE: **when a branch cannot be
+reached in CI, write down that it cannot, and cover what is actually coverable under its real name. A
+source guard called a behaviour proof is a false claim; a source guard called a source guard is the
+strongest true one available.**

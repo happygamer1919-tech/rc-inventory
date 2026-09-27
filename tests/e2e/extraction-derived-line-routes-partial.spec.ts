@@ -20,6 +20,10 @@ import { DERIVED_PARTIAL_NOTICE } from "@/lib/data/extraction-types";
 // CODUL HTTP SE AFIRMA PRIN VALOARE. Fiecare caz scrie codul pe care ruta il
 // dadea si inainte de acest card pentru exact acel payload: 202 la prima sosire,
 // 200 la a doua. Corpul spune statusul STOCAT, ca la EXT-16.
+//
+// CARDUL P3-106, goal G63, constatarea F27, a adaugat CAZUL 5 in acest fisier si
+// nu un fisier al lui: o a doua copie a aceleiasi linii de acceptanta ar fi exact
+// defectul pe care F14 si goal G56 au curatat. Cazurile 1 la 4 sunt neatinse.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 const CALLBACK = "/api/extraction/callback";
@@ -107,15 +111,36 @@ function line(name: string, quantity: number, unitPrice: number, source: Source)
   };
 }
 
-/** Un antet SANATOS si o suma a liniilor care se potriveste EXACT: 30 + 50 = 80,
- *  80 + 16 = 96, 80 x 20% = 16. Pe o scanare reconcilierea noastra trece, deci
- *  singurul lucru care poate muta statusul este sursa totalului. */
+/** Cantitatea si pretul fiecarei poziții, in ordine. Primele doua dau 30 si 50,
+ *  deci cele doua linii pe care le foloseau cazurile 1 la 4 inainte de cardul
+ *  P3-106 au exact aceleasi numere ca atunci: 30 + 50 = 80. */
+const LINE_SHAPES: [number, number][] = [
+  [3, 10],
+  [2, 25],
+  [4, 5],
+  [1, 12.5],
+  [5, 3],
+];
+
+/** Un antet SANATOS si o suma a liniilor care se potriveste EXACT: cu doua linii
+ *  30 + 50 = 80, 80 x 20% = 16, 80 + 16 = 96. Pe o scanare reconcilierea noastra
+ *  trece, deci singurul lucru care poate muta statusul este sursa totalului.
+ *
+ *  `sources` da si CATE linii are documentul, cate o valoare pe linie.
+ *  `printedSubtotal` este subtotalul TIPARIT: lasat nespus, este suma exacta a
+ *  liniilor, iar dat anume (cazul 4) rateaza suma dinadins. */
 function body(
   orderId: string,
   shape: { status: string; document_source: string; error_code: string | null },
-  sources: [Source, Source],
-  subtotal = 80,
+  sources: Source[],
+  printedSubtotal?: number,
 ) {
+  const lines = sources.map((s, i) => {
+    const [quantity, unitPrice] = LINE_SHAPES[i]!;
+    return line(`Linie ${i + 1}`, quantity, unitPrice, s);
+  });
+  const lineSum = Math.round(lines.reduce((t, l) => t + l.line_total, 0) * 100) / 100;
+  const subtotal = printedSubtotal ?? lineSum;
   return {
     order_id: orderId,
     ...shape,
@@ -129,7 +154,7 @@ function body(
     subtotal,
     vat_amount: Math.round(subtotal * 20) / 100,
     document_total: Math.round(subtotal * 120) / 100,
-    lines: [line("Linie 1", 3, 10, sources[0]), line("Linie 2", 2, 25, sources[1])],
+    lines,
   };
 }
 
@@ -268,5 +293,58 @@ test.describe("F6: un total de linie calculat trimite documentul in partial", ()
     expect(d.platform_arm).toBe("line_sum_missed");
     expect(d.platform_derived_partial, "regula a rulat si nu a mutat nimic").toBe(false);
     expect(d.lines).toHaveLength(0);
+  });
+
+  // CAZUL 5 ESTE AL CARDULUI P3-106, goal G63, constatarea F27 a lui Ivan.
+  // Cazurile 1 la 4 de deasupra sunt ale lui P3-80 si nu sunt atinse.
+  //
+  // CE ADAUGA, SI NUMAI ATAT: regula spune CEL PUTIN O LINIE, iar cazul 1 o
+  // dovedeste pe un document de DOUA linii, unde "cel putin una" si "una din
+  // doua" arata la fel. Aici sunt cinci linii, una singura calculata, si ea
+  // nu este nici prima nici ultima: daca implementarea ar citi doar capetele,
+  // sau ar cere ca toate liniile sa fie calculate, acest caz cade si cazul 1
+  // trece. Codul HTTP nu se re-afirma aici: cazul 1 il afirma prin valoare,
+  // 202 la prima sosire si 200 la a doua, cu statusul stocat in corp.
+  test("5. P3-106: cinci linii, NUMAI a patra calculata: un singur total calculat muta tot documentul", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page, ownerAccount());
+    const orderId = await uploadForExtraction(page, request, "f6-mixed-five");
+
+    const sources: Source[] = ["printed", "printed", "printed", "derived", "printed"];
+    const payload = body(
+      orderId,
+      { status: "extracted", document_source: "digital", error_code: null },
+      sources,
+    );
+    // Subtotalul tiparit este suma exacta a celor cinci linii, deci
+    // reconcilierea noastra trece si nu are nimic de spus despre status.
+    expect(payload.subtotal, "cele cinci linii dau 127.50 si atat scrie antetul").toBe(127.5);
+
+    const r = await post(request, payload);
+    expect(r.status(), "codul HTTP este cel de totdeauna").toBe(202);
+    expect(await r.json(), "corpul spune statusul stocat si toate cele cinci linii").toEqual({
+      order_id: orderId,
+      status: "partial",
+      lines: 5,
+    });
+
+    const d = await draftState(request, orderId);
+    expect(d.status).toBe("partial");
+    expect(d.error_code, "niciun cod inventat").toBeNull();
+    expect(d.platform_derived_partial, "mutarea este scrisa").toBe(true);
+    // Verdictul de reconciliere NU este atins: suma se potriveste.
+    expect(d.platform_error_code).toBeNull();
+    expect(d.platform_arm).toBeNull();
+    expect(d.lines, "toate cele cinci linii pastrate").toHaveLength(5);
+    expect(
+      d.lines.map((l) => l.line_total_source),
+      "o singura linie calculata, a patra, si celelalte tiparite",
+    ).toEqual(["printed", "printed", "printed", "derived", "printed"]);
+
+    const row = await draftRow(page, orderId);
+    await expect(row).toHaveAttribute("data-status", "partial");
+    await expect(row.getByTestId("draft-derived-partial")).toHaveText(DERIVED_PARTIAL_NOTICE);
   });
 });
