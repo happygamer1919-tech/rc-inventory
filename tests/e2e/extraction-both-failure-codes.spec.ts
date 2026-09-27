@@ -200,6 +200,20 @@ test.describe("F26: doua coduri de esec pentru acelasi document, amandoua pe ecr
     expect(order, "propozitia expeditorului sta deasupra verdictului nostru").toBe(
       "al lui primul",
     );
+
+    // 4. PE TELEFON, la 390x844. Randul nou este un paragraf frate cu `draft-reason`
+    //    si poarta exact clasele lui, deci nu are nevoie de nicio clasa de telefon
+    //    proprie; ce se afirma aici este ca ecranul nu incepe sa deruleze lateral
+    //    din cauza lui si ca propozitia se vede intreaga.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phoneRow = await draftRow(page, orderId);
+    const phoneOurs = phoneRow.getByTestId("draft-platform-verdict");
+    await expect(phoneOurs).toBeVisible();
+    await expect(phoneOurs).toHaveText("Verificarea noastră: nu am găsit linii în document");
+    const sideways = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(sideways, "verificarea derulează lateral la 390 px").toBeLessThanOrEqual(0);
   });
 
   test("2. G62 F26: CONTROLUL, cand cele doua coduri sunt ACELASI nu se adauga niciun rand", async ({

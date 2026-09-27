@@ -7188,3 +7188,43 @@ reachability is recorded in the ruling, in the function's own comment and in the
 instead. RULE: **when an upstream refusal already makes a case unreachable, do not restate it in the
 new condition. Write down WHERE it is enforced, so that the day the upstream rule changes the new
 behaviour changes with it instead of being quietly pinned by a duplicate nobody remembers.**
+
+### A label file that must stay free of "server-only" can still own a type that lives in a server file
+**Tag:** frontend
+**ERROR:** P3-105 needs a `Record<ScanArm, string>` in `lib/data/extraction-types.ts`, and that file
+says in its own header why it exists: a file carrying `"server-only"` cannot be touched by a client
+component even for a constant. `ScanArm` is declared in `lib/data/reconciliation.ts`, which carries
+exactly that marker AND already imports from `extraction-types`, so a value import would have been
+both a runtime cycle and a server file dragged into `ExtractionReviewPanel`, which is a client
+component. The tempting fix is to copy the six-member union into the label file.
+**SOLUTION:** `import type { ScanArm } from "./reconciliation"`. A type-only import is erased at
+compile time: it emits no `require`, closes no cycle and carries no marker. Copying the union would
+have compiled and would have removed the only thing the `Record` is for, because a seventh arm added
+to `reconciliation.ts` would no longer break the label file's build. RULE: **when a client-safe file
+needs a type from a server-only file, import the TYPE rather than copy it. The copy is what turns an
+exhaustiveness guard into decoration.**
+
+### Both halves of a ruling can ship and the card still be undone, because one half had no screen
+**Tag:** frontend
+**ERROR:** R-190 ruled that when the sender's code and ours disagree, both are persisted and "the
+disagreement is data, not an error". EXT-26 shipped that faithfully: `platform_error_code` and
+`platform_arm` have been written on every qualifying payload since. The finding that reopened it,
+F26, is not that the data is wrong. It is that `draftColumnsFor` never selected the two columns, so
+the only person who looks at these documents could not see one of them. A ruling can be fully obeyed
+by the writer and completely invisible to the reader.
+**SOLUTION:** the card confirms R-190 rather than narrowing it, and adds the read and the line.
+RULE: **when a ruling says a thing is recorded BECAUSE somebody will need it, the card that records
+it is not finished until something reads it back. Check the select list, not only the update.**
+
+### A second opinion with no opinion must render as nothing, not as an empty label
+**Tag:** frontend
+**ERROR:** `platform_error_code` is null in three different situations that look alike from the
+component: our classifier did not run, it ran and refused nothing, or migration 0037 is not yet
+applied on the database the app points at. The reflex is a label with a fallback string. Any
+fallback would have printed a sentence for a verdict nobody held, on every digital document in the
+queue, which is a worse defect than the one being fixed.
+**SOLUTION:** the element is rendered only when the arm is present AND the code is present AND the
+two codes differ; otherwise nothing is emitted at all, and the spec asserts `toHaveCount(0)` rather
+than an empty string. RULE: **the empty answer for a derived opinion is an absent element. A label
+with a placeholder turns "we did not look" into "we looked and found nothing", and those are
+different claims.**
