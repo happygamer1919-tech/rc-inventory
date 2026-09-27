@@ -23,6 +23,7 @@ import {
   PHONE_LINK,
   PHONE_ROW,
   PHONE_TABLE,
+  PHONE_TAP,
   PHONE_WIDE,
   PHONE_WRAP,
 } from "@/components/ui/phone";
@@ -52,8 +53,30 @@ export const dynamic = "force-dynamic";
 // neschimbata, fiindca si components/orders/OrdersScreen.tsx scria numele acesta.
 // Nimic nu se schimba pe ecran.
 
+// P3-107. BLOCUL "Produse sub prag" ESTE O PREVIZUALIZARE, NU TOATA LISTA.
+//
+// Catalogul poarta la pornire 80 de materiale cu stoc zero si prag zero
+// (migratia 0049), deci blocul desena zeci de randuri si impingea restul
+// tabloului de bord in josul paginii. Se deseneaza primele patru randuri, in
+// ordinea de azi, iar sub ele un buton catre ecranul care le are pe toate.
+//
+// TAIEREA ESTE DOAR LA DESENARE. d.lowStock ramane lista intreaga: cifra din
+// blocul de sus ("Produse sub prag") o citeste pe aceeasi, iar o limitare in
+// lib/data/dashboard.ts ar schimba si acel numar.
+//
+// DEGRADEUL ESTE ANCORAT DE MARGINEA DE JOS A INVELISULUI CELOR PATRU RANDURI,
+// nu de o inaltime in pixeli: la 390px fiecare rand devine un card de alta
+// inaltime, iar un decalaj fix ar cadea in alt loc. Culoarea lui de sosire este
+// exact fundalul cardului, bg-rc-white din Card (components/ui/primitives.tsx);
+// un alb scris de mana care nu se potriveste se vede ca o banda gri.
+const LOW_STOCK_PREVIEW = 4;
+
 export default async function Dashboard() {
   const d = await loadDashboard();
+
+  const lowStockTotal = d.lowStock.length;
+  const lowStockShown = d.lowStock.slice(0, LOW_STOCK_PREVIEW);
+  const lowStockHasMore = lowStockTotal > LOW_STOCK_PREVIEW;
 
   const inboundLines = d.pendingInbound.reduce((s, o) => s + o.lines.length, 0);
   const outboundLines = d.pendingOutbound.reduce((s, o) => s + o.lines.length, 0);
@@ -167,56 +190,68 @@ export default async function Dashboard() {
           <CardHeader
             title="Produse sub prag"
             hint="Stoc curent sub sau egal cu pragul de recomandă"
-            right={
+          />
+          <div className="relative">
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Produs</Th>
+                  <Th align="right">Stoc</Th>
+                  <Th align="right">Prag</Th>
+                </tr>
+              </thead>
+              <tbody data-testid="dashboard-low-stock">
+                {lowStockShown.map((p) => (
+                  <tr key={p.id} className={`hover:bg-rc-paper ${PHONE_ROW}`}>
+                    <Td data-label="Produs" className={PHONE_WIDE}>
+                      <Link
+                        href="/inventar"
+                        className="block group max-md:flex max-md:min-h-11 max-md:flex-col max-md:justify-center"
+                      >
+                        <span className="block text-[13px] font-medium text-rc-black leading-snug group-hover:text-rc-orange-deep">
+                          {p.name}
+                        </span>
+                        <span className="block text-[11.5px] text-rc-muted-2 mt-0.5">{p.sku}</span>
+                      </Link>
+                    </Td>
+                    <Td align="right" data-label="Stoc" className={PHONE_CELL}>
+                      {p.stock === 0 ? (
+                        <Chip tone="danger">Epuizat</Chip>
+                      ) : (
+                        <span className="rc-num text-[13px] font-semibold text-rc-warn">
+                          {formatQty(p.stock, p.unit)}
+                        </span>
+                      )}
+                    </Td>
+                    <Td align="right" data-label="Prag" className={PHONE_CELL}>
+                      <span className="rc-num text-[13px] text-rc-muted">
+                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                      </span>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            {lowStockHasMore ? (
+              <div
+                aria-hidden="true"
+                data-testid="dashboard-low-stock-fade"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-b from-transparent to-rc-white max-md:h-16"
+              />
+            ) : null}
+          </div>
+          {lowStockHasMore ? (
+            <div className="flex justify-center px-5 pb-4 pt-3 max-md:px-4">
               <Link
                 href="/memento"
-                className={`text-[12.5px] font-semibold text-rc-orange-deep hover:underline ${PHONE_LINK}`}
+                data-testid="dashboard-low-stock-all"
+                className={`inline-flex items-center justify-center rounded-[10px] border border-rc-line-strong bg-rc-white px-4 py-2.5 text-[13px] font-semibold text-rc-black hover:bg-rc-paper max-md:w-full ${PHONE_TAP}`}
               >
-                Praguri
+                Vezi toate ({lowStockTotal})
               </Link>
-            }
-          />
-          <Table>
-            <thead>
-              <tr>
-                <Th>Produs</Th>
-                <Th align="right">Stoc</Th>
-                <Th align="right">Prag</Th>
-              </tr>
-            </thead>
-            <tbody data-testid="dashboard-low-stock">
-              {d.lowStock.map((p) => (
-                <tr key={p.id} className={`hover:bg-rc-paper ${PHONE_ROW}`}>
-                  <Td data-label="Produs" className={PHONE_WIDE}>
-                    <Link
-                      href="/inventar"
-                      className="block group max-md:flex max-md:min-h-11 max-md:flex-col max-md:justify-center"
-                    >
-                      <span className="block text-[13px] font-medium text-rc-black leading-snug group-hover:text-rc-orange-deep">
-                        {p.name}
-                      </span>
-                      <span className="block text-[11.5px] text-rc-muted-2 mt-0.5">{p.sku}</span>
-                    </Link>
-                  </Td>
-                  <Td align="right" data-label="Stoc" className={PHONE_CELL}>
-                    {p.stock === 0 ? (
-                      <Chip tone="danger">Epuizat</Chip>
-                    ) : (
-                      <span className="rc-num text-[13px] font-semibold text-rc-warn">
-                        {formatQty(p.stock, p.unit)}
-                      </span>
-                    )}
-                  </Td>
-                  <Td align="right" data-label="Prag" className={PHONE_CELL}>
-                    <span className="rc-num text-[13px] text-rc-muted">
-                      {formatNumber(p.threshold)} {unitLabel(p.unit)}
-                    </span>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-          {d.lowStock.length === 0 ? (
+            </div>
+          ) : null}
+          {lowStockTotal === 0 ? (
             <p className="px-5 py-10 text-center text-[13px] text-rc-muted">
               {d.productCount === 0
                 ? "Catalogul este gol."

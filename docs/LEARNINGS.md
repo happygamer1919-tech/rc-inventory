@@ -7264,3 +7264,52 @@ a guard against deletion rather than a proof of the runtime behaviour. RULE: **w
 reached in CI, write down that it cannot, and cover what is actually coverable under its real name. A
 source guard called a behaviour proof is a false claim; a source guard called a source guard is the
 strongest true one available.**
+
+### A card's three states did not exist in the database and no row could be added to create them
+**Tag:** ci
+**ERROR:** card P3-107 had to prove three states of the dashboard block "Produse sub prag": six
+products under threshold, three, and none. Migration `0049_roofing_materials.sql` inserts eighty
+products with no batch (stock 0) and no `threshold` (column default 0), and the rule is
+`stock <= threshold`, so eighty products are under threshold in a stack that has only been migrated.
+Inserting rows can only make the number LARGER. The two obvious exits are both refusals: deleting
+rows is forbidden here and `products` has no delete policy for any role, and asserting the branch
+conditionally (`if (total > 4) ... else ...`) writes a test that never executes its own else.
+**SOLUTION:** the dashboard reads ACTIVE products only, so the state to control is `active`, not the
+row count. `tests/e2e/stock-threshold-preview.spec.ts` records every other active product by id,
+deactivates those, plays its states on seven products of its own, and reactivates by recorded id in
+`afterAll`, asserting the restore rather than assuming it. It is named to sort LAST in the suite so
+that a failed restore has no spec left to damage. RULE: **when a fixture cannot be created by adding
+rows, ask which column the screen actually filters on and restrict THAT, reversibly, by recorded id.
+Never delete, and never make an assertion conditional on the state you failed to control: a branch
+that CI never enters is not covered.**
+
+### An existing assertion that the owner's change deliberately invalidated
+**Tag:** frontend
+**ERROR:** `tests/e2e/dashboard.spec.ts` asserted `expect(page.getByTestId("dashboard-low-stock")).toContainText(sku)`
+for a product it had just created. Card P3-107 makes that block draw four rows of a list ordered by
+SKU, so the assertion became a claim about the preview, and with eighty-odd products under threshold
+it could only pass by accident. It was not a test encoding a bug, and it was not a flake: it was a
+correct test of behaviour the owner asked to remove.
+**SOLUTION:** replace it with readings of the same underlying fact that survive the change and say
+more: the stat tile rises by exactly one (which is card P2-06's actual thesis, that the number is
+computed and never written by hand) and the product is found on the screen the new button opens.
+Quote the old line in place at the point of change, per CLAUDE.md section 9c. RULE: **before touching
+a failing assertion, decide which of three it is: a bug the test caught (fix the code), a flake (fix
+the race), or a requirement the owner changed (rewrite the assertion around the fact that survived,
+and quote the old line). Only the third permits editing the test, and it must come out stronger.**
+
+### A card whose visual result cannot be rendered on the machine that writes it
+**Tag:** frontend
+**ERROR:** P3-107's whole point is a gradient arriving at exactly the card's background colour, and
+"exactly" cannot be judged from source. This machine has no Docker and no Supabase CLI, so the real
+dashboard cannot be rendered here at all: every screen this card touches needs a database.
+**SOLUTION:** probe the stylesheet instead of the application. `npm run build` emits the compiled
+CSS under `.next/static/chunks/`; a hand-written page carrying the exact classes of the new markup,
+opened with the locally installed chromium, gives real computed styles and real geometry. It caught
+the numbers before they were guessed (`h-10` on a desk computer against a 58px row, `max-md:h-16`
+against a 152px stacked card) and it produced the serialised gradient,
+`linear-gradient(in oklab, rgba(0, 0, 0, 0) 0%, rgb(255, 255, 255) 100%)`, which is what let the CI
+assertion be written as a substring comparison against the card's computed `background-color` rather
+than as a guess. RULE: **a probe is a statement about the stylesheet, never about the application,
+and it is labelled that way in the report. Its value is that it removes guessed constants from the
+first CI run, which on this repository costs between twenty and fifty minutes each.**
