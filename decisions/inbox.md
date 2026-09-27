@@ -12562,6 +12562,22 @@ them. The RATIONALE's last sentence is false about the code at `6ca0ded`, and it
 is corrected here rather than carried, because the owner asked for this to be
 verified rather than guessed.**
 
+**NARROWED IN ONE CASE ON 2026-09-27 BY RULING R-212, CARD P3-104, UNDER CLAUDE.md
+SECTION 9c. THE RULE NOW, FIRST:** the sender's `error_code` remains authoritative
+in every case EXCEPT `unreadable_document` accompanied by at least one line item
+with a quantity above zero, which is stored as the quantities-only partial of
+R-208 instead of as a failure. The first clause of this ruling is kept as written
+and its sentence
+
+> *"when the payload carries an error_code, it is authoritative. Our
+> classification runs anyway and is recorded, never substituted."*
+
+is NARROWED by R-212 to that one exception and stays true for every other code and
+for `unreadable_document` on a payload carrying no such line. Nothing else here
+moves: our classification still runs and is still recorded, the sender's
+`error_code` is still stored on the row in the narrowed case as well, and no other
+code is ever overridden.
+
 #### THE PREMISE THAT DOES NOT HOLD, AND WHY IT LOOKED TRUE
 
 > *"Our looser answer was overwriting their stricter one silently."*
@@ -14155,6 +14171,24 @@ note reaches the screen for a priceless delivery note when the reader sends it a
 read, with its lines. Whether the reader should do that is Andre's side and is not
 decided here.
 
+**NARROWED ON 2026-09-27 BY RULING R-212, CARD P3-104, UNDER CLAUDE.md SECTION 9c.
+THE RULE NOW, FIRST:** a payload that carries its own `error_code` stays
+authoritative in every case EXCEPT `unreadable_document` accompanied by at least
+one line item with a quantity above zero, which our side now stores as the
+quantities-only partial this ruling describes rather than as a failure. The
+paragraph above is kept as written; its sentence
+
+> *"A payload that carries its own `error_code` is authoritative under R-190, so
+> such a payload stays failed on our side after this ruling too, and R-205's
+> regression expectation still holds."*
+
+is NARROWED by R-212 in its first half only. **Its second half is untouched and
+still holds:** R-205's payload for `aviz-silvamat-0044213.pdf` carries `lines []`,
+so the new condition cannot fire on it and it still stores as failed. The last
+sentence of the paragraph above, that the note reaches the screen when the reader
+sends the document as read with its lines, is what R-212 makes true of a reader
+that calls the same document unreadable and sends its lines anyway.
+
 **Unblocks:** card P3-82.
 **Supersedes:** none. It adds one accepted shape to the reconciliation; R-202's
 frozen shapes and R-190's precedence stand.
@@ -14351,3 +14385,147 @@ section 9c and cite this ruling.
 **Unblocks:** card P3-83, and with it the last open item of goal G28.
 **Supersedes:** R-197 part (a), the sentence quoted above, for the `anchor_unknown`
 arm only. The rest of R-197 stands.
+
+### R-212 - A document the reader calls unreadable but sends WITH line items and quantities lands in review as the quantities-only partial, not as a failure: R-190 and R-208 are narrowed for this one case, and R-205 is untouched
+
+**Date:** 2026-09-27
+**Asked on:** Ivan's finding F24, decided by Max as platform owner (R-207), goal
+G61 of the operator factory, answer `mailbox/answers/q088-poc-f24-b-f25-supersede.md`
+**Answer, verbatim:**
+> F24, option (b). In the callback handling, when the sender's status is `failed`
+> with `error_code = unreadable_document` AND the payload carries at least one
+> line item with a quantity above zero, store the draft as the quantity-only
+> partial of R-208 (no prices, "Document fără prețuri" note, lands in review), not
+> as Eșuat. Every other sender code still wins exactly as R-190 says. Record the
+> ruling in `decisions/inbox.md` superseding R-190 for this one case under section
+> 9c (quote R-190's sentence, mark it narrowed, keep it), citing Max's decision.
+> What the route accepts, refuses and returns to Andre is unchanged.
+
+**Ruling: adopted. Built by card P3-104.**
+
+#### THE SURVIVING RULE, FIRST, BECAUSE SECTION 9c PUTS THE TRUE SENTENCE ON TOP
+
+**The sender's `error_code` remains authoritative in every case, with exactly one
+exception: `error_code` `unreadable_document` accompanied by at least one line item
+whose quantity is above zero. That one payload is stored as the quantities-only
+partial of R-208 and lands in review.** Every other sender code still wins exactly
+as R-190 says, `unreadable_document` itself still wins on every payload that does
+not carry such a line, and our classification still never substitutes itself for a
+code the sender sent.
+
+**THE CONDITION IS ONE SENTENCE AND IT IS THE WHOLE CONDITION.** At least one line
+item with a quantity above zero. A `lines` key that is absent, `null`, `""` or an
+empty array does not qualify, and neither does a payload whose every line arrives
+with a quantity of zero or with no quantity at all. R-202's refused shapes are
+untouched and R-205's payload is exactly the empty-array case.
+
+**WHAT IS STORED.** `status` becomes `partial`, which is the only status that both
+lands the document in review and can carry the sender's code: migration 0041's
+constraint `extraction_drafts_error_code_matches_status` requires a code on
+`failed`, forbids one on `extracted` and allows one on `partial`. `error_code`
+stays `unreadable_document`, stored exactly as sent, so a reader of the row still
+sees what the reader of the document said and the review screen still shows that
+code's Romanian sentence. Every line is kept with its quantity; `unit_price` and
+`line_total` stay null as sent. `reason` is the sender's field and is stored as
+sent.
+
+**THE NOTE IS DERIVED, NOT WRITTEN.** R-208 is quoted and kept: *"THE NOTE IS
+DERIVED FROM THE STORED DOCUMENT, NOT WRITTEN INTO `reason`. `reason` is the
+sender's field and is stored as sent; overwriting it would hide what the reader
+said."* The Romanian sentence "Document fără prețuri: cantitățile sunt citite,
+prețurile se completează din factură" reaches the screen through
+`isQuantitiesOnly`, the single condition R-208 built, read by the review screen
+exactly as it was before this ruling. This ruling adds one arm into that shape; it
+does not add a second reader of it, and the screen is not edited.
+
+**A CONSEQUENCE OF DERIVING RATHER THAN WRITING, RECORDED SO IT IS NOT
+DISCOVERED.** A payload matching this ruling's condition that nonetheless carries
+prices or a header total lands in review as a partial with its lines and WITHOUT
+the note, because `isQuantitiesOnly` is false of it. That is the correct answer,
+not a gap: the note says the document has no prices, and that document has some.
+
+#### WHAT THIS NARROWS, QUOTED, MARKED AND KEPT
+
+**SENTENCE ONE, R-190**, marked where it stands and kept there:
+
+> *"when the payload carries an error_code, it is authoritative. Our classification
+> runs anyway and is recorded, never substituted."*
+
+It is narrowed by this ruling to the one exception stated above. The second half is
+not touched at all: our classification still runs where it ran, is still recorded
+in `platform_error_code` and `platform_arm`, and still substitutes itself for
+nothing.
+
+**SENTENCE TWO, R-208**, which says the same thing about this exact payload and is
+therefore narrowed by the same ruling. It is marked where it stands and kept there:
+
+> *"A payload that carries its own `error_code` is authoritative under R-190, so
+> such a payload stays failed on our side after this ruling too, and R-205's
+> regression expectation still holds."*
+
+**BOTH ARE NARROWED BY ONE RULING ON PURPOSE.** A ruling that narrowed R-190 and
+left R-208 asserting the opposite about the same payload would leave the doctrine
+contradicting itself, which is the defect Ivan's finding F19 was raised for. The
+first half of R-208's sentence is narrowed; the second half survives, and the next
+section says why.
+
+#### R-205 IS NOT AFFECTED, AND THIS IS STATED RATHER THAN ASSUMED
+
+R-205 fixes the R-199 regression file and its expected shape, quoted from that
+ruling:
+
+> *"failed, error_code unreadable_document, document_source digital, lines []."*
+
+**That payload carries no lines at all, so this ruling's condition cannot fire on
+it and it still stores as failed. R-205's regression expectation survives
+untouched**, its pass condition is not relaxed, and a `2xx` status alone is still
+not a pass on it.
+
+**HOW THAT WAS CHECKED RATHER THAN ASSERTED.** The regression file is a PDF in
+production storage at `rc-docs/_samples/andre/aviz-silvamat-0044213.pdf`; no
+payload fixture for it exists anywhere in this repository, so the repository's only
+statement of its expected shape is R-205's own sentence above, repeated in
+`docs/reports/2026-09-17-executor-andre-resign-and-signing-scope.md`. Both say
+`lines []`. The nearest thing to it that this repository does execute, case 25 of
+`tests/e2e/extraction.spec.ts`, posts `document_source: "digital"`, `status:
+"failed"`, `error_code: "unreadable_document"` and `lines: []`, and asserts the
+draft stores `failed` with zero lines. That case is unchanged by card P3-104 and
+still passes.
+
+#### THE ARM IS DIGITAL BY CONSTRUCTION, AND NOTHING NEW ENFORCES THAT
+
+EXT-20 answers `400` to a SCAN failure that carries the `lines` key at all, and a
+scan failure that omits the key has no lines, so no scan-sourced payload can ever
+satisfy this ruling's condition. That refusal is not touched, not relaxed and not
+relied on twice: the condition is written as the owner stated it, and the scan case
+simply cannot reach it.
+
+#### WHAT DOES NOT CHANGE
+
+- **What the route accepts, refuses and answers.** Same status codes, same error
+  texts, same `202` against `200` duplicate behaviour, same idempotency on
+  `order_id`, `callback_at` untouched. The `status` field of the accepted body
+  mirrors the STORED status, as it has since EXT-16, so on this one payload shape
+  it reads `partial` where it read `failed`; that is the change this ruling makes
+  to our storage showing through a mirror, not a change to the contract.
+- **Every other sender code.** This narrowing is one code and one extra condition.
+  It does not generalise, and our classification starts overriding the sender
+  nowhere else.
+- **Our verdict.** On a digital `failed` payload our classification does not run,
+  exactly as before, so `platform_error_code` and `platform_arm` stay null, which
+  is the truth: we judged nothing.
+- **R-202's frozen failure shapes**, R-208's accepted shape, R-211's
+  `anchor_unknown` arm, and the scan-failure shapes R-208 lists as refused.
+- **No migration.** `partial` with `unreadable_document` is already permitted by
+  0041, and `unreadable_document` has been in the enum since 0008.
+
+**WHAT ANDRE'S SIDE MUST CHANGE: NOTHING, AND HE IS TOLD ANYWAY.** Nothing accepted
+before is refused now and nothing refused before is accepted. The one visible
+difference on his side is the `status` field of the body we already send him, which
+reports what we stored. The pull request that carries this ruling says so in one
+line, as the standing rule after the close of the Andre connection requires.
+
+**Unblocks:** card P3-104, and with it goal G61.
+**Supersedes:** nothing outright. It NARROWS R-190's first clause and R-208's
+authoritative-code sentence, for one code accompanied by one condition, and both
+are quoted, marked and kept where they stand. R-205 is untouched.
