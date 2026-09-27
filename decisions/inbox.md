@@ -14155,6 +14155,20 @@ into a failure. From this ruling it is not a failure on our side at all. R-202's
 shapes for a failure that really is one (a digital failure carries `lines: []`, a
 scan failure carries no `lines` key, `null` and `""` refused) are unchanged.
 
+**CORRECTED ON 2026-09-27 BY RULING R-213, UNDER CLAUDE.md SECTION 9c. THE TRUE
+SENTENCE, FIRST: the close under R-199 happened on 2026-09-27, by ruling R-213.**
+What happened on 2026-09-17 was the owner's instruction, relayed by Max, lifting
+the R-202 freeze on the callback route. That instruction remains the authority
+for this ruling and its card. The paragraph above is kept as written, and its
+clause
+
+> *"R-202 froze the failure shape until close under R-199, and that close
+> happened on 2026-09-17."*
+
+is FALSE about the date. R-210 set the close evidence standard on 2026-09-21, and
+no qualifying run existed before 2026-09-24. The evidence is in R-213 and
+`docs/extraction/r199-close-report.md`.
+
 **THE NOTE IS DERIVED FROM THE STORED DOCUMENT, NOT WRITTEN INTO `reason`.**
 `reason` is the sender's field and is stored as sent; overwriting it would hide
 what the reader said. The screen decides with the same single condition the
@@ -14529,3 +14543,205 @@ line, as the standing rule after the close of the Andre connection requires.
 **Supersedes:** nothing outright. It NARROWS R-190's first clause and R-208's
 authoritative-code sentence, for one code accompanied by one condition, and both
 are quoted, marked and kept where they stand. R-205 is untouched.
+
+### R-213 - R-199 CLOSED: condition one met by nine stored callback rows from seven live production documents, condition two waived by the owner, and every "closed 2026-09-17" sentence corrected
+
+**Date:** 2026-09-27
+**Asked on:** the owner dispatch of 2026-09-27 (Ivan, ratified by strategy chat),
+resuming the halted dispatch of the same morning
+**Answer, verbatim:**
+> Condition (2) of R-199 is waived. Cite R-199(2). Rationale: seven distinct live
+> production documents with nine callback rows exceed what one fixture order
+> proves. EXT-35 stays todo, not shipped.
+> Nine TEST-R199 drafts were dismissed by the owner (Renunta la document) on
+> 2026-09-27 before this PR. Evidence below is from SQL Editor exports taken
+> before dismissal; do not re-query for the report. State this in the ruling.
+> Rotation and P2-13 are handled by the owner outside this ruling; reference
+> R-200 only.
+> Findings F15 to F28 pass to Max under R-204; list ids only, no fixes in this PR.
+> Correct every "closed 2026-09-17" sentence (R-208, phase 3 card notes) under
+> CLAUDE.md 9c to cite this ruling.
+> "Five emittable contract shapes" is owner-stated, not a contract citation.
+
+**Ruling: adopted. THE ANDRE EXTRACTION CONNECTION IS CLOSED UNDER R-199 AS OF
+2026-09-27, BY THIS RULING.** The evidence report is
+`docs/extraction/r199-close-report.md`. The run followed
+`docs/extraction/r199-e2e-runbook.md`, and the query is its Part C.
+
+#### 1. CONDITION ONE OF R-199, THE REGRESSION: MET
+
+The regression ran end to end into production on 2026-09-24 and 2026-09-27
+against the counterparty's scenario version 79 (the owner states: header-only
+change from 78; extraction, routing and payload shape identical). Every document
+was fired from our own fire path by `startExtraction`, so every `order_id` below
+was minted by this platform, which is what R-210(b) requires and what the seven
+runs of 2026-09-18 could not provide.
+
+R-199's coverage list, item by item:
+
+| R-199 item | document | stored |
+|---|---|---|
+| fixture `lumicast-5531` | `TEST-R199-LUMICAST.pdf` | `partial`, 8 lines, one `derived` |
+| fixture `nordavex-0002718` | `TEST-R199-NORDAVEX.pdf` | `partial`, `reconciliation_failed`, arm `line_sum_missed` |
+| one digital failure | `TEST-R199-SILVAMAT.pdf` | `failed`, `unreadable_document`, `digital`, 0 lines |
+| one scan failure | `TEST-R199-MATNORD.pdf` | `failed`, `reconciliation_failed`, `scan`, 0 lines |
+| digital invoice with line items and no printed grand total, supplied by Andre | `TEST-R199-SILVAMAT.pdf`, assigned to this item by R-205 | as above, exactly R-205's expected shape |
+| field fix `supplier` to `supplier_name` | all nine rows | `supplier_name` non-null 9 of 9 |
+| field fix `pages` / `_meta.pages` to `_meta.page_count` | all nine rows | `meta -> 'page_count'` non-null 9 of 9 |
+
+**R-205's pass condition holds**: `supplier_name` and `_meta.page_count` are
+populated on every stored draft, and the verdict is read from stored rows, not
+from a status code. **R-210(b) holds**: nine payloads reached
+`app/api/extraction/callback/route.ts` and left rows in
+`public.extraction_drafts`, `callback_at` non-null on all nine.
+
+**R-210(a) is carried, not proven here.** The three pre-model bodies (rejected
+file, download failure, oversized document) are accepted on Andre's written
+confirmation and are not exercised by this run.
+
+**"All five emittable contract shapes are exercised in both directions" is the
+OWNER'S STATEMENT and is recorded as his.** `docs/contracts/extraction-v2.md`
+defines no set called the five emittable shapes, so it is not cited to the
+contract.
+
+**THE R-055 CLARIFICATION IS CARRIED.** Signing a storage object is not a write,
+so it needs no `docs/PRODUCTION-WRITES.md` row, as recorded in
+`docs/reports/2026-09-17-executor-andre-resign-and-signing-scope.md`. This run's
+uploads were made by the owner through the production screen, not by a terminal.
+
+#### 2. CONDITION TWO OF R-199, THE FIXTURE ORDER: WAIVED
+
+R-199(2), quoted:
+
+> *"(2) the EXT-35 fixture order exists in production, marked as fixture,
+> excluded from real-data detection, every production step performed by Ivan."*
+
+**Waived by the owner on 2026-09-27.** His rationale, as given: seven distinct
+live production documents with nine callback rows exceed what one fixture order
+proves. **The fixture order does not exist and this ruling does not say it
+does.** Card `EXT-35` stays `todo`; it is not shipped and not closed by this
+ruling.
+
+#### 3. THE NINE DRAFTS WERE DISMISSED BEFORE THIS RULING, AND THE EVIDENCE PREDATES IT
+
+The owner dismissed all nine `TEST-R199` drafts with **Renunță la document** on
+2026-09-27, before this pull request. The evidence in section 4 comes from SQL
+Editor exports he took **before** the dismissal, and it was **not re-queried**.
+
+What the dismissal changed, measured from code: `cancelExtractionDraft`
+(`lib/data/extraction-actions.ts:362`) writes only `cancelled_at`,
+`cancelled_by` and `cancel_reason`. It deletes no row, no line and no storage
+object, and it leaves `status` and `error_code` as they were. A later query on
+the same anchor would therefore still find nine rows. It would differ only in
+those three columns.
+
+#### 4. THE EVIDENCE
+
+Summary, runbook Part C query 3, as exported:
+
+| documents_found | distinct files | delivered | never_answered | supplier_name populated | meta page_count populated | extracted | partial | failed | still pending |
+|---|---|---|---|---|---|---|---|---|---|
+| 9 | 7 | 9 | 0 | 9 | 9 | 4 | 3 | 2 | 0 |
+
+Per row, runbook Part C queries 1 and 2, as exported. Times UTC. Latency is
+`callback_at` minus `fired_at`, computed for this ruling.
+
+| order_id | file | fired_at | callback_at | latency s | status | error_code | source | pages | lines | printed | derived | platform code | platform arm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `767634be-3e4b-4db2-b501-64476f63120d` | MPC | 2026-09-24 20:00:46.463 | 20:01:06.837 | 20.374 | extracted | | digital | 1 | 6 | 6 | 0 | | |
+| `6ad30df7-b672-4e0b-966d-071564b7c9b6` | SILVAMAT | 2026-09-24 20:02:35.174 | 20:02:46.108 | 10.934 | failed | unreadable_document | digital | 1 | 0 | 0 | 0 | | |
+| `d1642ae4-6f16-4875-b889-0255a4de4021` | NORDAVEX | 2026-09-24 20:03:43.692 | 20:03:54.590 | 10.898 | partial | reconciliation_failed | digital | 1 | 7 | 7 | 0 | reconciliation_failed | line_sum_missed |
+| `eb77c7f5-7fe4-4812-858b-d06e629bfce2` | MPC (resend) | 2026-09-24 21:52:49.421 | 21:53:00.203 | 10.782 | extracted | | digital | 1 | 6 | 6 | 0 | | |
+| `58c2b4aa-fa2e-493e-beec-17dcd986e7c7` | NORDAVEX (resend) | 2026-09-24 21:53:52.895 | 21:54:02.968 | 10.073 | partial | reconciliation_failed | digital | 1 | 7 | 7 | 0 | reconciliation_failed | line_sum_missed |
+| `d6feecef-3cbc-49db-9ef4-681f65257cba` | LUMICAST | 2026-09-27 14:09:57.504 | 14:10:08.213 | 10.709 | partial | | digital | 1 | 8 | 7 | 1 | | |
+| `4164defa-f527-4e6f-8d91-4e1c068a9503` | MATNORD | 2026-09-27 14:10:26.193 | 14:10:35.172 | 8.979 | failed | reconciliation_failed | scan | 1 | 0 | 0 | 0 | unreadable_document | no_lines |
+| `f06ddc97-168d-4223-af41-f35522b5bb8e` | BETONMIX | 2026-09-27 14:10:34.134 | 14:10:41.210 | 7.076 | extracted | | digital | 1 | 5 | 5 | 0 | | |
+| `3ee63b9a-31e6-4446-8a2b-8a41a6f9cb22` | TEHNOCOM | 2026-09-27 14:10:39.968 | 14:11:06.838 | 26.870 | extracted | | digital | 3 | 54 | 54 | 0 | | |
+
+`callback_arrived` is true on all nine, `upload_page_count` equals
+`meta_page_count` on all nine, and `platform_derived_partial` is false on all
+nine. **Fire-to-callback latency: 7.076 s to 26.870 s, median 10.782 s.** MPC
+and NORDAVEX each have two rows because the operator resent them; the resends
+are distinct `order_id`s, each with its own first delivery.
+
+**ONE CORRECTION TO THE DISPATCH'S READING, FROM THE ROWS.** The dispatch said
+Nordavex is partial with `reconciliation_failed` "per R-211". Its stored arm is
+`line_sum_missed`, not `anchor_unknown`, so the rule that stores that code on a
+code-less digital partial is **R-197** (card P3-55), not R-211. If the sender
+sent the code himself, R-190's precedence stores it instead. The stored row does
+not say which, and both give the same value.
+
+#### 5. FINDINGS
+
+**Passed to Max under R-204, ids only, no fix in this pull request:** F15, F16,
+F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28.
+
+**Recorded by this ruling, from the rows above:**
+
+- **F26 CONFIRMED.** MATNORD stores the sender's `reconciliation_failed` as
+  `error_code` beside our own verdict `unreadable_document`, arm `no_lines`, in
+  `platform_error_code`. R-190's precedence, working as written.
+- **F27 STAYS OPEN.** `platform_derived_partial` is false on all nine rows,
+  LUMICAST's derived line included, because the sender already sent it as
+  `partial`.
+- **F29, NEW: R-211 WAS DEPLOYED AND WAS NOT TRIGGERED ON LUMICAST.** LUMICAST is
+  digital, `partial`, with an empty `error_code`. The R-211 implementation (card
+  P3-83, pull request #340, `a7aeb2b`) merged on 2026-09-21 at 19:42:07 UTC, six
+  days before LUMICAST fired at 2026-09-27 14:09:57 UTC. GitHub's deployment
+  record shows `c89c1cc`, which contains `a7aeb2b`, deployed to Production at
+  13:15:48 UTC that day. **So "not yet deployed" is disproven.** "Not honoured"
+  is not supported either. R-211 stores a code only when our classification
+  returns the `anchor_unknown` arm
+  (`app/api/extraction/callback/route.ts:505-509`), and LUMICAST's stored
+  `platform_error_code` and `platform_arm` are both null: our classification
+  ran on a code-less digital partial and refused nothing. The platform columns
+  were being written in production at that hour, as MATNORD's callback 27 seconds
+  after LUMICAST's shows. **The open question F29 hands to Max** is why a document fixtured
+  as the `line_total_missing` arm
+  (`docs/reports/2026-09-15-executor-orange-andre-fixtures.md`) now arrives with
+  every line carrying a total, one of them `derived`, and reconciles clean.
+
+#### 6. EVERY "CLOSED 2026-09-17" SENTENCE, CORRECTED UNDER CLAUDE.md 9c
+
+**THE TRUE SENTENCE, FIRST: the Andre connection closed under R-199 on
+2026-09-27, by this ruling.** On 2026-09-17 the owner, relayed by Max at about
+15:50, lifted the R-202 freeze on the callback route. That instruction remains
+the authority for every route change made between 2026-09-17 and today, and this
+ruling does not revisit any of them. It was not a close under R-199: R-210 set
+the close evidence standard four days later, and no qualifying run existed until
+2026-09-24.
+
+The false sentences are quoted, marked and kept where they stand, each with a
+correction pointing here:
+
+- R-208: *"R-202 froze the failure shape until close under R-199, and that close
+  happened on 2026-09-17."*
+- Card P3-74: *"Max, relaying Ivan on 2026-09-17 at about 15:50, recorded that
+  the connection is CLOSED under R-199 and the freeze is over for the F cards."*
+- Cards P3-75, P3-76, P3-80, P3-82 and P3-83, each of which says in its defaults
+  that R-199 closed on 2026-09-17.
+
+**WHAT ENDS WITH THIS CLOSE.** Everything R-199 gates now takes this date: R-206's
+terminal access to the sample prefix ends, and R-202's freeze ends formally. On
+rotation and `P2-13`, **R-200 governs and the owner performs it outside this
+ruling.** This ruling ticks no box in `docs/RUNBOOK-CREDENTIAL-ROTATION.md`.
+
+#### 7. BOARD
+
+- `EXT-35`: stays `todo`. Condition two was waived, not met.
+- `P2-08b`: stays `blocked`. Its acceptance requires a human comparison of the
+  stored draft against the paper (supplier, `order_date`, `document_total`, and
+  every line's quantity, unit and price), the three prompt rules checked on that
+  document, and the stored draft as JSON. None of these is in this evidence. It
+  also names "one real supplier document", and every document in this run comes
+  from the test sample set: Nordavex, Lumicast and Silvamat are recorded as
+  synthetic, and none of the seven is recorded as a real supplier document. The
+  report names each failing clause.
+- Cards P3-74, P3-75, P3-76, P3-80, P3-82 and P3-83: a 9c correction appended
+  to `defaults`. No status moves.
+
+**Unblocks:** R-200's trigger (rotation and the un-parking of `P2-13`, performed
+by the owner).
+**Supersedes:** none. It closes R-199 as R-199 and R-210 define close, with
+R-199(2) waived by the owner. R-208's close-date sentence is corrected under 9c,
+not superseded.
