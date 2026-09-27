@@ -52,6 +52,7 @@ test.describe("Tablou de bord", () => {
     // Numarul de produse din primul card nu este scris de mana: creste cu unu
     // dupa ce adaugam un produs. Defectul din faza 1 a fost exact literalul 26.
     const before = await statValue(page, 0);
+    const lowBefore = await statValue(page, 1);
 
     await ensureTestCategory(page);
     const sku = `TEST-DASH-${RUN}`;
@@ -71,8 +72,28 @@ test.describe("Tablou de bord", () => {
     await page.goto("/");
     // Produsul nou are stoc zero, deci valoarea totala nu se schimba, dar el
     // apare sub prag: 0 este sub pragul 5.
-    await expect(page.getByTestId("dashboard-low-stock")).toContainText(sku);
+    //
+    // P3-107. ACEASTA CLAUZA SE CITEA DIN TABELUL BLOCULUI si nu mai poate:
+    //
+    //     await expect(page.getByTestId("dashboard-low-stock")).toContainText(sku);
+    //
+    // Blocul deseneaza de acum doar primele patru randuri din lista, in ordinea
+    // dupa SKU pe care o da listProducts, iar catalogul poarta de la migratia
+    // 0049 optzeci de materiale cu stoc zero si prag zero. Produsul acestui test
+    // este sub prag si nu este intre primele patru, deci cautarea lui in tabel a
+    // devenit o afirmatie despre previzualizare, nu despre numar.
+    //
+    // Se verifica acelasi lucru acolo unde lista este intreaga, si mai strans
+    // decat inainte: cifra "Produse sub prag" creste cu exact unu (deci numarul
+    // este calculat, care este chiar teza cardului P2-06), iar produsul se vede
+    // pe ecranul catre care duce butonul "Vezi toate".
+    expect(await statValue(page, 1)).toBe(lowBefore + 1);
     expect(await statValue(page, 0)).toBe(before);
+
+    await page.goto("/memento");
+    await expect(page.locator(`[data-testid="threshold-row"][data-sku="${sku}"]`)).toHaveCount(1, {
+      timeout: 20_000,
+    });
   });
 
   test("o comandă în așteptare apare în blocul de intrări, iar recepția o scoate", async ({
