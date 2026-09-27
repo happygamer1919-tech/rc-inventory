@@ -107,3 +107,19 @@ failing parts. `EXT-35` stays `todo`.
 5. **The pull request number and the `quality` result are not in this file.** It
    is committed before the pull request is opened, per section 9b. Both are in
    the terminal report.
+
+## 8. ADDENDUM, THE SAME DAY: THE PULL REQUEST, ITS CHECK AND THE BOARD ARTIFACT
+
+Added by a later board-only pull request. Deviation 5 above said the pull request
+number and the `quality` result were not in this file. They are recorded here:
+
+- **The R-199 close pull request is #367**, branch `decisions/R-213-r199-close`,
+  head `ba2235f`.
+- **`quality` concluded success on that head.** `npm run checks:state 367`
+  reported merge state `CLEAN`, and the docs-only fast path skipped only the
+  steps it is built to skip.
+- **The owner merged it as `7191704`**, at 2026-09-27 14:57:21 UTC. The terminal
+  did not merge it.
+- **Deviation 3's recommendation was carried out.** The phase 3 board was
+  first-published as a claude.ai artifact, rendered from `main` at `7191704`, and
+  its URL is recorded in `renders_to` in `docs/board/rc-board-phase3.json`.
