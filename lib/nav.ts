@@ -27,7 +27,9 @@ export type IconName =
   | "settings"
   // P3-06 si P3-07: grupul Relatii.
   | "clients"
-  | "projects";
+  | "projects"
+  // P3-109: grupul Facturare.
+  | "invoice";
 
 /**
  * P3-46. Ecranele la care se ajunge prin CRM si nu direct din meniu. Adresele lor
@@ -140,6 +142,27 @@ export const NAV: NavGroup[] = [
         label: "Necesar de materiale",
         icon: "boxes",
         description: "Ce mai trebuie cumpărat pentru șantierele cu deviz acceptat",
+      },
+    ],
+  },
+  {
+    // P3-109, goal G65 partea 2. GRUP PROPRIU, INTRE Stoc SI Configurare, si asa
+    // l-a ales raportul de proiectare din 2026-09-24 in loc sa lase alegerea
+    // ecranului: nu sub Stoc, fiindca o factura nu este o intrebare despre stoc, si
+    // nu sub Relații, fiindca grupul acela este despre oameni si nu despre
+    // documente.
+    //
+    // O SINGURA INTRARE PENTRU INCEPUT. Ecranul facturii si crearea unei facturi
+    // sunt partea 3 a aceluiasi goal, iar regula veche a acestei liste este ca
+    // nimic nu apare in meniu inainte de ecranul care se poate folosi: intrarea
+    // pleaca in acelasi pull request cu lista pe care o deschide.
+    title: "Facturare",
+    items: [
+      {
+        href: "/facturare",
+        label: "Facturi",
+        icon: "invoice",
+        description: "Facturile emise clienților",
       },
     ],
   },

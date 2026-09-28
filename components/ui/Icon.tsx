@@ -67,6 +67,15 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M9 20v-4h2v4" />
     </>
   ),
+  // P3-109. Un document cu randuri si o suma dedesubt: o factura.
+  invoice: (
+    <>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+      <path d="M9.5 8h5" />
+      <path d="M9.5 12h5" />
+      <path d="M9.5 16h3" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />
