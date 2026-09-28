@@ -7468,3 +7468,76 @@ proving nothing about: both `-native` inputs exist and both are hidden, which is
 RULE: **a "count the controls in this row" selector counts what the components put there, not what the
 screen shows. Any spec that sweeps `input[data-testid]` on a screen with a date box will find one extra
 input per box. Name the controls, or filter on visibility.**
+
+### A line already written to an invoice cannot be removed, and the schema is the reason
+**Tag:** data
+**ERROR:** the brief for card P3-110 says that while an invoice is a `ciornă` the operator may remove a
+line. Migration 0063 grants `authenticated` only `select, insert, update` on `public.invoice_lines`,
+creates no delete policy for any role, and its own section 11 asserts both on every run; the goal line
+the card implements says "Nothing is ever deleted"; and the card's acceptance forbids any file under
+`supabase/migrations/`. Those three together mean a stored line cannot be taken off the invoice by any
+code the card is allowed to write. Zeroing it is not a way round either:
+`invoice_lines_quantity_positive` refuses `quantity = 0`, so the line would still print.
+**SOLUTION:** the create screen writes the lines ONCE, at `Salvează ciorna` or at `Emite`. While the
+invoice is being composed nothing is stored, so removing a line removes nothing and is free, which is
+the path the goal describes. On a saved draft the remove button is disabled with the reason beside it
+and the screen says what to do instead: cancel the draft with a reason and make a new one. The server
+action refuses a save that omits a stored line rather than accepting it silently, because a line that
+vanished from the screen and stayed in the document is the worst of the three outcomes. RULE: **before
+designing an edit screen, read what the migration GRANTS, not only what it creates. A screen that
+offers an action the database has no privilege for is a button that fails in front of the operator.**
+
+### Cancelling a draft invoice needs a number first, and the constraint says so
+**Tag:** data
+**ERROR:** the invoice page offers `Anulează` on a `ciornă`, and a plain
+`update invoices set status = 'cancelled'` on a draft is refused by migration 0063's
+`invoices_numbered_past_draft check (status = 'draft' or number is not null)`. A draft has no number,
+because 0063 allocates one only in `public.issue_invoice`, so "cancelled draft" is a state the schema
+does not admit.
+**SOLUTION:** cancelling a draft issues it first, through `public.issue_invoice`, and then cancels it.
+The operator sees a cancelled document that carries a number, on the list, with its reason, which is
+ordinary bookkeeping and which the design report already describes; what cannot happen is a hole in the
+series. The confirmation says so BEFORE it happens, because a consumed invoice number is a consequence
+the operator has a right to know about. The two statements are not one transaction, and the failure
+message says exactly that: the invoice stays `Emisă` with its number and a second press finishes the
+job. RULE: **read the CHECK constraints before writing a status transition. A state machine drawn from
+the goal line can contain a state the schema refuses, and the refusal arrives as a raw Postgres error
+in front of the operator.**
+
+### PostgREST hands back "3.000" for a quantity of three, and a Romanian form reads that as three thousand
+**Tag:** frontend
+**ERROR:** `numeric(14,3)` and `numeric(14,2)` arrive through PostgREST as STRINGS with every decimal
+place written out. Prefilling the create screen from an `Iesire` put `3.000` in the quantity box and
+`100.00` in the price box. Both are the right number and both are misread: in Romania the period is the
+thousands separator, so a quantity box reading `3.000` says three thousand to the person about to press
+Emite.
+**SOLUTION:** one helper, `fieldNumber`, runs the value through `Number` and then `String`, so `3.000`
+becomes `3`, `2.500` becomes `2.5` and `100.00` becomes `100`. The decimal separator stays a period and
+must: an `<input type="number">` requires one whatever the language of the page. RULE: **never put a
+PostgREST numeric straight into a form field. It is a padded string, and the padding is a different
+number in a locale where the period groups thousands.**
+
+### check-pending-schema-reads refuses a file for the ordinary word "description"
+**Tag:** ci
+**ERROR:** `npm run check:pending-schema-reads` exited 1 naming three new facturare files, each for
+"numeste coloana description". None of them reads any table: two are types files and one is a form
+component. The pending column with that name is `extraction_draft_lines.description`, added by 0053 with
+`alter table ... add column`, and the check looks for a pending column name ANYWHERE in a file, which is
+deliberate and is written down in the check itself.
+**SOLUTION:** the check already has the mechanism for exactly this, `TOLERATED_WORDS`, which tolerates a
+FILE AND WORD PAIR with its reason rather than exempting a file. Three pairs were added. The pairs are
+refused if they go stale, so the list cannot rot. Note that `public.invoice_lines.description` is created
+inside 0063's `create table` and is therefore not in the column list at all: the check finds a TABLE only
+through `.from("...")`, and none of the three files calls one. RULE: **when this check names a file that
+touches no table, the word is a false positive and the fix is a tolerated pair with a reason, never an
+exemption and never a rename of the application's own field.**
+
+### A per-case fixture needs a per-case IDNO, because that column is unique
+**Tag:** ci
+**ERROR:** the new spec gives every case its own client, and the first draft built each client's
+`fiscal_code` from the digits of the case label plus the run id. Cases labelled `C7` and `C7b` both
+reduce to the digit `7`, so the second insert would have hit `clients_fiscal_code_unique` from migration
+0013 with a 23505, in a case that is about invoices and would have looked like one.
+**SOLUTION:** the IDNO carries the label verbatim and the run, `IDNO-C7b-<run>`, and is not truncated.
+RULE: **a fixture value that the database makes unique must be derived from the whole case label, never
+from a reduction of it. Two labels that differ only outside the characters you keep are the same value.**
