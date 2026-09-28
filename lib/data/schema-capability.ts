@@ -1126,3 +1126,47 @@ export async function hasSupplierUnitAliases(client: ColumnProbe): Promise<boole
   }
   return cachedSupplierUnitAliases.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-108, goal G65 partea 1. Exista migratia 0063: tabela
+// public.invoice_settings si restul schemei de facturare?
+//
+// DE CE ARE POARTA EI. 0063 este un fisier separat si ajunge in productie pe
+// fuziune, prin aplicatia GitHub a Supabase, in aproximativ doua minute, iar
+// codul pleaca din acelasi push si NU aterizeaza in aceeasi secunda. Fara ea,
+// blocul Facturare din Setari ar cere o tabela care nu exista inca, PostgREST ar
+// raspunde ca nu o are, citirea ar arunca si /setari ar raspunde 500. Aceea este
+// INC-05, si ecranul acela este chiar ecranul pe care se administreaza si
+// categoriile si lista de tabla.
+//
+// ESTE O SCHEMA INTREAGA INTR-O SINGURA TRANZACTIE, deci o singura sonda pe o
+// singura tabela ajunge, exact judecata pe care o scrie hasClientNotes. Se
+// intreaba invoice_settings si nu invoices, fiindca ea este singura pe care
+// codul acestui card chiar o citeste.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE: blocul Facturare din Setari spune
+// romaneste ca facturarea nu este inca activa, fara formular si fara butoane.
+// Restul ecranului nu se schimba deloc.
+// ---------------------------------------------------------------------------
+
+let cachedFacturareSettings: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasFacturareSettings(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedFacturareSettings && now - cachedFacturareSettings.at < TTL_MS) {
+    return cachedFacturareSettings.value;
+  }
+  try {
+    const { error } = await client.from("invoice_settings").select("series_prefix").limit(1);
+    cachedFacturareSettings = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedFacturareSettings = { value: false, at: now };
+  }
+  return cachedFacturareSettings.value;
+}
