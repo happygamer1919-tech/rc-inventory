@@ -16,6 +16,27 @@ export function formatMoney(value: number): string {
   return `${NF.format(Math.round(value))} ${DISPLAY_CURRENCY}`;
 }
 
+// P3-109, goal G65 partea 2. BANII CU BANII LOR, pentru o factura.
+//
+// DE CE NU AJUNGE formatMoney. Acela rotunjeste la leu intreg, si asa trebuie sa
+// ramana: valoarea unui stoc afisata cu doi bani este o precizie pe care nimeni nu
+// o are. Pe o factura este exact invers. Totalul este stocat numeric(14,2), este
+// suma pe care clientul o plateste si este scrisa pe un document, deci un ecran
+// care ar arata 1.200 MDL pentru 1.199,50 MDL ar arata alt numar decat documentul,
+// iar linia de totaluri de sub lista nu s-ar mai potrivi cu randurile adunate.
+//
+// minimumFractionDigits SI maximumFractionDigits, amandoua: NF2 de mai sus are
+// numai maximul, deci ar scrie "100" si nu "100,00" pentru un total rotund.
+const NF_EXACT = new Intl.NumberFormat("ro-MD", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Bani cu doi bani: `1.199,50 MDL`. Pentru facturi, nu pentru valoarea stocului. */
+export function formatMoneyExact(value: number): string {
+  return `${NF_EXACT.format(value)} ${DISPLAY_CURRENCY}`;
+}
+
 export function formatQty(value: number, unit: UnitCode): string {
   return `${NF2.format(value)} ${unitLabel(unit)}`;
 }

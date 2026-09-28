@@ -1145,6 +1145,14 @@ export async function hasSupplierUnitAliases(client: ColumnProbe): Promise<boole
 // intreaba invoice_settings si nu invoices, fiindca ea este singura pe care
 // codul acestui card chiar o citeste.
 //
+// P3-109, goal G65 partea 2, FOLOSESTE ACEEASI POARTA PENTRU public.invoices, si
+// nu una noua. Propozitia de mai sus ramane adevarata despre P3-108; ea nu spune
+// ca poarta este numai a lui. 0063 creeaza enumul si toate cele patru tabele
+// intr-o singura tranzactie, deci "exista invoice_settings" si "exista invoices"
+// sunt acelasi fapt si nu pot da vreodata raspunsuri diferite. O a doua sonda ar
+// fi un al doilea drum la baza pentru acelasi raspuns, plus o a doua memorie care
+// s-ar putea invechi altfel decat prima.
+//
 // COMPORTAMENTUL DINAINTE DE APLICARE: blocul Facturare din Setari spune
 // romaneste ca facturarea nu este inca activa, fara formular si fara butoane.
 // Restul ecranului nu se schimba deloc.

@@ -7391,3 +7391,80 @@ the table, not shown a screen with its buttons taken off. RULE: **before writing
 role SEES on a screen, read `lib/routes.ts` and find out whether that role reaches the route. A
 role-based assertion inherits the route guard, and the cheapest place to learn that is the header
 comment of the page you are editing, not a forty minute CI run.**
+
+### A money formatter that rounds to whole lei makes an invoice total disagree with the invoice
+**Tag:** frontend
+**ERROR:** the brief for card P3-109 said to show the invoice total "MDL, two decimals, through
+`formatMoney`", and `formatMoney` in `lib/data/format.ts` does not do two decimals: its formatter is
+`new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 0 })` and it also calls `Math.round` on the
+value first. Used as written it would have shown `1.200 MDL` for a stored `1199.50`, which is a number
+that appears nowhere else: not on the document, not in `public.invoices.total_mdl`, and not in the sum
+the customer pays. Worse for this screen specifically, the foot line adds the same values, so four
+rounded rows and one rounded sum can differ by up to two lei and the screen would contradict itself in
+two places a reader can see at once.
+**SOLUTION:** add `formatMoneyExact` beside it, with BOTH `minimumFractionDigits: 2` and
+`maximumFractionDigits: 2`, and leave `formatMoney` alone: whole lei is right for the value of a stock
+and the existing screens are correct as they are. The existing two-decimal formatter in that file,
+`NF2`, is not enough either, because it carries only the maximum and writes `100` rather than
+`100,00`. RULE: **a figure that is also written on a document is formatted exactly, never rounded for
+display. Before reusing a formatter named for what you want, read what it actually does: `formatMoney`
+is the value of a stock, not the value of an invoice.**
+
+### Two width classes on one element is a race whose winner is not the order you wrote them in
+**Tag:** frontend
+**ERROR:** the two date boxes on `/facturare` needed to be narrower than the grid column, so the first
+version passed `className="w-[150px] max-md:w-full"` to `DateField`. That component already puts
+`w-full` on the same `<input>`, from the shared `CONTROL` string, and both classes are plain utilities
+in the same CSS layer with the same specificity. Which one applies is then decided by the order the two
+rules sit in the built stylesheet, which is Tailwind's business and not the order the class names are
+written in. The field would have been 150px or full width depending on a detail nobody on the card can
+see, and locally it would have looked settled either way.
+**SOLUTION:** put the width on the `<label>` that wraps the field and leave the field at `w-full`.
+A variant against a base utility, like `max-md:w-full` over `w-[150px]`, is a different case and is
+safe: Tailwind emits variant utilities after unprefixed ones, which is what every `max-md:` override in
+`components/ui/phone.ts` already relies on. RULE: **never pass a class to a component that sets the
+same property on the same element. Wrap it, or give the component a prop. Two utilities of one property
+in one layer is a coin toss; a `max-md:` variant over a base utility is not.**
+
+### A second signIn on a live session asks for a login form that the proxy will not serve
+**Tag:** ci
+**ERROR:** the phone case of `tests/e2e/facturare-list.spec.ts` was first written like the cases in
+`tests/e2e/phone-lists.spec.ts`, which set the desktop viewport, call `signIn`, then switch to
+390x844. That file has no `beforeEach`. This one does, so the session already existed, and `signIn`
+starts with `page.goto("/autentificare")` followed by `expect(page.getByTestId("login-form"))`. On a
+signed-in session the proxy sends `/autentificare` to the dashboard, so the form never renders and the
+case would have failed on the login screen of a spec that is about a table on a phone.
+**SOLUTION:** the phone case only resizes. The sign-in stays in `beforeEach`, at the suite's own 1440
+width, which is what the desktop sign-in was for in the first place. RULE: **before copying a
+`signInOnPhone` helper out of another spec, check whether your own file already signs in. A helper that
+authenticates is not idempotent here, because the login route is guarded in the direction nobody
+expects: it refuses the people who are already in.**
+
+### A test series ending in a hyphen produces an invoice number with two of them
+**Tag:** ci
+**ERROR:** `invoiceNumberText` in `lib/data/facturare-types.ts` joins the series and the number with a
+hyphen of its own, so the real number reads `RC-2026-0001` from a prefix of `RC-` plus the year. A test
+that sets its own per run prefix and turns the year off, which is what `tests/e2e/facturare-data.spec.ts`
+does so that the series is exactly the prefix, gets the series `TEST-L1ab-` and therefore the number
+`TEST-L1ab--0001`. A case that searches the screen for the number it built from the prefix by hand then
+looks for a string the screen never wrote.
+**SOLUTION:** read the number back out of `public.invoices` and compose it with `invoiceNumberText`,
+the same function the screen uses, and write the per run prefix WITHOUT a trailing hyphen when the year
+is switched off. RULE: **never rebuild a displayed string in a test. Call the function the screen calls.
+The series prefix carries the separator for the year, not for the number.**
+
+### A filter row counted seven controls because the Romanian date box keeps a hidden native one
+**Tag:** ci
+**ERROR:** the one-row assertion on `/facturare` collected its controls with
+`getByTestId("facturi-filters").locator("input[data-testid], select[data-testid]")` and asserted five.
+CI run 36468928176 failed with `Expected: 5, Received: 7`, one failure out of 465, and **nothing was
+wrong with the screen**. `DateField` from card P3-49 renders TWO inputs per date box: the visible text
+box on `zz.ll.aaaa`, and an `<input type="date">` hidden with `display: none` carrying the same test id
+plus `-native`, which exists so the calendar button can call `showPicker()` on it. Two date boxes
+therefore contribute four inputs, and two selects plus one search box make seven.
+**SOLUTION:** name the five controls and measure each by its own test id, which also makes the failure
+message say which control left the row. The case then adds what the loose selector was accidentally
+proving nothing about: both `-native` inputs exist and both are hidden, which is the actual P3-49 rule.
+RULE: **a "count the controls in this row" selector counts what the components put there, not what the
+screen shows. Any spec that sweeps `input[data-testid]` on a screen with a date box will find one extra
+input per box. Name the controls, or filter on visibility.**
