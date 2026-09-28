@@ -7313,3 +7313,81 @@ assertion be written as a substring comparison against the card's computed `back
 than as a guess. RULE: **a probe is a statement about the stylesheet, never about the application,
 and it is labelled that way in the report. Its value is that it removes guessed constants from the
 first CI run, which on this repository costs between twenty and fifty minutes each.**
+
+### Supabase grants DELETE to authenticated at CREATE TABLE time, so a migration that only adds grants leaves it standing
+**Tag:** data
+**ERROR:** card P3-108's whole rule is that an invoice is never deleted, and the first draft of
+migration 0063 wrote `revoke all ... from anon` and then `grant select, insert, update to
+authenticated`, copying 0025. That leaves DELETE exactly where it was. `docs/migrations/APPLY-LOG.md`
+records what this project actually does, in 0009's own header: "Supabase grants table privileges to
+anon AND authenticated AT CREATE TABLE TIME, from project-level default privileges". So on the
+production project every one of the four new tables would have arrived with DELETE already granted to
+authenticated, while the file's own header claimed nothing could be deleted, and the bare postgres
+apply would NOT have caught it: a throwaway postgres has no such default privileges, so the
+assertion `not has_table_privilege('authenticated', ..., 'DELETE')` passes there for the wrong reason.
+**SOLUTION:** `revoke all on table X from authenticated` BEFORE the grant, then grant exactly the
+verbs the card needs. 0044 (`document_deletions`), 0046 (`sheet_options`) and 0059 (`client_notes`)
+all do this and 0025 does not, because 0025 granted delete anyway and so could not tell the
+difference. RULE: **a new table's grant block starts with a revoke from BOTH anon and authenticated.
+An additive grant list is a statement about what you added, never about what the table holds, and a
+privilege assertion that passes on a bare postgres says nothing about a Supabase project whose
+defaults differ.**
+
+### A revoke from anon does not close a new function, because PUBLIC holds EXECUTE
+**Tag:** data
+**ERROR:** 0063 creates `public.issue_invoice`, which is SECURITY DEFINER and is the only door to the
+invoice number counter. The first draft closed it with `revoke all on function ... from anon`, by
+analogy with the table lines above it. PostgreSQL grants EXECUTE on a newly created function to
+PUBLIC by default, and `anon` is a member of PUBLIC like every other role, so that revoke removes a
+grant anon did not need and leaves the one it was using. A signed-out visitor would have been able to
+call a definer function that writes the counter.
+**SOLUTION:** `revoke all on function ... from public` first, then from anon, then grant execute to
+authenticated. 0044 does exactly this on `record_document_deletion`. The assertion file proves it
+from the other side: with `set local role anon`, calling the function must raise
+`insufficient_privilege`. RULE: **a table is closed by revoking from the roles; a FUNCTION is closed
+by revoking from PUBLIC. They are different defaults and the same-looking line does not do the same
+job.**
+
+### A test id handed to Card is silently dropped
+**Tag:** frontend
+**ERROR:** `<Card className="mb-5" data-testid="settings-facturare">` typechecks under no error worth
+noticing and renders no attribute at all: `Card` in `components/ui/primitives.tsx:19` destructures
+exactly `className` and `children` and spreads nothing. The spec would have failed on a missing
+locator with no hint about why, and the obvious next guess is a rendering problem rather than a
+component signature.
+**SOLUTION:** wrap the card in the element that carries the id, which is what the other screens do,
+and write the reason beside it with the file and line. RULE: **before putting `data-testid` on a
+shared primitive, read whether that primitive spreads its rest props. `Card`, `CardHeader` and
+`Field` do not; `Input`, `Select`, `Textarea`, `Button`, `Th` and `Td` do.**
+
+### Every migration file needs a line in the pending register or the suite fails on the file, not on the SQL
+**Tag:** data
+**ERROR:** adding `supabase/migrations/0063_invoices.sql` without a line in the waiting register of
+`docs/migrations/APPLY-LOG.md` fails `tests/e2e/headers.spec.ts` with "migratia 0063_invoices.sql nu
+are nici intrare in APPLY-LOG.md, nici linie in registrul de asteptare". The failure arrives from the
+End to end block, about forty minutes into a run, and says nothing about the migration's contents.
+**SOLUTION:** add the line `0063_invoices.sql, card de aplicare P3-108`, in the register's exact
+backtick-and-comma format, in the same commit as the file.
+The format is machine read and the line must match it exactly. RULE: **a migration file and its
+register line are one commit. The invariant is that every file is in exactly one of the two places,
+applied or pending, and a file in neither fails the suite.**
+
+### A read-only assertion on a screen the role cannot open at all
+**Tag:** frontend
+**ERROR:** card P3-108 case 3 asserted that an OPERATOR opens `/setari`, sees the new Facturare block
+with its save button removed and its fields disabled, and cannot write the table. It failed in CI run
+36454267878 with `getByTestId('settings-facturare')` not found after the full 25 second timeout, one
+failure out of 459. Nothing was wrong with the screen. An operator never reaches `/setari` at all:
+`lib/routes.ts` declares `OWNER_ONLY_PREFIXES = ["/setari"]` and `proxy.ts` rewrites the request to the
+403 screen before the page renders. The premise was false, and the component's own file even carried
+the sentence that disproved it, one line above the code that was copied: "Ruta este deja pazita:
+proxy.ts o refuza pentru account_manager si arata 403."
+**SOLUTION:** assert the refusal where it actually happens. The case now asserts the 403 screen under
+`data-testid="forbidden"` with zero `settings-facturare` and zero `facturare-save` elements, plus the
+PostgREST PATCH with the operator's own token changing nothing, which is what
+`tests/e2e/sheet-options-admin.spec.ts` case 5 already does for the other block on the same screen.
+That is a STRONGER statement than the one it replaces: the operator is refused the whole screen and
+the table, not shown a screen with its buttons taken off. RULE: **before writing a case about what a
+role SEES on a screen, read `lib/routes.ts` and find out whether that role reaches the route. A
+role-based assertion inherits the route guard, and the cheapest place to learn that is the header
+comment of the page you are editing, not a forty minute CI run.**

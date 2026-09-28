@@ -17,15 +17,23 @@ import { listCategories, listProducts, listUnits } from "@/lib/data/products";
 import { getSessionUser } from "@/lib/supabase/server";
 import { CategorySettings } from "@/components/settings/CategorySettings";
 import { UnitSettings } from "@/components/settings/UnitSettings";
+// P3-108, goal G65 partea 1. Blocul de facturare: seria, cota TVA implicita si
+// datele firmei. Este singurul lucru care se vede pe ecran din acel card; lista de
+// facturi si ecranul de creare sunt partile 2 si 3.
+import { FacturareSettings } from "@/components/settings/FacturareSettings";
+import { getInvoiceSettings } from "@/lib/data/facturare-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [categories, units, products, user] = await Promise.all([
+  const [categories, units, products, user, invoiceSettings] = await Promise.all([
     listCategories(),
     listUnits(),
     listProducts(),
     getSessionUser(),
+    // Intoarce null cand migratia 0063 nu este inca aplicata, si blocul spune
+    // atunci romaneste ca facturarea nu este activa in loc sa cada ecranul.
+    getInvoiceSettings(),
   ]);
 
   const perUnit = units.map((u) => ({
@@ -60,6 +68,14 @@ export default async function SettingsPage() {
           }
         />
       </Card>
+
+      <FacturareSettings
+        settings={invoiceSettings}
+        canWrite={user?.role === "owner"}
+        // Anul se citeste pe SERVER si se trece in jos, ca exemplul de numar sa
+        // nu se schimbe intre randare si hidratare la trecerea dintre ani.
+        year={new Date().getUTCFullYear()}
+      />
 
       <UnitSettings rows={perUnit} />
     </>
