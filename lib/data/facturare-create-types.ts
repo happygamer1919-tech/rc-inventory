@@ -1,0 +1,103 @@
+// Facturare: forma ecranului de creare si de modificare. Cardul P3-110, goal G65
+// partea 3.
+//
+// FISIER FARA "server-only", ca celelalte trei fisiere de tipuri ale facturarii:
+// ecranul este un component de browser.
+//
+// UN SINGUR ECRAN PENTRU AMANDOUA CAILE, si de aceea un singur tip. /facturare/nou
+// cu parametrul `iesire` este calea completata din Iesire, /facturare/nou fara el
+// este cea aleasa de mana, iar /facturare/<id>/modifica este aceeasi forma
+// incarcata de pe o ciorna salvata. Doua ecrane care ar completa acelasi formular
+// altfel s-ar deosebi de la prima schimbare adusa unuia din ele.
+//
+// CANTITATILE SI PRETURILE SUNT SIRURI SI NU NUMERE, deliberat, exact cum sunt in
+// NewIssueLine din outbound-types.ts: un camp pe jumatate tastat nu este un numar,
+// iar `Number("")` este 0, adica exact valoarea care ar trece o verificare pe care
+// campul gol trebuie sa o pice. Curatarea se face intr-un singur loc, in
+// facturare-actions.ts, inainte de baza.
+
+import type { UnitCode } from "./units";
+
+/** O linie din formular. */
+export type InvoiceDraftLine = {
+  /**
+   * Id-ul randului din public.invoice_lines, sau sir gol pentru o linie care
+   * exista deocamdata numai pe ecran.
+   *
+   * ESTE SI CE DECIDE DACA LINIA SE POATE SCOATE. O linie cu sir gol nu a fost
+   * scrisa niciodata, deci a o scoate nu sterge nimic. O linie cu id a fost scrisa,
+   * iar migratia 0063 nu da nimanui drept de stergere pe public.invoice_lines si nu
+   * creeaza nicio politica de stergere: nu exista cod care sa o poata scoate, si
+   * ecranul spune asta romaneste in loc sa ofere un buton care ar esua.
+   */
+  id: string;
+  /** Sir gol pentru o linie care nu este un produs din catalog: un transport. */
+  productId: string;
+  /** Numele produsului, ca formularul sa scrie linia unei ciorne salvate fara sa
+   *  caute in catalog un produs care poate fi si dezactivat. */
+  productName: string;
+  description: string;
+  unit: UnitCode;
+  quantity: string;
+  unitPrice: string;
+};
+
+/** Ce arata formularul cand se deschide. */
+export type InvoiceEditorView = {
+  /** Id-ul facturii cand se modifica o ciorna salvata, null cand se creeaza una. */
+  invoiceId: string | null;
+  /** Iesirea din care se face factura, cand se face din una. */
+  fromIssue: { id: string; reference: string } | null;
+  clientId: string;
+  clientName: string;
+  projectId: string;
+  projectName: string;
+  /**
+   * Adevarat cand clientul si proiectul sunt CITITE si nu alese.
+   *
+   * Asa cere goalul pentru calea de pe o Iesire: "the client and the project read
+   * from the Iesire, not typed". Un proiect apartine unui singur client, deci a
+   * cere amandoua ar fi doua intrebari cu un singur raspuns si un mod de a gresi,
+   * exact judecata scrisa in components/outbound/OutboundScreen.tsx.
+   */
+  partiesLocked: boolean;
+  /** `YYYY-MM-DD`. Implicit ziua de azi in Chisinau. */
+  issueDate: string;
+  dueDate: string;
+  notes: string;
+  /** Procent, ca sir, din setarile pe care le-a stocat partea 1. */
+  vatRate: string;
+  lines: InvoiceDraftLine[];
+  /**
+   * Cum arata numarul pe care l-ar lua urmatoarea emitere din aceasta serie, pentru
+   * propozitia de confirmare de la Emite.
+   *
+   * ESTE O CITIRE, NU O ALOCARE. Numarul se aloca numai de public.issue_invoice,
+   * sub blocaj de rand, in tranzactia care emite. De aceea propozitia spune
+   * "urmatorul numar din serie" si nu promite numarul: doi operatori care apasa
+   * Emite in aceeasi secunda primesc doua numere consecutive, iar ecranul nu are
+   * voie sa pretinda altceva.
+   */
+  nextNumberText: string;
+};
+
+/** Din ce se alege, pe calea manuala. */
+export type InvoiceEditorOptions = {
+  clients: { id: string; name: string }[];
+  projects: { id: string; name: string; clientId: string; clientName: string }[];
+  products: { id: string; sku: string; name: string; unit: UnitCode }[];
+};
+
+/** Se poate face o factura din aceasta Iesire, si daca nu, de ce nu.
+ *
+ *  MOTIVUL ESTE INTOTDEAUNA PREZENT CAND RASPUNSUL ESTE NU. Un buton gri fara nicio
+ *  propozitie langa el este defectul pentru care au fost ridicate cardurile P3-61 si
+ *  P3-98, iar raportul de proiectare cere in terminii lui ca butonul sa spuna de ce
+ *  este dezactivat "rather than just being grey". */
+export type IssueInvoiceability = {
+  canInvoice: boolean;
+  /** Propozitia romaneasca de langa buton. Null exact cand se poate factura. */
+  reason: string | null;
+  /** Factura care exista deja pentru aceasta Iesire, cand exista una nefiind anulata. */
+  existingInvoice: { id: string; numberText: string | null } | null;
+};
