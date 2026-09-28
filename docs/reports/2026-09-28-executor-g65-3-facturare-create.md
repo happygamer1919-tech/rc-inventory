@@ -256,9 +256,45 @@ two applier proofs are expected to SKIP, because this branch adds no migration.
 
 ---
 
+## 6b. The first CI run went red on one case out of 474, and the fix is in the spec
+
+Run **36491851648** on head `fb80d91` concluded failure in 37m48s: **473 passed, 1 failed.**
+Every step before `End to end` passed, including `Refuse a code pull request whose board
+edit is missing`, `Refuse a migration that removes rows`, `Refuse application code that
+reads unapplied schema` and `Refuse a board timestamp from the future`. The two applier
+proofs were skipped, which is what a skip means on a branch that adds no migration. Eight
+of this card's nine cases passed, so the copy from an `Iesire`, `Emite` with its
+confirmation and the consecutive numbers, the database refusing an edit, paid with a date,
+cancelled with a kept reason and a kept number, the disabled button with its reason, both
+tabs, the manual path and both screens at 390x844 were all proved in that run.
+
+**The one failure was my own grep, and the product was right.** Case 5 proves "no delete
+path in the data layer" by reading `lib/data/facturare*` from inside the spec, and the
+first version matched the word `delete` on any line. It found
+`lib/data/facturare-actions.ts:151`, which is a **comment quoting the goal line it obeys**:
+*"Nothing is ever deleted", iar aceasta este linia care se respecta*. The same check would
+also have caught the Romanian sentence that file returns to the operator, `nimic nu se
+șterge aici`, which is the exact opposite of a delete path. Both sentences state the rule;
+the check punished them for saying it.
+
+The fix matches **the form of a call** instead, on every line including comments, because a
+commented-out path is a path somebody uncomments: `.delete(`, `.remove(`, `delete from` and
+`method: "DELETE"`, which is everything this layer has available. The case then puts those
+four patterns against four lines written in the spec that are what a real delete would look
+like, because **a grep in a test that matches nothing passes forever**. That self-test is
+the part the first version did not have, so the second version is stricter than the first
+rather than looser: the claim it makes is now about a delete path and it is proved able to
+find one.
+
+**No application code changed for this fix.** The second push carries
+`tests/e2e/facturare-create.spec.ts`, `docs/LEARNINGS.md`, this report and the board entry,
+and nothing else.
+
+---
+
 ## 7. Defects found while working the card
 
-Five, each appended to `docs/LEARNINGS.md` in this pull request as an ERROR and SOLUTION
+Six, each appended to `docs/LEARNINGS.md` in this pull request as an ERROR and SOLUTION
 pair:
 
 1. A line already written to an invoice cannot be removed, and the schema is the reason.
@@ -274,9 +310,12 @@ pair:
 5. A per-case fixture needs a per-case IDNO, because `clients.fiscal_code` is unique.
    Caught by reading migration 0013 before the first run rather than by a red one:
    `C7` and `C7b` both reduce to the digit `7`.
+6. A grep for the word `delete` in a test falls over the sentence that forbids deleting.
+   This is the one that cost a CI run; section 6b above is its whole story.
 
-Of the five, only number 4 was found by a check going red. One, two and five were found
-by reading the migrations before writing the code, which is where they are cheapest.
+Of the six, numbers 4 and 6 were found by a check going red, 6 in CI. One, two, three and
+five were found by reading the migrations and the PostgREST responses before writing the
+code, which is where they are cheapest.
 
 ### One finding recorded and NOT acted on
 

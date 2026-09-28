@@ -929,20 +929,61 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
     }
 
     // --- SI NICIO CALE IN STRATUL DE DATE ---------------------------------
+    //
     // Verificata si nu afirmata in proza: fisierele se citesc chiar de aici.
+    //
+    // CE SE CAUTA ESTE O CALE, NU UN CUVANT, SI ASTA ESTE O CORECTIE. Prima versiune cauta
+    // cuvantul englezesc pe orice linie si a picat rularea 36491851648 pe un singur caz din
+    // 474: lib/data/facturare-actions.ts CITEAZA linia goalului, "Nothing is ever deleted",
+    // ca sa spuna care regula se respecta acolo unde ea se aplica.
+    //
+    // UN CUVANT NU POATE FI SEMNALUL AICI, si nu doar din cauza acelui comentariu. Aceeasi
+    // functie intoarce operatorului propozitia romaneasca "nimic nu se șterge aici", care
+    // este un sir pe o linie care se executa si care este exact OPUSUL unei cai de stergere.
+    // O verificare pe cuvant ar cadea pe ambele propozitii care ENUNTA regula, si ar trece
+    // linistita peste un `.delete(` scris in romaneste ca `.delete(`.
+    //
+    // CE SE CAUTA DECI ESTE FORMA UNUI APEL CARE STERGE, pe orice linie, comentariu inclus,
+    // fiindca o cale scrisa si comentata este tot o cale pe care cineva o decomenteaza. Cele
+    // patru forme acopera tot ce acest strat are la dispozitie: metoda `delete` a lui
+    // supabase-js, `remove` a storage-ului, un DELETE in SQL brut, si un DELETE trimis de
+    // mana prin fetch. Jumatatea de baza de date a aceleiasi reguli este deja dovedita de
+    // partea 1: authenticated nu are drept de stergere pe niciuna din cele patru tabele, nu
+    // exista nicio politica de stergere, si sectiunea 11 a migratiei 0063 verifica amandoua
+    // la fiecare rulare, pe productie inclusiv.
     const { readdir, readFile } = await import("node:fs/promises");
     const names = (await readdir("lib/data")).filter((f) => f.startsWith("facturare"));
     expect(names.length, "exista fisiere lib/data/facturare*").toBeGreaterThan(3);
+
+    /** Forma unui apel care sterge, oriunde in fisier. */
+    const CALL = [/\.delete\s*\(/, /\.remove\s*\(/, /\bdelete\s+from\b/i, /method:\s*["'`]DELETE["'`]/i];
+
     const offenders: string[] = [];
     for (const name of names) {
       const body = await readFile(`lib/data/${name}`, "utf8");
       body.split("\n").forEach((line, index) => {
-        if (/delete/i.test(line) || /\.remove\(/.test(line)) {
+        if (CALL.some((re) => re.test(line))) {
           offenders.push(`lib/data/${name}:${index + 1}: ${line.trim()}`);
         }
       });
     }
     expect(offenders, "nicio cale de stergere in stratul de date al facturarii").toEqual([]);
+
+    // SI VERIFICAREA INSASI POATE CADEA, ceea ce este jumatatea pe care o uita oricine scrie
+    // un grep intr-un test: un tipar care nu se potriveste cu nimic trece pentru totdeauna.
+    // Cele patru forme sunt puse la incercare pe patru linii scrise aici, care sunt exact ce
+    // ar arata o cale de stergere in acest strat.
+    for (const sample of [
+      'await supabase.from("invoices").delete().eq("id", id);',
+      'await supabase.storage.from("rc-docs").remove([path]);',
+      "delete from public.invoices where id = $1",
+      'await fetch(url, { method: "DELETE" });',
+    ]) {
+      expect(
+        CALL.some((re) => re.test(sample)),
+        `tiparul nu ar prinde o cale reala de stergere: ${sample}`,
+      ).toBe(true);
+    }
   });
 
   // -------------------------------------------------------------------------

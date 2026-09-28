@@ -7541,3 +7541,22 @@ reduce to the digit `7`, so the second insert would have hit `clients_fiscal_cod
 **SOLUTION:** the IDNO carries the label verbatim and the run, `IDNO-C7b-<run>`, and is not truncated.
 RULE: **a fixture value that the database makes unique must be derived from the whole case label, never
 from a reduction of it. Two labels that differ only outside the characters you keep are the same value.**
+
+### A grep for the word "delete" in a test falls over the sentence that forbids deleting
+**Tag:** ci
+**ERROR:** case 5 of `tests/e2e/facturare-create.spec.ts` proves "no delete path in the data layer" by
+reading `lib/data/facturare*` from inside the spec. The first version matched `/delete/i` on any line.
+CI run 36491851648 failed on that one case out of 474, with everything else green, on
+`lib/data/facturare-actions.ts:151`, which is a COMMENT quoting the goal line it obeys: *"Nothing is
+ever deleted", iar aceasta este linia care se respecta*. The word check would also have caught the
+Romanian sentence the same file returns to the operator, `nimic nu se șterge aici`, which is a string on
+an executing line and is the exact OPPOSITE of a delete path. Both sentences state the rule; the check
+punished them for saying it.
+**SOLUTION:** match the FORM OF A CALL, on every line including comments, because a commented-out path
+is a path somebody uncomments: `.delete(`, `.remove(`, `delete from` and `method: "DELETE"`. Those four
+are everything this layer has available. Then test the patterns themselves against four lines written in
+the spec that are what a real delete would look like, because a grep in a test that matches nothing
+passes forever. The database half of the same rule is already proved by part 1, which grants no delete
+privilege and creates no delete policy and asserts both on every run. RULE: **a check written as a word
+search proves something about prose. If the property is "this code cannot do X", search for the SHAPE OF
+DOING X, and make the search prove it can still find one.**
