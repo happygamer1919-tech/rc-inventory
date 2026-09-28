@@ -52,6 +52,21 @@ function shiftDay(day: string, days: number): string {
   return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`;
 }
 
+/**
+ * Un numeric venit de la PostgREST, scris pentru un camp de formular.
+ *
+ * NU ESTE COSMETICA, ESTE UN NUMAR CITIT GRESIT. PostgREST trimite numeric(14,3) ca
+ * SIR cu toate zecimalele: cantitatea 3 soseste "3.000" si pretul 100 soseste "100.00".
+ * Pus asa intr-un camp, "3.000" se citeste in Romania ca trei mii, fiindca punctul este
+ * separatorul de mii. Number() apoi String() da "3", "2.5" si "100", care este acelasi
+ * numar scris scurt. Punctul zecimal rămâne punct, si trebuie: un <input type="number">
+ * cere separatorul cu punct, oricare ar fi limba paginii.
+ */
+function fieldNumber(value: unknown): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 /**
@@ -314,11 +329,11 @@ async function draftView(
         productName: one(l.products ?? null)?.name ?? "",
         description: l.description ?? "",
         unit: (isUnitCode(l.unit) ? l.unit : "pcs") as UnitCode,
-        quantity: String(l.quantity),
-        unitPrice: String(l.unit_price_mdl),
+        quantity: fieldNumber(l.quantity),
+        unitPrice: fieldNumber(l.unit_price_mdl),
       } satisfies InvoiceDraftLine,
       sortOrder: Number(l.sort_order ?? 0),
-      vatRate: String(l.vat_rate),
+      vatRate: fieldNumber(l.vat_rate),
     }))
     .sort((a, b) =>
       a.sortOrder === b.sortOrder ? a.line.id.localeCompare(b.line.id) : a.sortOrder - b.sortOrder,
@@ -417,8 +432,8 @@ async function issueView(
         productName: product?.name ?? "",
         description: "",
         unit: (isUnitCode(product?.unit) ? (product!.unit as UnitCode) : "pcs") as UnitCode,
-        quantity: String(l.quantity),
-        unitPrice: l.sale_price_mdl === null ? "" : String(l.sale_price_mdl),
+        quantity: fieldNumber(l.quantity),
+        unitPrice: l.sale_price_mdl === null ? "" : fieldNumber(l.sale_price_mdl),
       };
     })
     .sort((a, b) => a.productName.localeCompare(b.productName, "ro"));

@@ -448,7 +448,7 @@ export function FacturaEditor({
                         placeholder={
                           l.productId === "" ? "sau scrie denumirea, de exemplu Transport" : "denumire pe factură (opțional)"
                         }
-                        className={`mt-1.5 text-[13px] ${PHONE_CONTROL}`}
+                        className={`mt-1.5 ${PHONE_CONTROL}`}
                         data-testid={`editor-denumire-${index}`}
                       />
                     </Td>

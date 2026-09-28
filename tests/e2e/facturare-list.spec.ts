@@ -555,8 +555,24 @@ test.describe("P3-109: ecranul Facturi", () => {
     await open(page, { client: clientA }, 4);
     await expect(page.getByTestId("facturi-in-lucru")).toHaveText("Tipărirea și e-Factura urmează.");
 
-    // SI NICIUN BUTON DE FACTURA NOUA, nici dezactivat: crearea este partea 3.
-    await expect(page.getByText("Factură nouă")).toHaveCount(0);
+    // BUTONUL "Factură nouă" EXISTA SI DESCHIDE ECRANUL DE CREARE.
+    //
+    // ACEASTA ASERTIUNE ERA INVERSA PANA LA CARDUL P3-110, si a fost inlocuita cu opusul
+    // ei si nu stearsa. Citea:
+    //
+    //   // SI NICIUN BUTON DE FACTURA NOUA, nici dezactivat: crearea este partea 3.
+    //   await expect(page.getByText("Factură nouă")).toHaveCount(0);
+    //
+    // Era adevarata si era corecta cat timp ecranul pe care il deschide butonul nu exista:
+    // defaults-ul (b) al cardului P3-109 spune in terminii lui ca un buton principal gri pe
+    // un ecran nou il invata pe operator sa nu apese butoane. P3-110 a construit ecranul de
+    // creare, deci premisa s-a schimbat si nu verificarea s-a slabit: regula care ținea
+    // butonul afara este aceeasi care il aduce acum.
+    const nou = page.getByTestId("facturi-noua");
+    await expect(nou).toBeVisible();
+    await expect(nou).toBeEnabled();
+    await nou.click();
+    await expect(page).toHaveURL(/\/facturare\/nou$/, { timeout: 25_000 });
   });
 
   // -------------------------------------------------------------------------

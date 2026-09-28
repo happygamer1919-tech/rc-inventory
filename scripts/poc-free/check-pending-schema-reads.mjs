@@ -155,6 +155,27 @@ const TOLERATED_WORDS = {
   'components/layout/Sidebar.tsx': {
     description: '`item.description`, textul elementului de meniu din lib/nav.ts, pus in atributul title; fisierul nu citeste nicio tabela.',
   },
+  // P3-110, goal G65 partea 3. TREI FISIERE DE FACTURARE care poarta cuvantul
+  // `description` si NU ating nicio tabela de extragere. Coloana in asteptare cu acest
+  // nume este extraction_draft_lines.description, adaugata de 0053. Coloana pe care o
+  // descriu fisierele de mai jos este public.invoice_lines.description, creata de 0063
+  // in aceeasi instructiune `create table` cu tabela, deci ea nu este in lista de
+  // coloane pe care aceasta verificare o cauta: tabela ESTE cautata, prin `.from(...)`,
+  // si niciunul din cele trei fisiere nu o cheama.
+  //
+  // Citirile si scrierile reale ale facturarii stau in lib/data/facturare-create.ts,
+  // facturare-detail.ts, facturare-list.ts, facturare-settings.ts si
+  // facturare-actions.ts, si fiecare din ele importa si foloseste hasFacturareSettings,
+  // deci trece poarta pe care aceasta verificare o cere.
+  'lib/data/facturare-create-types.ts': {
+    description: 'campul `description` al unei linii de factura in formular, un tip fara nicio citire; fisierul nu cheama nicio tabela.',
+  },
+  'lib/data/facturare-detail-types.ts': {
+    description: 'campul `description` al unei linii de factura citite, un tip si o eticheta; fisierul nu cheama nicio tabela.',
+  },
+  'components/facturare/FacturaEditor.tsx': {
+    description: 'campul `description` al unei linii din formularul de factura, primit ca prop; componentul nu cheama nicio tabela.',
+  },
 };
 
 function pendingMigrations() {
