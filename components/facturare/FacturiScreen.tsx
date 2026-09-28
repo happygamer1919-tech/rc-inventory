@@ -15,12 +15,23 @@
 // exact numerele din care s-au facut randurile de deasupra ei, deci nu poate sa
 // spuna altceva decat ele.
 //
-// CE NU FACE ACEST CARD, si nu din uitare: nu creeaza nicio factura, nu emite
-// niciuna, nu anuleaza niciuna si nu tipareste niciuna. Nu exista nici buton
-// "Factură nouă", nici dezactivat: regula veche a acestui proiect este ca nimic
-// din ce nu se poate folosi nu apare pe ecran, si un buton principal gri pe un
-// ecran nou este exact lucrul care il invata pe operator sa nu apese butoane.
-// Crearea si ecranul unei facturi sunt partea 3 a aceluiasi goal.
+// CE NU FACEA CARDUL P3-109, si nu din uitare: nu crea nicio factura, nu emitea
+// niciuna, nu anula niciuna si nu tiparea niciuna. NU EXISTA NICI BUTON "Factură
+// nouă", NICI DEZACTIVAT: regula veche a acestui proiect este ca nimic din ce nu
+// se poate folosi nu apare pe ecran, si un buton principal gri pe un ecran nou
+// este exact lucrul care il invata pe operator sa nu apese butoane. Crearea si
+// ecranul unei facturi sunt partea 3 a aceluiasi goal.
+//
+// P3-110, PARTEA 3, A CONSTRUIT AMANDOUA, DECI CELE DOUA PROPOZITII DE MAI SUS SUNT
+// PASTRATE SI NU MAI DESCRIU ACEST ECRAN. Butonul "Factură nouă" exista acum, in
+// antetul ecranului, si deschide /facturare/nou; numarul fiecarui rand este o
+// legatura catre ecranul facturii, /facturare/<id>. Motivul pentru care nu existau
+// era exact acela: ecranele pe care le deschid nu existau. Regula care le ținea
+// afara este aceeasi care le aduce acum, si de aceea textul de deasupra rămâne
+// scris: cine citeste P3-109 sau acceptanta lui trebuie sa aterizeze pe o
+// explicatie si nu pe o propozitie care a dispărut.
+//
+// Ce rămâne neconstruit si se spune sub lista: tiparirea si e-Factura.
 //
 // FARA FILTRU DE LOCATIE, si raportul de proiectare spune de ce in terminii lui:
 // "un filtru care are mereu o singura opțiune este un control care il invata pe
@@ -67,6 +78,7 @@ import {
   PHONE_LINK,
   PHONE_ROW,
   PHONE_TABLE,
+  PHONE_TAP,
   PHONE_WIDE,
 } from "@/components/ui/phone";
 
@@ -163,6 +175,17 @@ export function FacturiScreen({
       <PageHeader
         title="Facturi"
         lead="Facturile emise clienților, pe perioada, pe stare și pe client."
+        actions={
+          // P3-110. CALEA MANUALA, si este cea mai mica din cele doua: calea care
+          // conteaza este "Creează factură" de pe o ieșire, unde cantitatile si
+          // preturile exista deja si nu se pot greși. Butonul acesta exista fiindca nu
+          // tot ce se factureaza este o eliberare de material.
+          <Link href="/facturare/nou" className="max-md:flex max-md:flex-col">
+            <Button className={PHONE_TAP} data-testid="facturi-noua">
+              Factură nouă
+            </Button>
+          </Link>
+        }
       />
 
       <Card className={PHONE_TABLE}>
@@ -296,12 +319,20 @@ export function FacturiScreen({
                   className={`hover:bg-rc-paper ${PHONE_ROW}`}
                 >
                   <Td data-label="Număr" className={PHONE_CELL}>
-                    <span
-                      className="font-semibold text-rc-black tabular-nums"
+                    {/* P3-110. NUMARUL ESTE ACUM O LEGATURA CATRE FACTURA. Cardul P3-109
+                        l-a lasat text fiindca ecranul facturii nu exista, si scria in
+                        defaults-ul lui (o) ca o legatura care nu duce nicaieri este
+                        aceeasi promisiune stricata ca un buton dezactivat. Ecranul
+                        exista, deci legatura exista. O ciornă nu are numar, iar textul
+                        care spune ce lipseste este tot legatura: ciorna este exact randul
+                        pe care operatorul vrea sa il deschida. */}
+                    <Link
+                      href={`/facturare/${row.id}`}
+                      className={`font-semibold text-rc-black tabular-nums hover:underline ${PHONE_LINK}`}
                       data-testid="facturi-numar"
                     >
                       {invoiceNumberText(row.series, row.number) ?? NO_NUMBER}
-                    </span>
+                    </Link>
                   </Td>
                   <Td data-label="Data" className={PHONE_CELL}>
                     {/* O ciorna nu are zi de emitere, deci ziua ei este ziua in

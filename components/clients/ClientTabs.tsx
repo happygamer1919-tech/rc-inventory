@@ -42,6 +42,8 @@ import type {
 import { ContactForm } from "./ContactForm";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import { InvoicesForRecord } from "@/components/facturare/InvoicesForRecord";
+import type { InvoiceListRow } from "@/lib/data/facturare-list-types";
 import {
   PHONE_ACTIONS_CELL,
   PHONE_CELL,
@@ -53,11 +55,21 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 
+// P3-110, goal G65 partea 3: A CINCEA FILA, Facturi.
+//
+// Linia goalului o cere in terminii ei: "A client and a project page each show their
+// invoices". Este o fila si nu un card sub banda fiindca este o suprafata de LISTA, cu
+// randuri care se deschid, exact judecata pe care o scrie P3-13c despre fila Comparație.
+//
+// LA CAPAT SI NU LA MIJLOC: banda a fost autorata completa aici si ordinea celor patru
+// nu se atinge, fiindca ordinea filelor este ceva ce operatorul a invatat deja. Facturi
+// vine ultima, ca ultima intrebare pusa despre un client.
 const TABS = [
   { id: "contacte", label: "Contacte" },
   { id: "proiecte", label: "Proiecte" },
   { id: "consum", label: "Consum materiale" },
   { id: "documente", label: "Documente" },
+  { id: "facturi", label: "Facturi" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -72,6 +84,7 @@ export function ClientTabs({
   projects,
   materials,
   documents,
+  invoices,
   canWrite,
 }: {
   clientId: string;
@@ -79,6 +92,8 @@ export function ClientTabs({
   projects: ClientProject[];
   materials: ClientMaterials;
   documents: DocumentsView | null;
+  /** P3-110. null cand migratia 0063 nu este inca aplicata. */
+  invoices: InvoiceListRow[] | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -339,6 +354,12 @@ export function ClientTabs({
             documents={documents}
             canWrite={canWrite}
           />
+        ) : null}
+
+        {active === "facturi" ? (
+          // P3-110. Coloana Proiect este aici, fiindca facturile unui client pot fi pe
+          // santiere diferite si atunci coloana chiar raspunde la ceva.
+          <InvoicesForRecord rows={invoices} showProject />
         ) : null}
       </div>
 

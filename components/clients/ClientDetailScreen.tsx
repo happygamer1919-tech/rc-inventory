@@ -31,6 +31,7 @@ import { StageMark } from "./StageMark";
 import { PHONE_ROW_LABEL, PHONE_ROW_PAIR, PHONE_ROW_VALUE } from "@/components/ui/phone";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import type { InvoiceListRow } from "@/lib/data/facturare-list-types";
 
 function Row({
   label,
@@ -62,6 +63,7 @@ export function ClientDetailScreen({
   projects,
   materials,
   documents,
+  invoices,
   timeline,
   canWrite,
   owners,
@@ -72,6 +74,8 @@ export function ClientDetailScreen({
   materials: ClientMaterials;
   /** P3-15. null cand migratia 0044 nu este inca aplicata. */
   documents: DocumentsView | null;
+  /** P3-110. Fila Facturi. null cand migratia 0063 nu este inca aplicata. */
+  invoices: InvoiceListRow[] | null;
   /** P3-90. Fila Note. null cand migratia 0059 nu este inca aplicata. */
   timeline: ClientTimelineEntry[] | null;
   canWrite: boolean;
@@ -284,6 +288,7 @@ export function ClientDetailScreen({
           projects={projects}
           materials={materials}
           documents={documents}
+          invoices={invoices}
           canWrite={canWrite}
         />
       </div>

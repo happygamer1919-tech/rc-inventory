@@ -7,6 +7,7 @@
 // marfa a ajuns fizic pe santier, si asta scrie ecranul.
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
@@ -14,6 +15,7 @@ import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
 import type { OutboundIssue } from "@/lib/data/outbound-types";
+import type { IssueInvoiceability } from "@/lib/data/facturare-create-types";
 import { loadOutboundDetail } from "@/lib/data/outbound-detail";
 import { shipOutboundIssue } from "@/lib/data/outbound-actions";
 import { Panel } from "./Panel";
@@ -35,10 +37,14 @@ export function OutboundPanel({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  // P3-110. Se poate factura aceasta iesire? Null pana la prima citire, si null si dupa
+  // ea cat timp migratia 0063 nu este aplicata: atunci blocul de facturare nu apare.
+  const [invoiceability, setInvoiceability] = React.useState<IssueInvoiceability | null>(null);
 
   const refresh = React.useCallback(async () => {
     const detail = await loadOutboundDetail(initialIssue.id);
     if (detail.issue) setIssue(detail.issue);
+    setInvoiceability(detail.invoiceability);
     setLoaded(true);
   }, [initialIssue.id]);
 
@@ -122,6 +128,68 @@ export function OutboundPanel({
           </Button>
         </div>
       </div>
+
+      {/* ------------------------------------------------------- facturarea -- */}
+      {/* P3-110, goal G65 partea 3. "Creează factură" chiar pe fisa iesirii, care este
+          momentul in care operatorul are bonul in fata.
+          BUTONUL DEZACTIVAT SPUNE DE CE, LANGA EL, SI IN ROMANA. Un buton gri fara nicio
+          propozitie este defectul pentru care au fost ridicate cardurile P3-61 si P3-98,
+          iar raportul de proiectare cere in terminii lui ca el sa spuna de ce, "rather
+          than just being grey". Cele doua motive sunt cele pe care le numeste raportul: o
+          poziție fără preț, sau o factura care exista deja.
+          BLOCUL NU APARE DELOC cat timp 0063 nu este aplicata, fiindca atunci nu exista
+          ecran de factura de deschis. */}
+      {invoiceability ? (
+        <div className="px-6 pt-4">
+          <div
+            className="rounded-[10px] border border-rc-line bg-rc-paper px-4 py-3 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch max-md:gap-3"
+            data-testid="issue-invoice-block"
+          >
+            <div className="max-md:min-w-0">
+              <p className="text-[12.5px] font-semibold">Facturare</p>
+              <p
+                className="text-[12px] text-rc-muted mt-0.5 max-md:[overflow-wrap:anywhere]"
+                data-testid="issue-invoice-reason"
+              >
+                {invoiceability.canInvoice
+                  ? "Pozițiile, cantitățile și prețurile trec pe factură, iar factura rămâne ciornă până la emitere."
+                  : invoiceability.reason}
+              </p>
+              {invoiceability.existingInvoice ? (
+                <Link
+                  href={`/facturare/${invoiceability.existingInvoice.id}`}
+                  className={`text-[12px] text-rc-orange-deep hover:underline ${PHONE_LINK}`}
+                  data-testid="issue-invoice-existing"
+                >
+                  {invoiceability.existingInvoice.numberText === null
+                    ? "Deschide ciorna de factură"
+                    : `Deschide factura ${invoiceability.existingInvoice.numberText}`}
+                </Link>
+              ) : null}
+            </div>
+            {invoiceability.canInvoice ? (
+              <Link
+                href={`/facturare/nou?iesire=${issue.id}`}
+                className="shrink-0 max-md:flex max-md:flex-col"
+              >
+                <Button size="sm" data-testid="issue-create-invoice">
+                  Creează factură
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                size="sm"
+                disabled
+                title={invoiceability.reason ?? undefined}
+                className="shrink-0"
+                data-testid="issue-create-invoice"
+              >
+                Creează factură
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {notice ? (
         <p

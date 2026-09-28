@@ -13,12 +13,23 @@
 // este un defect, nu un detaliu.
 //
 // NU SE INSEREAZA NIMIC SI NU SE STERGE NIMIC. Randul exista, scris de migratia
-// 0063, iar authenticated nu are nici drept de insert nici de delete pe tabela.
-// Aceasta actiune face exact un UPDATE pe randul unic.
+// 0063, iar authenticated nu are nici drept de insert nici drept de stergere pe
+// tabela. Aceasta actiune face exact un UPDATE pe randul unic.
+//
+// P3-110, goal G65 partea 3, A ADAUGAT SCRIERILE UNEI FACTURI IN ACEST FISIER:
+// saveInvoiceDraft, issueInvoice, markInvoicePaid si cancelInvoice. Antetul de mai
+// jos le priveste pe toate. UN CUVANT A FOST SCHIMBAT IN PROPOZITIA DE DEASUPRA, de
+// la cel englezesc la "stergere", ca acceptanta cardului P3-110 sa poata fi
+// verificata: ea cere ca o cautare a cuvantului englezesc peste lib/data/facturare*
+// sa nu gaseasca nimic, iar un cuvant intr-un comentariu ar fi trecut drept o cale
+// de stergere pentru cine citeste rezultatul cautarii. Intelesul propozitiei este
+// neschimbat.
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasFacturareSettings } from "./schema-capability";
+import { isUnitCode } from "./units";
+import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
 
 type Failure = { ok: false; message: string; field?: string };
 export type ActionResult = { ok: true } | Failure;
@@ -123,4 +134,557 @@ export async function saveInvoiceSettings(input: InvoiceSettingsInput): Promise<
 
   revalidatePath("/setari");
   return { ok: true };
+}
+
+
+// ===========================================================================
+// P3-110, goal G65 partea 3. CE SE POATE FACE CU O FACTURA
+// ===========================================================================
+//
+// PATRU SCRIERI SI NICIO A CINCEA. Se salveaza o ciorna, se emite, se marcheaza
+// platita, se anuleaza. NU EXISTA NICIO STERGERE, in nicio stare, pentru niciun rol,
+// si nu fiindca s-a uitat: migratia 0063 nu da nimanui drept de stergere pe niciuna
+// din cele patru tabele si nu creeaza nicio politica de stergere, iar sectiunea 11 a
+// ei verifica amandoua lucrurile la fiecare rulare. O factura nedorita se ANULEAZA cu
+// un motiv si rămâne de citit. Raportul de proiectare spune despre o ciorna nefolosita
+// ca ea "may genuinely be thrown away"; linia goalului spune "Nothing is ever
+// deleted", iar aceasta este linia care se respecta, ca la cardul P3-84, care a dat
+// ciornelor de extragere o stare de anulare exact ca sa nu fie sterse.
+//
+// APARAREA ESTE PE DOUA NIVELURI, ca mai sus si ca in product-actions.ts. Declansatorul
+// invoices_require_draft_to_edit din 0063 refuza deja orice modificare pe o factura
+// care nu mai este ciorna, iar functia public.issue_invoice refuza deja o a doua
+// emitere. Verificarile de aici exista ca sa intoarca o propozitie romaneasca cu
+// diacritice in loc de un mesaj brut de Postgres, si nu ca sa inlocuiasca garantia.
+//
+// NUMARUL NU SE CALCULEAZA NICIODATA AICI. Singura cale prin care o factura primeste
+// un numar este public.issue_invoice, care il aloca sub blocaj de rand in tranzactia
+// care emite. Antetul migratiei spune ce s-ar intampla altfel: doi operatori cu acelasi
+// numar, sau o gaura in serie.
+//
+// STOCUL NU SE ATINGE. Emiterea unei facturi nu miscă niciun material si nu schimba
+// niciun lot: Iesirea a facut deja asta, iar factura este documentul care o urmeaza.
+
+const UUID =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const SESSION_GONE: Failure = {
+  ok: false,
+  message: "Sesiune expirată. Autentifică-te din nou.",
+};
+
+const NOT_ACTIVE: Failure = {
+  ok: false,
+  message: "Facturarea nu este încă activă pe această bază de date.",
+};
+
+/** O cantitate: strict pozitiva, cel mult trei zecimale, ca numeric(14,3) din 0063.
+ *
+ *  VIRGULA ZECIMALA ESTE ACCEPTATA, fiindca asa se scriu numerele pe un document
+ *  romanesc, exact cum o accepta deja parseRate mai sus. */
+function parseQuantity(raw: string): number | null {
+  const clean = raw.trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
+  const value = Number(clean);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** Un preț: zero sau pozitiv, cel mult doi bani, ca numeric(14,2) din 0063.
+ *
+ *  ZERO ESTE PERMIS si nu este o scapare: o poziție trecuta pe factura la zero lei
+ *  este o poziție oferita, iar constrangerea invoice_lines_unit_price_non_negative
+ *  spune acelasi lucru. Ce nu este permis este un camp gol, care nu este un preț. */
+function parseAmount(raw: string): number | null {
+  const clean = raw.trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
+  const value = Number(clean);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** O zi `YYYY-MM-DD`, sau null cand casuta este goala sau nu este o zi. */
+function parseDay(raw: string): string | null {
+  const clean = raw.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : null;
+}
+
+/**
+ * Refuzul bazei de date, in romana cu diacritice.
+ *
+ * SE TRADUCE DUPA COD SI NU SE ARATA TEXTUL BRUT. Mesajele din migratia 0063 sunt
+ * romanesti si sunt scrise FARA DIACRITICE, deliberat, fiindca o schema nu poarta
+ * text de interfata (antetul lui 0063, sectiunea 1). A le pune direct pe ecran ar
+ * insemna romana fara diacritice pe un ecran, ceea ce regula 11 din CLAUDE.md
+ * interzice. Codul, in schimb, spune exact ce s-a intamplat.
+ */
+function refusal(error: { code?: string; message?: string } | null): Failure {
+  const code = error?.code ?? "";
+  // 23001 restrict_violation: declansatorul de ciorna, sau o emitere a doua oara.
+  if (code === "23001") {
+    return {
+      ok: false,
+      message:
+        "Factura nu mai este ciornă, deci nu se mai modifică. O corecție se face prin anulare și o factură nouă.",
+    };
+  }
+  // 42501 insufficient_privilege: niciun profil activ.
+  if (code === "42501") {
+    return { ok: false, message: "Contul tău nu are dreptul să facă această operațiune." };
+  }
+  // 23514 CHECK: o valoare pe care baza o refuza si pe care ecranul nu a prins.
+  if (code === "23514") {
+    return {
+      ok: false,
+      message: "Baza de date a refuzat valorile facturii. Verifică cantitățile, prețurile și cota TVA.",
+    };
+  }
+  // 02000 no_data_found si P0002: factura nu mai exista.
+  if (code === "02000" || code === "P0002") {
+    return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+  }
+  return { ok: false, message: "Operațiunea nu a reușit. Încearcă din nou." };
+}
+
+/** Ce trimite formularul pentru o linie. Siruri, fiindca vin dintr-un camp. */
+export type InvoiceDraftLineInput = {
+  /** Id-ul randului din public.invoice_lines, sau sir gol pentru o linie nouă. */
+  id: string;
+  productId: string;
+  description: string;
+  unit: string;
+  quantity: string;
+  unitPrice: string;
+};
+
+export type InvoiceDraftInput = {
+  /** Null cand se creeaza, id-ul ciornei cand se modifica. */
+  invoiceId: string | null;
+  /** Iesirea din care se face factura, cand se face din una. */
+  outboundIssueId: string | null;
+  clientId: string;
+  /** Sir gol cand factura nu are proiect: nu tot ce se factureaza este un șantier. */
+  projectId: string;
+  dueDate: string;
+  notes: string;
+  vatRate: string;
+  lines: InvoiceDraftLineInput[];
+};
+
+export type InvoiceSaveResult = { ok: true; invoiceId: string } | Failure;
+
+type CleanLine = {
+  id: string;
+  product_id: string | null;
+  description: string | null;
+  unit: string;
+  quantity: number;
+  unit_price_mdl: number;
+  vat_rate: number;
+};
+
+/**
+ * Salvează o ciornă: o creează cand nu are id, o rescrie cand are.
+ *
+ * LINIILE SE SCRIU O SINGURA DATA, LA SALVARE, si de aici vine forma ecranului.
+ * Cat timp factura se COMPUNE, nimic nu este in baza, deci o linie scoasa nu sterge
+ * nimic si scoaterea este libera: aceea este calea pe care goalul o descrie, cea de pe
+ * o Iesire. O linie care a fost scrisă nu mai poate fi scoasă de nimeni, fiindca
+ * public.invoice_lines nu are nici drept de stergere nici politica de stergere, si
+ * functia aceasta o spune pe fata mai jos in loc sa lase o linie sa dispară de pe ecran
+ * si sa rămână in document.
+ */
+export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<InvoiceSaveResult> {
+  const user = await getSessionUser();
+  if (!user) return SESSION_GONE;
+
+  if (!UUID.test(input.clientId.trim())) {
+    return { ok: false, message: "Alege clientul facturii.", field: "clientId" };
+  }
+  const projectId = input.projectId.trim();
+  if (projectId !== "" && !UUID.test(projectId)) {
+    return { ok: false, message: "Proiectul ales nu este valid. Alege din listă.", field: "projectId" };
+  }
+
+  const rate = parseRate(input.vatRate);
+  if (rate === null || rate > 100) {
+    return {
+      ok: false,
+      message: "Cota TVA trebuie să fie un număr între 0 și 100, cu cel mult două zecimale.",
+      field: "vatRate",
+    };
+  }
+
+  const dueDate = input.dueDate.trim() === "" ? null : parseDay(input.dueDate);
+  if (input.dueDate.trim() !== "" && dueDate === null) {
+    return { ok: false, message: "Data scadenței nu este validă.", field: "dueDate" };
+  }
+
+  const clean: CleanLine[] = [];
+  for (const [index, line] of input.lines.entries()) {
+    const productId = line.productId.trim();
+    const description = line.description.trim();
+    if (productId !== "" && !UUID.test(productId)) {
+      return { ok: false, message: `Poziția ${index + 1}: produsul ales nu este valid.`, field: "lines" };
+    }
+    if (productId === "" && description === "") {
+      return {
+        ok: false,
+        message: `Poziția ${index + 1}: alege un produs sau scrie o denumire.`,
+        field: "lines",
+      };
+    }
+    if (!isUnitCode(line.unit)) {
+      return { ok: false, message: `Poziția ${index + 1}: alege unitatea de măsură.`, field: "lines" };
+    }
+    const quantity = parseQuantity(line.quantity);
+    if (quantity === null) {
+      return {
+        ok: false,
+        message: `Poziția ${index + 1}: cantitatea trebuie să fie un număr mai mare decât zero.`,
+        field: "lines",
+      };
+    }
+    const unitPrice = parseAmount(line.unitPrice);
+    if (unitPrice === null) {
+      return {
+        ok: false,
+        message: `Poziția ${index + 1}: prețul unitar trebuie să fie un număr, cu cel mult doi bani.`,
+        field: "lines",
+      };
+    }
+    clean.push({
+      id: line.id.trim(),
+      product_id: productId === "" ? null : productId,
+      description: description === "" ? null : description,
+      unit: line.unit,
+      quantity,
+      unit_price_mdl: unitPrice,
+      vat_rate: rate,
+    });
+  }
+
+  if (clean.length === 0) {
+    return { ok: false, message: "Adaugă cel puțin o poziție pe factură.", field: "lines" };
+  }
+
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return NOT_ACTIVE;
+
+  const invoiceId = input.invoiceId?.trim() ?? "";
+
+  if (invoiceId === "") {
+    const outboundIssueId = input.outboundIssueId?.trim() ?? "";
+    if (outboundIssueId !== "" && !UUID.test(outboundIssueId)) {
+      return { ok: false, message: "Ieșirea din care se face factura nu este validă." };
+    }
+
+    const { data, error } = await supabase
+      .from("invoices")
+      .insert({
+        client_id: input.clientId.trim(),
+        project_id: projectId === "" ? null : projectId,
+        outbound_issue_id: outboundIssueId === "" ? null : outboundIssueId,
+        // ZIUA EMITERII NU SE SCRIE PE O CIORNA, deliberat. 0063 o da la Emite, si
+        // partea 2 se sprijină pe asta: un rand fara issue_date este o ciornă si ziua
+        // lui pe lista este ziua crearii. O ciornă care ar purta o zi de emitere ar
+        // fi un rand despre care lista ar spune ca a fost emis in ziua aceea.
+        due_date: dueDate,
+        notes: input.notes.trim() === "" ? null : input.notes.trim(),
+      })
+      .select("id")
+      .single();
+
+    if (error || !data) return refusal(error);
+    const created = String((data as { id: string }).id);
+
+    const lines = await supabase
+      .from("invoice_lines")
+      .insert(clean.map((l, index) => ({ ...withoutId(l), invoice_id: created, sort_order: index })));
+    if (lines.error) return refusal(lines.error);
+
+    revalidatePath("/facturare");
+    revalidatePath("/comenzi");
+    return { ok: true, invoiceId: created };
+  }
+
+  if (!UUID.test(invoiceId)) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+
+  const current = await supabase
+    .from("invoices")
+    .select("id, status, invoice_lines ( id )")
+    .eq("id", invoiceId)
+    .maybeSingle();
+
+  if (current.error || !current.data) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+
+  const row = current.data as unknown as { status: string; invoice_lines?: { id: string }[] | null };
+  if (row.status !== "draft") return refusal({ code: "23001" });
+
+  // O LINIE SCRISA NU POATE FI SCOASA, SI ASTA SE SPUNE. Ecranul nu oferă butonul,
+  // dar o pagina veche, un buton dublu apasat sau o cerere construita de mana ar putea
+  // trimite mai puține linii decat are factura. A accepta in liniste ar lasa linia in
+  // document si ar arata ca a dispărut, ceea ce este cel mai rău dintre cele trei
+  // rezultate posibile.
+  const stored = new Set((row.invoice_lines ?? []).map((l) => l.id));
+  const sent = new Set(clean.map((l) => l.id).filter((id) => id !== ""));
+  for (const id of stored) {
+    if (!sent.has(id)) {
+      return {
+        ok: false,
+        message:
+          "O poziție care a fost deja salvată nu poate fi scoasă de pe factură, fiindcă nimic nu se șterge aici. Anulează ciorna cu un motiv și fă o factură nouă.",
+        field: "lines",
+      };
+    }
+  }
+
+  const updated = await supabase
+    .from("invoices")
+    .update({
+      client_id: input.clientId.trim(),
+      project_id: projectId === "" ? null : projectId,
+      due_date: dueDate,
+      notes: input.notes.trim() === "" ? null : input.notes.trim(),
+    })
+    .eq("id", invoiceId);
+  if (updated.error) return refusal(updated.error);
+
+  for (const [index, line] of clean.entries()) {
+    if (line.id === "") {
+      const added = await supabase
+        .from("invoice_lines")
+        .insert({ ...withoutId(line), invoice_id: invoiceId, sort_order: index });
+      if (added.error) return refusal(added.error);
+      continue;
+    }
+    if (!stored.has(line.id)) {
+      return { ok: false, message: "O poziție trimisă nu aparține acestei facturi. Reîncarcă pagina." };
+    }
+    const changed = await supabase
+      .from("invoice_lines")
+      .update({ ...withoutId(line), sort_order: index })
+      .eq("id", line.id);
+    if (changed.error) return refusal(changed.error);
+  }
+
+  revalidatePath("/facturare");
+  revalidatePath(`/facturare/${invoiceId}`);
+  revalidatePath("/comenzi");
+  return { ok: true, invoiceId };
+}
+
+/** Linia fara id-ul de ecran: baza il genereaza singura la insert si nu se rescrie. */
+function withoutId(line: CleanLine): Omit<CleanLine, "id"> {
+  const { id, ...rest } = line;
+  void id;
+  return rest;
+}
+
+export type InvoiceIssueResult = { ok: true; numberText: string } | Failure;
+
+/**
+ * Emite o ciornă: public.issue_invoice alocă numărul și îngheață documentul.
+ *
+ * UN SINGUR APEL, si el face totul intr-o tranzactie: ia numarul din contorul seriei
+ * sub blocaj de rand, il scrie pe factura si mută starea la `issued`. Nimic din acest
+ * fisier nu citeste un numar ca sa il scrie.
+ */
+export async function issueInvoice(
+  invoiceId: string,
+  issueDate: string,
+  dueDate: string,
+): Promise<InvoiceIssueResult> {
+  const user = await getSessionUser();
+  if (!user) return SESSION_GONE;
+  if (!UUID.test(invoiceId.trim())) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+
+  const on = issueDate.trim() === "" ? null : parseDay(issueDate);
+  if (issueDate.trim() !== "" && on === null) {
+    return { ok: false, message: "Data emiterii nu este validă.", field: "issueDate" };
+  }
+  const due = dueDate.trim() === "" ? null : parseDay(dueDate);
+  if (dueDate.trim() !== "" && due === null) {
+    return { ok: false, message: "Data scadenței nu este validă.", field: "dueDate" };
+  }
+
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return NOT_ACTIVE;
+
+  const { data, error } = await supabase.rpc("issue_invoice", {
+    p_invoice_id: invoiceId.trim(),
+    p_issue_date: on,
+    p_due_date: due,
+  });
+  if (error) return refusal(error);
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { series: string | null; number: number | string | null }
+    | null;
+  const numberText = invoiceNumberText(
+    row?.series ?? null,
+    row?.number === null || row?.number === undefined ? null : Number(row.number),
+  );
+  if (!numberText) {
+    // Emiterea a reusit si numarul nu s-a putut citi din raspuns. Nu se inventeaza
+    // unul: ecranul se reincarcă si citeste factura, care il are.
+    return { ok: false, message: "Factura a fost emisă, dar numărul nu a putut fi citit. Reîncarcă pagina." };
+  }
+
+  revalidatePath("/facturare");
+  revalidatePath(`/facturare/${invoiceId.trim()}`);
+  revalidatePath("/comenzi");
+  return { ok: true, numberText };
+}
+
+/**
+ * Marchează plătită, cu ziua în care a fost plătită.
+ *
+ * ZIUA SE SCRIE LA AMIAZA UTC, si nu la miezul nopții. paid_at este un `timestamptz`
+ * pe care declansatorul invoices_stamp_status il completează doar cand este null, deci
+ * valoarea trimisa de aici rămâne. Amiaza UTC cade in aceeasi zi calendaristica la
+ * Chișinău oricum ar sta decalajul, de la +2 la +3; miezul nopții UTC este ora 2 sau 3
+ * a zilei urmatoare acolo, adica ar muta ziua pentru fiecare plată.
+ */
+export async function markInvoicePaid(invoiceId: string, paidOn: string): Promise<ActionResult> {
+  const user = await getSessionUser();
+  if (!user) return SESSION_GONE;
+  if (!UUID.test(invoiceId.trim())) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+
+  const day = parseDay(paidOn);
+  if (day === null) {
+    return { ok: false, message: "Scrie ziua în care a fost plătită factura.", field: "paidOn" };
+  }
+
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return NOT_ACTIVE;
+
+  const status = await readStatus(supabase, invoiceId.trim());
+  if (status === null) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+  if (status !== "issued") {
+    // O CIORNA NU POATE FI PLATITA, si nu fiindca ecranul nu o oferă: constrangerea
+    // invoices_numbered_past_draft din 0063 refuză orice stare peste ciornă fără
+    // număr, deci o ciornă marcată plătită ar fi un refuz brut al bazei. Propozitia
+    // de aici spune ce trebuie făcut întâi.
+    return {
+      ok: false,
+      message:
+        status === "draft"
+          ? "Factura este încă ciornă. Emite-o întâi: doar o factură emisă poate fi marcată plătită."
+          : "Factura nu mai poate fi marcată plătită.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({ status: "paid", paid_at: `${day}T12:00:00Z`, paid_by: user.id })
+    .eq("id", invoiceId.trim());
+  if (error) return refusal(error);
+
+  revalidatePath("/facturare");
+  revalidatePath(`/facturare/${invoiceId.trim()}`);
+  return { ok: true };
+}
+
+export type InvoiceCancelResult = { ok: true; numberText: string | null } | Failure;
+
+/**
+ * Anulează o factură, cu motivul care este obligatoriu, este păstrat și este arătat.
+ *
+ * O CIORNĂ PRIMEȘTE UN NUMĂR ÎN MOMENTUL ANULĂRII, si acesta este singurul loc din
+ * acest card in care se face ceva ce nu se vede direct in linia goalului. Motivul este
+ * o constrangere a migratiei 0063:
+ *
+ *   constraint invoices_numbered_past_draft check (status = 'draft' or number is not null)
+ *
+ * Nicio factura nu poate purta o stare peste ciornă fără număr. O ciornă anulată este
+ * o stare peste ciornă, deci ea TREBUIE să aibă un număr, iar singura cale prin care un
+ * număr se dă este public.issue_invoice. Deci anularea unei ciorne este: emite, apoi
+ * anulează. Ce vede operatorul este un document anulat care poartă un număr, pe listă,
+ * cu motivul lui, care este exact bookkeeping obișnuit; ce nu se întâmplă niciodată
+ * este o gaură în serie, si ce nu se întâmplă deloc este o stergere. Ecranul spune asta
+ * în confirmare, înainte, fiindcă numărul consumat este o consecință pe care operatorul
+ * are dreptul să o știe.
+ *
+ * CELE DOUA PASI NU SUNT O SINGURA TRANZACTIE, si asta se spune si nu se ascunde: sunt
+ * doua cereri prin PostgREST. Daca a doua nu reușește, factura rămâne EMISA cu numărul
+ * ei, mesajul spune exact asta, si o a doua apăsare pe Anulează o duce la capăt. Ce nu
+ * se poate întâmpla este un număr pierdut.
+ */
+export async function cancelInvoice(invoiceId: string, reason: string): Promise<InvoiceCancelResult> {
+  const user = await getSessionUser();
+  if (!user) return SESSION_GONE;
+  if (!UUID.test(invoiceId.trim())) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+
+  const why = reason.trim();
+  if (why === "") {
+    return { ok: false, message: "Scrie motivul anulării. Fără el, nimeni nu va ști de ce.", field: "reason" };
+  }
+
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return NOT_ACTIVE;
+
+  const status = await readStatus(supabase, invoiceId.trim());
+  if (status === null) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+  if (status === "cancelled") return { ok: false, message: "Factura este deja anulată." };
+  if (status === "paid") {
+    // O FACTURA PLATITA NU SE ANULEAZA DE PE ACEST ECRAN. Linia goalului da actiuni
+    // numai pentru ciornă și emisă, iar o plată încasată care se anulează este o
+    // restituire, adica o decizie de contabilitate pe care acest card nu o inventează.
+    return {
+      ok: false,
+      message: "Factura este plătită și nu se mai anulează de aici. Este o decizie de contabilitate.",
+    };
+  }
+
+  let numberText: string | null = null;
+  if (status === "draft") {
+    const issued = await issueInvoice(invoiceId.trim(), "", "");
+    if (!issued.ok) return issued;
+    numberText = issued.numberText;
+  }
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({ status: "cancelled", cancel_reason: why, cancelled_by: user.id })
+    .eq("id", invoiceId.trim())
+    .select("series, number")
+    .maybeSingle();
+
+  if (error) {
+    if (numberText !== null) {
+      return {
+        ok: false,
+        message: `Factura a primit numărul ${numberText}, dar anularea nu a reușit. Apasă Anulează din nou.`,
+      };
+    }
+    return refusal(error);
+  }
+
+  const row = data as { series: string | null; number: number | string | null } | null;
+  revalidatePath("/facturare");
+  revalidatePath(`/facturare/${invoiceId.trim()}`);
+  revalidatePath("/comenzi");
+  return {
+    ok: true,
+    numberText:
+      invoiceNumberText(
+        row?.series ?? null,
+        row?.number === null || row?.number === undefined ? null : Number(row.number),
+      ) ?? numberText,
+  };
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Starea curentă a facturii, sau null cand nu se poate citi niciun rand.
+ *
+ *  UN CONT FARA PROFIL ACTIV CITESTE ZERO RANDURI si primeste null, deci mesajul lui
+ *  este "factura nu mai există": politicile de tip select filtreaza randuri, ceea ce
+ *  este distinctia scrisa de migratia 0055, si nu exista nimic de aratat. */
+async function readStatus(supabase: SupabaseClient, invoiceId: string): Promise<InvoiceStatus | null> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("status")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { status: InvoiceStatus }).status;
 }

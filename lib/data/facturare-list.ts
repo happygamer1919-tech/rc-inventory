@@ -164,6 +164,50 @@ export async function listInvoices(query: InvoiceListQuery): Promise<InvoiceList
   };
 }
 
+// P3-110, goal G65 partea 3. FACTURILE UNUI CLIENT SAU ALE UNUI PROIECT, fara nicio
+// perioada, pentru fila de pe fisa lui.
+//
+// AICI SI NU INTR-UN FISIER NOU, si nu este comoditate: acesta este acelasi rand, cu
+// acelasi `select` si aceeasi transformare. Un al doilea fisier ar fi a doua forma a
+// aceluiasi rand si primul loc in care cele doua ar incepe sa se deosebeasca. Ce nu
+// se refoloseste este FILTRUL: aici nu exista perioada si nici cautare, fiindca
+// intrebarea de pe fisa unui client este "ce i-am facturat", nu "ce am facturat luna
+// asta", iar un filtru de luna pe o fila ar ascunde exact istoricul pe care omul a
+// deschis fisa sa il vada.
+//
+// FARA PAGINARE, din acelasi motiv scris in antet pentru lista: cand o fisa nu va mai
+// incapea, paginarea este un card si nu o taiere tacuta a randurilor.
+
+/**
+ * Facturile unei inregistrari, cele mai noi intai.
+ *
+ * Intoarce null cand migratia 0063 nu este aplicata, exact ca listInvoices, iar fila
+ * deseneaza atunci linia romaneasca in loc sa cada. Un cont fara profil activ citeste
+ * o lista GOALA si nu null (migratia 0055).
+ */
+export async function listInvoicesForRecord(
+  owner: { kind: "client"; id: string } | { kind: "project"; id: string },
+): Promise<InvoiceListRow[] | null> {
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return null;
+
+  const column = owner.kind === "client" ? "client_id" : "project_id";
+  const { data, error } = await supabase
+    .from("invoices")
+    .select(SELECT_INVOICE)
+    .eq(column, owner.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return null;
+
+  return ((data ?? []) as unknown as InvoiceRow[])
+    .map(toRow)
+    // Cele mai noi intai, pe ziua randului, exact ca pe lista. La aceeasi zi decide
+    // ordinea in care baza le-a dat, care este momentul crearii, deci sortarea este
+    // stabila si nu se rastoarna.
+    .sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
+}
+
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 /**
