@@ -29,6 +29,8 @@ import { DevizPanel } from "./DevizPanel";
 import { DevizComparisonPanel } from "./DevizComparisonPanel";
 import { DocumentsPanel } from "@/components/documents/DocumentsPanel";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import { InvoicesForRecord } from "@/components/facturare/InvoicesForRecord";
+import type { InvoiceListRow } from "@/lib/data/facturare-list-types";
 import {
   PHONE_CELL,
   PHONE_LINK,
@@ -48,6 +50,12 @@ const TABS = [
   // lista sa pagineze in loc sa fie varsata sub alt ecran.
   { id: "comparatie", label: "Comparație" },
   { id: "documente", label: "Documente" },
+  // P3-110, goal G65 partea 3. Linia goalului o cere in terminii ei: "A client and a
+  // project page each show their invoices". Fila proprie si nu o sectiune pe alta fila,
+  // pentru acelasi motiv scris mai sus despre Comparație: este o suprafata de lista, cu
+  // randuri care se deschid. Inaintea Istoricului, fiindca istoricul este si pe fisa
+  // clientului ultimul lucru din banda.
+  { id: "facturi", label: "Facturi" },
   { id: "istoric", label: "Istoric" },
 ] as const;
 
@@ -74,6 +82,7 @@ export function ProjectTabs({
   comparison,
   products,
   documents,
+  invoices,
   canWrite,
 }: {
   projectId: string;
@@ -84,6 +93,8 @@ export function ProjectTabs({
   comparison: DevizComparison;
   products: CatalogProduct[];
   documents: DocumentsView | null;
+  /** P3-110. Fila Facturi. null cand migratia 0063 nu este inca aplicata. */
+  invoices: InvoiceListRow[] | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -407,6 +418,13 @@ export function ProjectTabs({
             documents={documents}
             canWrite={canWrite}
           />
+        ) : null}
+
+        {active === "facturi" ? (
+          // P3-110. FARA COLOANA Proiect aici: ea ar purta acelasi nume pe fiecare rand,
+          // adica o coloana care nu raspunde la nimic. Pe fisa clientului ea exista,
+          // fiindca acolo variaza.
+          <InvoicesForRecord rows={invoices} showProject={false} />
         ) : null}
 
         {active === "istoric" ? (

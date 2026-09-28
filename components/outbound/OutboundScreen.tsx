@@ -67,6 +67,16 @@ type Created = {
   clientName: string;
   projectName: string;
   lineCount: number;
+  /**
+   * P3-110, goal G65 partea 3. Au toate pozitiile un preț?
+   *
+   * DE ASTA ATARNA BUTONUL "Creează factură" de pe aceasta confirmare, si se citeste din
+   * chiar formularul care a creat bonul: o iesire cu o poziție fără preț nu se poate
+   * factura, iar aici se stie fara nicio intrebare in plus catre baza de date. Acelasi
+   * refuz il calculeaza si getIssueInvoiceability pe fisa iesirii, de pe randurile
+   * scrise, deci cele doua ecrane nu pot fi de acorduri diferite.
+   */
+  allPriced: boolean;
 };
 
 export function OutboundScreen({
@@ -173,6 +183,7 @@ export function OutboundScreen({
       clientName: project!.clientName,
       projectName: project!.name,
       lineCount: filled.length,
+      allPriced: filled.every((l) => l.price.trim() !== ""),
     });
     setPending(false);
   }
@@ -221,6 +232,49 @@ export function OutboundScreen({
               >
                 Creează alt bon
               </Button>
+            </div>
+
+            {/* P3-110, goal G65 partea 3. "Creează factură" chiar aici, fiindca acesta
+                este momentul in care operatorul are bonul in fata si stie daca urmeaza o
+                factura. Butonul dezactivat SPUNE DE CE, sub el, in romana: un buton gri
+                fara nicio propozitie este defectul pentru care au fost ridicate cardurile
+                P3-61 si P3-98. */}
+            <div className="mt-6 pt-5 border-t border-rc-line">
+              {created.allPriced ? (
+                <>
+                  <Link
+                    href={`/facturare/nou?iesire=${created.id}`}
+                    className="inline-flex max-md:flex max-md:flex-col"
+                  >
+                    <Button
+                      variant="secondary"
+                      className={PHONE_TAP}
+                      data-testid="issue-create-invoice"
+                    >
+                      Creează factură
+                    </Button>
+                  </Link>
+                  <p className="mt-2 text-[12px] text-rc-muted" data-testid="issue-invoice-reason">
+                    Pozițiile, cantitățile și prețurile trec pe factură, iar factura rămâne
+                    ciornă până la emitere.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled
+                    className={PHONE_TAP}
+                    data-testid="issue-create-invoice"
+                  >
+                    Creează factură
+                  </Button>
+                  <p className="mt-2 text-[12px] text-rc-muted" data-testid="issue-invoice-reason">
+                    Bonul are o poziție fără preț unitar, deci nu poate fi facturat. O eliberare
+                    netarifată este de obicei către un șantier propriu.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </Card>

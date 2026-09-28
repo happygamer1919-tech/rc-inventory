@@ -59,4 +59,13 @@ export type NewIssueInput = {
 
 export type OutboundDetail = {
   issue: OutboundIssue | null;
+  /**
+   * P3-110, goal G65 partea 3. Se poate face o factura din aceasta iesire, si daca nu,
+   * de ce nu.
+   *
+   * NULL INSEAMNA CA MIGRATIA 0063 NU ESTE APLICATA, si atunci butonul "Creează
+   * factură" nu apare deloc: regula veche a acestui proiect este ca nimic din ce nu se
+   * poate folosi nu apare pe ecran.
+   */
+  invoiceability: import("./facturare-create-types").IssueInvoiceability | null;
 };

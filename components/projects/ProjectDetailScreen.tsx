@@ -35,6 +35,7 @@ import type { CatalogProduct } from "@/lib/data/products";
 import type { Deviz, DevizSummary } from "@/lib/data/deviz";
 import type { DevizComparison } from "@/lib/reporting/deviz-comparison";
 import type { DocumentsView } from "@/lib/data/documents-types";
+import type { InvoiceListRow } from "@/lib/data/facturare-list-types";
 import {
   PHONE_LINK,
   PHONE_ROW_LABEL,
@@ -64,6 +65,7 @@ export function ProjectDetailScreen({
   products,
   clients,
   documents,
+  invoices,
   canWrite,
 }: {
   project: ProjectDetail;
@@ -76,6 +78,8 @@ export function ProjectDetailScreen({
   clients: { id: string; name: string }[];
   /** P3-15. null cand migratia 0044 nu este inca aplicata. */
   documents: DocumentsView | null;
+  /** P3-110. Fila Facturi. null cand migratia 0063 nu este inca aplicata. */
+  invoices: InvoiceListRow[] | null;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -231,6 +235,7 @@ export function ProjectDetailScreen({
           comparison={comparison}
           products={products}
           documents={documents}
+          invoices={invoices}
           canWrite={canWrite}
         />
       </div>

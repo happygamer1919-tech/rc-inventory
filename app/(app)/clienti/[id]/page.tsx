@@ -11,6 +11,7 @@ import {
   listClientProjects,
 } from "@/lib/data/client-detail";
 import { listDocuments } from "@/lib/data/documents";
+import { listInvoicesForRecord } from "@/lib/data/facturare-list";
 import { getClientTimeline } from "@/lib/data/client-notes";
 import { ClientDetailScreen } from "@/components/clients/ClientDetailScreen";
 
@@ -46,7 +47,7 @@ export default async function ClientDetailPage({
   const query = await searchParams;
   const rawDocumentsPage = query["pagina-documente"];
 
-  const [user, contacts, projects, materials, documents, timeline] = await Promise.all([
+  const [user, contacts, projects, materials, documents, invoices, timeline] = await Promise.all([
     getSessionUser(),
     listClientContacts(id),
     listClientProjects(id),
@@ -58,6 +59,8 @@ export default async function ClientDetailPage({
         page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
       },
     ),
+    // P3-110. Facturile acestui client, pentru fila Facturi. Null inainte de 0063.
+    listInvoicesForRecord({ kind: "client", id }),
     // P3-90. Notele si mutarile de etapa, pentru fila Note. Null inainte de 0059.
     getClientTimeline(id),
   ]);
@@ -74,6 +77,7 @@ export default async function ClientDetailPage({
       projects={projects}
       materials={materials}
       documents={documents}
+      invoices={invoices}
       timeline={timeline}
       canWrite={user?.role === "owner"}
       owners={owners}

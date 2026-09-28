@@ -15,6 +15,7 @@ import { getProjectDevizView } from "@/lib/data/deviz";
 import { getDevizComparison } from "@/lib/reporting/deviz-comparison";
 import { listActiveProducts } from "@/lib/data/products";
 import { listDocuments } from "@/lib/data/documents";
+import { listInvoicesForRecord } from "@/lib/data/facturare-list";
 import { ProjectDetailScreen } from "@/components/projects/ProjectDetailScreen";
 
 export const dynamic = "force-dynamic";
@@ -59,25 +60,28 @@ export default async function ProjectDetailPage({
   // P3-15. Lista completa a documentelor, in adresa, cu aceleasi chei ca pe fisa clientului.
   const rawDocumentsPage = query["pagina-documente"];
 
-  const [user, history, materials, clients, cost, deviz, comparison, products, documents] = await Promise.all([
-    getSessionUser(),
-    getProjectHistory(id),
-    getProjectMaterials(id),
-    listClientOptions(),
-    getProjectMaterialCost(id, { shippedOnly }),
-    getProjectDevizView(id, requestedDeviz),
-    // P3-13c. Aceeasi versiune ceruta ca pe fila Deviz: doua file care fac
-    // acelasi lucru cu adresa nu au voie sa foloseasca doua chei.
-    getDevizComparison(id, requestedDeviz),
-    listActiveProducts(),
-    listDocuments(
-      { type: "project", id },
-      {
-        showAll: query["documente"] === "toate",
-        page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
-      },
-    ),
-  ]);
+  const [user, history, materials, clients, cost, deviz, comparison, products, documents, invoices] =
+    await Promise.all([
+      getSessionUser(),
+      getProjectHistory(id),
+      getProjectMaterials(id),
+      listClientOptions(),
+      getProjectMaterialCost(id, { shippedOnly }),
+      getProjectDevizView(id, requestedDeviz),
+      // P3-13c. Aceeasi versiune ceruta ca pe fila Deviz: doua file care fac
+      // acelasi lucru cu adresa nu au voie sa foloseasca doua chei.
+      getDevizComparison(id, requestedDeviz),
+      listActiveProducts(),
+      listDocuments(
+        { type: "project", id },
+        {
+          showAll: query["documente"] === "toate",
+          page: typeof rawDocumentsPage === "string" ? Number(rawDocumentsPage) : 1,
+        },
+      ),
+      // P3-110. Facturile acestui proiect, pentru fila Facturi. Null inainte de 0063.
+      listInvoicesForRecord({ kind: "project", id }),
+    ]);
 
   return (
     <ProjectDetailScreen
@@ -90,6 +94,7 @@ export default async function ProjectDetailPage({
       products={products}
       clients={clients}
       documents={documents}
+      invoices={invoices}
       canWrite={user?.role === "owner"}
     />
   );
