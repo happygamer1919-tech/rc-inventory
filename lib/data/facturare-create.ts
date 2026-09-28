@@ -81,6 +81,19 @@ async function nextNumberFor(supabase: Client, on: string): Promise<string> {
 }
 
 /**
+ * Numarul pe care l-ar lua urmatoarea emitere din seria zilei de azi.
+ *
+ * PENTRU PROPOZITIA DE CONFIRMARE DE LA Emite, pe ecranul unei facturi. Sirul gol
+ * inseamna ca nu se poate spune, si atunci confirmarea scrie doar ce se intampla si nu
+ * un numar inventat.
+ */
+export async function nextInvoiceNumberText(): Promise<string> {
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) return "";
+  return nextNumberFor(supabase, chisinauToday());
+}
+
+/**
  * Se poate face o factura din aceasta Iesire?
  *
  * Null inseamna ca migratia 0063 nu este aplicata, si atunci butonul nu apare deloc:
