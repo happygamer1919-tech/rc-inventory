@@ -448,23 +448,46 @@ test.describe("P3-109: ecranul Facturi", () => {
 
     // --- CELE CINCI CONTROALE STAU PE UN SINGUR RAND LA 1440 ---------------
     // Randul este cerut de card; se masoara ecranul si nu clasele.
+    //
+    // CELE CINCI SE NUMESC PE NUME, si nu se strang cu un selector de forma
+    // "orice input sau select cu data-testid" din randul de filtre. Selectorul
+    // acela gaseste SAPTE, si are dreptate: DateField (cardul P3-49) tine langa
+    // fiecare casuta romaneasca un <input type="date"> ascuns cu display none, cu
+    // testId-ul ei plus "-native", pentru ca butonul de calendar sa poata chema
+    // showPicker() pe el. Ecranul are cinci controale vizibile; masuratoarea de mai
+    // jos le numeste, deci nu poate confunda un camp ascuns cu un rand stricat.
+    // Rulare 36468928176: primita 7, asteptata 5, si nimic nu era gresit pe ecran.
+    const CONTROLS = [
+      "facturi-de-la",
+      "facturi-pana-la",
+      "facturi-stare",
+      "facturi-client",
+      "facturi-search",
+    ] as const;
+
     await open(page, { client: clientA }, 4);
-    const centres = await page
-      .getByTestId("facturi-filters")
-      .locator("input[data-testid], select[data-testid]")
-      .evaluateAll((els) =>
-        els.map((el) => {
-          const rect = el.getBoundingClientRect();
-          return { name: el.getAttribute("data-testid") ?? "", centre: rect.y + rect.height / 2 };
-        }),
-      );
-    expect(centres.length, "cinci controale de filtrare").toBe(5);
+    const centres: { name: string; centre: number }[] = [];
+    for (const name of CONTROLS) {
+      const control = page.getByTestId(name);
+      await expect(control, `controlul ${name} nu este pe ecran`).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box, `controlul ${name} nu are cutie`).not.toBeNull();
+      centres.push({ name, centre: box!.y + box!.height / 2 });
+    }
     const lowest = Math.min(...centres.map((c) => c.centre));
     const highest = Math.max(...centres.map((c) => c.centre));
     expect(
       highest - lowest,
       `controalele nu stau pe un rand: ${centres.map((c) => `${c.name} ${c.centre.toFixed(1)}`).join(", ")}`,
     ).toBeLessThanOrEqual(6);
+
+    // SI NICIUN CAMP NATIV DE DATA NU ESTE VIZIBIL, care este chiar regula pentru
+    // care exista DateField: campul nativ aseaza ziua si luna dupa limba
+    // browserului. Cele doua exista in pagina, pentru calendar, si sunt ascunse.
+    for (const name of ["facturi-de-la-native", "facturi-pana-la-native"]) {
+      await expect(page.getByTestId(name), `${name} exista pentru calendar`).toHaveCount(1);
+      await expect(page.getByTestId(name), `${name} nu are voie sa se vada`).toBeHidden();
+    }
   });
 
   // -------------------------------------------------------------------------

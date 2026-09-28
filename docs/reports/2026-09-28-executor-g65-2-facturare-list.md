@@ -217,7 +217,39 @@ it refuses a code pull request whose card is not at a terminal status at the hea
 final commit flips P3-109 to `shipped` with its evidence, which is the order the
 factory's `KNOWN-FAILURES.md` requires for two separate reasons, both recorded there.
 
-### In CI
+### In CI: the first run went red on one case of 465, and the fix is in the spec
+
+**Run `36468928176`, head `9535de2`: failure, 464 passed, 1 failed, 33.3 minutes.**
+
+Every step before `End to end` passed, including `Refuse a code pull request whose board
+edit is missing`, `Refuse a migration that removes rows`, `Refuse application code that
+reads unapplied schema` and `Refuse a board timestamp from the future`. The two applier
+proofs were **skipped, which is what a skip means on this branch**: it adds no migration.
+
+Cases 1, 3, 4, 5 and 6 of `tests/e2e/facturare-list.spec.ts` passed, so the menu place, the
+foot line with its `de` form at twenty, the exact empty-state sentence, the draft with no
+number, the four Romanian chip labels and the whole 390x844 reading were all proved in that
+run.
+
+The one failure was the **last assertion of case 2**, the five filter controls on one row:
+`Expected: 5, Received: 7`. **The screen is right and the selector was wrong.** It gathered
+the controls with a selector shaped like `input[data-testid], select[data-testid]` inside
+the filter row, and `DateField` from card P3-49 renders **two** inputs per date box: the
+visible `zz.ll.aaaa` text box, and an `<input type="date">` hidden with `display: none`
+carrying the same test id plus `-native`, which exists so the calendar button can call
+`showPicker()` on it. Two date boxes contribute four inputs; plus two selects and one
+search box makes seven.
+
+The assertion now **names the five controls** and measures each by its own test id, which
+also makes a red run say which control left the row, and the case additionally asserts that
+both `-native` inputs exist and are **hidden**, which is the real P3-49 rule the loose
+selector was proving nothing about. That is a stronger case than the one it replaces, not a
+weaker one.
+
+**No application code changed for this fix.** The second push carries the spec, this
+report, `docs/LEARNINGS.md` and the board entry, and nothing else.
+
+### In CI, generally
 
 The end to end suite, the bare postgres apply and both applier proofs run only in CI:
 **this machine has no Docker and no Supabase CLI**, and nothing here claims otherwise.
@@ -242,7 +274,7 @@ form starts at twenty and cannot be proved with fewer.
 
 ---
 
-## 6. Defects and near misses, all four in `docs/LEARNINGS.md`
+## 6. Defects and near misses, all five in `docs/LEARNINGS.md`
 
 1. **`formatMoney` rounds to whole lei**, so following the brief literally would have
    put a number on screen that appears on no document and would have let the foot line
@@ -259,9 +291,14 @@ form starts at twenty and cannot be proved with fewer.
    series and the number while the prefix supplies the one before the year. The spec
    reads the number back from the database and composes it with the same function the
    screen calls.
+5. **A filter row counted seven controls**, because `DateField` keeps a hidden native
+   date input beside each visible box. This is the one that did cost a CI run,
+   `36468928176`, and it is also the one added to the factory's `KNOWN-FAILURES.md`, so
+   the next screen that puts a date box on a filter row does not pay for it again.
 
-None of the four is an application defect on `main`, and none of them needed a red CI
-run to find. Nothing was found wrong with what part 1 shipped.
+The first four are near misses caught by reading. The fifth cost one run. **None of the
+five is an application defect on `main`**, and nothing was found wrong with what part 1
+shipped.
 
 ---
 

@@ -7452,3 +7452,19 @@ looks for a string the screen never wrote.
 the same function the screen uses, and write the per run prefix WITHOUT a trailing hyphen when the year
 is switched off. RULE: **never rebuild a displayed string in a test. Call the function the screen calls.
 The series prefix carries the separator for the year, not for the number.**
+
+### A filter row counted seven controls because the Romanian date box keeps a hidden native one
+**Tag:** ci
+**ERROR:** the one-row assertion on `/facturare` collected its controls with
+`getByTestId("facturi-filters").locator("input[data-testid], select[data-testid]")` and asserted five.
+CI run 36468928176 failed with `Expected: 5, Received: 7`, one failure out of 465, and **nothing was
+wrong with the screen**. `DateField` from card P3-49 renders TWO inputs per date box: the visible text
+box on `zz.ll.aaaa`, and an `<input type="date">` hidden with `display: none` carrying the same test id
+plus `-native`, which exists so the calendar button can call `showPicker()` on it. Two date boxes
+therefore contribute four inputs, and two selects plus one search box make seven.
+**SOLUTION:** name the five controls and measure each by its own test id, which also makes the failure
+message say which control left the row. The case then adds what the loose selector was accidentally
+proving nothing about: both `-native` inputs exist and both are hidden, which is the actual P3-49 rule.
+RULE: **a "count the controls in this row" selector counts what the components put there, not what the
+screen shows. Any spec that sweeps `input[data-testid]` on a screen with a date box will find one extra
+input per box. Name the controls, or filter on visibility.**
