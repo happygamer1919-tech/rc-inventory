@@ -7371,3 +7371,23 @@ backtick-and-comma format, in the same commit as the file.
 The format is machine read and the line must match it exactly. RULE: **a migration file and its
 register line are one commit. The invariant is that every file is in exactly one of the two places,
 applied or pending, and a file in neither fails the suite.**
+
+### A read-only assertion on a screen the role cannot open at all
+**Tag:** frontend
+**ERROR:** card P3-108 case 3 asserted that an OPERATOR opens `/setari`, sees the new Facturare block
+with its save button removed and its fields disabled, and cannot write the table. It failed in CI run
+36454267878 with `getByTestId('settings-facturare')` not found after the full 25 second timeout, one
+failure out of 459. Nothing was wrong with the screen. An operator never reaches `/setari` at all:
+`lib/routes.ts` declares `OWNER_ONLY_PREFIXES = ["/setari"]` and `proxy.ts` rewrites the request to the
+403 screen before the page renders. The premise was false, and the component's own file even carried
+the sentence that disproved it, one line above the code that was copied: "Ruta este deja pazita:
+proxy.ts o refuza pentru account_manager si arata 403."
+**SOLUTION:** assert the refusal where it actually happens. The case now asserts the 403 screen under
+`data-testid="forbidden"` with zero `settings-facturare` and zero `facturare-save` elements, plus the
+PostgREST PATCH with the operator's own token changing nothing, which is what
+`tests/e2e/sheet-options-admin.spec.ts` case 5 already does for the other block on the same screen.
+That is a STRONGER statement than the one it replaces: the operator is refused the whole screen and
+the table, not shown a screen with its buttons taken off. RULE: **before writing a case about what a
+role SEES on a screen, read `lib/routes.ts` and find out whether that role reaches the route. A
+role-based assertion inherits the route guard, and the cheapest place to learn that is the header
+comment of the page you are editing, not a forty minute CI run.**

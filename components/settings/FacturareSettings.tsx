@@ -18,6 +18,16 @@
 // materialelor de construcție in Moldova. Un ecran care ar arata 20 % fara nota ar
 // prezenta o presupunere ca pe un fapt.
 //
+// canWrite ESTE O A DOUA LINIE SI NU PRIMA, exact ca la CategorySettings. Ruta
+// /setari este declarata a proprietarului in lib/routes.ts
+// (OWNER_ONLY_PREFIXES), deci proxy.ts intoarce ecranul 403 unui operator inainte
+// ca pagina sa fie randata, iar ramura read-only de mai jos nu se atinge pe aceasta
+// ruta. Se pastreaza fiindca proprietatea este adevarata despre component si nu
+// despre ruta: politica invoice_settings_owner_update refuza oricum scrierea, iar
+// un component care si-ar desena butonul pe orice ecran l-ar monta ar fi un
+// component care minte. Cazul 3 din tests/e2e/facturare-settings.spec.ts probeaza
+// refuzul acolo unde chiar se intampla, pe ruta si pe tabela.
+//
 // P3-64 si P3-65. PE TELEFON (sub 768px) campurile stau unul sub altul si fiecare
 // tinta are 44px; peste 768px nimic nu se schimba. Numele de clase se importa din
 // components/ui/phone.ts, nu se scriu local: asta a curatat obiectivul G56.

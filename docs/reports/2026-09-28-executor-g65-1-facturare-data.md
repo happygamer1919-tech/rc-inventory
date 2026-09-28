@@ -291,7 +291,10 @@ nothing deleted.
 
 ### In CI, on a real local Supabase stack
 
-`tests/e2e/facturare-data.spec.ts`, five cases, and `tests/e2e/facturare-settings.spec.ts`, three.
+`tests/e2e/facturare-data.spec.ts`, five cases, and `tests/e2e/facturare-settings.spec.ts`, three: the
+prefix changed and read back from the screen after a reload AND out of the database with the VAT note
+asserted word for word; the five company fields and the rate read back; and **the operator refused the
+whole settings screen and the table**, since `/setari` is owner-only.
 
 **Case 2 of the data spec is the one the assertions cannot give.** It fires **five parallel PostgREST
 calls** to `public.issue_invoice` on five drafts of one series, which is five separate database
@@ -305,6 +308,29 @@ service key. The series is global and comes from the settings, so two cases shar
 over each other and would also depend on yesterday's runs, because test data is never deleted. That is
 the rule P3-101 names. `afterAll` puts the prefix back on `RC-` and the settings spec asserts the
 restore.
+
+### The first run was red on one case of 459, and the fault was in the card
+
+**Run 36454267878 on head `2275c5f` concluded failure with 458 passed and 1 failed**, and the one
+failure was **clause 7c of this card being a false premise**, not a defect in the product.
+
+Everything that matters here passed in that run: *Apply every migration to a bare postgres, unmodified*
+(the step that runs `assertions/0063_invoices.sql`), *Prove the migration applier against the Docker
+shim*, *Refuse a migration that removes rows*, *Refuse application code that reads unapplied schema*,
+**all five cases of the data spec including the five-way concurrency proof**, and the first two cases of
+the settings spec.
+
+The failing case asserted that an operator opens `/setari` and sees the Facturare block read only. **An
+operator never opens `/setari` at all**: `lib/routes.ts` declares `OWNER_ONLY_PREFIXES = ["/setari"]`
+and `proxy.ts` rewrites the request to the 403 screen before the page renders. The case is rewritten to
+assert the 403 screen plus the PostgREST refusal with the operator's own token, which is a **stronger**
+statement than the one it replaces, and the old clause is quoted in place on the card per `CLAUDE.md`
+9c. **No application code changed for this fix except one comment.**
+
+That comment matters and is the reason the `canWrite` prop stays: its read-only branch is unreachable on
+this route, it is kept because the property is true about the COMPONENT rather than about the route, and
+`CategorySettings` carries exactly the same prop with exactly the same unreachable branch. The database
+policy refuses the write regardless.
 
 ### What this machine could not run, said plainly
 

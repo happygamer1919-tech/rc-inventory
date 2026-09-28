@@ -15,8 +15,9 @@ import { signIn } from "./support/auth";
 //      langa cota TVA scrie cuvant cu cuvant "De confirmat cu contabilul.";
 //   2. administratorul completeaza cele cinci date ale firmei si cota, si toate
 //      sase se citesc inapoi;
-//   3. operatorul vede blocul fara buton de salvare, iar cu propriul jeton nu
-//      poate scrie direct in tabela.
+//   3. operatorul NU AJUNGE la ecranul de setari deloc, fiindca lib/routes.ts il
+//      declara al proprietarului, iar cu propriul jeton nu poate scrie nici direct
+//      in tabela.
 //
 // CE SE CITESTE DIN BAZA se citeste cu cheia service_role a stivei LOCALE, ca in
 // sheet-options-admin.spec: un formular care isi arata propria valoare din starea
@@ -199,20 +200,28 @@ test.describe("Setări, blocul Facturare", () => {
     expect(Number((await settingsInDatabase()).default_vat_rate), "cota este iar 20").toBe(20);
   });
 
-  test("3. operatorul vede blocul fără buton de salvare și nu poate scrie în tabelă", async ({ page }) => {
+  test("3. operatorul nu ajunge la ecranul de setări și nu poate scrie în tabelă", async ({ page }) => {
     const manager = managerAccount();
     const before = await settingsInDatabase();
 
+    // OPERATORUL NU VEDE DELOC ECRANUL, si asta nu este o slabire a cazului, este
+    // ce se intampla in realitate. Prima versiune a acestui caz cerea blocul
+    // Facturare fara buton de salvare, pe presupunerea ca operatorul ajunge pe
+    // /setari si vede campurile inactive. Nu ajunge: lib/routes.ts declara
+    // OWNER_ONLY_PREFIXES = ["/setari"], deci proxy.ts rescrie cererea catre ecranul
+    // 403 inainte ca pagina sa fie randata. Rularea 36454267878 a cazut exact aici,
+    // cu getByTestId('settings-facturare') negasit, si avea dreptate.
+    //
+    // Aceeasi jumatate de ecran pe care o probeaza sheet-options-admin.spec cazul 5,
+    // pentru celalalt bloc administrat din acelasi ecran.
     await signIn(page, manager);
-    await openSettings(page);
+    await page.goto("/setari");
+    await expect(page.getByTestId("forbidden")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("settings-facturare")).toHaveCount(0);
     await expect(page.getByTestId("facturare-save")).toHaveCount(0);
-    await expect(page.getByTestId("facturare-read-only")).toBeVisible();
-    // Campurile se vad, ca operatorul sa poata citi seria si datele firmei, si
-    // niciunul nu se poate schimba.
-    await expect(page.getByTestId("facturare-series-prefix")).toBeDisabled();
-    await expect(page.getByTestId("facturare-vat-rate")).toBeDisabled();
 
     // JUMATATEA DE BAZA DE DATE: cu jetonul operatorului, direct la PostgREST.
+    // Ecranul refuzat este o curtoazie; asta este garantia.
     // Politica invoice_settings_owner_update nu lasa niciun rand sa treaca, deci
     // cererea poate raspunde 200 si nu schimba nimic: dovada este valoarea de dupa.
     const { origin, anon } = env();
