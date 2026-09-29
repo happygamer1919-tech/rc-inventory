@@ -29,6 +29,15 @@
 // din subtotalul ROTUNJIT si se rotunjeste la rand, iar subsolul aduna figuri deja
 // rotunjite. Rotunjirea numai la final da alt numar si o coloana care nu se adună.
 //
+// SI PROMISIUNEA DE MAI SUS A FOST FALSA PANA LA CARDUL P3-111, goal G67, finding G4.
+// Ordinea se potrivea; aritmetica nu. Figurile se calculau cu
+// `Math.round((value + Number.EPSILON) * 100) / 100` peste numere binare, iar baza
+// foloseste `round(numeric, 2)` peste zecimale exacte, deci 8,165 x 1,00 arata 8,16
+// pe ecran si stoca 8,17. Acum trece totul prin lib/data/facturare-money.ts, care
+// lucreaza pe intregi: cantitatea in miimi, banii in bani, cota in sutimi, citite
+// din sirul tastat si nu prin virgula mobila. Propozitia de mai sus este pastrata
+// fiindca este ce ecranul TREBUIE sa faca, si de acum o face.
+//
 // EMITE INTREABA INTAI, o singura propozitie, si numeste numarul pe care il va lua
 // factura. Pe acest ecran Emite inseamna doua lucruri: se salveaza ciorna, apoi se
 // emite, fiindca o factura nu poate fi emisa inainte sa existe.
@@ -65,6 +74,15 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { formatMoneyExact } from "@/lib/data/format";
+import {
+  MONEY_DECIMALS,
+  QUANTITY_DECIMALS,
+  RATE_DECIMALS,
+  invoiceFigures,
+  leiFromBani,
+  lineFigures,
+  scaledOrZero,
+} from "@/lib/data/facturare-money";
 import { ALL_UNITS, unitLabel, type UnitCode } from "@/lib/data/units";
 import { VAT_NOTE } from "@/lib/data/facturare-types";
 import type {
@@ -101,12 +119,12 @@ function emptyLine(): Line {
   };
 }
 
-/** Bani rotunjiti la banut, exact ca `round(..., 2)` din declansator. */
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-/** Numarul dintr-un camp, cu virgula zecimala acceptata, sau 0 cand nu este un numar. */
+/** Numarul dintr-un camp, cu virgula zecimala acceptata, sau 0 cand nu este un numar.
+ *
+ *  FOLOSIT NUMAI PENTRU REFUZURILE DE MAI JOS si nu pentru figuri: lista de probleme
+ *  intreaba daca o cantitate este peste zero si daca un preț nu este negativ, iar
+ *  pentru intrebarile acelea o virgula mobila este suficienta si comportamentul
+ *  ecranului rămâne exact cel de dinainte. Figurile trec prin facturare-money.ts. */
 function num(raw: string): number {
   const value = Number(raw.trim().replace(",", "."));
   return Number.isFinite(value) ? value : 0;
@@ -187,14 +205,17 @@ export function FacturaEditor({
   }
 
   const rate = num(vatRate);
-  const computed = lines.map((l) => {
-    const subtotal = round2(num(l.quantity) * num(l.unitPrice));
-    const vat = round2((subtotal * rate) / 100);
-    return { key: l.key, subtotal, vat, total: subtotal + vat };
-  });
-  const subtotalMdl = computed.reduce((s, l) => s + l.subtotal, 0);
-  const vatTotalMdl = computed.reduce((s, l) => s + l.vat, 0);
-  const totalMdl = subtotalMdl + vatTotalMdl;
+  // PE INTREGI, EXACT CA DECLANSATORUL. Cantitatea in miimi, banii in bani, cota in
+  // sutimi, fiecare citita din sirul tastat. Vezi antetul lui facturare-money.ts.
+  const rateHundredths = scaledOrZero(vatRate, RATE_DECIMALS);
+  const computed = lines.map((l) =>
+    lineFigures(
+      scaledOrZero(l.quantity, QUANTITY_DECIMALS),
+      scaledOrZero(l.unitPrice, MONEY_DECIMALS),
+      rateHundredths,
+    ),
+  );
+  const foot = invoiceFigures(computed);
 
   const problems: string[] = [];
   if (clientId === "") problems.push("Alege clientul facturii.");
@@ -495,7 +516,7 @@ export function FacturaEditor({
                         className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0"
                         data-testid={`editor-total-${index}`}
                       >
-                        {formatMoneyExact(totals.total)}
+                        {formatMoneyExact(leiFromBani(totals.total))}
                       </span>
                     </Td>
                     <Td align="right" className={PHONE_ACTIONS_CELL}>
@@ -538,9 +559,9 @@ export function FacturaEditor({
             data-testid="factura-editor-totaluri"
           >
             <dl className="w-[280px] space-y-1.5 max-md:w-full">
-              <Foot label="Subtotal" value={subtotalMdl} testId="factura-editor-subtotal" />
-              <Foot label="TVA" value={vatTotalMdl} testId="factura-editor-tva-total" />
-              <Foot label="Total de plată" value={totalMdl} testId="factura-editor-total" strong />
+              <Foot label="Subtotal" value={foot.subtotal} testId="factura-editor-subtotal" />
+              <Foot label="TVA" value={foot.vat} testId="factura-editor-tva-total" />
+              <Foot label="Total de plată" value={foot.total} testId="factura-editor-total" strong />
             </dl>
           </div>
         </Card>
@@ -678,7 +699,9 @@ function Foot({
   strong = false,
 }: {
   label: string;
-  value: number;
+  /** In BANI, fiindca toata aritmetica acestui ecran este pe intregi si impartirea
+   *  la 100 se face o singura data, aici, la afisare. */
+  value: bigint;
   testId: string;
   strong?: boolean;
 }) {
@@ -689,7 +712,7 @@ function Foot({
         className={`rc-num tabular-nums ${strong ? "text-[15px] font-bold" : "text-[13px]"}`}
         data-testid={testId}
       >
-        {formatMoneyExact(value)}
+        {formatMoneyExact(leiFromBani(value))}
       </dd>
     </div>
   );

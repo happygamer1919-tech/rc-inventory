@@ -215,8 +215,30 @@ function parseDay(raw: string): string | null {
  * insemna romana fara diacritice pe un ecran, ceea ce regula 11 din CLAUDE.md
  * interzice. Codul, in schimb, spune exact ce s-a intamplat.
  */
-function refusal(error: { code?: string; message?: string } | null): Failure {
+function refusal(error: { code?: string; message?: string; details?: string } | null): Failure {
   const code = error?.code ?? "";
+  // 23505 unique_violation. P3-111, finding G5: indexul parțial
+  // invoices_one_live_per_outbound_issue din migratia 0064 refuza a doua factura
+  // neanulata a aceleiasi Ieșiri, deci ecranul trebuie sa arate propoziția, nu codul.
+  //
+  // SE CITESTE NUMELE CONSTRANGERII SI NU NUMAI CODUL. Pe aceasta tabela 23505 poate
+  // veni si de la invoices_number_unique_per_series, iar propoziția despre o Ieșire
+  // pusa pe o coliziune de serie ar fi un mesaj fals. Numele apare in textul brut al
+  // erorii lui PostgreSQL, care nu ajunge niciodata pe ecran.
+  if (code === "23505") {
+    const raw = `${error?.message ?? ""} ${error?.details ?? ""}`;
+    if (raw.includes("invoices_one_live_per_outbound_issue")) {
+      return {
+        ok: false,
+        message:
+          "Există deja o factură pentru această ieșire. Deschide-o din ecranul ieșirii, sau anulează-o cu un motiv dacă trebuie făcută alta.",
+      };
+    }
+    return {
+      ok: false,
+      message: "Baza de date a refuzat o valoare care există deja. Reîncarcă pagina și încearcă din nou.",
+    };
+  }
   // 23001 restrict_violation: declansatorul de ciorna, sau o emitere a doua oara.
   if (code === "23001") {
     return {
@@ -282,6 +304,20 @@ type CleanLine = {
 
 /**
  * Salvează o ciornă: o creează cand nu are id, o rescrie cand are.
+ *
+ * UN SINGUR APEL, SI EL ESTE O TRANZACTIE. Cardul P3-111, goal G67, finding G6.
+ * Pana atunci salvarea era DOUA cereri PostgREST la creare si una pe linie la
+ * modificare: antetul facturii se scria intai, liniile pe urma, iar cand a doua cerere
+ * cadea functia intorcea un refuz si RANDUL FACTURII RAMANEA. Fara numar, fara linii,
+ * pe lista lunii, si fara nicio cale de a-l scoate, fiindca public.invoices nu are nici
+ * drept de stergere nici politica de stergere pentru niciun rol, administratorul
+ * inclus. Singura ieșire era sa fie anulat, ceea ce consuma un numar real dintr-o serie
+ * legala pentru un document care nu a fost niciodata compus.
+ *
+ * Acum scrierea este public.save_invoice_draft din migratia 0064: antetul si liniile
+ * intr-o singura tranzactie, deci un refuz nu lasa nimic in urma. Verificarile
+ * romanesti de mai jos nu s-au schimbat si nu sunt inlocuite de functie: ele dau
+ * propoziția cu diacritice si campul de lângă ea, iar functia este garanția.
  *
  * LINIILE SE SCRIU O SINGURA DATA, LA SALVARE, si de aici vine forma ecranului.
  * Cat timp factura se COMPUNE, nimic nu este in baza, deci o linie scoasa nu sterge
@@ -376,33 +412,28 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
       return { ok: false, message: "Ieșirea din care se face factura nu este validă." };
     }
 
-    const { data, error } = await supabase
-      .from("invoices")
-      .insert({
-        client_id: input.clientId.trim(),
-        project_id: projectId === "" ? null : projectId,
-        outbound_issue_id: outboundIssueId === "" ? null : outboundIssueId,
-        // ZIUA EMITERII NU SE SCRIE PE O CIORNA, deliberat. 0063 o da la Emite, si
-        // partea 2 se sprijină pe asta: un rand fara issue_date este o ciornă si ziua
-        // lui pe lista este ziua crearii. O ciornă care ar purta o zi de emitere ar
-        // fi un rand despre care lista ar spune ca a fost emis in ziua aceea.
-        due_date: dueDate,
-        notes: input.notes.trim() === "" ? null : input.notes.trim(),
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) return refusal(error);
-    const created = String((data as { id: string }).id);
-
-    const lines = await supabase
-      .from("invoice_lines")
-      .insert(clean.map((l, index) => ({ ...withoutId(l), invoice_id: created, sort_order: index })));
-    if (lines.error) return refusal(lines.error);
+    // ZIUA EMITERII NU SE TRIMITE, deliberat, si functia nu o scrie. 0063 o da la
+    // Emite, si partea 2 se sprijină pe asta: un rand fara issue_date este o ciornă si
+    // ziua lui pe lista este ziua crearii. O ciornă care ar purta o zi de emitere ar fi
+    // un rand despre care lista ar spune ca a fost emis in ziua aceea.
+    const created = await supabase.rpc("save_invoice_draft", {
+      p_client_id: input.clientId.trim(),
+      p_lines: rpcLines(clean),
+      p_invoice_id: null,
+      p_project_id: projectId === "" ? null : projectId,
+      p_outbound_issue_id: outboundIssueId === "" ? null : outboundIssueId,
+      p_due_date: dueDate,
+      p_notes: input.notes.trim() === "" ? null : input.notes.trim(),
+    });
+    if (created.error) return refusal(created.error);
+    const id = idFromRpc(created.data);
+    if (id === null) {
+      return { ok: false, message: "Factura nu a putut fi salvată. Reîncarcă pagina și încearcă din nou." };
+    }
 
     revalidatePath("/facturare");
     revalidatePath("/comenzi");
-    return { ok: true, invoiceId: created };
+    return { ok: true, invoiceId: id };
   }
 
   if (!UUID.test(invoiceId)) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
@@ -436,34 +467,25 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
     }
   }
 
-  const updated = await supabase
-    .from("invoices")
-    .update({
-      client_id: input.clientId.trim(),
-      project_id: projectId === "" ? null : projectId,
-      due_date: dueDate,
-      notes: input.notes.trim() === "" ? null : input.notes.trim(),
-    })
-    .eq("id", invoiceId);
-  if (updated.error) return refusal(updated.error);
-
-  for (const [index, line] of clean.entries()) {
-    if (line.id === "") {
-      const added = await supabase
-        .from("invoice_lines")
-        .insert({ ...withoutId(line), invoice_id: invoiceId, sort_order: index });
-      if (added.error) return refusal(added.error);
-      continue;
-    }
-    if (!stored.has(line.id)) {
+  for (const line of clean) {
+    if (line.id !== "" && !stored.has(line.id)) {
       return { ok: false, message: "O poziție trimisă nu aparține acestei facturi. Reîncarcă pagina." };
     }
-    const changed = await supabase
-      .from("invoice_lines")
-      .update({ ...withoutId(line), sort_order: index })
-      .eq("id", line.id);
-    if (changed.error) return refusal(changed.error);
   }
+
+  // ACELASI APEL SI PENTRU MODIFICARE, si pentru acelasi motiv: antetul si fiecare
+  // linie erau cereri separate, deci un refuz la jumatate lasa unele linii scrise si
+  // altele nu, adica o ciornă care nu este nici cea de dinainte nici cea de acum.
+  const written = await supabase.rpc("save_invoice_draft", {
+    p_client_id: input.clientId.trim(),
+    p_lines: rpcLines(clean),
+    p_invoice_id: invoiceId,
+    p_project_id: projectId === "" ? null : projectId,
+    p_outbound_issue_id: null,
+    p_due_date: dueDate,
+    p_notes: input.notes.trim() === "" ? null : input.notes.trim(),
+  });
+  if (written.error) return refusal(written.error);
 
   revalidatePath("/facturare");
   revalidatePath(`/facturare/${invoiceId}`);
@@ -471,11 +493,31 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
   return { ok: true, invoiceId };
 }
 
-/** Linia fara id-ul de ecran: baza il genereaza singura la insert si nu se rescrie. */
-function withoutId(line: CleanLine): Omit<CleanLine, "id"> {
-  const { id, ...rest } = line;
-  void id;
-  return rest;
+/** Liniile in forma pe care o citeste public.save_invoice_draft: un sir JSON, in
+ *  ORDINEA DE PE ECRAN, fiindca functia scrie `sort_order` din poziția in sir.
+ *
+ *  Id-ul gol rămâne gol si nu devine null: functia il citeste cu `nullif(..., '')`, deci
+ *  cele doua inseamna acelasi lucru pentru ea, iar sirul gol este exact ce trimite
+ *  formularul pentru o linie care nu a fost scrisa niciodata. */
+function rpcLines(lines: CleanLine[]): Record<string, unknown>[] {
+  return lines.map((l) => ({
+    id: l.id,
+    product_id: l.product_id,
+    description: l.description,
+    unit: l.unit,
+    quantity: l.quantity,
+    unit_price_mdl: l.unit_price_mdl,
+    vat_rate: l.vat_rate,
+  }));
+}
+
+/** Id-ul intors de functie. PostgREST intoarce un scalar fie direct, fie intr-un sir de
+ *  un element, deci se citesc amandoua formele si nimic nu se inventeaza cand nu vine
+ *  niciuna: un id ghicit ar duce ecranul catre o factura care nu exista. */
+function idFromRpc(data: unknown): string | null {
+  const value = Array.isArray(data) ? data[0] : data;
+  if (typeof value !== "string") return null;
+  return UUID.test(value.trim()) ? value.trim() : null;
 }
 
 export type InvoiceIssueResult = { ok: true; numberText: string } | Failure;
