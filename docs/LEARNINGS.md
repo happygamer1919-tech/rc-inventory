@@ -7560,3 +7560,36 @@ passes forever. The database half of the same rule is already proved by part 1, 
 privilege and creates no delete policy and asserts both on every run. RULE: **a check written as a word
 search proves something about prose. If the property is "this code cannot do X", search for the SHAPE OF
 DOING X, and make the search prove it can still find one.**
+
+### A screen that reproduces a database rounding rule in JavaScript cannot reproduce it
+**Tag:** review
+**ERROR:** `components/facturare/FacturaEditor.tsx` computes the invoice preview with
+`Math.round((value + Number.EPSILON) * 100) / 100` and its header promises the result matches the
+`round(numeric, 2)` the trigger in `supabase/migrations/0063_invoices.sql` performs, because the two
+round in the same ORDER, once per figure. The order does match. The arithmetic cannot: PostgreSQL
+`numeric` is exact decimal and rounds half away from zero, JavaScript numbers are binary. Measured in
+this session, quantity `8,165` at price `1,00` shows `8,16` on screen and stores `8,17`. Adding
+`Number.EPSILON` does not help and hides the problem: it is about 2.2e-16 and it is added BEFORE the
+multiplication by 100, so for any value above about 1 it is far smaller than that value's own floating
+point step and changes nothing at all.
+**SOLUTION (for whoever fixes it):** compute the preview on integers, in bani and in thousandths of a
+unit, so the screen performs the same integer division the database performs. RULE: **matching the
+ORDER of a database's rounding is not matching its arithmetic. A screen that must agree with a
+`numeric` column to the last ban has to work in integers, and `Number.EPSILON` in a rounding helper is
+a sign somebody already met this and papered over it.**
+
+### A freeze enforced by listing the columns that may not change has a door if the state column is not on the list
+**Tag:** review
+**ERROR:** `invoices_require_draft_to_edit` in `supabase/migrations/0063_invoices.sql` returns early
+when `old.status = 'draft'` and otherwise refuses a change to any of fifteen named columns. `status`
+is deliberately not among them, because an issued invoice must be able to become paid or cancelled.
+But the guard never says WHICH statuses, so `PATCH {"status":"draft"}` on an issued invoice is
+permitted, and the next update sees `old.status = 'draft'` and returns before checking anything. The
+number, the totals and the lines all unfreeze. The shipped test
+`tests/e2e/facturare-data.spec.ts:361` is named "baza refuză o modificare pe o factură emisă" and
+tries six columns, none of them `status`, so it passed.
+**SOLUTION:** a guard that allows a state column to move must name the moves it allows, not merely
+exclude the column from the refusal list. RULE: **when a trigger enforces a rule by listing what may
+not change, the state column that turns the rule on and off must itself be constrained, and the test
+for the rule must try to change that column. Otherwise the test proves the freeze only for the columns
+somebody thought to list.**

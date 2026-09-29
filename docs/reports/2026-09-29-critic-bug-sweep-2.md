@@ -7,7 +7,8 @@ Branch `card/critic-bug-sweep-2`, cut from `origin/main` at ce37fc1 (PR #374, P3
 No application code, no migration and no test changed in this pull request. This is the
 report. POC queues the fixes afterwards, worst first.
 
-**The finding numbers in this report are G1 to G16.** The first sweep
+**The finding numbers in this report are G1 to G18.** G1 to G16 are Facturare (PRs #372 to #374);
+G17 and G18 are the lead import (PR #363). The first sweep
 (`docs/reports/2026-09-22-critic-bug-sweep.md`) used B1, B2 and F1 to F18. G is for goal G66
 and no number is reused.
 
@@ -448,6 +449,58 @@ freeze that claim is not true.
   of hole as G1 and would sensibly be fixed in the same card.
 - **File:** `supabase/migrations/0063_invoices.sql:519-534`.
 
+### G17. Every contact row in the database is read on every lead import, to answer a question about a few clients
+
+- **Screen:** `/clienti`, "Importă leaduri", steps Verifică and Importă.
+- **Read:** `lib/data/lead-import-actions.ts:132`, `:137-141`, against `:100-107` (the comment that
+  justifies the neighbouring read).
+- **What happens:** `loadExisting` needs to know which clients already have at least one contact,
+  so that a "Completează câmpurile goale" choice does not add a second primary contact to a client
+  who has one (`:134-136`, and the write side at `:263-282`). It answers that with
+  `supabase.from("contacts").select("client_id")` (`:139`): **every contact row in the database, no
+  filter and no limit.** The client ids it needs are computed on the line directly above
+  (`const ids = rows.map(...)`, `:132`) and are then used only to test `ids.length > 0` (`:138`).
+  The filter was plainly meant and is missing.
+- **Why it matters beyond cost:** PostgREST truncates a result at the project's `max-rows` setting
+  silently, with a 200 and a short body. If that setting is in force, a client whose contact row
+  fell outside the window is read as **having no contact**, `contactName` is added to its `empty`
+  list (`:162`), and a fill on that client creates a **second primary contact**. The sister read in
+  the same function is unbounded too, but that one is deliberate and its reasoning is written down
+  (`:100-107`); this one is not.
+- **What should happen:** `.in("client_id", ids)`, using the array already computed on line 132.
+- **Severity: wrong**, conditionally. If the project sets no `max-rows`, it is only an unbounded
+  read that grows with the whole contact book on every import. If it does set one, it is a silent
+  wrong answer. Which of the two cannot be settled from this machine and is in the list for Max.
+- **File:** `lib/data/lead-import-actions.ts:139`.
+
+### G18. An imported row can land in none of the three summary numbers
+
+- **Screen:** `/clienti`, "Importă leaduri", the summary at the end.
+- **Read:** `lib/data/lead-import-actions.ts:317`, `:329-337`;
+  `lib/data/lead-import-plan.ts:234-263`;
+  `components/clients/LeadImportSheet.tsx:428-446`.
+- **What happens:** the summary reports `created`, `filled` and `skipped`. A duplicate of an
+  **earlier row of the same file** whose choice is "fill" is handled by `mergeWithinFile`, which
+  counts it only if it actually changed something (`lead-import-plan.ts:249-260`). The entries loop
+  then reaches that same row, sees `against.kind === "file"`, and pushes nothing to `skippedRows`
+  because the choice was "fill" (`lead-import-actions.ts:331-336`). So a row that filled nothing is
+  counted **nowhere**, and does not appear in the file of unhandled rows either.
+- **The reproduction, three rows sharing one phone number:**
+  row 1 has the phone and no email; row 2 has the phone and `e1@x`; row 3 has the phone and `e2@x`.
+  Both 2 and 3 are planned as duplicates of row 1 with `fillable = [email]`, because both were
+  measured against row 1 as it was **before** anything was filled. The operator chooses "fill" for
+  both. Row 2 writes its email into row 1. Row 3 finds the field no longer empty
+  (`lead-import-plan.ts:251`), changes nothing, and vanishes from the accounting.
+  The screen cannot prevent this: it disables the "fill" option only when `fillable` is empty at
+  plan time (`LeadImportSheet.tsx:439`), which for row 3 it is not.
+- **What should happen:** when a file duplicate chosen for filling changes nothing, record it as
+  skipped with a reason, exactly as the stored-duplicate branch already does
+  (`lead-import-actions.ts:342-349`). Then the three numbers add up to the file.
+- **Severity: cosmetic.** Nothing is written wrongly and nothing is lost. What is lost is the
+  ability to reconcile the summary against the spreadsheet, which is the one thing an operator does
+  after an import.
+- **File:** `lib/data/lead-import-actions.ts:331-336`.
+
 ---
 
 ## The nine things the owner asked to be tried on Facturare
@@ -660,6 +713,58 @@ so rows render as cards. `facturare-create.spec.ts:1153` and `facturare-list.spe
 assert 390x844 with no sideways scroll and 44px targets.
 **Nothing here was rendered.** Whether it looks right is in the list for Max.
 
+### Group 7, the first sweep's findings, re-checked on this branch
+
+The scope table for PRs #351 to #359 claims these were fixed. They were, and each was verified by
+reading the line the first sweep named.
+
+- **B1 fixed.** The "Următorul pas" column on `/azi` now reads `{r.nextAction ?? "-"}`
+  (`components/clients/AziScreen.tsx:173`), with a comment recording what it used to say and why
+  that was wrong (`:161-166`). The stage name no longer leaks into a column that promises a step.
+- **F4 fixed, and widely.** `useInvalidDates` now guards seven forms, not one:
+  `ClientForm`, `ClientNoteForm`, `LeaduriForm`, `ProjectForm`, `InboundOrderForm`,
+  `ExtractionReviewPanel` and `FacturaEditor`. A half-typed date cannot reach a save.
+- **F6 fixed.** "Șterge filtrele" now leaves `vedere` in the URL rather than throwing it away
+  (`components/clients/ClientsScreen.tsx:38`).
+- **F12 fixed.** The Romanian "de" form above nineteen is applied by `plural(...)` on the counters,
+  including the new Facturi ones, and is asserted at `tests/e2e/facturare-list.spec.ts:524-531`.
+- **F13 and F17 fixed together.** `tests/e2e/button-contrast.spec.ts` now renders every chip tone
+  from the application's own `components/ui/chip-tones.ts` and measures each one (`:183-265`), so
+  the spec is no longer primary buttons only.
+- **F18 fixed at the right level.** The document type check no longer compares the browser's MIME
+  string. `contentMatchesType` sniffs the first bytes against the signature of the type derived
+  from the file **extension** (`lib/data/documents-types.ts:92-115`), so an empty or missing MIME
+  string cannot refuse a valid PDF. DOCX and XLSX are knowingly not told apart, since both are ZIP,
+  and the comment says so (`:86-91`).
+- **F11 only partly addressed.** `components/settings/SheetOptionsSettings.tsx` has exactly one
+  `max-md:` class, on the form grid at `:158`. The seven column table that F11 was actually about
+  still has no phone treatment, and it does not use the shared classes from
+  `components/ui/phone.ts` that PR #361 brought every other screen onto. **Not raised as a new
+  finding**: it is F11, still open, and POC already has it.
+
+### Group 8, the lead import (PR #363)
+
+- **Nothing is overwritten, and the guarantee is at the write and not at the plan.** `fillEmpty`
+  re-reads the client row immediately before writing and skips any column the read found non-empty
+  (`lead-import-actions.ts:236-251`). So a field somebody filled between "Verifică" and "Importă"
+  is left alone. The list from the screen is treated as a request and not a permission, and the
+  comment says exactly that (`:209-218`).
+- **The name, the stage and the follow-up date cannot be reached by a fill at all**, because they
+  are not in `FILL_COLUMN` (`lead-import-actions.ts:197-207`), so there is no route to them rather
+  than a rule against them.
+- **Duplicates are looked for in both places**, among stored clients and among earlier rows of the
+  same file, and the second is the one a naive import misses (`lead-import-plan.ts:8-11`, `:142-193`).
+- **A duplicate does not become an anchor for a third row**, so a third copy of the same person
+  still matches the stored client rather than a row that will never be written
+  (`lead-import-plan.ts:211-214`).
+- **One row's failure does not stop the file**; it goes into the unhandled list with its reason
+  (`lead-import-actions.ts:287-291`, `:375-378`).
+- **The import note goes through `addClientNote`**, the path that already exists, rather than a
+  second write into `client_notes`, and a note that fails does not undo the lead
+  (`lead-import-actions.ts:381-391`).
+- Both entry points check `user.role !== "owner"` and the row count against `IMPORT_MAX_ROWS`
+  (5000) before touching the database (`lead-import-actions.ts:178-181`, `:301-304`).
+
 ---
 
 ## Needs a person to click, for Max
@@ -693,6 +798,14 @@ None of them requires a developer.
 10. **Ask Ivan, or check the Supabase project settings, what timezone the database server runs
     in.** Everything in G2 and G3 assumes UTC. If it is set to Europe/Chisinau, both findings
     shrink to nothing and should be closed.
+11. **Ask Ivan, or check the Supabase project settings, what `max-rows` is set to** (Settings,
+    API, "Max rows"). If it is set at all, G17 is a wrong answer and not only a slow read.
+12. **Import a spreadsheet with three rows that share one phone number**, where rows 2 and 3 each
+    carry a different email, and choose "Completează câmpurile goale" for both. Then check whether
+    the summary's created plus filled plus skipped adds up to the number of rows in the file.
+    (G18.)
+13. **Open `/setari`, the Opțiuni fișe block, on a real phone.** It is the one screen the first
+    sweep's F11 named that PR #361 did not bring onto the shared phone classes.
 
 ---
 
