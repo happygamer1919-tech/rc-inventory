@@ -8014,3 +8014,64 @@ rather than claiming all of them do. RULE: **when a brief justifies an instructi
 else does", grep for the oldest instance as well as the newest before repeating the claim on a card.**
 A convention that changed partway through a codebase is the normal case, not the exception, and a card
 that says "like X does" with a named X survives the next person checking.
+
+### `NodeJS.ProcessEnv` cannot be built by hand, so a test that builds an environment must not ask for it
+**Tag:** types
+**ERROR:** card P3-117's acceptance (b) and (c) require two named cases that prove what happens when
+one of three environment variables is missing, and they must run with no browser and no database. The
+obvious way to write them is to hand the reader a literal object with the three variables in it and
+one of them deleted. The reader was typed `NodeJS.ProcessEnv`, and `npx tsc --noEmit` failed four
+times with `TS2741: Property 'NODE_ENV' is missing in type '{ RC_PERF_BASE_URL: string;
+RC_PERF_EMAIL: string; RC_PERF_PASSWORD: string; }' but required in type 'ProcessEnv'`. Next widens
+`ProcessEnv` with a REQUIRED `NODE_ENV`, so the type describes the real `process.env` and nothing a
+test can construct. The failure is not in the test, it is in the signature the test was given.
+**SOLUTION:** the module declares its own `type MediuPerf = Record<string, string | undefined>` and
+every reading function takes that. `process.env` still satisfies it, and so does a three-key literal
+with a key deleted. RULE: **a function that a test must be able to call with a hand-built environment
+takes `Record<string, string | undefined>`, never `NodeJS.ProcessEnv`.** The narrow type buys nothing
+here (every value is still `string | undefined` and every read is still guarded) and it costs the
+ability to write the case at all. The same holds for any ambient type a framework has widened with
+required members: `tsc` is describing the framework's runtime, not your argument.
+
+### A card whose deliverable is a recorded number can pass its own acceptance and still record nothing
+**Tag:** process
+**ERROR:** card P3-117's acceptance (e) required six measured numbers in the card's notes and said so
+in its own words: "A card set shipped with an empty baseline has not met (e)." Nothing enforced it,
+and two existing rules made the empty-notes outcome the LIKELY one rather than a remote risk. First,
+`check-board-edit` refuses a pull request that carries a card's code while that card is short of a
+terminal status, and a spec file counts as code, so the card must be written `shipped` BEFORE its
+quality run concludes. Second, the owner's auto-merger lands a branch on its FIRST green. So a run
+that produced the numbers in its log and merged in seconds would leave main with a card that claims
+to have measured and a notes field that measured nothing, and the epic with nothing to compare against.
+The factory's usual answer, a draft pull request, was explicitly forbidden: a draft cannot be merged
+by the auto-merger and card P3-102 sat stranded overnight for exactly that reason.
+**SOLUTION:** `scripts/poc-free/check-perf-baseline.mjs`, wired into `quality` as a step placed AFTER
+the step that produces the number. It reads only the board, so it needs no `if:` guard and runs on a
+documentation-only diff too, which is the diff that could blank the notes later. It refuses a zero
+`p75` and a zero count as typed placeholders, refuses a line for a route that does not exist, and
+requires the run's KIND beside the numbers. The first run of the branch is then red at that one step
+by design; the numbers are read out of its own log, committed, and the second run is the green one.
+RULE: **when a card's deliverable is a value written into a document rather than code that executes,
+the value gets a check in the same pull request, and the check runs after the step that produces it.**
+The ordering is the whole trick: placed earlier it refuses before producing the thing it demands, and
+the card can never be finished.
+
+### A performance baseline that does not reproduce the complaint is a floor, and must say so on its face
+**Tag:** process
+**ERROR:** card P3-117 exists because Rapid Construct reports two to four seconds to change section,
+and its D1 asks for the number from a preview seeded with fixtures of production-like size. No
+terminal on this machine holds a preview address or an account for one, and the branch's own Vercel
+check reported `Canceled by Ignored Build Step`, so no preview existed to measure either. Run on the
+CI seeded stack instead, the six sections came back between 104 ms and 182 ms: ten to twenty times
+FASTER than the complaint. Recording those six numbers as "the baseline" with no qualifier would have
+been the real defect of this card. The next reader would rank the sections by them, write cause cards
+against the 78 ms spread between the fastest and slowest screen, and optimise code that was never the
+problem, while the actual two to four seconds sat in the three things a CI runner does not have: real
+table sizes, real network distance to the database, and a serverless function that was asleep.
+**SOLUTION:** the notes carry a `FELUL RULARII:` line naming the kind of run, the run id in place of
+a preview sha, and a paragraph saying in plain words that the complaint did not reproduce and that
+the ranking must not be used to pick cause cards. RULE: **a measurement records the CONDITIONS it ran
+under beside the number, and when the number does not reproduce the reported problem, that
+non-reproduction is the finding and goes in the notes ahead of the number.** A fast result on a small
+local copy is evidence about where the slowness is NOT, which is useful, and it is not a baseline of
+anything the owner complained about.
