@@ -7642,3 +7642,50 @@ the real stack, where two requests are two transactions and one RPC call is one.
 reasoning that file's own header already gives about concurrency: one session cannot be two. RULE:
 **before writing an assertion, ask what the OLD code would have done against it. If the old code also
 passes, the assertion is about the test harness and not about the change.**
+
+### Reusing a write path from a narrower screen silently nulls every field that screen does not carry
+**Tag:** frontend
+**ERROR:** card P3-112 was told, in terms, to put `Reactivează` on each row of the new Inactivi list
+"going through the same update path `ClientDetailScreen`'s button already uses. Do not write a second
+reactivation path." That path is `updateClientRecord`, and it is not a targeted update: it hands the
+whole form to `validate()`, which builds `name`, `type`, `fiscal_code`, `address`, `phone`, `email`,
+`notes` and `active` and writes all eight, storing an empty string as `null`. The client sheet may call
+it because the sheet has all eight on screen. A list row has four columns. Calling it from a row, which
+is the literal instruction, would have sent IDNO, address, email and notes as `""` and nulled them on
+every record somebody reactivated, with no error and no sign on screen, against the 380 real leads in
+production. Reading the record back first to fill the eight in is not a fix either: somebody can save
+the sheet between the render and the press, and the stale values would overwrite what they wrote.
+**SOLUTION:** the single path is a new action, `setClientActive(id, active)`, which writes the one
+column, and `ClientDetailScreen` was moved onto it in the same pull request. There is still exactly one
+path and `grep` shows one action with two callers, so the instruction's purpose, that the two cannot
+drift, is met in substance rather than only in letter. RULE: **before reusing a write path from a wider
+screen on a narrower one, list the columns that path WRITES, not the ones it reads. A path that writes a
+whole field set is only safe to call from a caller that holds the whole field set; from anywhere else,
+"reuse the path" means extract the one write both callers actually need.**
+
+### A count read under the current filter lies about the pill that will change the filter
+**Tag:** frontend
+**ERROR:** card P3-112 adds an Inactivi view whose pills sit beside Leaduri and Clienți, and pressing
+one of those two from Inactivi returns the list to the default Activi state. `countClientsByStage` is
+called with the live query, so read from inside Inactivi it counts under `p_status = 'inactive'`: the
+Leaduri pill would have shown the number of DEACTIVATED leads while the click that follows it shows the
+active ones. On this data that is "Leaduri 3" followed by a list of 380.
+**SOLUTION:** the page reads the stage counts under the status those pills will land on, `active`, and
+only in the Inactivi view; every other view is untouched. Migration 0040 already states the rule in its
+own comment, "the number beside a chip says how many rows that chip would show", and the defect was
+reading that comment as being about the stage filter alone. RULE: **a number printed on a control is a
+promise about the state AFTER the control is pressed, not about the state it is printed in. When a
+control changes two things at once, read its count under both.**
+
+### fold_text collapses whitespace and does not remove it, so a phone searched without spaces misses
+**Tag:** testing
+**ERROR:** the acceptance spec for P3-112 asserts the one search box narrows by phone, and the first
+version searched `phone.replace(/\s+/g, "")` against a number stored as `+373 700 311 99`, the way the
+application writes a `tel:` href. `public.match_clients` folds both sides with `public.fold_text` from
+0017, and that function lowercases, strips diacritics and collapses runs of whitespace to one space: it
+does not delete spaces. `'%+37370031199%'` therefore matches nothing, and the test would have failed on
+a search box that works correctly.
+**SOLUTION:** the spec takes its search term out of the stored number with its spaces intact, which is
+also what an operator does: they type what they see. RULE: **read the fold function before writing a
+search assertion. Folding for search and normalising for a link are different operations, and the one
+the database uses is the only one that decides whether a row matches.**

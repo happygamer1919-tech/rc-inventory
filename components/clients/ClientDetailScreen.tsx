@@ -16,6 +16,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
 import {
+  CLIENT_DEACTIVATED_NOTICE,
+  CLIENT_REACTIVATED_NOTICE,
   CLIENT_SOURCE_LABEL,
   CLIENT_TYPE_LABEL,
   type ClientDetail,
@@ -23,7 +25,7 @@ import {
   type ClientTimelineEntry,
 } from "@/lib/data/clients-types";
 import { formatDate } from "@/lib/data/format";
-import { updateClientRecord } from "@/lib/data/client-actions";
+import { setClientActive } from "@/lib/data/client-actions";
 import { ClientForm } from "./ClientForm";
 import { ClientNotesPanel } from "./ClientNotesPanel";
 import { ClientTabs } from "./ClientTabs";
@@ -90,39 +92,32 @@ export function ClientDetailScreen({
   const [notice, setNotice] = React.useState<string | null>(null);
 
   // P3-66. REACTIVAREA ESTE UN BUTON PE FISA, nu o casuta la capatul formularului
-  // Modifică, la care se ajungea numai dupa filtrul Inactivi. Scrie prin
-  // updateClientRecord, cu campurile fisei neschimbate si numai `active` inversat.
-  // Etapa, data, sursa, interesul si responsabilul NU se trimit, iar actiunea citeste
-  // lipsa lor ca "nu atinge": butonul nu muta etapa si nu scrie istoric.
+  // Modifică, la care se ajungea numai dupa filtrul Inactivi. Etapa, data, sursa,
+  // interesul si responsabilul NU se ating: butonul nu muta etapa si nu scrie istoric.
   //
   // APLICATIA NU ARE TOAST-URI. Confirmarea este un rand cu role=status sub antetul
   // cardului, unde s-a apasat, si ramane pana la urmatoarea apasare, ca sa nu dispara
   // inainte sa fie citita.
+  //
+  // P3-112, goal G68. SCRIE PRIN setClientActive, CARE ESTE ACUM SINGURA CALE, fiindca
+  // de la cardul acela acelasi buton exista si pe fiecare rand al vederii Inactivi.
+  // Pana aici trecea prin updateClientRecord cu campurile fisei retrimise neschimbate,
+  // ceea ce mergea de pe fisa, care le are pe toate pe ecran, si NU putea merge de pe
+  // un rand de lista, care nu are IDNO, adresa, email sau note: de acolo ar fi fost
+  // trimise ca sirul vid si scrise ca null. Comentariul lui setClientActive scrie
+  // capcana intreaga. Ce se vede pe fisa nu se schimba cu nimic.
   async function toggleActive() {
     const next = !client.active;
     setToggling(true);
     setToggleError(null);
     setNotice(null);
-    const result = await updateClientRecord(client.id, {
-      name: client.name,
-      type: client.type,
-      fiscalCode: client.fiscalCode ?? "",
-      address: client.address ?? "",
-      phone: client.phone ?? "",
-      email: client.email ?? "",
-      notes: client.notes ?? "",
-      active: next,
-    });
+    const result = await setClientActive(client.id, next);
     setToggling(false);
     if (!result.ok) {
       setToggleError(result.message);
       return;
     }
-    setNotice(
-      next
-        ? "Reactivat. Apare din nou în liste și în selectoare."
-        : "Dezactivat. Nu mai apare în selectoare și în lista celor activi.",
-    );
+    setNotice(next ? CLIENT_REACTIVATED_NOTICE : CLIENT_DEACTIVATED_NOTICE);
     router.refresh();
   }
 
