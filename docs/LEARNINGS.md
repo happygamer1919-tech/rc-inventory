@@ -7718,3 +7718,45 @@ opens first be the one holding Categorii and Unități, so the bare address keep
 add box on it. RULE: **before restructuring a screen, grep the spec folder for its route. A screen
 other specs use as a fixture has a contract with them, and that contract is part of the screen's
 design whether or not anybody wrote it down.**
+
+### The design note's recommended shape was refused by a spec the note had not opened
+**Tag:** frontend
+**ERROR:** the entry above records that the design note found the constraint and answered it: open
+the bare `/setari` on the catalogue vocabulary section alone, so the six setup helpers keep their
+add box. Building exactly that would have gone red anyway. `tests/e2e/facturare-settings.spec.ts`
+reaches the screen through its own helper, `openSettings`, which does `page.goto("/setari")` and then
+requires `settings-facturare` VISIBLE, and two of its three cases call it repeatedly. Opening on the
+vocabulary section alone hides the invoicing block, so that helper fails on its first line. The note
+counted the constraint on the categories box and on the phone case, and did not open the invoicing
+file, so the constraint it states is correct and incomplete.
+**SOLUTION:** the bare address shows EVERY section under a `Toate setările` entry, with the catalogue
+vocabulary first in the stack, and each section also has its own `?sectiune=` address. Every
+consequence the note calls "not an opinion" still holds, no existing test was edited, and the
+departure from the note is written into the card, the commit and the report rather than discovered by
+a reader later. RULE: **a specification that names the tests it must not break has to have opened
+every one of them. Re-run the grep the specification says it ran, and read what each hit DOES with
+the screen, not only that it visits it: a helper that asserts a block is visible is as binding as a
+case that asserts it.**
+
+### A comment between `return (` and the first JSX tag does not compile
+**Tag:** frontend
+**ERROR:** adding a `// ...` line directly after `return (` and before `<Card ...>` in
+`components/settings/UnitSettings.tsx` puts a line comment in JSX child position, where `//` is
+literal text and not a comment. The file stops parsing.
+**SOLUTION:** put the note ABOVE the `return`, or write it as `{/* ... */}` inside the element. RULE:
+**inside JSX only `{/* */}` is a comment. Above the `return` statement, ordinary `//` is fine, and it
+reads better there anyway when the note is about the whole component.**
+
+### An empty `<tbody>` is not visible, so asserting a rows container makes a case depend on another spec
+**Tag:** ci
+**ERROR:** the obvious way to prove the categories table is still on the bare `/setari` address is
+`await expect(page.getByTestId("category-rows")).toBeVisible()`. `category-rows` is a `<tbody>`, and
+a `<tbody>` with no rows has no box, so that assertion passes only when some earlier spec has already
+seeded a category. Playwright runs the files in name order with one worker, so it would have passed
+in CI today and failed the first time somebody ran the new spec alone. Caught by reading the markup
+rather than by a red run, which is luck and not method.
+**SOLUTION:** assert `toHaveCount(1)`, which asks whether the element is in the document, and prove
+what the card actually claims, that `category-name` and `category-add` are visible, on the controls
+that do have boxes. RULE: **`toBeVisible` on a container asserts its CONTENT exists. When the claim
+is that a surface is present, assert presence with `toHaveCount`, and reserve visibility for the
+elements the user has to be able to see and press.**
