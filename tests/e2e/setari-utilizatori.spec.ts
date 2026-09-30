@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
-import { settingsSectionHref } from "@/lib/data/setari-sections";
+import { SETTINGS_SECTIONS, settingsSectionHref } from "@/lib/data/setari-sections";
 import { ROLE_LABEL } from "@/lib/supabase/types";
 
 // setari-utilizatori.spec - linia de acceptanta a cardului P3-114 (goal G69 partea 3).
@@ -248,7 +248,15 @@ test.describe("P3-114: Utilizatori in Setări, doar de citit", () => {
     await expectFitsPhone(page, "/setari?sectiune=utilizatori");
     await expectRowCards(rows, "/setari?sectiune=utilizatori");
 
-    // Fiecare intrare a sub-meniului, a cincea inclusa, este o tinta de 44px.
+    // FIECARE intrare a sub-meniului, oricate sunt, este o tinta de 44px.
+    //
+    // P3-116, goal G69 partea 4. ERA `toBe(5)`, o copie scrisa de mana a unui numar
+    // pe care constanta SETTINGS_SECTIONS il poarta deja, si a sasea secțiune l-a
+    // facut fals: `Expected: 5, Received: 6`. Se citeste acum din lista, exact
+    // reparatia pe care P3-114 a facut-o in fisierul frate
+    // tests/e2e/setari-sections.spec.ts si a lasat-o in al lui. MASURA NU SLABESTE:
+    // matura fiecare intrare pe care o are sub-meniul, oricate sunt, in loc de
+    // primele cinci, iar clauza de 44px de mai jos rămâne neatinsa.
     const heights = await page
       .getByTestId("settings-sections")
       .evaluate((nav) =>
@@ -257,7 +265,9 @@ test.describe("P3-114: Utilizatori in Setări, doar de citit", () => {
           height: a.getBoundingClientRect().height,
         })),
       );
-    expect(heights.length, "sub-meniul nu are cinci intrari").toBe(5);
+    expect(heights.length, "sub-meniul nu are toate intrarile listei").toBe(
+      SETTINGS_SECTIONS.length,
+    );
     expect(
       heights.filter((h) => h.height < MIN_TAP).map((h) => `${h.id} ${h.height.toFixed(1)}px`),
       `intrari sub ${MIN_TAP}px in sub-meniu`,

@@ -44,6 +44,12 @@ import { UnitSettings } from "@/components/settings/UnitSettings";
 // facturi si ecranul de creare sunt partile 2 si 3.
 import { FacturareSettings } from "@/components/settings/FacturareSettings";
 import { getInvoiceSettings } from "@/lib/data/facturare-settings";
+// P3-116, goal G69 partea 4, ULTIMA parte a acelui obiectiv. Datele firmei, intr-un
+// singur loc. ACELASI RAND pe care il citeste blocul Facturare de mai sus, prin chiar
+// aceeasi getInvoiceSettings: nu exista o a doua tabela, nu exista o copie si nu
+// exista un al doilea drum de citire. Doua locuri care tin IDNO-ul aceleiasi firme
+// este exact felul in care ajung sa se contrazica.
+import { DateFirmaSettings } from "@/components/settings/DateFirmaSettings";
 // P3-114, goal G69 partea 3. Conturile, DOAR CITITE: fara migratie, fara permisiune
 // noua si fara nicio scriere. Politica profiles_select din 0001 arata deja toate
 // randurile administratorului, iar /setari este deja numai al lui, deci lista
@@ -85,7 +91,7 @@ export default async function SettingsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const active = parseSettingsSection((await searchParams)[SETTINGS_SECTION_PARAM]);
-  const shows = (id: "catalog" | "facturare" | "optiuni" | "utilizatori") =>
+  const shows = (id: "catalog" | "date-firma" | "facturare" | "optiuni" | "utilizatori") =>
     active === "toate" || active === id;
 
   const [user, catalog, invoiceSettings, accounts] = await Promise.all([
@@ -93,7 +99,13 @@ export default async function SettingsPage({
     shows("catalog") ? loadCatalog() : null,
     // Intoarce null cand migratia 0063 nu este inca aplicata, si blocul spune
     // atunci romaneste ca facturarea nu este activa in loc sa cada ecranul.
-    shows("facturare") ? getInvoiceSettings() : null,
+    //
+    // P3-116. O SINGURA CITIRE PENTRU AMANDOUA SECTIUNILE, si asta nu este o
+    // optimizare, este chiar ideea cardului: Date firmă si Facturare sunt doua
+    // vederi ale aceluiasi rand, deci nu pot ajunge sa arate lucruri diferite. Se
+    // cere din baza cand se arata oricare dintre ele, deci regula "se citeste numai
+    // ce se arata" pusa de P3-113 rămâne: pe ?sectiune=catalog randul nu se cere.
+    shows("facturare") || shows("date-firma") ? getInvoiceSettings() : null,
     // P3-114. SE CITESTE NUMAI CE SE ARATA, regula pusa de P3-113: pe
     // ?sectiune=facturare conturile nu se mai cer deloc din baza.
     shows("utilizatori") ? listAccounts() : null,
@@ -117,6 +129,14 @@ export default async function SettingsPage({
           <CategorySettings categories={catalog.categories} canWrite={user?.role === "owner"} />
           <UnitSettings rows={catalog.perUnit} />
         </section>
+      ) : null}
+
+      {/* P3-116, goal G69 partea 4. DATE FIRMĂ STA INAINTE DE FACTURARE, aceeasi
+          ordine ca in sub-meniu si pentru acelasi motiv: cele doua secțiuni citesc
+          acelasi rand, prima "cine este Rapid Construct" si a doua "cum se
+          numeroteaza si se taxeaza facturile ei", deci stau una langa alta. */}
+      {shows("date-firma") ? (
+        <DateFirmaSettings settings={invoiceSettings} canWrite={user?.role === "owner"} />
       ) : null}
 
       {shows("facturare") ? (

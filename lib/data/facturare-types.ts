@@ -46,6 +46,31 @@ export type InvoiceSettings = {
   issuerAddress: string;
   issuerBank: string;
   issuerIban: string;
+
+  // P3-116, goal G69 partea 4. CELE TREI CAMPURI ADAUGATE DE MIGRATIA 0066, pe
+  // ACELASI RAND si nu pe o a doua tabela. Raportul de proiectare
+  // docs/reports/2026-09-30-author-setari-design.md spune de ce, intr-o propoziție
+  // care merita tinuta minte: doua locuri care tin IDNO-ul aceleiasi firme este
+  // exact felul in care ajung sa se contrazica, iar cel greșit este intotdeauna cel
+  // care s-a tiparit.
+  /** Codul de inregistrare ca platitor de TVA. ALT NUMAR DECAT IDNO (issuerFiscalCode)
+   *  si ALT LUCRU DECAT defaultVatRate, care este un procent pe o linie de factura. */
+  issuerVatCode: string;
+  issuerPhone: string;
+  issuerEmail: string;
+
+  /** Este aplicata migratia 0066 pe baza catre care arata aplicatia?
+   *
+   *  NU ESTE O SETARE, ESTE STAREA SCHEMEI, si sta pe acelasi obiect fiindca
+   *  ecranul care deseneaza cele opt campuri este exact cel care trebuie sa stie
+   *  daca ultimele trei pot fi scrise. Cand este false, secțiunea Date firmă arata
+   *  cele cinci campuri de la 0063 si spune romaneste despre celelalte trei ca nu
+   *  sunt inca active, in loc sa arate casete care nu pot salva.
+   *
+   *  MERGE IS APPLY: 0066 ajunge in productie pe fuziune, in aproximativ doua
+   *  minute, iar codul pleaca din acelasi push si nu aterizeaza in aceeasi secunda.
+   *  Fereastra dintre cele doua este singurul motiv pentru care acest camp exista. */
+  companyContactReady: boolean;
 };
 
 /** CE SCRIE ECRANUL LANGA COTA IMPLICITA, si scrie asta pentru ca nimeni din

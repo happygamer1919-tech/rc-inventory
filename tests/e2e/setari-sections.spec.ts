@@ -41,6 +41,12 @@ const MIN_TAP = 44;
 /** Ce data-testid trebuie sa fie pe ecran pentru fiecare secțiune, si numai el. */
 const SECTION_MARKER: Record<Exclude<SettingsSectionId, "toate">, string> = {
   catalog: "settings-catalog",
+  // P3-116, goal G69 partea 4. A SASEA SECTIUNE, si acelasi lucru s-a intamplat ca la
+  // a cincea: tipul a cerut randul, deci fisierul a refuzat sa compileze pana cand
+  // cineva a spus dupa ce se recunoaste secțiunea pe ecran. RANDUL NU SLABESTE NIMIC,
+  // ci intareste: de acum cazul (2) cere si ca settings-date-firma sa NU apara pe
+  // catalog, pe facturare si pe optiuni, iar cazul (5) matura si adresa ei.
+  "date-firma": "settings-date-firma",
   facturare: "settings-facturare",
   optiuni: "settings-optiuni",
   // P3-114. TIPUL A CERUT ACEST RAND SI ASTA ESTE O PROPRIETATE, NU UN DERANJ,
@@ -157,7 +163,10 @@ test.describe("P3-113: Setări ca sub-meniu de secțiuni", () => {
       .evaluate((nav) =>
         Array.from(nav.querySelectorAll("a")).map((a) => Math.round(a.getBoundingClientRect().top)),
       );
-    expect(tops.length, "sub-meniul nu are patru intrari").toBe(SETTINGS_SECTIONS.length);
+    // P3-116: mesajul spunea "patru intrari" langa o comparatie cu lungimea listei, si
+    // era fals de la a cincea secțiune incolo. Comparatia era corecta, numai textul
+    // mintea, iar un mesaj de eroare care numara greşit trimite cititorul in alta parte.
+    expect(tops.length, "sub-meniul nu are toate intrarile listei").toBe(SETTINGS_SECTIONS.length);
     expect(new Set(tops).size, `banda s-a rupt pe desktop: ${tops.join(",")}`).toBe(1);
   });
 

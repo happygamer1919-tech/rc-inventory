@@ -14,8 +14,15 @@ import "server-only";
 // FISIER SEPARAT DE facturare-actions.ts, ca la clienti si la produse: un fisier
 // pe grija, citirea intr-unul si scrierea in celalalt.
 
+// P3-116, goal G69 partea 4. ACEASTA FUNCTIE RAMANE SINGURUL DRUM DE CITIRE AL
+// DATELOR FIRMEI. Secțiunea Date firmă nu are un al doilea: citeste chiar randul
+// pe care il citeste si blocul Facturare, si pe care il citeste si factura cand isi
+// tipareste emitentul (lib/data/facturare-detail.ts). O a doua functie ar fi un al
+// doilea lucru de pus de acord, adica exact defectul pe care raportul de proiectare
+// il numeste.
+
 import { createClient } from "@/lib/supabase/server";
-import { hasFacturareSettings } from "./schema-capability";
+import { hasCompanyContactFields, hasFacturareSettings } from "./schema-capability";
 import type { InvoiceSettings } from "./facturare-types";
 
 type SettingsRow = {
@@ -27,11 +34,24 @@ type SettingsRow = {
   issuer_address: string | null;
   issuer_bank: string | null;
   issuer_iban: string | null;
+  // P3-116. Cerute numai cand 0066 este aplicata, deci absente din obiect pana
+  // atunci. Opționale in tip fiindca sunt opționale in interogare.
+  issuer_vat_code?: string | null;
+  issuer_phone?: string | null;
+  issuer_email?: string | null;
 };
 
 const COLUMNS =
   "series_prefix, number_includes_year, default_vat_rate, issuer_name, " +
   "issuer_fiscal_code, issuer_address, issuer_bank, issuer_iban";
+
+/** P3-116. Cele trei coloane ale migratiei 0066, cerute doar cand exista.
+ *
+ *  O COLOANA INEXISTENTA NU SE CERE, si asta nu este prudenta in exces: PostgREST
+ *  raspunde 42703 pentru ea, citirea ar intoarce null, si blocul Facturare ar
+ *  spune atunci "facturarea nu este activa" pe un ecran pe care este. Poarta
+ *  hasCompanyContactFields este cea care decide. */
+const CONTACT_COLUMNS = "issuer_vat_code, issuer_phone, issuer_email";
 
 /**
  * Setarile de facturare, sau null cand migratia 0063 nu este inca aplicata sau
@@ -46,7 +66,13 @@ export async function getInvoiceSettings(): Promise<InvoiceSettings | null> {
   const supabase = await createClient();
   if (!(await hasFacturareSettings(supabase))) return null;
 
-  const { data, error } = await supabase.from("invoice_settings").select(COLUMNS).maybeSingle();
+  // DOUA SONDE, DOUA MIGRATII. 0063 a adus tabela, 0066 cele trei coloane, si
+  // intre fuziunea si aplicarea celei de a doua exista o fereastra in care tabela
+  // exista si coloanele nu.
+  const contactReady = await hasCompanyContactFields(supabase);
+  const columns = contactReady ? `${COLUMNS}, ${CONTACT_COLUMNS}` : COLUMNS;
+
+  const { data, error } = await supabase.from("invoice_settings").select(columns).maybeSingle();
   if (error || !data) return null;
 
   const row = data as unknown as SettingsRow;
@@ -61,5 +87,12 @@ export async function getInvoiceSettings(): Promise<InvoiceSettings | null> {
     issuerAddress: row.issuer_address ?? "",
     issuerBank: row.issuer_bank ?? "",
     issuerIban: row.issuer_iban ?? "",
+    // GOL SE CITESTE CA GOL, niciodata ca o cratima si niciodata ca un text
+    // inventat: o jumatate necompletata a datelor firmei trebuie sa se vada
+    // necompletata. Acelasi tratament pe care il primesc deja cele cinci de sus.
+    issuerVatCode: row.issuer_vat_code ?? "",
+    issuerPhone: row.issuer_phone ?? "",
+    issuerEmail: row.issuer_email ?? "",
+    companyContactReady: contactReady,
   };
 }

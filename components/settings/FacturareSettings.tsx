@@ -71,6 +71,36 @@ export function FacturareSettings({
   const [saved, setSaved] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
+  // P3-116, goal G69 partea 4. DE ACUM DOUA FORME SCRIU UN SINGUR RAND, si aceasta
+  // este singura modificare pe care cardul acela face in acest fisier.
+  //
+  // Secțiunea Date firmă arata aceleasi cinci date ale firmei, fiindca ele NU s-au
+  // mutat: cazul 2 din tests/e2e/facturare-settings.spec.ts le completeaza aici,
+  // apasa butonul de aici si le citeste inapoi, iar acel test nu are voie sa fie
+  // atins. Randul este insa unul singur, deci fara acest efect formularul acesta ar
+  // fi rămas cu valorile vechi in stare dupa ce cealalta secțiune a salvat, iar
+  // urmatoarea apasare pe Salvează setările ar fi scris peste ele valoarea veche.
+  // Ambele forme cheama router.refresh() dupa o salvare reusita, deci noile valori
+  // sosesc ca proprietati si efectul le pune in stare.
+  //
+  // CELE TREI SETARI DE NUMEROTARE NU SUNT ATINSE AICI, si nici saved sau error:
+  // propoziția "Setările au fost salvate" trebuie sa rămână pe ecran dupa
+  // reimprospatarea pe care chiar ea a declansat-o, iar cazul 1b tasteaza in caseta
+  // prefixului FARA sa salveze, deci nicio proprietate nu se schimba si nimic nu ii
+  // atinge ce a scris.
+  const serverName = settings?.issuerName ?? "";
+  const serverFiscalCode = settings?.issuerFiscalCode ?? "";
+  const serverAddress = settings?.issuerAddress ?? "";
+  const serverBank = settings?.issuerBank ?? "";
+  const serverIban = settings?.issuerIban ?? "";
+  React.useEffect(() => {
+    setName(serverName);
+    setFiscalCode(serverFiscalCode);
+    setAddress(serverAddress);
+    setBank(serverBank);
+    setIban(serverIban);
+  }, [serverName, serverFiscalCode, serverAddress, serverBank, serverIban]);
+
   async function onSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);

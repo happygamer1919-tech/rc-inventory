@@ -1178,3 +1178,53 @@ export async function hasFacturareSettings(client: ColumnProbe): Promise<boolean
   }
   return cachedFacturareSettings.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-116, goal G69 partea 4. Exista migratia 0066: cele TREI COLOANE NOI de pe
+// public.invoice_settings, codul TVA, telefonul si emailul firmei?
+//
+// DE CE ARE POARTA EI SI NU ESTE DE AJUNS hasFacturareSettings. Aceea raspunde la
+// intrebarea "exista tabela", adica "este aplicata 0063". Cele trei coloane vin cu
+// 0066, un fisier separat, deci intre fuziune si aplicare exista o fereastra in
+// care tabela exista si coloanele nu. O poarta care raspunde la intrebarea
+// gresita este o poarta care se deschide in ziua nepotrivita, si asta este chiar
+// propozitia scrisa in capul lui check-pending-schema-reads.mjs.
+//
+// CE S-AR INTAMPLA FARA EA: getInvoiceSettings ar cere issuer_vat_code, PostgREST
+// ar raspunde 42703 pentru o coloana inexistenta, citirea ar intoarce null si
+// TOT blocul Facturare ar spune "facturarea nu este activa" pe un ecran pe care
+// facturarea ESTE activa. Aceea nu este o cadere, dar este o minciuna pe ecran, si
+// pe ecranul acesta se administreaza si categoriile si lista de tabla. INC-05 este
+// varianta mai grava a aceleiasi cauze.
+//
+// SE INTREABA O SINGURA COLOANA DIN TREI, fiindca 0066 le adauga pe toate trei
+// intr-o singura tranzactie: "exista issuer_vat_code" si "exista issuer_email"
+// sunt acelasi fapt si nu pot da vreodata raspunsuri diferite. Aceeasi judecata
+// pe care o scrie hasFacturareSettings despre invoice_settings si invoices.
+//
+// COMPORTAMENTUL DINAINTE DE APLICARE: secțiunea Date firmă arata cele CINCI
+// campuri care exista de la 0063, iar in locul celor trei noi o propoziție
+// romaneasca. Blocul Facturare si restul ecranului nu se schimba deloc.
+// ---------------------------------------------------------------------------
+
+let cachedCompanyContactFields: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasCompanyContactFields(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedCompanyContactFields && now - cachedCompanyContactFields.at < TTL_MS) {
+    return cachedCompanyContactFields.value;
+  }
+  try {
+    const { error } = await client.from("invoice_settings").select("issuer_vat_code").limit(1);
+    cachedCompanyContactFields = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
+    cachedCompanyContactFields = { value: false, at: now };
+  }
+  return cachedCompanyContactFields.value;
+}
