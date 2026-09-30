@@ -366,14 +366,41 @@ and pass; so does a check that no em dash or en dash appears in any file this ca
 
 ---
 
+## THE ONE RED RUN, AND WHAT IT CAUGHT
+
+`quality` failed on the first push, run `36676864601`, in 1m21s, in the step "Apply every
+migration to a bare postgres, unmodified":
+
+```
+FAILED: supabase/migrations/0065_invoice_chisinau_day_and_paid_date.sql
+ERROR:  P3-115: issue_invoice still reads current_date
+CONTEXT:  PL/pgSQL function inline_code_block line 32 at RAISE
+```
+
+**The failure was the migration's own section 4 assertion, and it fired on a function that was
+correct.** `pg_get_functiondef` returns a function body COMMENTS AND ALL, and the replaced
+`issue_invoice` carried a one-line comment quoting the expression 0063 used. The assertion found
+its own explanation.
+
+**The fix was to move the quotation out of the function**, into section 1's header where
+`pg_get_functiondef` cannot see it, and to say in the in-body comment why it is not quoted there.
+The assertion itself was NOT weakened: it is the check that would catch somebody putting the UTC
+clock back, and it stayed exactly as written. This is the same failure shape as a source grep
+defeated by a comment quoting the code it looks for, which this card had already hit twice in
+TypeScript; the third instance is what made it a learning rather than a slip. It is one attempt of
+the three CLAUDE.md section 10 allows, and a local simulation of every text assertion the
+migration and its assertions file make was added so the next one is found in a second rather than
+in a twenty minute run.
+
 ## LEARNINGS
 
-Four ERROR/SOLUTION pairs were appended to `docs/LEARNINGS.md`:
+Five ERROR/SOLUTION pairs were appended to `docs/LEARNINGS.md`:
 
 1. A CHECK constraint cannot compare a `timestamptz` to a `date`, so the rule belongs in a trigger.
 2. A test that greps the source is defeated by a comment that quotes the code it looks for.
 3. A regex with a negated character class cannot cross the arguments of the call it looks for.
 4. An end to end assertion built on a uuid tiebreak is flaky half the time.
+5. A migration's own assertion is defeated by a comment INSIDE the function body it reads back.
 
 ---
 

@@ -170,7 +170,15 @@ declare
   v_series text;
   v_number integer;
   v_status public.invoice_status;
-  -- THE ONE CHANGED LINE. 0063 read `coalesce(p_issue_date, current_date)`.
+  -- THE ONE CHANGED LINE. 0063 fell back to the server's own calendar day here.
+  --
+  -- THE OLD EXPRESSION IS NOT QUOTED, AND THAT IS DELIBERATE. Section 4 below reads this
+  -- function back with pg_get_functiondef and REFUSES a body that still mentions the server
+  -- day, which is the assertion that would catch somebody putting the UTC clock back. A
+  -- comment quoting the old call sits inside the body that assertion reads, so it would make
+  -- the check fail on a correct function. It is named in prose in section 1's header instead,
+  -- outside every function, where the check cannot see it. The same trap, in TypeScript, is
+  -- recorded in docs/LEARNINGS.md under a comment that quotes the code a grep looks for.
   v_issue  date := coalesce(p_issue_date, (now() at time zone 'Europe/Chisinau')::date);
   v_row    public.invoices;
 begin

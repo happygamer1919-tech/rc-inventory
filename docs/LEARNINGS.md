@@ -7876,3 +7876,24 @@ typed order is not recoverable from the row, rather than implying the fix restor
 asserting "X is not Y" over live data, work out whether X and Y can coincide by chance. If they can,
 the assertion is a coin flip; assert the invariant that always holds and prove the rest from the
 source.**
+
+### A migration's own assertion is defeated by a comment INSIDE the function body it reads back
+**Tag:** data
+**ERROR:** migration 0065 replaces `public.issue_invoice` and then asserts, in its own final DO
+block, that the new body no longer reads the server's calendar day:
+`if d like '%current_date%' then raise exception 'P3-115: issue_invoice still reads current_date'`,
+where `d` is `pg_get_functiondef(...)`. It failed in CI on the first run, on a function that was
+CORRECT: the body carried a one-line comment quoting the expression 0063 used, and
+`pg_get_functiondef` returns the body comments and all, so the assertion found its own
+explanation. Signature: `FAILED: supabase/migrations/0065_....sql` in the "Apply every migration
+to a bare postgres, unmodified" step, with `ERROR: P3-115: issue_invoice still reads current_date`
+and a CONTEXT line pointing at `inline_code_block`.
+**SOLUTION:** the old expression is named in prose in the file's section header, OUTSIDE every
+function, where `pg_get_functiondef` cannot see it, and the in-body comment says in words what
+changed and why it does not quote the old call. RULE: **`pg_get_functiondef` returns comments.
+Anything a migration asserts about a function body is asserted about its comments too, so a
+comment inside a replaced body may not contain the token the assertion forbids. Put the quotation
+outside the function.** This is the same failure as a source grep defeated by a comment quoting
+the code it looks for, recorded above, and the cheap way to find both before CI does is to extract
+the bodies from the file and run the assertions' own substring tests over them locally: this
+machine has no Docker, so `npm run check:migrations` cannot be the first thing that notices.
