@@ -23,7 +23,7 @@ import { listActiveProducts } from "./products";
 import { listSelectableProjects } from "./projects";
 import { listClientOptions } from "./projects-list";
 import { chisinauToday } from "./format";
-import { invoiceNumberText } from "./facturare-types";
+import { invoiceNumberText, invoiceSeriesFor } from "./facturare-types";
 import { isUnitCode, type UnitCode } from "./units";
 import { one } from "./row";
 import type {
@@ -96,16 +96,22 @@ async function nextNumberFor(supabase: Client, on: string): Promise<string> {
 }
 
 /**
- * Numarul pe care l-ar lua urmatoarea emitere din seria zilei de azi.
+ * Numarul pe care l-ar lua urmatoarea emitere din seria ZILEI DATE.
  *
  * PENTRU PROPOZITIA DE CONFIRMARE DE LA Emite, pe ecranul unei facturi. Sirul gol
  * inseamna ca nu se poate spune, si atunci confirmarea scrie doar ce se intampla si nu
  * un numar inventat.
+ *
+ * ZIUA ESTE UN ARGUMENT, SI ASTA ESTE JUMATATEA MAI TACUTA A CONSTATARII G8. Functia
+ * citea `chisinauToday()` ea insasi, deci prezicea intotdeauna din seria de AZI, in timp
+ * ce operatorul poate pune orice zi de emitere: o factură antedatata in decembrie arata
+ * un numar din contorul anului curent si primea unul din contorul anului trecut. Se
+ * prezice din seria zilei alese, si cine intreaba spune care este ziua.
  */
-export async function nextInvoiceNumberText(): Promise<string> {
+export async function nextInvoiceNumberText(on: string): Promise<string> {
   const supabase = await createClient();
   if (!(await hasFacturareSettings(supabase))) return "";
-  return nextNumberFor(supabase, chisinauToday());
+  return nextNumberFor(supabase, on.trim() === "" ? chisinauToday() : on);
 }
 
 /**
@@ -230,6 +236,18 @@ export async function getInvoiceEditor(input: {
   ]);
   const vatRate = String(settings?.defaultVatRate ?? 0);
 
+  // P3-115, CONSTATAREA G8. Regula seriei pleaca spre ecran, ca browserul sa poata
+  // spune daca numarul prezis mai este din seria in care va cadea documentul: casuta
+  // Data emiterii se poate muta in alt an fara sa se mai ceara nimic serverului.
+  //
+  // IMPLICITELE SUNT CELE ALE MIGRATIEI 0063, nu niste valori inventate aici: prefixul
+  // `RC-` si anul in numar sunt chiar `default`-urile coloanelor. Cand setarile nu se
+  // pot citi, prezicerea este oricum sirul gol si ecranul nu numeste niciun numar, deci
+  // aceste doua valori nu decid nimic in acel caz.
+  const seriesPrefix = settings?.seriesPrefix ?? "RC-";
+  const numberIncludesYear = settings?.numberIncludesYear ?? true;
+  const nextNumberSeries = invoiceSeriesFor(seriesPrefix, numberIncludesYear, today);
+
   const base: InvoiceEditorView = {
     invoiceId: null,
     fromIssue: null,
@@ -244,6 +262,9 @@ export async function getInvoiceEditor(input: {
     vatRate,
     lines: [],
     nextNumberText,
+    nextNumberSeries,
+    seriesPrefix,
+    numberIncludesYear,
   };
 
   if (input.invoiceId) {
@@ -378,17 +399,46 @@ async function issueView(
     return { state: "refused", message: invoiceability.reason ?? "Ieșirea nu poate fi facturată." };
   }
 
+  // ORDINEA LINIILOR IESIRII, CERUTA EXPLICIT, SI ACEEASI PE CARE O CERE SI FISA IESIRII.
+  //
+  // CARDUL P3-115, CONSTATAREA G13 a raportului
+  // docs/reports/2026-09-29-critic-bug-sweep-2.md. Comentariul de la construirea liniilor
+  // spunea "in ordinea in care baza le da" si codul le re-sorta alfabetic pe numele
+  // produsului, deci operatorul care compara ieșirea cu factura citea aceleasi linii in
+  // doua ordini, si o linie cu numele necitit urca prima, cu numele gol.
+  //
+  // DAR "ORDINEA IN CARE BAZA LE DA" NU ERA NICI EA O ORDINE, si asta se spune aici in loc
+  // sa fie inlocuit un neadevar cu altul. Doua lucruri:
+  //
+  //   O resursa PostgREST incorporata fara `order` NU PROMITE NIMIC. Scoaterea sortarii,
+  //   singura, ar fi lasat ordinea la voia planului de execuție.
+  //
+  //   public.outbound_lines NU ARE O COLOANA DE ORDINE. Nu exista `sort_order` si nici o
+  //   alta coloana care sa pastreze pozitia pe care linia o avea in aviz, iar `created_at`
+  //   este acelasi pe toate liniile unei ieșiri: ele se scriu in aceeasi tranzacție, si
+  //   `now()` este constant intr-o tranzacție. Deci ORDINEA IN CARE AU FOST TASTATE NU ESTE
+  //   STOCATA NICAIERI si nu se poate reface din rand. O coloana de ordine pe outbound_lines
+  //   ar fi o migratie pe tabela ieșirilor si un card al ei; nu este una din cele zece
+  //   constatari ale acestui card.
+  //
+  // CE SE POATE PROMITE, SI SE PROMITE: o ordine DETERMINISTA si ACEEASI PE AMANDOUA
+  // ECRANELE, `created_at` apoi `id`. Aceeasi ieșire da aceleasi linii, in aceeasi ordine,
+  // de fiecare data, iar lib/data/outbound.ts cere exact aceeasi ordine pentru fisa
+  // ieșirii, deci cele doua documente se citesc la fel pe coloana. Asta este propozitia pe
+  // care constatarea o cerea si care lipsea.
   const { data, error } = await supabase
     .from("outbound_issues")
     .select(
       `id, reference, project_id,
        projects ( id, name, clients ( id, name ) ),
        outbound_lines (
-         id, product_id, quantity, sale_price_mdl,
+         id, product_id, quantity, sale_price_mdl, created_at,
          products ( id, name, unit )
        )`,
     )
     .eq("id", issueId)
+    .order("created_at", { referencedTable: "outbound_lines", ascending: true })
+    .order("id", { referencedTable: "outbound_lines", ascending: true })
     .maybeSingle();
 
   if (error || !data) return { state: "missing" };
@@ -406,6 +456,7 @@ async function issueView(
       product_id: string;
       quantity: number | string;
       sale_price_mdl: number | string | null;
+      created_at: string;
       products?: { id: string; name: string; unit: string } | { id: string; name: string; unit: string }[] | null;
     }[] | null;
   };
@@ -419,24 +470,39 @@ async function issueView(
     };
   }
 
-  // O LINIE DE FACTURA PER LINIE DE IESIRE, in ordinea in care baza le da, cu
-  // cantitatea, unitatea si PRETUL IESIRII. Pretul nu se ia din catalog: al iesirii
-  // este cel la care a plecat materialul, iar cel din catalog este valoarea de stoc
+  // O LINIE DE FACTURA PER LINIE DE IESIRE, IN ORDINEA PE CARE CITIREA DE MAI SUS A
+  // CERUT-O, cu cantitatea, unitatea si PRETUL IESIRII. Pretul nu se ia din catalog: al
+  // iesirii este cel la care a plecat materialul, iar cel din catalog este valoarea de stoc
   // de astazi, adica alt numar cu alt inteles.
-  const lines: InvoiceDraftLine[] = (row.outbound_lines ?? [])
-    .map((l) => {
-      const product = one(l.products ?? null);
-      return {
-        id: "",
-        productId: l.product_id,
-        productName: product?.name ?? "",
-        description: "",
-        unit: (isUnitCode(product?.unit) ? (product!.unit as UnitCode) : "pcs") as UnitCode,
-        quantity: fieldNumber(l.quantity),
-        unitPrice: l.sale_price_mdl === null ? "" : fieldNumber(l.sale_price_mdl),
-      };
-    })
-    .sort((a, b) => a.productName.localeCompare(b.productName, "ro"));
+  //
+  // FARA NICIO SORTARE AICI, si comentariul spune acum ce face codul. Cardul P3-115,
+  // constatarea G13: lista se incheia cu o sortare care compara numele produsului cu
+  // localeCompare in romana, adica o re-aranjare alfabetica, in timp ce comentariul de mai
+  // sus spunea ca ordinea vine de la baza. ORDINEA SE DECIDE INTR-UN SINGUR LOC, in `order`
+  // pe citire, si acolo este scris si de ce este acela.
+  //
+  // FORMA APELULUI SCOS NU ESTE SCRISA AICI, DINADINS. Cazul 1 din
+  // tests/e2e/facturare-create.spec.ts citeste acest fisier si cere ca nicio sortare pe
+  // numele produsului sa nu mai existe in el, pe nicio linie, comentariile incluse; un
+  // comentariu care ar cita apelul ar face verificarea sa cada pe ea insasi. Propozitia
+  // FALSA de mai sus, in schimb, se citeaza si rămâne: aceea este doctrina secțiunii 9c din
+  // CLAUDE.md, iar ea nu este un tipar pe care verificarea il caută.
+  //
+  // SI O LINIE CU DENUMIRE NECITITA NU MAI URCA IN CAPUL LISTEI. Sortarea alfabetica pe un
+  // nume gol o punea prima, adica exact pe linia despre care nu se stie nimic; fara sortare
+  // ea rămâne pe poziția ei, care este locul unde operatorul o caută.
+  const lines: InvoiceDraftLine[] = (row.outbound_lines ?? []).map((l) => {
+    const product = one(l.products ?? null);
+    return {
+      id: "",
+      productId: l.product_id,
+      productName: product?.name ?? "",
+      description: "",
+      unit: (isUnitCode(product?.unit) ? (product!.unit as UnitCode) : "pcs") as UnitCode,
+      quantity: fieldNumber(l.quantity),
+      unitPrice: l.sale_price_mdl === null ? "" : fieldNumber(l.sale_price_mdl),
+    };
+  });
 
   return {
     state: "ok",

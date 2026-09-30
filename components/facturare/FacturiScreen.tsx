@@ -111,14 +111,18 @@ const STATUS_TONE: Record<InvoiceStatus, ChipTone> = {
 export function FacturiScreen({
   rows,
   count,
-  sumMdl,
+  liveCount,
+  liveSumMdl,
   clients,
   query,
   filtered,
 }: {
   rows: InvoiceListRow[];
   count: number;
-  sumMdl: number;
+  /** Cate dintre randurile de pe ecran sunt emise sau plătite. */
+  liveCount: number;
+  /** Suma randurilor EMISE SAU PLATITE, in MDL. P3-115, constatarea G7. */
+  liveSumMdl: number;
   clients: InvoiceClientChoice[];
   query: InvoiceListQuery;
   /** Are ecranul vreun filtru peste luna curenta si Toate stările? */
@@ -390,7 +394,22 @@ export function FacturiScreen({
             ecran de facturare fara un total pe perioada vizibila il face pe operator
             sa intinda mana spre un calculator, adica lucrul pe care sistemul exista
             sa il scoata". Se arata si cand lista este goala: "0 facturi" si "0,00
-            MDL" sunt un raspuns, nu o lipsa de raspuns. */}
+            MDL" sunt un raspuns, nu o lipsa de raspuns.
+
+            CIFRA DE BANI SPUNE CE ADUNA, SI ADUNA NUMAI EMISE SI PLATITE. Cardul
+            P3-115, constatarea G7 a raportului
+            docs/reports/2026-09-29-critic-bug-sweep-2.md: aici erau desenate doua
+            lucruri si nicio eticheta intre ele, numarul la stanga si suma la dreapta,
+            iar suma aduna FIECARE rand trecut prin filtre. Filtrul implicit de stare
+            este gol, adica Toate stările, deci cifra numara ciorne, care nu sunt
+            documente si nu au număr, si facturi anulate, care sunt chiar declaratia ca
+            banii NU sunt datorati. Propozitia de deasupra listei promite "facturile
+            emise clienților", si cifra spunea altceva.
+
+            DOUA NUMERE SI NU UNUL, fiindca sunt doua intrebari: cate facturi vad pe
+            ecran, care este onest pentru orice filtru, si cat s-a facturat, care are
+            sens numai peste documentele vii. Amandoua trec prin `plural`, deci
+            amandoua iau forma cu "de" peste nouasprezece. */}
         <div
           className="px-5 py-4 border-t border-rc-line flex items-center justify-between gap-4 max-md:flex-col max-md:items-start max-md:gap-2"
           data-testid="facturi-totaluri"
@@ -398,8 +417,16 @@ export function FacturiScreen({
           <span className="text-[12.5px] text-rc-muted" data-testid="facturi-numar-total">
             {plural(count, "factură", "facturi")}
           </span>
-          <span className="text-[14px] font-semibold tabular-nums" data-testid="facturi-suma">
-            {formatMoneyExact(sumMdl)}
+          <span className="flex items-baseline gap-2 max-md:flex-wrap">
+            <span className="text-[12.5px] text-rc-muted" data-testid="facturi-suma-eticheta">
+              Emise și plătite
+            </span>
+            <span className="text-[12.5px] text-rc-muted" data-testid="facturi-numar-live">
+              {plural(liveCount, "factură", "facturi")}
+            </span>
+            <span className="text-[14px] font-semibold tabular-nums" data-testid="facturi-suma">
+              {formatMoneyExact(liveSumMdl)}
+            </span>
           </span>
         </div>
       </Card>

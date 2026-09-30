@@ -43,7 +43,8 @@ export default async function FacturiPage({
     <FacturiScreen
       rows={result.rows}
       count={result.count}
-      sumMdl={result.sumMdl}
+      liveCount={result.liveCount}
+      liveSumMdl={result.liveSumMdl}
       clients={result.clients}
       query={query}
       filtered={isFiltered(query, today)}

@@ -245,7 +245,26 @@ export function FacturaScreen({
               ) : null}
             </div>
 
-            {/* EMITE: O SINGURA PROPOZITIE, INAINTE, CU NUMARUL IN EA. */}
+            {/* EMITE: O SINGURA PROPOZITIE, INAINTE.
+
+                NUMARUL NU MAI ESTE DAT CA FAPT. Cardul P3-115, constatarea G8 a
+                raportului docs/reports/2026-09-29-critic-bug-sweep-2.md: propozitia
+                scria "Factura primește numărul RC-2026-0007, următorul din serie",
+                iar numarul acela a fost citit cand s-a randat PAGINA. Corect in clipa
+                aceea, invechit imediat dupa: doi operatori cu pagina deschisa erau
+                promisi amandoi acelasi numar, la fel un operator care a lasat pagina
+                deschisa cat timp un coleg a emis ceva. Alocarea este in regula si nu
+                se atinge; ce se repara este propozitia.
+
+                CE SE PIERDEA ERA INCREDEREA, si de aceea merita reparat desi nimic nu
+                se stoca greşit: un operator care a fost o data aratat 7 si a primit 8
+                se opreste din a citi propozitia, iar propozitia aceasta este chiar
+                pauza de o fraza dinaintea unei acțiuni ireversibile.
+
+                ZIUA PENTRU CARE ESTE PREZIS NUMARUL ESTE CHIAR ZIUA CU CARE SE EMITE.
+                Ruta cere prezicerea pentru `invoice.issueDate ?? today`, aceeasi zi pe
+                care o trimite doIssue mai jos, deci pe acest ecran seria nu se poate
+                deosebi de cea prezisa. */}
             {asking === "issue" ? (
               <div
                 className="rounded-[12px] border border-rc-orange/40 bg-rc-paper px-4 py-3.5"
@@ -254,7 +273,7 @@ export function FacturaScreen({
                 <p className="text-[13px] text-rc-black leading-relaxed">
                   {nextNumberText === ""
                     ? "Factura primește numărul următor din serie și nu se mai poate modifica după aceea: se poate doar anula."
-                    : `Factura primește numărul ${nextNumberText}, următorul din serie, și nu se mai poate modifica după aceea: se poate doar anula.`}
+                    : `Factura primește următorul număr din serie, ${nextNumberText} dacă nimeni nu emite înaintea ta, și nu se mai poate modifica după aceea: se poate doar anula.`}
                 </p>
                 <p className="mt-1.5 text-[12px] text-rc-muted">
                   Numărul este alocat de baza de date în momentul emiterii, ca seria să nu aibă nici
@@ -334,9 +353,11 @@ export function FacturaScreen({
                 </p>
                 {invoice.status === "draft" ? (
                   <p className="mt-1.5 text-[12px] text-rc-black">
+                    {/* ACELASI NUMAR SI ACELASI AVERTISMENT, P3-115 G8: numarul este
+                        citit la randare si nu este o promisiune. */}
                     {nextNumberText === ""
                       ? "Ciorna primește numărul următor din serie în momentul anulării, ca seria să rămână neîntreruptă."
-                      : `Ciorna primește numărul ${nextNumberText} în momentul anulării, ca seria să rămână neîntreruptă.`}
+                      : `Ciorna primește următorul număr din serie în momentul anulării, ${nextNumberText} dacă nimeni nu emite înaintea ta, ca seria să rămână neîntreruptă.`}
                   </p>
                 ) : null}
                 <label className="block mt-3">
@@ -433,6 +454,27 @@ export function FacturaScreen({
             </div>
             <Pair label="IDNO" value={invoice.client.fiscalCode} testId="factura-client-idno" />
             <Pair label="Adresă" value={invoice.client.address} testId="factura-client-adresa" />
+            {invoice.client.fiscalCode.trim() === "" ? (
+              // CEALALTA JUMATATE A DOCUMENTULUI SPUNE ACELASI LUCRU. Cardul P3-115,
+              // constatarea G12 a raportului
+              // docs/reports/2026-09-29-critic-bug-sweep-2.md: cand datele furnizorului
+              // lipsesc, cartonasul Furnizor desenează o linie portocalie explicita;
+              // cand IDNO-ul CLIENTULUI lipsește, cartonasul Client desenă acelasi
+              // "Nu este completat" gri pe care il desenă si pentru o adresa lipsa, iar
+              // nimic nu marca factura. Amandoua jumatatile unui document fiscal au
+              // nevoie de un IDNO; numai una spunea asta.
+              //
+              // ACEEASI FORMA CA LINIA FURNIZORULUI, si arata unde se completează, care
+              // este partea utila: acolo trimite in Setări, aici pe fisa clientului.
+              //
+              // NU OPRESTE EMITEREA, dinadins. Daca un IDNO lipsa ar trebui sa BLOCHEZE
+              // emiterea este o intrebare de contabil si ea sta cu cele trei variante de
+              // e-Factura din docs/reports/2026-09-24-author-facturare-design.md
+              // sectiunea 2, nu cu judecata unui terminal.
+              <p className="text-[12px] text-rc-warn pt-1" data-testid="factura-client-idno-lipsa">
+                IDNO-ul clientului nu este completat. Se completează pe fișa clientului.
+              </p>
+            ) : null}
             <div className={`flex items-baseline gap-3 ${PHONE_ROW_PAIR}`}>
               <span className={`w-[110px] shrink-0 text-[12px] text-rc-muted ${PHONE_ROW_LABEL}`}>
                 Proiect

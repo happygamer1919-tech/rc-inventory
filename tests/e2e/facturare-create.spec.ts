@@ -190,7 +190,15 @@ async function productWithStock(tag: string, quantity: number): Promise<Product>
   return { id, sku, name };
 }
 
-async function createClientRow(label: string): Promise<{ id: string; name: string }> {
+async function createClientRow(
+  label: string,
+  // FARA IDNO ESTE O ALEGERE A APELANTULUI, adaugata de cardul P3-115 pentru constatarea
+  // G12: cartonasul Client trebuie sa spuna cand IDNO-ul lipsește, si asta nu se poate
+  // proba pe un client care are unul. Null si nu sir gol: clients_fiscal_code_unique
+  // trateaza null-urile ca distincte, deci doi clienti fara IDNO nu se ciocnesc, in timp
+  // ce doua siruri goale ar cadea cu 23505.
+  options: { withFiscalCode?: boolean } = {},
+): Promise<{ id: string; name: string }> {
   const name = `TEST Client factura ${label} ${RUN}`;
   const created = await asOwner("clients?select=id", {
     method: "POST",
@@ -200,7 +208,7 @@ async function createClientRow(label: string): Promise<{ id: string; name: strin
       // IDNO-UL ESTE UNIC PE BAZA, prin clients_fiscal_code_unique din migratia 0013,
       // deci el poarta si eticheta cazului si rularea. O valoare comuna intre doua cazuri
       // face al doilea insert sa cada cu 23505, si cazul acela pare sa fie despre facturi.
-      fiscal_code: `IDNO-${label}-${RUN}`,
+      fiscal_code: options.withFiscalCode === false ? null : `IDNO-${label}-${RUN}`,
       address: `Strada Testului ${label}, Chisinau`,
     },
   });
@@ -562,22 +570,88 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
 
     // --- O LINIE PER LINIE DE IESIRE, CU VALORILE EI ------------------------
     // Ce s-a scris in baza la crearea iesirii, citit de acolo si nu presupus.
+    // IN ORDINEA IESIRII, SI NU ALFABETIC. Cardul P3-115, constatarea G13 a raportului
+    // docs/reports/2026-09-29-critic-bug-sweep-2.md. Acest test cerea, pana atunci,
+    // ordinea alfabetica, prin `.sort((a, b) => a.name.localeCompare(b.name, "ro"))` pe
+    // liniile asteptate: adica cerea chiar defectul, in timp ce comentariul din
+    // lib/data/facturare-create.ts spunea ca ordinea vine de la baza. Factura urmează
+    // livrarea, deci ordinea cerută acum este ordinea proprie a ieșirii, `created_at`
+    // apoi `id`, ceruta explicit si de citirea aplicatiei si de cererea de aici.
+    //
+    // ACEEASI ORDINE CERUTA IN AMANDOUA LOCURILE, si asta este intenția: ce citeste
+    // testul este ce citeste aplicatia, nu o a doua părere despre ce ar trebui sa fie.
     const stored = await asOwner(
-      `outbound_lines?select=quantity,sale_price_mdl,products(name)&outbound_issue_id=eq.${issue.id}`,
+      `outbound_lines?select=quantity,sale_price_mdl,created_at,id,products(name)` +
+        `&outbound_issue_id=eq.${issue.id}&order=created_at.asc,id.asc`,
     );
     expect(stored.ok, `liniile iesirii nu s-au putut citi: ${stored.text}`).toBe(true);
-    const expectedLines = stored.rows
-      .map((row) => {
-        const product = row.products as { name: string } | { name: string }[] | null;
-        const named = Array.isArray(product) ? product[0] : product;
-        return {
-          name: named?.name ?? "",
-          quantity: String(Number(row.quantity)),
-          price: String(Number(row.sale_price_mdl)),
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, "ro"));
+    const expectedLines = stored.rows.map((row) => {
+      const product = row.products as { name: string } | { name: string }[] | null;
+      const named = Array.isArray(product) ? product[0] : product;
+      return {
+        name: named?.name ?? "",
+        quantity: String(Number(row.quantity)),
+        price: String(Number(row.sale_price_mdl)),
+      };
+    });
     expect(expectedLines).toHaveLength(2);
+
+    // SI CODUL NU MAI SORTEAZA ALFABETIC, CITIT DIN SURSA.
+    //
+    // DE CE O VERIFICARE PE SURSA SI NU NUMAI PE ECRAN, si este o limita care merita scrisa
+    // decat ascunsa: public.outbound_lines NU ARE O COLOANA DE ORDINE, iar `created_at` este
+    // acelasi pe toate liniile unei ieșiri, fiindca ele se scriu in aceeasi tranzacție si
+    // `now()` este constant intr-o tranzacție. Ordinea efectiva cade deci pe `id`, care este
+    // un uuid, deci pentru aceste doua produse ea coincide cu ordinea alfabetica pe
+    // aproximativ jumatate din rulari. O asertiune "ordinea nu este cea alfabetica" ar fi
+    // fost INSTABILA, iar un test instabil intr-un sistem de stocuri se repara sau se
+    // sterge, niciodata nu se reincearca (playwright.config.ts, `retries: 0`).
+    //
+    // CELE DOUA JUMATATI IMPREUNA SUNT DECISIVE si niciuna nu este instabila: asertiunea de
+    // mai sus spune ca factura arata EXACT ordinea pe care o da baza la aceeasi cerere, iar
+    // aceasta spune ca in cod nu mai exista nicio a doua ordine care sa o rastoarne.
+    //
+    // ACEEASI FORMA CA VERIFICAREA DE STERGERE DIN CAZUL 6 al acestei specificatii, tiparul
+    // pus la incercare inclusiv: un grep care nu se potriveste cu nimic trece pentru
+    // totdeauna.
+    {
+      const { readFile } = await import("node:fs/promises");
+      const source = await readFile("lib/data/facturare-create.ts", "utf8");
+
+      /** Forma unei sortari pe numele produsului, oriunde in fisier. `[\s\S]` si nu `[^)]`,
+       *  fiindca sortarea scoasa avea o paranteza chiar in lista de argumente,
+       *  `.sort((a, b) => ...)`, iar un tipar care nu poate trece peste ea nu ar fi prins-o. */
+      const SORT = /\.sort\s*\([\s\S]{0,160}?productName/;
+      expect(
+        SORT.test(source),
+        "lib/data/facturare-create.ts nu mai sorteaza liniile pe numele produsului",
+      ).toBe(false);
+      expect(
+        SORT.test('  .sort((a, b) => a.productName.localeCompare(b.productName, "ro"));'),
+        "tiparul ar prinde chiar sortarea pe care cardul a scos-o",
+      ).toBe(true);
+
+      // SI ORDINEA ESTE CERUTA, EXPLICIT, pe resursa incorporata: o resursa PostgREST fara
+      // `order` nu promite nicio ordine, deci scoaterea sortarii singura nu ar fi o ordine.
+      expect(source, "citirea cere ordinea liniilor ieșirii").toContain(
+        'referencedTable: "outbound_lines"',
+      );
+
+      // SI COMENTARIUL SPUNE CE FACE CODUL, care este jumatatea pe care constatarea o
+      // numeste. Propozitia falsa NU ESTE STEARSA, care este regula secțiunii 9c din
+      // CLAUDE.md: ea se citeaza si se marcheaza ca fiind ce comentariul SPUNEA. Deci ce se
+      // verifica nu este ca a dispărut, ci ca fiecare linie care o mai poarta o poarta la
+      // trecut. O propozitie falsa stearsa arata exact ca o propozitie care nu a fost
+      // niciodata acolo.
+      const CLAIM = "in ordinea in care baza le da";
+      const carrying = source.split("\n").filter((line) => line.includes(CLAIM));
+      expect(carrying.length, "propozitia veche este pastrata, citata").toBeGreaterThan(0);
+      for (const line of carrying) {
+        expect(line, `propozitia veche nu este marcata ca trecut: ${line.trim()}`).toContain(
+          "spunea",
+        );
+      }
+    }
 
     const rows = page.getByTestId("factura-editor-linie");
     await expect(rows).toHaveCount(2);
@@ -606,7 +680,9 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
     await expect(page.getByTestId("factura-editor-total")).toHaveText(formatMoneyExact(480));
 
     // --- O CANTITATE SCHIMBATA CAT TIMP ESTE CIORNA MUTA TOTALURILE ---------
-    // Prima poziție, de la 3 la 5 bucati la 100 lei: subtotal 600, TVA 120, total 720.
+    // Prima poziție, dusa la 5 bucati. Care dintre cele doua este prima nu se presupune:
+    // cantitatea si prețul se citesc din liniile stocate, in ordinea in care baza le-a dat
+    // la cererea de mai sus, deci aritmetica urmează ecranul si nu o presupunere a testului.
     const first = expectedLines[0]!;
     const firstTotalBefore = Number(first.quantity) * Number(first.price);
     await expect(page.getByTestId("editor-total-0")).toHaveText(formatMoneyExact(firstTotalBefore * 1.2));
@@ -695,6 +771,17 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
     expect(asked, "confirmarea numeste numarul care va fi alocat").toContain(expectedFirstText);
     expect(asked, "confirmarea spune ca factura nu se mai modifica").toContain("nu se mai poate modifica");
     expect(asked, "confirmarea spune ce rămâne posibil").toContain("anula");
+
+    // SI NU MAI DA NUMARUL CA FAPT. Cardul P3-115, constatarea G8: numarul este citit
+    // cand se randeaza pagina, deci doi operatori cu pagina deschisa erau promisi
+    // amandoi acelasi numar. Propozitia il numeste in continuare, fiindca este
+    // informatia utila, dar spune sub ce condiție.
+    expect(asked, "confirmarea spune ca numarul nu este o promisiune").toContain(
+      "dacă nimeni nu emite înaintea ta",
+    );
+    expect(asked, "confirmarea nu mai spune 'primește numărul X' ca pe un fapt").not.toContain(
+      `primește numărul ${expectedFirstText}`,
+    );
 
     await page.getByTestId("factura-editor-emite-da").click();
     await expect(page).toHaveURL(/\/facturare\/[0-9a-f-]{36}$/, { timeout: 30_000 });
@@ -1337,5 +1424,73 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
 
     // ECRANUL RAMANE PE FORMULAR, cu munca operatorului intacta, si nu il duce nicaieri.
     await expect(page.getByTestId("factura-editor")).toBeVisible();
+  });
+
+  // -------------------------------------------------------------------------
+  // P3-115, constatarea G12 a docs/reports/2026-09-29-critic-bug-sweep-2.md.
+  // -------------------------------------------------------------------------
+  test("12. un client fără IDNO primește linia de avertisment, în același stil ca lipsa datelor furnizorului", async ({
+    page,
+  }) => {
+    // DOI CLIENTI, UNUL FARA IDNO SI UNUL CU, fiindca o linie care apare mereu nu este un
+    // avertisment. Amandoua jumatatile clauzei se probeaza pe aceeasi pagina, la rand.
+    const without = await createClientRow("C12a", { withFiscalCode: false });
+    const with_ = await createClientRow("C12b");
+
+    const noIdno = await seedDraft(without.id, null, [
+      { description: `Poziție client fără IDNO ${RUN}`, quantity: 1, unitPrice: 10 },
+    ]);
+    const withIdno = await seedDraft(with_.id, null, [
+      { description: `Poziție client cu IDNO ${RUN}`, quantity: 1, unitPrice: 10 },
+    ]);
+
+    // --- FARA IDNO: LINIA APARE, CUVANT CU CUVANT, SI SPUNE UNDE SE COMPLETEAZA --
+    await page.goto(`/facturare/${noIdno}`);
+    const missing = page.getByTestId("factura-client-idno-lipsa");
+    await expect(missing).toBeVisible({ timeout: 25_000 });
+    await expect(missing).toHaveText(
+      "IDNO-ul clientului nu este completat. Se completează pe fișa clientului.",
+    );
+    // Si casuta insasi spune in continuare ce spunea, ceea ce nu era greşit, doar mut.
+    await expect(page.getByTestId("factura-client-idno")).toHaveText("Nu este completat");
+
+    // --- ACELASI STIL CA LINIA FURNIZORULUI, MASURAT SI NU PRESUPUS ------------
+    // Datele furnizorului sunt completate de beforeAll, deci linia lui nu se deseneaza. Ca
+    // sa poata fi COMPARATE cele doua, numele furnizorului se goleste pentru o clipa si se
+    // pune inapoi imediat, in acelasi caz: altfel "in acelasi stil" ar fi o afirmatie pe
+    // care nimeni nu o verifica.
+    const issuerName = `TEST Rapid Construct ${RUN}`;
+    await asService("invoice_settings?id=eq.true", { method: "PATCH", body: { issuer_name: null } });
+    try {
+      await page.goto(`/facturare/${noIdno}`);
+      const supplier = page.getByTestId("factura-emitent-lipsa");
+      await expect(supplier, "linia furnizorului se deseneaza cand numele lui lipsește").toBeVisible(
+        { timeout: 25_000 },
+      );
+      const supplierClass = (await supplier.getAttribute("class")) ?? "";
+      const clientClass = (await page.getByTestId("factura-client-idno-lipsa").getAttribute("class")) ?? "";
+      expect(supplierClass, "linia furnizorului este cea portocalie de avertisment").toContain(
+        "text-rc-warn",
+      );
+      expect(clientClass, "cele doua linii sunt desenate identic").toBe(supplierClass);
+    } finally {
+      await asService("invoice_settings?id=eq.true", {
+        method: "PATCH",
+        body: { issuer_name: issuerName },
+      });
+    }
+
+    // --- CU IDNO: NICIO LINIE, deci nu este un avertisment care apare oricum -----
+    await page.goto(`/facturare/${withIdno}`);
+    await expect(page.getByTestId("factura-client-idno")).toHaveText(`IDNO-C12b-${RUN}`);
+    await expect(page.getByTestId("factura-client-idno-lipsa")).toHaveCount(0);
+
+    // --- SI NU BLOCHEAZA EMITEREA, dinadins ------------------------------------
+    // Daca un IDNO lipsa ar trebui sa OPREASCA emiterea este o intrebare de contabil si ea
+    // sta cu cele trei variante de e-Factura din raportul de proiectare, nu cu judecata unui
+    // terminal. Butonul rămâne oferit.
+    await page.goto(`/facturare/${noIdno}`);
+    await expect(page.getByTestId("factura-client-idno-lipsa")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("factura-emite"), "avertismentul nu oprește emiterea").toBeEnabled();
   });
 });

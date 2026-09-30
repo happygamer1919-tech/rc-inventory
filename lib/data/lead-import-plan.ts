@@ -50,7 +50,15 @@ export type ExistingClient = {
   /** Telefonul stocat, trecut prin aceeasi normalizare ca randul din fisier. */
   phoneKey: string | null;
   emailKey: string | null;
-  /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge. */
+  /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge.
+   *
+   *  `contactName` NU ESTE AICI, si lipsa lui este regula, pusa de cardul P3-115,
+   *  constatarea G17. Fiecare camp din lista asta este o COLOANA pe public.clients, citita
+   *  in aceeasi cerere care a adus clientul. Persoana de contact este un RAND in
+   *  public.contacts, deci a o pune aici insemna a citi toata agenda de contacte inainte
+   *  sa se stie despre care clienti este vorba. Ea se decide dupa ce planul stie cu cine
+   *  s-a potrivit fisierul, in addContactNameFillable din lib/data/lead-import-actions.ts,
+   *  care intreaba numai despre clientii aceia. */
   empty: FillField[];
 };
 
@@ -228,15 +236,29 @@ export function buildPlan(input: {
  * FISIER, inainte ca vreun rand sa fie scris.
  *
  * Randul de mai sus nu exista inca in baza, deci nu are ce sa i se completeze
- * acolo: se completeaza randul pregatit, si abia apoi se creeaza. Intoarce cate
- * randuri au fost chiar completate, adica cele care au schimbat ceva.
+ * acolo: se completeaza randul pregatit, si abia apoi se creeaza.
+ *
+ * INTOARCE CARE RANDURI AU FOST CHIAR COMPLETATE, si nu cate. Cardul P3-115,
+ * constatarea G18 a raportului docs/reports/2026-09-29-critic-bug-sweep-2.md: functia
+ * intorcea un NUMAR, deci bucla care scrie importul nu putea deosebi un dublat din fisier
+ * care a completat ceva de unul care nu a schimbat nimic. Pe al doilea nu il numara nimeni:
+ * nu intra in `filled`, fiindca nu a schimbat nimic, si nu intra nici in `skipped`, fiindca
+ * alegerea era "completeaza". Un rand citit din fisier nu apărea in niciunul din cele trei
+ * numere ale rezumatului si nici in fisierul randurilor nepreluate.
+ *
+ * REPRODUCEREA, TREI RANDURI CU ACELASI TELEFON: randul 1 are telefonul si nicio adresa de
+ * email; randul 2 are telefonul si `e1@x`; randul 3 are telefonul si `e2@x`. Amandoua, 2 si
+ * 3, sunt planificate ca dublate ale randului 1 cu `fillable = [email]`, fiindca amandoua au
+ * fost masurate contra randului 1 asa cum era INAINTE sa i se completeze ceva. Operatorul
+ * alege "completeaza" pentru amandoua. Randul 2 isi scrie emailul in randul 1. Randul 3
+ * gaseste campul deja plin, nu schimba nimic, si dispărea din socoteala.
  */
 export function mergeWithinFile(
   plan: LeadImportPlan,
   prepared: Map<number, PreparedLead>,
   choices: DuplicateChoices,
-): number {
-  let filled = 0;
+): Set<number> {
+  const filled = new Set<number>();
   for (const entry of plan.entries) {
     if (entry.kind !== "duplicate") continue;
     if (entry.against.kind !== "file") continue;
@@ -257,7 +279,7 @@ export function mergeWithinFile(
       (target as Record<FillField, string>)[field] = value;
       changed = true;
     }
-    if (changed) filled += 1;
+    if (changed) filled.add(entry.line);
   }
   return filled;
 }

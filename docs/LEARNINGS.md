@@ -7807,3 +7807,111 @@ claiming to know something before anybody recorded it.
 after amending, because amending moves the basis forward too. RULE: **a board timestamp is a
 statement about the past. Take it from `date -u` and round DOWN, and run `npm run check:board-clock`
 after the commit rather than before it, since it is the only gate whose input is the commit itself.**
+
+### A CHECK constraint cannot compare a timestamptz to a date, so the rule belongs in a trigger
+**Tag:** data
+**ERROR:** card P3-115 was told to put finding G14's rule ("a payment day is never before the issue
+date and never in the future") in the database "if it is a constraint you can add without touching a
+row", and the first design was
+`check (paid_at is null or (paid_at at time zone 'Europe/Chisinau')::date >= issue_date)`.
+PostgreSQL refuses it. Every way of reading a calendar day out of a `timestamptz` is STABLE and not
+IMMUTABLE, because it depends on a time zone: `paid_at at time zone 'x'`, `paid_at::date` and
+`issue_date::timestamptz` are all STABLE, and `now()` is STABLE too, so the future half could never
+have been a constraint under any spelling. The constraint was not rejected on judgement; the server
+would have rejected it.
+**SOLUTION:** the rule went into a new BEFORE INSERT OR UPDATE trigger,
+`public.invoices_validate_paid_date()`, which is the instrument 0064 already uses on the same table
+for the freeze and the pipeline. A trigger also has a second property that matters more to the owner
+than the first: **it asks nothing of the rows that already exist.** A validated CHECK reads every row
+at apply time, so one real invoice carrying a paid_at before its issue_date would have failed the
+whole migration, and the file would then be choosing between breaking a deploy and correcting a row
+the goal line forbids anyone to touch. RULE: **before designing a CHECK constraint, ask whether every
+expression in it is IMMUTABLE. Anything that reads a clock or a time zone is not, and the rule belongs
+in a trigger. On a table that already holds real rows, prefer the trigger anyway: a constraint
+validates history and a trigger governs writes, and only one of those can break an apply.**
+
+### A test that greps the source is defeated by a comment that quotes the code it looks for
+**Tag:** ci
+**ERROR:** two of P3-115's clauses are proved by reading a source file: that
+`lib/data/facturare-create.ts` no longer sorts invoice lines on the product name, and that every
+read of `contacts` in `lib/data/lead-import-actions.ts` carries a `client_id` filter. Both failed on
+the first run, and both for the same reason: the comment explaining the fix QUOTED the code that had
+been removed, verbatim, so the pattern found its own explanation. `.sort((a, b) =>
+a.productName.localeCompare(...))` appeared in a comment three lines above the code that no longer
+does it.
+**SOLUTION:** describe the removed call in words in the comment instead of quoting it, and say in the
+comment that this is deliberate and why, so the next editor does not helpfully paste the code back in.
+The check then scans every line, comments included, which is strictly stronger than stripping them.
+Where the quoted text is DOCTRINE rather than code, the opposite rule applies and the sentence is
+kept: CLAUDE.md section 9c requires a false sentence to be quoted and marked false, so the test was
+rewritten to assert that every line still carrying it also carries the word "spunea". RULE: **a source
+grep and a comment that quotes code are mutually exclusive. Pick one per pattern, write down which,
+and test the pattern against the string it is meant to catch, because a grep that matches nothing
+passes forever.**
+
+### A regex with a negated character class cannot cross the arguments of the call it is looking for
+**Tag:** ci
+**ERROR:** the pattern for "a sort on the product name" was written `/\.sort\s*\([^)]*productName/`
+and did not match `.sort((a, b) => a.productName.localeCompare(...))`. `[^)]*` stops at the first
+`)`, which is the one closing the arrow function's own argument list, so the pattern could never
+reach `productName`. The self-test that the pattern catches the removed line is what found it; without
+that line the check would have reported OK forever.
+**SOLUTION:** `/\.sort\s*\([\s\S]{0,160}?productName/`, bounded and lazy so it cannot run away across
+the file. RULE: **every grep-shaped assertion carries a positive self-test on the exact string it
+exists to catch, in the same block. A check that has never been seen to fail is not a check, and this
+is the cheapest place in the repository to prove one can.**
+
+### An end to end assertion built on a uuid tiebreak is flaky half the time
+**Tag:** ci
+**ERROR:** finding G13 asks that an invoice keep its Iesire's line order, and the obvious decisive
+assertion is "the order on screen is not the alphabetical order". `public.outbound_lines` has no
+`sort_order` column and `created_at` is IDENTICAL across the lines of one Iesire, because they are
+written in one transaction and `now()` is constant inside one, so the effective order falls to `id`, a
+uuid. For a two-line fixture that coincides with alphabetical order on about half of runs. The
+assertion would have failed intermittently, and this suite runs with `retries: 0` on purpose.
+**SOLUTION:** split the claim in two, and neither half is flaky: the behavioural half asserts the
+screen shows EXACTLY the order the database returns for the same `order=created_at.asc,id.asc`
+request, and a source half asserts no second ordering survives in the code. Say in the report that the
+typed order is not recoverable from the row, rather than implying the fix restores it. RULE: **before
+asserting "X is not Y" over live data, work out whether X and Y can coincide by chance. If they can,
+the assertion is a coin flip; assert the invariant that always holds and prove the rest from the
+source.**
+
+### A migration's own assertion is defeated by a comment INSIDE the function body it reads back
+**Tag:** data
+**ERROR:** migration 0065 replaces `public.issue_invoice` and then asserts, in its own final DO
+block, that the new body no longer reads the server's calendar day:
+`if d like '%current_date%' then raise exception 'P3-115: issue_invoice still reads current_date'`,
+where `d` is `pg_get_functiondef(...)`. It failed in CI on the first run, on a function that was
+CORRECT: the body carried a one-line comment quoting the expression 0063 used, and
+`pg_get_functiondef` returns the body comments and all, so the assertion found its own
+explanation. Signature: `FAILED: supabase/migrations/0065_....sql` in the "Apply every migration
+to a bare postgres, unmodified" step, with `ERROR: P3-115: issue_invoice still reads current_date`
+and a CONTEXT line pointing at `inline_code_block`.
+**SOLUTION:** the old expression is named in prose in the file's section header, OUTSIDE every
+function, where `pg_get_functiondef` cannot see it, and the in-body comment says in words what
+changed and why it does not quote the old call. RULE: **`pg_get_functiondef` returns comments.
+Anything a migration asserts about a function body is asserted about its comments too, so a
+comment inside a replaced body may not contain the token the assertion forbids. Put the quotation
+outside the function.** This is the same failure as a source grep defeated by a comment quoting
+the code it looks for, recorded above, and the cheap way to find both before CI does is to extract
+the bodies from the file and run the assertions' own substring tests over them locally: this
+machine has no Docker, so `npm run check:migrations` cannot be the first thing that notices.
+
+### A new migration file needs a line in the APPLY-LOG waiting register, or the suite fails 35 minutes in
+**Tag:** ci
+**ERROR:** card P3-115 added `supabase/migrations/0065_...sql` and the end to end suite failed with
+`504 passed, 1 failed` after 34.7 minutes. The failure was not in any of the card's own specs:
+`tests/e2e/headers.spec.ts:128` case 5, `migratia 0065_invoice_chisinau_day_and_paid_date.sql nu
+are nici intrare in APPLY-LOG.md, nici linie in registrul de asteptare`. Ruling R-062 requires
+every file under `supabase/migrations` to be in EXACTLY ONE of two places: a `## NNNN` heading in
+`docs/migrations/APPLY-LOG.md` once a terminal has applied it, or a line in the waiting register.
+The card's own gate set, its report and its pull request body all named the migration; the one file
+that had to name it was the one nobody thought of.
+**SOLUTION:** add the line, in the exact machine-read format the file itself insists on:
+`` - `0065_invoice_chisinau_day_and_paid_date.sql`, card de aplicare P3-115 ``. RULE: **adding a
+migration is two files, not one. The second is `docs/migrations/APPLY-LOG.md`.** And this check is
+pure file reading with no browser and no database in it, so run it locally before pushing: a
+throwaway script that re-implements case 5's twenty lines answers in a second, while CI answers
+after the whole suite has run. Every gate that reads only files can be run on a machine with no
+Docker, and this card paid twenty minutes twice to learn that once.

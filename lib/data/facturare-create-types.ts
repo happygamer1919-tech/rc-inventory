@@ -79,6 +79,21 @@ export type InvoiceEditorView = {
    * voie sa pretinda altceva.
    */
   nextNumberText: string;
+  /**
+   * Seria pentru care a fost citit numarul de mai sus.
+   *
+   * CARDUL P3-115, CONSTATAREA G8. Prezicerea se face pe server, la randare, pentru
+   * ziua de emitere de atunci. Casuta Data emiterii este insa un camp obisnuit, deci
+   * operatorul poate muta ziua in alt AN fara sa se mai ceara nimic serverului, si
+   * atunci numarul aratat este dintr-o alta serie decat cea in care va cadea documentul.
+   * Ecranul compara seria zilei alese cu aceasta si, cand nu sunt aceeasi, nu mai
+   * numeste niciun numar.
+   */
+  nextNumberSeries: string;
+  /** Prefixul seriei din Setari, ca ecranul sa poata calcula seria zilei alese. */
+  seriesPrefix: string;
+  /** Intra anul in numar? Aceeasi regula pe care o aplica public.invoice_series_for. */
+  numberIncludesYear: boolean;
 };
 
 /** Din ce se alege, pe calea manuala. */

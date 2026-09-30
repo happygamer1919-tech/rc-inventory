@@ -39,6 +39,7 @@ import { chisinauDateOf, normalizeText } from "./format";
 import { hasFacturareSettings } from "./schema-capability";
 import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
 import { one } from "./row";
+import { isLiveInvoice } from "./facturare-list-types";
 import type {
   InvoiceClientChoice,
   InvoiceListQuery,
@@ -153,13 +154,25 @@ export async function listInvoices(query: InvoiceListQuery): Promise<InvoiceList
     // in care baza le-a dat, deci sortarea este stabila si nu se rastoarna.
     .sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
 
+  // NUMAI EMISE SI PLATITE, si asta este chiar constatarea G7 a raportului
+  // docs/reports/2026-09-29-critic-bug-sweep-2.md, reparata de cardul P3-115. Aici se
+  // aduna pana acum FIECARE rand, deci ciornele, care nu sunt documente si nu au
+  // număr, si anulările, care sunt declaratia ca banii NU sunt datorati. Filtrul
+  // implicit de stare este gol, adica Toate stările, deci cifra era greşită pentru
+  // orice lună care contine o anulare, si specificatia veche o si cerea aşa.
+  //
+  // Randul de pe ecran rămâne numărat intreg, separat, fiindca "cate facturi vad" si
+  // "cat am facturat" sunt doua intrebari si nu una.
+  const live = rows.filter((row) => isLiveInvoice(row.status));
+
   return {
     rows,
     count: rows.length,
+    liveCount: live.length,
     // Suma se aduna din CHIAR randurile de pe ecran, si nu se cere bazei separat:
     // doua numere din doua surse care ar trebui sa fie egale sunt doua numere care
     // pot sa nu fie.
-    sumMdl: rows.reduce((total, row) => total + row.totalMdl, 0),
+    liveSumMdl: live.reduce((total, row) => total + row.totalMdl, 0),
     clients: await listInvoiceClients(supabase),
   };
 }

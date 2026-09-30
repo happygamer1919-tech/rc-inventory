@@ -44,6 +44,10 @@ const CASE = {
   error: 3,
   counts: 4,
   phone: 5,
+  // P3-115, goal G70. Constatarile G17 (persoana de contact, intrebata numai despre
+  // clientii cu care fisierul s-a potrivit) si G18 (cele trei numere adună fisierul).
+  contacts: 6,
+  accounting: 7,
 } as const;
 
 /** Numar moldovenesc local, scris cum il scrie un om: 0 urmat de opt cifre. */
@@ -578,4 +582,275 @@ test("G58: cei patru pasi la 390x844", async ({ page }) => {
   // Ecranul se inchide fara sa fi scris nimic: pasul 4 nu scrie pana la buton.
   await page.getByTestId("import-back").click();
   await expect(page.getByTestId("import-step-3")).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------
+// P3-115, goal G70, constatarile G17 si G18 ale raportului
+// docs/reports/2026-09-29-critic-bug-sweep-2.md.
+// ---------------------------------------------------------------------------
+
+/** Un rand in public.contacts, ca fixtura. */
+async function seedContact(rest: OwnerRest, clientId: string, name: string): Promise<void> {
+  const created = await rest.api.post("/rest/v1/contacts", {
+    headers: { ...rest.headers, Prefer: "return=representation" },
+    data: [{ client_id: clientId, name, is_primary: true, active: true }],
+  });
+  expect(created.status(), await created.text()).toBe(201);
+}
+
+/** Cate persoane de contact are un client. */
+async function contactCount(rest: OwnerRest, clientId: string): Promise<number> {
+  const rows = await restGet<{ id: string }[]>(
+    rest,
+    `/rest/v1/contacts?select=id&client_id=eq.${clientId}`,
+  );
+  return rows.length;
+}
+
+test("G70 (G17): persoana de contact se cere numai pentru clienții cu care fișierul s-a potrivit", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("contacte");
+  const c = CASE.contacts;
+
+  // DOI CLIENTI STOCATI, unul FARA nicio persoana de contact si unul CU una, plus un al
+  // treilea cu una pe care fisierul NU il atinge. Al treilea este martorul cel important:
+  // pana la acest card citirea aducea si contactele lui, iar acum nu are de ce sa fie
+  // intrebat nimic despre el.
+  const withoutContact = await seedClient(rest, {
+    name: `${tag} fara contact`,
+    phone: localPhone(c, 1),
+  });
+  const withContact = await seedClient(rest, {
+    name: `${tag} cu contact`,
+    phone: localPhone(c, 2),
+  });
+  const untouched = await seedClient(rest, {
+    name: `${tag} neatins`,
+    phone: localPhone(c, 3),
+  });
+  await seedContact(rest, withContact, `${tag} persoana existenta`);
+  await seedContact(rest, untouched, `${tag} persoana neatinsa`);
+
+  // AMANDOUA RANDURILE ADUC SI UN EMAIL, pe langa persoana de contact, si nu ca sa fie
+  // simetrice: opțiunea "Completează câmpurile goale" este DEZACTIVATA cand nu exista niciun
+  // camp completabil, iar pentru clientul care are deja o persoana de contact singurul camp
+  // ar fi fost chiar acela. Cu un email in fisier, amandoua randurile se pot completa si
+  // singura diferenta intre ele rămâne cea pe care cazul o probeaza.
+  const headers = [...HEADERS, "Persoană de contact"];
+  const body = csv([
+    headers,
+    [
+      `${tag} din fisier unu`,
+      spacedPhone(c, 1),
+      testEmail("contacte", "unu"),
+      "",
+      "",
+      "",
+      "",
+      "",
+      `${tag} nume nou`,
+    ],
+    [
+      `${tag} din fisier doi`,
+      spacedPhone(c, 2),
+      testEmail("contacte", "doi"),
+      "",
+      "",
+      "",
+      "",
+      "",
+      `${tag} nume respins`,
+    ],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "contacte.csv", body);
+  await toVerify(page);
+
+  // Amandoua randurile sunt dublate fata de baza, in ordinea din fisier.
+  const duplicates = page.getByTestId("import-duplicate");
+  await expect(duplicates).toHaveCount(2);
+
+  // --- CLIENTUL FARA CONTACT: PERSOANA DE CONTACT SE POATE COMPLETA ---------
+  const first = duplicates.nth(0).getByTestId("import-duplicate-fillable");
+  await expect(first).toContainText("Persoană de contact");
+
+  // --- CLIENTUL CARE ARE UNA: NU SE POATE, si asta este regula nemodificata a lui
+  // G58: un client cu contacte are deja pe cineva scris acolo, iar a adauga inca unul
+  // dintr-un fisier nu este completarea unui gol.
+  const second = duplicates.nth(1).getByTestId("import-duplicate-fillable");
+  await expect(second).not.toContainText("Persoană de contact");
+
+  // Amandoua se pot completa, fiindca amandoua au un email de pus: daca opțiunea ar fi
+  // dezactivata, alegerea de mai jos ar cadea si cazul ar spune de ce.
+  await expect(duplicates.nth(0).getByTestId("import-duplicate-fillable")).toContainText("Email");
+  await expect(duplicates.nth(1).getByTestId("import-duplicate-fillable")).toContainText("Email");
+
+  // --- SI COMPLETAREA CHIAR SCRIE UNA, PE PRIMUL, SI NICIUNA PE AL DOILEA ---
+  await page.getByTestId("import-duplicate-choice").nth(0).selectOption("fill");
+  await page.getByTestId("import-duplicate-choice").nth(1).selectOption("fill");
+  await runImport(page);
+
+  expect(await countAt(page, "import-filled"), "amandoua randurile au completat ceva").toBe(2);
+  expect(await countAt(page, "import-created"), "niciun client nou").toBe(0);
+  expect(await countAt(page, "import-skipped"), "niciun rand nepreluat").toBe(0);
+
+  expect(await contactCount(rest, withoutContact), "clientul fara contact a primit una").toBe(1);
+  expect(
+    await contactCount(rest, withContact),
+    "clientul care avea una nu a primit o a doua persoana principala",
+  ).toBe(1);
+  expect(
+    await contactCount(rest, untouched),
+    "clientul pe care fisierul nu l-a atins nu a fost schimbat",
+  ).toBe(1);
+
+  // --- SI CITIREA ESTE FILTRATA, CITIT DIN SURSA ---------------------------
+  //
+  // DE CE O VERIFICARE PE SURSA SI NU NUMAI PE ECRAN. Ce cere constatarea G17 este ca
+  // importul sa NU MAI CITEASCA fiecare rand de contact din baza, iar cate randuri a citit
+  // serverul nu se vede din browser: cererea pleaca din acțiunea de pe server, nu din
+  // pagina. Jumatatea de mai sus dovedeste ca RASPUNSUL este corect pentru amandoua
+  // cazurile; aceasta dovedeste ca INTREBAREA este ingusta. Fara ea, un cod care citeste
+  // toata agenda ar trece.
+  //
+  // ACEEASI FORMA CA VERIFICAREA DE STERGERE DIN facturare-create.spec.ts, tiparul pus la
+  // incercare inclusiv: un grep care nu se potriveste cu nimic trece pentru totdeauna.
+  {
+    const source = await readFile("lib/data/lead-import-actions.ts", "utf8");
+
+    const READ = /from\(\s*["'`]contacts["'`]\s*\)/;
+    const FILTER = /\.in\(\s*["'`]client_id["'`]|\.eq\(\s*["'`]client_id["'`]/;
+
+    // COMENTARIILE NU SE CITESC, si aceasta este o diferenta reala fata de verificarea de
+    // stergere din facturare-create.spec.ts, care le citeste dinadins. Acolo se caută o CALE
+    // pe care cineva ar putea sa o decomenteze. Aici se caută CATE RANDURI citeste codul care
+    // rulează, iar un apel intr-un comentariu citeste zero. Fisierul isi si evita forma
+    // apelului in comentarii, deci aceasta filtrare este a doua plasa si nu prima.
+    const lines = source
+      .split("\n")
+      .map((line, index) => ({ at: index + 1, text: line }))
+      .filter(({ text }) => {
+        const trimmed = text.trim();
+        return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+      });
+
+    const reads = lines.filter(({ text }) => READ.test(text));
+    expect(
+      reads.length,
+      "exista cel putin o citire din contacts, altfel aceasta verificare nu verifica nimic",
+    ).toBeGreaterThan(0);
+
+    // FIECARE citire din contacts poarta un filtru pe client_id, pe linia ei sau in
+    // urmatoarele trei: formatarea sparge lantul supabase-js pe mai multe linii.
+    const all = source.split("\n");
+    for (const read of reads) {
+      const window = all.slice(read.at - 1, read.at + 3).join(" ");
+      expect(
+        FILTER.test(window),
+        `citirea din contacts de la linia ${read.at} nu poarta niciun filtru pe client_id: ${window.trim()}`,
+      ).toBe(true);
+    }
+
+    // SI TIPARUL AR PRINDE CHIAR CITIREA PE CARE CARDUL A SCOS-O. Un grep care nu se
+    // potriveste cu nimic trece pentru totdeauna, deci se pune la incercare aici.
+    const removed = 'const { data: contacts } = await supabase.from("contacts").select("client_id");';
+    expect(READ.test(removed), "tiparul gaseste o citire din contacts").toBe(true);
+    expect(
+      FILTER.test(removed),
+      "citirea nefiltrata pe care cardul a scos-o nu ar trece verificarea",
+    ).toBe(false);
+  }
+});
+
+test("G70 (G18): create plus completate plus nepreluate este numărul de rânduri citite", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("socoteala");
+  const c = CASE.accounting;
+
+  // REPRODUCEREA DIN RAPORT, TREI RANDURI CU ACELASI TELEFON, plus un rand cu eroare si
+  // unul curat, ca fisierul sa amestece toate cele trei rezultate.
+  //
+  //   randul 2  telefonul, fara email                 -> NOU, se creeaza
+  //   randul 3  acelasi telefon, email e1              -> dublat in fisier, COMPLETEAZA
+  //   randul 4  acelasi telefon, email e2              -> dublat in fisier, NU COMPLETEAZA
+  //                                                       nimic: randul 2 are deja email
+  //   randul 5  fara denumire                          -> eroare, nepreluat
+  //   randul 6  alt telefon                            -> NOU, se creeaza
+  //
+  // Randul 4 este cel pe care constatarea G18 il descrie: era planificat cu
+  // `fillable = [email]`, fiindca a fost masurat contra randului 2 asa cum era INAINTE sa i
+  // se completeze ceva, iar la scriere gasea campul plin, nu schimba nimic, si nu intra in
+  // niciunul din cele trei numere. Ecranul nu il poate opri: opțiunea "Completează" este
+  // dezactivata numai cand `fillable` este gol la planificare, iar pentru randul 4 nu este.
+  const e1 = testEmail("socoteala", "unu");
+  const e2 = testEmail("socoteala", "doi");
+  const body = csv([
+    HEADERS,
+    [`${tag} unu`, localPhone(c, 1), "", "", "", "", "", ""],
+    [`${tag} doi`, localPhone(c, 1), e1, "", "", "", "", ""],
+    [`${tag} trei`, localPhone(c, 1), e2, "", "", "", "", ""],
+    ["", localPhone(c, 2), "", "", "fără nume", "", "", ""],
+    [`${tag} patru`, localPhone(c, 3), "", "", "", "", "", ""],
+  ]);
+  const ROWS = 5;
+
+  await openImport(page);
+  await chooseFile(page, "socoteala.csv", body);
+  await toVerify(page);
+
+  // Doua dublate, amandoua fata de un rand DIN ACELASI FISIER, si o eroare.
+  await expect(page.getByTestId("import-duplicate")).toHaveCount(2);
+  await expect(
+    page.getByTestId("import-duplicate").filter({ hasText: "din același fișier" }),
+  ).toHaveCount(2);
+  expect(await countAt(page, "import-count-error")).toBe(1);
+
+  // Operatorul cere completarea pentru amandoua, care este exact ce descrie raportul.
+  await page.getByTestId("import-duplicate-choice").nth(0).selectOption("fill");
+  await page.getByTestId("import-duplicate-choice").nth(1).selectOption("fill");
+  await runImport(page);
+
+  const created = await countAt(page, "import-created");
+  const filled = await countAt(page, "import-filled");
+  const skipped = await countAt(page, "import-skipped");
+
+  // DOUA CREATE, UNA COMPLETATA, DOUA NEPRELUATE: randul cu eroare si randul 4, care nu a
+  // schimbat nimic. Inainte de acest card ultimul nu era numarat nicaieri si cele trei
+  // numere faceau 4 dintr-un fisier de 5 randuri.
+  expect({ created, filled, skipped }).toEqual({ created: 2, filled: 1, skipped: 2 });
+
+  // SI CELE TREI ADUNA FISIERUL, care este chiar clauza.
+  expect(
+    created + filled + skipped,
+    "create plus completate plus nepreluate este numarul de randuri citite",
+  ).toBe(ROWS);
+
+  // ECRANUL O SPUNE, ca operatorul sa poata pune rezumatul fata in fata cu foaia.
+  await expect(page.getByTestId("import-total")).toHaveText(`${ROWS} rânduri citite din fișier.`);
+
+  // RANDUL CARE NU A SCHIMBAT NIMIC ESTE IN FISIERUL RANDURILOR NEPRELUATE, cu motivul
+  // lui si cu numarul lui de rand: fara asta, operatorul nu are de unde sa stie ce s-a
+  // intamplat cu el.
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("import-download-skipped").click(),
+  ]);
+  const text = await readFile(await download.path(), "utf8");
+  expect(text, "randul dublat care nu a completat nimic apare, cu motivul lui").toContain(
+    "care are deja completate câmpurile din fișier",
+  );
+  expect(text, "si randul cu eroare este acolo unde era").toContain("Rândul nu are denumire.");
+
+  // SI CE S-A SCRIS ESTE CE SPUNE REZUMATUL, citit din baza.
+  const written = await storedByTag(rest, tag);
+  expect(written.map((row) => row.name), "doi clienti creati, si niciunul din randurile 3 si 4").
+    toEqual([`${tag} patru`, `${tag} unu`]);
+  const merged = written.find((row) => row.name === `${tag} unu`)!;
+  expect(merged.email, "emailul primului rand dublat a fost completat").toBe(e1);
+  expect(merged.email, "si al doilea nu a suprascris nimic").not.toBe(e2);
 });

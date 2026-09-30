@@ -36,6 +36,7 @@ import {
   CLIENT_SOURCE_LABEL,
   CLIENT_STAGE_LABEL,
 } from "@/lib/data/clients-types";
+import { plural } from "@/lib/data/format";
 import {
   autoMatchColumns,
   parseCsv,
@@ -493,6 +494,40 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                     >
                       Descarcă rândurile nepreluate
                     </Button>
+                  ) : null}
+
+                  {/* CELE TREI NUMERE ADUNA FISIERUL, si asta se spune pe ecran: cardul
+                      P3-115, constatarea G18 a raportului
+                      docs/reports/2026-09-29-critic-bug-sweep-2.md. Ce se pierdea era chiar
+                      posibilitatea de a pune rezumatul fata in fata cu foaia de calcul,
+                      care este singurul lucru pe care operatorul il face dupa un import. */}
+                  <p className="text-[12px] text-rc-muted" data-testid="import-total">
+                    {plural(
+                      outcome.created + outcome.filled + outcome.skipped,
+                      "rând citit din fișier",
+                      "rânduri citite din fișier",
+                    )}
+                    .
+                  </p>
+
+                  {/* AVERTISMENTELE NU SUNT RANDURI NEPRELUATE, si de aceea stau langa
+                      numere si nu intre ele: o nota de import care nu s-a salvat este pe un
+                      lead care A FOST creat. Inainte randul acela era numarat de doua oua,
+                      in create si in nepreluate. */}
+                  {outcome.warnings.length > 0 ? (
+                    <div className="space-y-1" data-testid="import-warnings">
+                      <h3 className="text-[13px] font-semibold text-rc-black">De reținut</h3>
+                      {outcome.warnings.map((warning, index) => (
+                        <p
+                          key={`${warning.line}-${index}`}
+                          className="text-[12px] text-rc-warn [overflow-wrap:anywhere]"
+                          data-testid="import-warning"
+                        >
+                          {warning.line > 0 ? `Rândul ${warning.line}: ` : ""}
+                          {warning.reason}
+                        </p>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
               ) : (

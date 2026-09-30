@@ -60,13 +60,38 @@ export type InvoiceListRow = {
 /** Clientii care au cel putin o factura, pentru filtrul de client. */
 export type InvoiceClientChoice = { id: string; name: string };
 
+/** Starile care sunt un document si o sumă datorată: emisă si plătită.
+ *
+ *  CARDUL P3-115, CONSTATAREA G7 a raportului
+ *  docs/reports/2026-09-29-critic-bug-sweep-2.md. Singura cifra de bani de pe ecranul
+ *  Facturi adună ciorne, care nu sunt documente si nu au număr, si facturi anulate,
+ *  care sunt chiar declaratia ca banii NU sunt datorati. Filtrul implicit de stare
+ *  este gol, adica Toate stările, deci cifra pe care un proprietar citeste ca "ce am
+ *  facturat luna asta" nu era acel numar pentru nicio lună care contine o anulare.
+ *
+ *  AICI, INTR-O SINGURA LISTA, ca ecranul si citirea sa nu poata avea doua păreri
+ *  despre ce este o factură vie. */
+export const LIVE_INVOICE_STATUSES: readonly InvoiceStatus[] = ["issued", "paid"];
+
+/** Este factura un document care poartă o sumă datorată? */
+export function isLiveInvoice(status: InvoiceStatus): boolean {
+  return LIVE_INVOICE_STATUSES.includes(status);
+}
+
 /** Lista, plus totalurile a ceea ce este chiar pe ecran. */
 export type InvoiceListResult = {
   rows: InvoiceListRow[];
   /** Cate facturi sunt pe ecran acum, dupa fiecare filtru. */
   count: number;
-  /** Suma totalurilor randurilor de pe ecran, in MDL. */
-  sumMdl: number;
+  /** Cate dintre randurile de pe ecran sunt emise sau plătite. */
+  liveCount: number;
+  /** Suma totalurilor randurilor EMISE SAU PLATITE de pe ecran, in MDL.
+   *
+   *  P3-115, G7. Se numea `sumMdl` si aduna fiecare rand, ciornele si anulările
+   *  incluse. Numele s-a schimbat odata cu inţelesul, dinadins: un camp care isi
+   *  schimbă inţelesul si isi pastreaza numele este un camp pe care urmatorul cititor
+   *  il crede pe cuvant. */
+  liveSumMdl: number;
   clients: InvoiceClientChoice[];
 };
 
