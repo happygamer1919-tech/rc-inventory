@@ -7981,3 +7981,36 @@ card grows an exported list, grep every spec for a hand-written copy of its old 
 the fix that got missed in its sibling.** `grep -rn "toBe([0-9]\+)" tests/` beside the constant's name
 answers in a second, and it is cheaper than 34 minutes of CI. The type system catches an exhaustive
 `Record` over the union; it cannot catch arithmetic about the union's size.
+
+### A ruling id is not a card id, and the board validator is the only thing that says so out loud
+**Tag:** data
+**ERROR:** goal G71's definition of done asked that the Item 2 cards "name it [ruling R-215] in
+`depends_on`". Writing that would have been a hard validator failure and would have been found at
+the pre-commit gate rather than at authoring time: `docs/board/validate-board.mjs` resolves the
+`depends_on` graph after its per-card pass and fails any entry that is not a card id **on the same
+board**, with `is not a card id on this board`. The brief was written by somebody thinking of
+"depends on" in English, where a card depending on a ruling is an obviously true sentence, and the
+field is not English, it is the eligibility edge set that `scripts/poc/eligible.mjs` walks.
+**SOLUTION:** the ruling goes in the first line of each card's `defaults`, which is the field an
+executor reads before working the card, with an explicit sentence saying why it is there and not in
+`depends_on`; the ruling itself names the cards it unblocks, which is the back-edge. RULE: **`depends_on`
+holds card ids on that board and nothing else. A dependency on a ruling, a person, a deployment or an
+outside event is not an edge, and putting it there does not make the board wait for it: it makes the
+board refuse to load.** `blocked_on` is the field for a person; `defaults` is the field for an
+authority. When a brief says "depends on X", ask first whether X is a card.
+
+### "Matching every other table in this system" was true of the newest tables and false of the oldest
+**Tag:** data
+**ERROR:** goal G71 told card P3-130 to give the new `tasks` table no delete policy, "matching every
+other table in this system". Reading `supabase/migrations/0001_phase2_schema.sql` shows the opposite
+for the eleven tables it creates: `outbound_issues`, `products`, `batches` and the rest each carry a
+`for delete ... using (public.is_owner())` policy. The convention the brief was actually describing is
+the newer one, and `public.invoices` in `supabase/migrations/0063_invoices.sql` is where it is visible:
+`select`, `insert` and `update`, and no delete policy at all. A card authored on the brief's wording
+would have carried a justification a reviewer could disprove in one grep, and the next person would
+not know whether the instruction or the reason was the mistake.
+**SOLUTION:** the card keeps the instruction, which is right, and cites the table that actually does it
+rather than claiming all of them do. RULE: **when a brief justifies an instruction with "like everything
+else does", grep for the oldest instance as well as the newest before repeating the claim on a card.**
+A convention that changed partway through a codebase is the normal case, not the exception, and a card
+that says "like X does" with a named X survives the next person checking.
