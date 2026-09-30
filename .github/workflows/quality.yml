@@ -1055,6 +1055,85 @@ jobs:
         if: steps.docs_scope.outputs.docs_only != 'true'
         run: npx playwright test
 
+      # P3-117, Ivan's Item 1a. THE SECTION-TRANSITION BASELINE.
+      #
+      # It measures, it fixes nothing and it asserts no threshold. The
+      # under-2000 ms line is the epic's and lands with the last cause card; a
+      # baseline card that went red because the application is slow, which is
+      # the finding, could never record the number that is its whole point.
+      #
+      # THE SERVER IS THE ONE THE SUITE JUST BUILT. `.next-main` is the
+      # production build the end to end step compiled and served, and it is
+      # still on disk after Playwright stopped the process. Starting it again on
+      # another port costs seconds and measures the same bytes the suite did,
+      # rather than a fourth build that might differ.
+      #
+      # NO PRODUCTION ADDRESS HERE OR ANYWHERE. The base address is a localhost
+      # port on this runner. The measurement refuses a production host on its
+      # own too, in tests/perf/support/report.ts, because a guard that lives
+      # only in this file protects only this file.
+      #
+      # THE ACCOUNT IS THE SEEDED DEVELOPMENT OWNER, the same one every other
+      # spec uses, on the local stack seeded above. It holds no real client row.
+      #
+      # AND IT IS READ OUT OF .env.local, NOT WRITTEN AGAIN HERE. The seed step
+      # above already put the seeded owner into that file, which is gitignored
+      # and exists only on this runner. Repeating the two values in this step
+      # would be a second place to change when they change, and the day the two
+      # drifted apart this step would sign in as an account the stack does not
+      # have. Read, never echoed: the values pass through command substitution
+      # into the environment and nothing prints them.
+      - name: Baseline p75 of the section transitions  # P3-117-PERF-BASELINE
+        if: steps.docs_scope.outputs.docs_only != 'true'
+        env:
+          RC_PERF_BASE_URL: http://localhost:3103
+          NEXT_DIST_DIR: .next-main
+        run: |
+          set -euo pipefail
+          # A missing line here fails the step on the spot. The measurement
+          # refuses an empty variable on its own too, by name and without its
+          # value, which is the case acceptance (b) proves.
+          RC_PERF_EMAIL="$(grep '^TEST_OWNER_EMAIL=' .env.local | cut -d= -f2-)"
+          RC_PERF_PASSWORD="$(grep '^TEST_OWNER_PASSWORD=' .env.local | cut -d= -f2-)"
+          export RC_PERF_EMAIL RC_PERF_PASSWORD
+          npx next start --port 3103 > perf-server.log 2>&1 &
+          echo $! > perf-server.pid
+          timeout 120 bash -c 'until curl -sf -o /dev/null http://localhost:3103/autentificare; do sleep 2; done'
+          npm run perf:sections 2>&1 | tee perf-run.log
+          kill "$(cat perf-server.pid)"
+          # ACCEPTANCE (a), CHECKED AND NOT ASSUMED: exactly six report lines,
+          # one per section, each of the fixed form, and no Rapoarte line. The
+          # spec asserts this too; this half proves it on what actually reached
+          # the log, where the recorded baseline is read from.
+          grep -cE '^(Tablou de bord|Inventar|Iesiri materiale|CRM|Facturi|Setari) p75=[0-9]+ms n=[0-9]+$' perf-run.log > perf-count.txt
+          test "$(cat perf-count.txt)" = "6"
+          ! grep -q 'Rapoarte' perf-run.log
+          echo "----- P3-117 BASELINE -----"
+          grep -E '^(Tablou de bord|Inventar|Iesiri materiale|CRM|Facturi|Setari) p75=[0-9]+ms n=[0-9]+$' perf-run.log
+          echo "----- END P3-117 BASELINE -----"
+
+      # P3-117 acceptance (e), MADE A CHECK AND NOT A HABIT.
+      #
+      # The card's own words: "A card set shipped with an empty baseline has not
+      # met (e)." On this board a card is written `shipped` BEFORE its quality
+      # run concludes, because check-board-edit refuses a pull request carrying a
+      # card's code while the card is short of a terminal status, and the owner's
+      # auto-merger lands a branch on its FIRST green. Put those two together and
+      # this card had exactly one likely way to go wrong: ship green with the six
+      # numbers still missing and merge in seconds.
+      #
+      # LAST, AFTER THE STEP THAT PRODUCES THE BASELINE, deliberately. The
+      # numbers are read out of that step's log and written into the card, so a
+      # run has to get far enough to print them before this refuses for their
+      # absence. Placed earlier it would refuse before producing the thing it
+      # demands, and the card could never be finished.
+      #
+      # NO `if:` GUARD. It reads the board and nothing else, so it runs on a
+      # documentation-only diff too, which is exactly the diff that could
+      # quietly blank the notes later.
+      - name: Refuse P3-117 shipped with an empty baseline
+        run: npm run check:perf-baseline
+
       # P3-73. BOTH CONDITIONS, AND THE SECOND ONE IS NOT DECORATION. On a
       # documentation-only diff there is no Playwright run and therefore no
       # report directory, so a validator failing under `failure()` would send

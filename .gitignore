@@ -40,6 +40,14 @@ next-env.d.ts
 # pragul lui de memorie si lua cu el testul aflat in zbor.
 .next-main
 
+# P3-117: urmele pasului de baseline din CI. Jurnalul serverului pornit pentru
+# masurare, iesirea rularii din care se citesc cele sase numere si numararea
+# liniilor de raport. Exista numai pe runner, cat tine un job.
+perf-server.log
+perf-server.pid
+perf-run.log
+perf-count.txt
+
 # Stare locala a CLI-ului Supabase, nu sursa. .branches/_current_branch si
 # .temp/cli-latest sunt scrise de `supabase start` si `supabase db reset` pe
 # masina fiecaruia si nu descriu nimic despre proiect. Au ajuns urmarite pe
