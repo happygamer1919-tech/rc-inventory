@@ -7689,3 +7689,32 @@ a search box that works correctly.
 also what an operator does: they type what they see. RULE: **read the fold function before writing a
 search assertion. Folding for search and normalising for a link are different operations, and the one
 the database uses is the only one that decides whether a row matches.**
+
+### A compound cd into the repository before a git command is refused as one command
+**Tag:** infra
+**ERROR:** the worktree recipe printed in the factory's own CLAUDE.md is one line,
+`cd /Users/sm33xy/Projects/rc-inventory && git fetch origin && git worktree add ...`, and the
+permission gate refused it before it ran: "This command changes directory before running a
+version-control command, which can pick up untrusted hooks or repository configuration from the
+target directory." Nothing was created, and the run would have stalled here had the signature not
+already been recorded.
+**SOLUTION:** send the `cd` as its own call, then each git command as its own call. The working
+directory persists between calls. Do NOT reach for `git -C`, `npm --prefix` or `sh -c` to get around
+it: the factory forbids all three, because the allowlist matches plain command prefixes and a
+wrapped form stalls a headless run. RULE: **a refusal that names the SHAPE of the command is fixed by
+changing the shape, never by wrapping it in something that hides the shape.**
+
+### Eighteen specs open the settings screen and six of them use it as a fixture, which decides its redesign
+**Tag:** frontend
+**ERROR:** goal G69 asks for the Setări screen to become a sub-menu of sections, which reads as a
+presentation change with no test consequences. It is not. Eighteen end to end spec files open
+`/setari`; six of them go there in their SETUP to type a category name and press Adaugă, because that
+is how a spec gives itself a category before creating a product, and one asserts that the address is
+still `/setari` after the screen loads. A redesign that moved Categorii behind a click, or redirected
+the bare address into a first section, would have turned one presentation card into a red run across
+six unrelated suites.
+**SOLUTION:** the design note names this before anything is built, and recommends the section that
+opens first be the one holding Categorii and Unități, so the bare address keeps answering with the
+add box on it. RULE: **before restructuring a screen, grep the spec folder for its route. A screen
+other specs use as a fixture has a contract with them, and that contract is part of the screen's
+design whether or not anybody wrote it down.**
