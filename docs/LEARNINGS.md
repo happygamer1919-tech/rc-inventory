@@ -8075,3 +8075,55 @@ under beside the number, and when the number does not reproduce the reported pro
 non-reproduction is the finding and goes in the notes ahead of the number.** A fast result on a small
 local copy is evidence about where the slowness is NOT, which is useful, and it is not a baseline of
 anything the owner complained about.
+
+### A card clause can be FALSE about the schema it describes, and the card is still the specification
+**Tag:** data
+**ERROR:** card P3-118 clause 1 says of its own migration "and it relaxes nothing", and clause 3 says
+"The legacy client_name and project_name text columns from migration 0001 are NOT removed and NOT
+repurposed". Both sentences describe `public.outbound_issues` as it stood before 2026-08-31. Migration
+0026, card P3-04b, DROPPED both text columns and made `project_id` NOT NULL. So clause 3 protects two
+columns that no longer exist, and clause 1 contradicts clause 2 of the same card, which requires a
+`direct_client` row to have NO PROJECT: a direct client issue is unrecordable while a column level NOT
+NULL stands. An executor obeying clause 1 literally would have shipped a migration that cannot store
+the one thing the owner asked for, and would have found out only when the screen card failed.
+**SOLUTION:** read the migration history of every table a card names BEFORE writing a line of it, and
+grep the table name across `supabase/migrations/` rather than trusting the card's description of it.
+When a clause turns out to be false about the schema, the deviation goes in the migration's own header,
+quoted, with the reason, so a later reader lands on the explanation rather than on a surprise. RULE:
+**the card is the specification of the OUTCOME and not a description of the current schema; where the
+two disagree, the schema is the fact and the deviation is declared in writing.** Here the outcome
+clause 3 wanted, no column removed and none repurposed, was reached by doing nothing, and the guarantee
+clause 1 wanted was kept by MOVING the NOT NULL into a mode scoped constraint that says more than the
+column rule could: every project row has a project, and no direct client row has one.
+
+### An assertion file can only describe the END state, so a later card corrects the earlier one rather than adding a second file that disagrees
+**Tag:** ci
+**ERROR:** every file under `scripts/poc-free/local-db/assertions/` runs after ALL migrations have
+applied, so it can only ever describe the finished schema. `assertions/0026_drop_outbound_free_text.sql`
+pinned two facts that migration 0067 makes false: `outbound_issues.project_id` is NOT NULL, and
+`create_outbound_issue` has the literal signature `(text, text, text, jsonb, uuid)`. Adding 0067's own
+assertion file without touching 0026's would have left two files in one directory asserting opposite
+things about one schema, and the suite would have failed on 0026 for a change 0067 made deliberately.
+Deleting 0026's file, which is what happened to `assertions/0017` in its day, would have thrown away
+the four things it checks that are still true.
+**SOLUTION:** correct the two blocks in place under CLAUDE.md section 9c: quote the false code, mark it
+false with the card and the reason, keep it, and move the replacement into the new card's file where it
+is STRENGTHENED rather than merely relocated. RULE: **when a migration changes the end state, the
+earlier card's assertion is corrected in the same pull request, the superseded assertion is quoted and
+not deleted, and the replacement must assert at least as much as the sentence it retires.** The test
+that this was not a weakening: NOT NULL said "every row has a project"; the replacement says "every
+project row has a project AND no direct client row has one", which the column level rule could not say.
+
+### An assertion can pass on the wrong refusal, and two Romanian sentences look identical from an error code
+**Tag:** ci
+**ERROR:** `assertions/0026` proved that the write path refuses a destination without a project by
+calling `public.create_outbound_issue('IES-ASSERT-0026', '', '', '[]'::jsonb, null)` and catching
+`P0001`. The function checks its LINES before it checks the project, and the line array in that call is
+EMPTY, so the refusal it actually caught was "Ieșirea trebuie să aibă cel puțin o poziție." A block
+written to prove a card about the project destination was passing on a message about the positions, and
+it would have kept passing if the project check had been deleted outright.
+**SOLUTION:** the call now carries a real line, so the missing project is the only thing wrong with it,
+and the same shape is used for every refusal case in `assertions/0067`. RULE: **when several refusals
+share one error code, the input must make exactly ONE of them possible; an assertion that catches a
+code rather than a cause proves only that something was refused.** Where the message itself is the
+contract, match on the message.
