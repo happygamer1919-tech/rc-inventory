@@ -7915,3 +7915,36 @@ pure file reading with no browser and no database in it, so run it locally befor
 throwaway script that re-implements case 5's twenty lines answers in a second, while CI answers
 after the whole suite has run. Every gate that reads only files can be run on a machine with no
 Docker, and this card paid twenty minutes twice to learn that once.
+
+### A section that adds a section id makes its sibling spec refuse to compile, and that is the good outcome
+**Tag:** frontend
+**ERROR:** card P3-116 added `date-firma` to `SettingsSectionId` and `npx tsc --noEmit` failed on
+`tests/e2e/setari-sections.spec.ts`, where `SECTION_MARKER` is typed
+`Record<Exclude<SettingsSectionId, "toate">, string>`. The task forbade editing the spec files that
+touch `/setari`, so the first instinct was to widen the type to a `Partial` or to leave the section
+out of the sub-menu.
+**SOLUTION:** name the sixth marker, one line, exactly as card P3-114 did for the fifth. RULE: **an
+exhaustive `Record` over a union is a declaration the compiler makes you write, not a test you are
+editing to fit a preference. Adding the row STRENGTHENS the file** (case 2 now also proves the new
+section is absent from the other sections, case 5 now sweeps its address), while widening the type
+to `Partial` would leave the new thing unmeasured and nothing would notice. Check for exhaustive
+`Record`s over a union before adding a member to it: `grep -rn "Record<Exclude<" tests/ lib/
+components/` finds them in a second, and it is cheaper than reading a compiler error.
+
+### Two forms over one database row: the one that was not touched writes the stale value back
+**Tag:** frontend
+**ERROR:** card P3-116 put a second form (Date firma) over the same single `invoice_settings` row the
+Facturare block already edits, with five fields visible in both. Both are client components whose
+field state is seeded ONCE from props, and `router.refresh()` re-renders the server tree without
+remounting a client component. So after saving a new company name in Date firma, the untouched
+Facturare form still held the old name in state, and its next "Salveaza setarile" would have written
+that old name back over the new one. No test would have caught it: every case reloads the page
+between a save and a read.
+**SOLUTION:** each form saves only its own fields, and each re-seeds the SHARED field values from
+the server props in an effect keyed on those values, which fires exactly when the other form has
+saved. The `saved` and `error` flags are deliberately NOT reset, because a remount or a blanket reset
+would clear the Romanian confirmation message after the very refresh that message triggered, and
+`facturare-settings.spec` case 1 waits on that message for up to sixty seconds. RULE: **the moment a
+second form writes a row an existing form already writes, the existing form has become stale state.
+Re-seed the overlapping values from props; never key or remount the whole component, because the
+confirmation message and the in-progress typing live in the same state.**
