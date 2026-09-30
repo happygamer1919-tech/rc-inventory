@@ -8127,3 +8127,25 @@ and the same shape is used for every refusal case in `assertions/0067`. RULE: **
 share one error code, the input must make exactly ONE of them possible; an assertion that catches a
 code rather than a cause proves only that something was refused.** Where the message itself is the
 contract, match on the message.
+
+### A migration that changes a function signature must grep the things that PROVE the applier, not only the applier
+**Tag:** ci
+**ERROR:** migration 0067 drops `public.create_outbound_issue(text, text, text, jsonb, uuid)` and creates
+a six argument version, which is the legitimate change card APPLY-01 rewrote the applier's assertions to
+allow. The applier itself was fine: `declared-function-signatures-exist` is DERIVED from what the batch
+declares, so it needed no edit, and both `npm run check:migrations` and `npm run prove:applier` passed on
+the first CI run. `npm run prove:assertions` failed. Its `PERTURB` map holds one HAND WRITTEN statement
+per assertion, and the entry for that assertion was the literal
+`drop function public.create_outbound_issue(text, text, text, jsonb, uuid);`. With the five argument
+version already gone, the perturbation's own drop failed, psql exited 3 before the assertion body ran,
+and the harness reported `did NOT raise when broken, so it can never fail`: the exact opposite of what
+happened. PR #385, run 36772953240, one failed case after 1m55s, and the whole end to end suite skipped
+behind it.
+**SOLUTION:** point the perturbation at the signature the batch declares now, with the old statement
+quoted above it under CLAUDE.md section 9c. Nothing is weakened: it still removes a signature the batch
+declared. RULE: **an assertion derived from the batch survives a signature change; every hand written
+COPY of that signature does not, and there are three places that hold one:**
+`scripts/poc-free/prove-assertions-can-fail.mjs` (the PERTURB map),
+`scripts/poc-free/local-db/prove-applier.mjs` (the mutation cases) and
+`scripts/poc-free/local-db/assertions/*.sql`. Grep the old argument list across all three before pushing.
+`npx tsc --noEmit` reaches none of them, so every one of them costs a CI run to find.
