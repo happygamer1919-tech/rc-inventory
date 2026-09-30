@@ -27,7 +27,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { hasFacturareSettings } from "./schema-capability";
+import { hasCompanyContactFields, hasFacturareSettings } from "./schema-capability";
 import { isUnitCode } from "./units";
 import { chisinauToday, formatDate } from "./format";
 import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
@@ -134,6 +134,121 @@ export async function saveInvoiceSettings(input: InvoiceSettingsInput): Promise<
   }
 
   revalidatePath("/setari");
+  return { ok: true };
+}
+
+
+// ===========================================================================
+// P3-116, goal G69 partea 4. DATELE FIRMEI, SALVATE DIN SECTIUNEA Date firmă
+// ===========================================================================
+//
+// ACELASI RAND, A DOUA FORMA DE PE ECRAN. Nu exista o a doua tabela, nu exista o
+// copie si nu exista un "profil de firma" pe langa: secțiunea Date firmă scrie
+// chiar randul unic pe care il scrie si blocul Facturare, prin chiar acest fisier.
+// Raportul de proiectare docs/reports/2026-09-30-author-setari-design.md spune de
+// ce: doua locuri care tin IDNO-ul aceleiasi firme este exact felul in care ajung
+// sa se contrazica, iar cel greșit este intotdeauna cel care s-a tiparit.
+//
+// FIECARE FORMA SCRIE NUMAI CAMPURILE EI, si aceasta este cerinta pe care raportul
+// o pune explicit: "two forms now write to one row, so each form saves only its
+// own fields and never writes back a blank over the other's". Deci:
+//   - saveInvoiceSettings (mai sus) scrie NUMEROTAREA si cota, plus cele cinci
+//     date ale firmei pe care blocul Facturare le arata de la P3-108. Este
+//     NESCHIMBATA: aceleasi campuri, acelasi mesaj, acelasi data-testid.
+//   - saveCompanyDetails (mai jos) scrie CELE OPT DATE ALE FIRMEI si NICIODATA
+//     prefixul seriei, anul din numar sau cota TVA. O cautare in acest corp nu
+//     gaseste series_prefix, number_includes_year sau default_vat_rate, si aceea
+//     este toata garantia ca formularul de Date firmă nu poate atinge numerotarea.
+//
+// DE CE CELE CINCI SE ARATA IN DOUA LOCURI SI NU S-AU MUTAT. Cazul 2 din
+// tests/e2e/facturare-settings.spec.ts completeaza `facturare-issuer-*` in blocul
+// Facturare, apasa `facturare-save` si le citeste inapoi, iar acest card nu are
+// voie sa atinga acel test. A muta campurile ar fi insemnat sa mut si testul, adica
+// sa schimb o proba ca sa se potriveasca unei preferinte. Ele stau deci in ambele
+// locuri, pe UN SINGUR RAND, deci nu se pot contrazice: ce se salveaza intr-o
+// secțiune se citeste in cealalta la urmatoarea incarcare, si asta este masurat de
+// cazul 3 al tests/e2e/setari-date-firma.spec.ts.
+//
+// COTA TVA (un procent pe o linie) SI CODUL TVA (numarul de inregistrare al firmei)
+// SUNT DOUA LUCRURI. Aceasta actiune atinge numai al doilea. Cazul 4 al aceluiasi
+// spec probeaza ca schimbarea unuia nu schimba celalalt.
+
+export type CompanyDetailsInput = {
+  issuerName: string;
+  issuerFiscalCode: string;
+  issuerAddress: string;
+  issuerBank: string;
+  issuerIban: string;
+  /** Codul de inregistrare ca platitor de TVA. ALT NUMAR DECAT IDNO. */
+  issuerVatCode: string;
+  issuerPhone: string;
+  issuerEmail: string;
+};
+
+/** Mesajul de refuz al secțiunii Date firmă. Propriul lui text, fiindca omul nu
+ *  este pe blocul de facturare cand il citeste. */
+const COMPANY_OWNER_ONLY = {
+  ok: false,
+  message: "Doar administratorul poate modifica datele firmei.",
+} as const;
+
+export async function saveCompanyDetails(input: CompanyDetailsInput): Promise<ActionResult> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  // A DOUA LINIE SI NU PRIMA, ca la saveInvoiceSettings: politica
+  // invoice_settings_owner_update refuza deja scrierea in baza, si o refuza in
+  // liniste filtrand randul. Aceasta verificare exista ca sa intoarca o propoziție
+  // romaneasca in loc de o salvare care pare sa reuseasca si nu schimba nimic.
+  if (user.role !== "owner") return COMPANY_OWNER_ONLY;
+
+  const supabase = await createClient();
+  if (!(await hasFacturareSettings(supabase))) {
+    return { ok: false, message: "Facturarea nu este încă activă pe această bază de date." };
+  }
+
+  // NICIUN CAMP NU ESTE OBLIGATORIU, si asta este decizia lui 0063 pastrata: toate
+  // opt sunt nullable si goale, fiindca schema nu inventeaza date de firma. O
+  // jumatate necompletata a unui document trebuie sa se vada necompletata, iar un
+  // IDNO inventat nu s-ar vedea.
+  const patch: Record<string, string | null> = {
+    issuer_name: orNull(input.issuerName),
+    issuer_fiscal_code: orNull(input.issuerFiscalCode),
+    issuer_address: orNull(input.issuerAddress),
+    issuer_bank: orNull(input.issuerBank),
+    issuer_iban: orNull(input.issuerIban),
+    updated_by: user.id,
+  };
+
+  // CELE TREI COLOANE ALE MIGRATIEI 0066 SE SCRIU NUMAI CAND EXISTA. Intre
+  // fuziunea si aplicarea lui 0066 exista o fereastra de vreo doua minute in care
+  // tabela exista si coloanele nu; un update care le-ar numi ar fi refuzat de
+  // PostgREST cu 42703 si ar pierde si cele cinci salvate impreuna cu ele.
+  const contactReady = await hasCompanyContactFields(supabase);
+  if (contactReady) {
+    patch.issuer_vat_code = orNull(input.issuerVatCode);
+    patch.issuer_phone = orNull(input.issuerPhone);
+    patch.issuer_email = orNull(input.issuerEmail);
+  }
+
+  const { error } = await supabase.from("invoice_settings").update(patch).eq("id", true);
+
+  if (error) {
+    if (error.code === "42501") return COMPANY_OWNER_ONLY;
+    // 42703 nu ar trebui sa ajunga aici: poarta de mai sus il previne. Daca ajunge,
+    // se spune romaneste ce se intampla in loc sa se arate un cod de Postgres.
+    if (error.code === "42703") {
+      return {
+        ok: false,
+        message: "Câmpurile noi ale firmei nu sunt încă active pe această bază de date.",
+      };
+    }
+    return { ok: false, message: "Datele firmei nu au putut fi salvate. Încearcă din nou." };
+  }
+
+  revalidatePath("/setari");
+  // Factura isi citeste emitentul din acelasi rand, deci ecranul unei facturi
+  // trebuie sa vada imediat ce s-a schimbat aici.
+  revalidatePath("/facturi");
   return { ok: true };
 }
 

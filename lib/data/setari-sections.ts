@@ -26,9 +26,15 @@ export const SETTINGS_SECTION_PARAM = "sectiune";
 // lista, dupa Opțiuni produse, pentru ca ordinea din sub-meniu este ordinea acestei
 // liste: conturile sunt administrarea oamenilor si nu a catalogului, deci nu se pun
 // intre vocabular si facturare.
+// P3-116, goal G69 partea 4. `date-firma` este a SASEA intrare si sta chiar INAINTE
+// de Facturare. Motivul este randul din baza: Date firmă si Facturare citesc si scriu
+// acelasi rand unic, primul "cine este Rapid Construct" si al doilea "cum se
+// numeroteaza si se taxeaza facturile ei", deci stau una langa alta. Vocabularul
+// catalogului rămâne prima secțiune adevarata, pentru motivul scris de P3-113.
 export type SettingsSectionId =
   | "toate"
   | "catalog"
+  | "date-firma"
   | "facturare"
   | "optiuni"
   | "utilizatori";
@@ -63,6 +69,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: "catalog",
     label: "Vocabularul catalogului",
     hint: "Categoriile și unitățile de măsură cu care este scris catalogul",
+  },
+  // P3-116. Datele firmei, intr-un singur loc. Eticheta este cea cerută de raportul
+  // de proiectare, secțiunea 3, cuvant cu cuvant: Date firmă.
+  {
+    id: "date-firma",
+    label: "Date firmă",
+    hint: "Datele Rapid Construct: denumirea, IDNO, codul TVA, adresa, banca, IBAN, telefonul și emailul",
   },
   {
     id: "facturare",
