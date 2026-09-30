@@ -1,287 +1,59 @@
 "use client";
 
-// P2-05 Iesiri materiale, pe date reale.
+// P2-05 Iesiri materiale. P3-119: DE ACUM SUNT DOUA FELURI DE IESIRE, si acest
+// fisier este alegerea dintre ele si nimic mai mult.
 //
-// Eliberare catre santier, nu vanzare cu amanuntul. Marcajul este cel din faza
-// 1: aceleasi carduri, aceleasi coloane, acelasi subsol, acelasi Combobox cu
-// portalul si filtrarea lui fara diacritice, refolosit NESCHIMBAT.
+// CE FACE, TOT: tine modul ales si randeaza unul din cele doua formulare. Nu are
+// nicio stare de formular, nicio validare si nicio scriere. Corpul de dinainte al
+// acestui fisier, adica modul "Proiect", este acum OutboundProjectForm.tsx, mutat
+// acolo neschimbat.
 //
-// SUPRATRAGEREA ESTE BLOCATA, NU AVERTIZATA. Faza 1 avertiza pe linie, pentru ca
-// nu scria nimic. Faza 2 scrie, deci refuza. Verificarea exista in trei locuri:
-// aici (ca operatorul afle imediat), in server action (pentru ca o verificare
-// din browser este o curtoazie), si sub blocaj in migratia 0004 (aceea este
-// garantia, singura care rezista la doi operatori simultani).
+// DE CE ASA. Clauza 1 a cardului P3-119 si hotararea R-215: "Proiect" este implicit
+// si este COMPLET NESCHIMBAT in orice privinta, aceleasi campuri, aceeasi validare,
+// acelasi comportament, acelasi efect pe stoc. Un singur formular cu ramuri pe mod ar
+// fi rescris chiar acele randuri. Deviatia cardului spune ce se face atunci: "keep
+// the project path byte-for-byte and add beside it".
+//
+// MODUL TRAIESTE AICI SI NU IN FORMULARE, ca alegerea sa fie un singur adevar: doua
+// stari, una in fiecare formular, s-ar putea deosebi, si atunci ecranul ar arata un
+// mod si ar trimite celalalt.
+//
+// TRECEREA DE LA UN MOD LA ALTUL GOLESTE CAMPURILE CELUILALT, si asta este o
+// consecinta a formei si nu o hotarare in plus: React demonteaza formularul care
+// pleaca. Este si ce trebuie sa se intample, fiindca un proiect ales nu are niciun
+// inteles intr-o iesire catre un client direct.
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Button,
-  Card,
-  CardHeader,
-  Chip,
-  Field,
-  Input,
-  PageHeader,
-  Table,
-  Td,
-  Th,
-} from "@/components/ui/primitives";
-import { Combobox } from "@/components/ui/Combobox";
-import type { ComboOption } from "@/components/ui/Combobox";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber } from "@/lib/data/format";
-import { unitLabel } from "@/lib/data/units";
+import { Card, PageHeader } from "@/components/ui/primitives";
 import type { CatalogProduct } from "@/lib/data/products";
-import { createOutboundIssue } from "@/lib/data/outbound-actions";
-import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { SelectableProject } from "@/lib/data/projects-types";
-
-// P3-67. PE TELEFON (sub 768px) formularul sta pe o coloana si fiecare pozitie
-// devine un card, iar peste 768px nimic nu se schimba: fiecare clasa de mai jos
-// poarta max-md. ACELASI DOM, ca in P3-64 si P3-65. Eticheta fiecarei celule este
-// textul antetului coloanei ei, pus in data-label si desenat din CSS.
-//
-// P3-100. Cele sase nume erau scrise aici, cuvant cu cuvant identice cu cele din
-// components/ui/phone.ts, deci copia a fost stearsa si se importa. Nimic nu se
-// schimba pe ecran.
-import {
-  PHONE_CELL,
-  PHONE_CONTROL,
-  PHONE_ROW,
-  PHONE_TABLE,
-  PHONE_TAP,
-  PHONE_WIDE,
-} from "@/components/ui/phone";
-
-type Line = { key: string; productId: string; quantity: string; price: string };
-
-let seq = 0;
-function emptyLine(): Line {
-  seq += 1;
-  return { key: `o-${seq}`, productId: "", quantity: "", price: "" };
-}
-
-type Created = {
-  id: string;
-  reference: string;
-  clientName: string;
-  projectName: string;
-  lineCount: number;
-  /**
-   * P3-110, goal G65 partea 3. Au toate pozitiile un preț?
-   *
-   * DE ASTA ATARNA BUTONUL "Creează factură" de pe aceasta confirmare, si se citeste din
-   * chiar formularul care a creat bonul: o iesire cu o poziție fără preț nu se poate
-   * factura, iar aici se stie fara nicio intrebare in plus catre baza de date. Acelasi
-   * refuz il calculeaza si getIssueInvoiceability pe fisa iesirii, de pe randurile
-   * scrise, deci cele doua ecrane nu pot fi de acorduri diferite.
-   */
-  allPriced: boolean;
-};
+import type { OutboundMode } from "@/lib/data/outbound-types";
+import { OutboundProjectForm } from "./OutboundProjectForm";
+import { OutboundDirectClientForm } from "./OutboundDirectClientForm";
+import type { ClientChoice } from "./OutboundDirectClientForm";
 
 export function OutboundScreen({
   products,
   projects,
+  clients,
+  canCreateClient,
 }: {
   products: CatalogProduct[];
   projects: SelectableProject[];
+  /** P3-119. Clientii CRM pentru selectorul modului "Client direct". */
+  clients: ClientChoice[];
+  /** P3-119. Poate utilizatorul sa creeze un client pe loc. Numai administratorul,
+   *  de la cardul P3-06, si ecranul nu arata butonul celui care nu poate. */
+  canCreateClient: boolean;
 }) {
-  const router = useRouter();
-  // O SINGURA ALEGERE, NU DOUA. Pana la P3-04 aici erau doua casute de text
-  // liber, client si proiect, si fiecare iesire scria doua siruri pe care nimic
-  // nu le lega de o inregistrare. Acum se alege proiectul, iar clientul vine de
-  // la el: un proiect apartine unui client si nu poate apartine altuia, deci a
-  // cere amandoua ar fi doua intrebari cu un singur raspuns si un mod de a
-  // gresi.
-  const [projectId, setProjectId] = React.useState("");
-  const [lines, setLines] = React.useState<Line[]>([emptyLine()]);
-  const [touched, setTouched] = React.useState(false);
-  const [pending, setPending] = React.useState(false);
-  const [serverError, setServerError] = React.useState<string | null>(null);
-  const [created, setCreated] = React.useState<Created | null>(null);
+  // "PROIECT" ESTE IMPLICIT, clauza 1. Singurul mod care a existat pana la
+  // 2026-09-30, deci si singurul pe care operatorul il foloseste fara sa aleaga.
+  const [mode, setMode] = React.useState<OutboundMode>("project");
 
-  const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
-
-  const projectById = React.useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const project = projectId ? (projectById.get(projectId) ?? null) : null;
-
-  // GRUPAT DUPA CLIENT, PRIN hint. Comboboxul cauta si peste hint, asa ca
-  // scrisul numelui clientului gaseste santierele lui, iar scrisul numelui
-  // santierului il gaseste direct. Doua feluri de a ajunge la acelasi rand,
-  // pentru ca operatorul stie cand unul si cand celalalt.
-  const projectOptions: ComboOption[] = projects.map((p) => ({
-    value: p.id,
-    label: p.name,
-    hint: `${p.clientName} · ${PROJECT_STATUS_LABEL[p.status]}`,
-  }));
-  const productOptions: ComboOption[] = products.map((p) => ({
-    value: p.id,
-    label: p.name,
-    hint: `${p.sku} · stoc ${formatNumber(p.stock)} ${unitLabel(p.unit)}`,
-  }));
-
-  const setLine = (key: string, patch: Partial<Line>) =>
-    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-
-  const filled = lines.filter((l) => l.productId && Number(l.quantity) > 0);
-
-  // Cantitatile aceluiasi produs se aduna INAINTE de verificare: 100 impartit in
-  // doua linii de 50 nu are voie sa treaca o verificare pe care 50 ar pica-o.
-  const wantedByProduct = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const l of filled) m.set(l.productId, (m.get(l.productId) ?? 0) + Number(l.quantity));
-    return m;
-  }, [filled]);
-
-  const problems: string[] = [];
-  // OBLIGATORIU DIN ACEST CARD INAINTE. Asa se opreste multimea de randuri fara
-  // proiect din a mai creste, cat timp cele vechi sunt reconciliate de mana.
-  if (!project) problems.push("Alege proiectul.");
-  if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
-  for (const [productId, wanted] of wantedByProduct) {
-    const p = byId.get(productId);
-    if (p && wanted > p.stock) {
-      problems.push(
-        `Stoc insuficient pentru ${p.name}: disponibil ${formatNumber(p.stock)} ${unitLabel(p.unit)}.`,
-      );
-    }
-  }
-
-  const pricedTotal = filled.reduce(
-    (s, l) => s + (l.price ? Number(l.quantity) * Number(l.price) : 0),
-    0,
-  );
-
-  async function submit() {
-    setTouched(true);
-    setServerError(null);
-    if (problems.length > 0) return;
-
-    setPending(true);
-    const result = await createOutboundIssue({
-      projectId: project!.id,
-      lines: filled.map((l) => ({
-        productId: l.productId,
-        quantity: l.quantity,
-        salePriceMdl: l.price,
-      })),
-    });
-
-    if (!result.ok) {
-      setServerError(result.message);
-      setPending(false);
-      return;
-    }
-
-    router.refresh();
-    setCreated({
-      id: result.value.id,
-      reference: result.value.reference,
-      // Numele afisate pe confirmare sunt cele ale proiectului ales, nu ce a
-      // scris cineva: aceleasi pe care le-a scris si baza de date, pentru ca
-      // 0018 le ia tot de la proiect.
-      clientName: project!.clientName,
-      projectName: project!.name,
-      lineCount: filled.length,
-      allPriced: filled.every((l) => l.price.trim() !== ""),
-    });
-    setPending(false);
-  }
-
-  if (created) {
-    return (
-      <>
-        <PageHeader
-          title="Bon de eliberare creat"
-          lead="Materialul este pregătit pentru expediere."
-        />
-        <Card className="max-w-[720px]">
-          <div className="px-7 py-8 text-center" data-testid="issue-created">
-            <div className="mx-auto w-12 h-12 rounded-full bg-rc-ok-soft text-rc-ok grid place-items-center text-[22px]">
-              ✓
-            </div>
-            <p
-              className="mt-4 text-[17px] font-bold text-rc-black"
-              data-testid="issue-reference"
-            >
-              {created.reference}
-            </p>
-            <p className="text-[13.5px] text-rc-muted mt-1.5">
-              {created.projectName} · {created.clientName} · {created.lineCount}{" "}
-              {created.lineCount === 1 ? "poziție" : "poziții"} · emis{" "}
-              {formatDate(new Date().toISOString())}
-            </p>
-            <div className="mt-4 flex justify-center">
-              <Chip tone="warn">În așteptare expediere</Chip>
-            </div>
-            <div className="mt-6 flex items-center justify-center gap-2.5 max-md:flex-col max-md:items-stretch">
-              <Link href="/comenzi" className="max-md:flex max-md:flex-col">
-                <Button data-testid="issue-go-to-orders" className={PHONE_TAP}>
-                  Vezi în lista de comenzi
-                </Button>
-              </Link>
-              <Button
-                className={PHONE_TAP}
-                variant="secondary"
-                onClick={() => {
-                  setCreated(null);
-                  setProjectId("");
-                  setLines([emptyLine()]);
-                  setTouched(false);
-                }}
-              >
-                Creează alt bon
-              </Button>
-            </div>
-
-            {/* P3-110, goal G65 partea 3. "Creează factură" chiar aici, fiindca acesta
-                este momentul in care operatorul are bonul in fata si stie daca urmeaza o
-                factura. Butonul dezactivat SPUNE DE CE, sub el, in romana: un buton gri
-                fara nicio propozitie este defectul pentru care au fost ridicate cardurile
-                P3-61 si P3-98. */}
-            <div className="mt-6 pt-5 border-t border-rc-line">
-              {created.allPriced ? (
-                <>
-                  <Link
-                    href={`/facturare/nou?iesire=${created.id}`}
-                    className="inline-flex max-md:flex max-md:flex-col"
-                  >
-                    <Button
-                      variant="secondary"
-                      className={PHONE_TAP}
-                      data-testid="issue-create-invoice"
-                    >
-                      Creează factură
-                    </Button>
-                  </Link>
-                  <p className="mt-2 text-[12px] text-rc-muted" data-testid="issue-invoice-reason">
-                    Pozițiile, cantitățile și prețurile trec pe factură, iar factura rămâne
-                    ciornă până la emitere.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    disabled
-                    className={PHONE_TAP}
-                    data-testid="issue-create-invoice"
-                  >
-                    Creează factură
-                  </Button>
-                  <p className="mt-2 text-[12px] text-rc-muted" data-testid="issue-invoice-reason">
-                    Bonul are o poziție fără preț unitar, deci nu poate fi facturat. O eliberare
-                    netarifată este de obicei către un șantier propriu.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
-      </>
-    );
-  }
-
+  // CATALOGUL GOL OPRESTE AMANDOUA MODURILE, deci se raspunde inaintea alegerii:
+  // material care nu exista in catalog nu poate pleca nici spre un santier, nici cu
+  // un cumparator de la tejghea. Propozitia este cuvant cu cuvant cea de dinainte,
+  // mutata din corpul modului proiect, cu acelasi data-testid.
   if (products.length === 0) {
     return (
       <>
@@ -302,212 +74,24 @@ export function OutboundScreen({
     );
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Ieșiri materiale"
-        lead="Eliberare de material către un șantier. Alege clientul și proiectul, apoi ce pleacă într-acolo."
+  if (mode === "direct_client") {
+    return (
+      <OutboundDirectClientForm
+        products={products}
+        clients={clients}
+        canCreateClient={canCreateClient}
+        mode={mode}
+        onModeChange={setMode}
       />
+    );
+  }
 
-      <div className="space-y-4" data-testid="outbound-form">
-        <Card>
-          <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />
-          <div className="p-5 grid grid-cols-2 gap-4 max-md:grid-cols-1">
-            <Field label="Proiect" required>
-              <div data-testid="field-project">
-                <Combobox
-                  options={projectOptions}
-                  value={projectId}
-                  onChange={setProjectId}
-                  placeholder="Caută șantierul sau clientul"
-                  emptyLabel="Niciun proiect deschis"
-                />
-              </div>
-            </Field>
-            <Field label="Client">
-              {/* Nu se alege: se citeste de pe proiect. Randul ramane ca sa se
-                  vada CATRE CINE pleaca, ceea ce este intrebarea pe care si-o
-                  pune operatorul inainte sa apese. */}
-              <div
-                data-testid="field-client"
-                data-client={project?.clientName ?? ""}
-                className="h-9 flex items-center px-3 text-sm text-slate-600"
-              >
-                {project ? project.clientName : "Se completează din proiect"}
-              </div>
-            </Field>
-          </div>
-        </Card>
-
-        <Card className={PHONE_TABLE}>
-          <CardHeader
-            title="Materiale"
-            hint="Cantitatea este în unitatea fixă a produsului. Prețul este opțional."
-            right={
-              <Button
-                size="sm"
-                variant="secondary"
-                type="button"
-                onClick={() => setLines((ls) => [...ls, emptyLine()])}
-                data-testid="issue-add-line"
-                className={PHONE_TAP}
-              >
-                + Adaugă poziție
-              </Button>
-            }
-          />
-          <Table>
-            <thead>
-              <tr>
-                <Th className="w-[42%]">Produs</Th>
-                <Th align="right">Cantitate</Th>
-                <Th>Unitate</Th>
-                <Th align="right">Preț unitar ({DISPLAY_CURRENCY})</Th>
-                <Th align="right">Total linie</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l, index) => {
-                const product = byId.get(l.productId);
-                const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
-                const total = l.price ? Number(l.quantity) * Number(l.price) : 0;
-                return (
-                  <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
-                    <Td data-label="Produs" className={PHONE_WIDE}>
-                      <div data-testid={`issue-product-${index}`}>
-                        <Combobox
-                          options={productOptions}
-                          value={l.productId}
-                          onChange={(v) => setLine(l.key, { productId: v })}
-                          placeholder="Caută produsul din catalog"
-                        />
-                      </div>
-                      {product ? (
-                        <p
-                          data-testid={`issue-stock-hint-${index}`}
-                          className={[
-                            "text-[11.5px] mt-1.5",
-                            over ? "text-rc-danger font-semibold" : "text-rc-muted-2",
-                          ].join(" ")}
-                        >
-                          {over ? "Stoc insuficient. " : ""}
-                          În stoc: {formatNumber(product.stock)} {unitLabel(product.unit)}
-                        </p>
-                      ) : null}
-                    </Td>
-                    <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="any"
-                        className={`text-right rc-num ${PHONE_CONTROL}`}
-                        value={l.quantity}
-                        onChange={(e) => setLine(l.key, { quantity: e.target.value })}
-                        placeholder="0"
-                        data-testid={`issue-quantity-${index}`}
-                      />
-                    </Td>
-                    <Td data-label="Unitate" className={PHONE_CELL}>
-                      <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted max-md:h-11">
-                        {product ? unitLabel(product.unit) : "-"}
-                      </span>
-                    </Td>
-                    <Td align="right" data-label={`Preț unitar (${DISPLAY_CURRENCY})`} className={PHONE_CELL}>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="any"
-                        className={`text-right rc-num ${PHONE_CONTROL}`}
-                        value={l.price}
-                        onChange={(e) => setLine(l.key, { price: e.target.value })}
-                        placeholder="lasă gol"
-                        data-testid={`issue-price-${index}`}
-                      />
-                    </Td>
-                    <Td align="right" data-label="Total linie" className={PHONE_CELL}>
-                      <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
-                        {total > 0 ? (
-                          formatMoney(total)
-                        ) : (
-                          <span className="text-rc-muted-2">fără preț</span>
-                        )}
-                      </span>
-                    </Td>
-                    {/* Coloana fara antet: pe telefon butonul de eliminare sta pe tot
-                        randul cardului, in dreapta, fara eticheta. */}
-                    <Td align="right" className="max-md:col-span-2 max-md:block max-md:border-b-0 max-md:p-0">
-                      <button
-                        type="button"
-                        onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                        disabled={lines.length === 1}
-                        title="Elimină poziția"
-                        className="mt-2 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-danger-soft hover:text-rc-danger disabled:opacity-30 transition-colors max-md:mt-0 max-md:h-11 max-md:w-11"
-                      >
-                        ✕
-                      </button>
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-          <div className="flex items-center justify-between gap-6 px-5 py-4 bg-rc-paper border-t border-rc-line max-md:flex-col max-md:items-start max-md:gap-3">
-            <p className="text-[12px] text-rc-muted max-w-[54ch] leading-relaxed">
-              Pozițiile fără preț sunt eliberări netarifate, de obicei către un șantier propriu. Nu
-              blochează crearea bonului.
-            </p>
-            <p className="text-[12.5px] text-rc-muted shrink-0">
-              Total tarifat:{" "}
-              <span className="rc-num font-bold text-rc-black text-[15px]">
-                {formatMoney(pricedTotal)}
-              </span>
-            </p>
-          </div>
-        </Card>
-
-        {touched && problems.length > 0 ? (
-          <div className="rounded-[12px] border border-rc-danger/30 bg-rc-danger-soft px-5 py-3.5">
-            <p className="text-[13px] font-semibold text-rc-danger">
-              Mai lipsește ceva înainte de creare
-            </p>
-            <ul className="mt-1.5 space-y-0.5" data-testid="issue-problems">
-              {problems.map((p) => (
-                <li key={p} className="text-[12.5px] text-rc-danger">
-                  {p}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {serverError ? (
-          <div
-            role="alert"
-            data-testid="issue-error"
-            className="rounded-[12px] border border-rc-danger/30 bg-rc-danger-soft px-5 py-3.5 text-[13px] text-rc-danger"
-          >
-            {serverError}
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-between max-md:flex-col max-md:items-stretch max-md:gap-3">
-          <p className="text-[12.5px] text-rc-muted-2">
-            La creare, bonul primește starea{" "}
-            <span className="font-semibold text-rc-muted">În așteptare expediere</span>, iar stocul
-            scade imediat: materialul a plecat fizic din depozit.
-          </p>
-          <Button
-            onClick={submit}
-            type="button"
-            disabled={pending}
-            data-testid="issue-submit"
-            className={`${PHONE_TAP} max-md:whitespace-normal`}
-          >
-            {pending ? "Se creează..." : "Creează bonul de eliberare"}
-          </Button>
-        </div>
-      </div>
-    </>
+  return (
+    <OutboundProjectForm
+      products={products}
+      projects={projects}
+      mode={mode}
+      onModeChange={setMode}
+    />
   );
 }

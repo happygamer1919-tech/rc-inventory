@@ -18,6 +18,21 @@ export const OUTBOUND_STATUS_LABEL: Record<OutboundStatus, string> = {
   shipped: "Expediată",
 };
 
+/** Cuvintele romanesti ale celor doua moduri, cardul P3-119 clauza 1.
+ *
+ *  AICI SI NU IN COMPONENT, langa etichetele de status si pentru acelasi motiv:
+ *  cardul P3-120 arata modul in liste si pe fisa iesirii, deci a doua oara. Doua
+ *  copii ale aceluiasi cuvant sunt doua locuri de tinut la zi, si un `Record` pe
+ *  uniune este singura forma pe care `npx tsc --noEmit` o refuza cand se adauga un
+ *  mod si cineva uita eticheta.
+ *
+ *  P3-118 a lasat anume acest gol: "Cuvintele romanesti Proiect si Client direct
+ *  sunt ale cardurilor P3-119 si P3-120 si nu se scriu in acest card". */
+export const OUTBOUND_MODE_LABEL: Record<OutboundMode, string> = {
+  project: "Proiect",
+  direct_client: "Client direct",
+};
+
 export type OutboundLine = {
   id: string;
   productId: string;

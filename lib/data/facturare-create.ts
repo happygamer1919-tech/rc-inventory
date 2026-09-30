@@ -26,6 +26,7 @@ import { chisinauToday } from "./format";
 import { invoiceNumberText, invoiceSeriesFor } from "./facturare-types";
 import { isUnitCode, type UnitCode } from "./units";
 import { one } from "./row";
+import { DIRECT_CLIENT_NOT_INVOICEABLE } from "./facturare-create-types";
 import type {
   InvoiceDraftLine,
   InvoiceEditorOptions,
@@ -173,15 +174,21 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
         canInvoice: false,
         reason: "Ieșirea nu a putut fi citită. Reîncarcă pagina.",
         existingInvoice: null,
+        // O citire care a eșuat nu este un refuz al modului: reincarcarea paginii o
+        // poate schimba, deci butonul rămâne pe ecran, dezactivat, cu motivul langa el.
+        neverInvoiceable: false,
       };
     }
 
     if ((issue as { issue_mode?: string } | null)?.issue_mode === "direct_client") {
       return {
         canInvoice: false,
-        reason:
-          "Ieșirea este către un client direct, deci nu se facturează: banii se încasează în afara sistemului.",
+        reason: DIRECT_CLIENT_NOT_INVOICEABLE,
         existingInvoice: null,
+        // P3-119 CLAUZA 7. SINGURUL LOC DIN ACEST FISIER CARE PUNE ADEVARAT AICI.
+        // Refuzul este al modului, nimic nu il poate desface, deci fisa iesirii nu
+        // deseneaza niciun buton de factura: numai propozitia de mai sus.
+        neverInvoiceable: true,
       };
     }
   }
@@ -196,6 +203,7 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
       canInvoice: false,
       reason: "Pozițiile ieșirii nu au putut fi citite. Reîncarcă pagina.",
       existingInvoice: null,
+      neverInvoiceable: false,
     };
   }
 
@@ -205,6 +213,7 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
       canInvoice: false,
       reason: "Ieșirea nu are nicio poziție, deci nu este nimic de facturat.",
       existingInvoice: null,
+      neverInvoiceable: false,
     };
   }
 
@@ -220,6 +229,7 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
       canInvoice: false,
       reason: "Facturile acestei ieșiri nu au putut fi citite. Reîncarcă pagina.",
       existingInvoice: null,
+      neverInvoiceable: false,
     };
   }
 
@@ -235,6 +245,7 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
           existing.number === null || existing.number === undefined ? null : Number(existing.number),
         ),
       },
+      neverInvoiceable: false,
     };
   }
 
@@ -247,10 +258,12 @@ export async function getIssueInvoiceability(issueId: string): Promise<IssueInvo
       reason:
         "Ieșirea are o poziție fără preț unitar, deci nu poate fi facturată. O eliberare netarifată este de obicei către un șantier propriu.",
       existingInvoice: null,
+      // Vremelnic, si de aceea butonul rămâne: poziția poate capata un preț.
+      neverInvoiceable: false,
     };
   }
 
-  return { canInvoice: true, reason: null, existingInvoice: null };
+  return { canInvoice: true, reason: null, existingInvoice: null, neverInvoiceable: false };
 }
 
 export type InvoiceEditorRead =

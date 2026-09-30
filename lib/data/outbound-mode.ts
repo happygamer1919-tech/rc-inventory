@@ -47,6 +47,26 @@ export function acceptsUnit(unit: string): boolean {
 export type ModeRefusal = { message: string; field?: string };
 
 /**
+ * PROPOZITIILE DE REFUZ, O SINGURA COPIE FIECARE. Cardul P3-119 clauza 6.
+ *
+ * DE CE SUNT SCOASE DIN validateNewIssue. Ecranul si aceasta functie spun acelasi
+ * lucru operatorului, si cardul cere anume ca AMANDOUA refuzurile sa existe: "the
+ * screen tells the operator, the constraint protects every other caller". Formularul
+ * are insa nevoie de ele pe rand, ca sa le poata numi pe AMANDOUA cand amandoua
+ * lipsesc, iar validateNewIssue intoarce numai primul refuz. Scrise de doua ori, o
+ * corectare de text ar fi mutat o propozitie si ar fi lasat-o pe cealalta: doua
+ * mesaje care descriu aceeasi lipsa in cuvinte diferite sunt chiar defectul pe care
+ * cardurile P3-61 si P3-98 l-au ridicat.
+ */
+export const ISSUE_REFUSAL = {
+  mode: "Alege tipul ieșirii: proiect sau client direct.",
+  project: "Alege proiectul.",
+  client: "Alege clientul care ridică materialele.",
+  pickupDate: "Alege data ridicării materialelor.",
+  unknownUnit: "Unitatea de măsură a unei poziții nu este cunoscută.",
+} as const;
+
+/**
  * Ce cere fiecare mod, verificat inainte de a se trimite cererea.
  *
  * REFUZUL DE AICI NU INLOCUIESTE RESTRICTIILE DIN BAZA, si asta este proiectarea
@@ -59,28 +79,23 @@ export type ModeRefusal = { message: string; field?: string };
  */
 export function validateNewIssue(input: NewIssueInput): ModeRefusal | null {
   const mode: OutboundMode = input.mode ?? "project";
-  if (!isOutboundMode(mode))
-    return { message: "Alege tipul ieșirii: proiect sau client direct.", field: "mode" };
+  if (!isOutboundMode(mode)) return { message: ISSUE_REFUSAL.mode, field: "mode" };
 
   if (mode === "project") {
     if ((input.projectId ?? "").trim() === "")
-      return { message: "Alege proiectul.", field: "projectId" };
+      return { message: ISSUE_REFUSAL.project, field: "projectId" };
   } else {
     if ((input.clientId ?? "").trim() === "")
-      return { message: "Alege clientul care ridică materialele.", field: "clientId" };
+      return { message: ISSUE_REFUSAL.client, field: "clientId" };
     if ((input.pickupDate ?? "").trim() === "")
-      return { message: "Alege data ridicării materialelor.", field: "pickupDate" };
+      return { message: ISSUE_REFUSAL.pickupDate, field: "pickupDate" };
   }
 
   // Unitatea este optionala pe intrare: ea traieste pe produs, in
   // products.unit, si ecranul o afiseaza de acolo. Cand un apelant o trimite
   // totusi, ea trebuie sa fie una dintre cele pe care units.ts le cunoaste.
   const unknown = input.lines.find((l) => l.unit !== undefined && !acceptsUnit(l.unit));
-  if (unknown)
-    return {
-      message: "Unitatea de măsură a unei poziții nu este cunoscută.",
-      field: "lines",
-    };
+  if (unknown) return { message: ISSUE_REFUSAL.unknownUnit, field: "lines" };
 
   return null;
 }

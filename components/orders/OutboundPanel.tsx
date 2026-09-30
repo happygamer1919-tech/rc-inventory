@@ -167,7 +167,17 @@ export function OutboundPanel({
                 </Link>
               ) : null}
             </div>
-            {invoiceability.canInvoice ? (
+            {/* P3-119 CLAUZA 7, hotararea R-215. NICIUN BUTON DE FACTURA PE O IESIRE
+                CATRE UN CLIENT DIRECT, si este o ABSENTA VIZIBILA si nu un buton
+                strica: obiceiul acestui proiect este ca ce nu se poate folosi nu
+                apare. Propozitia de mai sus rămâne, si este chiar cea pe care o
+                intoarce P3-118, fiindca o absenta fara explicatie ar fi o intrebare
+                fara raspuns.
+                CELELALTE REFUZURI PASTREAZA BUTONUL DEZACTIVAT, si asta nu este o
+                inconsecventa: ele sunt vremelnice, deci butonul spune operatorului
+                CE ar trebui sa se schimbe ca el sa se poata apasa, care este chiar
+                hotararea cardului P3-110. Refuzul modului nu se poate desface. */}
+            {invoiceability.neverInvoiceable ? null : invoiceability.canInvoice ? (
               <Link
                 href={`/facturare/nou?iesire=${issue.id}`}
                 className="shrink-0 max-md:flex max-md:flex-col"

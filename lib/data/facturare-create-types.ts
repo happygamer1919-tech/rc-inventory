@@ -115,4 +115,31 @@ export type IssueInvoiceability = {
   reason: string | null;
   /** Factura care exista deja pentru aceasta Iesire, cand exista una nefiind anulata. */
   existingInvoice: { id: string; numberText: string | null } | null;
+  /**
+   * P3-119 clauza 7, hotararea R-215. Refuzul este al MODULUI si nu al stării, deci
+   * nu exista nimic ce operatorul ar putea face ca sa dispara.
+   *
+   * SI DE ASTA NU APARE NICIUN BUTON. Celelalte refuzuri sunt vremelnice: o poziție
+   * fără preț capata un preț, o factura anulata pleaca. Acolo un buton dezactivat cu
+   * propozitia lui langa el este raspunsul corect, si este ce a hotarat cardul P3-110.
+   * O iesire catre un client direct nu devine facturabila NICIODATA, pe instructiunea
+   * proprietarului, deci un buton acolo ar fi un buton care nu se va putea apasa
+   * niciodata: obiceiul acestui proiect este ca ce nu se poate folosi nu apare.
+   * `reason` rămâne si se arata, fiindca o absenta fara explicatie este o intrebare
+   * fara raspuns.
+   */
+  neverInvoiceable: boolean;
 };
+
+/**
+ * DE CE O IESIRE CATRE UN CLIENT DIRECT NU SE FACTUREAZA, in romana, o singura copie.
+ *
+ * Propozitia este a cardului P3-118, care a scris-o in getIssueInvoiceability. P3-119
+ * clauza 7 cere ca, atunci cand se arata un motiv, el sa fie exact aceasta propozitie,
+ * iar ecranul de confirmare al formularului o arata si el, deci ea nu mai poate sta
+ * intr-un singur fisier de server: un component de browser nu poate importa
+ * facturare-create.ts. Mutata aici, in fisierul de tipuri fara "server-only", unde o
+ * pot citi amandoua.
+ */
+export const DIRECT_CLIENT_NOT_INVOICEABLE =
+  "Ieșirea este către un client direct, deci nu se facturează: banii se încasează în afara sistemului.";
