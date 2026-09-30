@@ -373,13 +373,22 @@ begin
   end if;
 
   -- A RATE ABOVE 100 IS STILL REFUSED (0063's range check).
+  --
+  -- 200 AND NOT 2000, AND THE DIFFERENCE IS WHICH GUARD IS UNDER TEST. The column is
+  -- numeric(5,2), so 2000 does not fit the TYPE and postgres raises 22003
+  -- numeric_value_out_of_range before any constraint is evaluated: this block caught
+  -- check_violation, so it fell over instead of passing, and the guard it claimed to
+  -- measure had not been reached at all. 200 fits the type (999.99 is the ceiling)
+  -- and breaks invoice_settings_default_vat_rate_range, which IS 0063's check and IS
+  -- what this line is for. A typed 2000 is refused too, one layer earlier, and that
+  -- is the type rather than this file's business.
   refused := false;
   begin
-    update public.invoice_settings set default_vat_rate = 2000 where id;
+    update public.invoice_settings set default_vat_rate = 200 where id;
   exception when check_violation then refused := true;
   end;
   if not refused then
-    raise exception 'P3-116: a VAT rate of 2000 was ACCEPTED';
+    raise exception 'P3-116: a VAT rate of 200 per cent was ACCEPTED';
   end if;
 
   -- A SECOND ROW IS STILL IMPOSSIBLE (the boolean primary key pinned to true).

@@ -7948,3 +7948,20 @@ would clear the Romanian confirmation message after the very refresh that messag
 second form writes a row an existing form already writes, the existing form has become stale state.
 Re-seed the overlapping values from props; never key or remount the whole component, because the
 confirmation message and the in-progress typing live in the same state.**
+
+### An assertion meant to test a CHECK constraint hit the column type first, and reported as a crash
+**Tag:** data
+**ERROR:** card P3-116's assertions file failed the "Apply every migration to a bare postgres,
+unmodified" step (PR #382, run 36731456527) with `ERROR: numeric field overflow` and
+`DETAIL: A field with precision 5, scale 2 must round to an absolute value less than 10^3`, the
+`CONTEXT` line quoting the assertion's own `update public.invoice_settings set default_vat_rate = 2000`.
+The block was written `exception when check_violation`, meaning to prove 0063's
+`default_vat_rate >= 0 and default_vat_rate <= 100` still refuses an out of range rate. It never
+reached that constraint: `default_vat_rate` is `numeric(5,2)`, 2000 does not fit the TYPE, and the
+type is evaluated first, so postgres raised `22003 numeric_value_out_of_range` and the handler did
+not catch it. The guard the line claimed to measure had not been touched.
+**SOLUTION:** use `200`, which fits the type (999.99 is the ceiling) and breaks the check. RULE:
+**an input meant to prove a CHECK refuses something must be LEGAL FOR THE COLUMN TYPE, or the test
+proves the type instead and surfaces as a crash rather than as a failed expectation.** The same trap
+waits on a `varchar(n)` length, a date out of range, and any bounded numeric. The cheap way to see it
+without Docker is to read the column's declared precision before choosing the number.
