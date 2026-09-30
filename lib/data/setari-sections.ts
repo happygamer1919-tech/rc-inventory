@@ -22,7 +22,16 @@
 /** Numele parametrului din adresa care alege secțiunea. */
 export const SETTINGS_SECTION_PARAM = "sectiune";
 
-export type SettingsSectionId = "toate" | "catalog" | "facturare" | "optiuni";
+// P3-114, goal G69 partea 3. `utilizatori` este a cincea intrare si este ULTIMA din
+// lista, dupa Opțiuni produse, pentru ca ordinea din sub-meniu este ordinea acestei
+// liste: conturile sunt administrarea oamenilor si nu a catalogului, deci nu se pun
+// intre vocabular si facturare.
+export type SettingsSectionId =
+  | "toate"
+  | "catalog"
+  | "facturare"
+  | "optiuni"
+  | "utilizatori";
 
 export type SettingsSection = {
   id: SettingsSectionId;
@@ -64,6 +73,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: "optiuni",
     label: "Opțiuni produse",
     hint: "Combinațiile de model, serie și grosime oferite pe formularul de produs",
+  },
+  // P3-114. Conturile, numai de citit. Eticheta este cea cerută de raportul de
+  // proiectare, sectiunea 4 Partea 3, cuvant cu cuvant: Utilizatori.
+  {
+    id: "utilizatori",
+    label: "Utilizatori",
+    hint: "Conturile sistemului, cu rolul și starea fiecăruia. Doar vizualizare",
   },
 ];
 
