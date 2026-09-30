@@ -1228,3 +1228,50 @@ export async function hasCompanyContactFields(client: ColumnProbe): Promise<bool
   }
   return cachedCompanyContactFields.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-118, goal G73, Item 2 al lui Ivan. AL DOILEA FEL DE IESIRE EXISTA IN SCHEMA?
+//
+// Migratia 0067 adauga public.outbound_issues.issue_mode, client_id si
+// pickup_date, si le adauga pe toate trei in aceeasi tranzactie, deci "exista
+// issue_mode" si "exista pickup_date" sunt acelasi fapt si nu pot da vreodata
+// raspunsuri diferite. Aceeasi judecata pe care o scriu hasFacturareSettings si
+// hasCompanyContactFields.
+//
+// CE S-AR INTAMPLA FARA ACEASTA POARTA: getIssueInvoiceability cere issue_mode,
+// PostgREST raspunde 42703 pentru o coloana inexistenta, iar functia intoarce
+// refuzul ei de citire, adica scrie "Ieșirea nu a putut fi citită" pe FIECARE
+// fisa de iesire, inclusiv pe cele care se pot factura perfect. Nu este o cadere,
+// este o minciuna pe ecran, si INC-05 este varianta mai grava a aceleiasi cauze.
+//
+// FEREASTRA EXISTA CHIAR SI CAND TOTUL MERGE BINE. Fuzionarea aplica migratia in
+// aproximativ doua minute, iar desfasurarea vine pe programul ei, deci cateva
+// minute din build-ul NOU pot vorbi cu schema VECHE. Poarta acopera exact acele
+// minute.
+//
+// COMPORTAMENTUL INAINTE DE APLICARE: raspunsul de facturabilitate este exact cel
+// de dinainte de acest card, fiindca fara al doilea fel de iesire nu poate exista
+// nicio iesire catre client direct de refuzat.
+// ---------------------------------------------------------------------------
+
+let cachedOutboundIssueMode: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasOutboundIssueMode(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedOutboundIssueMode && now - cachedOutboundIssueMode.at < TTL_MS) {
+    return cachedOutboundIssueMode.value;
+  }
+  try {
+    const { error } = await client.from("outbound_issues").select("issue_mode").limit(1);
+    cachedOutboundIssueMode = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa mintă.
+    cachedOutboundIssueMode = { value: false, at: now };
+  }
+  return cachedOutboundIssueMode.value;
+}

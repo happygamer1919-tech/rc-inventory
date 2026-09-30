@@ -8075,3 +8075,121 @@ under beside the number, and when the number does not reproduce the reported pro
 non-reproduction is the finding and goes in the notes ahead of the number.** A fast result on a small
 local copy is evidence about where the slowness is NOT, which is useful, and it is not a baseline of
 anything the owner complained about.
+
+### A card clause can be FALSE about the schema it describes, and the card is still the specification
+**Tag:** data
+**ERROR:** card P3-118 clause 1 says of its own migration "and it relaxes nothing", and clause 3 says
+"The legacy client_name and project_name text columns from migration 0001 are NOT removed and NOT
+repurposed". Both sentences describe `public.outbound_issues` as it stood before 2026-08-31. Migration
+0026, card P3-04b, DROPPED both text columns and made `project_id` NOT NULL. So clause 3 protects two
+columns that no longer exist, and clause 1 contradicts clause 2 of the same card, which requires a
+`direct_client` row to have NO PROJECT: a direct client issue is unrecordable while a column level NOT
+NULL stands. An executor obeying clause 1 literally would have shipped a migration that cannot store
+the one thing the owner asked for, and would have found out only when the screen card failed.
+**SOLUTION:** read the migration history of every table a card names BEFORE writing a line of it, and
+grep the table name across `supabase/migrations/` rather than trusting the card's description of it.
+When a clause turns out to be false about the schema, the deviation goes in the migration's own header,
+quoted, with the reason, so a later reader lands on the explanation rather than on a surprise. RULE:
+**the card is the specification of the OUTCOME and not a description of the current schema; where the
+two disagree, the schema is the fact and the deviation is declared in writing.** Here the outcome
+clause 3 wanted, no column removed and none repurposed, was reached by doing nothing, and the guarantee
+clause 1 wanted was kept by MOVING the NOT NULL into a mode scoped constraint that says more than the
+column rule could: every project row has a project, and no direct client row has one.
+
+### An assertion file can only describe the END state, so a later card corrects the earlier one rather than adding a second file that disagrees
+**Tag:** ci
+**ERROR:** every file under `scripts/poc-free/local-db/assertions/` runs after ALL migrations have
+applied, so it can only ever describe the finished schema. `assertions/0026_drop_outbound_free_text.sql`
+pinned two facts that migration 0067 makes false: `outbound_issues.project_id` is NOT NULL, and
+`create_outbound_issue` has the literal signature `(text, text, text, jsonb, uuid)`. Adding 0067's own
+assertion file without touching 0026's would have left two files in one directory asserting opposite
+things about one schema, and the suite would have failed on 0026 for a change 0067 made deliberately.
+Deleting 0026's file, which is what happened to `assertions/0017` in its day, would have thrown away
+the four things it checks that are still true.
+**SOLUTION:** correct the two blocks in place under CLAUDE.md section 9c: quote the false code, mark it
+false with the card and the reason, keep it, and move the replacement into the new card's file where it
+is STRENGTHENED rather than merely relocated. RULE: **when a migration changes the end state, the
+earlier card's assertion is corrected in the same pull request, the superseded assertion is quoted and
+not deleted, and the replacement must assert at least as much as the sentence it retires.** The test
+that this was not a weakening: NOT NULL said "every row has a project"; the replacement says "every
+project row has a project AND no direct client row has one", which the column level rule could not say.
+
+### An assertion can pass on the wrong refusal, and two Romanian sentences look identical from an error code
+**Tag:** ci
+**ERROR:** `assertions/0026` proved that the write path refuses a destination without a project by
+calling `public.create_outbound_issue('IES-ASSERT-0026', '', '', '[]'::jsonb, null)` and catching
+`P0001`. The function checks its LINES before it checks the project, and the line array in that call is
+EMPTY, so the refusal it actually caught was "Ieșirea trebuie să aibă cel puțin o poziție." A block
+written to prove a card about the project destination was passing on a message about the positions, and
+it would have kept passing if the project check had been deleted outright.
+**SOLUTION:** the call now carries a real line, so the missing project is the only thing wrong with it,
+and the same shape is used for every refusal case in `assertions/0067`. RULE: **when several refusals
+share one error code, the input must make exactly ONE of them possible; an assertion that catches a
+code rather than a cause proves only that something was refused.** Where the message itself is the
+contract, match on the message.
+
+### Changing a database function signature is four times more expensive than it looks, and the right answer was not to change it
+**Tag:** data
+**ERROR:** card P3-118 needs a mode, a client and a pickup date on the outbound write path, and the
+obvious move was to widen `public.create_outbound_issue`: drop the five argument version, create a six
+argument one. Card APPLY-01 had even rewritten the applier's assertions to ALLOW exactly that, naming "a
+deviz-aware outbound issue" as the plausible reason somebody would do it, so it looked pre-authorised.
+It cost two full CI runs and would have cost a production window. In order: `npm run prove:assertions`
+failed because the `PERTURB` map in `scripts/poc-free/prove-assertions-can-fail.mjs` names the old
+argument list LITERALLY, so its own `drop function` errored and the harness reported that the assertion
+can never fail; then five cases of `tests/e2e/facturare-create.spec.ts` failed with PostgREST
+`PGRST202`, because that spec calls the RPC with the old parameter names; then
+`assertions/0026_drop_outbound_free_text.sql` had to have its signature pin corrected; and then
+`npm run check:removal-safety` refused the whole batch, correctly, because a pending migration was
+removing a function `lib/data/outbound-actions.ts` still calls by name. The fourth refusal is the one
+that matters and it is not about tests at all: **the migration lands about two minutes after the merge
+and the deploy lands on its own schedule, so for some minutes the PREVIOUS build talks to the NEW
+schema.** A vanished signature in that window is INC-06 with a 404 instead of a 42703.
+**SOLUTION:** the signature was not changed. The stock half of the function was extracted into one
+named routine, `public.outbound_issue_take_stock`, `create_outbound_issue` kept its exact five arguments
+and now calls it, and the second mode got its own door, `public.create_direct_client_issue`, whose last
+statement is the same call. Everything above reverted: the perturbation, the other spec, and 0026's
+signature pin are untouched, and removal-safety passes because nothing is removed. The card's "no second
+subtraction routine" is satisfied more strongly than before, because the shared code is now a routine
+with a name that an assertion can read out of `pg_proc.prosrc`. RULE: **before widening a database
+function, count who holds a literal copy of its signature and ask what the DEPLOYED build will call
+during the apply window. If the answer to the second question is "the old signature", extract the shared
+body and add a door instead of moving the one that exists.** A new function is additive; a changed
+signature is a removal wearing a create.
+
+### A new mode makes an old "is null" question mean something else, and the screen that reads it starts lying
+**Tag:** data
+**ERROR:** migration 0024 added `public.unassigned_outbound_count()` with the body
+`where oi.project_id is null`, for a stated reason: a project's material cost total must say when it is
+INCOMPLETE, and what makes it incomplete is an issue whose project nobody reconciled. Since P3-04b the
+answer was zero forever and the cost screen said "Toate ieșirile au un proiect asociat". Migration 0067
+gives outbound a second mode whose rows have **no project by design**, so the same body silently changed
+question: the first counter sale would have made every project cost screen report a growing number of
+unassigned issues and falsified the sentence printed beside it. Nothing about the counter was edited, and
+that is exactly why it broke: `tests/e2e/project-cost.spec.ts` caught it in CI at minute 25, and its own
+comment still asserted "outbound_issues.project_id este NOT NULL de la migratia 0026".
+**SOLUTION:** the function is replaced in the same migration, narrowed to `mode = 'project' and
+project_id is null`, which is the question it always meant. The answer is zero forever again and for a
+more precise reason: a counter sale cannot make a project total partial. The spec's false comment is
+corrected in place under section 9c and an assertion in `assertions/0067` now proves the counter ignores
+the second mode. RULE: **when a migration adds a mode, grep every `is null` and every `count(*)` that
+reads the same table and ask what each one was really asking.** A predicate that was a proxy for "not yet
+reconciled" stops being one the moment a row is allowed to be legitimately empty, and the reader that
+suffers is a screen, not a query.
+
+### A column named after a common word is reported everywhere, because the pending-schema check greps the whole file on purpose
+**Tag:** ci
+**ERROR:** card P3-118 asks for "an issue-mode column" and the first name tried was `mode`. Once the
+migration was listed in the pending register, `npm run check:pending-schema-reads` reported FIVE files as
+reading unapplied schema, and three of them (`components/orders/InboundOrderForm.tsx`,
+`ManualOrderScreen.tsx`, `UploadOrderScreen.tsx`) touch no outbound table at all: they carry the word
+`mode` for unrelated reasons. The check is deliberately crude and says so in its own header, because a
+column name put in a constant and passed to `select` later is not inside the `select` call any more, so
+it searches the whole file. `description` had already cost this repository four `TOLERATED_WORDS`
+entries, and EXT-34 wrote the reason down.
+**SOLUTION:** the column is `issue_mode`, which is what the card called it, and all five findings went
+away without annotating anything. RULE: **name a column after what it means and not after its category;
+a one word column name that is also an ordinary English or Romanian word will be found in files that have
+nothing to do with it, and the cost is paid by every future card, not by this one.** If a generic name is
+genuinely right, the mechanism is a `TOLERATED_WORDS` pair with a written reason, never a file exemption:
+an exemption blinds the check for every future migration too.

@@ -17,7 +17,7 @@ import "server-only";
 // un raspuns care nu poate diferi. Scris pe larg in schema-capability.ts.
 
 import { createClient } from "@/lib/supabase/server";
-import { hasFacturareSettings } from "./schema-capability";
+import { hasFacturareSettings, hasOutboundIssueMode } from "./schema-capability";
 import { getInvoiceSettings } from "./facturare-settings";
 import { listActiveProducts } from "./products";
 import { listSelectableProjects } from "./projects";
@@ -134,6 +134,57 @@ export async function nextInvoiceNumberText(on: string): Promise<string> {
 export async function getIssueInvoiceability(issueId: string): Promise<IssueInvoiceability | null> {
   const supabase = await createClient();
   if (!(await hasFacturareSettings(supabase))) return null;
+
+  // P3-118, HOTARAREA R-215. O IESIRE CATRE UN CLIENT DIRECT NU ESTE NICIODATA
+  // FACTURABILA, SI ACESTA ESTE UN REFUZ SI NU O OMISIUNE.
+  //
+  // Banii pentru un client direct se aseaza in afara acestei platforme, pe
+  // instructiunea proprietarului. Pasul evident de la "un client a ridicat
+  // material si pozitia are pret" la "deci fa-i o factura" este REFUZAT aici, nu
+  // doar nelasat construit, si motivul se si spune, fiindca un buton gri fara
+  // nicio propozitie langa el este defectul pentru care au fost ridicate
+  // cardurile P3-61 si P3-98. O hotarare de mai tarziu poate intoarce asta;
+  // nimic mai putin de atat.
+  //
+  // PRIMUL REFUZ SI NU ULTIMUL, deliberat: el nu depinde de pozitii, de preturi
+  // sau de vreo factura existenta, deci nicio alta ramura nu are ce sa spuna
+  // inaintea lui.
+  //
+  // INTREBAREA ISI PORTIA DE SCHEMA PROPRIE, si nu se adauga la lista de select a
+  // lui lib/data/outbound.ts: modul afisat in liste si pe fisa este cardul
+  // P3-120, iar acest card nu atinge niciun ecran.
+  //
+  // POARTA ESTE hasOutboundIssueMode SI NU hasFacturareSettings. A doua ar fi
+  // trecut, fiindca acest fisier o importa oricum, si ar fi fost o poarta care
+  // raspunde la alta intrebare: o poarta care raspunde la intrebarea greșită este
+  // o poarta care se deschide in ziua nepotrivita, exact ce scrie antetul lui
+  // schema-capability.ts. Cat timp 0067 nu este aplicata nu poate exista nicio
+  // iesire catre client direct, deci raspunsul de aici este exact cel de dinainte
+  // de acest card.
+  if (await hasOutboundIssueMode(supabase)) {
+    const { data: issue, error: issueError } = await supabase
+      .from("outbound_issues")
+      .select("issue_mode")
+      .eq("id", issueId)
+      .maybeSingle();
+
+    if (issueError) {
+      return {
+        canInvoice: false,
+        reason: "Ieșirea nu a putut fi citită. Reîncarcă pagina.",
+        existingInvoice: null,
+      };
+    }
+
+    if ((issue as { issue_mode?: string } | null)?.issue_mode === "direct_client") {
+      return {
+        canInvoice: false,
+        reason:
+          "Ieșirea este către un client direct, deci nu se facturează: banii se încasează în afara sistemului.",
+        existingInvoice: null,
+      };
+    }
+  }
 
   const { data: lines, error: linesError } = await supabase
     .from("outbound_lines")
