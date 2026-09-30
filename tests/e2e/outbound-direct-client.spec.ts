@@ -168,13 +168,46 @@ async function availableStock(): Promise<number> {
   return Number(asked.rows[0] ?? 0);
 }
 
-/** Cheama exact functia pe care o cheama si aplicatia, cu jetonul unui cont
- *  activ. Un mod se alege, nu se ghiceste. */
-async function createIssue(
+/** O iesire PE PROIECT, prin usa netinsa. Semnatura cu cinci argumente este exact
+ *  cea pe care 0018 a declarat-o si 0026 a inlocuit-o, si migratia 0067 nu o
+ *  atinge: R-215 promite ca modul "proiect" nu se schimba in nicio privinta. */
+async function createProjectIssue(
   token: string,
-  body: Record<string, unknown>,
+  reference: string,
+  lines: Record<string, unknown>[],
+  projectId: string | null,
 ): Promise<Rest> {
-  return asUser(token, "rpc/create_outbound_issue", { method: "POST", body });
+  return asUser(token, "rpc/create_outbound_issue", {
+    method: "POST",
+    body: {
+      p_reference: reference,
+      p_client_name: "",
+      p_project_name: "",
+      p_lines: lines,
+      p_project_id: projectId,
+    },
+  });
+}
+
+/** O iesire CATRE CLIENT DIRECT, prin a doua usa. Ultima instructiune a acestei
+ *  functii in baza este exact aceeasi public.outbound_issue_take_stock pe care o
+ *  cheama si usa de mai sus, deci scaderea de stoc nu se ramifica. */
+async function createDirectIssue(
+  token: string,
+  reference: string,
+  lines: Record<string, unknown>[],
+  clientIdArg: string | null,
+  pickupDate: string | null,
+): Promise<Rest> {
+  return asUser(token, "rpc/create_direct_client_issue", {
+    method: "POST",
+    body: {
+      p_reference: reference,
+      p_lines: lines,
+      p_client_id: clientIdArg,
+      p_pickup_date: pickupDate,
+    },
+  });
 }
 
 test.beforeAll(async () => {
@@ -213,14 +246,13 @@ test.beforeAll(async () => {
   // O IESIRE CATRE CLIENT DIRECT PE CARE CAZURILE DE ACCES O CAUTA. Scrisa aici
   // si nu luata din cazul (c): un caz care depinde de un alt caz este un caz care
   // cade cand cineva ruleaza unul singur cu --grep.
-  const seeded = await createIssue(ownerToken, {
-    p_reference: `${TAG}-SEED`,
-    p_lines: [{ product_id: productId, quantity: 1 }],
-    p_project_id: null,
-    p_mode: "direct_client",
-    p_client_id: clientId,
-    p_pickup_date: "2026-10-01",
-  });
+  const seeded = await createDirectIssue(
+    ownerToken,
+    `${TAG}-SEED`,
+    [{ product_id: productId, quantity: 1 }],
+    clientId,
+    "2026-10-01",
+  );
   expect(seeded.ok, `iesirea de referinta nu a putut fi scrisa: ${seeded.status} ${seeded.text}`).toBe(true);
 });
 
@@ -240,27 +272,24 @@ test("iesire client direct: stocul scade din loturi exact ca la o iesire pe proi
   const availableBefore = await availableStock();
   expect(before.length, "produsul de test are un singur lot").toBe(1);
 
-  const onProject = await createIssue(ownerToken, {
-    p_reference: `${TAG}-PROJ`,
-    p_lines: [{ product_id: productId, quantity: 7 }],
-    p_project_id: projectId,
-    p_mode: "project",
-    p_client_id: null,
-    p_pickup_date: null,
-  });
+  const onProject = await createProjectIssue(
+    ownerToken,
+    `${TAG}-PROJ`,
+    [{ product_id: productId, quantity: 7 }],
+    projectId,
+  );
   expect(onProject.ok, `iesirea pe proiect a raspuns ${onProject.status}: ${onProject.text}`).toBe(true);
 
   const afterProject = await batchRows();
   const availableAfterProject = await availableStock();
 
-  const onDirect = await createIssue(ownerToken, {
-    p_reference: `${TAG}-DIRECT`,
-    p_lines: [{ product_id: productId, quantity: 7 }],
-    p_project_id: null,
-    p_mode: "direct_client",
-    p_client_id: clientId,
-    p_pickup_date: "2026-10-01",
-  });
+  const onDirect = await createDirectIssue(
+    ownerToken,
+    `${TAG}-DIRECT`,
+    [{ product_id: productId, quantity: 7 }],
+    clientId,
+    "2026-10-01",
+  );
   expect(onDirect.ok, `iesirea catre client direct a raspuns ${onDirect.status}: ${onDirect.text}`).toBe(true);
 
   const afterDirect = await batchRows();
@@ -279,13 +308,13 @@ test("iesire client direct: stocul scade din loturi exact ca la o iesire pe proi
 
   // SI NIMENI NU A SCRIS UN TOTAL NICAIERI: fiecare iesire are exact poziția ei.
   const stored = await asService(
-    `outbound_issues?select=id,mode,project_id,client_id,pickup_date,outbound_lines(product_id,quantity)` +
+    `outbound_issues?select=id,issue_mode,project_id,client_id,pickup_date,outbound_lines(product_id,quantity)` +
       `&reference=in.("${TAG}-PROJ","${TAG}-DIRECT")&order=reference.asc`,
   );
   expect(stored.ok, `iesirile nu s-au putut citi: ${stored.text}`).toBe(true);
   expect(stored.rows.length, "doua iesiri scrise").toBe(2);
-  const direct = stored.rows.find((r) => r.mode === "direct_client")!;
-  const project = stored.rows.find((r) => r.mode === "project")!;
+  const direct = stored.rows.find((r) => r.issue_mode === "direct_client")!;
+  const project = stored.rows.find((r) => r.issue_mode === "project")!;
   expect(direct.project_id, "iesirea catre client direct nu are proiect").toBeNull();
   expect(direct.client_id, "iesirea catre client direct are clientul ales").toBe(clientId);
   expect(direct.pickup_date, "iesirea catre client direct are data ridicarii").toBe("2026-10-01");
@@ -357,7 +386,7 @@ test("acces: o cerere nesemnata nu vede nicio iesire", async () => {
   const anonWrite = await rest("outbound_issues?select=id", {
     method: "POST",
     headers: { apikey: env().anon },
-    body: { reference: `${TAG}-ANON`, mode: "project", project_id: projectId },
+    body: { reference: `${TAG}-ANON`, issue_mode: "project", project_id: projectId },
   });
   expect(anonWrite.ok, "o cerere nesemnata a SCRIS o iesire").toBe(false);
 });
@@ -395,36 +424,42 @@ test("acces: un rol fara permisiune nu poate scrie o iesire", async () => {
   const { id, token } = await newDeactivatableAccount("fara-rol");
 
   // MARTORUL: cat timp are rol, scrie.
-  const allowed = await createIssue(token, {
-    p_reference: `${TAG}-ROL-OK`,
-    p_lines: [{ product_id: productId, quantity: 1 }],
-    p_project_id: projectId,
-    p_mode: "project",
-    p_client_id: null,
-    p_pickup_date: null,
-  });
+  const allowed = await createProjectIssue(
+    token,
+    `${TAG}-ROL-OK`,
+    [{ product_id: productId, quantity: 1 }],
+    projectId,
+  );
   expect(allowed.ok, `un cont cu rol nu a putut scrie: ${allowed.status} ${allowed.text}`).toBe(true);
 
   const off = await asService(`profiles?id=eq.${id}`, { method: "PATCH", body: { active: false } });
   expect(off.ok, `profilul nu a putut fi dezactivat: ${off.text}`).toBe(true);
 
-  // Prin functie, care este calea aplicatiei.
-  const refusedRpc = await createIssue(token, {
-    p_reference: `${TAG}-ROL-NU`,
-    p_lines: [{ product_id: productId, quantity: 1 }],
-    p_project_id: null,
-    p_mode: "direct_client",
-    p_client_id: clientId,
-    p_pickup_date: "2026-10-01",
-  });
+  // Prin functie, care este calea aplicatiei, si prin amandoua usile: refuzul este
+  // al politicii de scriere si nu al unei usi anume.
+  const refusedRpc = await createDirectIssue(
+    token,
+    `${TAG}-ROL-NU`,
+    [{ product_id: productId, quantity: 1 }],
+    clientId,
+    "2026-10-01",
+  );
   expect(refusedRpc.ok, "un rol fara permisiune a scris o iesire prin functie").toBe(false);
+
+  const refusedProjectRpc = await createProjectIssue(
+    token,
+    `${TAG}-ROL-NU-PROJ`,
+    [{ product_id: productId, quantity: 1 }],
+    projectId,
+  );
+  expect(refusedProjectRpc.ok, "un rol fara permisiune a scris o iesire pe proiect").toBe(false);
 
   // Si direct pe tabela, care este calea pe care un formular nu o vede.
   const refusedTable = await asUser(token, "outbound_issues?select=id", {
     method: "POST",
     body: {
       reference: `${TAG}-ROL-NU-2`,
-      mode: "direct_client",
+      issue_mode: "direct_client",
       client_id: clientId,
       pickup_date: "2026-10-01",
     },
@@ -468,14 +503,13 @@ test("iesire client direct: nu este niciodata facturabila si spune de ce in roma
   // IESIREA DE AICI ARE PRET PE POZIȚIE, DELIBERAT. O iesire fara pret este deja
   // nefacturabila pentru alt motiv, deci ea ar face cazul sa treaca fara sa
   // dovedeasca nimic despre mod.
-  const priced = await createIssue(ownerToken, {
-    p_reference: `${TAG}-FACT`,
-    p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: 25 }],
-    p_project_id: null,
-    p_mode: "direct_client",
-    p_client_id: clientId,
-    p_pickup_date: "2026-10-01",
-  });
+  const priced = await createDirectIssue(
+    ownerToken,
+    `${TAG}-FACT`,
+    [{ product_id: productId, quantity: 1, sale_price_mdl: 25 }],
+    clientId,
+    "2026-10-01",
+  );
   expect(priced.ok, `iesirea cu pret nu a putut fi scrisa: ${priced.status} ${priced.text}`).toBe(true);
 
   const stored = await asService(
@@ -495,14 +529,12 @@ test("iesire client direct: nu este niciodata facturabila si spune de ce in roma
 
   // SI O IESIRE PE PROIECT CU PRET ESTE FACTURABILA, altfel cazul ar trece si pe
   // o cale care refuza totul.
-  const onProject = await createIssue(ownerToken, {
-    p_reference: `${TAG}-FACT-PROJ`,
-    p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: 25 }],
-    p_project_id: projectId,
-    p_mode: "project",
-    p_client_id: null,
-    p_pickup_date: null,
-  });
+  const onProject = await createProjectIssue(
+    ownerToken,
+    `${TAG}-FACT-PROJ`,
+    [{ product_id: productId, quantity: 1, sale_price_mdl: 25 }],
+    projectId,
+  );
   expect(onProject.ok, `iesirea pe proiect nu a putut fi scrisa: ${onProject.text}`).toBe(true);
 
   await openIssuePanel(page, `${TAG}-FACT-PROJ`);

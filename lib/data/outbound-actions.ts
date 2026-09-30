@@ -144,29 +144,41 @@ export async function createOutboundIssue(
   const supabase = await createClient();
   const reference = await nextOutboundReference();
 
-  // O SINGURA CHEMARE, PENTRU AMANDOUA MODURILE, SI ASTA ESTE CHIAR CE CERE
-  // CARDUL. Scaderea de stoc nu se ramifica: blocajele, verificarea de descoperire
-  // insumata pe produs sub ele, scrierea pozitiilor si primul rand de istoric sunt
-  // un singur bloc in public.create_outbound_issue si ruleaza la fel pentru
-  // amandoua. Modul hotaraste numai care coloane ale randului de iesire se umplu.
-  // Nu exista o a doua rutina de scadere, niciun contor stocat si niciun total
-  // scris nicaieri: stocul este loturi minus pozitii de iesire, prin
-  // public.product_available_stock.
+  // DOUA USI, O SINGURA SCADERE, SI ASTA ESTE CHIAR CE CERE CARDUL. Migratia 0067
+  // a scos partea de stoc din create_outbound_issue intr-o rutina cu nume,
+  // public.outbound_issue_take_stock: blocajele, verificarea de descoperire
+  // insumata pe produs sub ele, scrierea pozitiilor si primul rand de istoric. Ea
+  // NU STIE NIMIC despre mod, si amandoua ușile o cheamă ca ultima instrucțiune,
+  // deci o iesire catre client direct scade stocul prin exact calea pe care o
+  // foloseste o iesire pe proiect. Nu exista o a doua rutina de scadere, niciun
+  // contor stocat si niciun total scris nicaieri: stocul este loturi minus pozitii
+  // de iesire, prin public.product_available_stock.
   //
-  // p_client_name SI p_project_name AU DISPARUT DIN SEMNATURA. 0026 le-a pastrat,
-  // primite si ignorate, pentru un singur motiv pe care l-a si scris: o reformare
-  // ar fi cerut un DROP FUNCTION si ar fi facut sa cada afirmatia de semnatura din
-  // aplicator. Cardul APPLY-01 a inlocuit afirmatia aceea cu una derivata din ce
-  // declara chiar lotul, deci motivul este consumat, si doua parametri morti intr-o
-  // semnatura nou scrisa ar fi mai rau decat scoaterea pe care o evitau.
-  const { data, error } = await supabase.rpc("create_outbound_issue", {
-    p_reference: reference,
-    p_lines: lines,
-    p_project_id: mode === "project" ? projectId : null,
-    p_mode: mode,
-    p_client_id: mode === "direct_client" ? clientId : null,
-    p_pickup_date: mode === "direct_client" ? pickupDate : null,
-  });
+  // DE CE DOUA USI SI NU O SEMNATURA MAI LARGA. create_outbound_issue pastreaza
+  // EXACT cele cinci argumente pe care 0018 le-a declarat si 0026 le-a inlocuit,
+  // deci nimic desfasurat nu se rupe in minutele dintre aplicarea migratiei si
+  // desfasurarea build-ului nou. O semnatura care dispare sub cod desfasurat este
+  // chiar INC-06. p_client_name si p_project_name rămân primite si ignorate, acum
+  // pentru doua motive in loc de unul.
+  //
+  // MODUL ALEGE UȘA SI NIMIC ALTCEVA. Aceasta este singura ramificare din toata
+  // calea de scriere, si ea este despre care coloane ale randului de iesire se
+  // umplu, nu despre aritmetica.
+  const { data, error } =
+    mode === "direct_client"
+      ? await supabase.rpc("create_direct_client_issue", {
+          p_reference: reference,
+          p_lines: lines,
+          p_client_id: clientId,
+          p_pickup_date: pickupDate,
+        })
+      : await supabase.rpc("create_outbound_issue", {
+          p_reference: reference,
+          p_client_name: "",
+          p_project_name: "",
+          p_lines: lines,
+          p_project_id: projectId,
+        });
 
   if (error) return translateWriteError(error.code, error.message);
 

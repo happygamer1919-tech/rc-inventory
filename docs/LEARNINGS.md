@@ -8128,27 +8128,34 @@ share one error code, the input must make exactly ONE of them possible; an asser
 code rather than a cause proves only that something was refused.** Where the message itself is the
 contract, match on the message.
 
-### A migration that changes a function signature must grep the things that PROVE the applier, not only the applier
-**Tag:** ci
-**ERROR:** migration 0067 drops `public.create_outbound_issue(text, text, text, jsonb, uuid)` and creates
-a six argument version, which is the legitimate change card APPLY-01 rewrote the applier's assertions to
-allow. The applier itself was fine: `declared-function-signatures-exist` is DERIVED from what the batch
-declares, so it needed no edit, and both `npm run check:migrations` and `npm run prove:applier` passed on
-the first CI run. `npm run prove:assertions` failed. Its `PERTURB` map holds one HAND WRITTEN statement
-per assertion, and the entry for that assertion was the literal
-`drop function public.create_outbound_issue(text, text, text, jsonb, uuid);`. With the five argument
-version already gone, the perturbation's own drop failed, psql exited 3 before the assertion body ran,
-and the harness reported `did NOT raise when broken, so it can never fail`: the exact opposite of what
-happened. PR #385, run 36772953240, one failed case after 1m55s, and the whole end to end suite skipped
-behind it.
-**SOLUTION:** point the perturbation at the signature the batch declares now, with the old statement
-quoted above it under CLAUDE.md section 9c. Nothing is weakened: it still removes a signature the batch
-declared. RULE: **an assertion derived from the batch survives a signature change; every hand written
-COPY of that signature does not, and there are three places that hold one:**
-`scripts/poc-free/prove-assertions-can-fail.mjs` (the PERTURB map),
-`scripts/poc-free/local-db/prove-applier.mjs` (the mutation cases) and
-`scripts/poc-free/local-db/assertions/*.sql`. Grep the old argument list across all three before pushing.
-`npx tsc --noEmit` reaches none of them, so every one of them costs a CI run to find.
+### Changing a database function signature is four times more expensive than it looks, and the right answer was not to change it
+**Tag:** data
+**ERROR:** card P3-118 needs a mode, a client and a pickup date on the outbound write path, and the
+obvious move was to widen `public.create_outbound_issue`: drop the five argument version, create a six
+argument one. Card APPLY-01 had even rewritten the applier's assertions to ALLOW exactly that, naming "a
+deviz-aware outbound issue" as the plausible reason somebody would do it, so it looked pre-authorised.
+It cost two full CI runs and would have cost a production window. In order: `npm run prove:assertions`
+failed because the `PERTURB` map in `scripts/poc-free/prove-assertions-can-fail.mjs` names the old
+argument list LITERALLY, so its own `drop function` errored and the harness reported that the assertion
+can never fail; then five cases of `tests/e2e/facturare-create.spec.ts` failed with PostgREST
+`PGRST202`, because that spec calls the RPC with the old parameter names; then
+`assertions/0026_drop_outbound_free_text.sql` had to have its signature pin corrected; and then
+`npm run check:removal-safety` refused the whole batch, correctly, because a pending migration was
+removing a function `lib/data/outbound-actions.ts` still calls by name. The fourth refusal is the one
+that matters and it is not about tests at all: **the migration lands about two minutes after the merge
+and the deploy lands on its own schedule, so for some minutes the PREVIOUS build talks to the NEW
+schema.** A vanished signature in that window is INC-06 with a 404 instead of a 42703.
+**SOLUTION:** the signature was not changed. The stock half of the function was extracted into one
+named routine, `public.outbound_issue_take_stock`, `create_outbound_issue` kept its exact five arguments
+and now calls it, and the second mode got its own door, `public.create_direct_client_issue`, whose last
+statement is the same call. Everything above reverted: the perturbation, the other spec, and 0026's
+signature pin are untouched, and removal-safety passes because nothing is removed. The card's "no second
+subtraction routine" is satisfied more strongly than before, because the shared code is now a routine
+with a name that an assertion can read out of `pg_proc.prosrc`. RULE: **before widening a database
+function, count who holds a literal copy of its signature and ask what the DEPLOYED build will call
+during the apply window. If the answer to the second question is "the old signature", extract the shared
+body and add a door instead of moving the one that exists.** A new function is additive; a changed
+signature is a removal wearing a create.
 
 ### A new mode makes an old "is null" question mean something else, and the screen that reads it starts lying
 **Tag:** data
@@ -8169,3 +8176,20 @@ the second mode. RULE: **when a migration adds a mode, grep every `is null` and 
 reads the same table and ask what each one was really asking.** A predicate that was a proxy for "not yet
 reconciled" stops being one the moment a row is allowed to be legitimately empty, and the reader that
 suffers is a screen, not a query.
+
+### A column named after a common word is reported everywhere, because the pending-schema check greps the whole file on purpose
+**Tag:** ci
+**ERROR:** card P3-118 asks for "an issue-mode column" and the first name tried was `mode`. Once the
+migration was listed in the pending register, `npm run check:pending-schema-reads` reported FIVE files as
+reading unapplied schema, and three of them (`components/orders/InboundOrderForm.tsx`,
+`ManualOrderScreen.tsx`, `UploadOrderScreen.tsx`) touch no outbound table at all: they carry the word
+`mode` for unrelated reasons. The check is deliberately crude and says so in its own header, because a
+column name put in a constant and passed to `select` later is not inside the `select` call any more, so
+it searches the whole file. `description` had already cost this repository four `TOLERATED_WORDS`
+entries, and EXT-34 wrote the reason down.
+**SOLUTION:** the column is `issue_mode`, which is what the card called it, and all five findings went
+away without annotating anything. RULE: **name a column after what it means and not after its category;
+a one word column name that is also an ordinary English or Romanian word will be found in files that have
+nothing to do with it, and the cost is paid by every future card, not by this one.** If a generic name is
+genuinely right, the mechanism is a `TOLERATED_WORDS` pair with a written reason, never a file exemption:
+an exemption blinds the check for every future migration too.

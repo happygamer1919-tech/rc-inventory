@@ -4,8 +4,8 @@
 --
 -- SIX GROUPS, AND THE FIRST FIVE ARE THE CARD'S ACCEPTANCE LINE (a) VERBATIM:
 --
---   1. THE MODE COLUMN exists, carries exactly the two tokens, is NOT NULL and
---      defaults to 'project'.
+--   1. THE issue_mode COLUMN exists, carries exactly the two tokens, is NOT NULL
+--      and defaults to 'project'.
 --   2. THE PICKUP DATE COLUMN exists, is a date and is nullable. The client
 --      column exists, is nullable and RESTRICTS on delete.
 --   3. THE PROJECT CONSTRAINT refuses a 'project' row with a null project and
@@ -15,26 +15,30 @@
 --      project.
 --   5. THE POLICIES are select, insert and update, and there is NO DELETE POLICY
 --      AT ALL, which is what public.invoices has carried since 0063.
---   6. THE WRITE PATH: exactly one public.create_outbound_issue, with the six
---      argument signature 0067 declares, which writes a valid row in EITHER mode
---      and refuses a half filled one in Romanian. And the load bearing one:
---      PUBLIC.BATCHES IS BYTE IDENTICAL AFTER BOTH MODES, because neither mode
---      touches it and stock is a sum.
+--   6. THE WRITE PATH: TWO DOORS AND ONE ROUTINE.
+--      public.create_outbound_issue still carries the UNTOUCHED five argument
+--      signature, public.create_direct_client_issue is the second door, and both
+--      call public.outbound_issue_take_stock and neither carries arithmetic of its
+--      own, which is read out of pg_proc.prosrc rather than trusted. Then the load
+--      bearing one: PUBLIC.BATCHES IS BYTE IDENTICAL AFTER BOTH MODES, because
+--      neither mode touches it and stock is a sum.
 --
--- GROUP 6 CARRIES WHAT assertions/0026_drop_outbound_free_text.sql USED TO PIN
--- AND CAN NO LONGER PIN. That file asserted project_id NOT NULL and the literal
--- five argument signature. Card P3-118 makes both false about the end state, for
--- the reasons 0067's own header gives, and this directory can only ever describe
--- the END state: every file here runs after ALL migrations have applied. The two
--- sentences are corrected in place there under CLAUDE.md section 9c rather than
--- deleted, and the STRONGER replacements live here. Nothing 0026 proved is lost:
---   NOT NULL said "every row has a project". Group 3 says "every PROJECT row has
---   one", and group 4 adds "and no direct client row has one", which the column
---   level rule could not say at all.
---   The signature pin said "five arguments, forever". Group 6 says "exactly one
---   function, with the signature 0067 declares", which is the same defect caught
---   (two surviving versions make every call ambiguous) without the part that card
---   APPLY-01 removed from the applier for being unconditional.
+-- ONE PIN OF assertions/0026_drop_outbound_free_text.sql IS CORRECTED THERE AND
+-- REPLACED HERE, and it is the project_id NOT NULL. That file asserted it because
+-- P3-04b made it true; card P3-118 makes it false about the END state, which is
+-- the only state a file in this directory can describe, because every file here
+-- runs after ALL migrations have applied. The sentence is corrected in place there
+-- under CLAUDE.md section 9c rather than deleted, and the STRONGER replacement is
+-- here: NOT NULL said "every row has a project", group 3 says "every PROJECT row
+-- has one", and group 4 adds "and no direct client row has one", which a column
+-- level rule cannot say at all.
+--
+-- 0026's OTHER PIN, THE FIVE ARGUMENT SIGNATURE, IS STILL TRUE AND IS ASSERTED IN
+-- BOTH FILES. 0067 is the migration that could have broken it, so this is where
+-- R-215's promise that "the project mode is unchanged in every respect" gets
+-- machine checked. The second mode got its own door instead of a wider signature,
+-- and the reason is in 0067's header: a signature that vanishes breaks the build
+-- that is still deployed while the migration applies, which is INC-06.
 --
 -- WHAT IS DELIBERATELY NOT ASSERTED HERE, said so nobody reads it as proven:
 -- everything that needs a real stack or a browser. The three isolation cases of
@@ -63,13 +67,13 @@ declare
 begin
   select a.atttypid::regtype::text into txt
   from pg_attribute a
-  where a.attrelid = 'public.outbound_issues'::regclass and a.attname = 'mode' and a.attnum > 0;
+  where a.attrelid = 'public.outbound_issues'::regclass and a.attname = 'issue_mode' and a.attnum > 0;
 
   if txt is null then
-    raise exception 'P3-118: expected public.outbound_issues.mode to exist, found none';
+    raise exception 'P3-118: expected public.outbound_issues.issue_mode to exist, found none';
   end if;
   if txt <> 'outbound_mode' then
-    raise exception 'P3-118: outbound_issues.mode must be the outbound_mode enum, found %', txt;
+    raise exception 'P3-118: outbound_issues.issue_mode must be the outbound_mode enum, found %', txt;
   end if;
 
   -- EXACTLY TWO LABELS, AND THE TWO THE RULING NAMES. A third token added later
@@ -85,10 +89,10 @@ begin
 
   select count(*) into n
   from pg_attribute a
-  where a.attrelid = 'public.outbound_issues'::regclass and a.attname = 'mode' and a.attnotnull;
+  where a.attrelid = 'public.outbound_issues'::regclass and a.attname = 'issue_mode' and a.attnotnull;
 
   if n <> 1 then
-    raise exception 'P3-118: outbound_issues.mode must be NOT NULL';
+    raise exception 'P3-118: outbound_issues.issue_mode must be NOT NULL';
   end if;
 
   -- THE DEFAULT IS THE WHOLE REASON EVERY HISTORICAL ROW STILL MEANS WHAT IT
@@ -97,10 +101,10 @@ begin
   select pg_get_expr(d.adbin, d.adrelid) into txt
   from pg_attrdef d
   join pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
-  where d.adrelid = 'public.outbound_issues'::regclass and a.attname = 'mode';
+  where d.adrelid = 'public.outbound_issues'::regclass and a.attname = 'issue_mode';
 
   if txt is null or txt not like '%project%' then
-    raise exception 'P3-118: outbound_issues.mode must default to project, found %', coalesce(txt, 'no default');
+    raise exception 'P3-118: outbound_issues.issue_mode must default to project, found %', coalesce(txt, 'no default');
   end if;
 end $$;
 
@@ -216,11 +220,11 @@ begin
 
   -- A valid project row is accepted. WITHOUT THIS WITNESS the two refusals below
   -- would pass on a constraint that refuses everything.
-  insert into public.outbound_issues (reference, mode, project_id)
+  insert into public.outbound_issues (reference, issue_mode, project_id)
   values ('TEST-P3118-OK-PROJ', 'project', v_project_id);
 
   begin
-    insert into public.outbound_issues (reference, mode, project_id)
+    insert into public.outbound_issues (reference, issue_mode, project_id)
     values ('TEST-P3118-NOPROJ', 'project', null);
     raise exception 'P3-118: a project row with a null project was accepted, and must not be';
   exception
@@ -228,7 +232,7 @@ begin
   end;
 
   begin
-    insert into public.outbound_issues (reference, mode, project_id, pickup_date)
+    insert into public.outbound_issues (reference, issue_mode, project_id, pickup_date)
     values ('TEST-P3118-PROJ-PICKUP', 'project', v_project_id, date '2026-10-01');
     raise exception 'P3-118: a project row carrying a pickup date was accepted, and must not be';
   exception
@@ -249,11 +253,11 @@ begin
   select client_id, project_id into v_client_id, v_project_id from rc_p3_118_fixture;
 
   -- The witness again: a complete direct client row IS accepted.
-  insert into public.outbound_issues (reference, mode, client_id, pickup_date)
+  insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date)
   values ('TEST-P3118-OK-DIRECT', 'direct_client', v_client_id, date '2026-10-01');
 
   begin
-    insert into public.outbound_issues (reference, mode, client_id, pickup_date)
+    insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date)
     values ('TEST-P3118-NOCLIENT', 'direct_client', null, date '2026-10-01');
     raise exception 'P3-118: a direct client row with a null client was accepted, and must not be';
   exception
@@ -261,7 +265,7 @@ begin
   end;
 
   begin
-    insert into public.outbound_issues (reference, mode, client_id, pickup_date)
+    insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date)
     values ('TEST-P3118-NOPICKUP', 'direct_client', v_client_id, null);
     raise exception 'P3-118: a direct client row with no pickup date was accepted, and must not be';
   exception
@@ -269,7 +273,7 @@ begin
   end;
 
   begin
-    insert into public.outbound_issues (reference, mode, client_id, pickup_date, project_id)
+    insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date, project_id)
     values ('TEST-P3118-DIRECT-PROJ', 'direct_client', v_client_id, date '2026-10-01', v_project_id);
     raise exception 'P3-118: a direct client row carrying a project was accepted, and must not be';
   exception
@@ -336,7 +340,6 @@ begin
   end if;
 end $$;
 
-
 -- ===========================================================================
 -- 6. THE WRITE PATH, AND THE BATCHES THAT NEITHER MODE TOUCHES
 -- ===========================================================================
@@ -360,11 +363,12 @@ begin
   select client_id, project_id, product_id into v_client, v_project, v_product
   from rc_p3_118_fixture;
 
-  -- --- EXACTLY ONE FUNCTION, WITH THE SIGNATURE 0067 DECLARES -------------
-  -- Two surviving versions mean a drop did not happen and every call to the name
-  -- is ambiguous. That is the defect assertions/0026 was written for and it is
-  -- not loosened by one inch; only the "five arguments forever" half is gone,
-  -- and card APPLY-01 removed that from the applier for the same reason.
+  -- --- THE PROJECT DOOR IS UNTOUCHED, SIGNATURE INCLUDED -------------------
+  -- assertions/0026 asserts this too and it is asserted again here on purpose:
+  -- 0067 is the migration that could have changed it, so THIS card is where the
+  -- claim "the project mode is unchanged in every respect" (R-215) has to be
+  -- machine checked. Two surviving versions mean a drop did not happen and every
+  -- call to the name is ambiguous.
   select count(*) into n
   from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
   where ns.nspname = 'public' and p.proname = 'create_outbound_issue';
@@ -378,8 +382,52 @@ begin
   from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
   where ns.nspname = 'public' and p.proname = 'create_outbound_issue';
 
-  if txt <> 'text, jsonb, uuid, text, uuid, date' then
-    raise exception 'P3-118: create_outbound_issue signature is (%), expected (text, jsonb, uuid, text, uuid, date)', txt;
+  if txt <> 'text, text, text, jsonb, uuid' then
+    raise exception 'P3-118: create_outbound_issue signature is (%), expected the untouched (text, text, text, jsonb, uuid)', txt;
+  end if;
+
+  -- --- THE SECOND DOOR, AND THE ONE ROUTINE BEHIND BOTH --------------------
+  select array_to_string(array(select format_type(t, null) from unnest(p.proargtypes) as t), ', ')
+    into txt
+  from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+  where ns.nspname = 'public' and p.proname = 'create_direct_client_issue';
+
+  if txt is null then
+    raise exception 'P3-118: public.create_direct_client_issue does not exist';
+  end if;
+  if txt <> 'text, jsonb, uuid, date' then
+    raise exception 'P3-118: create_direct_client_issue signature is (%), expected (text, jsonb, uuid, date)', txt;
+  end if;
+
+  select count(*) into n
+  from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+  where ns.nspname = 'public' and p.proname = 'outbound_issue_take_stock';
+
+  if n <> 1 then
+    raise exception 'P3-118: expected exactly one public.outbound_issue_take_stock, found %', n;
+  end if;
+
+  -- BOTH DOORS CALL IT AND NEITHER CARRIES ITS OWN ARITHMETIC. The bodies are
+  -- read from the catalogue rather than trusted: a copy of the overdraw check
+  -- pasted into either door would pass every other case in this file, and it is
+  -- exactly the defect card P3-118 exists to avoid. So each body must NAME the
+  -- shared routine and must NOT name the stock function or the lines table.
+  select prosrc into txt from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+  where ns.nspname = 'public' and p.proname = 'create_outbound_issue';
+  if txt not like '%outbound_issue_take_stock%' then
+    raise exception 'P3-118: create_outbound_issue does not call outbound_issue_take_stock';
+  end if;
+  if txt like '%product_available_stock%' or txt like '%outbound_lines%' then
+    raise exception 'P3-118: create_outbound_issue carries stock arithmetic of its own, and must not';
+  end if;
+
+  select prosrc into txt from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+  where ns.nspname = 'public' and p.proname = 'create_direct_client_issue';
+  if txt not like '%outbound_issue_take_stock%' then
+    raise exception 'P3-118: create_direct_client_issue does not call outbound_issue_take_stock';
+  end if;
+  if txt like '%product_available_stock%' or txt like '%outbound_lines%' then
+    raise exception 'P3-118: create_direct_client_issue carries a SECOND subtraction routine, which is the one thing this card must not produce';
   end if;
 
   -- --- STOCK TO ISSUE ------------------------------------------------------
@@ -400,21 +448,21 @@ begin
     into v_batches_0 from public.batches b;
   v_avail_0 := public.product_available_stock(v_product);
 
-  -- --- A PROJECT ISSUE, THROUGH THE FUNCTION -------------------------------
+  -- --- A PROJECT ISSUE, THROUGH THE UNTOUCHED DOOR -------------------------
   select public.create_outbound_issue(
-    'TEST-P3118-FN-PROJ',
+    'TEST-P3118-FN-PROJ', '', '',
     jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 7)),
-    v_project, 'project', null, null
+    v_project
   ) into v_project_id;
 
   select md5(coalesce(string_agg(b.id::text || '|' || b.product_id::text || '|' || b.quantity::text, ',' order by b.id), ''))
     into v_batches_1 from public.batches b;
 
   -- --- A DIRECT CLIENT ISSUE, SAME PRODUCT, SAME QUANTITY ------------------
-  select public.create_outbound_issue(
+  select public.create_direct_client_issue(
     'TEST-P3118-FN-DIRECT',
     jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 7)),
-    null, 'direct_client', v_client, date '2026-10-01'
+    v_client, date '2026-10-01'
   ) into v_direct_id;
 
   select md5(coalesce(string_agg(b.id::text || '|' || b.product_id::text || '|' || b.quantity::text, ',' order by b.id), ''))
@@ -443,11 +491,18 @@ begin
     raise exception 'P3-118: expected one line per issue, found %', n;
   end if;
 
-  -- The rows the function wrote carry the mode, and only the columns their mode
+  -- AND EACH GOT ITS FIRST HISTORY ROW, from the same shared routine.
+  select count(*) into n from public.status_history
+  where entity_type = 'outbound_issue' and entity_id in (v_project_id, v_direct_id);
+  if n <> 2 then
+    raise exception 'P3-118: expected one history row per issue, found %', n;
+  end if;
+
+  -- The rows the two doors wrote carry the mode, and only the columns their mode
   -- allows.
-  select mode::text into txt from public.outbound_issues where id = v_direct_id;
+  select issue_mode::text into txt from public.outbound_issues where id = v_direct_id;
   if txt <> 'direct_client' then
-    raise exception 'P3-118: the direct client issue stored mode %, expected direct_client', txt;
+    raise exception 'P3-118: the direct client issue stored issue_mode %, expected direct_client', txt;
   end if;
 
   select count(*) into n from public.outbound_issues
@@ -456,80 +511,84 @@ begin
     raise exception 'P3-118: the direct client issue did not store client and pickup date without a project';
   end if;
 
+  -- THE PROJECT DOOR STILL WRITES A project ROW, and the default is what does it:
+  -- create_outbound_issue never names issue_mode.
   select count(*) into n from public.outbound_issues
-  where id = v_project_id and mode = 'project' and project_id = v_project
+  where id = v_project_id and issue_mode = 'project' and project_id = v_project
     and client_id is null and pickup_date is null;
   if n <> 1 then
-    raise exception 'P3-118: the project issue did not store its project alone';
+    raise exception 'P3-118: the project issue did not store its project alone with issue_mode project';
   end if;
 
-  -- --- THE ROMANIAN REFUSALS, WHICH ARE THE FUNCTION'S HALF ---------------
-  -- 0026 asserted the first of these and its reason is kept: the operator must
-  -- read a sentence rather than a constraint name. P0001 is the code that
-  -- carries one.
-  -- THE LINE ARRAY IS REAL HERE ON PURPOSE. assertions/0026 wrote this same case
-  -- with an EMPTY array, and the function checks the lines before the project, so
-  -- that version passed on the wrong refusal: it proved a card about the project
-  -- by triggering the message about the positions. A real line makes the project
-  -- the only thing missing.
+  -- --- THE ROMANIAN REFUSALS ----------------------------------------------
+  -- P0001 is the code that carries a Romanian sentence, which is the reason 0026
+  -- gave for raising rather than letting a constraint name reach the operator.
+  --
+  -- EVERY CALL BELOW CARRIES A REAL LINE, so the missing field is the only thing
+  -- wrong with it. Both doors check their lines first, so an empty array would
+  -- catch the refusal about the positions and report it as the refusal under test.
   begin
     perform public.create_outbound_issue(
-      'TEST-P3118-R1',
+      'TEST-P3118-R1', '', '',
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1)),
-      null, 'project', null, null);
-    raise exception 'P3-118: create_outbound_issue accepted a null project in project mode, and must not';
+      null);
+    raise exception 'P3-118: create_outbound_issue accepted a null project, and must not';
   exception
     when sqlstate 'P0001' then null;
   end;
 
   begin
-    perform public.create_outbound_issue(
+    perform public.create_direct_client_issue(
       'TEST-P3118-R2',
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1)),
-      null, 'direct_client', null, date '2026-10-01');
-    raise exception 'P3-118: create_outbound_issue accepted a direct client issue with no client';
+      null, date '2026-10-01');
+    raise exception 'P3-118: create_direct_client_issue accepted a null client';
   exception
     when sqlstate 'P0001' then null;
   end;
 
   begin
-    perform public.create_outbound_issue(
+    perform public.create_direct_client_issue(
       'TEST-P3118-R3',
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1)),
-      null, 'direct_client', v_client, null);
-    raise exception 'P3-118: create_outbound_issue accepted a direct client issue with no pickup date';
+      v_client, null);
+    raise exception 'P3-118: create_direct_client_issue accepted a null pickup date';
   exception
     when sqlstate 'P0001' then null;
   end;
 
+  -- A CLIENT THAT DOES NOT EXIST IS P0002, the same code and the same shape 0026
+  -- gave the missing project, so the caller can tell "you did not choose" from
+  -- "what you chose is gone".
   begin
-    perform public.create_outbound_issue(
+    perform public.create_direct_client_issue(
       'TEST-P3118-R4',
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1)),
-      null, 'retail', null, null);
-    raise exception 'P3-118: create_outbound_issue accepted an unknown mode token';
+      '00000000-0000-0000-0000-000000000000'::uuid, date '2026-10-01');
+    raise exception 'P3-118: create_direct_client_issue accepted a client that does not exist';
   exception
-    when sqlstate 'P0001' then null;
+    when sqlstate 'P0002' then null;
   end;
 
   -- --- THE "NO PROJECT" COUNTER IGNORES THE SECOND MODE --------------------
   -- 0024's counter exists so a project cost total can say when it is INCOMPLETE.
   -- A direct client issue has no project BY DESIGN, so counting it would make a
   -- complete total report itself as partial and would falsify the sentence beside
-  -- the number. Two direct client issues exist in this transaction by now, so a
-  -- body that still read `where project_id is null` would answer 2 here.
+  -- the number. Two direct client rows exist in this transaction by now, so a body
+  -- that still read `where project_id is null` would answer 2 here.
   if public.unassigned_outbound_count() <> 0 then
     raise exception 'P3-118: unassigned_outbound_count counted a direct client issue, answered % and must answer 0',
       public.unassigned_outbound_count();
   end if;
 
-  -- THE OVERDRAW CHECK IS THE SAME CHECK IN THE SECOND MODE. If the direct
-  -- client path had its own arithmetic, this is where it would show.
+  -- THE OVERDRAW CHECK IS THE SAME CHECK IN THE SECOND MODE. If the direct client
+  -- door had its own arithmetic, this is where it would show: the INSUFFICIENT_STOCK
+  -- contract lib/data/outbound-actions.ts parses comes out of the shared routine.
   begin
-    perform public.create_outbound_issue(
+    perform public.create_direct_client_issue(
       'TEST-P3118-R5',
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1000)),
-      null, 'direct_client', v_client, date '2026-10-01');
+      v_client, date '2026-10-01');
     raise exception 'P3-118: a direct client issue overdrew the stock and was accepted';
   exception
     when sqlstate 'P0001' then null;

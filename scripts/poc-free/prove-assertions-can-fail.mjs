@@ -187,28 +187,8 @@ const PERTURB = {
   "zero-rows-deleted":
     "delete from public.categories where id = (select id from public.categories order by sort_order limit 1);",
   // A signature the batch declared, removed.
-  //
-  // THE SIGNATURE NAMED HERE FOLLOWS THE BATCH, and it moved on 2026-09-30 with
-  // migration 0067, card P3-118. It used to read, and it is quoted rather than
-  // deleted because card APPLY-01's whole design turns on it:
-  //
-  //   "drop function public.create_outbound_issue(text, text, text, jsonb, uuid);"
-  //
-  // THAT WAS TRUE FROM 0026 UNTIL 0067 AND IS NOW A PERTURBATION THAT PROVES
-  // NOTHING. 0067 drops the five argument version and declares one six argument
-  // version instead, which is exactly the legitimate change of signature APPLY-01
-  // rewrote the applier to allow, so the old statement fails with "function does
-  // not exist" and psql exits 3 before the assertion is ever reached. A
-  // perturbation that errors on its own is not a perturbation: the case then
-  // reports that the assertion cannot fail, which is the opposite of what
-  // happened.
-  //
-  // NOTHING IS WEAKENED. The perturbation does the same thing it always did,
-  // remove a signature the batch declared, against the signature the batch
-  // declares today. If a later card changes it again, this line follows it again,
-  // and the failure that brings the reader here says which signature is missing.
   "declared-function-signatures-exist":
-    "drop function public.create_outbound_issue(text, jsonb, uuid, text, uuid, date);",
+    "drop function public.create_outbound_issue(text, text, text, jsonb, uuid);",
   // A second overload of a name the batch created.
   "declared-function-versions-only":
     "create function public.create_outbound_issue(a text) returns uuid language sql as $p$ select null::uuid $p$;",

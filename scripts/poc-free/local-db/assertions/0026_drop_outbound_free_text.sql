@@ -119,10 +119,22 @@ begin
     raise exception 'P3-04b: expected an index covering outbound_issues.project_id, found none';
   end if;
 
-  -- --- EXACTLY ONE create_outbound_issue -----------------------------------
-  -- Carried over from 0017's assertion, and THE HALF THAT MATTERS IS UNTOUCHED:
-  -- two surviving versions mean a drop did not happen and every call to the name
-  -- is ambiguous.
+  -- --- EXACTLY ONE create_outbound_issue, still five arguments -------------
+  -- Carried over from 0017's assertion. 0026 replaced the body and deliberately
+  -- did NOT change the signature: reshaping it would mean a second DROP FUNCTION
+  -- and would trip the applier's own signature assertion.
+  --
+  -- STILL TRUE AFTER MIGRATION 0067, CARD P3-118, AND THAT IS NOT AN ACCIDENT.
+  -- That card adds a second outbound mode and needed a mode, a client and a
+  -- pickup date on the write path. It did NOT reshape this function: it moved the
+  -- stock half into public.outbound_issue_take_stock, left this five argument door
+  -- exactly where it was, and put the second mode behind its own door,
+  -- public.create_direct_client_issue. The reason is one this assertion could not
+  -- have known when it was written and is worth reading here: a migration lands
+  -- about two minutes after the merge and the DEPLOY lands on its own schedule, so
+  -- a signature that vanished would vanish under the build that is still running.
+  -- That is INC-06. p_client_name and p_project_name therefore stay accepted and
+  -- ignored for a second reason on top of 0026's.
   select count(*) into n
   from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
   where ns.nspname = 'public' and p.proname = 'create_outbound_issue';
@@ -131,48 +143,31 @@ begin
     raise exception 'P3-04b: expected exactly one create_outbound_issue, found %. Two means a drop did not happen and every call is ambiguous.', n;
   end if;
 
-  -- CORRECTED 2026-09-30 BY CARD P3-118 UNDER CLAUDE.md SECTION 9c. The literal
-  -- signature pin used to follow, and it is quoted rather than deleted because
-  -- 0026's header states its reason in terms:
-  --
-  --   "-- 0026 replaced the body and deliberately did NOT change the signature:
-  --    -- reshaping it would mean a second DROP FUNCTION and would trip the
-  --    -- applier's own signature assertion.
-  --    if txt <> 'text, text, text, jsonb, uuid' then
-  --      raise exception 'P3-04b: create_outbound_issue signature is (%), expected (text, text, text, jsonb, uuid)', txt;
-  --    end if;"
-  --
-  -- BOTH HALVES OF THAT REASON ARE SPENT. Card APPLY-01 replaced the applier's
-  -- unconditional five-argument assertion with declared-function-signatures-exist
-  -- and declared-function-versions-only, which are derived from what the batch
-  -- itself declares, and its own comment names "a deviz-aware outbound issue" as
-  -- the near and plausible change of signature it was making room for. Migration
-  -- 0067 is that change: it drops the five-argument version and declares one
-  -- six-argument version, because the second outbound mode needs a mode, a client
-  -- and a pickup date, and p_client_name and p_project_name were dead parameters
-  -- kept only for the assertion APPLY-01 removed.
-  --
-  -- THE PIN IS NOT DROPPED, IT MOVED TO THE CARD THAT OWNS THE SIGNATURE.
-  -- assertions/0067_outbound_direct_client.sql group 6 checks the exact argument
-  -- list 0067 declares, so no signature change can go unnoticed; what stopped
-  -- being asserted is only that the signature must never change again, which was
-  -- never a card's decision to make forever.
+  select array_to_string(array(select format_type(t, null) from unnest(p.proargtypes) as t), ', ')
+    into txt
+  from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+  where ns.nspname = 'public' and p.proname = 'create_outbound_issue';
 
-  -- --- the write path cannot record a PROJECT destination without a project -
+  if txt <> 'text, text, text, jsonb, uuid' then
+    raise exception 'P3-04b: create_outbound_issue signature is (%), expected (text, text, text, jsonb, uuid)', txt;
+  end if;
+
+  -- --- the write path cannot record a destination without a project --------
   -- The constraint is the database's guarantee; this is the function's, in
   -- Romanian, so the operator sees a sentence rather than a constraint name.
-  -- P3-118 CHANGED THE CALL SHAPE AND NOT THE PROMISE: the mode is named
-  -- explicitly, and a real line is passed so that the missing project is the only
-  -- thing wrong with the call. The old version passed an EMPTY line array, and the
-  -- function checks the lines before the project, so it was passing on the refusal
-  -- about the positions rather than the one this block is about.
+  --
+  -- P3-118 GAVE THIS CASE A REAL LINE, and the call shape is otherwise 0026's.
+  -- The old version passed an EMPTY line array, and the function checks the lines
+  -- before the project, so it was catching the refusal about the POSITIONS and
+  -- reporting it as the refusal about the project. It would have kept passing if
+  -- the project check had been deleted outright.
   begin
     perform public.create_outbound_issue(
-      'IES-ASSERT-0026',
+      'IES-ASSERT-0026', '', '',
       jsonb_build_array(jsonb_build_object(
         'product_id', (select id from public.products order by sku limit 1),
         'quantity', 1)),
-      null, 'project', null, null);
+      null);
     raise exception 'P3-04b: create_outbound_issue accepted a null project, and must not';
   exception
     when sqlstate 'P0001' then
