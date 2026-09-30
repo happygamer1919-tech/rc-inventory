@@ -29,6 +29,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasFacturareSettings } from "./schema-capability";
 import { isUnitCode } from "./units";
+import { chisinauToday, formatDate } from "./format";
 import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
 
 type Failure = { ok: false; message: string; field?: string };
@@ -528,6 +529,23 @@ export type InvoiceIssueResult = { ok: true; numberText: string } | Failure;
  * UN SINGUR APEL, si el face totul intr-o tranzactie: ia numarul din contorul seriei
  * sub blocaj de rand, il scrie pe factura si mută starea la `issued`. Nimic din acest
  * fisier nu citeste un numar ca sa il scrie.
+ *
+ * O CASUTA GOALA DE "DATA EMITERII" DEVINE ZIUA DIN CHISINAU, AICI, SI NU SE LASA
+ * BAZEI. Cardul P3-115, constatarea G3 a raportului
+ * docs/reports/2026-09-29-critic-bug-sweep-2.md: casuta se deschide completata cu
+ * chisinauToday(), dar este un camp obisnuit si nimic nu refuza una golita, deci
+ * ecranul trimitea sirul gol, acest fisier il facea `null`, iar public.issue_invoice
+ * cadea pe `coalesce(p_issue_date, current_date)`, adica pe ziua SERVERULUI, care
+ * este UTC. Chisinaul este UTC+2 sau UTC+3, deci in primele doua sau trei ore ale
+ * fiecarei zi de la Chisinau ziua serverului este IERI, iar ziua decide si data
+ * scrisa pe document si SERIA in care este numerotat: o ciornă anulata la 00:30, la
+ * Chisinau, pe 1 ianuarie 2027 primea data 2026-12-31 si urmatorul numar din seria
+ * RC-2026 in loc de RC-2027.
+ *
+ * MIGRATIA 0065 A REPARAT SI CADEREA DIN BAZA, cu acelasi nume de fus, ca cele doua
+ * locuri sa nu poata spune doua zile diferite. Aceasta linie rămâne fiindca o cadere
+ * corectata nu este acelasi lucru cu un raspuns dat pe fata: cine citeste apelul
+ * vede ce zi pleaca spre baza.
  */
 export async function issueInvoice(
   invoiceId: string,
@@ -538,7 +556,7 @@ export async function issueInvoice(
   if (!user) return SESSION_GONE;
   if (!UUID.test(invoiceId.trim())) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
 
-  const on = issueDate.trim() === "" ? null : parseDay(issueDate);
+  const on = issueDate.trim() === "" ? chisinauToday() : parseDay(issueDate);
   if (issueDate.trim() !== "" && on === null) {
     return { ok: false, message: "Data emiterii nu este validă.", field: "issueDate" };
   }
@@ -584,6 +602,21 @@ export async function issueInvoice(
  * valoarea trimisa de aici rămâne. Amiaza UTC cade in aceeasi zi calendaristica la
  * Chișinău oricum ar sta decalajul, de la +2 la +3; miezul nopții UTC este ora 2 sau 3
  * a zilei urmatoare acolo, adica ar muta ziua pentru fiecare plată.
+ *
+ * DOUA ZILE SUNT REFUZATE, SI AMANDOUA SUNT O SINGURA COMPARATIE. Cardul P3-115,
+ * constatarea G14 a raportului docs/reports/2026-09-29-critic-bug-sweep-2.md: parseDay
+ * verifica numai FORMA `YYYY-MM-DD`, nimic nu compara ziua cu ziua emiterii sau cu
+ * astazi, si baza nu avea nicio constrangere pe paid_at, deci o factură emisă astăzi
+ * putea fi trecută plătită in 2019 sau in 2031.
+ *
+ * ZIUA DE AZI ESTE CEA DIN CHISINAU, nu cea a serverului, din exact motivul scris in
+ * lib/data/format.ts: o comparatie pe ziua UTC ar refuza o plată înregistrată in
+ * primele ore ale zilei de la Chișinău, fiindca acolo ziua de azi este deja mai mare.
+ *
+ * ECRANUL ESTE O POLITETE, IAR GARANTIA ESTE IN BAZA. Migratia 0065 pune aceeasi
+ * regula in declansatorul public.invoices_validate_paid_date, care este ce vede o
+ * cerere construita de mana. Propozitiile de aici exista ca sa spuna OMULUI de langa
+ * casuta ce nu este in regula, ceea ce un refuz al bazei nu face.
  */
 export async function markInvoicePaid(invoiceId: string, paidOn: string): Promise<ActionResult> {
   const user = await getSessionUser();
@@ -594,12 +627,24 @@ export async function markInvoicePaid(invoiceId: string, paidOn: string): Promis
   if (day === null) {
     return { ok: false, message: "Scrie ziua în care a fost plătită factura.", field: "paidOn" };
   }
+  if (day > chisinauToday()) {
+    // ZILELE SE COMPARA CA SIRURI, si asa trebuie sa rămână: `YYYY-MM-DD` se ordoneaza
+    // lexicografic exact ca o dată calendaristica, iar un `new Date(sir)` ar fi miezul
+    // nopții UTC, adica ora 2 sau 3 la Chișinău, si ar muta ziua. Nota lui
+    // chisinauToday in lib/data/format.ts descrie aceeasi capcana.
+    return {
+      ok: false,
+      message: "Ziua plății este în viitor. O plată se înregistrează după ce a fost făcută.",
+      field: "paidOn",
+    };
+  }
 
   const supabase = await createClient();
   if (!(await hasFacturareSettings(supabase))) return NOT_ACTIVE;
 
-  const status = await readStatus(supabase, invoiceId.trim());
-  if (status === null) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+  const read = await readStatusAndIssueDate(supabase, invoiceId.trim());
+  if (read === null) return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
+  const { status, issueDate } = read;
   if (status !== "issued") {
     // O CIORNA NU POATE FI PLATITA, si nu fiindca ecranul nu o oferă: constrangerea
     // invoices_numbered_past_draft din 0063 refuză orice stare peste ciornă fără
@@ -611,6 +656,18 @@ export async function markInvoicePaid(invoiceId: string, paidOn: string): Promis
         status === "draft"
           ? "Factura este încă ciornă. Emite-o întâi: doar o factură emisă poate fi marcată plătită."
           : "Factura nu mai poate fi marcată plătită.",
+    };
+  }
+
+  // SI NU INAINTE DE ZIUA EMITERII. O factură emisă are intotdeauna o zi de emitere,
+  // fiindca public.issue_invoice o scrie, dar valoarea este citita si nu presupusa:
+  // null inseamna ca nu se poate compara, si atunci declansatorul din 0065 este cel
+  // care decide, nu o presupunere de aici.
+  if (issueDate !== null && day < issueDate) {
+    return {
+      ok: false,
+      message: `Ziua plății este înainte de ziua emiterii, ${formatDate(issueDate)}. O factură nu poate fi plătită înainte să existe.`,
+      field: "paidOn",
     };
   }
 
@@ -678,7 +735,17 @@ export async function cancelInvoice(invoiceId: string, reason: string): Promise<
 
   let numberText: string | null = null;
   if (status === "draft") {
-    const issued = await issueInvoice(invoiceId.trim(), "", "");
+    // ZIUA DIN CHISINAU, TRIMISA PE FATA. Cardul P3-115, constatarea G2. Aici era
+    // scris `issueInvoice(invoiceId.trim(), "", "")`: un sir gol, care devenea null,
+    // care ajungea la `coalesce(p_issue_date, current_date)` in public.issue_invoice,
+    // adica la ziua UTC a serverului. Ziua decide data documentului SI seria lui, deci
+    // o ciornă anulata in primele ore ale unei zi de la Chisinau intra pe ziua de ieri
+    // si, la trecerea dintre ani, in seria anului inchis.
+    //
+    // ACEASTA ESTE ACEEASI ZI PE CARE O TRIMITE Emite. FacturaScreen.doIssue trimite
+    // `invoice.issueDate ?? today`, unde `today` este chisinauToday() citit pe server,
+    // deci cele doua cai stampileaza acum acelasi lucru. Un singur argument.
+    const issued = await issueInvoice(invoiceId.trim(), chisinauToday(), "");
     if (!issued.ok) return issued;
     numberText = issued.numberText;
   }
@@ -729,4 +796,24 @@ async function readStatus(supabase: SupabaseClient, invoiceId: string): Promise<
     .maybeSingle();
   if (error || !data) return null;
   return (data as { status: InvoiceStatus }).status;
+}
+
+/** Starea SI ziua emiterii, citite intr-o singura cerere.
+ *
+ *  Cardul P3-115, constatarea G14. markInvoicePaid trebuie sa compare ziua platii cu
+ *  ziua emiterii, deci are nevoie de amandoua. O A DOUA CERERE PENTRU issue_date AR FI
+ *  DOUA RASPUNSURI DESPRE ACELASI RAND, iar intre ele factura poate fi emisa de
+ *  altcineva: se citesc odata. readStatus rămâne pentru cine are nevoie numai de stare. */
+async function readStatusAndIssueDate(
+  supabase: SupabaseClient,
+  invoiceId: string,
+): Promise<{ status: InvoiceStatus; issueDate: string | null } | null> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("status, issue_date")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { status: InvoiceStatus; issue_date: string | null };
+  return { status: row.status, issueDate: row.issue_date };
 }
