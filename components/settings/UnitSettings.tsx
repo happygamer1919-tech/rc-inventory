@@ -38,8 +38,16 @@ const UNIT_MEANING: Record<UnitCode, string> = {
 // schimba pe ecran.
 
 export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: number }> }) {
+  // P3-113. `mb-5` fiindca de la sub-meniu incoace unitatile nu mai sunt ultimul
+  // bloc al ecranului: pe "Toate setările" blocul de facturare vine sub ele.
+  //
+  // Card nu primeste data-testid (components/ui/primitives.tsx), deci blocul este
+  // invelit intr-o secțiune care il poarta, exact ca FacturareSettings. Asa poate
+  // un caz sa ceara ca in tot blocul sa nu existe niciun control de scriere, care
+  // este chiar afirmatia "doar vizualizare".
   return (
-    <Card className={PHONE_TABLE}>
+    <section data-testid="settings-unitati">
+    <Card className={`mb-5 ${PHONE_TABLE}`}>
       <CardHeader
         title="Unități de măsură"
         hint="Fiecare produs are exact o unitate, fixată la crearea produsului."
@@ -77,5 +85,6 @@ export function UnitSettings({ rows }: { rows: Array<{ unit: UnitCode; count: nu
         </tbody>
       </Table>
     </Card>
+    </section>
   );
 }
