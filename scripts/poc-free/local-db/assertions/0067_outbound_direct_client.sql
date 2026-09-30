@@ -512,6 +512,17 @@ begin
     when sqlstate 'P0001' then null;
   end;
 
+  -- --- THE "NO PROJECT" COUNTER IGNORES THE SECOND MODE --------------------
+  -- 0024's counter exists so a project cost total can say when it is INCOMPLETE.
+  -- A direct client issue has no project BY DESIGN, so counting it would make a
+  -- complete total report itself as partial and would falsify the sentence beside
+  -- the number. Two direct client issues exist in this transaction by now, so a
+  -- body that still read `where project_id is null` would answer 2 here.
+  if public.unassigned_outbound_count() <> 0 then
+    raise exception 'P3-118: unassigned_outbound_count counted a direct client issue, answered % and must answer 0',
+      public.unassigned_outbound_count();
+  end if;
+
   -- THE OVERDRAW CHECK IS THE SAME CHECK IN THE SECOND MODE. If the direct
   -- client path had its own arithmetic, this is where it would show.
   begin

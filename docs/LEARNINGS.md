@@ -8149,3 +8149,23 @@ COPY of that signature does not, and there are three places that hold one:**
 `scripts/poc-free/local-db/prove-applier.mjs` (the mutation cases) and
 `scripts/poc-free/local-db/assertions/*.sql`. Grep the old argument list across all three before pushing.
 `npx tsc --noEmit` reaches none of them, so every one of them costs a CI run to find.
+
+### A new mode makes an old "is null" question mean something else, and the screen that reads it starts lying
+**Tag:** data
+**ERROR:** migration 0024 added `public.unassigned_outbound_count()` with the body
+`where oi.project_id is null`, for a stated reason: a project's material cost total must say when it is
+INCOMPLETE, and what makes it incomplete is an issue whose project nobody reconciled. Since P3-04b the
+answer was zero forever and the cost screen said "Toate ieșirile au un proiect asociat". Migration 0067
+gives outbound a second mode whose rows have **no project by design**, so the same body silently changed
+question: the first counter sale would have made every project cost screen report a growing number of
+unassigned issues and falsified the sentence printed beside it. Nothing about the counter was edited, and
+that is exactly why it broke: `tests/e2e/project-cost.spec.ts` caught it in CI at minute 25, and its own
+comment still asserted "outbound_issues.project_id este NOT NULL de la migratia 0026".
+**SOLUTION:** the function is replaced in the same migration, narrowed to `mode = 'project' and
+project_id is null`, which is the question it always meant. The answer is zero forever again and for a
+more precise reason: a counter sale cannot make a project total partial. The spec's false comment is
+corrected in place under section 9c and an assertion in `assertions/0067` now proves the counter ignores
+the second mode. RULE: **when a migration adds a mode, grep every `is null` and every `count(*)` that
+reads the same table and ask what each one was really asking.** A predicate that was a proxy for "not yet
+reconciled" stops being one the moment a row is allowed to be legitimately empty, and the reader that
+suffers is a screen, not a query.

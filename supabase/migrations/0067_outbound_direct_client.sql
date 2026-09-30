@@ -14,6 +14,7 @@
 --   constraint outbound_issues_direct_client_mode_shape
 --   index      outbound_issues_mode_idx, outbound_issues_client_id_idx
 --   function   public.create_outbound_issue(text, jsonb, uuid, text, uuid, date)
+--   function   public.unassigned_outbound_count(), replaced in place, same signature
 --
 -- WHAT IT REMOVES: no table, no row, no column. There is NO DROP TABLE, NO
 -- TRUNCATE, NO DELETE, NO DROP COLUMN, NO UPDATE and NO INSERT anywhere in this
@@ -461,7 +462,51 @@ grant execute on function public.create_outbound_issue(text, jsonb, uuid, text, 
 
 
 -- ===========================================================================
--- 7. THE TABLE COMMENT NOW NAMES TWO MODES
+-- 7. THE "NO PROJECT" COUNTER STOPS COUNTING A MODE THAT NEVER HAD ONE
+-- ===========================================================================
+--
+-- WHY THIS IS HERE AND IS NOT SCOPE THE CARD DID NOT ASK FOR. 0024 added
+-- public.unassigned_outbound_count() and said why in its own comment: *"IESIRILE
+-- FARA PROIECT SE NUMARA, NU SE ASCUND. Un total partial care nu spune ca este
+-- partial este mai rau decat lipsa lui."* It exists so a project's material cost
+-- total can say when it is INCOMPLETE, and the thing that makes it incomplete is
+-- an issue whose project nobody has reconciled yet.
+--
+-- ITS BODY IS `where oi.project_id is null`, WHICH MEANT EXACTLY THAT UNTIL THIS
+-- FILE AND NOW MEANS SOMETHING ELSE. A direct client issue has no project on
+-- purpose, by outbound_issues_direct_client_mode_shape, so leaving the body alone
+-- would make every project cost screen report a growing number of "ieșiri fără
+-- proiect" forever, and the sentence beside it, "Toate ieșirile au un proiect
+-- asociat", would go false the first time somebody sells across the counter. That
+-- is not a partial total being honest about itself; it is a true screen becoming a
+-- false one.
+--
+-- The question the counter asks is narrowed to the mode it was always about:
+-- a PROJECT issue with no project. Since section 3 makes that impossible, the
+-- answer is zero forever, which is exactly what it has been since P3-04b.
+--
+-- SAME SIGNATURE, so this is a `create or replace` and not a DROP, and no caller
+-- changes: lib/reporting/material-cost.ts keeps calling it by name.
+
+create or replace function public.unassigned_outbound_count()
+returns bigint
+language sql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+  select count(*)::bigint
+  from public.outbound_issues oi
+  where oi.mode = 'project'
+    and oi.project_id is null
+$$;
+
+comment on function public.unassigned_outbound_count() is
+  'P3-11: how many issues have no project yet. They are excluded from every project total and reported separately, never poured into an "altele" project. CARD P3-118 NARROWED IT TO mode = project. The body was `where oi.project_id is null`, which meant "nobody has reconciled this issue to a project" until ruling R-215 gave outbound a second mode whose rows have no project BY DESIGN. Counting those here would make a project cost screen report a partial total that is not partial, and would falsify the sentence beside the number. The answer is zero forever, which is what it has been since P3-04b.';
+
+
+-- ===========================================================================
+-- 8. THE TABLE COMMENT NOW NAMES TWO MODES
 -- ===========================================================================
 --
 -- 0001's sentence is kept word for word and answered rather than rewritten, so a

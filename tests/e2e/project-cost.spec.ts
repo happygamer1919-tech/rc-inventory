@@ -122,9 +122,25 @@ test.describe("Cost material pe proiect", () => {
     // 10000 MDL. Daca ar fi fost inclus undeva, totalul nu ar fi 1850.
     expect(await valueOf(page, "cost-total")).toBe(TOTAL_MDL);
 
-    // P3-04b: NU MAI POATE EXISTA O IESIRE FARA PROIECT, deci numaratorul de
-    // neasociate nu mai poate fi diferit de zero si notificarea nu se mai
-    // randeaza. outbound_issues.project_id este NOT NULL de la migratia 0026.
+    // P3-04b: NU MAI POATE EXISTA O IESIRE PE PROIECT FARA PROIECT, deci
+    // numaratorul de neasociate nu mai poate fi diferit de zero.
+    //
+    // CORECTAT 2026-09-30 DE CARDUL P3-118, sub CLAUDE.md secțiunea 9c. Aici
+    // scria, si se citeaza fiindca este motivul pentru care cazul cere zero:
+    //
+    //   "P3-04b: NU MAI POATE EXISTA O IESIRE FARA PROIECT, deci numaratorul de
+    //    neasociate nu mai poate fi diferit de zero si notificarea nu se mai
+    //    randeaza. outbound_issues.project_id este NOT NULL de la migratia 0026."
+    //
+    // A FOST ADEVARAT DE LA 0026 PANA LA 0067 SI ESTE ACUM FALS PE JUMATATE.
+    // Hotararea R-215 da iesirilor un al doilea fel, "client direct", iar un
+    // asemenea rand NU ARE PROIECT prin proiectare. Cerinta a ramas aceeasi si
+    // s-a mutat: outbound_issues_project_mode_shape cere proiectul pentru fiecare
+    // rand al modului "project", iar public.unassigned_outbound_count() intreaba
+    // de acum exact despre acel mod. Raspunsul este zero pentru totdeauna, ca
+    // inainte, si dintr-un motiv mai precis: un bon de tejghea nu face
+    // INCOMPLET niciun total pe proiect, deci a-l numara aici ar face un total
+    // complet sa se declare partial.
     //
     // IES-TEST-C005 nu a disparut din fixture: apartine acum unui AL DOILEA
     // proiect al aceluiasi client, deci cele 10000 MDL ale lui sunt in

@@ -242,18 +242,28 @@ async function createIssue(
   lines: IssueLine[],
 ): Promise<{ id: string; reference: string }> {
   const reference = `IES-TEST-FC-${RUN}-${label}`;
+  // P3-118 A SCHIMBAT SEMNATURA, si apelul de aici o urmeaza. Migratia 0067 a
+  // scos p_client_name si p_project_name, care erau doi parametri morti pastrati
+  // de 0026 numai pentru o afirmatie pe care cardul APPLY-01 a inlocuit-o, si a
+  // adaugat p_mode, p_client_id si p_pickup_date pentru al doilea fel de iesire.
+  //
+  // ACEST FISIER CERE MODUL "project" EXPLICIT SI NIMIC ALTCEVA DIN EL NU SE
+  // SCHIMBA: o factura se face dintr-o iesire pe proiect, si o iesire catre client
+  // direct nu este niciodata facturabila (R-215). Cazul care dovedeste refuzul
+  // acela este in tests/e2e/outbound-direct-client.spec.ts si nu aici.
   const created = await asOwner("rpc/create_outbound_issue", {
     method: "POST",
     body: {
       p_reference: reference,
-      p_client_name: "",
-      p_project_name: "",
-      p_project_id: projectId,
       p_lines: lines.map((l) => ({
         product_id: l.product.id,
         quantity: l.quantity,
         sale_price_mdl: l.price,
       })),
+      p_project_id: projectId,
+      p_mode: "project",
+      p_client_id: null,
+      p_pickup_date: null,
     },
   });
   expect(created.ok, `iesirea ${reference} nu a putut fi creata: ${created.status} ${created.text}`).toBe(
