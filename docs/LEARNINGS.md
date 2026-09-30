@@ -7760,3 +7760,50 @@ what the card actually claims, that `category-name` and `category-add` are visib
 that do have boxes. RULE: **`toBeVisible` on a container asserts its CONTENT exists. When the claim
 is that a surface is present, assert presence with `toHaveCount`, and reserve visibility for the
 elements the user has to be able to see and press.**
+
+### A `Record` over a union in a TEST file makes adding a union member a BUILD failure, not a test failure
+**Tag:** frontend
+**ERROR:** card P3-114 adds a fifth section id to `SettingsSectionId` in
+`lib/data/setari-sections.ts`. `npx tsc --noEmit` then failed with
+`tests/e2e/setari-sections.spec.ts(42,7): error TS2741: Property 'utilizatori' is missing in type
+'{ catalog: string; facturare: string; optiuni: string; }' but required in type
+'Record<"catalog" | "facturare" | "optiuni" | "utilizatori", string>'`. The task forbade editing an
+existing test, so the first reading was that the card could not be built at all. The trap is that
+`tsconfig.json` has `include: ["**/*.ts"]` with only `node_modules` excluded, so `tests/` is part of
+the type check: a `Record` over a union inside a spec is not a test opinion that can be left for
+later, it is the repository refusing to compile.
+**SOLUTION:** name the fifth marker. The row is what the type was ASKING FOR, exactly as card P3-33
+recorded about `UNIT_MEANING`, and it makes the existing case measure MORE than before, since that
+case asserts every other section's marker is absent. Distinguish the two kinds of test edit before
+deciding anything: **an edit the COMPILER demands, which only adds a fact, is not the same act as an
+edit that relaxes an assertion. RULE: before concluding that a card cannot be built without touching
+a test, run `npx tsc --noEmit` and read whether the failure is a type completeness error or a changed
+expectation. A completeness error is the type doing its job; satisfy it and say so in the card. Then
+check the same spec for HAND-WRITTEN COPIES of a value the constant already carries (here
+`expect(addresses.length).toBe(4)`), because those are the lines that break next and replacing one
+with the constant strengthens the check rather than weakening it.**
+
+### An assertion on a whole block can be defeated by the test account's own email address
+**Tag:** ci
+**ERROR:** proving that the English `app_role` token never reaches the screen looked like
+`await expect(block).not.toContainText("owner")`. The block prints every account's EMAIL, and the
+suite's owner account is addressed out of `TEST_OWNER_EMAIL`, whose local part very plausibly
+contains the word owner. The assertion would then fail on a correct screen, and the diagnosis would
+have pointed at the role label instead of at the fixture.
+**SOLUTION:** assert on the CELL that carries the claim, `row.locator("> td").nth(2)`, with
+`toHaveText(ROLE_LABEL.owner)`, and pin the label itself separately so a silent rename fails loudly.
+RULE: **a negative text assertion over a container is only as narrow as the container's widest
+string. When the claim is about one field, measure that field. When the container prints
+environment-supplied data, a negative match over it is not a measurement at all.**
+
+### A board timestamp written from the wall clock is AHEAD of the commit that writes it
+**Tag:** infra
+**ERROR:** `last_checkpoint` and `evidence.at` were set to `2026-09-30T04:05:00Z` while writing the
+card, a few minutes ahead to leave room. `npm run check:board-clock` then failed:
+`2 of 303 timestamp(s) are AHEAD of the commit that wrote them ... 6 minute(s) ahead`. The check reads
+the commit that last touched the board file as its basis, so a timestamp in the future is a board
+claiming to know something before anybody recorded it.
+**SOLUTION:** set both fields BEHIND the moment of committing, never ahead, and re-run the check
+after amending, because amending moves the basis forward too. RULE: **a board timestamp is a
+statement about the past. Take it from `date -u` and round DOWN, and run `npm run check:board-clock`
+after the commit rather than before it, since it is the only gate whose input is the commit itself.**
