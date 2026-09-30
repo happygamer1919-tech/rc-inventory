@@ -7897,3 +7897,21 @@ outside the function.** This is the same failure as a source grep defeated by a 
 the code it looks for, recorded above, and the cheap way to find both before CI does is to extract
 the bodies from the file and run the assertions' own substring tests over them locally: this
 machine has no Docker, so `npm run check:migrations` cannot be the first thing that notices.
+
+### A new migration file needs a line in the APPLY-LOG waiting register, or the suite fails 35 minutes in
+**Tag:** ci
+**ERROR:** card P3-115 added `supabase/migrations/0065_...sql` and the end to end suite failed with
+`504 passed, 1 failed` after 34.7 minutes. The failure was not in any of the card's own specs:
+`tests/e2e/headers.spec.ts:128` case 5, `migratia 0065_invoice_chisinau_day_and_paid_date.sql nu
+are nici intrare in APPLY-LOG.md, nici linie in registrul de asteptare`. Ruling R-062 requires
+every file under `supabase/migrations` to be in EXACTLY ONE of two places: a `## NNNN` heading in
+`docs/migrations/APPLY-LOG.md` once a terminal has applied it, or a line in the waiting register.
+The card's own gate set, its report and its pull request body all named the migration; the one file
+that had to name it was the one nobody thought of.
+**SOLUTION:** add the line, in the exact machine-read format the file itself insists on:
+`` - `0065_invoice_chisinau_day_and_paid_date.sql`, card de aplicare P3-115 ``. RULE: **adding a
+migration is two files, not one. The second is `docs/migrations/APPLY-LOG.md`.** And this check is
+pure file reading with no browser and no database in it, so run it locally before pushing: a
+throwaway script that re-implements case 5's twenty lines answers in a second, while CI answers
+after the whole suite has run. Every gate that reads only files can be run on a machine with no
+Docker, and this card paid twenty minutes twice to learn that once.

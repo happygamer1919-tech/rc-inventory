@@ -366,7 +366,44 @@ and pass; so does a check that no em dash or en dash appears in any file this ca
 
 ---
 
-## THE ONE RED RUN, AND WHAT IT CAUGHT
+## THE TWO RED RUNS, AND WHAT EACH CAUGHT
+
+Two of the three attempts CLAUDE.md section 10 allows were used. Neither failure was in a
+clause of this card and neither was fixed by weakening anything.
+
+### Attempt 2, run 36677177938: the migration had no APPLY-LOG line
+
+The suite reported **504 passed, 1 failed** after 34.7 minutes, and **every one of this card's
+own specs passed**, including all five cases of the new
+`tests/e2e/facturare-chisinau-day.spec.ts`, the corrected `facturare-list.spec.ts` case 3, the
+corrected and new `facturare-create.spec.ts` cases 1, 5 and 12, the new
+`facturare-settings.spec.ts` case 1b, and both new `lead-import.spec.ts` cases. So did every
+migration gate: "Refuse a migration that removes rows", "Apply every migration to a bare
+postgres, unmodified", "Prove the migration applier against the Docker shim" and "Prove every
+applier assertion can fail".
+
+The single failure was `tests/e2e/headers.spec.ts` case 5, a spec this card never touched:
+
+```
+Error: migratia 0065_invoice_chisinau_day_and_paid_date.sql nu are nici intrare in
+APPLY-LOG.md, nici linie in registrul de asteptare
+```
+
+Ruling R-062 requires every file under `supabase/migrations` to be in EXACTLY ONE of two
+places: a `## NNNN` heading in `docs/migrations/APPLY-LOG.md` once a terminal has applied it,
+or a line in the waiting register. **Adding a migration is two files, not one.** The line was
+added in the exact machine-read format that file insists on:
+
+```
+- `0065_invoice_chisinau_day_and_paid_date.sql`, card de aplicare P3-115
+```
+
+That check is pure file reading, with no browser and no database in it, so it can and now does
+run on this machine in a second. Paying thirty-five minutes to be told something a file read
+could have said is the lesson, and it is in `docs/LEARNINGS.md` and in the factory's
+`KNOWN-FAILURES.md`.
+
+### Attempt 1, run 36676864601: the migration's own assertion caught its own comment
 
 `quality` failed on the first push, run `36676864601`, in 1m21s, in the step "Apply every
 migration to a bare postgres, unmodified":
@@ -394,13 +431,23 @@ in a twenty minute run.
 
 ## LEARNINGS
 
-Five ERROR/SOLUTION pairs were appended to `docs/LEARNINGS.md`:
+Six ERROR/SOLUTION pairs were appended to `docs/LEARNINGS.md`:
 
 1. A CHECK constraint cannot compare a `timestamptz` to a `date`, so the rule belongs in a trigger.
 2. A test that greps the source is defeated by a comment that quotes the code it looks for.
 3. A regex with a negated character class cannot cross the arguments of the call it looks for.
 4. An end to end assertion built on a uuid tiebreak is flaky half the time.
 5. A migration's own assertion is defeated by a comment INSIDE the function body it reads back.
+6. A new migration file needs a line in the APPLY-LOG waiting register, or the suite fails
+   thirty-five minutes in.
+
+Two signatures were appended to the factory's `KNOWN-FAILURES.md`, one for each red run.
+
+**The thread running through four of the six is the same**, and it is worth naming once: this
+machine has no Docker, so the habit was to leave every gate to CI, and four of these six cost a
+run each to learn something a file read answers in a second. Every check that only reads files
+can run here, and by the end of this card the migration's own text assertions, the two specs'
+source-reading halves and the APPLY-LOG invariant all did.
 
 ---
 
