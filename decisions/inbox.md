@@ -14848,3 +14848,136 @@ can, and the sentence on screen is the arm in the operator's language.
 ruling.
 **Supersedes:** nothing. It CONFIRMS R-190's fourth clause and presents it. No
 sentence of this repository's doctrine is marked false or narrowed by it.
+
+---
+
+### R-215 - Outbound gains a second mode: a direct client with no project, requiring a CRM client, a pickup date and priced-or-unpriced lines, decrementing batches exactly as a project issue does, with no invoice and no sale document
+
+**Date:** 2026-09-30
+**Asked on:** owner request from Ivan, 2026-09-30, routed via Max. Item 2 of four.
+Max received the request through the channel R-204 opened and relayed it; R-204 is
+the document-reading handover ruling and is named here only as how the request
+arrived. It is not a general channel and it grants nothing about outbound.
+The full text as received is `inputs/2026-09-30-ivan-four-items.md` in the operator
+factory, Item 2, and the substance is quoted below.
+
+**Answer, verbatim:**
+> ITEM 2 DIRECT CLIENT OUTBOUND. Ruling first at the next free id, citing this
+> request: outbound gains a second mode, direct client without project (walk-in
+> buyers collecting from the warehouse). In Iesiri materiale "Tip iesire":
+> "Proiect" (unchanged) or "Client direct": requires a CRM client (existing or
+> created inline), pickup date, lines with product, quantity, unit from the fixed
+> set. Optional unit price per line if the product carries one; no invoice, no
+> sale document, money outside the platform. Stock decremented from batches
+> exactly as project issues. Reports and stock history show the mode. Acceptance:
+> named tests for both modes, batch stock arithmetic test, RLS test that a user
+> sees only their organisation's issues.
+
+**Ruling: adopted, with two corrections to the request that are recorded below and
+are not silent.** Built by cards P3-118, P3-119 and P3-120, authored in the same
+pull request as this ruling.
+
+#### WHAT THE SECOND MODE IS
+
+Outbound has had exactly one meaning since phase 1, and `CONTEXT.md` records it
+under "Decided, do not reopen": *"Outbound is issue-to-project, not retail sale."*
+**That sentence is narrowed here, by the owner, and it is narrowed and not
+deleted.** It stays true of the mode it describes. What changes is that it stops
+being the only mode.
+
+A **direct client issue** is material leaving the warehouse to a person or company
+who is collecting it, with no project behind it. It requires:
+
+- **a CRM client**, existing or created inline from the same screen. Not a typed
+  name. The record that leaves the warehouse names a row somebody can open.
+- **a pickup date**, the day the material is collected.
+- **lines**, each one a product, a quantity and a unit.
+- **optionally a unit price per line**, when the product carries one. Optional and
+  visibly so, exactly as `outbound_lines.sale_price_mdl` already is for a project
+  issue.
+
+#### WHAT IT IS NOT, AND THIS HALF IS THE LOAD-BEARING ONE
+
+**NO INVOICE AND NO SALE DOCUMENT IS PRODUCED, EVER, BY THIS MODE.** Money for a
+direct client is settled outside this platform. A direct client issue does not
+become invoiceable, does not appear in the invoice-creation path, and produces no
+document of any kind beyond the issue itself.
+
+This matters because the platform now has invoices, shipped under R-193 and
+migration 0063, and an issue is exactly the thing an invoice is made from. The
+obvious next step from "a client collected material and there is a price on the
+line" is "so make him an invoice", and that step is **refused here on the owner's
+instruction**, not merely left unbuilt. A later ruling may reverse it. Nothing
+short of one does.
+
+#### THE STOCK ARITHMETIC IS NOT A SECOND ARITHMETIC
+
+Stock is computed from batches and there are no stored counters. A direct client
+issue decrements batches through **exactly the code path a project issue uses**,
+with no branch of its own. Two subtraction routines that must agree forever is the
+shape this repository has already paid for elsewhere, and it is not created here.
+The mode is a column on the issue, not a second ledger.
+
+#### THE MODE IS VISIBLE WHEREVER AN ISSUE IS
+
+Reports and stock history show which mode an issue used. A row that says material
+left the warehouse and cannot say to what is a row that answers half a question.
+
+#### CORRECTION ONE: THE UNIT SET IS THE NINE THIS REPOSITORY HAS, NOT THE SEVEN THE REQUEST LISTS
+
+The request's governance line reads *"Units fixed: m2, lm, pcs, bag, kg, roll, m3"*,
+which is seven. **`lib/data/units.ts` has had nine since migration 0030 added the
+tonne and the litre under card P3-33**, and `ALL_UNITS` is
+`m2, lm, pcs, bag, kg, roll, m3, t, l`.
+
+**The seven-item list is not adopted and no unit is removed.** Removing a unit that
+products already carry would be a destructive change to live data dressed up as a
+validation list. The owner confirmed this on 2026-09-30: keep all nine.
+
+Validation in this mode **reads `ALL_UNITS` and never repeats a list**, so the next
+unit added is accepted everywhere at once and no second copy of the answer can
+drift from the first.
+
+#### CORRECTION TWO: THERE IS NO ORGANISATION, SO THE ISOLATION TEST IS A DIFFERENT TEST
+
+The request's acceptance asks for *"an RLS test that a user sees only their
+organisation's issues"*. **This platform has no organisation and no tenant model.**
+Rapid Construct is one company; migration 0001 has `profiles` with a role and an
+`active` flag, and the access predicates are `public.current_app_role()` and
+`public.is_owner()`, both `security definer`, both reading one profile row.
+
+**No organisation table is invented to satisfy the sentence.** Inventing a tenant
+model because a test name asked for one would be the largest schema change on this
+board, made by nobody's decision, to make a test compile.
+
+What the request actually protects is that an issue is not readable or writable by
+somebody who should not have it, and this platform expresses that through the
+predicates it has. The isolation acceptance therefore reads:
+
+- **a signed-out request sees no rows**, which `is_owner()`'s own comment already
+  promises: *"Returns false for an unauthenticated caller and for a deactivated
+  profile, so a write policy written as is_owner() denies by default."*
+- **a deactivated account sees no rows**, because `current_app_role()` filters on
+  `p.active`.
+- **a role without the permission cannot write.**
+
+Each of the three is a named case. If an organisation model is ever wanted, it is
+its own ruling and its own cards, and it is not this one.
+
+#### WHAT THIS RULING DOES NOT TOUCH
+
+- **The project mode.** "Proiect" is unchanged in every respect: its screen, its
+  fields, its stock arithmetic and its invoiceability.
+- **Invoices.** No invoice rule, number, tax field or freeze moves. The direct
+  client mode simply never reaches them.
+- **The batch arithmetic.** No new subtraction, no new counter, no stored total.
+- **The unit set.** Nine, unchanged, and this ruling is the reason it stays nine.
+- **The currency regime.** MDL only, pinned by `devize_currency_mdl` in 0025 and
+  `invoices_currency_mdl` in 0063. An optional unit price on a direct client line
+  is MDL like every other price in this system.
+
+**Unblocks:** cards P3-118, P3-119 and P3-120, authored in the same pull request as
+this ruling.
+**Supersedes:** nothing. It **narrows** one sentence of `CONTEXT.md`'s decided list,
+*"Outbound is issue-to-project, not retail sale"*, which is quoted above, kept, and
+still true of the mode it names. No ruling in this file is marked false by it.
