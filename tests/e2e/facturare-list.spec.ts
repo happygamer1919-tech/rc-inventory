@@ -285,9 +285,17 @@ test.describe("P3-109: ecranul Facturi", () => {
     const [otherClient] = await createDrafts(clientB, null, 1, { quantity: 3, unitPrice: 10 });
     await issueOn(otherClient!, TODAY);
 
-    // CLIENTUL C: douazeci de ciorne in luna curenta, 1 x 10 + 20% = 12,00 fiecare,
-    // deci 240,00 in total.
-    await createDrafts(clientC, null, 20, { quantity: 1, unitPrice: 10 });
+    // CLIENTUL C: douazeci de facturi EMISE in luna curenta, 1 x 10 + 20% = 12,00
+    // fiecare, deci 240,00 in total.
+    //
+    // EMISE SI NU CIORNE, SCHIMBAT DE CARDUL P3-115, constatarea G7. Linia de totaluri
+    // arata acum si cate randuri sunt pe ecran si cate dintre ele sunt emise sau
+    // plătite, iar acest client este singurul loc din specificatie cu peste
+    // nouasprezece facturi, deci singurul care poate proba forma romaneasca cu "de" pe
+    // AMANDOUA numerele. Cu douazeci de ciorne, numarul de facturi vii ar fi fost zero
+    // si jumatatea nouă a clauzei ar fi trecut fara sa fie pusa la incercare.
+    const cDrafts = await createDrafts(clientC, null, 20, { quantity: 1, unitPrice: 10 });
+    for (const id of cDrafts) await issueOn(id, TODAY);
 
     seeded = {
       clientA,
@@ -493,40 +501,88 @@ test.describe("P3-109: ecranul Facturi", () => {
   // -------------------------------------------------------------------------
   // Clauza 2: linia de totaluri, cu forma romaneasca peste nouasprezece.
   // -------------------------------------------------------------------------
-  test("3. linia de totaluri numara si adună exact randurile de pe ecran, cu forma cu de peste nouasprezece", async ({
+  // CE S-A SCHIMBAT AICI, SI DE CE NU ESTE O SLABIRE. Cardul P3-115, constatarea G7 a
+  // raportului docs/reports/2026-09-29-critic-bug-sweep-2.md. Acest caz cerea, pana
+  // atunci, ca singura cifra de bani de pe ecran sa adune FIECARE rand trecut prin
+  // filtre, si o scria pe litere: "120 + 60 + 12 + 24 = 216". Adica cerea chiar
+  // defectul. Filtrul implicit de stare este gol, Toate stările, deci cifra numara
+  // ciorne, care nu sunt documente si nu au număr, si facturi anulate, care sunt
+  // declaratia ca banii NU sunt datorati; iar propozitia de deasupra listei promite
+  // "facturile emise clienților".
+  //
+  // UN TEST CARE CODIFICA UN DEFECT SE REPARA REPARAND DEFECTUL, si asertiunea lui se
+  // rescrie pe adevărul cel nou, cu aritmetica scrisa la fel de explicit: 120 + 60 =
+  // 180 peste emisă si plătită, iar 12 + 24 = 36, banii care nu mai intra in cifra,
+  // sunt verificati separat mai jos ca sa se vada ca lipsa lor este masurata si nu
+  // presupusa. NICIO ASERTIUNE NU A FOST STEARSA si niciun prag nu a fost slabit:
+  // cazul verifica acum mai mult decat verifica inainte.
+  test("3. linia de totaluri numara randurile de pe ecran si adună NUMAI emisele si platitele, cu forma cu de peste nouasprezece", async ({
     page,
   }) => {
     const { clientA, clientC } = seeded;
 
-    // --- PATRU: forma simpla de plural, si suma celor patru stari ------------
+    // --- PATRU RANDURI, DOUA DINTRE ELE VII --------------------------------
     await open(page, { client: clientA }, 4);
     await expect(page.getByTestId("facturi-numar-total")).toHaveText("4 facturi");
-    // 120 + 60 + 12 + 24 = 216
-    await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(216));
+
+    // CIFRA ISI SPUNE NUMELE, ceea ce este chiar ce lipsea: erau doua numere si nicio
+    // eticheta intre ele.
+    await expect(page.getByTestId("facturi-suma-eticheta")).toHaveText("Emise și plătite");
+    await expect(page.getByTestId("facturi-numar-live")).toHaveText("2 facturi");
+    // emisă 120,00 + plătită 60,00 = 180,00. Ciorna (24,00) si anulata (12,00) nu intra.
+    await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(180));
 
     // SUMA ESTE CHIAR SUMA CELULELOR DE PE ECRAN, adunata din ele si nu din ce
     // spune testul ca ar trebui sa fie: asa cade cazul si daca ambele sunt gresite
-    // in acelasi fel.
-    const shown = await rows(page)
-      .getByTestId("facturi-total-rand")
-      .evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()));
-    expect(shown).toHaveLength(4);
-    await expect(page.getByTestId("facturi-suma")).toHaveText(
-      formatMoneyExact(shown.reduce((total, text) => total + fromMoney(text), 0)),
+    // in acelasi fel. Celulele se citesc acum PE STARE, din randul lor, deci si
+    // partitia este masurata: ce intra in cifra plus ce nu intra este tot ecranul.
+    const perStatus = await rows(page).evaluateAll((els) =>
+      els.map((el) => ({
+        status: el.getAttribute("data-status") ?? "",
+        total: (el.querySelector("[data-testid='facturi-total-rand']")?.textContent ?? "").trim(),
+      })),
     );
+    expect(perStatus).toHaveLength(4);
+    const liveShown = perStatus.filter((r) => r.status === "issued" || r.status === "paid");
+    const deadShown = perStatus.filter((r) => r.status === "draft" || r.status === "cancelled");
+    expect(liveShown, "doua randuri vii pe ecran").toHaveLength(2);
+    expect(deadShown, "doua randuri care nu sunt bani datorati").toHaveLength(2);
+    await expect(page.getByTestId("facturi-suma")).toHaveText(
+      formatMoneyExact(liveShown.reduce((total, r) => total + fromMoney(r.total), 0)),
+    );
+    // SI CE A FOST SCOS ESTE MASURAT: 12,00 + 24,00 = 36,00, adica exact diferenta
+    // dintre cifra veche (216,00) si cea nouă (180,00).
+    expect(
+      deadShown.reduce((total, r) => total + fromMoney(r.total), 0),
+      "ciorna si anulata insumeaza banii care nu mai intra in cifra",
+    ).toBeCloseTo(36, 2);
 
     // --- UN FILTRU DE STARE MUTA SI LINIA DE TOTALURI -----------------------
     await open(page, { client: clientA, stare: "issued" }, 1);
     await expect(page.getByTestId("facturi-numar-total")).toHaveText("1 factură");
+    await expect(page.getByTestId("facturi-numar-live")).toHaveText("1 factură");
     await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(120));
 
-    // --- DOUAZECI: "20 de facturi", si nu "20 facturi" ---------------------
+    // --- SI UN FILTRU PE O STARE CARE NU ESTE BANI DATORATI DA ZERO ---------
+    // Un rand pe ecran, si cifra spune zero: exact distinctia pe care ecranul nu o
+    // facea. "0 facturi" si "0,00 MDL" sunt un raspuns, nu o lipsa de raspuns.
+    await open(page, { client: clientA, stare: "cancelled" }, 1);
+    await expect(page.getByTestId("facturi-numar-total")).toHaveText("1 factură");
+    await expect(page.getByTestId("facturi-numar-live")).toHaveText("0 facturi");
+    await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(0));
+
+    await open(page, { client: clientA, stare: "draft" }, 1);
+    await expect(page.getByTestId("facturi-numar-live")).toHaveText("0 facturi");
+    await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(0));
+
+    // --- DOUAZECI: "20 de facturi", si nu "20 facturi", PE AMANDOUA NUMERELE --
     await open(page, { client: clientC }, 20);
     expect(plural(20, "factură", "facturi"), "forma romaneasca peste nouasprezece").toBe(
       "20 de facturi",
     );
     await expect(page.getByTestId("facturi-numar-total")).toHaveText("20 de facturi");
-    // 20 x 12,00 = 240,00
+    await expect(page.getByTestId("facturi-numar-live")).toHaveText("20 de facturi");
+    // 20 x 12,00 = 240,00, si toate douazeci sunt emise.
     await expect(page.getByTestId("facturi-suma")).toHaveText(formatMoneyExact(240));
   });
 
