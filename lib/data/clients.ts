@@ -54,16 +54,28 @@ export function parseClientQuery(params: {
 }): ClientListQuery {
   const page = Number(params.pagina);
 
+  const asked = isClientView(params.vedere) ? params.vedere : "";
+
+  // P3-112, goal G68. VEDEREA INACTIVI ESTE EA INSASI FILTRUL DE STARE, si de aceea
+  // se citeste INAINTE de regula etapei de mai jos. Ea arata fiecare rand dezactivat,
+  // lead si client deopotriva, deci `stare` este intotdeauna `inactive` si `etapa`
+  // nu inseamna nimic acolo: o etapa aleasa ar rupe vederea in doua si ar readuce
+  // exact ascunderea pe care cardul o scoate. Ecranul nici nu ofera cipurile acolo.
+  //
+  // O LEGATURA VECHE CARE POARTA SI `stare=active` NU POATE GOLI VEDEREA. Starea nu
+  // se citeste din URL cand vederea o hotaraste, deci /clienti?vedere=inactivi&stare=active
+  // arata tot cei dezactivati, si nu o lista goala care ar arata ca un defect.
+  const inactivi = asked === "inactivi";
+
   // P3-45. ETAPA HOTARASTE VEDEREA. O etapa de lead se afla in Leaduri, iar
   // `client` in Clienți, deci o legatura care poarta doar `etapa` ajunge in
   // vederea potrivita in loc sa arate o combinatie imposibila, cum ar fi etapa
   // `client` in vederea Leaduri, care ar fi mereu goala.
-  const stage = isClientStage(params.etapa) ? params.etapa : "";
-  const view =
-    stage === ""
-      ? isClientView(params.vedere)
-        ? params.vedere
-        : ""
+  const stage = inactivi ? "" : isClientStage(params.etapa) ? params.etapa : "";
+  const view = inactivi
+    ? "inactivi"
+    : stage === ""
+      ? asked
       : stage === "client"
         ? "clienti"
         : "leaduri";
@@ -71,8 +83,9 @@ export function parseClientQuery(params: {
   return {
     q: (params.q ?? "").trim(),
     type: isClientType(params.tip) ? params.tip : "",
-    status:
-      params.stare === "inactive" || params.stare === "toate"
+    status: inactivi
+      ? "inactive"
+      : params.stare === "inactive" || params.stare === "toate"
         ? params.stare
         : "active",
     page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
@@ -132,9 +145,16 @@ export async function listClients(query: ClientListQuery): Promise<ClientListRes
 
   const withLeaduri = await hasClientLeaduri(supabase);
   const withNextAction = withLeaduri && (await hasClientNextAction(supabase));
+  // P3-112. INACTIVI TRIMITE p_view NULL, EXPLICIT. Vederea aceea arata fiecare
+  // rand dezactivat, lead si client, adica exact ce inseamna "fara vedere" pentru
+  // functia din 0040; comentariul ei spune ca orice alta valoare decat leaduri sau
+  // clienti este "every row by name", deci "inactivi" ar merge si nescris. Se scrie
+  // oricum, fiindca o vedere care functioneaza pentru ca un token nu este recunoscut
+  // este o vedere pe care urmatoarea versiune a functiei o poate strica in tacere.
+  // Starea, `inactive`, este cea care alege randurile, si ea vine din `common`.
   const staged = {
     ...common,
-    p_view: query.view === "" ? null : query.view,
+    p_view: query.view === "" || query.view === "inactivi" ? null : query.view,
     p_stage: query.stage === "" ? null : query.stage,
   };
   const { data, error } = withNextAction
@@ -216,6 +236,41 @@ export async function countClientsByStage(query: ClientListQuery): Promise<Clien
     if (isClientStage(r.stage)) counts[r.stage] = Number(r.total) || 0;
   }
   return counts;
+}
+
+/**
+ * P3-112, goal G68. CATI SUNT DEZACTIVATI, pentru numarul de pe vederea Inactivi.
+ *
+ * ACEEASI FUNCTIE DE BAZA, ALTA STARE. Trece prin public.client_stage_counts din
+ * 0040, cu `p_status` fixat pe `inactive`, si adună toate cele cinci etape: un rand
+ * dezactivat este dezactivat fie ca este lead, fie ca este client, si vederea le
+ * arata pe toate intr-o singura lista. O a doua interogare a clientilor, scrisa
+ * numai pentru numarul acesta, ar fi exact deriva pe care P3-45 o interzice.
+ *
+ * SUB ACEEASI CAUTARE SI ACELASI TIP CA LISTA, si nu sub starea listei: de aceea
+ * numarul de langa Inactivi spune cate randuri arata Inactivi chiar si privit din
+ * vederea Leaduri, unde starea listei este `active`. Este aceeasi regula pe care
+ * 0040 o scrie pentru cipurile de etapa, aplicata acestei vederi.
+ *
+ * Null cand migratia 0040 nu exista inca, exact ca countClientsByStage: ecranul
+ * citeste null ca "nu arata vederile", nu ca zero.
+ */
+export async function countInactiveClients(query: ClientListQuery): Promise<number | null> {
+  const supabase = await createClient();
+  if (!(await hasClientLeaduri(supabase))) return null;
+
+  const { data, error } = await supabase.rpc("client_stage_counts", {
+    p_q: query.q,
+    p_type: query.type === "" ? null : query.type,
+    p_status: "inactive",
+  });
+  if (error) throw new Error(`Nu s-au putut număra clienții dezactivați: ${error.message}`);
+
+  let total = 0;
+  for (const r of (data ?? []) as { stage: string; total: number | string }[]) {
+    total += Number(r.total) || 0;
+  }
+  return total;
 }
 
 /**

@@ -81,16 +81,31 @@ export function isClientSource(value: unknown): value is ClientSource {
   return (CLIENT_SOURCES as readonly unknown[]).includes(value);
 }
 
-/** P3-45. Cele doua vederi ale aceleiasi liste. Sirul vid este lista nefiltrata,
- *  care arata fiecare client, exact ca inainte de card. */
-export type ClientView = "leaduri" | "clienti";
+/** P3-45. Vederile aceleiasi liste. Sirul vid este lista nefiltrata, care arata
+ *  fiecare client, exact ca inainte de card.
+ *
+ *  P3-112, goal G68. A TREIA VEDERE, Inactivi: fiecare lead SI client dezactivat,
+ *  intr-o singura lista, cu butonul Reactivează pe fiecare rand. Este o vedere si
+ *  nu un ecran nou, si nu este nici un card pe /crm: antetul lui app/(app)/crm/page.tsx
+ *  spune ca ecranul acela NU CITESTE NIMIC DIN BAZA, iar un card cu numar ar citi. */
+export type ClientView = "leaduri" | "clienti" | "inactivi";
 
 export function isClientView(value: unknown): value is ClientView {
-  return value === "leaduri" || value === "clienti";
+  return value === "leaduri" || value === "clienti" || value === "inactivi";
 }
 
 /** Numarul de clienti pe fiecare etapa, sub aceeasi cautare si aceeasi stare. */
 export type ClientStageCounts = Record<ClientStage, number>;
+
+/** P3-66, apoi P3-112. CELE DOUA PROPOZITII DE DUPA APASARE, scrise o singura data.
+ *
+ *  Aplicatia nu are toast-uri: confirmarea este un rand cu role=status acolo unde s-a
+ *  apasat. P3-66 le-a scris pe fisa clientului; de la P3-112 acelasi buton exista si
+ *  pe fiecare rand al vederii Inactivi, iar doua copii ale aceleiasi propozitii sunt
+ *  doua propozitii care intr-o zi nu mai sunt la fel. */
+export const CLIENT_REACTIVATED_NOTICE = "Reactivat. Apare din nou în liste și în selectoare.";
+export const CLIENT_DEACTIVATED_NOTICE =
+  "Dezactivat. Nu mai apare în selectoare și în lista celor activi.";
 
 /** Un membru al echipei care poate primi un lead, din profilurile active. */
 export type ClientOwnerChoice = { id: string; fullName: string };

@@ -5,6 +5,7 @@ import { hasClientStage, hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import {
   countClientsByStage,
+  countInactiveClients,
   listClientOwnerChoices,
   listClients,
   parseClientQuery,
@@ -43,12 +44,20 @@ export default async function ClientsPage({
   // P3-45. countClientsByStage intoarce null cand migratia 0040 nu exista inca,
   // prin hasClientLeaduri, si null inseamna "fara vederi, fara cipuri, fara
   // formular de lead": ecranul de dinainte de card.
+  // P3-112, goal G68. NUMERELE CELORLALTE PASTILE SE CER SUB STAREA PE CARE ELE O VOR
+  // ARATA, si din vederea Inactivi aceea este Activi: o apasare pe Leaduri sau pe
+  // Clienți iese din Inactivi si se intoarce la implicitul Activi, deci un numar citit
+  // sub `inactive` ar fi scris langa o pastila care arata alte randuri. Regula pe care
+  // 0040 o scrie pentru cipuri, "numarul de langa un cip spune cate randuri ar arata
+  // acel cip", este exact aceasta. In celelalte vederi nimic nu se schimba.
+  const stageCountsQuery = query.view === "inactivi" ? { ...query, status: "active" as const } : query;
   const supabase = await createClient();
-  const [user, result, stageAvailable, counts] = await Promise.all([
+  const [user, result, stageAvailable, counts, inactiveCount] = await Promise.all([
     getSessionUser(),
     listClients(query),
     hasClientStage(supabase),
-    countClientsByStage(query),
+    countClientsByStage(stageCountsQuery),
+    countInactiveClients(query),
   ]);
 
   // Lista de responsabili se cere numai pentru cine poate crea un lead.
@@ -69,6 +78,7 @@ export default async function ClientsPage({
       stageAvailable={stageAvailable}
       nextActionAvailable={result.nextActionAvailable}
       leaduri={counts ? { counts, owners } : null}
+      inactiveCount={inactiveCount}
     />
   );
 }

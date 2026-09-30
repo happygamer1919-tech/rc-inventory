@@ -402,6 +402,55 @@ export async function updateClientRecord(
   return { ok: true, value: { id } };
 }
 
+/**
+ * P3-112, goal G68. DEZACTIVAREA SI REACTIVAREA, O SINGURA CALE, PENTRU AMANDOUA
+ * LOCURILE DE PE CARE SE APASA: butonul din antetul fisei, pe care l-a livrat P3-66,
+ * si butonul Reactivează de pe fiecare rand al vederii Inactivi.
+ *
+ * DE CE NU SE APELEAZA updateClientRecord DE PE UN RAND DE LISTA, care a fost prima
+ * idee si care ar fi sters date. Acela scrie INTREG setul de campuri pe care
+ * `validate` il construieste: denumirea, tipul, IDNO-ul, adresa, telefonul, emailul
+ * si notele. Fisa il poate apela fiindca le are pe toate pe ecran. Un rand de lista
+ * are cinci coloane si NU are IDNO, adresa, email sau note, deci un apel de acolo
+ * le-ar fi trimis ca sirul vid, iar `validate` scrie sirul vid ca null: o apasare pe
+ * Reactivează ar fi golit adresa, emailul, IDNO-ul si notele acelui om, in tacere,
+ * pe randuri reale. Un al doilea drum la baza pentru a le citi inainte ar fi fost si
+ * el greu de aparat: intre randare si apasare cineva poate salva fisa, iar valorile
+ * vechi trimise inapoi ar fi suprascris ce a scris el.
+ *
+ * DECI CALEA ESTE ACEASTA FUNCTIE, SI EA SCRIE O SINGURA COLOANA, `active`. Fisa
+ * trece acum si ea prin ea, ca sa existe un singur drum si nu doua care pot sa se
+ * depărteze. Comportamentul fisei nu se schimba: aceleasi doua propozitii romanesti
+ * dupa apasare, acelasi refuz pentru cine nu este administrator.
+ *
+ * ETAPA, DATA, SURSA, INTERESUL SI RESPONSABILUL NU SE ATING, la fel ca inainte, si
+ * aici din construcție si nu din grija: update-ul numeste o coloana. Butonul nu muta
+ * etapa si nu scrie istoric, exact ce spune comentariul lui P3-66 de pe fisa.
+ *
+ * NIMIC NU SE STERGE. 0013 nu are politica de delete, pentru clienti nu exista buton
+ * de stergere, si dezactivarea este intreg mecanismul. Un rand pe apasare, niciodata
+ * o multime: nu exista "reactiveaza toti" si cardul G68 spune de ce.
+ *
+ * APARAREA PE DOUA NIVELURI, ca la restul fisierului: clients_update din 0013 este
+ * deja is_owner(), iar verificarea de aici exista pentru propozitia romaneasca.
+ */
+export async function setClientActive(
+  id: string,
+  active: boolean,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner") return OWNER_ONLY;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update({ active }).eq("id", id);
+  if (error) return translateWriteError(error.code, error.message);
+
+  revalidatePath("/clienti");
+  revalidatePath(`/clienti/${id}`);
+  return { ok: true, value: { id } };
+}
+
 /** P3-90. Propozitia pentru o nota goala, aceeasi in formular si din baza. */
 const NOTE_REQUIRED = "Scrie ce s-a discutat.";
 
