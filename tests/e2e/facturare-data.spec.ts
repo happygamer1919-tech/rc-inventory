@@ -42,6 +42,16 @@ const CASE = {
   draftOnly: "3",
   frozenPrice: "4",
   access: "5",
+  // P3-111, goal G67. Cazurile 6 pana la 9 sunt gaurile pe care raportul
+  // docs/reports/2026-09-29-critic-bug-sweep-2.md le-a gasit: G1 si G16 (starea si
+  // stampilele), G5 (o singura factura vie pe Iesire) si G6 (o salvare care cade nu
+  // lasa nimic in urma). Gaura de acoperire G9, doua emiteri simultane ale ACELEIASI
+  // ciorne, este pusa in cazul 2, lângă proba lui, si nu intr-un caz nou: este acelasi
+  // blocaj, pe o singura factura in loc de cinci.
+  pipeline: "6",
+  stamps: "7",
+  perIssue: "8",
+  atomic: "9",
 } as const;
 
 function env() {
@@ -205,6 +215,85 @@ async function issue(token: string, invoiceId: string, on = "2026-06-01"): Promi
   });
 }
 
+/* --------------------------------------------- P3-111, cardul G67 -- */
+
+/** O linie in forma pe care o citeste public.save_invoice_draft din migratia 0064. */
+function rpcLine(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: "",
+    product_id: null,
+    description: "Linie de test P3-111",
+    unit: "pcs",
+    quantity: 1,
+    unit_price_mdl: 10,
+    vat_rate: 20,
+    ...extra,
+  };
+}
+
+/** public.save_invoice_draft, chemata exact cum o cheama saveInvoiceDraft. */
+async function saveDraft(token: string, body: Record<string, unknown>): Promise<Rest> {
+  return asUser(token, "rpc/save_invoice_draft", {
+    method: "POST",
+    body: {
+      p_invoice_id: null,
+      p_project_id: null,
+      p_outbound_issue_id: null,
+      p_due_date: null,
+      p_notes: null,
+      ...body,
+    },
+  });
+}
+
+/** Contorul unei serii, adica numarul pe care il va lua urmatoarea emitere. */
+async function counterOf(token: string, series: string): Promise<number> {
+  const got = await asUser(
+    token,
+    `invoice_number_series?select=next_number&series=eq.${encodeURIComponent(series)}`,
+  );
+  expect(got.rows, `contorul seriei ${series} este citibil`).toHaveLength(1);
+  return Number(got.rows[0]!.next_number);
+}
+
+/** O Iesire scrisa direct, fiindca ce se probeaza aici este indexul de pe partea
+ *  facturii si nu lantul de stoc al unei iesiri reale. Referinta are un prefix
+ *  propriu, `IES-TEST-`, si nu formatul aplicatiei `IES-AAAA-NNNN`: o referinta de
+ *  test in formatul acela ar muta numaratorul aplicatiei. */
+async function newOutboundIssue(label: string): Promise<string> {
+  const created = await asService("outbound_issues?select=id", {
+    method: "POST",
+    body: { reference: `IES-TEST-P3-111-${RUN}-${label}`, project_id: projectId },
+  });
+  expect(created.ok, `iesirea de test nu a putut fi creata: ${created.text}`).toBe(true);
+  return String(created.rows[0]!.id);
+}
+
+/** Un client propriu unui caz, cand cazul numara randurile unui client. */
+async function newClient(token: string, label: string): Promise<string> {
+  const created = await asUser(token, "clients?select=id", {
+    method: "POST",
+    body: { name: `TEST Facturare P3-111 ${label} ${RUN}` },
+  });
+  expect(created.ok, `clientul de test nu a putut fi creat: ${created.text}`).toBe(true);
+  return String(created.rows[0]!.id);
+}
+
+/** Cate facturi are un client acum. */
+async function invoiceCount(token: string, forClient: string): Promise<number> {
+  const got = await asUser(token, `invoices?select=id&client_id=eq.${forClient}`);
+  expect(got.ok, `facturile clientului nu au putut fi citite: ${got.text}`).toBe(true);
+  return got.rows.length;
+}
+
+/** Id-ul de auth al unui cont, citit din profiles cu cheia service_role: cazul 7 are
+ *  nevoie de el ca sa scrie paid_by cat timp coloana este inca null. */
+async function profileIdOf(email: string): Promise<string> {
+  const got = await asService(`profiles?select=id&email=eq.${encodeURIComponent(email)}`);
+  expect(got.rows, `profilul ${email} exista`).toHaveLength(1);
+  return String(got.rows[0]!.id);
+}
+
 async function readInvoice(token: string, invoiceId: string): Promise<Record<string, unknown>> {
   const got = await asUser(
     token,
@@ -356,6 +445,47 @@ test.describe("Facturare, partea 1: numerotarea, regula ciornei, prețul înghe�
 
     const counter = await asUser(token, `invoice_number_series?select=next_number&series=eq.${encodeURIComponent(series)}`);
     expect(Number(counter.rows[0]!.next_number), "contorul a avansat exact de cinci ori").toBe(6);
+
+    // --- SI ACELASI LUCRU PE O SINGURA CIORNA: DUBLUL CLIC -----------------
+    // P3-111, goal G67, gaura de acoperire G9. Cele cinci apeluri de mai sus dovedesc
+    // ca cinci ciorne DIFERITE primesc cinci numere diferite. Ce nu dovedea nimic pana
+    // acum este ACEEASI ciorna emisa de doua ori in aceeasi clipa, adica dublul clic:
+    // cel care pierde INCREMENTEAZA contorul, apoi cade pe `update ... where status =
+    // 'draft'`, si incrementul trebuie sa se intoarca odata cu tranzactia lui. Aceea
+    // este chiar afirmatia pentru care a fost aleasa o coloana contor si nu o secventa,
+    // fiindca nextval nu se intoarce niciodata, si ea se citea pana acum numai din
+    // antetul migratiei.
+    const one = await newInvoice(token);
+    const onlyLine = await addLine(token, one, { quantity: 1, unit_price_mdl: 10 });
+    expect(onlyLine.ok, `linia nu a putut fi adaugata: ${onlyLine.text}`).toBe(true);
+
+    const before = await counterOf(token, series);
+    expect(before, "contorul inainte de dublul clic").toBe(6);
+
+    const both = await Promise.all([issue(token, one), issue(token, one)]);
+    const won = both.filter((r) => r.ok);
+    const lost = both.filter((r) => !r.ok);
+    expect(
+      won.length,
+      `exact o emitere a reușit, primite ${both.map((r) => r.status).join(",")}`,
+    ).toBe(1);
+    expect(lost.length, "exact o emitere a fost refuzată").toBe(1);
+
+    const onlyRow = await readInvoice(token, one);
+    expect(onlyRow.status, "factura este emisă").toBe("issued");
+    expect(numberOf(onlyRow), "factura poartă numărul 6, adică unul singur").toBe(6);
+
+    expect(
+      await counterOf(token, series),
+      "contorul a avansat cu EXACT unu: incrementul celui care a pierdut s-a întors cu tranzacția lui",
+    ).toBe(7);
+
+    // Si nicio a doua factura nu a aparut cu numarul 6.
+    const sixes = await asUser(
+      token,
+      `invoices?select=id&series=eq.${encodeURIComponent(series)}&number=eq.6`,
+    );
+    expect(sixes.rows, "numărul 6 este pe exact o factură").toHaveLength(1);
   });
 
   test("3. baza refuză o modificare pe o factură emisă, plătită sau anulată, și pe liniile ei", async () => {
@@ -410,6 +540,26 @@ test.describe("Facturare, partea 1: numerotarea, regula ciornei, prețul înghe�
           "nu mai este ciorna",
         );
       }
+
+      // --- SI COLOANA PE CARE ACEST CAZ NU O INCERCA NICIODATA ---------------
+      // P3-111, goal G67, gaura de acoperire G10 si defectul G1. Acest caz proba
+      // inghetarea PENTRU COLOANELE PE CARE CINEVA S-A GANDIT SA LE SCRIE, iar
+      // `{"status":"draft"}` nu era una din ele. Era permis, si o data ce randul
+      // redevenea ciornă declansatorul se intorcea inainte sa compare orice, deci
+      // deschidea din nou exact cele patru coloane pe care acest caz le-a inchis mai
+      // sus, plus numarul, seria, clientul, datele si liniile.
+      const backToDraft = await asUser(token, `invoices?id=eq.${id}`, {
+        method: "PATCH",
+        body: { status: "draft" },
+      });
+      expect(backToDraft.ok, `o factură ${target} a fost împinsă înapoi la ciornă`).toBe(false);
+      expect(backToDraft.text, `refuzul explică în română de ce (starea, ${target})`).toContain(
+        "nu se mai intoarce niciodata la ciorna",
+      );
+      expect(
+        (await readInvoice(token, id)).status,
+        `factura a rămas ${target} după refuz`,
+      ).toBe(target);
 
       for (const [what, body] of [
         ["cantitatea", { quantity: 99 }],
@@ -602,5 +752,338 @@ test.describe("Facturare, partea 1: numerotarea, regula ciornei, prețul înghe�
       afterDeletes.rows.length,
       "numărul de facturi nu s-a schimbat după cele patru ștergeri încercate",
     ).toBe(before.rows.length);
+  });
+
+  // =========================================================================
+  // P3-111, goal G67. Cazurile 6 pana la 9.
+  // =========================================================================
+
+  test("6. o factură nu se mai întoarce la ciornă, și pipeline-ul are exact trei treceri legale", async () => {
+    const token = await accessToken(ownerAccount());
+    await useOwnSeries(CASE.pipeline, token);
+
+    // Ce este legal a fost CITIT si nu ales: raportul de proiectare spune despre o
+    // factura Platita "download the PDF, email it. Nothing else.", iar partea 3 a
+    // livrat exact asta, in lib/data/facturare-detail-types.ts, care nu ofera nicio
+    // actiune nici pe platita nici pe anulata. Deci:
+    //
+    //   ciorna -> emisa      public.issue_invoice
+    //   emisa  -> platita    markInvoicePaid
+    //   emisa  -> anulata    cancelInvoice
+    //
+    // si nimic altceva, inclusiv platita -> anulata, care este o restituire si o
+    // decizie de contabilitate.
+
+    /** O ciorna cu o linie, gata de emis. */
+    const draftWithLine = async (): Promise<string> => {
+      const id = await newInvoice(token);
+      const line = await addLine(token, id, { quantity: 1, unit_price_mdl: 10 });
+      expect(line.ok, `linia nu a putut fi adaugata: ${line.text}`).toBe(true);
+      return id;
+    };
+
+    const move = async (id: string, body: Record<string, unknown>): Promise<Rest> =>
+      asUser(token, `invoices?id=eq.${id}`, { method: "PATCH", body });
+
+    // --- CELE TREI TRECERI LEGALE MERG, deci pipeline-ul nu este un perete ---
+    const toPaid = await draftWithLine();
+    expect((await issue(token, toPaid)).ok, "ciornă la emisă a fost refuzată").toBe(true);
+    expect((await move(toPaid, { status: "paid" })).ok, "emisă la plătită a fost refuzată").toBe(true);
+    expect((await readInvoice(token, toPaid)).status).toBe("paid");
+
+    const toCancelled = await draftWithLine();
+    expect((await issue(token, toCancelled)).ok, "ciornă la emisă a fost refuzată").toBe(true);
+    expect(
+      (await move(toCancelled, { status: "cancelled", cancel_reason: `motiv ${RUN}` })).ok,
+      "emisă la anulată a fost refuzată",
+    ).toBe(true);
+    expect((await readInvoice(token, toCancelled)).status).toBe("cancelled");
+
+    // --- SI FIECARE ALTA TRECERE ESTE REFUZATA -----------------------------
+    const issued = await draftWithLine();
+    expect((await issue(token, issued)).ok, "emiterea a fost refuzată").toBe(true);
+
+    const draft = await draftWithLine();
+
+    const illegal: Array<[string, string, Record<string, unknown>, string]> = [
+      ["emisă", issued, { status: "draft" }, "issued"],
+      ["plătită", toPaid, { status: "draft" }, "paid"],
+      ["anulată", toCancelled, { status: "draft" }, "cancelled"],
+      ["plătită la anulată", toPaid, { status: "cancelled", cancel_reason: "restituire" }, "paid"],
+      ["anulată la plătită", toCancelled, { status: "paid" }, "cancelled"],
+      ["anulată la emisă", toCancelled, { status: "issued" }, "cancelled"],
+      ["ciornă direct la plătită", draft, { status: "paid" }, "draft"],
+      ["ciornă direct la anulată", draft, { status: "cancelled", cancel_reason: "motiv" }, "draft"],
+    ];
+
+    for (const [what, id, body, stays] of illegal) {
+      const refused = await move(id, body);
+      expect(refused.ok, `trecerea "${what}" a fost ACCEPTATĂ`).toBe(false);
+      expect(refused.text, `refuzul explică în română de ce ("${what}")`).toContain(
+        "nu poate trece de la",
+      );
+      expect((await readInvoice(token, id)).status, `după "${what}" starea a rămas ${stays}`).toBe(
+        stays,
+      );
+    }
+
+    // MARTORUL, ca declansatorul sa nu fie un perete: o ciornă se editează liber si o
+    // factura anulata isi mai poate corecta motivul, exact cum 0063 a permis dinadins.
+    expect(
+      (await asUser(token, `invoices?id=eq.${draft}`, { method: "PATCH", body: { notes: "o notă" } })).ok,
+      "o ciornă nu se mai editează",
+    ).toBe(true);
+    expect(
+      (await move(toCancelled, { cancel_reason: `motiv rescris ${RUN}` })).ok,
+      "motivul anulării nu se mai poate corecta",
+    ).toBe(true);
+  });
+
+  test("7. cele șase coloane de audit se scriu o singură dată și nu se mai rescriu", async () => {
+    const token = await accessToken(ownerAccount());
+    await useOwnSeries(CASE.stamps, token);
+    const ownerId = await profileIdOf(ownerAccount().email);
+    const otherId = await profileIdOf(managerAccount().email);
+
+    const stamps = async (id: string): Promise<Record<string, unknown>> => {
+      const got = await asUser(
+        token,
+        `invoices?select=issued_at,issued_by,paid_at,paid_by,cancelled_at,cancelled_by&id=eq.${id}`,
+      );
+      expect(got.rows, `exact o factură pentru ${id}`).toHaveLength(1);
+      return got.rows[0]!;
+    };
+    const patch = async (id: string, body: Record<string, unknown>): Promise<Rest> =>
+      asUser(token, `invoices?id=eq.${id}`, { method: "PATCH", body });
+
+    const withLine = async (): Promise<string> => {
+      const id = await newInvoice(token);
+      const line = await addLine(token, id, { quantity: 1, unit_price_mdl: 10 });
+      expect(line.ok, `linia nu a putut fi adaugata: ${line.text}`).toBe(true);
+      return id;
+    };
+
+    // --- EMISA: issued_at SI issued_by SUNT SCRISE DE BAZA, O DATA ----------
+    const paidOne = await withLine();
+    expect((await issue(token, paidOne)).ok, "emiterea a fost refuzată").toBe(true);
+    const afterIssue = await stamps(paidOne);
+    // MARTORUL PRIMEI JUMATATI: cat timp erau null, au fost scrise.
+    expect(afterIssue.issued_at, "issued_at a fost scris la emitere").not.toBeNull();
+    expect(afterIssue.issued_by, "issued_by a fost scris la emitere").not.toBeNull();
+
+    for (const [what, body] of [
+      ["issued_at", { issued_at: "2019-01-01T00:00:00Z" }],
+      ["issued_by", { issued_by: otherId }],
+    ] as const) {
+      const refused = await patch(paidOne, body);
+      expect(refused.ok, `${what} a fost REscris pe o factură emisă`).toBe(false);
+      expect(refused.text, `refuzul explică în română de ce (${what})`).toContain(
+        "se scriu o singura data",
+      );
+    }
+    expect((await stamps(paidOne)).issued_at, "issued_at nu s-a mișcat").toBe(afterIssue.issued_at);
+    expect((await stamps(paidOne)).issued_by, "issued_by nu s-a mișcat").toBe(afterIssue.issued_by);
+
+    // --- PLATITA: paid_at SI paid_by SE SCRIU CAT TIMP SUNT NULL ------------
+    // Aceasta este calea pe care merge markInvoicePaid: el trimite ziua aleasa la
+    // amiaza UTC si contul care a apasat, iar invoices_stamp_status le lasa in pace
+    // fiindca nu mai sunt null. Este si martorul jumatatii "scrisa cat timp este null".
+    const chosen = "2026-06-10T12:00:00Z";
+    const marked = await patch(paidOne, { status: "paid", paid_at: chosen, paid_by: ownerId });
+    expect(marked.ok, `marcarea ca plătită a fost refuzată: ${marked.text}`).toBe(true);
+    const afterPaid = await stamps(paidOne);
+    expect(
+      new Date(String(afterPaid.paid_at)).toISOString(),
+      "ziua pe care a ales-o operatorul a fost păstrată",
+    ).toBe(new Date(chosen).toISOString());
+    expect(afterPaid.paid_by, "contul care a apăsat a fost păstrat").toBe(ownerId);
+
+    for (const [what, body] of [
+      ["paid_at", { paid_at: "2031-01-01T12:00:00Z" }],
+      ["paid_by", { paid_by: otherId }],
+    ] as const) {
+      const refused = await patch(paidOne, body);
+      expect(refused.ok, `${what} a fost REscris pe o factură plătită`).toBe(false);
+      expect(refused.text, `refuzul explică în română de ce (${what})`).toContain(
+        "se scriu o singura data",
+      );
+    }
+    expect((await stamps(paidOne)).paid_at, "paid_at nu s-a mișcat").toBe(afterPaid.paid_at);
+    expect((await stamps(paidOne)).paid_by, "paid_by nu s-a mișcat").toBe(afterPaid.paid_by);
+
+    // --- ANULATA: cancelled_at SI cancelled_by, ACEEASI REGULA -------------
+    const cancelledOne = await withLine();
+    expect((await issue(token, cancelledOne)).ok, "emiterea a fost refuzată").toBe(true);
+    const cancelled = await patch(cancelledOne, {
+      status: "cancelled",
+      cancel_reason: `motiv ${RUN}`,
+    });
+    expect(cancelled.ok, `anularea a fost refuzată: ${cancelled.text}`).toBe(true);
+    const afterCancel = await stamps(cancelledOne);
+    expect(afterCancel.cancelled_at, "cancelled_at a fost scris la anulare").not.toBeNull();
+    expect(afterCancel.cancelled_by, "cancelled_by a fost scris la anulare").not.toBeNull();
+
+    for (const [what, body] of [
+      ["cancelled_at", { cancelled_at: "2019-01-01T00:00:00Z" }],
+      ["cancelled_by", { cancelled_by: otherId }],
+    ] as const) {
+      const refused = await patch(cancelledOne, body);
+      expect(refused.ok, `${what} a fost REscris pe o factură anulată`).toBe(false);
+      expect(refused.text, `refuzul explică în română de ce (${what})`).toContain(
+        "se scriu o singura data",
+      );
+    }
+    expect((await stamps(cancelledOne)).cancelled_at, "cancelled_at nu s-a mișcat").toBe(
+      afterCancel.cancelled_at,
+    );
+
+    // SI ANULAREA NU A STERS DATA EMITERII, care este exact ce spune 0063: o factura
+    // anulata care a fost emisa pe 3 a fost totusi emisa pe 3.
+    expect((await stamps(cancelledOne)).issued_at, "anularea nu șterge data emiterii").not.toBeNull();
+  });
+
+  test("8. o ieșire nu poate avea două facturi neanulate, și una anulată nu o blochează", async () => {
+    const token = await accessToken(ownerAccount());
+    await useOwnSeries(CASE.perIssue, token);
+    const iesire = await newOutboundIssue("A");
+    const other = await newOutboundIssue("B");
+
+    const forIssue = async (id: string): Promise<Rest> =>
+      asUser(token, `invoices?select=id,status&outbound_issue_id=eq.${id}`);
+
+    // --- PRIMA FACTURA A IESIRII ------------------------------------------
+    const first = await saveDraft(token, {
+      p_client_id: clientId,
+      p_lines: [rpcLine()],
+      p_outbound_issue_id: iesire,
+    });
+    expect(first.ok, `prima factura a iesirii a fost refuzata: ${first.status} ${first.text}`).toBe(
+      true,
+    );
+    const firstId = String(first.rows[0]);
+    expect(firstId, "save_invoice_draft a întors un id").toMatch(/^[0-9a-f-]{36}$/i);
+
+    // --- A DOUA ESTE REFUZATA DE BAZA, NU DE ECRAN ------------------------
+    // Inainte de cardul P3-111 raspunsul la "exista deja o factura" era un SELECT in
+    // getIssueInvoiceability, iar calea de scriere insera fara sa mai intrebe. Doua
+    // file deschise pe /facturare/nou?iesire=X reuseau amandoua, si NICIUNA din cele
+    // doua facturi nu putea fi stearsa.
+    const second = await saveDraft(token, {
+      p_client_id: clientId,
+      p_lines: [rpcLine()],
+      p_outbound_issue_id: iesire,
+    });
+    expect(second.ok, "o A DOUA factură a fost scrisă pentru aceeași ieșire").toBe(false);
+    expect(
+      second.text,
+      "refuzul vine de la indexul parțial și îl numește, deci ecranul poate traduce exact acest caz",
+    ).toContain("invoices_one_live_per_outbound_issue");
+
+    const afterSecond = await forIssue(iesire);
+    expect(afterSecond.rows, "ieșirea poartă exact o factură").toHaveLength(1);
+
+    // --- O ALTA IESIRE NU ESTE ATINSA ------------------------------------
+    const onOther = await saveDraft(token, {
+      p_client_id: clientId,
+      p_lines: [rpcLine()],
+      p_outbound_issue_id: other,
+    });
+    expect(onOther.ok, `o altă ieșire a fost blocată: ${onOther.text}`).toBe(true);
+
+    // --- SI O FACTURA FARA IESIRE NU ESTE ATINSA DELOC -------------------
+    for (const attempt of [1, 2]) {
+      const manual = await saveDraft(token, { p_client_id: clientId, p_lines: [rpcLine()] });
+      expect(manual.ok, `factura manuală ${attempt} a fost refuzată: ${manual.text}`).toBe(true);
+    }
+
+    // --- O FACTURA ANULATA NU BLOCHEAZA IESIREA PENTRU TOTDEAUNA ---------
+    // A anula inseamna a emite intai, fiindca invoices_numbered_past_draft refuza orice
+    // stare peste ciorna fara numar. NIMIC NU SE STERGE: factura anulata isi pastreaza
+    // numarul si rămâne pe lista.
+    expect((await issue(token, firstId)).ok, "emiterea primei facturi a fost refuzată").toBe(true);
+    const cancel = await asUser(token, `invoices?id=eq.${firstId}`, {
+      method: "PATCH",
+      body: { status: "cancelled", cancel_reason: `motiv ${RUN}` },
+    });
+    expect(cancel.ok, `anularea a fost refuzată: ${cancel.text}`).toBe(true);
+
+    const third = await saveDraft(token, {
+      p_client_id: clientId,
+      p_lines: [rpcLine()],
+      p_outbound_issue_id: iesire,
+    });
+    expect(
+      third.ok,
+      `o ieșire a cărei singură factură a fost anulată nu a putut fi facturată din nou: ${third.text}`,
+    ).toBe(true);
+
+    const atEnd = await forIssue(iesire);
+    expect(atEnd.rows, "ieșirea poartă acum două facturi, una anulată și una vie").toHaveLength(2);
+    expect(
+      atEnd.rows.filter((r) => r.status !== "cancelled"),
+      "exact o factură vie pe ieșire",
+    ).toHaveLength(1);
+    expect(
+      numberOf(await readInvoice(token, firstId)),
+      "factura anulată își păstrează numărul",
+    ).toBe(1);
+  });
+
+  test("9. o salvare care cade pe o linie nu lasă nicio factură în urmă", async () => {
+    const token = await accessToken(ownerAccount());
+    await useOwnSeries(CASE.atomic, token);
+
+    // UN CLIENT PROPRIU CAZULUI, fiindca acest caz NUMARA facturile unui client si
+    // datele de test nu se sterg niciodata.
+    const mine = await newClient(token, "atomic");
+    expect(await invoiceCount(token, mine), "clientul nou nu are nicio factură").toBe(0);
+
+    // --- O LINIE PE CARE BAZA TREBUIE SA O REFUZE ------------------------
+    // Cantitatea zero cade pe invoice_lines_quantity_positive din 0063. Inainte de
+    // cardul P3-111 antetul se scria in prima cerere si liniile in a doua, deci un refuz
+    // aici lasa o factura fara numar si fara linii, pe lista lunii, pe care NIMENI nu o
+    // putea scoate: public.invoices nu are nici drept de stergere nici politica de
+    // stergere pentru niciun rol, administratorul inclus.
+    const bad = await saveDraft(token, {
+      p_client_id: mine,
+      p_lines: [rpcLine({ quantity: 0 })],
+    });
+    expect(bad.ok, "o linie cu cantitatea zero a fost ACCEPTATĂ").toBe(false);
+    expect(
+      await invoiceCount(token, mine),
+      "salvarea a căzut și NU a lăsat nicio factură în urmă",
+    ).toBe(0);
+
+    // --- SI A DOUA LINIE DINTR-O PERECHE, care este chiar forma defectului --
+    // Prima linie este bună si a doua nu, deci vechea cale ar fi scris antetul, apoi
+    // prima linie, si ar fi căzut pe a doua.
+    const halfBad = await saveDraft(token, {
+      p_client_id: mine,
+      p_lines: [rpcLine({ description: "Prima, bună" }), rpcLine({ quantity: -1 })],
+    });
+    expect(halfBad.ok, "o pereche cu a doua linie greșită a fost ACCEPTATĂ").toBe(false);
+    expect(
+      await invoiceCount(token, mine),
+      "nici perechea pe jumătate bună nu a lăsat nimic în urmă",
+    ).toBe(0);
+
+    // --- MARTORUL: cu linii bune, functia SCRIE -------------------------
+    // Fara aceasta jumatate cazul ar trece si daca functia nu ar face nimic niciodata.
+    const good = await saveDraft(token, {
+      p_client_id: mine,
+      p_lines: [rpcLine({ description: "Prima" }), rpcLine({ description: "A doua", quantity: 2 })],
+    });
+    expect(good.ok, `salvarea bună a fost refuzată: ${good.status} ${good.text}`).toBe(true);
+    const savedId = String(good.rows[0]);
+    expect(await invoiceCount(token, mine), "salvarea bună a scris exact o factură").toBe(1);
+
+    const lines = await asUser(token, `invoice_lines?select=id,sort_order&invoice_id=eq.${savedId}`);
+    expect(lines.rows, "amândouă liniile au fost scrise").toHaveLength(2);
+
+    // SI TOTALURILE SUNT ALE DECLANSATORULUI, nu ale apelantului: 1 x 10 plus 2 x 10
+    // este 30, plus 20 la sută, este 36.
+    const saved = await readInvoice(token, savedId);
+    expect(Number(saved.subtotal_mdl), "subtotalul calculat de declanșator").toBe(30);
+    expect(Number(saved.total_mdl), "totalul calculat de declanșator").toBe(36);
   });
 });
