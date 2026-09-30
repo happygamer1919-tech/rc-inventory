@@ -175,11 +175,15 @@ export const NAV: NavGroup[] = [
         icon: "bell",
         description: "Praguri per produs și alerte declanșate",
       },
+      // P3-113, goal G69 partea 2. Descrierea spunea "Categorii și unități de măsură",
+      // ceea ce era adevarat inainte de blocul de facturare si a devenit fals odata cu
+      // el. De la acest card ecranul are secțiuni, deci linia numeste secțiunile si nu
+      // doua dintre blocuri.
       {
         href: "/setari",
         label: "Setări",
         icon: "settings",
-        description: "Categorii și unități de măsură",
+        description: "Categorii, unități, facturare și opțiuni de produs",
       },
     ],
   },
