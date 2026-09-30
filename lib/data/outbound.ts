@@ -38,7 +38,7 @@ const SELECT_ISSUE = `
   project_id,
   projects ( id, name, client_id, clients ( id, name ) ),
   outbound_lines (
-    id, product_id, quantity, sale_price_mdl,
+    id, product_id, quantity, sale_price_mdl, created_at,
     products ( sku, name, unit )
   )
 `;
@@ -46,6 +46,28 @@ const SELECT_ISSUE = `
 async function issueSelect(): Promise<string> {
   return SELECT_ISSUE;
 }
+
+/** Ordinea liniilor unei ieșiri, cerută explicit si identica pe fiecare ecran.
+ *
+ *  CARDUL P3-115, CONSTATAREA G13 a raportului
+ *  docs/reports/2026-09-29-critic-bug-sweep-2.md. Constatarea este despre FACTURA facuta
+ *  dintr-o ieșire, care isi re-sorta liniile alfabetic in timp ce comentariul de deasupra
+ *  spunea altceva, si paguba pe care o numeste este ca "operatorul care compara avizul de
+ *  ieșire cu factura citeste aceleasi linii in doua ordini". Jumatatea aceea nu se repara
+ *  atingand numai factura: o resursa PostgREST incorporata FARA `order` nu promite nicio
+ *  ordine, deci fisa ieșirii putea oricand sa se aseze altfel decat factura. Se cere
+ *  aceeasi ordine in amandoua locurile, si asta este tot ce se schimba aici.
+ *
+ *  `created_at` APOI `id`, si nu ordinea in care au fost tastate, fiindca aceea nu este
+ *  stocata: public.outbound_lines nu are o coloana de ordine, iar `created_at` este acelasi
+ *  pe toate liniile unei ieșiri, care se scriu in aceeasi tranzacție. Ce se promite este ca
+ *  ordinea este DETERMINISTA si ACEEASI pe ecrane, nu ca ea reface avizul. O coloana de
+ *  ordine pe outbound_lines ar fi o migratie si un card al ei.
+ *
+ *  SE SCRIE LA FIECARE CITIRE si nu se ascunde intr-o functie ajutatoare: tipurile lui
+ *  supabase-js poarta forma cererii prin fiecare apel, iar o functie care le-ar accepta pe
+ *  toate ar trebui sa isi slabeasca tipul pana la punctul in care nu mai verifica nimic. */
+const LINES_ORDER = { referencedTable: "outbound_lines", ascending: true } as const;
 
 type LineRow = {
   id: string;
@@ -109,7 +131,9 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
   const { data, error } = await supabase
     .from("outbound_issues")
     .select(await issueSelect())
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("created_at", LINES_ORDER)
+    .order("id", LINES_ORDER);
 
   if (error) throw new Error(`Nu s-au putut citi ieșirile: ${error.message}`);
   return ((data ?? []) as unknown as IssueRow[]).map((row) => toIssue(row));
@@ -118,7 +142,13 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
 export async function getOutboundIssue(id: string): Promise<OutboundIssue | null> {
   const supabase = await createClient();
   const [{ data, error }, { data: history }] = await Promise.all([
-    supabase.from("outbound_issues").select(await issueSelect()).eq("id", id).maybeSingle(),
+    supabase
+      .from("outbound_issues")
+      .select(await issueSelect())
+      .eq("id", id)
+      .order("created_at", LINES_ORDER)
+      .order("id", LINES_ORDER)
+      .maybeSingle(),
     supabase
       .from("status_history")
       .select("id, from_status, to_status, note, created_at")

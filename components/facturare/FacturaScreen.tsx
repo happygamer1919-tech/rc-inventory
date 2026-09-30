@@ -454,6 +454,27 @@ export function FacturaScreen({
             </div>
             <Pair label="IDNO" value={invoice.client.fiscalCode} testId="factura-client-idno" />
             <Pair label="Adresă" value={invoice.client.address} testId="factura-client-adresa" />
+            {invoice.client.fiscalCode.trim() === "" ? (
+              // CEALALTA JUMATATE A DOCUMENTULUI SPUNE ACELASI LUCRU. Cardul P3-115,
+              // constatarea G12 a raportului
+              // docs/reports/2026-09-29-critic-bug-sweep-2.md: cand datele furnizorului
+              // lipsesc, cartonasul Furnizor desenează o linie portocalie explicita;
+              // cand IDNO-ul CLIENTULUI lipsește, cartonasul Client desenă acelasi
+              // "Nu este completat" gri pe care il desenă si pentru o adresa lipsa, iar
+              // nimic nu marca factura. Amandoua jumatatile unui document fiscal au
+              // nevoie de un IDNO; numai una spunea asta.
+              //
+              // ACEEASI FORMA CA LINIA FURNIZORULUI, si arata unde se completează, care
+              // este partea utila: acolo trimite in Setări, aici pe fisa clientului.
+              //
+              // NU OPRESTE EMITEREA, dinadins. Daca un IDNO lipsa ar trebui sa BLOCHEZE
+              // emiterea este o intrebare de contabil si ea sta cu cele trei variante de
+              // e-Factura din docs/reports/2026-09-24-author-facturare-design.md
+              // sectiunea 2, nu cu judecata unui terminal.
+              <p className="text-[12px] text-rc-warn pt-1" data-testid="factura-client-idno-lipsa">
+                IDNO-ul clientului nu este completat. Se completează pe fișa clientului.
+              </p>
+            ) : null}
             <div className={`flex items-baseline gap-3 ${PHONE_ROW_PAIR}`}>
               <span className={`w-[110px] shrink-0 text-[12px] text-rc-muted ${PHONE_ROW_LABEL}`}>
                 Proiect
