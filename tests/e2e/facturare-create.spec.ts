@@ -618,8 +618,10 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
       const { readFile } = await import("node:fs/promises");
       const source = await readFile("lib/data/facturare-create.ts", "utf8");
 
-      /** Forma unei sortari pe numele produsului, oriunde in fisier. */
-      const SORT = /\.sort\s*\([^)]*productName/;
+      /** Forma unei sortari pe numele produsului, oriunde in fisier. `[\s\S]` si nu `[^)]`,
+       *  fiindca sortarea scoasa avea o paranteza chiar in lista de argumente,
+       *  `.sort((a, b) => ...)`, iar un tipar care nu poate trece peste ea nu ar fi prins-o. */
+      const SORT = /\.sort\s*\([\s\S]{0,160}?productName/;
       expect(
         SORT.test(source),
         "lib/data/facturare-create.ts nu mai sorteaza liniile pe numele produsului",
@@ -634,12 +636,21 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
       expect(source, "citirea cere ordinea liniilor ieșirii").toContain(
         'referencedTable: "outbound_lines"',
       );
+
       // SI COMENTARIUL SPUNE CE FACE CODUL, care este jumatatea pe care constatarea o
-      // numeste: comentariul vechi spunea ca ordinea vine de la baza in timp ce codul o
-      // rastorna.
-      expect(source, "comentariul nu mai pretinde o ordine pe care codul o rastoarna").not.toContain(
-        "in ordinea in care baza le da",
-      );
+      // numeste. Propozitia falsa NU ESTE STEARSA, care este regula secțiunii 9c din
+      // CLAUDE.md: ea se citeaza si se marcheaza ca fiind ce comentariul SPUNEA. Deci ce se
+      // verifica nu este ca a dispărut, ci ca fiecare linie care o mai poarta o poarta la
+      // trecut. O propozitie falsa stearsa arata exact ca o propozitie care nu a fost
+      // niciodata acolo.
+      const CLAIM = "in ordinea in care baza le da";
+      const carrying = source.split("\n").filter((line) => line.includes(CLAIM));
+      expect(carrying.length, "propozitia veche este pastrata, citata").toBeGreaterThan(0);
+      for (const line of carrying) {
+        expect(line, `propozitia veche nu este marcata ca trecut: ${line.trim()}`).toContain(
+          "spunea",
+        );
+      }
     }
 
     const rows = page.getByTestId("factura-editor-linie");

@@ -476,10 +476,17 @@ async function issueView(
   // de astazi, adica alt numar cu alt inteles.
   //
   // FARA NICIO SORTARE AICI, si comentariul spune acum ce face codul. Cardul P3-115,
-  // constatarea G13: aici era `.sort((a, b) => a.productName.localeCompare(b.productName,
-  // "ro"))`, o re-aranjare alfabetica, in timp ce comentariul spunea ca ordinea vine de la
-  // baza. ORDINEA SE DECIDE INTR-UN SINGUR LOC, in `order` pe citire, si acolo este scris
-  // si de ce este acela.
+  // constatarea G13: lista se incheia cu o sortare care compara numele produsului cu
+  // localeCompare in romana, adica o re-aranjare alfabetica, in timp ce comentariul de mai
+  // sus spunea ca ordinea vine de la baza. ORDINEA SE DECIDE INTR-UN SINGUR LOC, in `order`
+  // pe citire, si acolo este scris si de ce este acela.
+  //
+  // FORMA APELULUI SCOS NU ESTE SCRISA AICI, DINADINS. Cazul 1 din
+  // tests/e2e/facturare-create.spec.ts citeste acest fisier si cere ca nicio sortare pe
+  // numele produsului sa nu mai existe in el, pe nicio linie, comentariile incluse; un
+  // comentariu care ar cita apelul ar face verificarea sa cada pe ea insasi. Propozitia
+  // FALSA de mai sus, in schimb, se citeaza si rămâne: aceea este doctrina secțiunii 9c din
+  // CLAUDE.md, iar ea nu este un tipar pe care verificarea il caută.
   //
   // SI O LINIE CU DENUMIRE NECITITA NU MAI URCA IN CAPUL LISTEI. Sortarea alfabetica pe un
   // nume gol o punea prima, adica exact pe linia despre care nu se stie nimic; fara sortare
