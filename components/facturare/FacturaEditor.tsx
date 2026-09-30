@@ -84,7 +84,7 @@ import {
   scaledOrZero,
 } from "@/lib/data/facturare-money";
 import { ALL_UNITS, unitLabel, type UnitCode } from "@/lib/data/units";
-import { VAT_NOTE } from "@/lib/data/facturare-types";
+import { invoiceSeriesFor, VAT_NOTE } from "@/lib/data/facturare-types";
 import type {
   InvoiceEditorOptions,
   InvoiceEditorView,
@@ -236,6 +236,18 @@ export function FacturaEditor({
   if (anyInvalid) problems.push("O dată nu este scrisă complet. Verifică zilele de mai sus.");
 
   const hasStoredLine = lines.some((l) => l.id !== "");
+
+  // NUMARUL SE NUMESTE NUMAI CAND MAI ESTE DIN SERIA ZILEI ALESE. Cardul P3-115,
+  // constatarea G8, jumatatea mai tacuta: prezicerea vine de la server, facuta pentru
+  // ziua de emitere de la randare, iar casuta Data emiterii este un camp obisnuit. Mutata
+  // in alt an, ea schimba seria, deci numarul aratat ar fi din contorul unui an si cel
+  // alocat din contorul altuia. Se compara SERIA, nu anul, fiindca atunci cand anul nu
+  // intra in numar seria nu depinde de zi deloc si propozitia rămâne valabila.
+  //
+  // ACEEASI REGULA PE CARE O APLICA public.invoice_series_for, prin invoiceSeriesFor, ca
+  // ecranul si baza sa nu aiba doua păreri despre ce este o serie.
+  const chosenSeries = invoiceSeriesFor(view.seriesPrefix, view.numberIncludesYear, issueDate);
+  const shownNextNumber = chosenSeries === view.nextNumberSeries ? view.nextNumberText : "";
 
   async function save(): Promise<string | null> {
     const result = await saveInvoiceDraft({
@@ -603,16 +615,30 @@ export function FacturaEditor({
           </p>
         ) : null}
 
-        {/* CONFIRMAREA DE LA EMITE: O SINGURA PROPOZITIE, INAINTE, CU NUMARUL IN EA. */}
+        {/* CONFIRMAREA DE LA EMITE: O SINGURA PROPOZITIE, INAINTE.
+
+            NUMARUL NU MAI ESTE DAT CA FAPT. Cardul P3-115, constatarea G8 a raportului
+            docs/reports/2026-09-29-critic-bug-sweep-2.md: propozitia scria "Factura
+            primește numărul RC-2026-0007, următorul din serie", iar numarul acela a
+            fost citit cand s-a randat PAGINA. Este corect in clipa aceea si invechit
+            imediat dupa: doi operatori cu pagina deschisa erau promisi amandoi acelasi
+            numar si unul din ei primea altul. Alocarea este in regula si nu se atinge;
+            ce se repara este propozitia, care promitea mai mult decat poate sti.
+
+            SI NU SE NUMESTE NICIUN NUMAR CAND ZIUA ALEASA ESTE DIN ALTA SERIE, care
+            este jumatatea mai tacuta a aceleiasi constatari. Prezicerea se face pe
+            server pentru ziua de emitere de la randare; casuta Data emiterii se poate
+            muta in alt an fara sa se mai ceara nimic serverului, si atunci numarul
+            aratat este din contorul altui an decat cel care va fi folosit. */}
         {asking ? (
           <div
             className="rounded-[12px] border border-rc-orange/40 bg-rc-paper px-5 py-4"
             data-testid="factura-editor-emite-confirmare"
           >
             <p className="text-[13px] text-rc-black leading-relaxed">
-              {view.nextNumberText === ""
+              {shownNextNumber === ""
                 ? "Factura primește numărul următor din serie și nu se mai poate modifica după aceea: se poate doar anula."
-                : `Factura primește numărul ${view.nextNumberText}, următorul din serie, și nu se mai poate modifica după aceea: se poate doar anula.`}
+                : `Factura primește următorul număr din serie, ${shownNextNumber} dacă nimeni nu emite înaintea ta, și nu se mai poate modifica după aceea: se poate doar anula.`}
             </p>
             <p className="mt-1.5 text-[12px] text-rc-muted">
               Numărul este alocat de baza de date în momentul emiterii, ca seria să nu aibă nici

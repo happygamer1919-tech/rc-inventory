@@ -33,17 +33,21 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   if (read.state === "pending") return <SchemaPending title="Factură" lead={LEAD} />;
   if (read.state === "missing") notFound();
 
+  const today = chisinauToday();
+
   // NUMARUL URMATOR SE CERE NUMAI CAND CONTEAZA: confirmarea de la Emite exista doar
   // pentru o ciorna. Pe o factura emisa, platita sau anulata ar fi doua citiri in plus
   // pentru o propozitie care nu se deseneaza.
+  //
+  // SE PREZICE DIN SERIA ZILEI PE CARE VA FI EMISA, si nu din seria de azi. Cardul
+  // P3-115, constatarea G8: prezicerea era facuta intotdeauna pentru azi, iar acest
+  // ecran emite pe `invoice.issueDate ?? today`, exact ziua trimisa mai jos de doIssue.
+  // O ciorna antedatata in decembrie arata deci un numar din contorul anului curent si
+  // primea unul din contorul anului trecut. Aceeasi zi in amandoua locurile.
   const nextNumberText =
-    read.invoice.status === "draft" ? await nextInvoiceNumberText() : "";
+    read.invoice.status === "draft"
+      ? await nextInvoiceNumberText(read.invoice.issueDate ?? today)
+      : "";
 
-  return (
-    <FacturaScreen
-      invoice={read.invoice}
-      nextNumberText={nextNumberText}
-      today={chisinauToday()}
-    />
-  );
+  return <FacturaScreen invoice={read.invoice} nextNumberText={nextNumberText} today={today} />;
 }

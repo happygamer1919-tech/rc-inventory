@@ -152,6 +152,64 @@ test.describe("Setări, blocul Facturare", () => {
     );
   });
 
+  // -------------------------------------------------------------------------
+  // P3-115, constatarea G15 a raportului docs/reports/2026-09-29-critic-bug-sweep-2.md.
+  // -------------------------------------------------------------------------
+  test("1b. cu anul stins, numărul nu are două cratime, iar exemplul de pe ecran o arată înainte de salvare", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await openSettings(page);
+
+    const example = page.getByTestId("facturare-number-example");
+    // ANUL UTC, fiindca asa il citeste ruta: app/(app)/setari/page.tsx trimite
+    // `new Date().getUTCFullYear()`. Testul citeste acelasi ceas ca ecranul si nu
+    // altul. (Ca ANUL DE PE ECRANUL DE SETARI este cel UTC si nu cel de la Chisinau
+    // este o observatie a cardului P3-115, scrisa in raportul lui: nu este una din
+    // cele zece constatari si nu se schimba aici.)
+    const year = new Date().getUTCFullYear();
+
+    // --- PREFIXUL IMPLICIT, CU ANUL APRINS: o singura cratima peste tot -------
+    // "RC-" plus "2026" da seria "RC-2026", care nu se termina in cratima, deci
+    // numarul primeste una: "RC-2026-0001".
+    await page.getByTestId("facturare-series-prefix").fill(DEFAULT_PREFIX);
+    if (!(await page.getByTestId("facturare-year").isChecked())) {
+      await page.getByTestId("facturare-year").check();
+    }
+    await expect(example).toHaveText(
+      `Numărul următoarei facturi va arăta așa: ${DEFAULT_PREFIX}${year}-0001`,
+    );
+
+    // --- ACELASI PREFIX, CU ANUL STINS: SERIA ESTE CHIAR "RC-" ---------------
+    // Aici era defectul. Seria se termina deja in cratima si compunerea mai punea
+    // una, deci fiecare numar era "RC--0001". Constrangerea din baza cere doar ca
+    // prefixul sa nu fie gol, deci nimic nu il opreste.
+    await page.getByTestId("facturare-year").uncheck();
+    await expect(example).toHaveText(
+      `Numărul următoarei facturi va arăta așa: ${DEFAULT_PREFIX}0001`,
+    );
+    const shown = await example.innerText();
+    expect(shown, "niciun numar de factura nu are doua cratime la rand").not.toContain("--");
+
+    // --- SI UN PREFIX CARE NU SE TERMINA IN CRATIMA PRIMESTE UNA -------------
+    // Reparatia nu este "scoate cratima", este "pune-o o singura data": un prefix
+    // fara cratima ar da altfel "FACT0001", care este un numar de necitit.
+    await page.getByTestId("facturare-series-prefix").fill("FACT");
+    await expect(example).toHaveText("Numărul următoarei facturi va arăta așa: FACT-0001");
+
+    await page.getByTestId("facturare-year").check();
+    await expect(example).toHaveText(
+      `Numărul următoarei facturi va arăta așa: FACT${year}-0001`,
+    );
+
+    // Nimic nu s-a salvat in acest caz: exemplul se calculeaza din starea
+    // formularului, care este chiar ce face din el un avertisment inainte de fapt.
+    expect(
+      (await settingsInDatabase()).series_prefix,
+      "cazul nu a scris nimic in baza",
+    ).not.toBe("FACT");
+  });
+
   test("2. administratorul completează datele firmei și cota implicită, și toate se citesc înapoi", async ({
     page,
   }) => {

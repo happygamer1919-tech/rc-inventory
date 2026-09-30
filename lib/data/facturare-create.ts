@@ -23,7 +23,7 @@ import { listActiveProducts } from "./products";
 import { listSelectableProjects } from "./projects";
 import { listClientOptions } from "./projects-list";
 import { chisinauToday } from "./format";
-import { invoiceNumberText } from "./facturare-types";
+import { invoiceNumberText, invoiceSeriesFor } from "./facturare-types";
 import { isUnitCode, type UnitCode } from "./units";
 import { one } from "./row";
 import type {
@@ -96,16 +96,22 @@ async function nextNumberFor(supabase: Client, on: string): Promise<string> {
 }
 
 /**
- * Numarul pe care l-ar lua urmatoarea emitere din seria zilei de azi.
+ * Numarul pe care l-ar lua urmatoarea emitere din seria ZILEI DATE.
  *
  * PENTRU PROPOZITIA DE CONFIRMARE DE LA Emite, pe ecranul unei facturi. Sirul gol
  * inseamna ca nu se poate spune, si atunci confirmarea scrie doar ce se intampla si nu
  * un numar inventat.
+ *
+ * ZIUA ESTE UN ARGUMENT, SI ASTA ESTE JUMATATEA MAI TACUTA A CONSTATARII G8. Functia
+ * citea `chisinauToday()` ea insasi, deci prezicea intotdeauna din seria de AZI, in timp
+ * ce operatorul poate pune orice zi de emitere: o factură antedatata in decembrie arata
+ * un numar din contorul anului curent si primea unul din contorul anului trecut. Se
+ * prezice din seria zilei alese, si cine intreaba spune care este ziua.
  */
-export async function nextInvoiceNumberText(): Promise<string> {
+export async function nextInvoiceNumberText(on: string): Promise<string> {
   const supabase = await createClient();
   if (!(await hasFacturareSettings(supabase))) return "";
-  return nextNumberFor(supabase, chisinauToday());
+  return nextNumberFor(supabase, on.trim() === "" ? chisinauToday() : on);
 }
 
 /**
@@ -230,6 +236,18 @@ export async function getInvoiceEditor(input: {
   ]);
   const vatRate = String(settings?.defaultVatRate ?? 0);
 
+  // P3-115, CONSTATAREA G8. Regula seriei pleaca spre ecran, ca browserul sa poata
+  // spune daca numarul prezis mai este din seria in care va cadea documentul: casuta
+  // Data emiterii se poate muta in alt an fara sa se mai ceara nimic serverului.
+  //
+  // IMPLICITELE SUNT CELE ALE MIGRATIEI 0063, nu niste valori inventate aici: prefixul
+  // `RC-` si anul in numar sunt chiar `default`-urile coloanelor. Cand setarile nu se
+  // pot citi, prezicerea este oricum sirul gol si ecranul nu numeste niciun numar, deci
+  // aceste doua valori nu decid nimic in acel caz.
+  const seriesPrefix = settings?.seriesPrefix ?? "RC-";
+  const numberIncludesYear = settings?.numberIncludesYear ?? true;
+  const nextNumberSeries = invoiceSeriesFor(seriesPrefix, numberIncludesYear, today);
+
   const base: InvoiceEditorView = {
     invoiceId: null,
     fromIssue: null,
@@ -244,6 +262,9 @@ export async function getInvoiceEditor(input: {
     vatRate,
     lines: [],
     nextNumberText,
+    nextNumberSeries,
+    seriesPrefix,
+    numberIncludesYear,
   };
 
   if (input.invoiceId) {

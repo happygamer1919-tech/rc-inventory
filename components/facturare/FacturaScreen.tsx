@@ -245,7 +245,26 @@ export function FacturaScreen({
               ) : null}
             </div>
 
-            {/* EMITE: O SINGURA PROPOZITIE, INAINTE, CU NUMARUL IN EA. */}
+            {/* EMITE: O SINGURA PROPOZITIE, INAINTE.
+
+                NUMARUL NU MAI ESTE DAT CA FAPT. Cardul P3-115, constatarea G8 a
+                raportului docs/reports/2026-09-29-critic-bug-sweep-2.md: propozitia
+                scria "Factura primește numărul RC-2026-0007, următorul din serie",
+                iar numarul acela a fost citit cand s-a randat PAGINA. Corect in clipa
+                aceea, invechit imediat dupa: doi operatori cu pagina deschisa erau
+                promisi amandoi acelasi numar, la fel un operator care a lasat pagina
+                deschisa cat timp un coleg a emis ceva. Alocarea este in regula si nu
+                se atinge; ce se repara este propozitia.
+
+                CE SE PIERDEA ERA INCREDEREA, si de aceea merita reparat desi nimic nu
+                se stoca greşit: un operator care a fost o data aratat 7 si a primit 8
+                se opreste din a citi propozitia, iar propozitia aceasta este chiar
+                pauza de o fraza dinaintea unei acțiuni ireversibile.
+
+                ZIUA PENTRU CARE ESTE PREZIS NUMARUL ESTE CHIAR ZIUA CU CARE SE EMITE.
+                Ruta cere prezicerea pentru `invoice.issueDate ?? today`, aceeasi zi pe
+                care o trimite doIssue mai jos, deci pe acest ecran seria nu se poate
+                deosebi de cea prezisa. */}
             {asking === "issue" ? (
               <div
                 className="rounded-[12px] border border-rc-orange/40 bg-rc-paper px-4 py-3.5"
@@ -254,7 +273,7 @@ export function FacturaScreen({
                 <p className="text-[13px] text-rc-black leading-relaxed">
                   {nextNumberText === ""
                     ? "Factura primește numărul următor din serie și nu se mai poate modifica după aceea: se poate doar anula."
-                    : `Factura primește numărul ${nextNumberText}, următorul din serie, și nu se mai poate modifica după aceea: se poate doar anula.`}
+                    : `Factura primește următorul număr din serie, ${nextNumberText} dacă nimeni nu emite înaintea ta, și nu se mai poate modifica după aceea: se poate doar anula.`}
                 </p>
                 <p className="mt-1.5 text-[12px] text-rc-muted">
                   Numărul este alocat de baza de date în momentul emiterii, ca seria să nu aibă nici
@@ -334,9 +353,11 @@ export function FacturaScreen({
                 </p>
                 {invoice.status === "draft" ? (
                   <p className="mt-1.5 text-[12px] text-rc-black">
+                    {/* ACELASI NUMAR SI ACELASI AVERTISMENT, P3-115 G8: numarul este
+                        citit la randare si nu este o promisiune. */}
                     {nextNumberText === ""
                       ? "Ciorna primește numărul următor din serie în momentul anulării, ca seria să rămână neîntreruptă."
-                      : `Ciorna primește numărul ${nextNumberText} în momentul anulării, ca seria să rămână neîntreruptă.`}
+                      : `Ciorna primește următorul număr din serie în momentul anulării, ${nextNumberText} dacă nimeni nu emite înaintea ta, ca seria să rămână neîntreruptă.`}
                   </p>
                 ) : null}
                 <label className="block mt-3">

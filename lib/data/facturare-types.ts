@@ -68,7 +68,61 @@ const NUMBER_WIDTH = 4;
  */
 export function invoiceNumberText(series: string | null, number: number | null): string | null {
   if (!series || number === null || number === undefined) return null;
-  return `${series}-${String(number).padStart(NUMBER_WIDTH, "0")}`;
+  return joinSeriesAndNumber(series, number);
+}
+
+/** Ce sta intre serie si numar.
+ *
+ *  CARDUL P3-115, CONSTATAREA G15 a raportului
+ *  docs/reports/2026-09-29-critic-bug-sweep-2.md: prefixul implicit este `RC-` si
+ *  `invoice_series_for` adauga anul NUMAI cand anul intra in numar, deci cu anul stins
+ *  seria este chiar `RC-`, iar lipirea de aici mai punea o cratima: `RC--0001`, pe
+ *  fiecare numar. Singura constrangere pe prefix este ca nu este gol.
+ *
+ *  SEPARATORUL SE PUNE O SINGURA DATA, si asta se decide AICI, in singurul loc care
+ *  compune un numar scris: si numarul real si exemplul de pe ecranul de setari trec
+ *  prin functiile de mai jos, deci nu exista o a doua regula de pus de acord.
+ *
+ *  PREFIXUL NU SE SCHIMBA SI NU SE CURATA. O factură deja emisă poartă seria si
+ *  numarul ei ingheţate (0064), deci a rescrie prefixul ar fi o coloana ingheţata
+ *  atinsa; si oricum prefixul este alegerea proprietarului, iar o cratima la capat este
+ *  o alegere rezonabila cand anul intra in numar. Ce se repara este LIPIREA. */
+const SERIES_SEPARATOR = "-";
+
+/**
+ * Seria si numarul lipite, cu separatorul o singura data.
+ *
+ * O SERIE CARE SE TERMINA DEJA IN CRATIMA NU MAI PRIMESTE UNA. Aceasta este toata
+ * repararea lui G15, si este scrisa aici fiindca aici este singurul loc care lipeste
+ * cele doua: `invoiceNumberText`, pentru numarul real, si `invoiceNumberExample`,
+ * pentru exemplul de pe ecranul de setari, trec amandoua prin ea. Cu prefixul implicit
+ * `RC-` si anul stins, seria ESTE `RC-` si numarul scris era `RC--0001`.
+ */
+function joinSeriesAndNumber(series: string, number: number): string {
+  const separator = series.endsWith(SERIES_SEPARATOR) ? "" : SERIES_SEPARATOR;
+  return `${series}${separator}${String(number).padStart(NUMBER_WIDTH, "0")}`;
+}
+
+/**
+ * Seria in care cade o zi, pe partea de TypeScript.
+ *
+ * ACEEASI REGULA PE CARE O APLICA public.invoice_series_for DIN BAZA: prefixul, plus
+ * anul cand anul intra in numar. Regula este scrisa in doua locuri si asta se vede si
+ * se spune: baza este cea care decide seria unei facturi in momentul emiterii, iar
+ * aceasta functie exista ca ecranul sa poata spune, INAINTE, daca numarul pe care il
+ * arata mai este din seria in care va cadea documentul.
+ *
+ * CARDUL P3-115, CONSTATAREA G8, jumatatea mai tacuta: numarul aratat in confirmarea de
+ * la Emite era prezis intotdeauna pentru seria de AZI, iar operatorul poate pune orice
+ * zi de emitere, deci o factură antedatata in decembrie arata un numar din contorul
+ * anului curent si primea unul din contorul anului trecut.
+ */
+export function invoiceSeriesFor(
+  seriesPrefix: string,
+  numberIncludesYear: boolean,
+  day: string,
+): string {
+  return numberIncludesYear ? `${seriesPrefix}${day.slice(0, 4)}` : seriesPrefix;
 }
 
 /**
@@ -85,6 +139,9 @@ export function invoiceNumberExample(
   numberIncludesYear: boolean,
   year: number,
 ): string {
-  const series = numberIncludesYear ? `${seriesPrefix}${year}` : seriesPrefix;
-  return `${series}-${String(1).padStart(NUMBER_WIDTH, "0")}`;
+  // PRIN ACELEASI DOUA FUNCTII PE CARE LE FOLOSESTE NUMARUL REAL, si asta este chiar
+  // reparatia lui G15: aici era scrisa a doua copie a regulii seriei si a doua lipire
+  // cu cratima, deci exemplul si numarul real puteau sa se deosebeasca, iar cu prefixul
+  // implicit `RC-` si anul stins se deosebeau amandoua in acelasi fel, `RC--0001`.
+  return joinSeriesAndNumber(invoiceSeriesFor(seriesPrefix, numberIncludesYear, String(year)), 1);
 }

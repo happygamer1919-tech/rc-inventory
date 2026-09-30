@@ -113,12 +113,7 @@ export function FacturareSettings({
       ) : (
         <form onSubmit={onSave} className="px-5 py-4">
           <div className={`grid gap-4 md:grid-cols-2 ${PHONE_STACK}`}>
-            <Field
-              label="Prefixul seriei"
-              hint={`Numărul următoarei facturi va arăta așa: ${invoiceNumberExample(prefix, withYear, year)}`}
-              required
-              className="min-w-0"
-            >
+            <Field label="Prefixul seriei" required className="min-w-0">
               <Input
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
@@ -126,6 +121,20 @@ export function FacturareSettings({
                 placeholder="RC-"
                 data-testid="facturare-series-prefix"
               />
+              {/* EXEMPLUL ARE PROPRIUL data-testid, si nu mai sta in hint-ul
+                  campului, exact din motivul scris mai jos la nota de TVA:
+                  specificatia il citeste cuvant cu cuvant. Cardul P3-115,
+                  constatarea G15: cu prefixul implicit `RC-` si anul stins, seria
+                  este chiar `RC-` si numarul scris era `RC--0001`, cu doua cratime,
+                  pe fiecare factura. Exemplul de aici aplica aceeasi regula ca
+                  numarul real, deci el este si locul in care se vede reparatia
+                  inainte ca setarea sa fie salvata. */}
+              <span
+                className="mt-1 block text-[12px] text-rc-muted"
+                data-testid="facturare-number-example"
+              >
+                {`Numărul următoarei facturi va arăta așa: ${invoiceNumberExample(prefix, withYear, year)}`}
+              </span>
             </Field>
 
             <Field label="Cota TVA implicită (%)" required className="min-w-0">

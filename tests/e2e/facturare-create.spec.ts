@@ -696,6 +696,17 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
     expect(asked, "confirmarea spune ca factura nu se mai modifica").toContain("nu se mai poate modifica");
     expect(asked, "confirmarea spune ce rămâne posibil").toContain("anula");
 
+    // SI NU MAI DA NUMARUL CA FAPT. Cardul P3-115, constatarea G8: numarul este citit
+    // cand se randeaza pagina, deci doi operatori cu pagina deschisa erau promisi
+    // amandoi acelasi numar. Propozitia il numeste in continuare, fiindca este
+    // informatia utila, dar spune sub ce condiție.
+    expect(asked, "confirmarea spune ca numarul nu este o promisiune").toContain(
+      "dacă nimeni nu emite înaintea ta",
+    );
+    expect(asked, "confirmarea nu mai spune 'primește numărul X' ca pe un fapt").not.toContain(
+      `primește numărul ${expectedFirstText}`,
+    );
+
     await page.getByTestId("factura-editor-emite-da").click();
     await expect(page).toHaveURL(/\/facturare\/[0-9a-f-]{36}$/, { timeout: 30_000 });
     const firstInvoiceId = invoiceIdFromUrl(page);
