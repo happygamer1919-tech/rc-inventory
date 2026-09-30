@@ -7593,3 +7593,52 @@ exclude the column from the refusal list. RULE: **when a trigger enforces a rule
 not change, the state column that turns the rule on and off must itself be constrained, and the test
 for the rule must try to change that column. Otherwise the test proves the freeze only for the columns
 somebody thought to list.**
+
+### The integer that reproduces `round(numeric, 2)` exactly needs BigInt, not Number
+**Tag:** facturare
+**ERROR:** card P3-111 fixed the preview of `components/facturare/FacturaEditor.tsx` by moving off
+floats, and the obvious shape is `Math.round((q * p) / 1000)` over ordinary numbers with the quantity
+in thousandths and the price in bani. That is still wrong, quietly and only at the top of the range:
+`public.invoice_lines.quantity` is `numeric(14,3)` and `unit_price_mdl` is `numeric(14,2)`, so the
+product of the two scaled integers can reach about 1e28, and `Number.MAX_SAFE_INTEGER` is about 9e15.
+Past that point the multiplication itself is approximate and the fix has the same class of defect as
+the bug it replaced: exact for the figures anybody tested, silently wrong for the ones nobody did.
+**SOLUTION:** `lib/data/facturare-money.ts` does the whole chain in `BigInt` and converts to `Number`
+once, at the last step, to hand a value to `formatMoneyExact`. The scaled integer is also read out of
+the typed decimal STRING, digit by digit, rather than through `Number(raw)`, because parsing to a float
+first throws the exactness away before the integers ever appear. RULE: **moving a money calculation to
+integers is only exact if the integers cannot overflow and the string never becomes a float on the way
+in. Read the column's declared precision, multiply the two worst cases, and compare with
+`Number.MAX_SAFE_INTEGER` before choosing `number`.**
+
+### A partial unique index added to a table that already holds real rows can fail the merge, and the failure should name the row
+**Tag:** migrations
+**ERROR:** card P3-111 adds `invoices_one_live_per_outbound_issue` to `public.invoices`, which has held
+real client invoices since 2026-09-28. MERGE IS APPLY here, so if two live invoices already exist for
+one Iesire the index cannot be created and the migration fails against production. A bare
+`create unique index` fails with `duplicate key value violates unique constraint`, which names no row
+and gives the owner nothing to act on, and the temptation at that moment is to cancel one of the two
+invoices to make it pass. The goal line forbids that in terms, and this machine has no production
+credentials and may not read a production row, so the precondition cannot be checked before the merge.
+**SOLUTION:** the migration counts the offending groups FIRST, in a `do` block, and raises a sentence
+naming each `outbound_issue_id` and how many invoices it carries, stating in the same sentence that
+nothing was deleted and nothing was cancelled. The whole file is one transaction, so the raise leaves
+the database exactly as it was. RULE: **a uniqueness constraint added to a table with live rows gets a
+counting block in front of it that raises a readable, row-naming exception. The correct outcome of a
+uniqueness clash on real data is a migration that refuses to apply, not a migration that tidies the
+data.**
+
+### A guard branch tested only through a plpgsql EXCEPTION block proves nothing about transactions
+**Tag:** testing
+**ERROR:** card P3-111 replaced two PostgREST write requests with one RPC so that a failure leaves no
+invoice row behind, and the natural place to assert that is the migration's assertions file: call the
+function with a line the database must refuse, catch it, then count the invoices. That assertion passes
+against the code being REPLACED. A psql session is one transaction, and a plpgsql `EXCEPTION` block
+opens a subtransaction that rolls back everything inside it, so a two-statement implementation and a
+one-statement implementation are indistinguishable there.
+**SOLUTION:** the assertions file asserts the shape and every refusal, and says in its own header why
+the atomicity claim is not among them. The proof is case 9 of `tests/e2e/facturare-data.spec.ts`, over
+the real stack, where two requests are two transactions and one RPC call is one. It is the same
+reasoning that file's own header already gives about concurrency: one session cannot be two. RULE:
+**before writing an assertion, ask what the OLD code would have done against it. If the old code also
+passes, the assertion is about the test harness and not about the change.**

@@ -59,6 +59,7 @@ The format is machine-read, so keep it exactly:
 - `0061_supplier_unit_aliases.sql`, card de aplicare P3-102
 - `0062_extraction_draft_supersede.sql`, card de aplicare P3-103
 - `0063_invoices.sql`, card de aplicare P3-108
+- `0064_invoice_freeze_and_one_per_issue.sql`, card de aplicare P3-111
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
