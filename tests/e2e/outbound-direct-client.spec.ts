@@ -1,8 +1,16 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { ALL_UNITS } from "@/lib/data/units";
-import { acceptsUnit, validateNewIssue } from "@/lib/data/outbound-mode";
+import { ALL_UNITS, unitLabel } from "@/lib/data/units";
+import {
+  ALL_OUTBOUND_MODES,
+  ISSUE_REFUSAL,
+  acceptsUnit,
+  validateNewIssue,
+} from "@/lib/data/outbound-mode";
+import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
+import { DIRECT_CLIENT_NOT_INVOICEABLE } from "@/lib/data/facturare-create-types";
+import { DATE_PLACEHOLDER } from "@/components/ui/DateField";
 import { managerAccount, ownerAccount, type TestAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 
@@ -525,7 +533,18 @@ test("iesire client direct: nu este niciodata facturabila si spune de ce in roma
     "refuzul este o propozitie romaneasca si spune de ce",
   ).toContainText("client direct", { timeout: 25_000 });
   await expect(page.getByTestId("issue-invoice-reason")).toContainText("în afara sistemului");
-  await expect(page.getByTestId("issue-create-invoice"), "butonul nu se poate apasa").toBeDisabled();
+
+  // INTARIT DE CARDUL P3-119, CLAUZA 7, si spus aici pe fata fiindca este singura
+  // afirmatie a lui P3-118 pe care acel card o schimba. Pana la P3-119 butonul
+  // exista si era dezactivat, si aceasta linie citea `toBeDisabled()`. Clauza 7
+  // cere ca el sa NU EXISTE: "a visible absence and not a broken button", fiindca
+  // refuzul este al modului si nimic nu il poate desface, iar obiceiul acestui
+  // proiect este ca ce nu se poate folosi nu apare. "Nu exista" implica "nu se
+  // poate apasa", deci afirmatia s-a INTARIT si nu s-a slabit, care este
+  // deosebirea ce conteaza: un test nu se schimba niciodata ca sa treaca.
+  // Propozitia de mai sus rămâne cerută, si este chiar cea pe care o intoarce
+  // P3-118: o absenta fara explicatie ar fi o intrebare fara raspuns.
+  await expect(page.getByTestId("issue-create-invoice"), "butonul nu exista deloc").toHaveCount(0);
 
   // SI O IESIRE PE PROIECT CU PRET ESTE FACTURABILA, altfel cazul ar trece si pe
   // o cale care refuza totul.
@@ -550,3 +569,569 @@ async function openIssuePanel(page: Page, reference: string): Promise<void> {
   await expect(page.getByTestId("outbound-panel")).toBeVisible({ timeout: 25_000 });
   await expect(page.getByTestId("issue-invoice-block")).toBeVisible({ timeout: 25_000 });
 }
+
+/* =======================================================================
+   CARDUL P3-119, ACCEPTANTA (a) LA (f)
+   =======================================================================
+
+   PARTEA A DOUA A ITEMULUI 2: alegerea "Tip ieșire" si formularul clientului
+   direct. Cazurile de mai sus sunt ale cardului P3-118 si dovedesc DATELE;
+   acestea dovedesc ECRANUL. Unul singur de mai sus s-a schimbat, cel de
+   facturare, si comentariul de la locul lui spune de ce si in ce fel.
+
+   NUMELE CAZURILOR SUNT CELE PE CARE LE SCRIE CARDUL, CUVANT CU CUVANT, fara
+   diacritice, pentru acelasi motiv scris in antetul acestui fisier.
+
+   FIXTURILE SUNT CELE DE MAI SUS, semanate de beforeAll prin API de serviciu:
+   produsul cu o suta de bucati, clientul si proiectul. Cazurile de interfata nu
+   construiesc niciun produs prin ecran, si acesta este motivul pentru care nu au
+   nevoie de drumul lung al lui outbound.spec.ts. */
+
+const PRODUCT_NAME = `${TAG} produs`;
+const CLIENT_NAME = `${TAG} client`;
+
+/** Proiectul demonstrativ din scripts/seed-test-crm.mjs, cel pe care il foloseste
+ *  si outbound.spec.ts. Cautarea dupa acest nume da exact o potrivire: proiectul
+ *  semanat de beforeAll se numeste altfel. */
+const TEST_PROJECT = "TEST Șantier E2E";
+
+/** Scrie in comboboxul unei zone si alege prima optiune. Aceeasi forma ca in
+ *  outbound.spec.ts, si pentru acelasi motiv: EXACT o potrivire, altfel cazul ar
+ *  alege la intamplare intre randurile a doua rulari. */
+async function comboPick(page: Page, testId: string, query: string): Promise<void> {
+  const input = page.getByTestId(testId).locator("input").first();
+  await input.click();
+  await input.fill(query);
+  const list = page.locator("[data-rc-combo-list]");
+  await expect(list).toBeVisible({ timeout: 10_000 });
+  await expect(
+    list.locator("li"),
+    `cautarea "${query}" trebuie sa dea exact o potrivire`,
+  ).toHaveCount(1);
+  await list.locator("li").first().click();
+}
+
+/** Umple prima poziție cu produsul de test si o cantitate. */
+async function fillFirstLine(page: Page, quantity: string): Promise<void> {
+  await comboPick(page, "issue-product-0", PRODUCT_NAME);
+  await page.getByTestId("issue-quantity-0").fill(quantity);
+}
+
+/** Trece formularul pe modul client direct si asteapta campurile lui. */
+async function chooseDirectClient(page: Page): Promise<void> {
+  await page.goto("/iesiri");
+  await expect(page.getByTestId("outbound-form")).toBeVisible({ timeout: 25_000 });
+  await page.getByTestId("issue-mode-direct_client").check();
+  await expect(page.getByTestId("field-pickup-date")).toBeVisible({ timeout: 25_000 });
+}
+
+/** Randul de iesire scris, citit din baza dupa referinta. */
+async function storedIssue(reference: string): Promise<Record<string, unknown>> {
+  const stored = await asService(
+    `outbound_issues?select=id,issue_mode,project_id,client_id,pickup_date&reference=eq.${reference}`,
+  );
+  expect(stored.ok, `iesirea ${reference} nu s-a putut citi: ${stored.text}`).toBe(true);
+  expect(stored.rows.length, `iesirea ${reference} este in baza`).toBe(1);
+  return stored.rows[0]!;
+}
+
+/* ------------------------------------------------------------------ (a) -- */
+
+test("iesire: alegerea Tip iesire arata Proiect si Client direct si Proiect este implicit", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await signIn(page, ownerAccount());
+  await page.goto("/iesiri");
+  await expect(page.getByTestId("outbound-form")).toBeVisible({ timeout: 25_000 });
+
+  const field = page.getByTestId("field-issue-mode");
+  await expect(field, "alegerea este pe formularul de iesire noua").toBeVisible();
+  await expect(field).toContainText("Tip ieșire");
+
+  // EXACT DOUA OPTIUNI, si numarul se citeste din ALL_OUTBOUND_MODES si nu se
+  // scrie aici: un mod adaugat mai tarziu fara o opțiune pe ecran trebuie sa faca
+  // acest caz sa pice, nu sa il lase sa treaca pe un numar vechi scris de mana.
+  // Aceea este lectura pe care cardul P3-116 a plata cu o rulare intreaga.
+  expect(ALL_OUTBOUND_MODES.length, "cardul cere exact doua moduri").toBe(2);
+  await expect(field.locator('input[type="radio"]')).toHaveCount(ALL_OUTBOUND_MODES.length);
+
+  // CUVINTELE SUNT CELE DIN OUTBOUND_MODE_LABEL, verificate contra constantei si
+  // nu contra unui sir scris in acest caz, deci o eticheta scrisa de mana in
+  // component, alta decat cea din singura sursa, face cazul sa pice.
+  //
+  // SE CITESC DE PE ECRAN SI NU DE PE DISC, deliberat: proprietatea este despre ce
+  // AJUNGE PE ECRAN, iar un caz care ar citi fisierul ar gasi eticheta si intr-un
+  // comentariu care o citeaza. Lectura este in KNOWN-FAILURES si acest depozit a
+  // plata pentru ea de doua ori intr-o zi.
+  for (const mode of ALL_OUTBOUND_MODES) {
+    await expect(
+      page.getByTestId(`issue-mode-option-${mode}`),
+      `opțiunea ${mode} poarta eticheta din OUTBOUND_MODE_LABEL`,
+    ).toContainText(OUTBOUND_MODE_LABEL[mode]);
+  }
+
+  // "PROIECT" ESTE IMPLICIT, clauza 1, si formularul care se vede este al lui.
+  await expect(page.getByTestId("issue-mode-project"), "Proiect este bifat").toBeChecked();
+  await expect(page.getByTestId("issue-mode-direct_client")).not.toBeChecked();
+  await expect(
+    page.getByTestId("field-project"),
+    "formularul implicit este cel pe proiect",
+  ).toBeVisible();
+  await expect(page.getByTestId("field-pickup-date")).toHaveCount(0);
+
+  // SI ALEGEREA SCHIMBA FORMULARUL. Fara aceasta jumatate, cazul ar trece si pe
+  // doua butoane care nu fac nimic.
+  await page.getByTestId("issue-mode-direct_client").check();
+  await expect(page.getByTestId("issue-mode-direct_client")).toBeChecked();
+  await expect(
+    page.getByTestId("field-pickup-date"),
+    "modul client direct cere data ridicarii",
+  ).toBeVisible();
+  await expect(page.getByTestId("field-client"), "si cere un client").toBeVisible();
+  await expect(
+    page.getByTestId("field-project"),
+    "si nu mai cere niciun proiect",
+  ).toHaveCount(0);
+
+  // Si se poate intoarce, fiindca un operator care a apasat greșit nu trebuie sa
+  // reincarce pagina.
+  await page.getByTestId("issue-mode-project").check();
+  await expect(page.getByTestId("field-project")).toBeVisible();
+});
+
+/* ------------------------------------------------------------------ (b) -- */
+
+test("iesire client direct: formularul refuza trimiterea fara client si fara data de ridicare, cu mesaj romanesc", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "1");
+
+  // 1. FARA CLIENT. Data este completa, deci singura lipsa este clientul, iar
+  //    mesajul trebuie sa o NUMEASCA si nu sa spuna doar ca ceva lipseste.
+  await page.getByTestId("issue-pickup-date").fill("01.12.2026");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-problems")).toContainText(ISSUE_REFUSAL.client);
+  await expect(page.getByTestId("issue-problems")).not.toContainText(ISSUE_REFUSAL.pickupDate);
+  await expect(page.getByTestId("issue-created"), "nimic nu s-a creat").toHaveCount(0);
+
+  // SI CEREREA NU A PLECAT DELOC. Clauza 6: refuzul este PE ECRAN, INAINTE de
+  // trimitere. Fara aceasta afirmatie, cazul ar trece si pe un formular care
+  // trimite, primeste refuzul bazei si il afiseaza, care este alt lucru si s-ar
+  // vedea in issue-error si nu in issue-problems.
+  await expect(page.getByTestId("issue-error")).toHaveCount(0);
+
+  // 2. FARA DATA DE RIDICARE. Clientul este ales, data se goleste.
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-problems")).toContainText(ISSUE_REFUSAL.pickupDate);
+  await expect(page.getByTestId("issue-problems")).not.toContainText(ISSUE_REFUSAL.client);
+  await expect(page.getByTestId("issue-created")).toHaveCount(0);
+  await expect(page.getByTestId("issue-error")).toHaveCount(0);
+
+  // 3. SI CU AMANDOUA COMPLETE TRECE, altfel cele doua refuzuri de mai sus ar fi
+  //    adevarate si pe un formular care nu poate trimite nimic niciodata.
+  await page.getByTestId("issue-pickup-date").fill("01.12.2026");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("issue-reference")).toHaveText(/^IES-\d{4}-\d{4}$/);
+});
+
+/* ------------------------------------------------------------------ (c) -- */
+
+test("iesire client direct: un client nou creat din ecran apare apoi in Clienti", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // NUMELE ESTE UNIC PE RULARE SI PE CAZ. Datele de test nu se sterg niciodata in
+  // acest depozit, deci un nume care se repeta intre cazuri face ca selectorul sa
+  // gaseasca doua randuri si comboPick sa pice pe numaratoare. `C` este semnul
+  // cazului, exact ce cere lectura pe care cardul P3-101 a plata cu doua cazuri.
+  //
+  // IDNO RAMANE GOL, si nu din lene: indexul unic din migratia 0013 este pe IDNO,
+  // deci un IDNO repetat intre rulari ar fi chiar ciocnirea de care vorbeste acea
+  // lectura. Un nume nu este unic in schema, deci nu se poate ciocni.
+  const newClient = `${TAG}-C nou client`;
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  // CREAREA PE LOC, FARA SA SE PLECE DE PE ECRAN. Cardul spune de ce: cumparatorul
+  // sta la tejghea, iar trimiterea operatorului pe alt ecran este chiar felul in
+  // care a inceput obiceiul proiectelor inventate.
+  await page.getByTestId("client-create-open").click();
+  await expect(page.getByTestId("client-create-form")).toBeVisible();
+  await page.getByTestId("client-create-name").fill(newClient);
+  await page.getByTestId("client-create-type").selectOption("company");
+  await page.getByTestId("client-create-save").click();
+
+  // Formularul se inchide si clientul este DEJA ALES: operatorul are cumparatorul
+  // in fata si nu trebuie sa il mai caute.
+  await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
+  await expect(page.getByTestId("field-client")).toContainText(newClient);
+
+  // SI IESIREA SE DUCE PANA LA CAPAT CU EL, ca sa se vada ca randul creat este bun
+  // de folosit si nu doar bun de aratat.
+  await fillFirstLine(page, "2");
+  await page.getByTestId("issue-pickup-date").fill("02.12.2026");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("issue-created")).toContainText(newClient);
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  // UN CLIENT CRM OBISNUIT SI NU UN FEL DEOSEBIT, R-215: apare in Clienți, se
+  // poate deschide, si de acolo se poate modifica si dezactiva ca oricare altul.
+  await page.goto("/clienti");
+  await page.getByTestId("clients-search").fill(newClient);
+  const row = page.locator(`[data-testid="client-row"][data-name="${newClient}"]`);
+  await expect(row, "clientul creat din Iesiri este un rand obisnuit in Clienți").toHaveCount(1, {
+    timeout: 25_000,
+  });
+  await row.click();
+  await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("client-detail")).toContainText(newClient);
+
+  // SI IESIREA NUMESTE CHIAR RANDUL ACELA. Un nume pe ecran nu dovedeste nimic
+  // despre ce s-a scris: R-215 cere un RAND pe care cineva il poate deschide, si
+  // un nume scris de mana nu se primeste.
+  const issue = await storedIssue(reference);
+  expect(issue.issue_mode, "modul scris este client direct").toBe("direct_client");
+  expect(issue.project_id, "o iesire catre client direct nu are proiect").toBeNull();
+  expect(issue.pickup_date, "ziua ridicarii este cea tastata romaneste").toBe("2026-12-02");
+
+  const clients = await asService(`clients?select=name&id=eq.${String(issue.client_id ?? "")}`);
+  expect(String(clients.rows[0]?.name ?? ""), "clientul iesirii este chiar randul creat").toBe(
+    newClient,
+  );
+});
+
+/* ------------------------------------------------------------------ (d) -- */
+
+test("iesire pe proiect: nimic nu s-a schimbat", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 1 A CARDULUI, SI SINGURA CARE POATE PICA ACEST CARD SINGURA. R-215
+  // promite ca modul "Proiect" este neschimbat in orice privinta: aceleasi
+  // campuri, aceeasi validare, acelasi comportament, acelasi efect pe stoc.
+  //
+  // ACEST CAZ NU INLOCUIESTE tests/e2e/outbound.spec.ts, IL DUBLEAZA IN LIMBAJUL
+  // ACESTUI CARD. Fisierul acela este testul de iesire pe proiect care exista
+  // dinainte, are sapte cazuri, NU este atins de acest card si ruleaza NEMODIFICAT
+  // in aceeasi suita: `git diff origin/main...HEAD` nu il numeste. Un card care ar
+  // fi trebuit sa il editeze ar fi rupt chiar clauza 1.
+  await signIn(page, ownerAccount());
+  await page.goto("/iesiri");
+  await expect(page.getByTestId("outbound-form")).toBeVisible({ timeout: 25_000 });
+
+  // ACELEASI CAMPURI. Proiectul se alege, clientul se CITESTE de pe el, si nu
+  // exista nicio casuta de data pe calea proiectului.
+  await expect(page.getByTestId("field-project")).toBeVisible();
+  await expect(page.getByTestId("field-client")).toContainText("Se completează din proiect");
+  await expect(
+    page.getByTestId("field-pickup-date"),
+    "calea proiectului nu a capatat nicio data de ridicare",
+  ).toHaveCount(0);
+
+  // ACEEASI VALIDARE, cu chiar propozitia de dinainte: fara proiect nu se poate.
+  await fillFirstLine(page, "3");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-problems")).toContainText("Alege proiectul.");
+  await expect(page.getByTestId("issue-created")).toHaveCount(0);
+
+  // ACELASI COMPORTAMENT: clientul apare de pe proiect, pe amandoua drumurile pe
+  // care le afirma si cazul din outbound.spec.ts, textul si atributul data-client.
+  await comboPick(page, "field-project", TEST_PROJECT);
+  await expect(page.getByTestId("field-client")).toHaveAttribute("data-client", /.+/);
+
+  // ACELASI EFECT PE STOC, masurat pe acelasi produs si prin acelasi
+  // product_available_stock: exact cat s-a eliberat si nimic mai mult.
+  const before = await availableStock();
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+  expect(reference, "referinta are forma de dintotdeauna").toMatch(/^IES-\d{4}-\d{4}$/);
+  expect(
+    before - (await availableStock()),
+    "stocul a scazut cu exact cantitatea eliberata",
+  ).toBe(3);
+
+  // SI CONFIRMAREA MODULUI PROIECT ISI PASTREAZA BUTONUL DE FACTURA. Poziția este
+  // netarifata, deci butonul este dezactivat si spune de ce, care este hotararea
+  // cardului P3-110 si nu se atinge. Afirmatia exista ca sa se vada ca absenta
+  // cerută de clauza 7 este a MODULUI si nu a fost aplicata peste tot.
+  await expect(
+    page.getByTestId("issue-create-invoice"),
+    "modul proiect isi pastreaza butonul",
+  ).toHaveCount(1);
+
+  // SI RANDUL SCRIS ESTE UN RAND DE MOD "project", din implicitul migratiei 0067.
+  const issue = await storedIssue(reference);
+  expect(issue.issue_mode, "modul scris este project").toBe("project");
+  expect(issue.pickup_date, "o iesire pe proiect nu are data de ridicare").toBeNull();
+  expect(issue.client_id, "o iesire pe proiect nu are client propriu").toBeNull();
+});
+
+/* ------------------------------------------------------------------ (e) -- */
+
+test("iesire client direct: nu apare niciun buton de factura", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 7. O ABSENTA VIZIBILA SI NU UN BUTON STRICA: obiceiul acestui proiect
+  // este ca ce nu se poate folosi nu apare. Se masoara in AMANDOUA locurile in care
+  // butonul poate sta: confirmarea formularului si fisa iesirii de pe /comenzi.
+  //
+  // CU PRET PE POZIȚIE, DELIBERAT. O iesire fara pret este deja nefacturabila
+  // pentru ALT motiv, deci ea ar face cazul sa treaca fara sa dovedeasca nimic
+  // despre mod. Acelasi raționament pe care il scrie cazul lui P3-118 de mai sus.
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("03.12.2026");
+  await fillFirstLine(page, "1");
+  await page.getByTestId("issue-price-0").fill("25");
+  await page.getByTestId("issue-submit").click();
+
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  // 1. PE CONFIRMARE: niciun buton, si motivul este chiar propozitia lui P3-118.
+  await expect(
+    page.getByTestId("issue-create-invoice"),
+    "niciun buton de factura pe confirmare",
+  ).toHaveCount(0);
+  await expect(page.getByTestId("issue-invoice-reason")).toHaveText(DIRECT_CLIENT_NOT_INVOICEABLE);
+
+  // 2. PE FISA IESIRII: tot niciun buton, si aceeasi propozitie, nu una scrisa a
+  //    doua oara.
+  await openIssuePanel(page, reference);
+  await expect(
+    page.getByTestId("issue-create-invoice"),
+    "niciun buton de factura pe fisa iesirii",
+  ).toHaveCount(0);
+  await expect(page.getByTestId("issue-invoice-reason")).toHaveText(DIRECT_CLIENT_NOT_INVOICEABLE);
+  await expect(
+    page.getByTestId("issue-invoice-existing"),
+    "si nicio legatura catre vreo factura",
+  ).toHaveCount(0);
+
+  // SI POZIȚIA AVEA CHIAR PRET, deci refuzul nu vine de acolo.
+  const issue = await storedIssue(reference);
+  const lines = await asService(
+    `outbound_lines?select=sale_price_mdl&outbound_issue_id=eq.${String(issue.id ?? "")}`,
+  );
+  expect(Number(lines.rows[0]?.sale_price_mdl ?? 0), "poziția are pret").toBe(25);
+});
+
+/* ------------------------------------------------------------------ (f) -- */
+
+test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele schimbate", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+
+  // ACCEPTANTA (f) CERE UN `npm run check:romanian-ui` SAU "the repository's
+  // existing no-English-string check, whichever name it carries at the time".
+  // NICIUNUL NU EXISTA: package.json nu are niciun script de felul acesta, si
+  // nicio specificatie nu poarta o verificare generala de cuvinte englezesti. Asa
+  // ca verificarea este ACEST CAZ, si nu un script nou: un script nou ar fi o
+  // poarta noua pentru fiecare card al acestui depozit, adica scop pe care nimeni
+  // nu l-a cerut. Raportul cardului spune acelasi lucru pe fata.
+  //
+  // DOUA PROPRIETATI, SI SUNT DESPRE DOUA LUCRURI DIFERITE, deci se masoara cu
+  // doua instrumente. Lectura pe care acest depozit a plata de doua ori intr-o zi:
+  // un caz care CITESTE SURSA ca sa afle ce se vede pe ecran citeste intr-o zi un
+  // comentariu, sau chiar propozitia romaneasca pe care codul o intoarce.
+  //
+  //   CUVINTELE DE PE ECRAN sunt despre TEXT, deci se citesc DE PE ECRAN, din DOM.
+  //   Comentariile acestui card citeaza cardul in engleza, cuvant cu cuvant, si asa
+  //   trebuie: un caz care ar citi fisierele ar raporta chiar citatele.
+  //
+  //   LINIUTELE EM SI EN sunt despre FISIERE, si acolo comentariile CONTEAZA:
+  //   regula este ca nu exista nicio liniuta lunga nicaieri, nici in cod, nici in
+  //   comentarii, nici in documente, nici in textul unui commit.
+
+  /* ---- partea intai: ce se vede, in romana, cu diacritice ---- */
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await page.getByTestId("client-create-open").click();
+  await expect(page.getByTestId("client-create-form")).toBeVisible();
+
+  // Fiecare lucru pe care clauza 5 il enumera, pe ecran, scris romanesc.
+  //
+  // toContainText SI NU innerText, deliberat: `Th` din primitives.tsx poarta clasa
+  // `uppercase`, iar innerText intoarce textul TRANSFORMAT DE CSS, deci "Cantitate"
+  // ar sosi "CANTITATE". Aceea este chiar lectura din KNOWN-FAILURES pe care cardul
+  // P3-15 a plata cu o rulare. toContainText citeste textul SCRIS, cu diacritice.
+  const form = page.getByTestId("outbound-form");
+  for (const romanian of [
+    "Tip ieșire",
+    OUTBOUND_MODE_LABEL.project,
+    OUTBOUND_MODE_LABEL.direct_client,
+    "Data ridicării",
+    "Client nou",
+    "Denumire",
+    "Salvează clientul",
+    "Renunță",
+    "Cantitate",
+    "Unitate",
+    "Preț unitar",
+    "Creează bonul de eliberare",
+  ]) {
+    await expect(form, `"${romanian}" este pe ecran, scris romanesc`).toContainText(romanian);
+  }
+
+  // SI INDICATIILE DIN CASUTE, care sunt si ele pe ecran dar NU sunt in textul lui:
+  // un placeholder este un atribut, deci toContainText nu il vede. Un card care ar
+  // fi lasat o indicatie englezeasca ar fi trecut pe langa verificarea de mai sus.
+  await expect(
+    page.getByTestId("field-client").locator("input").first(),
+    "indicatia selectorului de client este romaneasca",
+  ).toHaveAttribute("placeholder", "Caută clientul după nume");
+  await expect(
+    page.getByTestId("client-create-name"),
+    "indicatia din formularul de client nou este romaneasca",
+  ).toHaveAttribute("placeholder", "Numele clientului");
+
+  // SI CASUTA DE DATA ESTE CEA STANDARD, CLAUZA 3: indicatia ei este chiar
+  // DATE_PLACEHOLDER al lui DateField, adica zz.ll.aaaa, si nu un al doilea fel de
+  // casuta de data scris pe acest ecran.
+  await expect(
+    page.getByTestId("issue-pickup-date"),
+    "data ridicarii este casuta zz.ll.aaaa a cardului P3-49",
+  ).toHaveAttribute("placeholder", DATE_PLACEHOLDER);
+  // Si campul nativ al ei exista si este ASCUNS, care este regula cardului P3-49:
+  // niciun camp de data nativ vizibil nicaieri. Masurat pe nume si nu numarand
+  // casute, lectura pe care cardul P3-109 a plata cu o rulare.
+  await expect(page.getByTestId("issue-pickup-date-native")).toBeHidden();
+
+  // SI UNITATEA VINE DIN unitLabel, deviatia D3: produsul de test este in bucati,
+  // si eticheta de pe ecran este chiar cea pe care o da lib/data/units.ts. Nicio
+  // lista de unitati nu este scrisa nici in component, nici in acest caz.
+  await fillFirstLine(page, "1");
+  await expect(form, "unitatea afisata este cea din units.ts").toContainText(unitLabel("pcs"));
+
+  // SI NICIUN CUVANT ENGLEZ NU AJUNGE PE ECRAN.
+  //
+  // CUVINTE INTREGI, prin `\b`, ca "Date" sa nu fie gasit in "Datele" si "Name" in
+  // "Numele". Fiecare cuvant se caută si cu majuscule, fiindca `Th` transforma
+  // antetele din CSS si innerText le intoarce transformate: un antet englezesc ar
+  // sosi "PRICE" si o potrivire scrisa numai "Price" ar trece pe langa el.
+  //
+  // CUVINTELE ALESE SUNT CELE PE CARE UN ECRAN NETRADUS LE-AR PURTA, si niciunul nu
+  // este si cuvant romanesc scris la fel: "Total" nu este in lista tocmai fiindca
+  // este romanesc. "Optional" este, si nu din greseala: forma romaneasca are ț, deci
+  // un "Optional" pe ecran ar fi ori englez, ori romanesc fara diacritice, si
+  // clauza 5 le refuza pe amandoua.
+  const ENGLISH = [
+    "Save",
+    "Cancel",
+    "Submit",
+    "Delete",
+    "Remove",
+    "Create",
+    "Search",
+    "Select",
+    "Choose",
+    "Required",
+    "Optional",
+    "Quantity",
+    "Price",
+    "Product",
+    "Invoice",
+    "Loading",
+    "Error",
+    "Date",
+    "Name",
+    "Phone",
+    "Company",
+    "Individual",
+    "Add",
+    "Close",
+  ];
+  const englishIn = (haystack: string) =>
+    ENGLISH.filter((word) =>
+      new RegExp(`\\b(${word}|${word.toUpperCase()})\\b`).test(haystack),
+    );
+
+  // INSTRUMENTUL SE DOVEDESTE CA GASESTE, INAINTE SA FIE CREZUT CAND NU GASESTE
+  // NIMIC. O cautare intr-un test care nu potriveste nimic trece la infinit, si
+  // aceea este lectura pe care cardul P3-110 a plata cu o rulare intreaga. Se
+  // dovedesc amandoua formele, fiindca antetele sosesc cu majuscule.
+  expect(englishIn("Save the client"), "instrumentul gaseste un cuvant englez").toEqual(["Save"]);
+  expect(englishIn("PRICE"), "si il gaseste si cu majuscule, ca in antetele tabelului").toEqual([
+    "Price",
+  ]);
+
+  /** Tot ce se vede pe ecran: textul vizibil SI indicatiile din casute, fiindca si
+   *  un placeholder este pe ecran, iar innerText nu il contine. */
+  async function everythingVisible(): Promise<string> {
+    const text = await form.innerText();
+    const hints = await form
+      .locator("[placeholder]")
+      .evaluateAll((els) => els.map((el) => el.getAttribute("placeholder") ?? ""));
+    return [text, ...hints].join(" | ");
+  }
+
+  const onScreen = await everythingVisible();
+  expect(
+    englishIn(onScreen),
+    `cuvinte englezesti pe ecranul clientului direct: ${onScreen}`,
+  ).toEqual([]);
+
+  // Si pe confirmare, care este celalalt ecran al acestui card.
+  await page.getByTestId("client-create-cancel").click();
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("04.12.2026");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  const confirmed = await page.getByTestId("issue-created").innerText();
+  expect(englishIn(confirmed), `cuvinte englezesti pe confirmare: ${confirmed}`).toEqual([]);
+
+  /* ---- partea a doua: nicio liniuta em sau en in fisierele schimbate ---- */
+
+  // LISTA ESTE SCRISA PE NUME SI FIECARE FISIER TREBUIE SA EXISTE. Un fisier
+  // redenumit face cazul sa pice zgomotos in loc sa scaneze in gol, fiindca o
+  // cautare care nu gaseste niciun fisier trece pentru totdeauna.
+  const CHANGED = [
+    "components/outbound/OutboundScreen.tsx",
+    "components/outbound/OutboundProjectForm.tsx",
+    "components/outbound/OutboundDirectClientForm.tsx",
+    "components/outbound/OutboundModeChoice.tsx",
+    "components/orders/OutboundPanel.tsx",
+    "app/(app)/iesiri/page.tsx",
+    "lib/data/outbound-types.ts",
+    "lib/data/outbound-mode.ts",
+    "lib/data/facturare-create-types.ts",
+    "lib/data/facturare-create.ts",
+    "tests/e2e/outbound-direct-client.spec.ts",
+  ];
+
+  // CELE DOUA SEMNE SE CONSTRUIESC DIN CODURILE LOR SI NU SE SCRIU, ca acest
+  // fisier sa nu poarte chiar ce interzice: el este in lista de mai sus si se
+  // citeste pe sine, deci o liniuta scrisa aici ar face cazul sa se acuze singur.
+  // 0x2014 este liniuta em, 0x2013 este liniuta en.
+  const EM = String.fromCharCode(0x2014);
+  const EN = String.fromCharCode(0x2013);
+  const LONG_DASH = new RegExp(`[${EM}${EN}]`);
+  expect(LONG_DASH.test(`a ${EM} b`), "instrumentul gaseste o liniuta em").toBe(true);
+  expect(LONG_DASH.test(`a ${EN} b`), "instrumentul gaseste o liniuta en").toBe(true);
+  expect(LONG_DASH.test("a - b"), "si nu confunda cratima obisnuita cu ele").toBe(false);
+
+  for (const file of CHANGED) {
+    const source = readFileSync(file, "utf8");
+    expect(source.length, `${file} trebuie sa existe si sa nu fie gol`).toBeGreaterThan(0);
+    const offenders = source
+      .split("\n")
+      .map((line, index) => ({ line, at: index + 1 }))
+      .filter((l) => LONG_DASH.test(l.line))
+      .map((l) => `${file}:${l.at}: ${l.line.trim()}`);
+    expect(offenders, `${file} poarta o liniuta em sau en`).toEqual([]);
+  }
+});
