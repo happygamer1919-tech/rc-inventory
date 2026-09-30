@@ -83,7 +83,9 @@ type IssueRow = {
   issued_at: string;
   shipped_at: string | null;
   status: string;
-  project_id: string;
+  // P3-118: NULL PE O IESIRE CATRE CLIENT DIRECT. Coloana a fost NOT NULL de la
+  // 0026 pana la migratia 0067, si tipul spunea `string`.
+  project_id: string | null;
   projects?:
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }[]
@@ -103,9 +105,23 @@ function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
     //
     // P3-04b: THE NAMES COME FROM THE JOINED RECORDS AND NOWHERE ELSE. The text
     // columns are dropped, so there is no second representation left that could
-    // disagree with the project. project_id is NOT NULL as of 0026, so the join
-    // resolves for every row; the fallbacks below are for a project or client
-    // row deleted out from under an issue, which the foreign keys refuse anyway.
+    // disagree with the project.
+    //
+    // P3-04b ALSO SAID THIS, AND CARD P3-118 MAKES IT FALSE RATHER THAN DELETING
+    // IT, per CLAUDE.md section 9c:
+    //
+    //   "project_id is NOT NULL as of 0026, so the join resolves for every row;
+    //    the fallbacks below are for a project or client row deleted out from
+    //    under an issue, which the foreign keys refuse anyway."
+    //
+    // IT IS TRUE OF A PROJECT ISSUE AND ONLY OF ONE. Since migration 0067 and
+    // ruling R-215 an issue can be in mode direct_client, which HAS NO PROJECT
+    // by outbound_issues_direct_client_mode_shape, so the join resolves to
+    // nothing and the two fallbacks below are what such a row reads as today.
+    // THAT IS A PLACEHOLDER AND NOT THE ANSWER: naming the direct client and
+    // showing the mode is card P3-120, which reads the columns this card added.
+    // P3-118 touches no screen, so the fallback is left visible rather than
+    // half-fixed here, and P3-120 is where it stops being a placeholder.
     projectId: row.project_id,
     clientId: client?.id ?? null,
     clientName: client?.name ?? "Client necunoscut",
