@@ -43,6 +43,14 @@ const SECTION_MARKER: Record<Exclude<SettingsSectionId, "toate">, string> = {
   catalog: "settings-catalog",
   facturare: "settings-facturare",
   optiuni: "settings-optiuni",
+  // P3-114. TIPUL A CERUT ACEST RAND SI ASTA ESTE O PROPRIETATE, NU UN DERANJ,
+  // exact ca la UNIT_MEANING in P3-33: SECTION_MARKER este
+  // Record<Exclude<SettingsSectionId, "toate">, string>, deci a cincea secțiune a
+  // facut acest fisier sa nu compileze pana cand cineva a spus dupa ce se recunoaste
+  // pe ecran. Un Partial aici ar fi lasat secțiunea nemasurata si nimic nu ar fi
+  // observat. Randul NU SLABESTE NIMIC, ci intareste: de acum cazul (2) cere si ca
+  // settings-utilizatori sa NU apara pe catalog, pe facturare si pe optiuni.
+  utilizatori: "settings-utilizatori",
 };
 
 const MARKERS = Object.values(SECTION_MARKER);
@@ -231,7 +239,12 @@ test.describe("P3-113: Setări ca sub-meniu de secțiuni", () => {
   }) => {
     const errors = watchConsole(page);
     const addresses = SETTINGS_SECTIONS.map((s) => settingsSectionHref(s.id));
-    expect(addresses.length).toBe(4);
+    // P3-114. ERA `toBe(4)`, o copie scrisa de mana a unui numar pe care constanta il
+    // poarta deja, si a cincea secțiune l-a facut fals. Se citeste acum din lista, ca
+    // in celelalte doua locuri ale acestui fisier (cazurile 2 si 4), deci masura NU
+    // SLABESTE: matura fiecare adresa pe care o are ecranul, oricate sunt, in loc de
+    // primele patru. Cu acest card sunt cinci.
+    expect(addresses.length).toBe(SETTINGS_SECTIONS.length);
 
     for (const address of addresses) {
       await page.goto(address);

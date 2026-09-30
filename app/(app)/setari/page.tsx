@@ -44,6 +44,12 @@ import { UnitSettings } from "@/components/settings/UnitSettings";
 // facturi si ecranul de creare sunt partile 2 si 3.
 import { FacturareSettings } from "@/components/settings/FacturareSettings";
 import { getInvoiceSettings } from "@/lib/data/facturare-settings";
+// P3-114, goal G69 partea 3. Conturile, DOAR CITITE: fara migratie, fara permisiune
+// noua si fara nicio scriere. Politica profiles_select din 0001 arata deja toate
+// randurile administratorului, iar /setari este deja numai al lui, deci lista
+// completa ajunge la exact omul care are dreptul sa deschida ecranul.
+import { UserSettings } from "@/components/settings/UserSettings";
+import { listAccounts } from "@/lib/data/utilizatori";
 import { SettingsSectionMenu } from "@/components/settings/SettingsSectionMenu";
 import {
   parseSettingsSection,
@@ -79,14 +85,18 @@ export default async function SettingsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const active = parseSettingsSection((await searchParams)[SETTINGS_SECTION_PARAM]);
-  const shows = (id: "catalog" | "facturare" | "optiuni") => active === "toate" || active === id;
+  const shows = (id: "catalog" | "facturare" | "optiuni" | "utilizatori") =>
+    active === "toate" || active === id;
 
-  const [user, catalog, invoiceSettings] = await Promise.all([
+  const [user, catalog, invoiceSettings, accounts] = await Promise.all([
     getSessionUser(),
     shows("catalog") ? loadCatalog() : null,
     // Intoarce null cand migratia 0063 nu este inca aplicata, si blocul spune
     // atunci romaneste ca facturarea nu este activa in loc sa cada ecranul.
     shows("facturare") ? getInvoiceSettings() : null,
+    // P3-114. SE CITESTE NUMAI CE SE ARATA, regula pusa de P3-113: pe
+    // ?sectiune=facturare conturile nu se mai cer deloc din baza.
+    shows("utilizatori") ? listAccounts() : null,
   ]);
 
   return (
@@ -143,6 +153,14 @@ export default async function SettingsPage({
           </Card>
         </section>
       ) : null}
+
+      {/* P3-114, goal G69 partea 3. UTILIZATORII, ULTIMII PE ECRAN si numai de citit.
+          Ultimii fiindca sunt administrarea oamenilor si nu a catalogului, deci nu se
+          pun intre vocabular si facturare. Blocul nu primeste nici un control care ar
+          putea scrie: schimbarea unui rol si stingerea unui cont sunt partea a patra,
+          pentru motivul scris in raportul de proiectare, ca un ecran care poate stinge
+          un cont isi merita proba lui. */}
+      {accounts ? <UserSettings rows={accounts} /> : null}
     </>
   );
 }
