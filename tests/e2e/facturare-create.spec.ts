@@ -1184,4 +1184,158 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
     expectPhoneClean(await readPhone(page, "factura-linie"), "ecranul facturii", 2);
     await page.screenshot({ path: testInfo.outputPath("factura-telefon.png"), fullPage: true });
   });
+
+  // -------------------------------------------------------------------------
+  // P3-111, goal G67. Cazurile 10 si 11.
+  // -------------------------------------------------------------------------
+
+  /** Cele patru cazuri masurate de docs/reports/2026-09-29-critic-bug-sweep-2.md,
+   *  finding G4, cu figurile scrise de mana. Al treilea este chiar defectul: ecranul
+   *  arata 8,16 si baza scria 8,17.
+   *
+   *  Cantitatea si preţul sunt scrise cu PUNCT zecimal fiindca amandoua casutele sunt
+   *  `<input type="number">`, iar valoarea unui camp numeric este intotdeauna cu punct.
+   *  Cota este 20, adica VAT. */
+  const MEASURED = [
+    { quantity: "0.333", price: "1000.00", subtotal: 333.0, vat: 66.6, total: 399.6 },
+    { quantity: "1.005", price: "1.00", subtotal: 1.01, vat: 0.2, total: 1.21 },
+    { quantity: "8.165", price: "1.00", subtotal: 8.17, vat: 1.63, total: 9.8 },
+    { quantity: "1234.565", price: "1.00", subtotal: 1234.57, vat: 246.91, total: 1481.48 },
+  ] as const;
+
+  test("10. numărul de pe ecran este numărul care se stochează, pe cele patru cazuri măsurate", async ({
+    page,
+  }) => {
+    const client = await createClientRow("C10");
+
+    await page.goto("/facturare/nou");
+    await expect(page.getByTestId("factura-editor")).toBeVisible({ timeout: 25_000 });
+    await comboPick(page, "factura-editor-client", client.name);
+    await expect(page.getByTestId("factura-editor-tva")).toHaveValue(String(VAT));
+
+    // PATRU POZITII, scrise de mana: ce se probeaza este aritmetica si nu catalogul, iar
+    // o linie cu denumire si fara produs este exact ce constrangerea
+    // invoice_lines_product_or_description cere.
+    for (let i = 1; i < MEASURED.length; i += 1) {
+      await page.getByTestId("factura-editor-adauga").click();
+    }
+    await expect(page.getByTestId("factura-editor-linie")).toHaveCount(MEASURED.length);
+
+    for (const [index, item] of MEASURED.entries()) {
+      await page.getByTestId(`editor-denumire-${index}`).fill(`Poziția ${index + 1} ${RUN}`);
+      await page.getByTestId(`editor-cantitate-${index}`).fill(item.quantity);
+      await page.getByTestId(`editor-pret-${index}`).fill(item.price);
+    }
+
+    // --- CE ARATA ECRANUL, CITIT INAINTE DE ORICE SALVARE -----------------
+    const shown: number[] = [];
+    for (const [index, item] of MEASURED.entries()) {
+      const cell = page.getByTestId(`editor-total-${index}`);
+      await expect(
+        cell,
+        `poziția ${index + 1}: ${item.quantity} x ${item.price} trebuie să arate ${item.total}`,
+      ).toHaveText(formatMoneyExact(item.total));
+      shown.push(fromMoney((await cell.textContent()) ?? ""));
+    }
+
+    // 333,00 + 1,01 + 8,17 + 1234,57 = 1576,75; TVA 66,60 + 0,20 + 1,63 + 246,91 =
+    // 315,34; total 1892,09. Subsolul aduna figuri DEJA rotunjite, care este ordinea pe
+    // care o foloseste si declansatorul invoice_lines_sync_invoice_totals.
+    const wantSubtotal = 1576.75;
+    const wantVat = 315.34;
+    const wantTotal = 1892.09;
+    await expect(page.getByTestId("factura-editor-subtotal")).toHaveText(
+      formatMoneyExact(wantSubtotal),
+    );
+    await expect(page.getByTestId("factura-editor-tva-total")).toHaveText(formatMoneyExact(wantVat));
+    await expect(page.getByTestId("factura-editor-total")).toHaveText(formatMoneyExact(wantTotal));
+
+    // --- SI CE STOCHEAZA BAZA, DUPA SALVARE ------------------------------
+    await page.getByTestId("factura-editor-salveaza").click();
+    await expect(page).toHaveURL(/\/facturare\/[0-9a-f-]{36}$/, { timeout: 30_000 });
+    const invoiceId = invoiceIdFromUrl(page);
+
+    const stored = await asOwner(
+      `invoice_lines?select=quantity,unit_price_mdl,line_subtotal_mdl,line_vat_mdl,line_total_mdl,sort_order&invoice_id=eq.${invoiceId}&order=sort_order.asc`,
+    );
+    expect(stored.rows, "cele patru poziții au fost scrise").toHaveLength(MEASURED.length);
+
+    for (const [index, item] of MEASURED.entries()) {
+      const row = stored.rows[index]!;
+      const where = `poziția ${index + 1}, ${item.quantity} x ${item.price}`;
+      expect(Number(row.line_subtotal_mdl), `${where}: subtotalul stocat`).toBe(item.subtotal);
+      expect(Number(row.line_vat_mdl), `${where}: TVA stocat`).toBe(item.vat);
+      expect(Number(row.line_total_mdl), `${where}: totalul stocat`).toBe(item.total);
+      // SI ACEEASI FIGURA ERA PE ECRAN, care este chiar afirmatia pe care antetul
+      // ecranului o face si care era falsa pana la acest card.
+      expect(shown[index], `${where}: ecranul arăta exact figura care s-a stocat`).toBe(
+        Number(row.line_total_mdl),
+      );
+    }
+
+    const invoice = await readInvoice(invoiceId);
+    expect(invoice.totalMdl, "totalul stocat al facturii").toBe(wantTotal);
+    const foot = await asOwner(
+      `invoices?select=subtotal_mdl,vat_total_mdl,total_mdl&id=eq.${invoiceId}`,
+    );
+    expect(Number(foot.rows[0]!.subtotal_mdl), "Subtotalul stocat").toBe(wantSubtotal);
+    expect(Number(foot.rows[0]!.vat_total_mdl), "TVA stocat pe factură").toBe(wantVat);
+
+    // SI ECRANUL FACTURII ARATA ACELEASI TREI FIGURI.
+    await expect(page.getByTestId("factura-total")).toHaveText(formatMoneyExact(wantTotal));
+  });
+
+  test("11. o ieșire care a primit o factură între timp este refuzată în română, nu cu o eroare de bază", async ({
+    page,
+  }) => {
+    const client = await createClientRow("C11");
+    const project = await createProjectRow(client.id, "C11");
+    const release = await createIssue(project.id, "c11", [
+      { product: productA, quantity: 2, price: 55 },
+    ]);
+
+    // Ecranul se deschide cand iesirea nu are nicio factura, exact ca in cazul 1.
+    await page.goto(`/facturare/nou?iesire=${release.id}`);
+    await expect(page.getByTestId("factura-editor")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId("factura-editor-client-nume")).toHaveText(client.name);
+
+    // A DOUA FILA, sau un coleg, factureaza aceeasi iesire CAT TIMP aceasta pagina este
+    // deschisa. Pana la cardul P3-111 amandoua apasarile reuseau, iar niciuna din cele
+    // doua facturi nu putea fi stearsa: singura ieșire era sa fie anulata una, ceea ce
+    // consuma un al doilea numar dintr-o serie legala.
+    const already = await seedDraft(
+      client.id,
+      project.id,
+      [{ description: `Facturat intre timp ${RUN}`, quantity: 2, unitPrice: 55 }],
+      release.id,
+    );
+
+    await page.getByTestId("factura-editor-salveaza").click();
+
+    const error = page.getByTestId("factura-editor-eroare");
+    await expect(error, "ecranul arată un refuz").toBeVisible({ timeout: 25_000 });
+    await expect(error, "refuzul este propoziția românească, cu diacritice").toContainText(
+      "Există deja o factură pentru această ieșire",
+    );
+    // SI NU ESTE UN MESAJ DE BAZA DE DATE. Numele indexului si codul PostgreSQL sunt
+    // exact ce operatorul nu trebuie sa vada.
+    const shown = (await error.textContent()) ?? "";
+    expect(shown, "numele indexului nu ajunge pe ecran").not.toContain(
+      "invoices_one_live_per_outbound_issue",
+    );
+    expect(shown, "codul PostgreSQL nu ajunge pe ecran").not.toContain("23505");
+    expect(shown.toLowerCase(), "textul brut al erorii nu ajunge pe ecran").not.toContain(
+      "duplicate key",
+    );
+
+    // SI NICIO A DOUA FACTURA NU A APARUT PE IESIRE.
+    const onRelease = await asOwner(
+      `invoices?select=id,status&outbound_issue_id=eq.${release.id}`,
+    );
+    expect(onRelease.rows, "ieșirea poartă exact o factură").toHaveLength(1);
+    expect(String(onRelease.rows[0]!.id), "și este cea scrisă între timp").toBe(already);
+
+    // ECRANUL RAMANE PE FORMULAR, cu munca operatorului intacta, si nu il duce nicaieri.
+    await expect(page.getByTestId("factura-editor")).toBeVisible();
+  });
 });
