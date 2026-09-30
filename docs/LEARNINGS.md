@@ -7965,3 +7965,19 @@ not catch it. The guard the line claimed to measure had not been touched.
 proves the type instead and surfaces as a crash rather than as a failed expectation.** The same trap
 waits on a `varchar(n)` length, a date out of range, and any bounded numeric. The cheap way to see it
 without Docker is to read the column's declared precision before choosing the number.
+
+### A hand-written count of a list's length goes stale the moment the list grows, and the sibling file had the same one
+**Tag:** ci
+**ERROR:** card P3-116 added a sixth section to `SETTINGS_SECTIONS` and the end to end suite came back
+`509 passed, 1 failed` after 34.5 minutes (PR #382, run 36731878304). The failure was in neither the
+card's own spec nor the file the compiler had already forced: `tests/e2e/setari-utilizatori.spec.ts`
+case 5 line 260, `sub-meniul nu are cinci intrari`, `Expected: 5, Received: 6`, on
+`expect(heights.length).toBe(5)`. Card P3-114 had fixed exactly this shape in the sibling file
+`tests/e2e/setari-sections.spec.ts`, turning a hand-written `toBe(4)` into
+`toBe(SETTINGS_SECTIONS.length)`, and had **left the same hand-written number in its own file**.
+**SOLUTION:** read the count from the constant, which the file already imports from. RULE: **when a
+card grows an exported list, grep every spec for a hand-written copy of its old length BEFORE pushing
+- and grep the file that fixed this last time too, because the fix that got recorded in one file is
+the fix that got missed in its sibling.** `grep -rn "toBe([0-9]\+)" tests/` beside the constant's name
+answers in a second, and it is cheaper than 34 minutes of CI. The type system catches an exhaustive
+`Record` over the union; it cannot catch arithmetic about the union's size.

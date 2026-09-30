@@ -163,7 +163,10 @@ test.describe("P3-113: Setări ca sub-meniu de secțiuni", () => {
       .evaluate((nav) =>
         Array.from(nav.querySelectorAll("a")).map((a) => Math.round(a.getBoundingClientRect().top)),
       );
-    expect(tops.length, "sub-meniul nu are patru intrari").toBe(SETTINGS_SECTIONS.length);
+    // P3-116: mesajul spunea "patru intrari" langa o comparatie cu lungimea listei, si
+    // era fals de la a cincea secțiune incolo. Comparatia era corecta, numai textul
+    // mintea, iar un mesaj de eroare care numara greşit trimite cititorul in alta parte.
+    expect(tops.length, "sub-meniul nu are toate intrarile listei").toBe(SETTINGS_SECTIONS.length);
     expect(new Set(tops).size, `banda s-a rupt pe desktop: ${tops.join(",")}`).toBe(1);
   });
 

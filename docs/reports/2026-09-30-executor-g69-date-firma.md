@@ -198,25 +198,53 @@ constraint, so a second row cannot exist.
 
 ---
 
-## Every existing spec that touches this screen, unedited
+## Which spec files were edited, and why each was forced
 
-`git diff --name-only origin/main...HEAD -- tests/` lists exactly two paths:
+`git diff --name-only origin/main...HEAD -- tests/` lists **three** paths, all three sibling specs of
+this same goal G69:
 
-- `tests/e2e/setari-date-firma.spec.ts`, new
-- `tests/e2e/setari-sections.spec.ts`, **one line**
+- `tests/e2e/setari-date-firma.spec.ts`, **new**
+- `tests/e2e/setari-sections.spec.ts`, **one `SECTION_MARKER` row** plus a corrected assertion message
+- `tests/e2e/setari-utilizatori.spec.ts`, **one hand-written count** read from the constant instead
 
-That one line was demanded by the compiler, not by a preference. `SECTION_MARKER` in that file is
-typed `Record<Exclude<SettingsSectionId, "toate">, string>`, so a sixth section made
-`npx tsc --noEmit` fail until somebody said how the new section is recognised on screen. Card P3-114
-met exactly this for the fifth section and recorded it as a property rather than a nuisance. **The
-line weakens nothing and strengthens two cases:** case 2 now also proves `settings-date-firma` is
-absent from catalog, facturare and optiuni, and case 5 now sweeps the new address for console errors.
+**The `SECTION_MARKER` row was demanded by the compiler, not by a preference.** That constant is typed
+`Record<Exclude<SettingsSectionId, "toate">, string>`, so a sixth section made `npx tsc --noEmit` fail
+until somebody said how the new section is recognised on screen. Card P3-114 met exactly this for the
+fifth section and recorded it as a property rather than a nuisance. The row **strengthens two cases:**
+case 2 now also proves `settings-date-firma` is absent from catalog, facturare and optiuni, and case 5
+now sweeps the new address for console errors.
+
+**The count in `setari-utilizatori.spec.ts` was found by CI, not predicted**, and it is the one thing
+that went red on the second run. Run 36731878304 came back `509 passed`, `1 failed`, and the failure
+was case 5 line 260: `Expected: 5, Received: 6`, on a hand-written `toBe(5)` counting the sub-menu
+entries. That is the **same defect class P3-114 fixed in the sibling file** (`toBe(4)` became
+`toBe(SETTINGS_SECTIONS.length)`) and left behind in its own. The fix reads the value from the
+constant the file already imports from. **Nothing is weakened:** the case now measures every sub-menu
+entry, however many there are, instead of the first five, and the 44px clause beside it is untouched.
+
+While there, the stale assertion **message** in `setari-sections.spec.ts` that said "patru intrari"
+beside a comparison against the list length was corrected. It was already false after P3-114 made the
+count five. An error message that counts wrong sends the next reader somewhere else.
 
 Every other file that touches `/setari` is byte-identical to `main`, including
 `tests/e2e/facturare-settings.spec.ts`, whose `openSettings` helper needs the invoicing block visible
 after a plain `goto("/setari")`, and `tests/e2e/phone-remainder.spec.ts`, which measures this screen
 at 390x844. The screen still does not redirect, the categories add box is still on the bare address
 without a click, and ten test files still give themselves a category exactly that way.
+
+## The two red runs, and what each actually was
+
+**Run 36731456527, attempt 1.** The assertions file failed the bare-postgres step with
+`ERROR: numeric field overflow`. The block meant to prove 0063's `default_vat_rate <= 100` check still
+refuses an out of range rate and used `2000`, which does not fit `numeric(5,2)`: the TYPE refused it
+first with `22003`, so the `exception when check_violation` handler caught nothing and the guard the
+line named had not been reached. `200` fits the type and breaks the check. Fixed at the cause.
+
+**Run 36731878304, attempt 2.** Every migration and validator step passed, the destructive-migration
+refusal and **both applier proofs among them**. Only "End to end" failed, with the one stale count
+above. All five of the new spec's cases passed on the first run they ran in.
+
+Two distinct attempts of the three the failure ceiling allows.
 
 By count there are twenty spec files under `tests/e2e/` that name `/setari`, not the eighteen the task
 said. The task's number came from the design note, which counted before P3-113 and P3-114 added their
@@ -277,10 +305,6 @@ both applier proofs run only in CI. Nothing above claims otherwise.
 - The invoice screen tells a reader where to complete a missing supplier name and names the Facturare
   block. That sentence is still true, because the Facturare block still holds those five fields, so it
   was left alone.
-- `tests/e2e/setari-sections.spec.ts` case 2 carries an assertion message saying the sub-menu has four
-  entries while comparing against `SETTINGS_SECTIONS.length`, which is now six. The comparison is
-  correct and only the message text is stale; it was already stale after P3-114 made it five, and
-  correcting a message string is not this card's scope.
 - By the tuple sort, `P3-14` on phase 3 and `AUT-3` on phase 2 are the lowest eligible ids. The
   operator task named this work instead.
 
