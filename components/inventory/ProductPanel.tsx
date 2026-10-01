@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/phone";
 import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
 import type { CatalogProduct } from "@/lib/data/products";
 import { loadProductDetail, type ProductDetail } from "@/lib/data/product-detail";
 import { setProductActive } from "@/lib/data/product-actions";
@@ -277,6 +278,24 @@ export function ProductPanel({
                         <Chip tone="ok">Intrare</Chip>
                       ) : (
                         <Chip tone="orange">Ieșire</Chip>
+                      )}
+                      {/* P3-120 CLAUZA 3. FELUL ELIBERARII, SUB SENSUL EI. Cine citeste
+                          de ce a scazut o cantitate deosebeste de aici un bon catre
+                          santier de o vanzare la tejghea, fara sa deschida fiecare rand.
+                          NUMAI PE RANDURILE DE IESIRE: o recepție de la furnizor nu are
+                          un fel de eliberare, iar lib/data/products.ts ii pune null, deci
+                          verificarea de mai jos este chiar aceea. Null si cat timp
+                          migratia 0067 nu este aplicata, decizia B: atunci nu se stie, si
+                          ce nu se stie nu se scrie.
+                          Cuvantul vine din OUTBOUND_MODE_LABEL si nu este scris aici,
+                          P2-01: tokenul stocat nu este text de interfata. */}
+                      {m.mode === null ? null : (
+                        <span
+                          className="block text-[11.5px] text-rc-muted mt-1"
+                          data-testid="movement-mode"
+                        >
+                          {OUTBOUND_MODE_LABEL[m.mode]}
+                        </span>
                       )}
                     </Td>
                     <Td align="right" data-label="Cantitate" className={PHONE_CELL}>

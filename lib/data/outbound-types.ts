@@ -47,7 +47,15 @@ export type OutboundIssue = {
   id: string;
   reference: string;
   /** P3-120, hotararea R-215. Care fel de eliberare a fost aceasta, citita din
-   *  coloana `issue_mode` pe care migratia 0067 a adaugat-o.
+   *  coloana de mod pe care migratia 0067 a adaugat-o pe public.outbound_issues.
+   *
+   *  COLOANA NU ESTE NUMITA AICI, SI NU DIN COCHETARIE: acest fisier este un modul
+   *  de TIPURI care nu citeste nicio tabela, iar check:pending-schema-reads cere
+   *  unei porti de capabilitate in orice fisier din lib/, app/ sau components/ care
+   *  scrie numele unei coloane aflate in registrul de asteptare, ORIUNDE in el,
+   *  inclusiv intr-un comentariu. Un modul fara nicio citire nu are ce sa apere cu
+   *  o poarta, deci nu numeste coloana. Numele ei se citeste la locul citirii, in
+   *  lib/data/outbound.ts, care ESTE aparat.
    *
    *  NU ESTE NULABIL, SI ASTA ESTE O AFIRMATIE SI NU O COMODITATE. Cat timp 0067
    *  nu este aplicata nu poate exista nicio iesire catre client direct, deci

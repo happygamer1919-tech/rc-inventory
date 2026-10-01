@@ -14,6 +14,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
+  hasOutboundIssueMode,
   hasPhase3Schema,
   hasProductPackaging,
   hasProductSourceNote,
@@ -78,6 +79,21 @@ export type ProductMovement = {
   at: string;
   reference: string;
   context: string;
+  /** P3-120 clauza 3, hotararea R-215. Ce fel de eliberare a scazut cantitatea.
+   *
+   *  NULABIL AICI, SPRE DEOSEBIRE DE OutboundIssue.mode, SI DIN DOUA MOTIVE CARE
+   *  SUNT AMANDOUA ADEVARATE:
+   *
+   *    O INTRARE NU ARE MOD. Clauza 3 vorbeste despre randurile de IESIRE, si o
+   *    recepție de la furnizor nu este nici proiect, nici client direct: "project"
+   *    pe un rand de intrare ar fi un raspuns inventat la o intrebare care nu se
+   *    pune. Null spune ca intrebarea nu se aplica.
+   *
+   *    CAT TIMP 0067 NU ESTE APLICATA nu se poate citi coloana, deci nu se stie, si
+   *    atunci panoul nu scrie niciun mod: decizia B a instructiunii cardului. Un rand
+   *    de iesire cu mod null este exact fereastra aceea, si componentul nu are nevoie
+   *    de niciun al doilea semnal ca sa o recunoasca. */
+  mode: import("./outbound-types").OutboundMode | null;
 };
 
 function toNumber(value: unknown): number {
@@ -324,6 +340,30 @@ export async function listProductBatches(productId: string): Promise<ProductBatc
 export async function listProductMovements(productId: string): Promise<ProductMovement[]> {
   const supabase = await createClient();
 
+  // P3-120 clauza 3. POARTA SE INTREABA INAINTE, iar lista de select a iesirilor
+  // depinde de raspunsul ei: `issue_mode` si clientul propriu al iesirii exista doar
+  // de la migratia 0067 incoace, iar 0067 este in registrul de asteptare de la
+  // docs/migrations/APPLY-LOG.md. Un select care numeste o coloana neaplicata
+  // primeste 42703, listProductMovements arunca, si panoul produsului nu se mai
+  // deschide: forma incidentului INC-05 din 2026-08-31.
+  //
+  // POARTA ESTE hasOutboundIssueMode SI NU UNA DINTRE CELE DE PRODUS pe care acest
+  // fisier le importa deja. hasProductPackaging ar fi trecut de verificarea
+  // check:pending-schema-reads fara sa fie editata nicio linie, si ar fi fost o
+  // poarta care raspunde la intrebarea greșită: ea spune daca 0046 este aplicata,
+  // nu daca 0067 este, iar cele doua migratii se aplica fiecare in ziua ei.
+  const withMode = await hasOutboundIssueMode(supabase);
+
+  // `direct_client:clients!outbound_issues_client_id_fkey(name)` CU NUMELE
+  // RESTRICTIEI SCRIS: de la 0067 incoace exista doua drumuri de la outbound_issues
+  // la clients, cel direct prin client_id si cel prin projects, iar PostgREST
+  // raspunde cu o eroare de relatie ambigua cand i se cere sa aleaga singur. Numele
+  // este cel pe care PostgreSQL il da unei restrictii scrise inline, si 0067 o scrie
+  // chiar inline. Acelasi lucru, pe larg, in lib/data/outbound.ts.
+  const issueSelect = withMode
+    ? "id, quantity, outbound_issues(reference, issued_at, issue_mode, projects(name, clients(name)), direct_client:clients!outbound_issues_client_id_fkey(name))"
+    : "id, quantity, outbound_issues(reference, issued_at, projects(name, clients(name)))";
+
   const [{ data: batches }, { data: issued }] = await Promise.all([
     supabase
       .from("batches")
@@ -334,9 +374,7 @@ export async function listProductMovements(productId: string): Promise<ProductMo
       // P3-04b: the destination comes from the joined records. client_name and
       // project_name were dropped by 0026, and a select naming a dropped column
       // returns 42703 and answers the screen with a 500.
-      .select(
-        "id, quantity, outbound_issues(reference, issued_at, projects(name, clients(name)))",
-      )
+      .select(issueSelect)
       .eq("product_id", productId),
   ]);
 
@@ -353,6 +391,10 @@ export async function listProductMovements(productId: string): Promise<ProductMo
       at: row.arrived_at as string,
       reference: order?.reference ?? "-",
       context: order?.supplier_name ?? "Recepție",
+      // P3-120. RANDURILE DE INTRARE NU SE ATING, si clauza 3 cere exact atat: ea
+      // vorbeste despre randurile de iesire. O recepție de la furnizor nu are un fel
+      // de eliberare, deci nu i se inventeaza unul.
+      mode: null,
     });
   }
 
@@ -364,20 +406,59 @@ export async function listProductMovements(productId: string): Promise<ProductMo
       | {
           reference: string;
           issued_at: string;
+          /** P3-120: absent cat timp poarta a raspuns nu, fiindca atunci lista de
+           *  select nu l-a cerut. */
+          issue_mode?: string | null;
           projects: ({ name: string; clients: Named } | { name: string; clients: Named }[]) | null;
+          /** Clientul PROPRIU al iesirii, al modului direct. */
+          direct_client?: Named;
         }
       | null;
     const project = Array.isArray(issue?.projects) ? issue?.projects[0] : issue?.projects;
     const projectName = project?.name ?? null;
-    const clientName = pickName(project?.clients ?? null);
+
+    // P3-120 clauza 3. MODUL, CITIT NUMAI CAND POARTA L-A LASAT SA FIE CITIT: null
+    // cand 0067 nu este aplicata, si atunci panoul nu scrie nimic despre fel.
+    const mode = withMode
+      ? issue?.issue_mode === "direct_client"
+        ? ("direct_client" as const)
+        : ("project" as const)
+      : null;
+
+    // CUMPARATORUL VINE DE PE DRUMUL MODULUI. Pe o iesire pe proiect clientul se
+    // citeste de pe proiect, cum il citeste de la P3-04b incoace; pe una catre client
+    // direct nu exista proiect de citit, deci se citeste de pe coloana client_id a
+    // iesirii.
+    const clientName =
+      mode === "direct_client"
+        ? pickName(issue?.direct_client ?? null)
+        : pickName(project?.clients ?? null);
+
+    // P3-120 clauza 3. CONTEXTUL SPUNE CUI A PLECAT MATERIALUL, pe amandoua felurile.
+    // Pana la acest card un rand de client direct scria doar "Ieșire": nicio
+    // destinatie, pe exact randul care explica de ce a scazut o cantitate. Pe modul
+    // direct cumparatorul ESTE destinatia intreaga, fiindca nu exista santier in
+    // spatele lui, deci numele lui singur este raspunsul complet. Felul eliberarii nu
+    // se repeta in acest sir: el are coloana lui pe ecran.
+    // Rezerva este "Client necunoscut" si NU cuvantul modului: un rand de mod direct
+    // ARE un client, prin outbound_issues_direct_client_mode_shape, deci singurul fel
+    // in care numele poate lipsi este sa nu fi putut fi citit. Si eticheta modului nu
+    // se scrie de mana nici aici: ea are un singur loc, OUTBOUND_MODE_LABEL.
+    const context =
+      mode === "direct_client"
+        ? (clientName ?? "Client necunoscut")
+        : clientName && projectName
+          ? `${clientName} · ${projectName}`
+          : (projectName ?? "Ieșire");
+
     movements.push({
       id: row.id as string,
       direction: "out",
       quantity: toNumber(row.quantity),
       at: issue?.issued_at ?? "",
       reference: issue?.reference ?? "-",
-      context:
-        clientName && projectName ? `${clientName} · ${projectName}` : (projectName ?? "Ieșire"),
+      context,
+      mode,
     });
   }
 

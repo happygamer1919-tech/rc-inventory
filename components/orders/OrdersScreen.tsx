@@ -18,17 +18,26 @@
 import * as React from "react";
 import Link from "next/link";
 import { PHONE_WRAP } from "@/components/ui/phone";
-import { Button, Card, CardHeader, Chip, PageHeader } from "@/components/ui/primitives";
+import { Button, Card, CardHeader, Chip, PageHeader, Select } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
+import { PHONE_CONTROL } from "@/components/ui/phone";
 import { formatDate, formatMoney } from "@/lib/data/format";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
 import type { InboundOrder } from "@/lib/data/inbound-types";
-import { OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
-import type { OutboundIssue } from "@/lib/data/outbound-types";
+import { ALL_OUTBOUND_MODES } from "@/lib/data/outbound-mode";
+import { OUTBOUND_MODE_LABEL, OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
+import type { OutboundIssue, OutboundMode } from "@/lib/data/outbound-types";
 import { InboundPanel } from "./InboundPanel";
 import { OutboundPanel } from "./OutboundPanel";
 
 type Selection = { kind: "in"; id: string } | { kind: "out"; id: string } | null;
+
+/** P3-120 clauza 4. Ce arata lista: amandoua felurile, sau numai unul.
+ *
+ *  "toate" ESTE UN TOKEN AL ACESTUI CONTROL si nu un al treilea mod: uniunea
+ *  OutboundMode are exact doua valori, si asa rămâne. Scris ca sir romanesc
+ *  fiindca el nu se stocheaza nicaieri si nu pleaca spre nicio coloana. */
+type ModeFilter = OutboundMode | "toate";
 
 // P3-64. PE TELEFON (sub 768px) cele doua liste stau una sub alta, iar un nume
 // lung se rupe pe randuri in loc sa fie taiat, fiindca pe telefon nu exista nimic
@@ -47,6 +56,7 @@ export function OrdersScreen({
   inbound,
   outbound,
   filter,
+  modeVisible = false,
 }: {
   inbound: InboundOrder[];
   outbound: OutboundIssue[];
@@ -55,17 +65,41 @@ export function OrdersScreen({
    *  legatura din fisa proiectului sa poata fi trimisa cuiva, si ca butonul de
    *  inapoi sa functioneze. */
   filter?: { kind: "proiect" | "client"; id: string; label: string } | null;
+  /** P3-120, DECIZIA B. Exista al doilea fel de iesire pe baza catre care arata
+   *  aplicatia? Cat timp raspunsul este nu, nimic din acest card nu apare: niciun
+   *  cuvant de mod pe randuri, niciun control de filtrare si nicio data de
+   *  ridicare pe fisa. Raspunsul vine din lib/data/outbound.ts, unde este scris
+   *  si de ce. Implicit fals, ca un apelant care nu il trimite sa arate ecranul
+   *  de dinainte de acest card si niciodata un mod inventat. */
+  modeVisible?: boolean;
 }) {
   const [sel, setSel] = React.useState<Selection>(null);
+  // P3-120 clauza 4. "Toate" IMPLICIT: lista se deschide aratand tot, fiindca un
+  // filtru pus de la sine ar ascunde randuri pe care nimeni nu a cerut sa fie
+  // ascunse. In starea componentului si nu in URL, spre deosebire de filtrul de
+  // destinatie de deasupra, fiindca acesta nu vine de pe nicio alta fisa: el se
+  // alege chiar aici, deci nu exista nicio legatura de trimis cuiva.
+  const [modeFilter, setModeFilter] = React.useState<ModeFilter>("toate");
 
   // FILTRAREA SE FACE PE INREGISTRARE SI NU PE TEXT. Randurile istorice fara
   // proiect au projectId null si sunt deci excluse de orice filtru, ceea ce este
   // corect: nu se stie catre cine au plecat.
-  const outboundShown = filter
+  //
+  // P3-120 clauza 4. CELE DOUA FILTRE SE COMPUN SI NU SE INLOCUIESC. Filtrul de
+  // destinatie al lui P3-10 rămâne exact cum era, cu butonul lui de golire; cel de
+  // mod se adauga peste el. Niciunul nu il goleste pe celalalt: un control care ar
+  // desface in tacere alegerea facuta de langa el este chiar defectul pe care
+  // constatarea F6 a cardului P3-96 l-a inchis in alta parte. Si acesta filtreaza
+  // pe INREGISTRARE, pe `o.mode`, si niciodata pe cuvantul scris pe ecran.
+  const byDestination = filter
     ? outbound.filter((o) =>
         filter.kind === "proiect" ? o.projectId === filter.id : o.clientId === filter.id,
       )
     : outbound;
+  const outboundShown =
+    modeVisible && modeFilter !== "toate"
+      ? byDestination.filter((o) => o.mode === modeFilter)
+      : byDestination;
 
   const pendingIn = inbound.filter((o) => o.status === "pending_arrival").length;
   const pendingOut = outboundShown.filter((o) => o.status === "awaiting_shipment").length;
@@ -163,13 +197,48 @@ export function OrdersScreen({
         <Card>
           <CardHeader
             title="Ieșiri"
-            hint="Eliberări către proiecte"
+            // P3-120. "Eliberări către proiecte" A DEVENIT FALS la migratia 0067 si
+            // nu se pastreaza ca pe o doctrina: este text de interfata, iar un text
+            // de interfata fals este o minciuna pe ecran si nu o propozitie de citit.
+            // De la hotararea R-215 incoace lista poarta amandoua felurile, deci
+            // antetul le numeste pe amandoua.
+            hint="Eliberări către proiecte și către clienți direcți"
             right={
               <span className="text-[12px] text-rc-muted">
                 {pendingOut} de expediat din {outboundShown.length}
               </span>
             }
           />
+
+          {/* P3-120 CLAUZA 4, DECIZIA A A INSTRUCTIUNII. FILTRUL PE MOD, PE ECRAN.
+              O lista care arata o deosebire si nu se poate filtra pe ea il pune pe
+              operator sa citeasca fiecare rand. Un `Select` cu o opțiune "Toate" este
+              chiar tiparul de filtru al acestui depozit, cel de pe /clienti, si nu un
+              al doilea fel inventat aici.
+              OPTIUNILE VIN DIN ALL_OUTBOUND_MODES si cuvintele din OUTBOUND_MODE_LABEL:
+              un mod adaugat mai tarziu apare in filtru fara o a doua editare, si nicio
+              eticheta nu este scrisa de mana in acest fisier.
+              NU APARE CAT TIMP 0067 NU ESTE APLICATA: atunci nu exista decat un singur
+              fel de iesire, deci un filtru intre doua feluri nu ar filtra nimic. */}
+          {modeVisible ? (
+            <div className="px-5 pb-4" data-testid="outbound-mode-filter">
+              <Select
+                value={modeFilter}
+                onChange={(e) => setModeFilter(e.target.value as ModeFilter)}
+                aria-label="Filtrează ieșirile după tipul eliberării"
+                data-testid="outbound-mode-filter-select"
+                className={PHONE_CONTROL}
+              >
+                <option value="toate">Toate</option>
+                {ALL_OUTBOUND_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {OUTBOUND_MODE_LABEL[mode]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
+
           <ul data-testid="outbound-list">
             {outboundShown.map((o, i) => (
               <li key={o.id} className={i < outbound.length - 1 ? "border-b border-rc-line" : ""}>
@@ -191,13 +260,44 @@ export function OrdersScreen({
                     <Chip tone={outboundTone(o.status)}>{OUTBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
+                    {/* P3-120. DESTINATIA, SI EA TREBUIE SA FIE ADEVARATA PE AMANDOUA
+                        FELURILE. O iesire catre client direct NU ARE proiect, prin
+                        outbound_issues_direct_client_mode_shape, deci randul ei scria
+                        pana acum "Proiect necunoscut": nu o reconciliere lipsa, ci o
+                        propozitie falsa. Acolo se scrie cumparatorul, fiindca el ESTE
+                        destinatia. Pe o iesire pe proiect nu se schimba nimic. */}
                     <span className={`text-[12.5px] text-rc-black truncate max-md:overflow-visible ${PHONE_WRAP}`}>
-                      {o.projectName}
+                      {o.mode === "direct_client" ? o.clientName : o.projectName}
                     </span>
+                    {/* P3-120 CLAUZA 1. MODUL, CA CUVANT ROMANESC SI NICIODATA CA TOKEN.
+                        Cuvantul vine din OUTBOUND_MODE_LABEL si nu este scris aici, langa
+                        eticheta de status si pentru acelasi motiv, P2-01: valoarea stocata
+                        nu este text de interfata.
+                        NICIUN TOKEN NU AJUNGE NICI INTR-UN ATRIBUT AL ACESTUI RAND. Testul
+                        citeste eticheta prin data-testid si randul prin data-reference, deci
+                        nu are nevoie de `direct_client` scris nicaieri in lista: un token
+                        pus "doar pentru test" ar fi tot un token in marcaj.
+                        DECIZIA B: cat timp 0067 nu este aplicata eticheta nu apare deloc.
+                        Atunci fiecare rand este o iesire pe proiect, deci un "Proiect" pe
+                        fiecare rand ar fi adevarat si complet nefolositor: ar fi o coloana
+                        care nu deosebeste nimic, pe un ecran care nu are inca ce deosebi. */}
+                    {modeVisible ? (
+                      <span
+                        className="shrink-0 text-[11.5px] text-rc-muted"
+                        data-testid="outbound-item-mode"
+                      >
+                        {OUTBOUND_MODE_LABEL[o.mode]}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-[11.5px] text-rc-muted-2 mt-1">
-                    {o.clientName} · {o.lines.length}{" "}
-                    {o.lines.length === 1 ? "poziție" : "poziții"} ·{" "}
+                    {/* Pe un rand de client direct cumparatorul este deja scris deasupra,
+                        ca destinatie, deci nu se repeta aici: in locul lui sta ziua in care
+                        materialul se ridica, pe care clauza 2 o cere vazuta. */}
+                    {o.mode === "direct_client"
+                      ? `ridicare ${formatDate(o.pickupDate)}`
+                      : o.clientName}{" "}
+                    · {o.lines.length} {o.lines.length === 1 ? "poziție" : "poziții"} ·{" "}
                     {o.shippedAt
                       ? `expediată ${formatDate(o.shippedAt)}`
                       : `emis ${formatDate(o.issuedAt)}`}
@@ -223,7 +323,13 @@ export function OrdersScreen({
       </p>
 
       {selectedIn ? <InboundPanel order={selectedIn} onClose={() => setSel(null)} /> : null}
-      {selectedOut ? <OutboundPanel issue={selectedOut} onClose={() => setSel(null)} /> : null}
+      {selectedOut ? (
+        <OutboundPanel
+          issue={selectedOut}
+          modeVisible={modeVisible}
+          onClose={() => setSel(null)}
+        />
+      ) : null}
     </>
   );
 }
