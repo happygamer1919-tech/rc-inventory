@@ -1275,3 +1275,50 @@ export async function hasOutboundIssueMode(client: ColumnProbe): Promise<boolean
   }
   return cachedOutboundIssueMode.value;
 }
+
+
+// ---------------------------------------------------------------------------
+// P3-130, goal G73, Item 4 al lui Ivan. EXISTA TABELA SARCINILOR?
+//
+// Migratia 0068 creeaza public.tasks, cele trei enumerari, indexii, declansatorul
+// si politicile IN ACEEASI TRANZACTIE, deci "exista tabela" si "exista politicile"
+// sunt acelasi fapt si nu pot da vreodata raspunsuri diferite. O singura sonda pe
+// tabela ajunge, exact judecata pe care o scrie hasDocuments pentru 0044.
+//
+// DE CE ARE POARTA EI SI NU O REFOLOSESTE PE A ALTCUIVA. hasPhase3Schema intreaba
+// daca tabelele fazei 3 sunt aplicate, ceea ce este alta intrebare: 0068 este o
+// migratie separata si poate fi aplicata inainte sau dupa oricare alta. O poarta
+// care raspunde la intrebarea gresita este o poarta care se deschide in ziua
+// nepotrivita, si antetul lui hasOutboundIssueMode spune acelasi lucru.
+//
+// CE S-AR INTAMPLA FARA EA: fuziunea aplica migratia in aproximativ doua minute,
+// desfasurarea vine pe programul ei, deci cateva minute din build-ul NOU pot vorbi
+// cu schema VECHE. PostgREST raspunde ca tabela nu exista, citirea arunca, si
+// INC-05 este varianta grava a aceleiasi cauze: pe 2026-08-31 fiecare ecran a
+// raspuns 500 fiindca niste migratii erau fuzionate si neaplicate.
+//
+// COMPORTAMENTUL INAINTE DE APLICARE ESTE CEL DE ASTAZI, si asta este ieftin de
+// spus pentru acest card: el nu construieste NICIUN ecran, clauza 7. Fara tabela
+// nu exista nicio sarcina, deci fiecare citire raspunde gol si fiecare scriere
+// refuza romaneste, fara 500. Filele si panourile care vor arata asta sunt
+// cardurile P3-131, P3-132 si P3-133.
+// ---------------------------------------------------------------------------
+
+let cachedTasks: { value: boolean; at: number } | null = null;
+
+/**
+ * @param client clientul CU CARE VA CITI SAU VA SCRIE APELANTUL, din acelasi
+ *   motiv ca la celelalte porti.
+ */
+export async function hasTasks(client: ColumnProbe): Promise<boolean> {
+  const now = Date.now();
+  if (cachedTasks && now - cachedTasks.at < TTL_MS) return cachedTasks.value;
+  try {
+    const { error } = await client.from("tasks").select("id").limit(1);
+    cachedTasks = { value: !error, at: now };
+  } catch {
+    // "Nu se stie" se trateaza ca "nu": lista raspunde goala, in loc sa cada.
+    cachedTasks = { value: false, at: now };
+  }
+  return cachedTasks.value;
+}
