@@ -6,9 +6,10 @@ import "server-only";
 // care pleaca acolo. Regula este a fazei 1 si nu se schimba.
 
 import { createClient } from "@/lib/supabase/server";
+import { hasOutboundIssueMode } from "./schema-capability";
 import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
-import type { OutboundIssue, OutboundStatus } from "./outbound-types";
+import type { OutboundIssue, OutboundMode, OutboundStatus } from "./outbound-types";
 import { one } from "./row";
 
 function toNumber(value: unknown): number {
@@ -43,8 +44,64 @@ const SELECT_ISSUE = `
   )
 `;
 
-async function issueSelect(): Promise<string> {
-  return SELECT_ISSUE;
+// P3-120, hotararea R-215. A DOUA LISTA DE SELECT, SI NUMAI ATAT O DEOSEBESTE DE
+// CEA DE DEASUPRA: cele trei coloane ale migratiei 0067 si clientul propriu al
+// iesirii.
+//
+// DE CE DOUA LISTE SI NU UNA. Cat timp 0067 este in registrul de asteptare de la
+// docs/migrations/APPLY-LOG.md, coloanele nu exista pe baza catre care arata
+// aplicatia, iar un select care le numeste primeste 42703 de la PostgREST si
+// ecranul de comenzi raspunde 500. Aceea este chiar forma incidentului INC-05 din
+// 2026-08-31, scrisa pe larg in antetul lui lib/data/schema-capability.ts, si ea
+// este motivul pentru care poarta nu este optionala.
+//
+// `clients!outbound_issues_client_id_fkey` SI NU `clients`, CU NUMELE RESTRICTIEI
+// SCRIS. De la 0067 incoace exista un drum DIRECT de la outbound_issues la
+// clients, prin coloana client_id, pe langa cel care trece prin projects. Doua
+// drumuri intre aceleasi doua tabele sunt tocmai situatia in care PostgREST
+// raspunde cu o eroare de relatie ambigua in loc de randuri. Indicatia este
+// numele pe care PostgreSQL il da singur unei restrictii scrise inline,
+// `<tabela>_<coloana>_fkey`, si migratia 0067 o scrie chiar inline:
+// `client_id uuid references public.clients (id) on delete restrict`.
+//
+// `direct_client:` este un ALIAS si nu un token stocat: fara el cheia randului ar
+// fi tot `clients`, adica aceeasi cu cea din projects, iar tipul randului ar
+// deveni greu de citit. Niciun token englezesc nu ajunge pe ecran din el.
+const SELECT_ISSUE_WITH_MODE = `
+  id, reference, issued_at, shipped_at, status,
+  project_id, issue_mode, pickup_date,
+  projects ( id, name, client_id, clients ( id, name ) ),
+  direct_client:clients!outbound_issues_client_id_fkey ( id, name ),
+  outbound_lines (
+    id, product_id, quantity, sale_price_mdl, created_at,
+    products ( sku, name, unit )
+  )
+`;
+
+type Probe = Parameters<typeof hasOutboundIssueMode>[0];
+
+async function issueSelect(supabase: Probe): Promise<string> {
+  return (await hasOutboundIssueMode(supabase)) ? SELECT_ISSUE_WITH_MODE : SELECT_ISSUE;
+}
+
+/**
+ * P3-120, DECIZIA B A INSTRUCTIUNII. Al doilea fel de iesire exista pe baza catre
+ * care arata aplicatia?
+ *
+ * ECRANELE O INTREABA PE EA SI NU CITESC MODUL DE PE UN RAND. Cat timp raspunsul
+ * este "nu", niciun cuvant de mod nu apare pe liste, nu apare controlul de filtrare
+ * si nu apare nicio data de ridicare: obiceiul acestui proiect este ca ce nu se
+ * poate folosi nu apare pe ecran, si aici este si adevarul gol, fiindca fara
+ * coloanele migratiei 0067 nu poate exista nicio iesire catre client direct de
+ * aratat.
+ *
+ * POARTA ESTE CHEMATA DE DOUA ORI PE O PAGINA SI ASTA NU COSTA UN AL DOILEA DRUM
+ * LA BAZA: hasOutboundIssueMode isi tine minte raspunsul un minut, in
+ * schema-capability.ts, si al doilea apel il citeste de acolo.
+ */
+export async function outboundModeVisible(): Promise<boolean> {
+  const supabase = await createClient();
+  return hasOutboundIssueMode(supabase);
 }
 
 /** Ordinea liniilor unei ieșiri, cerută explicit si identica pe fiecare ecran.
@@ -86,21 +143,49 @@ type IssueRow = {
   // P3-118: NULL PE O IESIRE CATRE CLIENT DIRECT. Coloana a fost NOT NULL de la
   // 0026 pana la migratia 0067, si tipul spunea `string`.
   project_id: string | null;
+  // P3-120: OPTIONALE, fiindca lista de select care le numeste este cerută numai
+  // cand poarta a raspuns da. Absente, nu nule: un rand citit cu lista veche nu
+  // poarta deloc cheile acestea, si tipul spune asta.
+  issue_mode?: string | null;
+  pickup_date?: string | null;
   projects?:
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }
     | { id: string; name: string; client_id: string; clients: { id: string; name: string } | { id: string; name: string }[] | null }[]
     | null;
+  /** Clientul PROPRIU al iesirii, al modului direct. Alt drum decat
+   *  `projects.clients`, si pe o iesire catre client direct singurul care exista. */
+  direct_client?: { id: string; name: string } | { id: string; name: string }[] | null;
   outbound_lines: LineRow[] | null;
 };
+
+/** Ce scrie coloana `issue_mode`, redus la uniune.
+ *
+ *  ORICE ALTCEVA DECAT "direct_client" ESTE "project", inclusiv absenta cheii cand
+ *  poarta a raspuns nu, si asta nu este o ghicire: implicitul coloanei in migratia
+ *  0067 este chiar 'project', iar restrictia outbound_issues_direct_client_mode_shape
+ *  nu lasa un rand de mod direct sa existe fara client si fara data de ridicare. Un
+ *  sir necunoscut citit ca "project" este randul pe care baza de date il descrie. */
+function toMode(value: unknown): OutboundMode {
+  return value === "direct_client" ? "direct_client" : "project";
+}
 
 /** Supabase tipizeaza o relatie ca obiect sau ca tablou dupa forma cheii
  *  straine, asa ca amandoua formele sunt acceptate in loc sa fie presupusa una. */
 function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
   const project = one(row.projects);
-  const client = one(project?.clients ?? null);
+  const mode = toMode(row.issue_mode);
+
+  // P3-120. CLIENTUL VINE DE PE DRUMUL MODULUI SI NU DE PE AMANDOUA. Pe o iesire
+  // pe proiect clientul se citeste de pe proiect, cum il citeste de la P3-04b
+  // incoace; pe o iesire catre client direct NU EXISTA PROIECT, prin
+  // outbound_issues_direct_client_mode_shape, deci singurul client care exista este
+  // cel pe care il numeste chiar coloana client_id a iesirii.
+  const client = mode === "direct_client" ? one(row.direct_client ?? null) : one(project?.clients ?? null);
+
   return {
     id: row.id,
     reference: row.reference,
+    mode,
     // P3-10: destinatia ca INREGISTRARE, ca sa se poata lega.
     //
     // P3-04b: THE NAMES COME FROM THE JOINED RECORDS AND NOWHERE ELSE. The text
@@ -122,10 +207,21 @@ function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
     // showing the mode is card P3-120, which reads the columns this card added.
     // P3-118 touches no screen, so the fallback is left visible rather than
     // half-fixed here, and P3-120 is where it stops being a placeholder.
+    //
+    // CARDUL P3-120 A FACUT-O, SI PROPOZITIA DE DEASUPRA ESTE PASTRATA ca sa se
+    // citeasca ce a fost, sub secțiunea 9c din CLAUDE.md. "Client necunoscut" nu
+    // se mai vede pe nicio iesire catre client direct: clientul se citeste acum de
+    // pe coloana client_id a iesirii, cateva randuri mai sus. Cele doua rezerve
+    // rămân pentru ce le-a chemat la viata, un rand istoric nereconciliat de P3-04,
+    // si "Fără proiect" este adaugata pentru randul care prin restricție NU ARE
+    // proiect: acolo "Proiect necunoscut" ar spune "nu se stie", care este o
+    // minciuna, in loc de "nu exista", care este randul.
     projectId: row.project_id,
     clientId: client?.id ?? null,
     clientName: client?.name ?? "Client necunoscut",
-    projectName: project?.name ?? "Proiect necunoscut",
+    projectName:
+      project?.name ?? (mode === "direct_client" ? "Fără proiect" : "Proiect necunoscut"),
+    pickupDate: row.pickup_date ?? null,
     issuedAt: row.issued_at,
     shippedAt: row.shipped_at,
     status: (row.status as OutboundStatus) ?? "awaiting_shipment",
@@ -146,7 +242,7 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("outbound_issues")
-    .select(await issueSelect())
+    .select(await issueSelect(supabase))
     .order("created_at", { ascending: false })
     .order("created_at", LINES_ORDER)
     .order("id", LINES_ORDER);
@@ -157,10 +253,14 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
 
 export async function getOutboundIssue(id: string): Promise<OutboundIssue | null> {
   const supabase = await createClient();
+  // Lista de select se cere INAINTE de Promise.all: poarta este o citire si ea, iar
+  // `await` intr-un argument al unei promisiuni deja pornite ar fi doua ordini de
+  // executie scrise pe un rand.
+  const select = await issueSelect(supabase);
   const [{ data, error }, { data: history }] = await Promise.all([
     supabase
       .from("outbound_issues")
-      .select(await issueSelect())
+      .select(select)
       .eq("id", id)
       .order("created_at", LINES_ORDER)
       .order("id", LINES_ORDER)

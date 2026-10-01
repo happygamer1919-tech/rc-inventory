@@ -13,7 +13,7 @@ import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
 import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
-import { OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
+import { OUTBOUND_MODE_LABEL, OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
 import type { OutboundIssue } from "@/lib/data/outbound-types";
 import type { IssueInvoiceability } from "@/lib/data/facturare-create-types";
 import { loadOutboundDetail } from "@/lib/data/outbound-detail";
@@ -27,9 +27,16 @@ const tone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 export function OutboundPanel({
   issue: initialIssue,
   onClose,
+  modeVisible = false,
 }: {
   issue: OutboundIssue;
   onClose: () => void;
+  /** P3-120, DECIZIA B. Exista al doilea fel de iesire in schema? Cat timp
+   *  raspunsul este nu, fisa se citeste EXACT ca azi: fara numele modului si fara
+   *  data de ridicare. Vine de pe ecranul de comenzi, care il primeste de la
+   *  lib/data/outbound.ts; implicit fals, ca o fisa deschisa de un apelant care nu
+   *  il trimite sa fie cea de dinainte de acest card. */
+  modeVisible?: boolean;
 }) {
   const router = useRouter();
   const [issue, setIssue] = React.useState<OutboundIssue>(initialIssue);
@@ -53,6 +60,12 @@ export function OutboundPanel({
   }, [refresh]);
 
   const shipped = issue.status === "shipped";
+  // P3-120. DOUA LUCRURI DIFERITE, SI DE ACEEA DOUA NUME. `directClient` este ce
+  // ESTE aceasta iesire, citit din coloana de mod a iesirii; `modeVisible` este ce SE
+  // POATE SPUNE despre ea, adica daca schema care poarta modul este aplicata. O
+  // iesire pe proiect nu se schimba in nicio privinta pe niciunul din drumuri,
+  // care este singura promisiune explicita a hotararii R-215.
+  const directClient = modeVisible && issue.mode === "direct_client";
 
   async function ship() {
     setBusy(true);
@@ -83,15 +96,31 @@ export function OutboundPanel({
         // reconciliat, se scrie text simplu cu explicatia si NU o legatura
         // moarta.
         <span className="inline-flex items-center gap-1.5 max-md:flex-wrap max-md:[overflow-wrap:anywhere]">
-          <RecordLink
-            href={issue.projectId ? `/proiecte/${issue.projectId}` : null}
-            fallback="Proiect neasociat"
-            testId="issue-project-link"
-            className={PHONE_LINK}
-          >
-            {issue.projectName}
-          </RecordLink>
-          <span className="text-rc-muted-2">·</span>
+          {/* P3-120 CLAUZA 2. PE O IESIRE CATRE CLIENT DIRECT LEGATURA CATRE PROIECT
+              NU APARE DELOC, si asta nu este acelasi lucru cu rezerva lui RecordLink.
+              Rezerva aceea, "Proiect neasociat", este pentru un rand ISTORIC pe care
+              reconcilierea lui P3-04 nu l-a atins inca: acolo exista un proiect si nu
+              se stie care. Un rand de mod direct NU ARE proiect, prin
+              outbound_issues_direct_client_mode_shape, deci "neasociat" ar fi o
+              propozitie despre o lipsa care nu exista. O absenta este raspunsul corect. */}
+          {directClient ? null : (
+            <>
+              <RecordLink
+                href={issue.projectId ? `/proiecte/${issue.projectId}` : null}
+                fallback="Proiect neasociat"
+                testId="issue-project-link"
+                className={PHONE_LINK}
+              >
+                {issue.projectName}
+              </RecordLink>
+              <span className="text-rc-muted-2">·</span>
+            </>
+          )}
+          {/* ACEEASI LEGATURA DE CLIENT PE AMANDOUA FELURILE, si aceeasi marca de
+              test: pe o iesire pe proiect clientul se citeste de pe proiect, pe una
+              catre client direct de pe coloana client_id a iesirii, iar lib/data/outbound.ts
+              decide care, deci aici nu se ramifica nimic. Pe modul direct ea rezolva
+              intotdeauna, fiindca restricția nu lasa un asemenea rand sa existe fara client. */}
           <RecordLink
             href={issue.clientId ? `/clienti/${issue.clientId}` : null}
             fallback="Client neasociat"
@@ -100,7 +129,23 @@ export function OutboundPanel({
           >
             {issue.clientName}
           </RecordLink>
+          {/* CLAUZA 1: FELUL ELIBERARII, SCRIS. Cuvantul vine din OUTBOUND_MODE_LABEL
+              si nu este scris aici. Cat timp 0067 nu este aplicata nu apare, decizia B. */}
+          {modeVisible ? (
+            <span className="text-rc-muted-2" data-testid="issue-mode">
+              · {OUTBOUND_MODE_LABEL[issue.mode]}
+            </span>
+          ) : null}
           <span className="text-rc-muted-2">· emis {formatDate(issue.issuedAt)}</span>
+          {/* CLAUZA 2: ZIUA RIDICARII, NUMAI PE MODUL DIRECT, fiindca numai el are una:
+              outbound_issues_project_mode_shape cere ca o iesire pe proiect sa NU aiba.
+              Prin acelasi formatDate cu care este scrisa ziua emiterii, si NUMAI afisata:
+              nicio casuta de data pe aceasta fisa, care nu editeaza nimic. */}
+          {directClient ? (
+            <span className="text-rc-muted-2" data-testid="issue-pickup-date-shown">
+              · ridicare {formatDate(issue.pickupDate)}
+            </span>
+          ) : null}
         </span>
       }
       chip={<Chip tone={tone(issue.status)}>{OUTBOUND_STATUS_LABEL[issue.status]}</Chip>}

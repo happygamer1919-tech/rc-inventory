@@ -48,6 +48,13 @@ perf-server.pid
 perf-run.log
 perf-count.txt
 
+# P3-120: memoria locala a unui hook de unealta al masinii pe care ruleaza
+# sesiunea, nu sursa. Se rescrie la fiecare editare de fisier si nu descrie nimic
+# despre acest proiect. A ajuns urmarita printr-un `git add -A` pe 2026-10-01 si
+# este scoasa in acelasi card, din acelasi motiv pentru care P3-05b a scos starea
+# CLI-ului Supabase: o unealta locala nu are ce sa caute intr-un pull request.
+.impeccable/
+
 # Stare locala a CLI-ului Supabase, nu sursa. .branches/_current_branch si
 # .temp/cli-latest sunt scrise de `supabase start` si `supabase db reset` pe
 # masina fiecaruia si nu descriu nimic despre proiect. Au ajuns urmarite pe

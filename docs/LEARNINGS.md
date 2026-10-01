@@ -8367,3 +8367,71 @@ somebody can OPEN, and it now travels the path an operator actually travels. RUL
 is the element that carries the handler, not the element that looks clickable.** When a click
 succeeds and the next assertion finds nothing, look for a link or a button nested inside what was
 clicked, rather than assuming the navigation is slow.
+
+### A second foreign key to the same table turns a working embed into an ambiguous one
+**Tag:** data
+**ERROR:** `lib/data/outbound.ts` embedded `projects ( id, name, client_id, clients ( id, name ) )`
+for years, and reaching the direct client of an issue needs a `clients` embed at the TOP level of
+the same select. Migration 0067 gave `public.outbound_issues` its own foreign key to
+`public.clients`, so from that migration onward there are TWO paths between those two tables: the
+direct one and the one through `projects`. A bare `clients ( id, name )` can therefore make
+PostgREST refuse the whole query with a relationship error naming more than one candidate, and the
+screen answers 500 rather than showing a missing name. The trap is that the OLD nested embed keeps
+working untouched, so nothing about the existing line warns you.
+**SOLUTION:** write the foreign key hint, `clients!outbound_issues_client_id_fkey ( id, name )`, and
+**read the constraint name out of the migration rather than assuming it**. 0067 declares the column
+as `client_id uuid references public.clients (id) on delete restrict`, inline and unnamed, and
+PostgreSQL names an inline constraint `<table>_<column>_fkey`. Alias the embed
+(`direct_client:clients!...`) so the row type does not carry two keys called `clients` at two
+depths. RULE: **the moment a migration adds a foreign key to a table some select already reaches by
+another route, every embed of that table in that select needs a hint.** Do not answer it with a
+second query per row: that turns one request into one per row on a list screen.
+
+### A check that greps a pending column name anywhere also greps your comments
+**Tag:** checks
+**ERROR:** `npm run check:pending-schema-reads` refused `lib/data/outbound-types.ts` and
+`components/orders/OutboundPanel.tsx` for naming the column `issue_mode`. Neither file reads a
+table: one is a pure type module, the other a browser component that receives its data as a prop.
+Both named the column only inside an explanatory COMMENT. The check searches `\b<column>\b`
+**anywhere in the file** on purpose, and its own header says why: a column list moved into a
+constant and passed to `select` later no longer contains the name at the call site, so a check that
+looked only inside `select(...)` would miss the file that had just been refactored.
+**SOLUTION:** the comments were rephrased to describe the column instead of naming it ("coloana de
+mod pe care migratia 0067 a adaugat-o"), and the one place that genuinely needs the literal is the
+read path, which imports and uses the gate. The `TOLERATED_WORDS` allowlist was NOT widened: an
+entry there is a standing decision about a file, and a comment is not worth one. RULE: **in a file
+with no database read, describe a pending column rather than naming it.** The check cannot tell a
+comment from a select, and it is right not to try, because the version that tried was the version
+that missed a real defect.
+
+### A one pixel alignment assertion breaks on any honest addition above the thing it measures
+**Tag:** test
+**ERROR:** `tests/e2e/phone-lists.spec.ts` case (5) proved that desktop Comenzi still has two
+columns with
+`expect(Math.abs(outList.y - inList.y)).toBeLessThanOrEqual(1)` over the two `<ul>` elements. Adding
+the mode filter inside the Ieșiri card, between its header and its list, moves the outbound `<ul>`
+down by that control's height while the two columns remain perfectly side by side. The assertion was
+measuring a CONSEQUENCE of both cards having identical structure, not the property it was written to
+defend, and nothing in the case said so.
+**SOLUTION:** the measurement became `expect(outList.y).toBeLessThan(inList.y + inList.height)`,
+"the columns overlap vertically, so they are not stacked", which is the exact negation of what case
+(4) measures on the phone with the same instrument; the horizontal assertion beside it already
+proved side-by-side and was left alone. RULE: **when a layout test pins two elements to within a
+pixel, ask what a correct future change would do to that number.** An alignment that depends on
+whether a header's text wraps is a trap: it goes red at some screen width or some translation with
+the layout entirely right, and by then nobody remembers what the number meant.
+
+### A list test that walks "the first row" walks whichever row the newest write made
+**Tag:** test
+**ERROR:** `tests/e2e/cross-links.spec.ts` opened the FIRST issue on `/comenzi` and asserted
+`issue-project-link` is visible. Once an outbound issue can exist with no project at all, and a
+direct client issue cannot have one by `outbound_issues_direct_client_mode_shape`, that link stops
+being rendered on that mode: a "Proiect neasociat" fallback there would be a sentence about a
+missing thing that does not exist. The list is ordered `created_at` descending and the suite writes
+issues of both modes from several spec files, so the newest row can be either one, and the case
+would pass or fail on write ordering rather than on anything it claims.
+**SOLUTION:** a helper walks the list to the first issue that actually HAS a project link, and
+returns null when none does, so the case skips with a message exactly like the existing "no outbound
+issue in the database" branch beside it. What the case defends did not change. RULE: **a test that
+says "the first row" is asserting about whichever row the most recent write produced.** When the
+rows stop being interchangeable, make the test find the row its assertion is about.
