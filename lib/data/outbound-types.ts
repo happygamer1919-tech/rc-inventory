@@ -46,12 +46,29 @@ export type OutboundLine = {
 export type OutboundIssue = {
   id: string;
   reference: string;
+  /** P3-120, hotararea R-215. Care fel de eliberare a fost aceasta, citita din
+   *  coloana `issue_mode` pe care migratia 0067 a adaugat-o.
+   *
+   *  NU ESTE NULABIL, SI ASTA ESTE O AFIRMATIE SI NU O COMODITATE. Cat timp 0067
+   *  nu este aplicata nu poate exista nicio iesire catre client direct, deci
+   *  fiecare rand ESTE un rand de mod "project", care este si implicitul coloanei.
+   *  "project" nu inseamna aici "nu se stie", inseamna exact ce scrie.
+   *
+   *  CA SCHEMA SA NU FIE CITITA DE PE RAND: faptul ca al doilea mod exista in
+   *  schema este o proprietate a BAZEI si nu a unei iesiri, deci el nu se ascunde
+   *  in acest camp. Ecranele il primesc separat, prin `modeVisible`, si acolo este
+   *  scris de ce. */
+  mode: OutboundMode;
   /** P3-10: destinatia ca inregistrare, pentru legaturi. Null cat timp randul
    *  istoric nu a fost reconciliat de P3-04. */
   projectId: string | null;
   clientId: string | null;
   clientName: string;
   projectName: string;
+  /** P3-120. Ziua ridicarii, numai pe o iesire catre client direct: o iesire pe
+   *  proiect nu are una, prin outbound_issues_project_mode_shape. Null si cat timp
+   *  migratia 0067 nu este aplicata. */
+  pickupDate: string | null;
   issuedAt: string;
   shippedAt: string | null;
   status: OutboundStatus;
