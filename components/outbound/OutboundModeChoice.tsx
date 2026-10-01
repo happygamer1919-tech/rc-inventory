@@ -41,9 +41,21 @@ export function OutboundModeChoice({
   onChange: (mode: OutboundMode) => void;
 }) {
   return (
-    <Card>
-      <CardHeader title="Tip ieșire" hint="Ce fel de eliberare este aceasta" />
-      {/* fieldset FARA marginile lui implicite, ca sa arate exact ca restul
+    /* data-testid="field-issue-mode" CUPRINDE SI TITLUL VIZIBIL, nu numai butoanele.
+       Acceptanta (a) cere ca zona alegerii sa ARATE "Tip ieșire" pe ecran, iar
+       cuvintele acelea se vad din CardHeader. Cat timp marca sta pe fieldset,
+       singurul loc din el care le scria era legenda ascunsa, deci scoaterea ei a
+       lasat cazul (a) fara nimic de citit (rularea 36869250041).
+       DE CE UN div IN JURUL CARDULUI SI NU MARCA PE Card: primitiva Card din
+       components/ui/primitives.tsx primeste doar className si children si nu trece
+       mai departe nicio marca, iar a o largi ar schimba un fisier folosit de tot
+       restul aplicatiei pentru nevoia unui singur card. Un div fara nicio clasa nu
+       schimba nimic in asezare: Card ramane singurul copil al fluxului space-y-4.
+       Cazul (a) a rămas neatins. */
+    <div data-testid="field-issue-mode">
+      <Card>
+        <CardHeader title="Tip ieșire" hint="Ce fel de eliberare este aceasta" />
+        {/* fieldset FARA marginile lui implicite, ca sa arate exact ca restul
           cardurilor. Grupul ARE NEVOIE DE UN NUME pentru cititorul de ecran, iar
           titlul cardului il spune deja celui care vede, deci numele este dat prin
           aria-label SI NU PRINTR-UN <legend class="sr-only">.
@@ -55,8 +67,8 @@ export function OutboundModeChoice({
           aria-label da exact acelasi nume grupului, fara niciun element de
           desenat, deci nu exista nimic de taiat. Detectorul lui P3-67 NU s-a
           atins: el apara orice alt ecran si a avut dreptate aici. */}
-      <fieldset className="p-5 m-0 border-0" data-testid="field-issue-mode" aria-label="Tip ieșire">
-        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+        <fieldset className="p-5 m-0 border-0" aria-label="Tip ieșire">
+          <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {/* LISTA MODURILOR VINE DIN ALL_OUTBOUND_MODES si nu este scrisa aici,
               acelasi motiv pentru care unitatile vin din ALL_UNITS: un mod adaugat
               mai tarziu apare pe ecran fara sa fie nevoie de o a doua editare. */}
@@ -92,8 +104,9 @@ export function OutboundModeChoice({
               </label>
             );
           })}
-        </div>
-      </fieldset>
-    </Card>
+          </div>
+        </fieldset>
+      </Card>
+    </div>
   );
 }

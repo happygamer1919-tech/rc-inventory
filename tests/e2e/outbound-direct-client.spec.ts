@@ -805,7 +805,14 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
   await expect(row, "clientul creat din Iesiri este un rand obisnuit in Clienți").toHaveCount(1, {
     timeout: 25_000,
   });
-  await row.click();
+  // SE APASA LEGATURA DIN RAND SI NU RANDUL. Randul este un <tr> fara niciun
+  // onClick (components/clients/ClientsScreen.tsx), iar navigarea este a
+  // <Link data-testid="client-link"> din prima celula, deci un clic pe rand nu
+  // ducea nicaieri si fisa nu se deschidea niciodata: asa a picat acest caz pe
+  // rularea 36869250041, la toBeVisible, cu "element(s) not found".
+  // ASTA ESTE CHIAR CE CERE R-215, un rand pe care cineva il poate DESCHIDE, deci
+  // cazul s-a intarit: acum trece pe calea pe care o foloseste un operator.
+  await row.getByTestId("client-link").click();
   await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
   await expect(page.getByTestId("client-detail")).toContainText(newClient);
 

@@ -287,8 +287,48 @@ for its sibling case, that a placeholder is an attribute and is not in `innerTex
 one test later. Both pairs are in `docs/LEARNINGS.md`, and both signatures were appended to the
 factory's `KNOWN-FAILURES.md`.
 
-**No check was made to pass by weakening what it checks:** nothing was deleted or skipped, no
-threshold was loosened, no `|| true` was added, and neither fix touched another card's spec.
+### Run 36869250041, the second End to end run: both fixes worked and each uncovered the next thing
+
+Case (e) of card P3-67 went **green**, so the `aria-label` fix was right, and the `toHaveValue`
+assertion passed too, the failure in that case having moved thirty lines further down. Two cases
+failed, both consequences of this card.
+
+**First, acceptance (a) was reddened by the previous fix itself**, which is worth stating plainly.
+The hidden legend that was deleted had been **the only thing inside the `<fieldset>` that wrote the
+words "Tip ieșire"**, and `data-testid="field-issue-mode"` sat on that fieldset, so the case read
+back the option labels and nothing else.
+
+Fixed by **moving the test id outward**, from the fieldset to a plain wrapper `<div>` around the
+whole `<Card>`, so the named region contains the **visible** `CardHeader` title as well as the
+controls. **The case was not edited:** it still asserts exactly what it always asserted, that the
+choice region shows its Romanian label on screen, and it now reads that from the title everybody can
+see instead of from a label only a screen reader could. A `<div>` rather than the `Card` itself,
+because `Card` in `components/ui/primitives.tsx` takes only `className` and `children` and forwards
+no attributes, and widening a primitive the whole application uses for one card's convenience is the
+worse trade.
+
+**Second, the last step of acceptance (c)** failed with `element(s) not found` on `client-detail`,
+after the row had been found with `toHaveCount(1)` and clicked without error.
+`components/clients/ClientsScreen.tsx` renders each row as a `<tr>` carrying `data-testid`,
+`data-id` and `data-name` **and no `onClick`**: the navigation belongs to the
+`<Link data-testid="client-link">` in the first cell, and `client-detail` is a separate **page** at
+`/clienti/[id]` and not a panel, so clicking the `<tr>` could never open anything. It became
+`row.getByTestId("client-link").click()`. **The case got stronger:** R-215 asks for a row somebody
+can *open*, and it now travels the path an operator actually travels.
+
+**Before this push, every test id the new cases reference was checked against the components**
+rather than trusted, because a 35 minute run is an expensive way to find a typo. All twenty eight
+resolve, including the template-literal ones, `issue-pickup-date` on the `DateField` text input, and
+every `client-create-*` field on the inline form.
+
+### The ceiling
+
+**Section 10's ceiling is three distinct attempts and this card used three:** the board clock; then
+the hidden legend plus the Combobox assertion; then the moved test id plus the row link.
+
+**No check was made to pass by weakening what it checks** at any point: nothing was deleted or
+skipped, no threshold was loosened, no `|| true` was added, no test of another card was edited, and
+each of the three assertions that did change was shown to **imply** the one it replaced.
 
 ## DEVIATIONS
 

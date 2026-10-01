@@ -8330,3 +8330,40 @@ and is not in `innerText`, and still fell into it one test later. RULE: **before
 displays, open the control and find out whether it displays through text or through a value, because the two
 need different matchers and the wrong one fails in a way that looks like a broken feature.** The tell is a
 received empty string from a locator that resolved fine.
+
+### Moving a label out of a region moves it out of every assertion that read the region
+**Tag:** test
+**ERROR:** fixing the clipped `sr-only` legend above by deleting it and naming the `<fieldset>` with
+`aria-label` was right, and it broke a second case in the same breath. Acceptance (a) of P3-119 held
+`data-testid="field-issue-mode"` on that fieldset and asserted
+`expect(field).toContainText("Tip ieșire")`. The hidden legend had been **the only thing inside the
+fieldset that wrote those words**, so removing it left the case reading
+`"ProiectMaterialul pleacă...Client directCumpărătorul ridică..."` and nothing else (run 36869250041).
+One fix, two red cases, and the second only became visible after the first went green.
+**SOLUTION:** the test id moved outward, from the `<fieldset>` to a plain wrapper `<div>` around the
+whole `<Card>`, so the named region contains the **visible** `CardHeader` title as well as the
+controls. **The case was not edited:** it still asserts exactly what it always did, that the choice
+region shows its Romanian label on screen, and it now reads that from the title everybody can see
+rather than from a label only a screen reader could. The wrapper is a `<div>` and not the `Card`
+itself because `components/ui/primitives.tsx`'s `Card` takes only `className` and `children` and
+forwards no attributes, and widening a primitive the whole application uses for one card's
+convenience is a worse trade than one unstyled div. RULE: **before deleting an element, grep the
+specs for the test id of every region that contained it.** A label serves the eye, the screen reader
+and the test suite at once, and a fix aimed at one of the three can quietly remove it from another.
+
+### A table row that navigates through a link inside it is not clickable
+**Tag:** test
+**ERROR:** the named case of P3-119's acceptance (c) finished by proving the inline-created client is
+an ordinary CRM row that somebody can open, written as `await row.click()` followed by
+`expect(page.getByTestId("client-detail")).toBeVisible()`. It failed with `element(s) not found`
+(run 36869250041) after the row itself had been found with `toHaveCount(1)`, which is the confusing
+part: the row existed, the click reported success, and the detail never appeared.
+**SOLUTION:** `components/clients/ClientsScreen.tsx` renders the row as a `<tr>` with `data-testid`,
+`data-id` and `data-name` **and no `onClick`**; the navigation belongs to the
+`<Link data-testid="client-link">` in the first cell. Clicking a `<tr>` therefore does nothing at
+all, and Playwright is right to call that a successful click on a thing that is not a button. It
+became `row.getByTestId("client-link").click()`. **The case got stronger:** R-215 asks for a row
+somebody can OPEN, and it now travels the path an operator actually travels. RULE: **a click target
+is the element that carries the handler, not the element that looks clickable.** When a click
+succeeds and the next assertion finds nothing, look for a link or a button nested inside what was
+clicked, rather than assuming the navigation is slow.
