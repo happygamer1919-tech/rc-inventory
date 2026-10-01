@@ -25,6 +25,33 @@ async function firstOutboundIssue(page: Page): Promise<string | null> {
   return "ok";
 }
 
+/** P3-120. Prima iesire de pe lista care ARE un proiect, si nu pur si simplu prima.
+ *
+ *  DE CE NU MAI MERGE "PRIMA". O iesire catre client direct NU ARE proiect, prin
+ *  outbound_issues_direct_client_mode_shape din migratia 0067, deci fisa ei nu
+ *  deseneaza nicio legatura catre un proiect: cardul P3-120 a inlocuit rezerva
+ *  "Proiect neasociat" cu o ABSENTA, fiindca "neasociat" ar fi o propozitie despre
+ *  o lipsa care nu exista. Lista este ordonata descrescator pe created_at si suita
+ *  scrie iesiri de amandoua felurile, deci randul cel mai nou poate fi oricare din
+ *  ele, si acest caz mergea pe el.
+ *
+ *  CE SE APARA AICI NU S-A SCHIMBAT: ca o iesire PE PROIECT duce la proiectul ei.
+ *  Se cauta randul despre care afirmatia vorbeste, in loc sa se presupuna ca primul
+ *  este el. Intoarce null cand niciunul nu are proiect, si atunci cazul spune ce a
+ *  gasit in loc sa cada, exact ca ramura "nicio iesire in baza" de mai sus. */
+async function outboundIssueWithProject(page: Page): Promise<string | null> {
+  await page.goto("/comenzi");
+  const items = page.getByTestId("outbound-item");
+  const count = await items.count();
+  for (let i = 0; i < count; i += 1) {
+    await items.nth(i).click();
+    await expect(page.getByTestId("outbound-panel")).toBeVisible({ timeout: 20_000 });
+    if ((await page.getByTestId("issue-project-link").count()) === 1) return "ok";
+    await page.goto("/comenzi");
+  }
+  return null;
+}
+
 test.describe("Legături între înregistrări", () => {
   test.describe.configure({ timeout: 120_000 });
 
@@ -96,11 +123,13 @@ test.describe("Legături între înregistrări", () => {
   }) => {
     await signIn(page, ownerAccount());
 
-    if (!(await firstOutboundIssue(page))) {
+    // P3-120: se cauta o iesire PE PROIECT, fiindca numai despre ea vorbeste
+    // jumatatea care urmeaza. Motivul intreg este la outboundIssueWithProject.
+    if (!(await outboundIssueWithProject(page))) {
       // Nicio iesire in baza: nimic de mers pe jos, si asta nu este un esec al
       // cardului. Suita creeaza iesiri in alte fisiere si ordinea nu este
       // garantata, deci testul spune ce a gasit in loc sa presupuna.
-      test.skip(true, "Nicio ieșire în baza de test");
+      test.skip(true, "Nicio ieșire pe proiect în baza de test");
       return;
     }
 

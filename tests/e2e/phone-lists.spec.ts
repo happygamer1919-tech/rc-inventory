@@ -400,7 +400,33 @@ test.describe("P3-64: listele pe telefon (390x844), un card pe rand", () => {
     await expect(page.getByTestId("inbound-list")).toBeVisible({ timeout: 20_000 });
     const inList = await page.getByTestId("inbound-list").boundingBox();
     const outList = await page.getByTestId("outbound-list").boundingBox();
-    expect(Math.abs(outList!.y - inList!.y), "intrarile si iesirile nu mai stau alaturi").toBeLessThanOrEqual(1);
+
+    // P3-120. SE MASOARA CA CELE DOUA COLOANE SE SUPRAPUN PE VERTICALA, si nu ca
+    // marginile lor de sus coincid la un pixel.
+    //
+    // CE APARA ACEST CAZ NU S-A SCHIMBAT: pe desktop ecranul Comenzi are DOUA
+    // COLOANE, adica lucrarea de telefon a cardurilor P3-60 si P3-64 nu a scurs
+    // nimic peste 768px. Afirmatia aceea este in intregime a celor doua randuri de
+    // mai jos: una spune ca iesirile stau LA DREAPTA intrarilor, cealalta ca stau
+    // la aceeasi inaltime si nu dedesubt.
+    //
+    // DE CE NU MAI MERGE `Math.abs(...) <= 1`. Pana la cardul P3-120 cele doua
+    // carduri aveau structura identica, un antet si o lista, deci cele doua `<ul>`
+    // incepeau la acelasi y, iar egalitatea aceea era o CONSECINTA a structurii si nu
+    // proprietatea apărată. Cardul P3-120 adauga filtrul pe mod in cardul Ieșiri,
+    // intre antetul lui si lista lui, deci lista de iesiri incepe acum mai jos cu
+    // inaltimea acelui control. Cele doua coloane au rămas alaturi.
+    //
+    // O TOLERANTA DE UN PIXEL PE O ALINIERE CARE DEPINDE DE CE SCRIE INTR-UN ANTET
+    // este o capcana si nu o garda: antetul cardului Ieșiri poarta un text care se
+    // poate rupe pe doua randuri la o lățime de ecran sau o traducere oarecare, si
+    // atunci cazul ar fi picat fara ca asezarea sa fi avut nimic. Se masoara ce se
+    // afirma: coloanele se suprapun pe verticala, adica NU sunt una sub alta.
+    // Negarea exacta a ce masoara cazul (4) pe telefon, cu acelasi instrument.
+    expect(
+      outList!.y,
+      "iesirile au cazut sub intrari, deci cele doua coloane s-au stivuit",
+    ).toBeLessThan(inList!.y + inList!.height);
     expect(outList!.x, "iesirile nu stau in dreapta intrarilor").toBeGreaterThan(inList!.x + inList!.width);
   });
 });

@@ -259,7 +259,12 @@ export function OrdersScreen({
                     </span>
                     <Chip tone={outboundTone(o.status)}>{OUTBOUND_STATUS_LABEL[o.status]}</Chip>
                   </div>
-                  <div className="flex items-center justify-between gap-3 mt-1">
+                  {/* max-md:flex-wrap SI max-md:gap-y-1 CA PE RANDUL DE DEASUPRA, si
+                      pentru acelasi motiv: pe telefon randul poarta de acum doua
+                      lucruri, destinatia si felul eliberarii, iar o destinatie lunga
+                      trece pe randul ei in loc sa impinga ceva in afara ecranului.
+                      Cazul (4) din phone-lists.spec masoara chiar asta pe /comenzi. */}
+                  <div className="flex items-center justify-between gap-3 mt-1 max-md:flex-wrap max-md:gap-y-1">
                     {/* P3-120. DESTINATIA, SI EA TREBUIE SA FIE ADEVARATA PE AMANDOUA
                         FELURILE. O iesire catre client direct NU ARE proiect, prin
                         outbound_issues_direct_client_mode_shape, deci randul ei scria

@@ -265,7 +265,13 @@ export function ProductPanel({
                   <Th>Context</Th>
                 </tr>
               </thead>
-              <tbody>
+              {/* P3-120. O MARCA PE CORPUL TABELULUI, exact ca `outbound-lines` si
+                  `outbound-history` pe fisa iesirii: acceptanta (c) are nevoie sa
+                  numere randurile de miscare ca sa poata arata ca randurile de INTRARE
+                  nu au capatat niciun fel de eliberare. Fara ea numararea s-ar face pe
+                  textul unei etichete, iar un test care numara text este un test care
+                  cade la prima reformulare. */}
+              <tbody data-testid="product-movements">
                 {movements.map((m) => (
                   <tr key={m.id} className={PHONE_ROW}>
                     <Td data-label="Dată" className={PHONE_CELL}>

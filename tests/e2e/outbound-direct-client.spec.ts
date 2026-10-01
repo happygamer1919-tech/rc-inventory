@@ -9,6 +9,9 @@ import {
   validateNewIssue,
 } from "@/lib/data/outbound-mode";
 import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
+// P3-120: ziua ridicarii se compara cu FUNCTIA care o scrie pe ecran si nu cu un
+// sir scris de mana, ca o schimbare de format sa nu treaca pe langa cazul (b).
+import { formatDate } from "@/lib/data/format";
 import { DIRECT_CLIENT_NOT_INVOICEABLE } from "@/lib/data/facturare-create-types";
 import { DATE_PLACEHOLDER } from "@/components/ui/DateField";
 import { managerAccount, ownerAccount, type TestAccount } from "./support/accounts";
@@ -948,6 +951,300 @@ test("iesire client direct: nu apare niciun buton de factura", async ({ page }) 
   expect(Number(lines.rows[0]?.sale_price_mdl ?? 0), "poziția are pret").toBe(25);
 });
 
+/* =======================================================================
+   CARDUL P3-120, ACCEPTANTA (a) LA (d)
+   =======================================================================
+
+   PARTEA A TREIA A ITEMULUI 2: modul se vede oriunde este listata o iesire.
+   Cazurile lui P3-118 de mai sus dovedesc DATELE, cele ale lui P3-119 dovedesc
+   FORMULARUL, iar acestea dovedesc CE CITESTE cineva care deschide ecranele.
+   Niciun caz de mai sus nu se atinge, si cel numit `iesire pe proiect: nimic nu s-a
+   schimbat` este chiar garda care spune ca nu s-a atins.
+
+   "RAPOARTE" NU ESTE O RUTA A ACESTEI APLICATII, aceeasi constatare ca deviatia D2
+   a cardului P3-117, si valoarea implicita a cardului P3-120 o spune pe fata. Cele
+   trei locuri in care o iesire este listata azi sunt lista de pe /comenzi, fisa
+   iesirii si istoricul miscarilor unui produs, si acelea sunt cele trei pe care le
+   masoara cazurile de mai jos. Nu se creeaza nicio ruta Rapoarte.
+
+   NUMELE CAZURILOR SUNT CELE PE CARE LE SCRIE CARDUL, CUVANT CU CUVANT, fara
+   diacritice, pentru acelasi motiv scris in antetul acestui fisier.
+
+   FIECARE CAZ ISI SEAMANA PROPRIA PERECHE DE IESIRI, prin seedModePair si cu
+   referinte ale lui. Un caz care s-ar sprijini pe iesirile scrise de un alt caz este
+   un caz care cade cand cineva ruleaza unul singur cu --grep, si beforeAll scrie deja
+   asta in atatea cuvinte. */
+
+/** Ziua de ridicare a iesirilor semanate de cazurile cardului P3-120, ca sir
+ *  `YYYY-MM-DD` exact cum o cere coloana `date`. Una singura si scrisa o data: cele
+ *  trei cazuri care o verifica pe ecran o compara cu acelasi formatDate. */
+const PICKUP_DAY = "2026-11-05";
+
+/** O iesire pe proiect si una catre client direct, ambele pe produsul de test, cu
+ *  referinte care poarta eticheta cazului. Intoarce cele doua referinte. */
+async function seedModePair(label: string): Promise<{ project: string; direct: string }> {
+  const project = `${TAG}-${label}-P`;
+  const direct = `${TAG}-${label}-D`;
+
+  const onProject = await createProjectIssue(
+    ownerToken,
+    project,
+    [{ product_id: productId, quantity: 1 }],
+    projectId,
+  );
+  expect(onProject.ok, `iesirea pe proiect ${project} a raspuns ${onProject.status}: ${onProject.text}`).toBe(
+    true,
+  );
+
+  const onDirect = await createDirectIssue(
+    ownerToken,
+    direct,
+    [{ product_id: productId, quantity: 1 }],
+    clientId,
+    PICKUP_DAY,
+  );
+  expect(onDirect.ok, `iesirea catre client direct ${direct} a raspuns ${onDirect.status}: ${onDirect.text}`).toBe(
+    true,
+  );
+
+  return { project, direct };
+}
+
+/** Randul unei iesiri de pe lista de pe /comenzi, cautat pe referinta. Pe
+ *  INREGISTRARE si niciodata pe textul vizibil, aceeasi regula pe care o scrie
+ *  OrdersScreen.tsx despre filtrarea lui. */
+function outboundRow(page: Page, reference: string) {
+  return page.locator(`[data-testid="outbound-item"][data-reference="${reference}"]`);
+}
+
+/* ------------------------------------------------------------------ (a) -- */
+
+test("lista iesirilor: fiecare rand arata modul in romana", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 1. Un rand care spune ca materialul a plecat din depozit si nu poate
+  // spune catre ce raspunde la jumatate de intrebare.
+  const { project, direct } = await seedModePair("C1");
+  await signIn(page, ownerAccount());
+  await page.goto("/comenzi");
+
+  const list = page.getByTestId("outbound-list");
+  await expect(outboundRow(page, project), `iesirea pe proiect ${project} este pe lista`).toHaveCount(1, {
+    timeout: 25_000,
+  });
+  await expect(outboundRow(page, direct), `iesirea directa ${direct} este pe lista`).toHaveCount(1, {
+    timeout: 25_000,
+  });
+
+  // FIECARE RAND ISI SPUNE MODUL, si cuvantul se compara cu OUTBOUND_MODE_LABEL si
+  // nu cu un sir scris in acest caz: o eticheta schimbata in component fara ca
+  // constanta sa se schimbe trebuie sa inroseasca, nu sa treaca pe un text copiat.
+  await expect(
+    outboundRow(page, project).getByTestId("outbound-item-mode"),
+    "randul de proiect isi spune modul",
+  ).toHaveText(OUTBOUND_MODE_LABEL.project);
+  await expect(
+    outboundRow(page, direct).getByTestId("outbound-item-mode"),
+    "randul de client direct isi spune modul",
+  ).toHaveText(OUTBOUND_MODE_LABEL.direct_client);
+
+  // SI AMANDOUA CUVINTELE SUNT PE LISTA, care este cealalta jumatate a acceptantei
+  // (a): nu doar ca fiecare rand poarta ceva, ci ca lista arata chiar cele doua
+  // cuvinte romanesti.
+  await expect(list).toContainText(OUTBOUND_MODE_LABEL.project);
+  await expect(list).toContainText(OUTBOUND_MODE_LABEL.direct_client);
+
+  // SI NICIUNUL DIN CELE DOUA TOKENURI STOCATE NU AJUNGE PE LISTA, P2-01: valoarea
+  // unui enum nu este text de interfata. Tokenurile vin din ALL_OUTBOUND_MODES si nu
+  // sunt scrise aici, deci un al treilea mod adaugat mai tarziu este verificat fara
+  // ca acest caz sa fie editat.
+  //
+  // DE DOUA ORI, PE TEXT SI PE MARCAJ, fiindca sunt doua afirmatii diferite. Textul
+  // spune ce CITESTE operatorul; marcajul spune ca tokenul nu a fost strecurat intr-un
+  // atribut "doar pentru test", care ar fi tot un token in pagina.
+  //
+  // INSTRUMENTUL SE DOVEDESTE CA GASESTE INAINTE SA FIE CREZUT CAND NU GASESTE NIMIC:
+  // o cautare care nu potriveste nimic trece la infinit.
+  const tokenIn = (haystack: string) =>
+    ALL_OUTBOUND_MODES.filter((token) => new RegExp(`\\b${token}\\b`).test(haystack));
+  expect(tokenIn("mode is direct_client here"), "instrumentul gaseste un token").toEqual([
+    "direct_client",
+  ]);
+  expect(tokenIn("Proiect si Client direct"), "si nu confunda cuvantul romanesc cu tokenul").toEqual(
+    [],
+  );
+
+  const listText = await list.innerText();
+  expect(tokenIn(listText), `un token stocat este scris pe lista: ${listText}`).toEqual([]);
+  const listMarkup = await list.innerHTML();
+  expect(tokenIn(listMarkup), "un token stocat este in marcajul listei").toEqual([]);
+});
+
+/* ------------------------------------------------------------------ (b) -- */
+
+test("detaliu iesire client direct: clientul este o legatura catre fisa lui si data de ridicare se vede", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 2. Trei afirmatii despre fisa unei iesiri catre client direct: ea isi
+  // numeste modul, clientul ei este o LEGATURA care duce la fisa lui, si ziua
+  // ridicarii se vede.
+  const { direct } = await seedModePair("C2");
+  await signIn(page, ownerAccount());
+  await openIssuePanel(page, direct);
+
+  await expect(page.getByTestId("issue-mode"), "fisa isi numeste modul").toContainText(
+    OUTBOUND_MODE_LABEL.direct_client,
+  );
+
+  // ZIUA RIDICARII, prin acelasi formatDate cu care este scrisa ziua emiterii: se
+  // compara cu functia si nu cu "05.11.2026" scris de mana, ca o schimbare de format
+  // sa nu poata trece pe langa acest caz.
+  await expect(
+    page.getByTestId("issue-pickup-date-shown"),
+    "ziua ridicarii se vede pe fisa",
+  ).toContainText(formatDate(PICKUP_DAY));
+
+  // SI NU EXISTA NICIO LEGATURA CATRE UN PROIECT, fiindca nu exista proiect: randul
+  // are project_id null prin outbound_issues_direct_client_mode_shape. O rezerva
+  // "Proiect neasociat" ar fi o propozitie despre o lipsa care nu exista.
+  await expect(
+    page.getByTestId("issue-project-link"),
+    "o iesire catre client direct nu are legatura catre proiect",
+  ).toHaveCount(0);
+
+  // CLIENTUL ESTE O LEGATURA ADEVARATA, si se merge pe ea: data-linked="true" spune
+  // ca RecordLink a desenat un <a> si nu text simplu.
+  const clientLink = page.getByTestId("issue-client-link");
+  await expect(clientLink, "clientul este o legatura si nu text simplu").toHaveAttribute(
+    "data-linked",
+    "true",
+  );
+  const clientName = (await clientLink.innerText()).trim();
+  expect(clientName, "legatura poarta numele clientului de test").toContain(CLIENT_NAME);
+
+  await clientLink.click();
+  await expect(page, "legatura duce la fisa chiar acelui client").toHaveURL(
+    new RegExp(`/clienti/${clientId}$`),
+    { timeout: 25_000 },
+  );
+  await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("client-detail"), "fisa deschisa este a lui").toContainText(
+    clientName,
+  );
+});
+
+/* ------------------------------------------------------------------ (c) -- */
+
+test("istoricul stocului: randurile de iesire poarta modul", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 3. Cine citeste de ce a scazut o cantitate deosebeste un bon catre
+  // santier de o vanzare la tejghea fara sa deschida fiecare rand.
+  const { project, direct } = await seedModePair("C3");
+  await signIn(page, ownerAccount());
+
+  // Panoul produsului se deschide dintr-un parametru de URL, pe sku, exact cum il
+  // deschide legatura din linia unei iesiri.
+  await page.goto(`/inventar?produs=${encodeURIComponent(`${TAG}-SKU`)}`);
+  const panel = page.getByTestId("product-panel");
+  await expect(panel).toBeVisible({ timeout: 25_000 });
+
+  const rows = page.getByTestId("product-movements").locator("tr");
+  const modes = page.getByTestId("movement-mode");
+  await expect
+    .poll(() => modes.count(), { timeout: 25_000 })
+    .toBeGreaterThanOrEqual(2);
+
+  // AMANDOUA FELURILE SUNT SCRISE, si cuvintele vin din OUTBOUND_MODE_LABEL.
+  const written = await modes.allInnerTexts();
+  const trimmed = written.map((t) => t.trim());
+  expect(trimmed, "randurile de iesire poarta modul proiect").toContain(OUTBOUND_MODE_LABEL.project);
+  expect(trimmed, "randurile de iesire poarta modul client direct").toContain(
+    OUTBOUND_MODE_LABEL.direct_client,
+  );
+
+  // SI RANDURILE DE INTRARE NU AU CAPATAT NICIUNUL. Produsul de test are un lot,
+  // scris de seedStock, deci exista cel putin un rand de intrare, iar el nu are fel
+  // de eliberare: o recepție de la furnizor nu este nici proiect, nici client direct.
+  // Se numara, fiindca aceasta este o afirmatie despre CATE randuri poarta modul.
+  const rowCount = await rows.count();
+  expect(
+    rowCount - trimmed.length,
+    `${rowCount} miscari si ${trimmed.length} moduri: randurile de intrare nu poarta mod`,
+  ).toBeGreaterThanOrEqual(1);
+
+  // SI CONTEXTUL UNEI IESIRI CATRE CLIENT DIRECT NUMESTE CUMPARATORUL. Pana la acest
+  // card el scria doar "Ieșire", adica nicio destinatie pe exact randul care explica
+  // de ce a scazut o cantitate.
+  await expect(panel, `miscarea ${direct} este pe lista`).toContainText(direct);
+  await expect(panel, `miscarea ${project} este pe lista`).toContainText(project);
+  await expect(panel, "contextul iesirii directe numeste cumparatorul").toContainText(CLIENT_NAME);
+});
+
+/* ------------------------------------------------------------------ (d) -- */
+
+test("lista iesirilor: filtrul pe mod arata numai modul ales", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // CLAUZA 4. O lista care arata o deosebire si nu se poate filtra pe ea il pune pe
+  // operator sa citeasca fiecare rand.
+  //
+  // IN AMANDOUA DIRECTIILE, cum cere acceptanta (d): un filtru care ar arata tot ar
+  // trece pe jumatatea "randul ales se vede" si nu ar filtra nimic.
+  const { project, direct } = await seedModePair("C4");
+  await signIn(page, ownerAccount());
+  await page.goto("/comenzi");
+
+  await expect(outboundRow(page, project)).toHaveCount(1, { timeout: 25_000 });
+  await expect(outboundRow(page, direct)).toHaveCount(1, { timeout: 25_000 });
+
+  const select = page.getByTestId("outbound-mode-filter-select");
+  await expect(select, "filtrul pe mod este pe ecran").toBeVisible();
+
+  // CELE TREI OPTIUNI, si numarul se citeste din ALL_OUTBOUND_MODES plus "Toate":
+  // un mod adaugat mai tarziu fara o opțiune in filtru trebuie sa inroseasca.
+  await expect(select.locator("option")).toHaveCount(ALL_OUTBOUND_MODES.length + 1);
+  await expect(select, "optiunea implicita arata tot").toHaveValue("toate");
+
+  // NUMAI PROIECT: randul de proiect se vede, cel de client direct dispare.
+  await select.selectOption("project");
+  await expect(outboundRow(page, project), "randul de proiect se vede").toHaveCount(1);
+  await expect(outboundRow(page, direct), "randul de client direct este ascuns").toHaveCount(0);
+
+  // NUMAI CLIENT DIRECT: exact pe dos. Aceasta este a doua directie.
+  await select.selectOption("direct_client");
+  await expect(outboundRow(page, direct), "randul de client direct se vede").toHaveCount(1);
+  await expect(outboundRow(page, project), "randul de proiect este ascuns").toHaveCount(0);
+
+  // SI "TOATE" LE ADUCE PE AMANDOUA INAPOI, ca filtrul sa fie o alegere si nu un
+  // drum fara intoarcere.
+  await select.selectOption("toate");
+  await expect(outboundRow(page, project)).toHaveCount(1);
+  await expect(outboundRow(page, direct)).toHaveCount(1);
+
+  // SI FILTRUL DE DESTINATIE AL CARDULUI P3-10 SE COMPUNE CU ACESTA, nu este
+  // inlocuit de el: pe /comenzi?client=<id> butonul lui de golire este pe ecran, iar
+  // alegerea "Proiect" taie din ce a lasat el. Iesirea directa este chiar catre acest
+  // client, deci ea trece filtrul de destinatie si cade abia la cel de mod: fara acest
+  // amanunt cazul ar trece si daca cele doua filtre s-ar inlocui unul pe altul.
+  await page.goto(`/comenzi?client=${clientId}`);
+  await expect(page.getByTestId("orders-clear-filter")).toBeVisible({ timeout: 25_000 });
+  await expect(outboundRow(page, direct), "iesirea directa trece filtrul de client").toHaveCount(1);
+
+  const composed = page.getByTestId("outbound-mode-filter-select");
+  await composed.selectOption("project");
+  await expect(
+    outboundRow(page, direct),
+    "cele doua filtre se aplica impreuna si nu unul in locul celuilalt",
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("orders-clear-filter"),
+    "filtrul de destinatie nu a fost golit de cel de mod",
+  ).toBeVisible();
+});
+
 /* ------------------------------------------------------------------ (f) -- */
 
 test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele schimbate", async ({
@@ -1131,6 +1428,25 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "lib/data/facturare-create-types.ts",
     "lib/data/facturare-create.ts",
     "tests/e2e/outbound-direct-client.spec.ts",
+    // CARDUL P3-120 ISI ADAUGA FISIERELE AICI, SI NU SCRIE O A DOUA VERIFICARE DE
+    // LINIUTE: regula este una singura, "nicio liniuta em sau en nicaieri", deci un
+    // al doilea caz care o masoara ar fi un al doilea loc de tinut la zi. Acceptanta
+    // (f) a cardului P3-120 este chiar randurile de mai jos.
+    "lib/data/outbound.ts",
+    "lib/data/products.ts",
+    "components/orders/OrdersScreen.tsx",
+    "components/inventory/ProductPanel.tsx",
+    "app/(app)/comenzi/page.tsx",
+    // SI CELE DOUA SPECIFICATII PE CARE P3-120 LE-A ATINS, fiecare pentru un motiv
+    // scris la locul lui: cross-links.spec cauta acum o iesire care ARE proiect in loc
+    // sa presupuna ca prima are unul, si phone-lists.spec masoara ca cele doua coloane
+    // se suprapun pe verticala in loc sa ceara ca marginile lor de sus sa coincida la
+    // un pixel. Niciuna din cele doua nu este pe lista de cazuri care trebuie sa treaca
+    // NEATINSE: aceea este `iesire pe proiect: nimic nu s-a schimbat` si tot
+    // tests/e2e/outbound.spec.ts, si amandoua au rămas neatinse.
+    "tests/e2e/cross-links.spec.ts",
+    "tests/e2e/phone-lists.spec.ts",
+    ".gitignore",
   ];
 
   // CELE DOUA SEMNE SE CONSTRUIESC DIN CODURILE LOR SI NU SE SCRIU, ca acest
