@@ -8193,3 +8193,102 @@ a one word column name that is also an ordinary English or Romanian word will be
 nothing to do with it, and the cost is paid by every future card, not by this one.** If a generic name is
 genuinely right, the mechanism is a `TOLERATED_WORDS` pair with a written reason, never a file exemption:
 an exemption blinds the check for every future migration too.
+
+### A clause that says "unchanged in every respect" is a structural instruction, not a promise to be careful
+**Tag:** design
+**ERROR:** card P3-119 adds a second mode to the outbound form and its clause 1 says the project mode is
+"COMPLETELY UNCHANGED in every respect: same fields, same validation, same behaviour, same stock effect",
+with the card adding that a card which alters the project path "has broken the one thing R-215 promises it
+will not touch". The obvious implementation is one form with the mode branching inside it: one `problems`
+array with `if (mode === "project")` in it, one `submit` that assembles a different payload per mode, one
+JSX tree with conditional fields. **Every one of those lines is an edit to the project path.** It would
+almost certainly still behave identically, and that is the trap: "unchanged" would then be a claim resting
+on the author's care, re-earned by every later reader of a function with two modes tangled in it, and
+unprovable by any diff.
+**SOLUTION:** the card's own `defaults` say what to do, and it is a structural instruction: "keep the
+project path byte-for-byte and add beside it." The previous body of `OutboundScreen.tsx` was **moved**
+whole into `OutboundProjectForm.tsx`, a new `OutboundDirectClientForm.tsx` was written next to it, and
+`OutboundScreen.tsx` became a shell holding the chosen mode and nothing else. `diff` between the moved
+file and `origin/main`'s original is then short enough to read in full: comments, the function name, two
+props, one import, one line of JSX, and the empty-catalog branch moved up to the shell because it stops
+both modes. RULE: **when a card forbids changing an existing path, the answer is a MOVE plus a sibling,
+not a careful edit.** The test is the question "can I show the whole diff of the protected path in the
+pull request body", and a branch inside a shared function can never answer yes. The cost is real and is
+paid knowingly: the two line tables are now near-duplicates and can drift. That is a smaller risk than an
+unprovable claim, the card weighs it explicitly, and the note in the new file says a later card may unify
+them once the project mode is free to move.
+
+### The screen and the server refusing the same thing is the design, but two copies of the sentence are not
+**Tag:** design
+**ERROR:** clause 6 of P3-119 requires the form to refuse a half-filled mode **on screen** with a Romanian
+message naming what is missing, and notes that the database refuses it too, "and both refusals existing is
+the design: the screen tells the operator, the constraint protects every other caller". So three layers
+must refuse: the browser, `validateNewIssue` in the server action, and the two check constraints from
+migration 0067. The easy reading is that the screen therefore writes its own sentences. It must not: the
+operator would then be told "Alege clientul." by one layer and "Alege clientul care ridică materialele."
+by another, and the first correction to either would move one and leave the other, which is the defect
+cards P3-61 and P3-98 were raised for.
+**SOLUTION:** the sentences were lifted out of `validateNewIssue` into an exported `ISSUE_REFUSAL` object
+in the same module, which is not marked `"use server"` and so can be imported by a browser component. The
+form reads the same constants the server action returns. **The number of layers that refuse and the number
+of copies of the sentence are separate decisions**, and conflating them is how a codebase ends up with two
+wordings of one rule. The same move was needed a second time in this card: P3-118's Romanian
+not-invoiceable sentence lived in `facturare-create.ts`, which is server-only, and clause 7 requires the
+form's confirmation to show **that** sentence, so it moved to `facturare-create-types.ts` as
+`DIRECT_CLIENT_NOT_INVOICEABLE`. RULE: **when a second caller must show a sentence a first caller owns,
+move the sentence to the nearest module with no server marking and leave the logic where it is.**
+
+### "What cannot be used does not appear" and "a disabled button must say why" are not in conflict, they answer different questions
+**Tag:** design
+**ERROR:** clause 7 of P3-119 says no invoice button appears on a direct client issue, "a visible absence
+and not a broken button". Card P3-110 had shipped the opposite-looking rule on the same panel: the invoice
+button stays, disabled, with a Romanian sentence beside it, because "a grey button with no sentence next to
+it" is the defect cards P3-61 and P3-98 were raised for. Implementing clause 7 by simply hiding the button
+whenever `canInvoice` is false would have deleted P3-110's rule; implementing P3-110 by keeping the button
+would have broken clause 7.
+**SOLUTION:** the two rules split on whether the refusal can ever be undone. A missing line price gets a
+price; a cancelled invoice goes away; those are temporary, so the button stays and tells the operator what
+to change, which is P3-110's whole point. A direct client issue is never invoiceable, on the owner's
+instruction under R-215, so a button there could never be pressed by anyone and the standing habit applies.
+`IssueInvoiceability` therefore gained a `neverInvoiceable` flag set true in exactly one branch, and the
+panel renders no button only for that branch. **The reason sentence is kept in both cases**, because an
+absence with no explanation is a question with no answer. RULE: **before reconciling two UI rules that seem
+to contradict, ask what question each is answering.** Here one is about a state the operator can leave and
+the other about a state nobody can leave, and once named, the flag that distinguishes them writes itself.
+
+### An earlier card's test may be made STRICTER by a later card, and the difference from weakening it must be stated
+**Tag:** process
+**ERROR:** P3-118 shipped a named case asserting that the invoice button on a direct client issue is
+`toBeDisabled()`, which was correct on the day. Clause 7 of P3-119 requires that button not to exist, so
+that line had to change, and "the later card edited the earlier card's test" is exactly the shape of the
+forbidden move: the close-out block's three laws say a check is never made to pass by weakening what it
+checks.
+**SOLUTION:** the line became `toHaveCount(0)`, and the comment above it says what happened and why this is
+the opposite of weakening: **"does not exist" implies "cannot be pressed"**, so the assertion is strictly
+stronger than the one it replaces, and the Romanian reason it also asserts is still required. RULE: **when a
+card must edit a shipped test of another card, say so at the line, name the clause that requires it, and
+show that the new assertion IMPLIES the old one.** If it does not imply the old one, the edit is a weakening
+and the card is wrong, not the test. Stating the implication at the line is what lets a reviewer tell the
+two apart without reconstructing both cards.
+
+### A spec that checks "no English on screen" must read the screen, and one that checks "no long dash" must read the files
+**Tag:** test
+**ERROR:** acceptance (f) of P3-119 asks for a no-English-string check over the changed components and a
+grep of those files for em and en dashes. Writing both as one file scan is the natural move and it fails
+twice over. This card's own comments quote the card in English, word for word and deliberately, so a source
+scan for English words reports the comments; that is the same trap `KNOWN-FAILURES.md` records twice for
+this repository, once where a grep for "delete" matched a comment quoting the doctrine and once where an
+assertion matched a comment quoting the expression it forbade.
+**SOLUTION:** the two properties are about different things and are measured with different instruments.
+"No English reaches the screen" is about TEXT, so it reads the rendered DOM, where comments, class names and
+test ids do not exist. "No long dash anywhere" is about FILES, and there the comments **do** count. Three
+further details each of which would have cost a CI run: `innerText` returns CSS-transformed text, so the
+`uppercase` class on `Th` makes "Cantitate" arrive as "CANTITATE" and every English word is therefore also
+matched in upper case; a placeholder is an attribute and is NOT in `innerText`, so a screen could carry an
+English hint and pass a text-only sweep, which is why the placeholders are gathered and scanned too; and
+the dash characters are built with `String.fromCharCode` rather than typed, because the spec file is in its
+own scanned list and would otherwise accuse itself. Both matchers are proved against a string written in
+the test, because a grep in a test that matches nothing passes forever. RULE: **decide whether a property is
+about the text or about the code before choosing the instrument, and scan attributes as well as text when
+the question is what the operator can see.**
+
