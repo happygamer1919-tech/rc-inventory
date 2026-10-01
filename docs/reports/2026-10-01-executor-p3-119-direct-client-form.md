@@ -239,6 +239,57 @@ nothing should be inherited, and three commits existed. **The card won, as the b
 instructed**, and the inherited work was verified against the card rather than rebuilt. No
 clause of the card was found to be wrong, and the brief was right about everything else.
 
+## THE RED RUNS, AND WHAT THEY FOUND
+
+A card that went green on the first push would be the only kind this report could not describe
+honestly. Two runs were refused. **Section 10's ceiling is three distinct attempts; this card used
+two.**
+
+### Run 36864192680, refused in 1m41s by `check-board-clock`
+
+`card P3-119.last_checkpoint = 2026-10-01T13:10:00Z, 23 minute(s) ahead`, and the same for
+`evidence.at`. **A card's two timestamps get zero slack** where the board's `as_of` gets sixty
+minutes, and both had been typed as a rounded time. The factory's `KNOWN-FAILURES.md` records this
+exact signature under "A board time ahead of its commit" and prescribes the fix used here: read the
+clock **in the process that writes the board**, commit after it, and run `npm run check:board-clock`
+locally before the push. That check is not in the close-out gate list; it was run anyway, and it
+passes.
+
+### Run 36864530498, 520 passed and 2 failed in End to end
+
+Both failures were caused by this card and both were fixed at the cause.
+
+**First, case (e) of card P3-67** in `tests/e2e/phone-remainder.spec.ts` went red with
+`text taiat pe /iesiri` and `legend[] "Tip ieșire" 64>1`. The choice renders on the **default
+project screen too**, so it reached `/iesiri` for every caller. Its group name was a `<legend>`
+carrying `sr-only`, which is `position:absolute; width:1px; height:1px; overflow:hidden` and
+therefore a **real box of 1px**: it passes that spec's visibility gate, and 64px of text against a
+1px box is exactly the shape of genuinely clipped text.
+
+Fixed by deleting the hidden legend and naming the group with **`aria-label` on the `<fieldset>`**,
+which has an implicit `role="group"`, so a screen reader hears the same name and there is no element
+to draw and so nothing to clip. **The detector was not touched, and that is the point:** it belongs
+to another card, it guards every other screen at phone width, it was right here, and an `sr-only`
+exemption would have blinded it to the next element genuinely clipped to a pixel.
+
+**Second, the named case of acceptance (c)** failed with `Received string: ""` after its locator had
+resolved twenty four times. **The feature was not broken, and that was verified line by line before
+the assertion was touched:** the created client is merged into `allClients` so it is among
+`clientOptions`, and `onCreated` calls `setClientId(choice.id)`. The assertion was the fault.
+`components/ui/Combobox.tsx` shows the chosen option as `<input value={shown}>`, and **an input's
+value is not in `textContent`**, so `toContainText` on the wrapping box could never have passed
+however well the code worked.
+
+It became `toHaveValue` on the input, which is **stronger and not weaker**, the distinction that
+matters whenever a red test is changed: `toHaveValue` demands the whole name exactly, where
+`toContainText` demanded only that it be contained. This card had already written the same lesson
+for its sibling case, that a placeholder is an attribute and is not in `innerText`, and fell into it
+one test later. Both pairs are in `docs/LEARNINGS.md`, and both signatures were appended to the
+factory's `KNOWN-FAILURES.md`.
+
+**No check was made to pass by weakening what it checks:** nothing was deleted or skipped, no
+threshold was loosened, no `|| true` was added, and neither fix touched another card's spec.
+
 ## DEVIATIONS
 
 **None against the card.** One against the brief, stated above and in the pull request body:

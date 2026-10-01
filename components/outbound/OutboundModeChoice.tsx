@@ -44,11 +44,18 @@ export function OutboundModeChoice({
     <Card>
       <CardHeader title="Tip ieșire" hint="Ce fel de eliberare este aceasta" />
       {/* fieldset FARA marginile lui implicite, ca sa arate exact ca restul
-          cardurilor. Legenda este ascunsa vizual si nu cu display none: un
-          cititor de ecran are nevoie de ea, iar titlul cardului o spune deja
-          celui care vede. */}
-      <fieldset className="p-5 m-0 border-0" data-testid="field-issue-mode">
-        <legend className="sr-only">Tip ieșire</legend>
+          cardurilor. Grupul ARE NEVOIE DE UN NUME pentru cititorul de ecran, iar
+          titlul cardului il spune deja celui care vede, deci numele este dat prin
+          aria-label SI NU PRINTR-UN <legend class="sr-only">.
+          DE CE NU UN legend ASCUNS: `sr-only` lasa o caseta adevarata de 1px cu
+          overflow ascuns, deci elementul trece de pragul de vizibilitate al
+          detectorului de text taiat din phone-remainder.spec (cardul P3-67) si
+          apoi cade pe el, fiindca textul lui are 64px intr-o caseta de 1px. Asta
+          a inrosit chiar cazul (e) al acelui card pe rularea 36864530498.
+          aria-label da exact acelasi nume grupului, fara niciun element de
+          desenat, deci nu exista nimic de taiat. Detectorul lui P3-67 NU s-a
+          atins: el apara orice alt ecran si a avut dreptate aici. */}
+      <fieldset className="p-5 m-0 border-0" data-testid="field-issue-mode" aria-label="Tip ieșire">
         <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {/* LISTA MODURILOR VINE DIN ALL_OUTBOUND_MODES si nu este scrisa aici,
               acelasi motiv pentru care unitatile vin din ALL_UNITS: un mod adaugat

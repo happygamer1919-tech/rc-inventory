@@ -773,7 +773,20 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
   // Formularul se inchide si clientul este DEJA ALES: operatorul are cumparatorul
   // in fata si nu trebuie sa il mai caute.
   await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
-  await expect(page.getByTestId("field-client")).toContainText(newClient);
+
+  // CLIENTUL ALES SE CITESTE DIN VALOAREA CAMPULUI SI NU DIN TEXTUL CASETEI.
+  // Combobox arata alegerea ca <input value={...}>, iar valoarea unui input NU
+  // este in textContent, deci `toContainText` pe caseta care il cuprinde nu putea
+  // trece niciodata, oricat de bine ar fi mers codul: pe rularea 36864530498 a
+  // raportat sirul gol dupa ce localizatorul se rezolvase de 24 de ori. Este chiar
+  // capcana pe care acest card si-a scris-o in docs/LEARNINGS.md despre
+  // placeholder, aplicata unui caz vecin si ratata acolo.
+  // AFIRMATIA S-A INTARIT SI NU S-A SLABIT: `toHaveValue` cere numele exact si
+  // intreg, iar `toContainText` cerea doar sa fie cuprins.
+  await expect(
+    page.getByTestId("field-client").locator("input"),
+    "clientul creat pe loc este deja ales in camp",
+  ).toHaveValue(newClient);
 
   // SI IESIREA SE DUCE PANA LA CAPAT CU EL, ca sa se vada ca randul creat este bun
   // de folosit si nu doar bun de aratat.

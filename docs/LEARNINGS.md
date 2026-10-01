@@ -8292,3 +8292,41 @@ the test, because a grep in a test that matches nothing passes forever. RULE: **
 about the text or about the code before choosing the instrument, and scan attributes as well as text when
 the question is what the operator can see.**
 
+
+### A visually hidden legend is a real 1px box, so a clipped-text detector finds it and is right to
+**Tag:** test
+**ERROR:** card P3-119 put its "Tip ieșire" choice in a `<fieldset>` with a `<legend className="sr-only">`,
+which is the ordinary way to name a radio group for a screen reader while letting the card title say it to
+everyone who can see. The choice renders on the DEFAULT project screen too, so it reached `/iesiri` for every
+caller, and case (e) of card P3-67 in `tests/e2e/phone-remainder.spec.ts` went red at 390x844 with
+`text taiat pe /iesiri` and `legend[] "Tip ieșire" 64>1` (run 36864530498). The number is the whole story:
+`sr-only` is `position:absolute; width:1px; height:1px; overflow:hidden`, so the element has a REAL box of
+1px, it passes that spec's visibility gate (`rect.width > 0 && rect.height > 0 && visibility !== "hidden"`),
+and then its 64px of text against a 1px box is exactly the shape of genuinely clipped text.
+**SOLUTION:** the group name moved to `aria-label` on the `<fieldset>` and the hidden `<legend>` was deleted.
+A fieldset has an implicit `role="group"`, so `aria-label` names it identically for a screen reader, and
+there is no element to draw and therefore nothing to clip. **THE DETECTOR WAS NOT TOUCHED**, and that is the
+point: it belongs to another card, it guards every other screen at phone width, and an exemption for
+`sr-only` would have blinded it to the next element genuinely clipped to a pixel. RULE: **a visually hidden
+element is hidden to the eye and present to the layout, so any geometric check will find it. When a
+geometric check objects to a hidden label, delete the label and name the thing with an attribute, rather
+than teaching the check to look away.**
+
+### A combobox shows its choice as an input value, and an input value is not text
+**Tag:** test
+**ERROR:** the named case of P3-119's acceptance (c) creates a client inline and then asserts the picker is
+already showing it, written as `await expect(page.getByTestId("field-client")).toContainText(newClient)`.
+It failed with `Received string: ""` after the locator had resolved twenty four times (run 36864530498),
+which reads like the feature not working and was not: `components/ui/Combobox.tsx` renders the chosen option
+as `<input value={shown}>`, and **an input's value is not in `textContent`**, so that assertion could never
+have passed however well the code worked. The implementation was correct and was verified line by line
+before the assertion was touched: the created client is merged into `allClients`, so it is among
+`clientOptions`, and `onCreated` calls `setClientId(choice.id)`.
+**SOLUTION:** `await expect(page.getByTestId("field-client").locator("input")).toHaveValue(newClient)`.
+**The assertion got STRONGER, not weaker**, which is the distinction that matters when a red test is
+changed: `toHaveValue` demands the whole name exactly, where `toContainText` demanded only that it be
+contained. This card had ALREADY WRITTEN THE LESSON for its sibling case, that a placeholder is an attribute
+and is not in `innerText`, and still fell into it one test later. RULE: **before asserting on what a control
+displays, open the control and find out whether it displays through text or through a value, because the two
+need different matchers and the wrong one fails in a way that looks like a broken feature.** The tell is a
+received empty string from a locator that resolved fine.
