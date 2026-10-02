@@ -17,14 +17,31 @@ import "server-only";
 // Cardurile care le construiesc, P3-131, P3-132 si P3-133, au tasksVisible() mai
 // jos cand vor avea nevoie sa spuna altceva.
 //
-// CE NU ESTE AICI, SI UNDE ESTE. NICIUN FILTRU, NICIO SORTARE SI NICIO GALEATA.
-// Cele cinci filtre, cele trei sortari si cele trei galeti Azi, Aceasta saptamana
-// si Restante sunt clauzele 3, 4 si 6 ale cardului P3-131, iar ele au nevoie de o
-// singura definitie a zilei, chisinauToday(), pe care acel card o citeste din locul
-// in care o citeste si ecranul Azi. Scrise aici, in cardul care nu are ecran, ar fi
-// o a doua definitie a lui "intarziat", scrisa de cineva care nu vede ecranul: exact
-// defectul pe care clauza 6 a acelui card este scrisa ca sa il previna. Ce se da mai
-// jos sunt citirile de baza pe care el le va imbraca.
+// CE NU ESTE AICI, SI UNDE ESTE. PANA LA CARDUL P3-131 ACEST ANTET SPUNEA, SI
+// AVEA DREPTATE LA DATA LUI:
+//
+//   "NICIUN FILTRU, NICIO SORTARE SI NICIO GALEATA. Cele cinci filtre, cele trei
+//   sortari si cele trei galeti Azi, Aceasta saptamana si Restante sunt clauzele 3,
+//   4 si 6 ale cardului P3-131, iar ele au nevoie de o singura definitie a zilei,
+//   chisinauToday(), pe care acel card o citeste din locul in care o citeste si
+//   ecranul Azi. Scrise aici, in cardul care nu are ecran, ar fi o a doua definitie
+//   a lui 'intarziat', scrisa de cineva care nu vede ecranul."
+//
+// CARDUL P3-131 ESTE ACUM SCRIS, si a despartit propozitia in doua jumatati care nu
+// erau aceeasi:
+//
+//   CELE CINCI FILTRE SI CELE TREI SORTARI SUNT AICI, in listTasks() mai jos,
+//   fiindca ele nu sunt o definitie a zilei: sunt un `eq` si un `order` pe care baza
+//   le face mai bine decat memoria, pe indexul tasks_status_due_date_idx scris
+//   pentru ele. Capetele intervalului de termen sosesc deja curatate de
+//   parseTaskQuery, in lib/data/tasks-query.ts, care nu are server.
+//
+//   GALETILE SI MARCAJUL DE INTARZIERE NU SUNT AICI SI NU AJUNG NICIODATA AICI.
+//   Ele sunt o singura functie pura, taskBucket() in lib/data/tasks-shape.ts, din
+//   care marcajul se DEDUCE. Grija antetului de mai sus era aceea si rămâne
+//   intemeiata: o a doua definitie a lui "intarziat" scrisa intr-o interogare ar fi
+//   exact defectul pe care clauza 6 este scrisa ca sa il previna. NICIO ZI NU SE
+//   COMPARA IN ACEST FISIER.
 //
 // NICIO STERGERE NU EXISTA PE ACEST DRUM SI PE NICIUNUL. Anularea este o schimbare
 // de stare catre 'cancelled', propozitia lui Ivan si clauza 4, iar migratia 0068 nu
@@ -35,7 +52,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { hasTasks } from "./schema-capability";
 import { isTaskEntityType, isTaskPriority, isTaskStatus } from "./tasks-shape";
-import type { Task, TaskEntityType } from "./tasks-types";
+import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
 import { one } from "./row";
 
 // NUMELE COLOANELOR SE SCRIU AICI, intr-un fisier care trece pe langa poarta, si
@@ -127,19 +144,89 @@ export async function tasksVisible(): Promise<boolean> {
  *  CELE ANULATE SUNT AICI SI NU SE ASCUND, clauza 4: o sarcina anulata rămâne pe
  *  inregistrare, citibila si numarabila, ca peste o luna sa se poata vedea ce a fost
  *  lasat si cand. Ce se arata pe un ecran anume este alegerea cardului care are
- *  ecranul, prin filtrul de stare al clauzei 3 din P3-131. */
-export async function listTasks(): Promise<Task[]> {
+ *  ecranul, prin filtrul de stare al clauzei 3 din P3-131.
+ *
+ *  FARA ARGUMENTE, RASPUNSUL ESTE EXACT CEL DE DINAINTE DE CARDUL P3-131, ca
+ *  singurul apelant care exista sa nu se schimbe: cele cinci filtre si cele trei
+ *  sortari sunt optionale si lipsa lor inseamna "tot, cele mai noi intai". */
+export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return [];
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(SELECT_TASK)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false });
+  let request = supabase.from("tasks").select(SELECT_TASK);
 
+  // CELE CINCI FILTRE SE APLICA PE SERVER, nu in memorie, ca pe fiecare alta lista
+  // a acestei aplicatii: antetul lui components/clients/ClientsScreen.tsx scrie
+  // regula ("FILTRAREA SE FACE PE SERVER... Componentul acesta nu filtreaza nimic in
+  // memorie"), iar indexul tasks_status_due_date_idx din migratia 0068 este scris de
+  // P3-130 chiar pentru ele.
+  //
+  // UN CAMP GOL NU SE TRIMITE, deci nu exista "filtrat pe sirul gol": aceea ar fi o
+  // lista mereu goala pe o adresa scrisa de mana.
+  if (query) {
+    if (query.status !== "") request = request.eq("status", query.status);
+    if (query.priority !== "") request = request.eq("priority", query.priority);
+    if (query.assigneeId !== "") request = request.eq("assignee_id", query.assigneeId);
+    if (query.entityType !== "") request = request.eq("entity_type", query.entityType);
+    // INTERVALUL DE TERMEN SE COMPARA CA ZI DE CALENDAR, nu ca moment: `due_date`
+    // este o coloana `date`, iar capetele sunt siruri `yyyy-mm-dd` curatate de
+    // parseTaskQuery. Amandoua capetele sunt INCLUSE, fiindca un operator care scrie
+    // acelasi termen in amandoua casutele cere ziua aceea si nu o lista goala.
+    if (query.dueFrom !== "") request = request.gte("due_date", query.dueFrom);
+    if (query.dueTo !== "") request = request.lte("due_date", query.dueTo);
+  }
+
+  for (const { column, ascending } of orderBy(query)) {
+    // TERMENUL FARA VALOARE STA LA SFARSIT IN AMANDOUA DIRECTIILE, prin nullsFirst
+    // false. O sarcina fara termen nu este nici cea mai apropiata, nici cea mai
+    // indepartata: nu are zi, deci nu are loc in ordinea zilelor, iar lista o aseaza
+    // sub capul ei de grup "Fără termen" oricum.
+    request = request.order(column, { ascending, nullsFirst: false });
+  }
+
+  const { data, error } = await request;
   if (error) throw new Error(`Nu s-au putut citi sarcinile: ${error.message}`);
   return ((data ?? []) as unknown as TaskRow[]).map(toTask);
+}
+
+/**
+ * Cele trei sortari ale clauzei 4, traduse in coloane.
+ *
+ * URGENTA SE SORTEAZA PE ENUMERARE SI NU PE CUVANT, si asta nu este o scurtatura:
+ * PostgreSQL ordoneaza o enumerare dupa ORDINEA IN CARE ETICHETELE SUNT DECLARATE, iar
+ * migratia 0068 le declara `low`, `medium`, `high`, adica de la cea mai mica la cea mai
+ * mare. Deci crescator inseamna Scăzută intai, exact ce citeste operatorul. Sortata ca
+ * text ar fi dat `high`, `low`, `medium`, adica o ordine care nu inseamna nimic.
+ *
+ * `id` LA FINAL, MEREU. Doua randuri cu acelasi termen, aceeasi urgenta sau aceeasi
+ * clipa de creare pot sosi in orice ordine de la baza, si o ordine care se schimba
+ * intre doua randari este o lista pe care un test nu o poate masura si un om nu o
+ * poate urmari.
+ */
+function orderBy(query?: TaskListQuery): { column: string; ascending: boolean }[] {
+  const ascending = (query?.direction ?? "crescator") === "crescator";
+  const column =
+    query === undefined
+      ? "created_at"
+      : query.sort === "termen"
+        ? "due_date"
+        : query.sort === "urgenta"
+          ? "priority"
+          : "created_at";
+
+  // Fara nicio sortare ceruta, raspunsul rămâne cel de dinainte de P3-131: cele mai
+  // noi intai.
+  if (query === undefined) {
+    return [
+      { column: "created_at", ascending: false },
+      { column: "id", ascending: false },
+    ];
+  }
+
+  return [
+    { column, ascending },
+    { column: "id", ascending },
+  ];
 }
 
 /** O sarcina, dupa id, sau null cand nu exista. */
