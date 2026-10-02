@@ -8654,3 +8654,29 @@ entry from both sides, prove the set rather than eyeballing the diff, and run th
 `npm run check:conflict-residue` AFTER staging. Expect this on the second of any two pull requests and
 budget the sync rather than treating it as a surprise; what it costs is one fresh `quality` run on the
 merged head, because the old green belongs to a sha nobody is proposing to merge any more.
+
+### A descriptor's per-field `validate` CAN express "empty means a fixed default", only a per-import parameter breaks it
+**Tag:** data
+**ERROR:** card P3-122's own report, read before writing card P3-123's client import, states as one of
+four reasons the lead import cannot sit on `buildImportPreview`/`ImportFieldDescriptor` from
+`import-shared.ts`: "etapa si sursa au un implicit la camp gol (cold, respectiv fallbackSource), nu o
+validare care refuza golul; descriptorul comun are `required` (refuza golul) sau `validate` (verifica
+ce este scris); nu are lipsa inseamna X". Taken at face value this reads as a hard limitation of the
+shared descriptor, and would have justified writing a second bespoke `prepareRow` for clients the same
+way leads has one, before even checking whether the client card's own stage default triggers it.
+**SOLUTION:** reading `prepareImportRow` in `lib/data/import-shared.ts` line by line shows `validate`
+runs on EVERY non-required field, including one read as the empty string, before `record[fd.field]` is
+set; nothing stops a `validate` closure from returning `{ ok: true, value: "some fixed default" }` when
+`raw === ""`. The real, narrower reason leads cannot use this for `source` is that the lead import's
+empty-source default is `fallbackSource`, a value chosen by the operator for that one run and supplied
+as a request parameter, not a module-level constant; a descriptor array built once has no way to close
+over a value that only exists per call UNLESS it is constructed fresh per call, which the lead import
+does not do. Card P3-123's own stage default is the fixed literal `"client"` (decision E), with no
+per-run parameter involved, so `buildClientImportPreview` in `lib/data/client-import-types.ts` builds
+the field descriptors inside a function and gives `stage` a `validate` that returns `"client"` on an
+empty cell, and the generic preview handles it with no second `prepareRow`. RULE: **before copying a
+sibling import card's "the shared descriptor cannot do X" conclusion onto a new entity, re-derive WHY
+for this entity specifically: a fixed-constant default on an optional field fits the descriptor's
+`validate` function today, and only a default that depends on a value chosen per import run, or a rule
+across two fields (a cross-field constraint, an OR-of-two-fields requirement, a lookup keyed on another
+field's match result), genuinely needs a bespoke prepare function outside the shared module.**
