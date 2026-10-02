@@ -1465,7 +1465,18 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
   // INSTRUMENTUL SE DOVEDESTE CA GASESTE, INAINTE SA FIE CREZUT CAND NU GASESTE NIMIC.
   // Amandoua formele, fiindca `Th` din primitives.tsx poarta clasa `uppercase` si un
   // antet englezesc ar sosi cu majuscule.
-  expect(englishIn("Save the task"), "instrumentul gaseste un cuvant englez").toEqual([
+  //
+  // CUVINTELE DE PROBA SE SCRIU CU MAJUSCULA LA INCEPUT, ca pe un ecran, fiindca
+  // potrivirea este SENSIBILA LA LITERA MARE: ea cere `Task` sau `TASK` si nu `task`.
+  // Prima scriere a acestei linii a fost "Save the task", cu t mic, deci proba a cerut
+  // ["Save", "Task"] si a primit ["Save"] si a facut cazul rosu, iar scanarea
+  // adevarata de mai jos nici nu a ajuns sa ruleze. INSTRUMENTUL ERA BUN SI PROBA ERA
+  // GRESITA, si asta este chiar rostul unei probe de instrument. Litera mica este
+  // anume in afara potrivirii: cuvintele romanesti scrise cu litera mica, de la
+  // "sarcina" la "stare", nu au ce sa caute intr-o lista de cuvinte ENGLEZESTI DE PE
+  // ECRAN, iar o eticheta de interfata este scrisa cu majuscula la inceput in acest
+  // depozit. Cazul de mai jos pe care il dovedeste a treia linie este chiar asta.
+  expect(englishIn("Save the Task"), "instrumentul gaseste un cuvant englez").toEqual([
     "Save",
     "Task",
   ]);
@@ -1473,16 +1484,40 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
     "Priority",
   ]);
   expect(englishIn("Urgență Ridicată Întârziată"), "si nu confunda romana cu engleza").toEqual([]);
+  expect(englishIn("o sarcina de facut, cu termen azi"), "si nici romana cu litera mica").toEqual(
+    [],
+  );
 
-  /** Tot ce se citeste intr-o zona: TEXTUL SCRIS plus indicatiile din casute.
+  // NUMELE RESPONSABILILOR SUNT DATE SI NU TEXT DE INTERFATA, DECI NU SE CITESC, si
+  // golul este explicat aici fiindca altfel ar fi un gol suspect. Selectorul de
+  // responsabil al randului de filtre si cel al panoului poarta cate o optiune pentru
+  // FIECARE PROFIL ACTIV, iar numele lor sunt scrise de cine a creat conturile: pe
+  // stiva din CI acelea sunt "Owner (test)" si "Account manager (test)", scrise de
+  // scripts/seed-test-accounts.mjs. Ele sunt englezesti si NU sunt stringurile acestui
+  // card: in producție acolo sta numele unui om. Un caz care le-ar citi ar fi pedepsit
+  // acest card pentru numele unor conturi de test, exact capcana pentru care randurile
+  // listei nu se citesc nici ele. Ce SCRIE cardul in cele doua selectoare este
+  // optiunea fara valoare, "Toți responsabilii" si "Nealocată", si ea se cere pe nume
+  // mai jos, deci zona nu rămâne nedovedita.
+  const ASSIGNEE_NAMES = '[data-testid$="assignee"] option[value]:not([value=""])';
+
+  /** Tot ce se citeste intr-o zona: TEXTUL SCRIS plus indicatiile din casute, fara
+   *  nodurile pe care `exclude` le numeste.
    *
    *  textContent SI NU innerText, deliberat, din doua motive. `Th` poarta clasa
    *  `uppercase` si innerText intoarce textul TRANSFORMAT DE CSS, deci "Termen" ar sosi
    *  "TERMEN": aceea este lectura pe care cardul P3-15 a plata cu o rulare. Si
    *  optiunile unui `<select>` nu sunt randate in flux, deci innerText nu le vede, iar
-   *  valorile filtrelor pe care clauza 3 le cere romanesti SUNT chiar optiuni. */
-  async function written(where: Locator): Promise<string> {
-    const text = await where.evaluate((e) => e.textContent ?? "");
+   *  valorile filtrelor pe care clauza 3 le cere romanesti SUNT chiar optiuni.
+   *
+   *  SE CITESTE O COPIE, ca scoaterea nodurilor excluse sa nu atinga ecranul: un test
+   *  care modifica pagina pe care o masoara masoara altceva decat ce vede operatorul. */
+  async function written(where: Locator, exclude = ""): Promise<string> {
+    const text = await where.evaluate((e, sel) => {
+      const copy = e.cloneNode(true) as HTMLElement;
+      if (sel) copy.querySelectorAll(sel).forEach((n) => n.remove());
+      return copy.textContent ?? "";
+    }, exclude);
     const hints = await where
       .locator("[placeholder]")
       .evaluateAll((els) => els.map((el) => el.getAttribute("placeholder") ?? ""));
@@ -1517,9 +1552,17 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
     ["celulele randului", row],
   ];
   for (const [label, where] of regions) {
-    const text = await written(where);
+    const text = await written(where, ASSIGNEE_NAMES);
     expect(englishIn(text), `cuvinte englezesti in ${label}: ${text}`).toEqual([]);
   }
+
+  // SI CE SCRIE CARDUL IN SELECTORUL DE RESPONSABIL SE CERE PE NUME, ca zona din care
+  // s-au scos numele profilurilor sa nu rămână nedovedita. Tot asa pentru celula
+  // randului: sarcina semanata nu are responsabil, deci acolo sta cuvantul cardului.
+  await expect(page.getByTestId("tasks-assignee").locator('option[value=""]')).toHaveText(
+    "Toți responsabilii",
+  );
+  await expect(row.getByTestId("task-assignee")).toHaveText("Nealocată");
 
   // SI INDICATIA CASUTELOR DE TERMEN ESTE CHIAR DATE_PLACEHOLDER al lui DateField,
   // adica zz.ll.aaaa, si nu un al doilea fel de casuta de data scris pe acest ecran.
@@ -1534,8 +1577,12 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
   // fie randata: o zona care nu se vede nu se citeste.
   await page.getByTestId("field-task-entity-type").selectOption("client");
   await expect(page.getByTestId("field-task-entity")).toBeVisible();
-  const panel = await written(page.getByTestId("task-form"));
+  const panel = await written(page.getByTestId("task-form"), ASSIGNEE_NAMES);
   expect(englishIn(panel), `cuvinte englezesti in panou: ${panel}`).toEqual([]);
+  // SI AICI optiunea fara valoare se cere pe nume, din acelasi motiv.
+  await expect(page.getByTestId("field-task-assignee").locator('option[value=""]')).toHaveText(
+    "Nealocată",
+  );
   await expect(page.getByTestId("field-task-due-date")).toHaveAttribute(
     "placeholder",
     DATE_PLACEHOLDER,
@@ -1547,7 +1594,10 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
 
   await openSarcini(page, { de_la: "2039-01-01", pana_la: "2039-01-02" });
   await expect(page.getByTestId("task-row")).toHaveCount(0);
-  const empty = await written(page.locator("main").first());
+  // `main` SI NU TOT DOCUMENTUL: invelisul din app/(app)/layout.tsx pune in el numai
+  // ce randeaza pagina, deci meniul lateral si bara de sus, care sunt ale altor
+  // carduri, rămân in afara. Numele profilurilor se scot si aici, acelasi motiv.
+  const empty = await written(page.locator("main").first(), ASSIGNEE_NAMES);
   expect(englishIn(empty), `cuvinte englezesti pe starea goala: ${empty}`).toEqual([]);
   expect(empty, "si starea goala spune ceva, nu este o zona alba").toContain(
     "Nicio sarcină pentru filtrele alese",
@@ -1572,6 +1622,10 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
     "scripts/poc-free/check-pending-schema-reads.mjs",
     "tests/e2e/tasks.spec.ts",
     "tests/e2e/crm-landing.spec.ts",
+    // SI SPECIFICATIA DE TELEFON, care numara si ea cardurile ecranului CRM, in doua
+    // locuri: cazul (d) pe telefon si cazul (4) la 1440px. Cardul acesta a plata o
+    // rulare ca sa o gaseasca, fiindca brieful numea numai crm-landing.spec.
+    "tests/e2e/phone-remainder.spec.ts",
     // docs/LEARNINGS.md SI docs/reports/ NU SUNT PE LISTA, si golul este cel pe care
     // l-a explicat deja cardul P3-130 in tests/e2e/outbound-direct-client.spec.ts:
     // LEARNINGS.md poarta liniute em scrise de alte carduri inainte ca regula sa

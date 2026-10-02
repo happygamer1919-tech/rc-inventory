@@ -8559,3 +8559,48 @@ delete path may ever appear. RULE: **before asserting the exact set of controls 
 what each primitive in that region renders.** This is the same family as the entry about counting
 `input[data-testid]` on a filter row and finding one extra per date box: any assertion written from
 what the screen MEANS rather than from what the components PUT IN THE DOM counts the wrong thing.
+
+### A self-test of a case-sensitive word matcher, written with the word in lower case, reddens the case before the real check runs
+**Tag:** ci
+**ERROR:** acceptance (h) of card P3-131 proves no English word reaches the screen, with a matcher
+built as `new RegExp("\\b(" + word + "|" + word.toUpperCase() + ")\\b")`, deliberately
+case-sensitive and deliberately covering the capitalised form twice because `Th` carries the
+`uppercase` class. Before trusting it, the case proves the matcher FINDS something, which is the
+right habit and is why the entry about a grep that matches nothing passing forever exists. The proof
+line was written `englishIn("Save the task")` and asserted `["Save", "Task"]`. It got `["Save"]`,
+because `task` is lower case and the pattern asks for `Task` or `TASK`. **The matcher was correct and
+the proof was wrong**, and the cost is the whole point: the self-test is the first thing in the case,
+so it failed before the real scan of the screen ever ran, and a 37 minute end-to-end suite reported
+nothing at all about the property the case exists to measure. Seen 2026-10-02, PR #389, run
+37011265525: `537 passed, 3 failed`.
+**SOLUTION:** write the proof strings **the way they would appear on the screen**, capitalised, since
+that is what the matcher is for and what an untranslated label looks like in this repository. Lower
+case is outside the match on purpose: Romanian words written in lower case, from `sarcina` to
+`stare`, have no business in a list of English words on screen, and a third proof line now asserts
+exactly that, so the boundary is documented rather than accidental. RULE: **a self-test of a matcher
+is itself a test and can be the wrong one.** When it fails, read which side is wrong before changing
+the matcher, because "instrument proves it finds" failing looks exactly like "instrument is broken"
+and the fix for the wrong one weakens the check. And put the self-test where a failure is cheap: this
+one ran inside a case that needs a signed-in browser and a seeded row, so a one-character mistake in
+a string literal cost a full suite.
+
+### A test fixture's English display name reaches a screen the Romanian check is reading
+**Tag:** ci
+**ERROR:** the same acceptance (h) scans the Sarcini screen's chrome for English words. Two of the
+regions it reads are the assignee `<select>` on the filter row and the one in the panel, and each
+carries an `<option>` for **every active profile**. On the CI stack those profiles are seeded by
+`scripts/seed-test-accounts.mjs` with `full_name` values `"Owner (test)"` and
+`"Account manager (test)"`, which are English. The scan passed only because none of those particular
+words happened to be in the list; it would have gone red the day somebody renamed a test account or
+added `Owner` to the word list, on a card that had not touched the screen.
+**SOLUTION:** the option text of the assignee selects is removed from the scan, on a **clone** of the
+node so the page under test is not modified, with the selector
+`[data-testid$="assignee"] option[value]:not([value=""])`. That is precise: it drops only the profile
+options and keeps the one option this card actually writes, whose `value` is empty. Both of those,
+`Toți responsabilii` and `Nealocată`, are then asserted **by name**, so the region is not left
+unproved. RULE: **a check that reads text off a screen must decide, region by region, which text the
+card WROTE and which text is DATA**, and exclude the data explicitly with the reason written down.
+Profile names, client names and project names are data: in production they are a person's or a
+company's name, and in CI they are whatever a seed script chose. This is the same reasoning that
+keeps the list's own rows out of the scan, and it is a narrowing with a stated boundary rather than a
+loosening: what is excluded is named, and what remains is asserted.

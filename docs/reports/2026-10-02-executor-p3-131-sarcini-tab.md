@@ -153,6 +153,75 @@ must not move the operator into a differently ordered list.
 
 ---
 
+## The red run, and what it caught
+
+**Run 37011265525 on head `a552b47` concluded failure: `537 passed, 3 failed` in 36.8 minutes.**
+Every other step of `quality` was green, including `check:migrations`, which applies every migration
+to a bare postgres. Three failures, all mine, all fixed on the second push. No test was deleted,
+skipped or loosened, and nothing was made to pass by weakening what it checks.
+
+**Seven of the eight new cases were green on that run**, including the agreement case (d), the
+boundary case (c), the five filters, the three sorts, create/edit/cancel, the no-delete case and the
+three link destinations. **The six cases P3-130 wrote were green, unmodified.**
+
+### 1 and 2. `phone-remainder.spec.ts` also counts the CRM cards, in two places
+
+`Expected: 3 / Received: 4` on `getByTestId('crm-card')`, in case `(d) intrarea CRM: cele trei
+carduri stau unul sub altul` and case `(4) desktop neschimbat: la 1440px ...`. **My miss.** The brief
+named `crm-landing.spec.ts` as the spec that counts those cards, and it is not the only one; I did
+not grep the tree for `crm-card` before pushing. The screen was right both times.
+
+Fixed by putting the four labels in one `const CRM_CARD_LABELS` inside that describe and driving the
+count, the labels array and the index list fed to `expectStacked` and `expectSideBySide` off its
+length, so the next card to add a card does not pay the same run. The desktop case now measures all
+**four** boxes side by side rather than the first three, which is the useful strengthening: the
+fourth is exactly the one that would drop to a second row if the grid had stayed at three columns.
+
+**The case names are kept** even though they read "cele trei carduri". A case name is an identifier
+card P3-67's acceptance cites, and what those cases measure did not change: the cards stack on a
+phone and sit side by side at 1440px. Only how many changed. The reason is written into the spec.
+
+I verified there is no third spec: `grep -rn "crm-card" tests/e2e/` names only `crm-landing.spec.ts`
+and `phone-remainder.spec.ts`, and `ALL_ROUTES` is read only by `crm-landing.spec.ts` and
+`headers.spec.ts`, whose console walk over `/sarcini` was already green.
+
+### 3. My own self-test of the English-word matcher was wrong, and the matcher was right
+
+`englishIn("Save the task")` returned `["Save"]` where the case asserted `["Save", "Task"]`. The
+matcher is deliberately case-sensitive (`Task` or `TASK`, because `Th` carries `uppercase`), and
+`task` is lower case. **The instrument was correct and the proof of the instrument was wrong**, which
+is the expensive half: the self-test is the first thing in the case, so it failed before the real
+scan of the screen ever ran, and a 37 minute suite reported nothing about the property the case
+exists to measure.
+
+Fixed by writing the proof strings the way they would appear on a screen, capitalised, and by adding
+a third proof line asserting that lower-case Romanian is **not** matched, so the boundary is
+documented rather than accidental.
+
+### And one latent trap found while fixing it, before it ever went red
+
+The regions that case reads include the assignee `<select>` on the filter row and the one in the
+panel, and each carries an `<option>` per active profile. On the CI stack those profiles are seeded
+by `scripts/seed-test-accounts.mjs` as **`"Owner (test)"` and `"Account manager (test)"`**, which are
+English. The scan passed only because none of those particular words was in the list, and would have
+gone red the day a test account was renamed or `Owner` was added, on a card that had not touched the
+screen.
+
+The profile options are now excluded by name, on a **clone** of the node so the page under test is
+not modified, with `[data-testid$="assignee"] option[value]:not([value=""])`. That drops only the
+profile options and keeps the one option this card writes, whose `value` is empty, and both of those
+(`Toți responsabilii`, `Nealocată`) are now asserted **by name** so the region is not left unproved.
+That is the same reasoning that keeps the list's own data rows out of the scan: a check that reads
+text off a screen has to decide which text the card wrote and which text is data, and exclude the
+data explicitly with the reason written down.
+
+`tests/e2e/phone-remainder.spec.ts` was added to the dash-grep list in acceptance (h), since this
+card now changes it.
+
+One attempt of the three the failure ceiling allows was used.
+
+---
+
 ## Which lines of `crm-landing.spec.ts` I changed, and why
 
 Four changes, all required by acceptance and by ruling q027, which already settled that a card may
@@ -378,12 +447,27 @@ Two appended to `docs/LEARNINGS.md`:
    the linked record to be a link and a link is a control. Read what each primitive renders before
    asserting a set.
 
-One signature appended to the factory's `KNOWN-FAILURES.md`:
+Two more appended to `docs/LEARNINGS.md` after the red run:
 
-3. **Appending a long block to a file with a heredoc is refused before it runs.** `cat >> file <<'EOF'`
+3. **A self-test of a case-sensitive word matcher, written with the word in lower case, reddens the
+   case before the real check runs.** When a "prove the instrument finds something" line fails, read
+   which side is wrong before changing the matcher: the fix for the wrong one weakens the check. And
+   put a self-test where failing is cheap, not inside a case that needs a signed-in browser.
+4. **A test fixture's English display name reaches a screen the Romanian check is reading.** A check
+   that reads text off a screen must decide, region by region, which text the card wrote and which
+   text is data, and exclude the data by name with the reason written down.
+
+Three signatures appended to the factory's `KNOWN-FAILURES.md`:
+
+5. **Appending a long block to a file with a heredoc is refused before it runs.** `cat >> file <<'EOF'`
    is rejected with "Contains brace with quote character". Use the Edit tool to append, in chunks if
    the block is large. The wider rule: the write tools are not subject to the shell gate, so anything
    that is "produce this text in this file" belongs to Write or Edit.
+6. **A fourth card on `/crm` reddens TWO specs, and the brief names only one of them.** Before
+   pushing a change to a shared screen, grep the whole `tests/e2e/` tree for the `data-testid` you
+   touched, not only for the spec the brief mentions.
+7. **A Romanian-UI case reads a test account's English display name off a select.** Recorded as a
+   latent trap, found by reading the seed script rather than by a run.
 
 ---
 
