@@ -43,11 +43,24 @@ function counted(n: number, one: string, many: string): string {
   return `${shown} de ${many}`;
 }
 
-/** Cele trei carduri ale ecranului CRM, in ordine, fiecare cu culoarea lui. */
+/** Cardurile ecranului CRM, in ordine, fiecare cu culoarea lui.
+ *
+ *  P3-131, goal G73, Item 4 al lui Ivan. AL PATRULEA CARD, Sarcini, si acesta este
+ *  singurul rand al acestui fisier pe care cardul il schimba. Pana atunci lista avea
+ *  trei intrari si cele doua numaratori de mai jos cereau trei.
+ *
+ *  SCHIMBAREA ESTE LEGITIMA SI ESTE AȘTEPTATA, nu o inmuiere: raspunsul q027 a
+ *  hotarat deja ca un card poate schimba un rand din aceasta specificatie cand
+ *  acceptanta lui o cere, iar clauza 1 a cardului P3-131 cere "a NEW TAB Sarcini in
+ *  the CRM section, alongside the tabs that are already there. Not a replacement for
+ *  one." Cele trei carduri de pana acum sunt neatinse, in aceeasi ordine si cu
+ *  aceleasi culori, si clauza lui P3-46 care cere ca nicio culoare sa nu se repete
+ *  este verificata in continuare, acum pe patru. */
 const CARDS = [
   { label: "Clienți", colour: "green" },
   { label: "Leaduri", colour: "amber" },
   { label: "Proiecte", colour: "blue" },
+  { label: "Sarcini", colour: "orange" },
 ] as const;
 
 type Stage = "cold" | "nurture" | "follow_up" | "quoted" | "client";
@@ -222,9 +235,11 @@ test.describe("Ecranul CRM (P3-46)", () => {
     await expect(page).toHaveURL(/\/crm$/, { timeout: 20_000 });
     await expect(links.nth(crm)).toHaveAttribute("aria-current", "page");
 
-    // TREI CARDURI, IN ORDINE, fiecare cu culoarea langa eticheta.
+    // CARDURILE, IN ORDINE, fiecare cu culoarea langa eticheta. Numarul se citeste
+    // din lista CARDS de mai sus si nu se scrie de mana: P3-131 a adaugat al
+    // patrulea, si o cifra scrisa aici ar fi fost un al doilea loc de tinut la zi.
     const cards = page.getByTestId("crm-card");
-    await expect(cards).toHaveCount(3, { timeout: 20_000 });
+    await expect(cards).toHaveCount(CARDS.length, { timeout: 20_000 });
     await expect(cards.getByTestId("crm-card-label")).toHaveText(CARDS.map((c) => c.label));
 
     const painted: string[] = [];
@@ -241,7 +256,7 @@ test.describe("Ecranul CRM (P3-46)", () => {
       expect(background, `culoarea cardului ${expected.label}`).not.toBe("rgba(0, 0, 0, 0)");
       painted.push(background);
     }
-    expect(new Set(painted).size, "doua carduri au aceeasi culoare").toBe(3);
+    expect(new Set(painted).size, "doua carduri au aceeasi culoare").toBe(CARDS.length);
   });
 
   test("P3-46 (2): Clienți ajunge la clienții de la etapa Client, Leaduri la restul, Proiecte la /proiecte neschimbat", async ({
@@ -385,6 +400,10 @@ test.describe("Ecranul CRM (P3-46)", () => {
     expect(ALL_ROUTES).toContain("/crm");
     expect(ALL_ROUTES).toContain("/clienti");
     expect(ALL_ROUTES).toContain("/proiecte");
+    // P3-131. SI FILA NOUĂ, pentru acelasi motiv pentru care clauza 5 cere chiar
+    // lista pe care o parcurge tests/e2e/headers.spec.ts: un ecran lasat in afara ei
+    // isi pierde titlul din bara de sus si testul lui de antet FARA NICIUN SEMNAL.
+    expect(ALL_ROUTES).toContain("/sarcini");
     // Nicio ruta de doua ori: headers.spec ar vizita-o de doua ori si nu ar spune.
     expect(new Set(ALL_ROUTES).size).toBe(ALL_ROUTES.length);
   });
@@ -400,6 +419,6 @@ test.describe("Ecranul CRM (P3-46)", () => {
     await signIn(page, ownerAccount());
     await page.goto("/crm");
     await expect(page).toHaveURL(/\/crm$/);
-    await expect(page.getByTestId("crm-card")).toHaveCount(3, { timeout: 20_000 });
+    await expect(page.getByTestId("crm-card")).toHaveCount(CARDS.length, { timeout: 20_000 });
   });
 });

@@ -8515,3 +8515,47 @@ type.** More generally: an assertion about "nothing else changed this" must be w
 the schema is in, because one written from a migration's text goes red on correct work and reads as a
 defect in whatever card happens to be holding the branch. A false red is worse than a false green, and
 `docs/LEARNINGS.md` already names why: a false green is ignored once and a false red is ignored forever.
+
+### Three buckets that group a list hide every row that falls in none of them
+**Tag:** frontend
+**ERROR:** card P3-131 asks for the list of jobs to be grouped into the three buckets the owner
+named, `Azi`, `Această săptămână` and `Restante`, and says in its clause 6 that they are "a way of
+grouping the same list, not three separate queries". Written literally, as three groups, the screen
+silently drops every task that is in none of the three, and there are two whole kinds of those: a
+task with **no due date**, which `lib/data/tasks-types.ts` says in as many words is a true state and
+not missing data, and a task **with** a due date that falls outside all three, either beyond this
+Sunday or past its date and already finished or cancelled, which clause 5 excludes from `Restante`
+on purpose. On a seeded set those tasks existed in the database, were returned by the read, were
+counted in the list header, and appeared **nowhere on the screen**. That is worse than any grouping:
+a row that is counted and invisible reads as a data problem for weeks, which is the exact failure
+mode the card's own notes warn about one clause earlier.
+**SOLUTION:** the grouping function is **total**, and the containers for the remainder are **derived
+from the same single function** rather than computed beside it. `taskGroup(task, today)` calls
+`taskBucket(task, today)` and, only when it answers `null`, splits the remainder on
+`dueDate === null`, which is not a question about a day at all. So there is still exactly ONE day
+comparison on the screen, the buckets stay exactly the three the owner named, and no row can be
+hidden. The second container is called `Alte sarcini` and not `Mai târziu` deliberately: a time word
+would have been false for half of what lands in it. RULE: **a grouping is a partition or it is a
+filter, and a filter that calls itself a grouping loses rows.** When a card names the groups it
+wants, ask what the groups do NOT cover before writing them, and give the remainder a heading that
+is true of everything in it. Keep the named groups exactly as named; the container is presentation
+and must say so in its own comment, or the next reader will count it as a fourth bucket.
+
+### A "no delete control" assertion over a table row counts the record link too
+**Tag:** frontend
+**ERROR:** acceptance (f) of card P3-131 requires that no delete affordance is rendered in the row,
+the menu or the panel. The natural assertion gathers every `button, a` inside the row and requires
+the set to be exactly `["Modifică"]`, the one action the row carries. That is wrong before it is
+ever run, and for a reason that is easy to miss while writing it: clause 2 of the same card requires
+the linked record to be a **link**, so a row attached to a client or a project contains an `<a>`
+whose accessible name is `Client` or `Proiect`. The set is `["Client", "Modifică"]`, and the
+assertion would have gone red in CI on a screen that was entirely correct, costing a twenty minute
+run to learn something readable from the component.
+**SOLUTION:** write the expected set from what the row actually renders, which means reading the row
+renderer before writing the assertion, not after. The exact-set form is still the right one and was
+kept rather than loosened to "none of them looks like deleting": an exact set makes a NEW control
+appearing in a row pass under someone's eyes, which is the whole point when the rule is that no
+delete path may ever appear. RULE: **before asserting the exact set of controls in a region, list
+what each primitive in that region renders.** This is the same family as the entry about counting
+`input[data-testid]` on a filter row and finding one extra per date box: any assertion written from
+what the screen MEANS rather than from what the components PUT IN THE DOM counts the wrong thing.
