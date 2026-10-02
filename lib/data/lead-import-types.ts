@@ -24,6 +24,7 @@ import {
   CLIENT_SOURCE_LABEL,
   CLIENT_STAGES,
   CLIENT_STAGE_LABEL,
+  CLIENT_TYPE_LABEL,
   FOLLOW_UP_DATE_REQUIRED,
   type ClientSource,
   type ClientStage,
@@ -33,6 +34,7 @@ import {
   autoMatchColumns as autoMatchColumnsGeneric,
   buildCsv,
   buildErrorCsv,
+  buildModelCsv,
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
@@ -154,13 +156,80 @@ export function autoMatchColumns(headers: string[]): ColumnMapping {
   return autoMatchColumnsGeneric(headers, SYNONYM_INDEX);
 }
 
-/** Sablonul gol: exact antetele pe care ecranul le stie sa potriveasca. */
+/**
+ * Un rand exemplu, plauzibil si romanesc, care s-ar importa el insusi curat:
+ * cardul P3-122 clauza 2, "un exemplu care s-ar refuza ar invata lucrul gresit".
+ * `ownerName` si `followUpDate` raman goale dinadins, fiindca un responsabil
+ * inventat ar fi refuzat (`IMPORT_REASON.unknownOwner`) si "Lead rece" nu cere o
+ * data de reluare.
+ */
+const IMPORT_FIELD_EXAMPLE: Record<ImportField, string> = {
+  name: "Popescu Construct SRL",
+  type: CLIENT_TYPE_LABEL.company,
+  phone: "069000001",
+  email: "contact@exemplu.md",
+  contactName: "Ion Popescu",
+  interest: "Montaj acoperiș metalic",
+  source: CLIENT_SOURCE_LABEL.recomandare,
+  ownerName: "",
+  stage: CLIENT_STAGE_LABEL.cold,
+  followUpDate: "",
+  nextAction: "Trimite ofertă",
+  notes: "Interesat de acoperiș nou",
+  address: "Chișinău, str. Exemplu 1",
+  fiscalCode: "",
+};
+
+/**
+ * Sablonul de import: antetele, cu Denumire marcata obligatorie, si un rand
+ * exemplu. CARDUL P3-122 CLAUZA 2, prin `buildModelCsv` din import-shared.ts, in
+ * loc de o a doua versiune scrisa aici.
+ *
+ * NUMAI DENUMIREA ESTE MARCATA. Telefon si Email cer unul din doua, nu
+ * amandoua, iar a marca amandoua obligatorii ar spune o regula mai stricta
+ * decat cea pe care `prepareRow` o aplica de fapt; regula exacta este in
+ * `leadImportInstructions` de mai jos, in propozitii, nu pe antet.
+ */
 export function templateCsv(): string {
-  return buildCsv([IMPORT_FIELDS.map((f) => IMPORT_FIELD_LABEL[f])]);
+  return buildModelCsv(
+    IMPORT_FIELDS.map((field) => ({
+      label: IMPORT_FIELD_LABEL[field],
+      required: field === "name",
+      example: IMPORT_FIELD_EXAMPLE[field],
+    })),
+  );
 }
 
 export const TEMPLATE_FILE_NAME = "sablon-leaduri.csv";
 export const SKIPPED_FILE_NAME = "randuri-nepreluate.csv";
+
+/**
+ * Instructiunile romanesti aratate PE ECRAN, cardul P3-122 clauza 3, nu numai
+ * intr-un fisier descarcat. Fiecare propozitie citeste direct constantele si
+ * listele campurilor, ca ecranul sa nu poata spune un numar sau o lista diferita
+ * de cea pe care importul o aplica de fapt.
+ */
+export function leadImportInstructions(): string[] {
+  const limitMb = (IMPORT_MAX_BYTES / (1024 * 1024)).toFixed(0);
+  return [
+    "Procesul are patru pași: încarcă fișierul CSV, potrivește coloanele cu câmpurile de mai " +
+      "jos, verifică rândurile înainte să se scrie ceva, apoi importă.",
+    `${IMPORT_FIELD_LABEL.name} este obligatorie. ${IMPORT_FIELD_LABEL.phone} sau ` +
+      `${IMPORT_FIELD_LABEL.email}, cel puțin una din două, ca rândul să poată fi găsit și ` +
+      "contactat. Restul coloanelor sunt opționale.",
+    `Valori acceptate: ${IMPORT_FIELD_LABEL.type} este ${CLIENT_TYPE_LABEL.company} sau ` +
+      `${CLIENT_TYPE_LABEL.individual}; ${IMPORT_FIELD_LABEL.stage} este una dintre ` +
+      `${CLIENT_STAGES.map((s) => CLIENT_STAGE_LABEL[s]).join(", ")}; ` +
+      `${IMPORT_FIELD_LABEL.source} este una dintre ` +
+      `${CLIENT_SOURCES.map((s) => CLIENT_SOURCE_LABEL[s]).join(", ")}; ` +
+      `${IMPORT_FIELD_LABEL.followUpDate} este AAAA-LL-ZZ sau ZZ.LL.AAAA.`,
+    `Un rând se consideră dublat după ${IMPORT_FIELD_LABEL.email} sau după ` +
+      `${IMPORT_FIELD_LABEL.phone}, cu ${IMPORT_FIELD_LABEL.email} drept cheia de dublare ` +
+      "numită. Un dublat nu se șterge și nu se suprascrie niciodată: ori se sare peste el, ori " +
+      "i se completează numai câmpurile goale.",
+    `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB.`,
+  ];
+}
 
 /** Nota lasata pe fiecare lead creat, exact formula ceruta de goal G58. Sta aici
  *  si nu in fisierul de actiuni, fiindca un fisier "use server" nu poate exporta
@@ -324,6 +393,35 @@ export type PreparedLead = {
 // asa cum il vede operatorul in Excel, antetul este randul 1" este o notiune
 // comuna oricarei entitati, nu numai leadurilor.
 
+// CARDUL P3-122, DRAFTER'S DECISION A: RAMANE AICI, NU SE MUTA PE
+// buildImportPreview/prepareImportRow DIN import-shared.ts. Verificat contra
+// celor opt cazuri din tests/e2e/lead-import.spec.ts inainte sa se scrie o
+// singura linie: previzualizarea comuna nu poate exprima, fara sa schimbe
+// comportamentul:
+//   1. TELEFON SAU EMAIL, CEL PUTIN UNUL (IMPORT_REASON.noContact mai sus) este
+//      o cerinta pe DOUA campuri la un loc. `ImportFieldDescriptor.required` din
+//      import-shared.ts este o cerinta pe UN SINGUR camp; nu exista o forma "cel
+//      putin unul din acesti doi" in descriptor.
+//   2. STAGE SI SOURCE AU UN IMPLICIT, NU O VALIDARE CARE REFUZA GOLUL: o etapa
+//      goala devine "cold", o sursa goala devine `fallbackSource`. Descriptorul
+//      comun are `required` (refuza golul) sau `validate` (verifica ce este
+//      scris); nu are "lipsa inseamna X".
+//   3. DUBLATUL SE CAUTA IN FISIER SI IN BAZA, cu "fisierul inaintea bazei" ca
+//      regula de ordine (buildPlan mai sus). Asta cere sa vada TOATE randurile
+//      si lista clientilor existenti deodata; buildImportPreview valideaza UN
+//      RAND, independent de celelalte si fara nicio citire din baza.
+//   4. G70 (G17): PERSOANA DE CONTACT SE CERE NUMAI PE UN CLIENT STOCAT CU CARE
+//      FISIERUL S-A POTRIVIT (addContactNameFillable in lead-import-actions.ts).
+//      Aceasta este o intrebare despre REZULTATUL dublarii, care nu exista inca
+//      cand s-ar valida un rand izolat.
+// CLAUZA 1 A CARDULUI P3-121 CERE "un singur cititor, o singura previzualizare
+// si un singur fisier de erori". Cititorul si fisierul de erori sunt deja unul
+// (parseCsv, buildErrorCsv). Previzualizarea ramane a doua, pe aceasta parte a
+// liniei, fiindca a o muta ar insemna sa i se scoata una din cele patru reguli
+// de mai sus sau sa se largeasca descriptorul comun pana cand ar purta cunostinta
+// despre lead care nu are ce sa caute intr-un modul pe care P3-123 la P3-125 il
+// vor refolosi pentru clienti, proiecte si materiale. Inregistrat si in `notes`
+// pe cardul P3-122, pentru cardurile acelea.
 export type PreparedRow =
   | { ok: true; line: RowNumber; lead: PreparedLead; phoneKey: string | null; emailKey: string | null }
   | { ok: false; line: RowNumber; reason: string; raw: string[] };

@@ -39,6 +39,7 @@ import {
 import { plural } from "@/lib/data/format";
 import {
   autoMatchColumns,
+  leadImportInstructions,
   parseCsv,
   skippedCsv,
   templateCsv,
@@ -335,7 +336,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 onClick={() => download(templateCsv(), TEMPLATE_FILE_NAME)}
                 data-testid="import-template"
               >
-                Descarcă șablonul gol
+                Descarcă modelul de import
               </Button>
 
               {ready ? (
@@ -345,6 +346,24 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                   {headers.length === 1 ? "coloană" : "coloane"}.
                 </p>
               ) : null}
+
+              {/* CARDUL P3-122 CLAUZA 3: instructiunile romanesti PE ECRAN, nu
+                  numai in modelul descarcat. Simplu text, fara buton si fara
+                  camp, ca regula celor 44px/16px de la 390x844 sa nu se aplice
+                  aici deloc. */}
+              <div
+                className="space-y-1.5 rounded-[12px] border border-rc-line bg-rc-paper p-4"
+                data-testid="import-instructions"
+              >
+                <h3 className="text-[13px] font-semibold text-rc-black">
+                  Cum funcționează importul
+                </h3>
+                {leadImportInstructions().map((line, i) => (
+                  <p key={i} className="text-[12px] text-rc-muted [overflow-wrap:anywhere]">
+                    {line}
+                  </p>
+                ))}
+              </div>
             </section>
           ) : null}
 
