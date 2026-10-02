@@ -18,11 +18,21 @@
 // timp raspunsul este "nu", scrierea REFUZA ROMANESTE si nu arunca un 500: asta este
 // jumatatea de scriere a comportamentului pe care il descrie si lib/data/tasks.ts.
 //
-// NU SE CHEAMA revalidatePath, SI GOLUL ESTE LASAT ANUME. Acest card nu construieste
-// niciun ecran, clauza 7, deci nu exista nicio cale de reimprospatat: o cale scrisa
-// acum ar fi ghicita de cineva care nu vede ecranul. Cardurile P3-131, P3-132 si
-// P3-133 o adauga, fiecare pentru calea pe care o construieste.
+// revalidatePath SE CHEAMA PENTRU CALEA PE CARE O CONSTRUIESTE CARDUL P3-131, si
+// numai pentru ea. Pana la acel card antetul acesta spunea:
+//
+//   "NU SE CHEAMA revalidatePath, SI GOLUL ESTE LASAT ANUME. Acest card nu
+//   construieste niciun ecran, clauza 7, deci nu exista nicio cale de
+//   reimprospatat: o cale scrisa acum ar fi ghicita de cineva care nu vede ecranul.
+//   Cardurile P3-131, P3-132 si P3-133 o adauga, fiecare pentru calea pe care o
+//   construieste."
+//
+// Asta rămâne regula si este urmata la litera: aici se scrie `/sarcini`, ecranul
+// cardului P3-131, SI NIMIC ALTCEVA. Panoul de pe fisa unei inregistrari este P3-132
+// si secțiunea de pe Azi este P3-133: ele isi adauga calea cand o au, fiindca o cale
+// scrisa inainte de ecranul ei este tot o cale ghicita.
 
+import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasTasks } from "./schema-capability";
 import { validateNewTask, validateTaskPatch } from "./tasks-shape";
@@ -34,6 +44,10 @@ const NOT_APPLIED =
   "Sarcinile nu sunt încă active. Încearcă din nou în câteva minute.";
 
 const NO_SESSION = "Sesiune expirată. Autentifică-te din nou.";
+
+/** Ecranul cardului P3-131. Scris o singura data: doua drumuri de scriere care
+ *  reimprospateaza doua cai diferite este un ecran care uneori nu se schimba. */
+const TASKS_PATH = "/sarcini";
 
 /**
  * Refuzul masinal al bazei, tradus in propozitia romaneasca pe care o vede
@@ -133,6 +147,7 @@ export async function createTask(
   if (error) return translateWriteError(error.code, error.message);
   if (!data) return { ok: false, message: "Sarcina nu a putut fi scrisă. Încearcă din nou." };
 
+  revalidatePath(TASKS_PATH);
   return { ok: true, value: { id: String(data.id) } };
 }
 
@@ -189,5 +204,6 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
       message: "Sarcina nu a putut fi modificată. Reîncarcă pagina și încearcă din nou.",
     };
 
+  revalidatePath(TASKS_PATH);
   return { ok: true, value: undefined };
 }
