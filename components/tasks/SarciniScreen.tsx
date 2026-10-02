@@ -459,8 +459,11 @@ export function SarciniScreen({
                             lead, client sau proiect. Trei pagini, DOUA TOKENURI: un
                             lead este un rand din public.clients care poarta o etapa,
                             deci fisa lui este /clienti/<id>, exact randul pe care
-                            sarcina il poarta. Motivul intreg este in
-                            lib/data/tasks-types.ts.
+                            sarcina il poarta. Motivul intreg este scris la
+                            TaskEntityType in lib/data/tasks-types.ts (randul de mai
+                            sus nu se rupe anume: o cale singura pe un rand este ce
+                            devine un marcaj de conflict caruia i s-au sters semnele,
+                            si check:conflict-residue o refuza, pe bune).
                             RecordLink, si nu un <Link> scris aici: o destinatie
                             absenta nu este niciodata o legatura moarta, ci text cu o
                             explicatie romaneasca. */}
