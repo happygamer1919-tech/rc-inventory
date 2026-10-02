@@ -83,10 +83,23 @@ pick the one this repository already uses for a polymorphic reference, and that 
 that one literally, because it answers the same question, "the jobs of THIS record, newest first",
 which is exactly what P3-132's panel is made of.
 
-**`public.status_entity` is NOT reused and could not be.** It is `('inbound_order',
-'outbound_issue')`. A task attaches to different things entirely, so this card creates its own type
-rather than widening one whose two labels are what the order history means. An assertion pins
-`status_entity` unchanged, so this card cannot have touched it.
+**`public.status_entity` is NOT reused and could not be.** It holds four labels:
+`inbound_order` and `outbound_issue` from migration 0001, `project` from 0015 and `client` from 0038.
+It names the entities whose status HISTORY is kept, which is what those four have in common, and a
+task's status history is not kept by this card, said in terms at the bottom of the migration. A task
+attaches to different things entirely, so this card creates its own type rather than widening a shared
+one, because adding a label to a shared enum is a change to every reader of it.
+
+**The first version of that assertion was wrong and CI caught it**, on run 37000948483, and it is
+worth recording because the class matters. The assertion read
+`if txt is distinct from 'inbound_order,outbound_issue'`, which is the list 0001 created: it had been
+read off migration 0001 instead of off the schema as it stands. It therefore **refused a schema that
+was entirely correct and accused this card of a change it had not made**. The fix pins the four labels
+that exist, naming the migration that created each, and adds the half that is actually load bearing:
+a separate check that `status_entity` carries **no `task` label**, which is the one way this card could
+have touched that type. That second check keeps working even if a future card legitimately adds a fifth
+label and updates the list. The false sentence is kept and corrected beside itself in both the
+migration header and the assertions file, under CLAUDE.md section 9c.
 
 **The price of the shape is said out loud rather than left to be found:** `entity_id` carries no
 foreign key, because a polymorphic column references two tables. `public.status_history` has paid the

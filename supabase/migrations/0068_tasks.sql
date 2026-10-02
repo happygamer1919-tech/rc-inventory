@@ -123,10 +123,23 @@ $$;
 -- indexed as (entity_type, entity_id, created_at desc). Section 4 follows it,
 -- index included.
 --
--- public.status_entity IS NOT REUSED AND COULD NOT BE. It is
--- ('inbound_order', 'outbound_issue'): a task attaches to different things
--- entirely, so this card creates its own type rather than widening one whose
--- two labels are what the order history means.
+-- public.status_entity IS NOT REUSED AND COULD NOT BE. The sentence first written
+-- here was "It is ('inbound_order', 'outbound_issue')", and it is KEPT and
+-- corrected beside it under CLAUDE.md section 9c rather than deleted, because the
+-- correction is the interesting part. That is the list migration 0001 created, and
+-- it was read off 0001 instead of off the schema: TWO MORE LABELS WERE ADDED SINCE,
+-- 'project' by 0015_status_entity_project.sql and 'client' by
+-- 0038_status_entity_client.sql, so the type holds four. The assertion that pinned
+-- two caught the error in CI on run 37000948483 by refusing a schema that was
+-- entirely correct.
+--
+-- THE CONCLUSION IS UNCHANGED AND IS STRONGER WITH THE RIGHT LIST. status_entity
+-- names the entities whose STATUS HISTORY is kept, which is what the four labels
+-- have in common; a task's status history is not kept by this card, said in terms
+-- at the bottom of this file. A task attaches to different things entirely, so this
+-- card creates its own type rather than widening one whose labels are what the
+-- order history means, and adding a label to a shared enum is a change to every
+-- reader of it.
 --
 -- THE PRICE OF THE SHAPE, SAID OUT LOUD RATHER THAN LEFT TO BE FOUND: entity_id
 -- cannot carry a foreign key, because a polymorphic column references two

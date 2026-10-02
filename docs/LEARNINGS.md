@@ -8492,3 +8492,26 @@ this shape in `lib/data/facturare-create-types.ts`, `lib/data/facturare-detail-t
 a tolerated entry is whether the file can reach the pending object at all: if it names no table and
 calls no function, the word is a coincidence of vocabulary and the entry says so. A tolerated entry
 is not a weakened check, and an entry whose file stops carrying the word is itself reported stale.
+
+### An assertion that pins an enum's labels read from the migration that CREATED it accuses the wrong card
+**Tag:** assertion
+**ERROR:** `scripts/poc-free/local-db/assertions/0068_tasks.sql` proved that card P3-130 had not
+widened the shared `public.status_entity` type with
+`if txt is distinct from 'inbound_order,outbound_issue'`. That is exactly the list migration 0001
+creates, and it had been read off 0001 rather than off the schema as it stands. Two more labels had
+been added since, each by its own migration: `project` by `0015_status_entity_project.sql` and
+`client` by `0038_status_entity_client.sql`. So the assertion **refused a schema that was entirely
+correct** and its refusal text accused this card of a change it had not made:
+"status_entity labels are (inbound_order,outbound_issue,project,client), and this card must not have
+touched them". CI caught it on run 37000948483, after the assertion had already passed review twice,
+because it reads like a careful pin.
+**SOLUTION:** two halves instead of one. The exact list now names the four labels AND the migration
+that created each, so it is readable against the schema rather than against one migration; and beside
+it sits the check that is actually load bearing, that `status_entity` carries **no `task` label**,
+which is the single way this card could have touched that type. The second half keeps working when a
+future card legitimately adds a fifth label and updates the list above it. RULE: **before pinning the
+labels of a shared enum, grep every migration for `add value`, not just the one that created the
+type.** More generally: an assertion about "nothing else changed this" must be written from the state
+the schema is in, because one written from a migration's text goes red on correct work and reads as a
+defect in whatever card happens to be holding the branch. A false red is worse than a false green, and
+`docs/LEARNINGS.md` already names why: a false green is ignored once and a false red is ignored forever.

@@ -211,6 +211,7 @@ end $$;
 do $$
 declare
   txt text;
+  n   integer;
 begin
   -- FOUR, AND THE FOUR IVAN NAMED: De facut, In lucru, Finalizata, Anulata.
   -- English tokens stored, P2-01, and the Romanian words are in
@@ -264,14 +265,50 @@ begin
   end if;
 
   -- public.status_entity IS NOT WIDENED BY THIS CARD. It is the order history's
-  -- own type and its two labels are what that history means.
+  -- own type and its labels are what that history means.
+  --
+  -- THE FIRST VERSION OF THIS ASSERTION PINNED TWO LABELS AND WAS WRONG, kept and
+  -- corrected here under CLAUDE.md 9c rather than quietly rewritten, because the
+  -- mistake is instructive and CI caught it on run 37000948483:
+  --
+  --   if txt is distinct from 'inbound_order,outbound_issue' then
+  --
+  -- That is the list migration 0001 created, and it was read off 0001 instead of
+  -- off the schema as it stands. TWO MORE LABELS WERE ADDED SINCE, each by its own
+  -- migration: 'project' by 0015_status_entity_project.sql and 'client' by
+  -- 0038_status_entity_client.sql. So the assertion refused a schema that was
+  -- entirely correct and accused this card of a change it had not made. A false red
+  -- is worse than a false green, which docs/LEARNINGS.md already names as a class:
+  -- a false green is ignored once and a false red is ignored forever.
+  --
+  -- WHAT IS ASSERTED NOW IS THE PROPERTY THIS CARD IS ABOUT, in two halves. The
+  -- exact list, so a label added without a card is still caught, naming the four
+  -- and the migration that created each; and then, separately and by name, that
+  -- status_entity carries NO 'task' label, which is the one way THIS card could
+  -- have touched it. The second half is the load bearing one: it would still fire
+  -- if a future card legitimately added a fifth label and updated the list above.
   select string_agg(e.enumlabel, ',' order by e.enumsortorder) into txt
   from pg_enum e join pg_type t on t.oid = e.enumtypid
   join pg_namespace ns on ns.oid = t.typnamespace
   where ns.nspname = 'public' and t.typname = 'status_entity';
 
-  if txt is distinct from 'inbound_order,outbound_issue' then
-    raise exception 'P3-130: status_entity labels are (%), and this card must not have touched them', txt;
+  if txt is distinct from 'inbound_order,outbound_issue,project,client' then
+    raise exception 'P3-130: status_entity labels are (%), expected (inbound_order,outbound_issue from 0001, project from 0015, client from 0038). This card must not have touched them.', txt;
+  end if;
+
+  -- AND NO 'task' LABEL, which is the single change this card could have made to
+  -- that type and did not. The card creates public.task_entity instead, because a
+  -- task attaches to different things than an order history entry does, and the
+  -- closing section of migration 0068 records that writing status_history on a task
+  -- status change is the work of whichever card needs that history, with a
+  -- migration of its own.
+  select count(*) into n
+  from pg_enum e join pg_type t on t.oid = e.enumtypid
+  join pg_namespace ns on ns.oid = t.typnamespace
+  where ns.nspname = 'public' and t.typname = 'status_entity' and e.enumlabel = 'task';
+
+  if n <> 0 then
+    raise exception 'P3-130: status_entity now carries a task label, and this card must not have added one; it creates public.task_entity instead';
   end if;
 end $$;
 
