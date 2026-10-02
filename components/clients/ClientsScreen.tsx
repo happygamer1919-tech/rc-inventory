@@ -302,7 +302,7 @@ export function ClientsScreen({
                 data-testid="leaduri-import"
                 className="max-md:min-h-11"
               >
-                Importă leaduri
+                Importă din CSV
               </Button>
               <Button
                 onClick={() => setCreatingLead(true)}
