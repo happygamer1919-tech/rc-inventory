@@ -1655,3 +1655,1159 @@ test("sarcini: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele
     expect(offenders, `${file} poarta o liniuta em sau en`).toEqual([]);
   }
 });
+
+/* =======================================================================
+   CARDUL P3-132: PANOUL SARCINI DE PE FISA INREGISTRARII
+   ======================================================================= */
+//
+// Item 4 al lui Ivan, partea a treia, si propozitia lui este una singura: "Also on
+// the linked record's detail page." Cele cinci cazuri de mai jos sunt cele patru pe
+// care acceptanta cardului le numeste, de la (a) la (d), plus garda deviatiei D7 pe
+// numele cerut de acceptanta (e).
+//
+// CELE SASE CAZURI ALE CARDULUI P3-130 SI CELE OPT ALE CARDULUI P3-131 SUNT NEATINSE,
+// nici un caracter, si asta este jumatate din dovada ca nici stratul de date, nici
+// fila nu s-au schimbat sub ele. Tabelul s-a MUTAT din SarciniScreen in TaskTable, cu
+// fiecare data-testid neschimbat, tocmai ca ele sa nu aiba nevoie de nicio atingere.
+//
+// TREI PAGINI, DOUA ECRANE DE DETALIU, SI ACCEPTANTA (a) CERE TOATE TREI. Clauza 1
+// numeste fisa unui lead, a unui client si a unui proiect. In aceasta aplicatie
+// exista DOUA ecrane de detaliu: cel al clientului serveste si leadul, fiindca un
+// lead ESTE un rand din public.clients care poarta o etapa, si nu exista nicio tabela
+// public.leads in niciuna din migratii. Cazul (a) deschide totusi toate trei paginile,
+// fiindca atat cere acceptanta si fiindca un lead ajuns la aceeasi fisa este chiar
+// lucrul care merita dovedit.
+//
+// ZIUA SE SEMANA RELATIV LA chisinauToday(), NICIODATA CA LITERALI, acelasi motiv
+// scris pe cazurile cardului P3-131: o margine scrisa "2026-10-01" este o margine
+// care putrezeste in ziua in care calendarul trece de ea.
+//
+// GARDA LUI D7 ESTE DUBLA, SI ASTA ESTE DELIBERAT. Acceptanta (e) cere cazul
+// `fisa clientului: pasul urmator este neschimbat` si il numeste "the EXISTING
+// next-step test, re-run unmodified". NICIUN CAZ CU ACEL NUME NU EXISTA: garda
+// existenta sunt cele sase cazuri ale lui tests/e2e/lead-next-action.spec.ts, cardul
+// P3-89. Amandoua jumatatile se respecta, deci: acele sase cazuri ruleaza NEMODIFICATE,
+// nici un caracter, si cel de mai jos se adauga pe numele exact pe care acceptanta il
+// cere. Un diff care ar fi trebuit sa atinga unul din cele sase ar fi rupt D7.
+
+const P132 = `TEST-P3132-${RUN}`;
+
+/** Zona panoului de pe fisa unei inregistrari. */
+function panel(page: Page): Locator {
+  return page.getByTestId("panel-sarcini");
+}
+
+/** Randul unei sarcini anume DINAUNTRUL panoului, pe id.
+ *
+ *  SCOPAT PE PANOU SI NU PE PAGINA, fiindca `task-row` este acelasi data-testid pe
+ *  amandoua ecranele, si asta este chiar dovada clauzei 5: un singur randator. O
+ *  afirmatie care nu ar scopa ar masura, pe fila, randurile filei. */
+function panelRowById(page: Page, id: string): Locator {
+  return panel(page).locator(`[data-testid="task-row"][data-id="${id}"]`);
+}
+
+/** Randurile din panou, in ordinea din DOM, fiecare cu grupul si marcajul lui.
+ *
+ *  SE CITESC ATRIBUTE SI NU TEXT, acelasi motiv ca `screenRows` de mai sus: grupul si
+ *  marcajul sunt fapte despre rand si nu cuvinte. */
+async function panelRows(page: Page): Promise<ScreenRow[]> {
+  return panel(page)
+    .locator('[data-testid="task-row"]')
+    .evaluateAll((els) =>
+      els.map((e) => ({
+        id: e.getAttribute("data-id") ?? "",
+        group: e.getAttribute("data-group") ?? "",
+        overdue: e.getAttribute("data-overdue") === "true",
+      })),
+    );
+}
+
+/** Deschide fisa unui client sau a unui lead si asteapta panoul. */
+async function openClientSheet(page: Page, id: string): Promise<void> {
+  await page.goto(`/clienti/${id}`);
+  await expect(page.getByTestId("client-detail")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    panel(page),
+    "panoul Sarcini este pe fisa clientului",
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+/** Deschide fisa unui proiect si asteapta panoul. */
+async function openProjectSheet(page: Page, id: string): Promise<void> {
+  await page.goto(`/proiecte/${id}`);
+  await expect(page.getByTestId("project-detail")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    panel(page),
+    "panoul Sarcini este pe fisa proiectului",
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+/** Un proiect nou pe un client dat, semanat ca serviciu. */
+async function seedProject(clientRowId: string, name: string): Promise<string> {
+  const r = await asService("projects?select=id", {
+    method: "POST",
+    body: { client_id: clientRowId, name },
+  });
+  expect(r.ok, `proiectul de test nu a putut fi scris: ${r.text}`).toBe(true);
+  return String(r.rows[0]!.id);
+}
+
+/* ------------- (a) panoul arata numai sarcinile inregistrarii deschise -- */
+
+test("sarcini pe fisa: panoul arata numai sarcinile inregistrarii deschise", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+
+  // TREI INREGISTRARI TINTA SI DOUA STRAINE, iar cele trei tinte sunt pe rand si
+  // straine una altuia: asa fiecare pagina se dovedeste impotriva a PATRU sarcini care
+  // nu sunt ale ei, din amandoua tokenurile, si nu doar impotriva uneia.
+  const leadName = `${P132} fisa lead`;
+  const clientName = `${P132} fisa client`;
+  const projectName = `${P132} fisa proiect`;
+
+  // Un rand nou de client este la etapa `cold`, care ESTE o etapa de lead: vederea
+  // Leaduri a ecranului /clienti arata fiecare rand care nu este la etapa Client.
+  const leadId = await seedClient(leadName);
+  const clientRowId = await seedClient(clientName);
+  await setStage(clientRowId, "client");
+  const projectRowId = await seedProject(clientRowId, projectName);
+
+  const otherClientId = await seedClient(`${P132} fisa alt client`);
+  const otherProjectId = await seedProject(
+    otherClientId,
+    `${P132} fisa alt proiect`,
+  );
+
+  const onLead = await seed({
+    title: `${P132} a sarcina leadului`,
+    due_date: shiftDay(TODAY, 3),
+    entity_type: "client",
+    entity_id: leadId,
+  });
+  const onClient = await seed({
+    title: `${P132} a sarcina clientului`,
+    due_date: shiftDay(TODAY, 4),
+    entity_type: "client",
+    entity_id: clientRowId,
+  });
+  const onProject = await seed({
+    title: `${P132} a sarcina proiectului`,
+    due_date: shiftDay(TODAY, 5),
+    entity_type: "project",
+    entity_id: projectRowId,
+  });
+  const onOtherClient = await seed({
+    title: `${P132} a sarcina altui client`,
+    due_date: shiftDay(TODAY, 6),
+    entity_type: "client",
+    entity_id: otherClientId,
+  });
+  const onOtherProject = await seed({
+    title: `${P132} a sarcina altui proiect`,
+    due_date: shiftDay(TODAY, 7),
+    entity_type: "project",
+    entity_id: otherProjectId,
+  });
+  // SI O SARCINA LEGATA DE NIMIC, care nu are ce sa caute pe nicio fisa: ea este
+  // starea adevarata a unei treburi pe care nimeni nu a atasat-o de nimic.
+  const loose = await seed({ title: `${P132} a sarcina fara legatura` });
+
+  const seeded = [
+    onLead,
+    onClient,
+    onProject,
+    onOtherClient,
+    onOtherProject,
+    loose,
+  ];
+
+  await signIn(page, ownerAccount());
+
+  const cases: {
+    label: string;
+    open: () => Promise<void>;
+    heading: string;
+    mine: string;
+  }[] = [
+    {
+      label: "lead",
+      open: () => openClientSheet(page, leadId),
+      heading: leadName,
+      mine: onLead,
+    },
+    {
+      label: "client",
+      open: () => openClientSheet(page, clientRowId),
+      heading: clientName,
+      mine: onClient,
+    },
+    {
+      label: "proiect",
+      open: () => openProjectSheet(page, projectRowId),
+      heading: projectName,
+      mine: onProject,
+    },
+  ];
+
+  for (const c of cases) {
+    await c.open();
+
+    // FISA DESCHISA ESTE CHIAR A ACELEI INREGISTRARI, verificat inainte de orice
+    // afirmatie despre panou: un panou gol pe pagina greșita ar trece altfel.
+    await expect(
+      page.getByRole("heading", { level: 1, name: c.heading, exact: true }),
+      `fisa deschisa pe ${c.label}`,
+    ).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      panelRowById(page, c.mine),
+      `sarcina lui ${c.label} este in panou`,
+    ).toHaveCount(1, {
+      timeout: 30_000,
+    });
+
+    // NUMAI ALE EI, SI SE MASOARA DOAR ID-URILE SEMANATE DE ACEST CAZ. Datele de test
+    // nu se sterg niciodata in acest depozit, deci randurile lasate de rulari
+    // anterioare pe aceleasi inregistrari nu exista: fiecare rulare isi semaneaza
+    // proprii clienti si proiecte, deci panoul arata exact una din sarcinile mele.
+    // Afirmatia este pe MULTIMEA proprie si nu pe o numaratoare a panoului.
+    const inPanel = (await panelRows(page)).map((r) => r.id);
+    expect(
+      inPanel.filter((id) => seeded.includes(id)),
+      `in panoul lui ${c.label} stau numai sarcinile lui`,
+    ).toEqual([c.mine]);
+
+    // SI CELE STRAINE SE CER PE NUME SA LIPSEASCA, nu doar prin lipsa din multimea de
+    // mai sus: o afirmatie care spune CARE rand a intrat unde nu trebuia este o
+    // afirmatie care se poate repara.
+    for (const foreign of seeded.filter((id) => id !== c.mine)) {
+      await expect(
+        panelRowById(page, foreign),
+        `o sarcina straina nu intra in panoul lui ${c.label}`,
+      ).toHaveCount(0);
+    }
+  }
+
+  // SI LISTA PANOULUI ESTE CEA A INREGISTRARII, CITITA PRIN listTasksForEntity: randul
+  // stocat poarta chiar perechea pe care panoul a filtrat-o, si asta se citeste din
+  // baza si nu de pe ecran.
+  const stored = await asUser(
+    ownerToken,
+    `tasks?select=id,entity_type,entity_id&id=in.(${onLead},${onClient},${onProject})`,
+  );
+  expect(
+    stored.rows,
+    "cele trei sarcini tinta se citesc din baza",
+  ).toHaveLength(3);
+  const byId = new Map(stored.rows.map((r) => [String(r.id), r]));
+  expect(
+    byId.get(onLead)!.entity_type,
+    "sarcina leadului poarta tokenul client",
+  ).toBe("client");
+  expect(
+    byId.get(onLead)!.entity_id,
+    "si id-ul randului de client al leadului",
+  ).toBe(leadId);
+  expect(byId.get(onClient)!.entity_type).toBe("client");
+  expect(byId.get(onClient)!.entity_id).toBe(clientRowId);
+  expect(
+    byId.get(onProject)!.entity_type,
+    "sarcina proiectului poarta tokenul project",
+  ).toBe("project");
+  expect(byId.get(onProject)!.entity_id).toBe(projectRowId);
+});
+
+/* ---- (b) o sarcina creata din panou este deja legata de acea inregistrare -- */
+
+test("sarcini pe fisa: o sarcina creata din panou este deja legata de acea inregistrare", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+
+  // AMANDOUA TOKENURILE, intr-un singur caz: clauza 2 este despre inlesnire si ea
+  // trebuie sa fie aceeasi pe fisa unui client si pe fisa unui proiect. Un caz care ar
+  // dovedi numai `client` ar lasa ramura `project` nedovedita, si ele sunt doua ramuri
+  // de cod diferite in TaskPanel.
+  const clientName = `${P132} creare client`;
+  const projectName = `${P132} creare proiect`;
+  const clientRowId = await seedClient(clientName);
+  await setStage(clientRowId, "client");
+  const projectRowId = await seedProject(clientRowId, projectName);
+
+  await signIn(page, ownerAccount());
+
+  const cases: {
+    label: string;
+    open: () => Promise<void>;
+    entityType: string;
+    entityId: string;
+    entityLabel: string;
+    title: string;
+  }[] = [
+    {
+      label: "client",
+      open: () => openClientSheet(page, clientRowId),
+      entityType: "client",
+      entityId: clientRowId,
+      entityLabel: clientName,
+      title: `${P132} b scrisa de pe fisa clientului`,
+    },
+    {
+      label: "proiect",
+      open: () => openProjectSheet(page, projectRowId),
+      entityType: "project",
+      entityId: projectRowId,
+      entityLabel: projectName,
+      title: `${P132} b scrisa de pe fisa proiectului`,
+    },
+  ];
+
+  for (const c of cases) {
+    await c.open();
+
+    await page.getByTestId("panel-task-new").click();
+    await expect(page.getByTestId("task-form")).toBeVisible();
+
+    // OPERATORUL NU O ALEGE, SI ASTA SE DOVEDESTE PRIN ABSENTA CONTROLULUI, nu prin
+    // faptul ca testul nu l-a atins. Acceptanta (b) cere legatura stocata "without the
+    // operator having selected it": cele doua selectoare ale inregistrarii legate NU
+    // EXISTA in panoul deschis de pe fisa, deci nu exista cale prin care sa o fi ales.
+    await expect(
+      page.getByTestId("field-task-entity-type"),
+      `selectorul de fel nu exista in panoul lui ${c.label}`,
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("field-task-entity"),
+      `casuta de alegere a inregistrarii nu exista in panoul lui ${c.label}`,
+    ).toHaveCount(0);
+
+    // IN LOCUL LOR, INREGISTRAREA SCRISA, cu cuvantul romanesc al felului ei si cu
+    // numele ei, ca operatorul sa vada de ce se leaga ce scrie.
+    const fixed = page.getByTestId("field-task-entity-fixed");
+    await expect(
+      fixed,
+      `inregistrarea fixata se vede in panoul lui ${c.label}`,
+    ).toBeVisible();
+    await expect(fixed).toHaveAttribute("data-entity-type", c.entityType);
+    await expect(fixed).toHaveAttribute("data-entity-id", c.entityId);
+    await expect(fixed).toContainText(
+      c.entityType === "project"
+        ? TASK_ENTITY_TYPE_LABEL.project
+        : TASK_ENTITY_TYPE_LABEL.client,
+    );
+    await expect(fixed, "si numele inregistrarii").toContainText(c.entityLabel);
+
+    // SE SCRIE NUMAI TITLUL. Nimic altceva nu se atinge, si aceea este afirmatia: tot
+    // ce tine de legatura vine de la pagina.
+    await page.getByTestId("field-task-title").fill(c.title);
+    await page.getByTestId("task-save").click();
+    await expect(page.getByTestId("task-form")).toHaveCount(0, {
+      timeout: 30_000,
+    });
+
+    // SI RANDUL APARE IN PANOUL DE PE CARE A FOST SCRIS, fara nicio reincarcare de
+    // mana: altfel operatorul ar scrie o sarcina si nu ar vedea-o.
+    const row = panel(page)
+      .locator('[data-testid="task-row"]')
+      .filter({
+        has: page.getByTestId("task-title").getByText(c.title, { exact: true }),
+      });
+    await expect(
+      row,
+      `sarcina scrisa apare in panoul lui ${c.label}`,
+    ).toHaveCount(1, {
+      timeout: 30_000,
+    });
+
+    // LEGATURA STOCATA ESTE CE CERE ACCEPTANTA (b), si se citeste DIN BAZA si nu de pe
+    // ecran: ecranul putea sa o deseneze corect si sa fi trimis altceva.
+    const id = (await row.getAttribute("data-id")) ?? "";
+    expect(id, "randul creat are id").not.toBe("");
+    const stored = await asUser(
+      ownerToken,
+      `tasks?select=id,title,entity_type,entity_id,status,priority&id=eq.${id}`,
+    );
+    expect(
+      stored.rows,
+      `sarcina scrisa de pe fisa lui ${c.label} se citeste din baza`,
+    ).toHaveLength(1);
+    expect(
+      stored.rows[0]!.entity_type,
+      `felul stocat este tokenul englezesc al lui ${c.label}`,
+    ).toBe(c.entityType);
+    expect(
+      stored.rows[0]!.entity_id,
+      `si id-ul este chiar al inregistrarii deschise`,
+    ).toBe(c.entityId);
+    expect(stored.rows[0]!.title).toBe(c.title);
+    // SI IMPLICITELE COLOANELOR SE VAD, fiindca formularul nu a trimis nici stare nici
+    // urgenta: ele sunt ale migratiei 0068 si nu ale unui al doilea implicit scris in
+    // TypeScript.
+    expect(stored.rows[0]!.status, "starea implicita a coloanei").toBe("todo");
+    expect(stored.rows[0]!.priority, "urgenta implicita a coloanei").toBe(
+      "medium",
+    );
+  }
+});
+
+/* --- (c) se modifica si se anuleaza din panou, si niciun control de stergere -- */
+
+test("sarcini pe fisa: se poate modifica si anula din panou, si nu exista niciun control de stergere", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+
+  const clientName = `${P132} modificare client`;
+  const clientRowId = await seedClient(clientName);
+  await setStage(clientRowId, "client");
+
+  const created = `${P132} c de modificat`;
+  const changed = `${P132} c modificata din panou`;
+  const id = await seed({
+    title: created,
+    status: "todo",
+    due_date: shiftDay(TODAY, 2),
+    entity_type: "client",
+    entity_id: clientRowId,
+  });
+
+  /* ---- partea intai: ce se poate APASA, pe rand si in formular ---- */
+
+  // SE MASOARA CONTROALELE SI NU TEXTUL, deliberat, si acesta este chiar ocolul pe care
+  // cardul P3-110 l-a plata cu o rulare: un caz care citeste text gaseste intr-o zi un
+  // comentariu care CITEAZA regula, sau propozitia romaneasca pe care codul o intoarce.
+  // Un titlu scris de operator NU este un control: de aceea titlul este text pe rand si
+  // Modifică are butonul lui.
+  const DELETE_WORDS = ["sterge", "șterge", "elimin", "delete", "remove"];
+  const looksLikeDeleting = (label: string) =>
+    DELETE_WORDS.some((w) => label.toLocaleLowerCase("ro").includes(w));
+
+  // INSTRUMENTUL SE DOVEDESTE CA GASESTE INAINTE DE A FI CREZUT CAND NU GASESTE NIMIC:
+  // o cautare intr-un test care nu potriveste nimic trece la infinit.
+  expect(
+    looksLikeDeleting("Șterge sarcina"),
+    "instrumentul gaseste un control de stergere",
+  ).toBe(true);
+  expect(
+    looksLikeDeleting("Elimină sarcina"),
+    "si pe celalalt cuvant romanesc",
+  ).toBe(true);
+  expect(looksLikeDeleting("Delete task"), "si pe cel englezesc").toBe(true);
+  expect(
+    looksLikeDeleting("Modifică"),
+    "si nu confunda modificarea cu stergerea",
+  ).toBe(false);
+  expect(
+    looksLikeDeleting("Anulează sarcina"),
+    "si nici anularea, care este o stare",
+  ).toBe(false);
+
+  /** Numele fiecarui lucru apasabil dintr-o zona: butoane si legaturi. Se citeste
+   *  aria-label cand exista, altfel textul scris. */
+  async function controls(where: Locator): Promise<string[]> {
+    return where
+      .locator("button, a")
+      .evaluateAll((els) =>
+        els.map((e) =>
+          (e.getAttribute("aria-label") ?? e.textContent ?? "").trim(),
+        ),
+      );
+  }
+
+  await signIn(page, ownerAccount());
+  await openClientSheet(page, clientRowId);
+
+  const row = panelRowById(page, id);
+  await expect(row).toHaveCount(1, { timeout: 30_000 });
+
+  // PE RANDUL DIN PANOU: UN SINGUR LUCRU APASABIL, scris ca multime exacta. Pe fila
+  // randul are doua, fiindca acolo exista si legatura catre inregistrarea atasata;
+  // in panou coloana aceea nu se deseneaza, fiindca fiecare rand poarta inregistrarea
+  // paginii si legatura ar duce unde operatorul se afla deja. NICIUN MENIU DE RAND,
+  // ceea ce aceeasi afirmatie spune: un meniu ar fi un al doilea lucru apasabil aici.
+  const onRow = await controls(row);
+  expect(onRow, "pe randul din panou este numai butonul de modificare").toEqual(
+    ["Modifică"],
+  );
+  expect(onRow.filter(looksLikeDeleting), "si el nu sterge").toEqual([]);
+
+  // SI PE TOT PANOUL: antetul lui are butonul de sarcina nouă si nimic altceva.
+  const onPanel = await controls(panel(page));
+  expect([...onPanel].sort(), "controalele panoului").toEqual(
+    ["Modifică", "Sarcină nouă"].sort(),
+  );
+  expect(onPanel.filter(looksLikeDeleting), "si niciunul nu sterge").toEqual(
+    [],
+  );
+
+  /* ---- partea a doua: SE MODIFICA din panou ---- */
+
+  await row.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await expect(page.getByTestId("field-task-title")).toHaveValue(created);
+  // SI INREGISTRAREA LEGATA NU SE POATE DESFACE DIN PANOUL FISEI EI: formularul arata
+  // inregistrarea scrisa si nu un selector, la modificare exact ca la creare.
+  await expect(page.getByTestId("field-task-entity-fixed")).toBeVisible();
+  await expect(page.getByTestId("field-task-entity-type")).toHaveCount(0);
+
+  // IN FORMULAR: exact controalele pe care le are, scrise ca MULTIME EXACTA si nu ca
+  // "niciunul nu seamana cu stergerea". Un control nou aparut in formular trebuie sa
+  // treaca pe sub ochii cuiva, fiindca clauza 3 cere ca in acest panou sa nu existe
+  // nicio cale de stergere, "not in a row, not in a menu, not behind a confirmation".
+  // LISTA ESTE ACEEASI PE CARE O CERE SI CAZUL FILEI, si asta nu este o coincidenta: cu
+  // `fixedEntity` nu se deseneaza cele doua selectoare ale inregistrarii, iar pe fila
+  // ele sunt un `Select` si o casuta care apare abia dupa ce felul este ales, deci
+  // niciuna nu aduce un buton. Singurul "Deschide calendarul" este al casutei de
+  // termen, care se scrie pe amandoua ecranele.
+  const inPanelForm = await controls(page.getByTestId("task-form"));
+  expect(
+    [...inPanelForm].sort(),
+    "controalele formularului deschis din panou",
+  ).toEqual(
+    [
+      "Închide",
+      "Deschide calendarul",
+      "Anulează sarcina",
+      "Renunță",
+      "Salvează",
+    ].sort(),
+  );
+  expect(
+    inPanelForm.filter(looksLikeDeleting),
+    "si niciunul nu sterge",
+  ).toEqual([]);
+
+  await page.getByTestId("field-task-title").fill(changed);
+  await page.getByTestId("field-task-status").selectOption("in_progress");
+  await page.getByTestId("field-task-priority").selectOption("high");
+  await page.getByTestId("task-save").click();
+  await expect(page.getByTestId("task-form")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
+  const edited = panelRowById(page, id);
+  await expect(edited.getByTestId("task-title")).toHaveText(changed, {
+    timeout: 30_000,
+  });
+  await expect(edited.getByTestId("task-status")).toHaveText(
+    TASK_STATUS_LABEL.in_progress,
+  );
+  await expect(edited.getByTestId("task-priority")).toHaveText(
+    TASK_PRIORITY_LABEL.high,
+  );
+
+  // SI LEGATURA A RAMAS EXACT CUM ERA dupa o modificare facuta din panou: o salvare
+  // care ar fi rescris perechea ar fi mutat sarcina de pe inregistrare in tacere.
+  const afterEdit = await asUser(
+    ownerToken,
+    `tasks?select=status,priority,entity_type,entity_id&id=eq.${id}`,
+  );
+  expect(afterEdit.rows, "randul se citeste dupa modificare").toHaveLength(1);
+  expect(
+    afterEdit.rows[0]!.status,
+    "starea stocata este tokenul englezesc",
+  ).toBe("in_progress");
+  expect(afterEdit.rows[0]!.priority).toBe("high");
+  expect(afterEdit.rows[0]!.entity_type, "si legatura a rămas").toBe("client");
+  expect(afterEdit.rows[0]!.entity_id).toBe(clientRowId);
+
+  /* ---- partea a treia: SE ANULEAZA, si anularea nu este o stergere ---- */
+
+  await edited.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await page.getByTestId("task-cancel-task").click();
+  await expect(page.getByTestId("task-form")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
+  // SARCINA ESTE TOT ACOLO, si asta este jumatatea care conteaza: propozitia
+  // proprietarului este "a job that is called off is marked cancelled and stays on the
+  // record". Pe FISA ACELUI RECORD, adica aici.
+  await expect(
+    edited,
+    "sarcina anulata este TOT in panoul inregistrarii",
+  ).toHaveCount(1, {
+    timeout: 30_000,
+  });
+  await expect(edited.getByTestId("task-status")).toHaveText(
+    TASK_STATUS_LABEL.cancelled,
+    {
+      timeout: 30_000,
+    },
+  );
+  await expect(edited.getByTestId("task-title")).toHaveText(changed);
+
+  const afterCancel = await asUser(
+    ownerToken,
+    `tasks?select=id,status,title&id=eq.${id}`,
+  );
+  expect(afterCancel.rows, "randul exista in baza dupa anulare").toHaveLength(
+    1,
+  );
+  expect(afterCancel.rows[0]!.status, "si poarta starea anulata").toBe(
+    "cancelled",
+  );
+
+  // SI NICIO CONFIRMARE NU ASCUNDE O STERGERE: apasarea celui mai apropiat de stergere
+  // nu a deschis nicio a doua intrebare, iar pe o sarcina deja anulata butonul nu mai
+  // este oferit.
+  await edited.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await expect(page.getByTestId("task-cancel-task")).toHaveCount(0);
+  const afterwards = await controls(page.getByTestId("task-form"));
+  expect(
+    afterwards.filter(looksLikeDeleting),
+    "nici dupa anulare nu apare o stergere",
+  ).toEqual([]);
+  await page.getByTestId("task-form-close").click();
+
+  /* ---- partea a patra: nicio CALE de stergere in codul panoului ---- */
+
+  // SE CAUTA FORMA FAPTULUI INTERZIS, NU NUMELE LUI, lectura cardului P3-110:
+  // `.delete(` singur ar fi gasit `next.delete(k)`, care scoate un PARAMETRU din adresa
+  // si nu un rand din baza. Clientul Supabase scrie intotdeauna `.delete()` fara
+  // argument, iar URLSearchParams scrie intotdeauna o cheie, deci forma le deosebeste.
+  const SHAPES = [
+    /\.delete\(\s*\)/,
+    /\.remove\(/,
+    /\bdelete\s+from\b/i,
+    /method:\s*["']DELETE["']/i,
+    /\b(delete|remove)Task\b/i,
+  ];
+  const offendingLines = (source: string) =>
+    source
+      .split("\n")
+      .map((line, i) => ({ line, at: i + 1 }))
+      .filter((l) => SHAPES.some((s) => s.test(l.line)))
+      .map((l) => `${l.at}: ${l.line.trim()}`);
+
+  // SI INSTRUMENTUL ACESTA SE DOVEDESTE SI EL, pe randuri scrise aici cum ar arata un
+  // adevarat vinovat, si pe randuri care NU sunt vinovate.
+  expect(
+    offendingLines('await supabase.from("tasks").delete().eq("id", id);'),
+  ).toHaveLength(1);
+  expect(
+    offendingLines('await supabase.storage.from("x").remove([p]);'),
+  ).toHaveLength(1);
+  expect(
+    offendingLines("delete from public.tasks where id = $1;"),
+  ).toHaveLength(1);
+  expect(offendingLines('fetch(u, { method: "DELETE" })')).toHaveLength(1);
+  expect(
+    offendingLines("export async function deleteTask(taskId: string) {"),
+  ).toHaveLength(1);
+  expect(
+    offendingLines("next.delete(key);"),
+    "un parametru scos din adresa nu este un vinovat",
+  ).toEqual([]);
+  expect(
+    offendingLines(
+      "// anularea este o stare si nu o stergere, nimic nu se sterge",
+    ),
+    "un comentariu care citeaza regula nu este un vinovat",
+  ).toEqual([]);
+
+  // FISIERELE PE CARE LE SCRIE ACEST CARD, plus cele doua ecrane de detaliu care il
+  // randeaza. Lista este scrisa pe nume si fiecare fisier trebuie sa existe: un fisier
+  // redenumit face cazul sa pice zgomotos in loc sa scaneze in gol.
+  const SOURCES = [
+    "components/tasks/TaskPanel.tsx",
+    "components/tasks/TaskTable.tsx",
+    "components/tasks/TaskForm.tsx",
+    "components/clients/ClientDetailScreen.tsx",
+    "components/projects/ProjectDetailScreen.tsx",
+    "app/(app)/clienti/[id]/page.tsx",
+    "app/(app)/proiecte/[id]/page.tsx",
+  ];
+  for (const file of SOURCES) {
+    const source = readFileSync(file, "utf8");
+    expect(
+      source.length,
+      `${file} trebuie sa existe si sa nu fie gol`,
+    ).toBeGreaterThan(0);
+    expect(offendingLines(source), `${file} poarta o cale de stergere`).toEqual(
+      [],
+    );
+  }
+});
+
+/* ---- (d) ACORDUL: aceeasi sarcina, acelasi marcaj pe fisa si in fila -------- */
+
+test("sarcini pe fisa: aceeasi sarcina este marcata intarziat la fel pe fisa si in fila Sarcini", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+
+  // ACEASTA ESTE ACCEPTANTA (d) SI CLAUZA 4, iar defectul pe care clauza il numeste este
+  // chiar acesta: "A row that reads as late on one screen and on time on the other".
+  // Doua ecrane care arata aceeasi sarcina nu au voie sa aiba doua idei despre ce este
+  // intarziat.
+  //
+  // CE FACE ACORDUL IMPOSIBIL DE RUPT NU ESTE ACEST CAZ, SI ASTA MERITA SCRIS: panoul si
+  // fila randeaza ACELASI component, components/tasks/TaskTable.tsx, care cheama
+  // isTaskOverdue() din lib/data/tasks-shape.ts, care este literal
+  // `taskBucket(task, today) === "restante"`. Derivarea este ce le face incapabile sa nu
+  // fie de acord; cazul de mai jos este ce prinde ziua in care cineva le desface.
+  //
+  // SETUL TRECE PESTE MARGINE, acelasi set si pentru acelasi motiv ca al cazului filei:
+  // cele patru stari pe o zi trecuta, apoi azi, apoi maine, apoi fara termen. Daca
+  // excluderea de stare a clauzei 5 ar ajunge sa stea in doua locuri, cele doua ecrane
+  // s-ar departa exact pe randurile finalizat si anulat.
+  const clientName = `${P132} acord client`;
+  const clientRowId = await seedClient(clientName);
+  await setStage(clientRowId, "client");
+
+  const yesterday = shiftDay(TODAY, -1);
+  const link = { entity_type: "client", entity_id: clientRowId };
+
+  const openTodo = await seed({
+    title: `${P132} d ieri de facut`,
+    due_date: yesterday,
+    status: "todo",
+    ...link,
+  });
+  const working = await seed({
+    title: `${P132} d ieri in lucru`,
+    due_date: yesterday,
+    status: "in_progress",
+    ...link,
+  });
+  const finished = await seed({
+    title: `${P132} d ieri finalizata`,
+    due_date: yesterday,
+    status: "done",
+    ...link,
+  });
+  const cancelled = await seed({
+    title: `${P132} d ieri anulata`,
+    due_date: yesterday,
+    status: "cancelled",
+    ...link,
+  });
+  const dueToday = await seed({
+    title: `${P132} d azi`,
+    due_date: TODAY,
+    status: "todo",
+    ...link,
+  });
+  const tomorrow = await seed({
+    title: `${P132} d maine`,
+    due_date: shiftDay(TODAY, 1),
+    status: "todo",
+    ...link,
+  });
+  const noDate = await seed({
+    title: `${P132} d fara termen`,
+    status: "todo",
+    ...link,
+  });
+
+  const mine = [
+    openTodo,
+    working,
+    finished,
+    cancelled,
+    dueToday,
+    tomorrow,
+    noDate,
+  ];
+
+  await signIn(page, ownerAccount());
+
+  /* ---- ce spune FISA ---- */
+
+  await openClientSheet(page, clientRowId);
+  const onSheet = new Map((await panelRows(page)).map((r) => [r.id, r]));
+
+  // TOATE SAPTE SUNT PE FISA, verificat inainte de orice comparatie: doua ecrane care nu
+  // arata niciuna din ele ar fi "de acord" si cazul ar trece pe gol.
+  for (const id of mine) {
+    expect(onSheet.get(id), `sarcina ${id} este in panoul fisei`).toBeDefined();
+  }
+
+  /* ---- ce spune FILA ---- */
+
+  await openSarcini(page);
+  const onTab = new Map((await screenRows(page)).map((r) => [r.id, r]));
+  for (const id of mine) {
+    expect(onTab.get(id), `sarcina ${id} este in fila Sarcini`).toBeDefined();
+  }
+
+  /* ---- si cele doua sunt de acord, rand cu rand ---- */
+
+  // MARCAJUL SI GRUPUL, AMANDOUA, si nu numai marcajul: grupul poarta aceeasi definitie a
+  // zilei, fiindca isTaskOverdue este derivat din taskBucket, iar un acord pe marcaj cu
+  // un dezacord pe grup ar fi exact un al doilea fel de a afla ce este intarziat.
+  for (const id of mine) {
+    expect(
+      onSheet.get(id)!.overdue,
+      `sarcina ${id}: marcajul de intarziere difera intre fisa si fila`,
+    ).toBe(onTab.get(id)!.overdue);
+    expect(
+      onSheet.get(id)!.group,
+      `sarcina ${id}: galeata difera intre fisa si fila`,
+    ).toBe(onTab.get(id)!.group);
+  }
+
+  // SI AMANDOUA MULTIMILE SUNT NEGOALE, altfel acordul de deasupra ar fi trecut pe un
+  // set care nu are nici un rand intarziat si nici unul la timp: "toate false egal toate
+  // false" nu dovedeste nimic despre o margine.
+  const lateOnSheet = mine.filter((id) => onSheet.get(id)!.overdue);
+  const onTimeOnSheet = mine.filter((id) => !onSheet.get(id)!.overdue);
+  expect(
+    lateOnSheet.length,
+    "setul semanat are randuri intarziate",
+  ).toBeGreaterThan(0);
+  expect(
+    onTimeOnSheet.length,
+    "si randuri care nu sunt intarziate",
+  ).toBeGreaterThan(0);
+
+  // SI CARE ANUME, pe nume, pe amandoua ecranele: un acord intre doua ecrane care AMANDOUA
+  // greșesc la fel ar trece de comparatia de mai sus. Acestea sunt faptele clauzei 4 si
+  // ale clauzei 5 a cardului P3-131, cerute de data aceasta si de pe fisa.
+  for (const [label, screen] of [
+    ["fisa", onSheet],
+    ["fila", onTab],
+  ] as const) {
+    expect(
+      screen.get(openTodo)!.overdue,
+      `${label}: de facut, trecuta de termen: intarziata`,
+    ).toBe(true);
+    expect(
+      screen.get(working)!.overdue,
+      `${label}: in lucru, trecuta de termen: intarziata`,
+    ).toBe(true);
+    // CLAUZA 5 SCOATE ANUME FINALIZATA SI ANULATA din ce este intarziat, si excluderea
+    // este scrisa o singura data, deci se vede identic pe amandoua ecranele.
+    expect(
+      screen.get(finished)!.overdue,
+      `${label}: finalizata, trecuta de termen: NU intarziata`,
+    ).toBe(false);
+    expect(
+      screen.get(cancelled)!.overdue,
+      `${label}: anulata, trecuta de termen: NU intarziata`,
+    ).toBe(false);
+    expect(
+      screen.get(dueToday)!.overdue,
+      `${label}: cu termen azi: NU intarziata`,
+    ).toBe(false);
+    expect(
+      screen.get(tomorrow)!.overdue,
+      `${label}: cu termen maine: NU intarziata`,
+    ).toBe(false);
+    expect(
+      screen.get(noDate)!.overdue,
+      `${label}: fara termen: niciodata intarziata`,
+    ).toBe(false);
+    expect(
+      screen.get(noDate)!.group,
+      `${label}: fara termen: recipientul Fără termen`,
+    ).toBe("fara_termen");
+  }
+
+  // SI CUVANTUL VIZIBIL ESTE ACELASI CUVANT PE AMANDOUA ECRANELE, nu numai atributul:
+  // operatorul citeste eticheta si nu DOM-ul. Pe fila randul a fost deja masurat de
+  // cazurile cardului P3-131; aici se cere pe fisa, pe acelasi testid, fiindca este
+  // acelasi randator.
+  await openClientSheet(page, clientRowId);
+  await expect(
+    panelRowById(page, openTodo).getByTestId("task-overdue"),
+  ).toHaveText("Întârziată");
+  await expect(
+    panelRowById(page, dueToday).getByTestId("task-overdue"),
+  ).toHaveCount(0);
+  await expect(
+    panelRowById(page, finished).getByTestId("task-overdue"),
+  ).toHaveCount(0);
+});
+
+/* ---- (e) GARDA DEVIATIEI D7: urmatorul pas al clientului este neschimbat ---- */
+
+test("fisa clientului: pasul urmator este neschimbat", async ({ page }) => {
+  test.setTimeout(360_000);
+
+  // ACEASTA ESTE GARDA PE CARE NOTELE CARDULUI O NUMESC RISCUL LUI, cuvant cu cuvant:
+  // "ACCEPTANCE (e) IS THE D7 GUARD."
+  //
+  // DE CE EXISTA ACEST CAZ, CAND ACCEPTANTA CERE UN TEST EXISTENT. Acceptanta (e) cere
+  // cazul pe acest nume si il descrie ca "the EXISTING next-step test, re-run
+  // unmodified". NICIUN CAZ CU ACEST NUME NU EXISTA IN DEPOZIT: garda existenta sunt cele
+  // SASE cazuri ale lui tests/e2e/lead-next-action.spec.ts, cardul P3-89, iar ele ruleaza
+  // in aceeasi suita NEMODIFICATE, nici un caracter, ceea ce `git diff` arata. Amandoua
+  // jumatatile se respecta: acelea rămân neatinse si acesta se adauga pe numele cerut.
+  // Un diff care ar fi trebuit sa atinga unul din cele sase ar fi rupt D7, si nu a atins
+  // niciunul.
+  //
+  // CE AFIRMA ACEST CAZ, si nu este o repetare a celor sase: ca blocul urmatorului pas
+  // mai este pe fisa CU PANOUL NOU LANGA EL, ca panoul nu l-a inghitit, si ca o scriere
+  // facuta DIN PANOU lasa cele doua coloane ale urmatorului pas exact cum erau. Cele
+  // sase cazuri dovedesc ca urmatorul pas functioneaza; acesta dovedeste ca panoul nu il
+  // atinge, care este chiar propozitia clauzei 6.
+  const leadName = `${P132} D7 lead`;
+  const leadId = await seedClient(leadName);
+
+  // UN PAS DEJA SCRIS, pus direct pe coloane: nu scrierea lui este ce se masoara aici,
+  // ea are deja cele sase cazuri ale ei. Etapa rămâne `cold`, care NU este De reluat,
+  // deci data de reluare nu intra in socoteala, exact ca in cazul 1 al cardului P3-89.
+  const stepDay = shiftDay(TODAY, 5);
+  const [sy, sm, sd] = stepDay.split("-");
+  const onScreenDay = `${sd}.${sm}.${sy}`;
+  const stepText = "trimit oferta pentru acoperiș";
+  const wrote = await asService(`clients?id=eq.${leadId}`, {
+    method: "PATCH",
+    body: { next_action_at: stepDay, next_action: stepText },
+  });
+  expect(
+    wrote.ok,
+    `pasul urmator de test nu a putut fi scris: ${wrote.status} ${wrote.text}`,
+  ).toBe(true);
+
+  /** Cele doua coloane ale urmatorului pas, citite din baza, plus etapa si data de
+   *  reluare pe care cardul P3-89 le leaga de ele. Deviatia D7 este despre
+   *  public.clients.next_action_at si public.clients.next_action. */
+  async function storedStep(): Promise<Record<string, unknown>> {
+    const r = await asUser(
+      ownerToken,
+      `clients?select=next_action_at,next_action,follow_up_date,stage&id=eq.${leadId}`,
+    );
+    expect(r.rows, "randul leadului se citeste").toHaveLength(1);
+    return r.rows[0]!;
+  }
+
+  const before = await storedStep();
+  expect(before.next_action_at, "pasul de test este in baza").toBe(stepDay);
+  expect(before.next_action).toBe(stepText);
+
+  await signIn(page, ownerAccount());
+  await openClientSheet(page, leadId);
+
+  /* ---- partea intai: blocul este pe fisa, cu data si textul lui ---- */
+
+  // ACELASI data-testid PE CARE IL CITESTE CAZUL 1 AL CARDULUI P3-89,
+  // `client-next-action`: un al doilea nume pentru acelasi bloc ar fi insemnat ca blocul
+  // a fost rescris, adica exact ce D7 interzice.
+  const step = page.getByTestId("client-next-action");
+  await expect(
+    step,
+    "blocul Următorul pas este pe fisa clientului",
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  // DATA SE CITESTE CUM O ARATA ECRANUL, `zz.ll.aaaa`, aceeasi forma pe care o cere
+  // cazul 1 al cardului P3-89.
+  await expect(step, "si arata data pasului").toContainText(onScreenDay);
+  await expect(step, "si textul pasului").toContainText(stepText);
+
+  /* ---- partea a doua: panoul sta LANGA el si nu in locul lui ---- */
+
+  await expect(panel(page), "panoul Sarcini este si el pe fisa").toBeVisible();
+
+  // LANGA, SI ASTA SE MASOARA GEOMETRIC: blocul urmatorului pas este DEASUPRA panoului,
+  // in cardul lui de identificare, acolo unde era si inainte de acest card. Un panou
+  // care l-ar fi inlocuit, mutat, sau impins deasupra lui nu ar trece de aceasta
+  // afirmatie.
+  const stepBox = await step.boundingBox();
+  const panelBox = await panel(page).boundingBox();
+  expect(stepBox, "blocul pasului are o cutie pe ecran").not.toBeNull();
+  expect(panelBox, "panoul are o cutie pe ecran").not.toBeNull();
+  expect(
+    panelBox!.y > stepBox!.y,
+    "panoul Sarcini sta SUB blocul Următorul pas, adica langa el si nu in locul lui",
+  ).toBe(true);
+
+  // SI PANOUL NU L-A INGHITIT: blocul pasului NU este inauntrul panoului. Un panou care
+  // ar fi "preluat" urmatorul pas ar fi putut trece de amandoua afirmatiile de mai sus.
+  await expect(
+    panel(page).getByTestId("client-next-action"),
+    "blocul Următorul pas nu este inauntrul panoului Sarcini",
+  ).toHaveCount(0);
+
+  // SI PANOUL NU DESENEAZA PASUL SUB ALT NUME: textul pasului nu apare in panou. Panoul
+  // nu citeste next_action si nu are de unde sa il stie.
+  await expect(
+    panel(page).getByText(stepText, { exact: false }),
+    "textul pasului nu este randat de panou",
+  ).toHaveCount(0);
+
+  /* ---- partea a treia: o scriere DIN PANOU nu atinge cele doua coloane ---- */
+
+  // ASTA ESTE JUMATATEA CARE CONTEAZA CEL MAI MULT, fiindca este singura care prinde o
+  // scriere: clauza 6 spune ca panoul "does not replace it, hide it, read it or write
+  // it". O sarcina scrisa din panou, apoi modificata, apoi anulata, adica fiecare drum de
+  // scriere pe care panoul il are, si cele doua coloane citite dupa fiecare.
+  const taskTitle = `${P132} e sarcina scrisa langa pas`;
+  await page.getByTestId("panel-task-new").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await page.getByTestId("field-task-title").fill(taskTitle);
+  // SI TERMENUL ESTE CHIAR ZIUA PASULUI, anume: daca undeva ar exista o scriere care
+  // confunda termenul unei sarcini cu data pasului, o zi diferita ar fi ascuns-o. Casuta
+  // de termen se scrie in forma pe care operatorul o vede, `zz.ll.aaaa`.
+  await page.getByTestId("field-task-due-date").fill(onScreenDay);
+  await page.getByTestId("task-save").click();
+  await expect(page.getByTestId("task-form")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
+  const written = panel(page)
+    .locator('[data-testid="task-row"]')
+    .filter({
+      has: page.getByTestId("task-title").getByText(taskTitle, { exact: true }),
+    });
+  await expect(written, "sarcina scrisa apare in panou").toHaveCount(1, {
+    timeout: 30_000,
+  });
+
+  expect(
+    await storedStep(),
+    "o sarcina scrisa din panou nu atinge pasul urmator",
+  ).toEqual(before);
+
+  // MODIFICATA din panou.
+  const changedTitle = `${taskTitle} modificata`;
+  await written.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await page.getByTestId("field-task-title").fill(changedTitle);
+  await page.getByTestId("task-save").click();
+  await expect(page.getByTestId("task-form")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+  expect(
+    await storedStep(),
+    "o modificare facuta din panou nu atinge pasul urmator",
+  ).toEqual(before);
+
+  // SI ANULATA din panou, care este singura cale prin care o sarcina iese din lucru.
+  const changed = panel(page)
+    .locator('[data-testid="task-row"]')
+    .filter({
+      has: page
+        .getByTestId("task-title")
+        .getByText(changedTitle, { exact: true }),
+    });
+  await expect(changed).toHaveCount(1, { timeout: 30_000 });
+  await changed.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await page.getByTestId("task-cancel-task").click();
+  await expect(page.getByTestId("task-form")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+  expect(
+    await storedStep(),
+    "o anulare facuta din panou nu atinge pasul urmator",
+  ).toEqual(before);
+
+  /* ---- partea a patra: blocul este TOT acolo, dupa toate trei scrierile ---- */
+
+  await page.reload();
+  await expect(page.getByTestId("client-detail")).toBeVisible({
+    timeout: 30_000,
+  });
+  const after = page.getByTestId("client-next-action");
+  await expect(
+    after,
+    "blocul Următorul pas este tot pe fisa dupa scrierile din panou",
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(after, "cu data lui neschimbata").toContainText(onScreenDay);
+  await expect(after, "si cu textul lui neschimbat").toContainText(stepText);
+
+  /* ---- partea a cincea: niciun fisier al sarcinilor nu numeste pasul urmator ---- */
+
+  // DEVIATIA D7 PE NUME EXACT, citita in SURSA si nu pe ecran: numele coloanelor, al
+  // functiei de căutare, al portii si al ecranului Azi. Un fisier al sarcinilor care ar
+  // numi unul din ele IN COD ar fi un fisier care citeste sau scrie urmatorul pas, iar
+  // clauza 6 spune ca panoul nu face niciuna. `lib/data/azi` este numit aici fiindca
+  // ecranul Azi este celalalt consumator al acelui camp, si cardul care il atinge este
+  // P3-133, nu acesta.
+  const D7_NAMES = [
+    "next_action_at",
+    "next_action",
+    "search_clients_next_action",
+    "hasClientNextAction",
+    "nextActionAvailable",
+    "lib/data/azi",
+  ];
+
+  // SE CAUTA IN COD SI NU IN COMENTARII, SI ASTA NU ESTE O SLABIRE A VERIFICARII, este
+  // chiar lectia pe care cardul P3-110 a plata cu o rulare si pe care cazul (c) de mai
+  // sus o repeta pentru cuvintele stergerii: o cautare pe NUME gaseste intr-o zi
+  // comentariul care CITEAZA regula. Antetul lui components/tasks/TaskPanel.tsx scrie
+  // negru pe alb care sunt cele cinci lucruri pe care nu le atinge, si acel antet este
+  // documentatia deviatiei D7, nu o incalcare a ei. Un rand care este INTREG un
+  // comentariu nu poate citi si nu poate scrie nimic; un rand care incepe cu cod nu este
+  // sarit, deci o citire adevarata nu se poate ascunde dupa un comentariu de la capatul
+  // randului.
+  const isComment = (line: string) => {
+    const t = line.trim();
+    return t.startsWith("//") || t.startsWith("*") || t.startsWith("/*");
+  };
+  const namedInCode = (source: string, name: string) =>
+    source
+      .split("\n")
+      .map((line, i) => ({ line, at: i + 1 }))
+      .filter((l) => !isComment(l.line) && l.line.includes(name))
+      .map((l) => `${l.at}: ${l.line.trim()}`);
+
+  // SI INSTRUMENTUL SE DOVEDESTE CA GASESTE INAINTE DE A FI CREZUT CAND NU GASESTE NIMIC.
+  expect(
+    namedInCode(
+      '  const { data } = await supabase.from("clients").select("next_action");',
+      "next_action",
+    ),
+    "instrumentul gaseste o citire adevarata",
+  ).toHaveLength(1);
+  expect(
+    namedInCode(
+      "  if (client.nextActionAvailable) return null;",
+      "nextActionAvailable",
+    ),
+    "si o citire a portii",
+  ).toHaveLength(1);
+  expect(
+    namedInCode(
+      "// acest fisier nu citeste next_action_at si nu il scrie",
+      "next_action_at",
+    ),
+    "si un comentariu care citeaza regula nu este un vinovat",
+  ).toEqual([]);
+  expect(
+    namedInCode(" *  nimic din lib/data/azi.ts nu este atins", "lib/data/azi"),
+    "nici un comentariu de bloc care o citeaza",
+  ).toEqual([]);
+
+  const TASK_FILES = [
+    "components/tasks/TaskPanel.tsx",
+    "components/tasks/TaskTable.tsx",
+    "components/tasks/TaskForm.tsx",
+    "components/tasks/SarciniScreen.tsx",
+    "lib/data/tasks.ts",
+    "lib/data/tasks-actions.ts",
+    "lib/data/tasks-shape.ts",
+    "lib/data/tasks-types.ts",
+    "lib/data/tasks-query.ts",
+  ];
+  for (const file of TASK_FILES) {
+    const source = readFileSync(file, "utf8");
+    expect(
+      source.length,
+      `${file} trebuie sa existe si sa nu fie gol`,
+    ).toBeGreaterThan(0);
+    for (const name of D7_NAMES) {
+      expect(
+        namedInCode(source, name),
+        `${file} numeste ${name} in cod, ceea ce deviatia D7 interzice`,
+      ).toEqual([]);
+    }
+  }
+});

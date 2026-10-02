@@ -31,6 +31,16 @@
 // cardului P3-131, SI NIMIC ALTCEVA. Panoul de pe fisa unei inregistrari este P3-132
 // si secțiunea de pe Azi este P3-133: ele isi adauga calea cand o au, fiindca o cale
 // scrisa inainte de ecranul ei este tot o cale ghicita.
+//
+// CARDUL P3-132 ISI ADAUGA ACUM CALEA, fiindca are ecranul: fisa inregistrarii de
+// care sarcina este legata, adica `/clienti/<id>` sau `/proiecte/<id>`. Ea se DEDUCE
+// din perechea pe care randul scris o poarta si nu se primeste ca parametru, ca un
+// apelant sa nu poata cere reimprospatarea unei pagini care nu are nicio legatura cu
+// ce s-a scris. TREI PAGINI, DOUA TOKENURI: fisa unui lead este chiar
+// `/clienti/<id>`, fiindca un lead este un rand din public.clients care poarta o
+// etapa, deci tokenul `client` acopera si leadul si clientul. Motivul intreg este in
+// lib/data/tasks-types.ts. Secțiunea de pe Azi rămâne a cardului P3-133 si calea ei
+// nu este scrisa aici.
 
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -105,6 +115,23 @@ function orNull(value: string | undefined): string | null {
 }
 
 /**
+ * Reimprospateaza fila /sarcini si, cand randul scris poarta o inregistrare legata,
+ * fisa acelei inregistrari: panoul cardului P3-132 sta pe ea.
+ *
+ * PERECHEA SE CITESTE INTREAGA SAU DELOC, exact ca restrictia
+ * tasks_entity_both_or_neither: un fel fara id nu duce la nicio pagina, iar un id
+ * fara fel este un id pe care nimeni nu il poate duce la o tabela. Un fel pe care
+ * acest fisier nu il cunoaste nu reimprospateaza nimic si nu arunca: o cale
+ * construita dintr-un token necunoscut ar fi o cale ghicita.
+ */
+function revalidateTaskPaths(entityType: string | null, entityId: string | null): void {
+  revalidatePath(TASKS_PATH);
+  if (entityType === null || entityId === null) return;
+  if (entityType === "client") revalidatePath(`/clienti/${entityId}`);
+  if (entityType === "project") revalidatePath(`/proiecte/${entityId}`);
+}
+
+/**
  * O sarcina noua.
  *
  * created_by NU SE TRIMITE DE AICI si nu este o scapare: coloana are implicit
@@ -143,11 +170,18 @@ export async function createTask(
   // ce ar face o sarcina sa ajunga fara stare pe o schema ce avea una.
   for (const [key, value] of optional) if (value !== null) row[key] = value;
 
-  const { data, error } = await supabase.from("tasks").insert(row).select("id").maybeSingle();
+  // PERECHEA SE CITESTE INAPOI DIN RANDUL SCRIS si nu din ce s-a trimis: pagina de
+  // reimprospatat se deduce din ce baza a stocat, care este singurul adevar despre
+  // unde sarcina s-a asezat.
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert(row)
+    .select("id, entity_type, entity_id")
+    .maybeSingle();
   if (error) return translateWriteError(error.code, error.message);
   if (!data) return { ok: false, message: "Sarcina nu a putut fi scrisă. Încearcă din nou." };
 
-  revalidatePath(TASKS_PATH);
+  revalidateTaskPaths(orNull(data.entity_type ?? undefined), orNull(data.entity_id ?? undefined));
   return { ok: true, value: { id: String(data.id) } };
 }
 
@@ -190,7 +224,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
     .from("tasks")
     .update(row)
     .eq("id", id)
-    .select("id")
+    .select("id, entity_type, entity_id")
     .maybeSingle();
 
   if (error) return translateWriteError(error.code, error.message);
@@ -204,6 +238,6 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
       message: "Sarcina nu a putut fi modificată. Reîncarcă pagina și încearcă din nou.",
     };
 
-  revalidatePath(TASKS_PATH);
+  revalidateTaskPaths(orNull(data.entity_type ?? undefined), orNull(data.entity_id ?? undefined));
   return { ok: true, value: undefined };
 }

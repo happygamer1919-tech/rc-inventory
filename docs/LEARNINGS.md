@@ -8654,3 +8654,65 @@ entry from both sides, prove the set rather than eyeballing the diff, and run th
 `npm run check:conflict-residue` AFTER staging. Expect this on the second of any two pull requests and
 budget the sync rather than treating it as a surprise; what it costs is one fresh `quality` run on the
 merged head, because the old green belongs to a sha nobody is proposing to merge any more.
+
+### Running a formatter this repository does not use rewrites the very files you were told not to touch
+**Tag:** tooling
+**ERROR:** card P3-132 appended five cases to `tests/e2e/tasks.spec.ts`, whose definition of done
+required the fourteen cases already in that file to pass **unmodified**. Reaching for a tidy-up out of
+habit, the run called `npx prettier --check` and then `npx prettier --write` on the file. Both
+succeeded, and the result was a file whose diff against `origin/main` carried about forty hunks spread
+through the P3-130 and P3-131 cases: 1708 insertions and **180 deletions**, where the real work was a
+pure append. Nothing failed. `npx tsc --noEmit` passed, `npm run build` passed, and every assertion
+still held, so the damage was invisible to every gate and would have been invisible in review too,
+buried in a four-figure diff. The cause is that **this repository has no prettier at all**: no
+`prettier` in `devDependencies`, no `prettier` key in `package.json`, no `.prettierrc`, and no format or
+lint step in `.github/workflows` (the lint step is absent on purpose, with a comment explaining that
+`eslint-config-next@16` hard-throws against this repo's `typescript@^7`). So `npx` fetched prettier
+10.x fresh and formatted with its **default `printWidth` of 80**, while this codebase is hand-wrapped
+near 96. Testing `--print-width 100` against three untouched files showed they fail that too: the code
+is not prettier-shaped at any width, so there is no width that would have been safe.
+**SOLUTION:** the pre-existing region was restored exactly and only the new section re-attached, by
+rebuilding the file from `git show origin/main:<path>` plus the new section sliced out of the staged
+blob, then proving the result with `git diff origin/main -- <path> | grep '^@@'` and requiring **one
+hunk** whose header shows a pure append (`@@ -1655,3 +1655,1159 @@`). That single-hunk check is the
+assertion worth keeping: it proves byte-identity of everything above the append far better than reading
+a diff does. RULE: **never run a formatter, linter or codemod that is not already a dependency of this
+repository.** The absence of a tool from `package.json` is a decision, not an omission, and `npx`
+silently supplying its own defaults turns a cosmetic impulse into an edit of files other cards own. If
+a diff's deletion count is larger than the work can explain, stop and account for every deletion before
+committing: a green typecheck says nothing about whether you modified something you promised not to.
+
+### The board's `lane` is derived from `status` and the validator refuses it stale
+**Tag:** board
+**ERROR:** flipping card P3-132 to `shipped` by writing `status`, `last_checkpoint`, `evidence` and
+`notes` left the validator failing with one violation:
+`cards[180] (P3-132).lane: is derived and must be "shipped" (from status="shipped",
+home_lane="in_flight", blocked_on=null), found "in_flight"`.
+**SOLUTION:** `lane` is a computed field that the board JSON stores redundantly, and
+`docs/board/validate-board.mjs` recomputes it from `status`, `home_lane` and `blocked_on` and rejects a
+stale value. It is written in the same edit as the status. RULE: **a card's `status` and its `lane` move
+together**; when a script flips a card, set both, and run the validator before the commit rather than
+discovering it at the gate. The message names the expected value outright, so the fix is mechanical, but
+it costs a cycle if the flip is written by a script that was copied from one that only ever touched
+`status`.
+
+### A hardcoded board timestamp fails `check:board-clock`, which the close-out gate list does not name
+**Tag:** board
+**ERROR:** card P3-132's board-edit script wrote `const AT = "2026-10-02T21:40:00Z"` as a literal and
+used it for both `last_checkpoint` and `evidence.at`. The commit that carried it landed at 21:37:25, so
+both stamps were **three minutes ahead of the commit that wrote them**, and `quality` went red in 1m40s
+on `check:board-clock`: "2 of 333 timestamp(s) are AHEAD of the commit that wrote them". Two things made
+this invisible before the push. First, the literal was written minutes before the commit was made, so it
+read as "about now" while being in the future of the commit. Second, and this is the part worth
+generalising, **`check:board-clock` is not in the close-out block's gate list.** That list names thirteen
+`check:` scripts; `.github/workflows/quality.yml` runs **thirty**, plus thirteen `prove:` scripts. Every
+one of the thirteen passed locally and the run still failed on the fourteenth.
+**SOLUTION:** read the clock at the moment of writing and never type a timestamp:
+`new Date().toISOString().replace(/\.\d{3}Z$/, "Z")` inside the script, with the commit made immediately
+after. Note that running `check:board-clock` locally on an **uncommitted** board passes trivially, because
+the script then uses the current clock as its basis instead of a commit time, so a local green there is
+not evidence; the real check is the one after the commit. RULE: **the close-out gate list is a subset of
+what CI runs, so derive the list from `.github/workflows/quality.yml` rather than from the close-out
+block**, and run at least every gate that touches a file you changed. `grep -oE 'npm run [a-z:_-]+'`
+over that workflow gives the full set in one line. And **never write a timestamp as a literal into a
+board edit**: a stamp ahead of its own commit is the one defect this particular gate exists to catch.
