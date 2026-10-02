@@ -76,6 +76,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M9.5 16h3" />
     </>
   ),
+  // P3-131. O lista de treburi: trei randuri, primul bifat.
+  tasks: (
+    <>
+      <path d="m3 6.5 1.8 1.8L8 5" />
+      <path d="M3.5 13h2M3.5 18h2" />
+      <path d="M11 7h10M11 13h10M11 18h7" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />

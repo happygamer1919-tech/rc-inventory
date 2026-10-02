@@ -190,6 +190,21 @@ const TOLERATED_WORDS = {
   'lib/data/tasks-types.ts': {
     description: 'campul `description` al unei sarcini, un modul de tipuri si etichete fara nicio citire; fisierul nu cheama nicio tabela.',
   },
+  // P3-131, goal G73, Item 4 al lui Ivan, partea a doua. FORMULARUL SARCINII, pentru
+  // exact acelasi motiv pe care il scrie grupul de mai sus: cuvantul `description`
+  // este campul descrierii unei sarcini din formular, iar coloana in asteptare cu
+  // acest nume este extraction_draft_lines.description din 0053. Componentul nu
+  // cheama nicio tabela: scrie prin createTask si updateTask din
+  // lib/data/tasks-actions.ts, care trec amandoua poarta hasTasks.
+  //
+  // ECRANUL CARE LE DESENEAZA, components/tasks/SarciniScreen.tsx, NU ESTE PE ACEASTA
+  // LISTA SI NICI NU ARE NEVOIE: lista nu arata descrierea unei sarcini, fiindca
+  // descrierea este detaliu si sta in panou, deci fisierul nu poarta cuvantul deloc.
+  // Pagina app/(app)/sarcini/page.tsx nici ea: ea chiar citeste tabela, prin
+  // listTasks(), si trece poarta chemand tasksVisible() inainte de orice.
+  'components/tasks/TaskForm.tsx': {
+    description: 'campul `description` al unei sarcini in formular, trimis prin tasks-actions; componentul nu cheama nicio tabela.',
+  },
 };
 
 function pendingMigrations() {
