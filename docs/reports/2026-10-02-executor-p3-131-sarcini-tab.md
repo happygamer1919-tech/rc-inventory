@@ -482,3 +482,47 @@ Nothing is blocked and nothing needs a decision. Two things worth knowing:
 - **A job created from the Sarcini tab can be attached to a customer or a site, but not to a closed
   site**, because the project chooser reuses the existing list that hides closed sites. Attaching from
   a site's own page is card P3-132.
+
+---
+
+## Closing: the run died on the network, and then #390 made #389 dirty
+
+Appended 2026-10-02 at about 17:30 UTC, in a resume run. Nothing about the card's substance changed
+here and no code was touched.
+
+**The first run did not fail the card, it lost its connection.** It ended on an 81 byte log reading
+`API Error: Can't reach the API server, check your internet or DNS (ENOTFOUND)`, which is
+infrastructure. By then every commit was made, the branch was pushed, pull request #389 was open and
+its `quality` run had concluded SUCCESS on head `2b3296c` at 14:42 UTC. So the work was finished and
+proven; only the session was gone.
+
+**Then BLUE's pull request #390, card P3-121, merged into `main` at 17:20 UTC.** Branch protection
+here is strict: every merge to `main` invalidates every other open pull request, so #389 went to
+`mergeStateStatus DIRTY` and could not merge until somebody resolved the conflict. That is not a
+defect in either card.
+
+**The conflict was exactly two files, and both are the known shared files.**
+
+1. `docs/board/rc-board-phase3.json`. The two card entries merged cleanly on their own, because
+   P3-121 and P3-131 are different objects in the array. The only real collision was the top-level
+   `as_of` clock, ours at `2026-10-02T14:06:00Z` against main's at `2026-10-02T13:54:49Z`. Resolved by
+   reading a fresh `date -u +%Y-%m-%dT%H:%M:%SZ` and writing `2026-10-02T17:26:13Z`, later than both,
+   so neither side's clock moves backwards. **Both sides were kept and that was proven rather than
+   eyeballed**, with a throwaway node script kept outside every checkout: 182 cards on both parents
+   and 182 in the merge, every card byte-identical to main's copy except P3-131, which is
+   byte-identical to the branch's copy, no card lost, and nothing but `cards` and `as_of` differing
+   from main at the top level.
+2. `docs/LEARNINGS.md`. Append only, and both sides were pure appends at the tail, so both sets of
+   entries are kept: our four P3-131 entries first, in authoring order, then main's P3-121 entry about
+   a `\u` escape that does not round-trip through a tool call. None was dropped or reordered.
+
+**The warning in the brief about P3-121's new code did not materialise.** P3-121 moved the shared CSV
+reader and writer out of the lead import into `lib/data/import-shared.ts`, and P3-131 touches no import
+file, so there was no code conflict at all: `lib/data/import-shared.ts`,
+`tests/e2e/import-shared.spec.ts`, `lib/data/lead-import-types.ts` and P3-121's own report all came in
+clean as ordinary merge additions.
+
+**A fifth learning was appended** for the pattern itself, because it is now structural rather than
+unlucky: two of our pull requests open at once has been allowed since 2026-09-23, so the second one to
+be reviewed will always conflict on the phase board JSON and on `docs/LEARNINGS.md`, the resolution is
+always keep both sides, and on the board the only genuine collision is the `as_of` clock.

@@ -8604,3 +8604,53 @@ Profile names, client names and project names are data: in production they are a
 company's name, and in CI they are whatever a seed script chose. This is the same reasoning that
 keeps the list's own rows out of the scan, and it is a narrowing with a stated boundary rather than a
 loosening: what is excluded is named, and what remains is asserted.
+
+### A `̀` escape typed into a tool call lands in the file as the literal character, not the escape
+**Tag:** infra
+**ERROR:** Moving `normaliseKey`'s diacritic-stripping regex, `/[̀-ͯ]/g`, from
+`lead-import-types.ts` into the new `lib/data/import-shared.ts` by typing the same source text into a
+file-write tool call did not reproduce the two six-character escape sequences. The agent's own text
+channel decodes a single-backslash `\uNNNN` sequence before it reaches the file, so the regex landed as
+`[̀-ͯ]`, a character class between two literal combining-mark characters rather than between two escape
+sequences. A second attempt, typing `\\u0300-\\u036f` to "escape the escape", did not restore the
+original either: it landed as two literal backslash characters followed by the literal text `u0300`,
+which inside a regex character class parses as a literal `\` plus the plain characters `u`, `0`, `3`,
+`0`, `0`, not as a code point at all.
+**SOLUTION:** the literal-character form is not a defect by itself: `node -e` confirmed the two
+characters are codepoints U+0300 and U+036F, the exact bounds of the original escape range, so
+`[̀-ͯ]` and `[̀-ͯ]` compile to the identical regex and behave identically on every Romanian
+diacritic tested (ă, â, î, ș, ț). The defect was the SECOND attempt, the doubled backslash, which is a
+silent behaviour change that `tsc` cannot catch (a regex character class accepts almost anything
+without erroring) and that only a runtime comparison against the original function's output on real
+input would reveal. RULE: **when a tool call's text channel does not round-trip a `\u` escape, verify
+the landed bytes with a throwaway `node -e` codepoint dump before trusting the file, and prove
+equivalence by running both the original and the new regex against the same inputs rather than by
+eyeballing the source.** Never paper over the uncertainty by typing more backslashes and assuming it
+compiled; a regex with a silently wrong character class is a defect that passes typecheck, passes
+build, and fails only on the one diacritic nobody happened to test.
+
+### Two of our own pull requests open at once always conflict on exactly two files, and the resolution is mechanical
+**Tag:** ci
+**ERROR:** the "one open pull request of ours at a time" rule was dropped on 2026-09-23, so two of our
+cards are now routinely in flight together. Whichever of the two is reviewed second is then guaranteed
+to go `mergeStateStatus DIRTY` the moment the first one merges, because branch protection here is
+strict and every merge to `main` invalidates every other open pull request. On 2026-10-02 card P3-131
+had pull request #389 green on head `2b3296c` at 14:42 UTC; BLUE's #390 for card P3-121 merged at
+17:20 UTC, and #389 became unmergeable with no fault in its own work. The run that built #389 had
+already died on an unrelated network error, `API Error: Can't reach the API server`, with everything
+committed and pushed, so the conflict sat there with nobody watching it.
+**SOLUTION:** the conflict is in exactly two files and will be for every such pair, because they are
+the only two files every card of ours touches: the phase board JSON and this file. Neither needs
+judgement. On the board the card entries merge cleanly on their own, since the two cards are different
+objects, and the ONLY real collision is the top-level `as_of` clock, resolved by reading
+`date -u +%Y-%m-%dT%H:%M:%SZ` just before the edit so the merged value is later than both parents and
+no clock moves backwards. This file is append only and both sets of entries are kept, in authoring
+order. Then prove it card by card with a throwaway node script kept outside every checkout: every card
+in the merge equals main's copy except ours, which equals the branch's copy, and the card count is
+unchanged. P3-131's run proved 182 cards, ours kept for P3-131 and main's kept for P3-121.
+RULE: **a board conflict between two of our own cards is never a choice between two versions, it is an
+`as_of` collision wearing a conflict marker.** Resolve it by taking a fresh clock, keep every card
+entry from both sides, prove the set rather than eyeballing the diff, and run the validator and
+`npm run check:conflict-residue` AFTER staging. Expect this on the second of any two pull requests and
+budget the sync rather than treating it as a surprise; what it costs is one fresh `quality` run on the
+merged head, because the old green belongs to a sha nobody is proposing to merge any more.

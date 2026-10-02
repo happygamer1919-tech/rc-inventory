@@ -10,11 +10,14 @@
 // el, ori i se completeaza NUMAI campurile goale. De aceea tipul de mai jos
 // numeste campurile pe care le poate ADAUGA si nu are niciun camp de stergere.
 //
-// CSV FARA NICIO BIBLIOTECA NOUA. Depozitul are sase dependinte de executie si
-// un cititor de CSV incape in fisierul acesta. XLSX nu incape: este o arhiva zip
-// cu XML inauntru, deci cere o biblioteca, si intrebarea aceea sta la proprietar
-// (mailbox q084). Pana la raspuns ecranul spune operatorului sa salveze fisierul
-// ca CSV, in romana, si atat.
+// CARDUL P3-121 A MUTAT CITITORUL SI SCRIITORUL DE CSV, NESCHIMBATE, IN
+// lib/data/import-shared.ts, ca cele trei entitati noi ale Item 3 (clienti,
+// proiecte, materiale) sa le refoloseasca in loc sa isi scrie fiecare propriul
+// cititor. Acest fisier le re-exporta sub ACELASI NUME, ca niciun apelant de aici
+// (lead-import-plan.ts, lead-import-actions.ts, LeadImportSheet.tsx, spec-ul) sa
+// nu aiba nevoie de nicio schimbare. Ce ramane AICI este cunoastere DESPRE LEAD:
+// campurile lui, sinonimele lor, si cititoarele de etapa/sursa/tip/data/telefon
+// care nu au sens pentru o alta entitate.
 
 import {
   CLIENT_SOURCES,
@@ -26,15 +29,29 @@ import {
   type ClientStage,
   type ClientType,
 } from "./clients-types";
+import {
+  autoMatchColumns as autoMatchColumnsGeneric,
+  buildCsv,
+  buildErrorCsv,
+  buildSynonymIndex,
+  normaliseKey,
+  parseCsv,
+  sniffDelimiter,
+  IMPORT_MAX_BYTES,
+  IMPORT_MAX_ROWS,
+  IMPORT_SAMPLE_COUNT,
+  IMPORT_SKIP,
+  IMPORT_SKIP_LABEL,
+  type ColumnMapping as GenericColumnMapping,
+  type RowNumber,
+} from "./import-shared";
 
-/** Cat de mare poate fi fisierul, din goal G58. */
-export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
-
-/** Cate randuri de date, fara antet, din goal G58. */
-export const IMPORT_MAX_ROWS = 5000;
-
-/** Cate valori din fisier se arata langa fiecare coloana, la potrivire. */
-export const IMPORT_SAMPLE_COUNT = 3;
+// RE-EXPORTATE SUB ACELASI NUME, CARDUL P3-121 CLAUZA 2 SI 3: fisierul acesta
+// nu mai DEFINESTE cititorul, scriitorul sau limitele, le PRIMESTE de la
+// import-shared.ts, ca sa existe un singur cititor si un singur scriitor de CSV
+// in tot depozitul (acceptanta (g) a cardului P3-121).
+export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export type { RowNumber };
 
 /** Campurile RC in care poate intra o coloana din fisier, IN ORDINEA din goal G58. */
 export const IMPORT_FIELDS = [
@@ -74,28 +91,8 @@ export const IMPORT_FIELD_LABEL: Record<ImportField, string> = {
   fiscalCode: "IDNO",
 };
 
-/** Alegerea "nu lua coloana asta", si valoarea ei in selector. */
-export const IMPORT_SKIP = "";
-export const IMPORT_SKIP_LABEL = "Nu importa";
-
 /** O potrivire este `null` cand coloana nu intra nicaieri. */
-export type ColumnMapping = (ImportField | null)[];
-
-// ---------------------------------------------------------------------------
-// Normalizarea textului, pentru potriviri
-// ---------------------------------------------------------------------------
-
-/** Litere mici, fara diacritice, fara nimic in afara de litere si cifre.
- *
- *  Antetele vin scrise de oameni: "Telefon", "telefon ", "TELEFON:", "Nr. telefon".
- *  Potrivirea se face pe forma aceasta, deci toate cad pe acelasi sir. */
-export function normaliseKey(raw: string): string {
-  return raw
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
+export type ColumnMapping = GenericColumnMapping<ImportField>;
 
 /** Sinonimele fiecarui camp, romanesti si englezesti, scrise deja normalizat de
  *  normaliseKey la citire. Eticheta campului se adauga automat mai jos, deci nu
@@ -133,19 +130,15 @@ const FIELD_SYNONYMS: Record<ImportField, string[]> = {
   fiscalCode: ["idno", "cui", "codfiscal", "fiscalcode", "idnocui", "cod"],
 };
 
-/** Sinonim normalizat -> camp. Primul castigator ramane castigator: un sinonim
- *  scris la doua campuri ar fi o ambiguitate tacuta, si asa este macar stabila. */
-const SYNONYM_INDEX: Map<string, ImportField> = (() => {
-  const index = new Map<string, ImportField>();
-  for (const field of IMPORT_FIELDS) {
-    const keys = [IMPORT_FIELD_LABEL[field], ...FIELD_SYNONYMS[field]];
-    for (const key of keys) {
-      const normalised = normaliseKey(key);
-      if (normalised !== "" && !index.has(normalised)) index.set(normalised, field);
-    }
-  }
-  return index;
-})();
+/** Indexul de sinonime al leadurilor, construit cu functia comuna din
+ *  import-shared.ts in loc de una scrisa a doua oara aici. */
+const SYNONYM_INDEX = buildSynonymIndex(
+  IMPORT_FIELDS.map((field) => ({
+    field,
+    label: IMPORT_FIELD_LABEL[field],
+    synonyms: FIELD_SYNONYMS[field],
+  })),
+);
 
 /**
  * Potriveste automat fiecare antet cu un camp RC.
@@ -153,142 +146,12 @@ const SYNONYM_INDEX: Map<string, ImportField> = (() => {
  * UN CAMP SE IA O SINGURA DATA. Doua coloane numite "Telefon" si "Telefon 2" ar
  * cadea amandoua pe `phone`, iar a doua ar suprascrie tacut prima la scriere. A
  * doua ramane pe "Nu importa" si operatorul decide.
+ *
+ * SUBTIRE PESTE autoMatchColumns DIN import-shared.ts, cardul P3-121: potrivirea
+ * insasi este comuna, numai indexul de sinonime de mai sus este al leadurilor.
  */
 export function autoMatchColumns(headers: string[]): ColumnMapping {
-  const taken = new Set<ImportField>();
-  return headers.map((header) => {
-    const field = SYNONYM_INDEX.get(normaliseKey(header));
-    if (!field || taken.has(field)) return null;
-    taken.add(field);
-    return field;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Citirea unui CSV
-// ---------------------------------------------------------------------------
-
-/** Separatorii pe care ii recunoastem. Excel pe o masina romaneasca salveaza cu
- *  punct si virgula, nu cu virgula, deci ordinea aceasta nu este cosmetica. */
-const DELIMITERS = [",", ";", "\t"] as const;
-
-/** Ghiceste separatorul numarand aparitiile din AFARA ghilimelelor, pe primul
- *  rand. Un nume ca "Popescu, Ion" intre ghilimele nu trebuie sa faca virgula
- *  sa castige. */
-export function sniffDelimiter(text: string): string {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
-  let best = ",";
-  let bestCount = -1;
-  for (const delimiter of DELIMITERS) {
-    let count = 0;
-    let quoted = false;
-    for (let i = 0; i < firstLine.length; i += 1) {
-      const char = firstLine[i];
-      if (char === '"') quoted = !quoted;
-      else if (!quoted && char === delimiter) count += 1;
-    }
-    if (count > bestCount) {
-      bestCount = count;
-      best = delimiter;
-    }
-  }
-  return best;
-}
-
-/**
- * Citeste un CSV in randuri de celule.
- *
- * Ghilimele dupa RFC 4180: o celula poate fi intre ghilimele, iar o ghilimea
- * inauntru se scrie de doua ori. Randurile se pot termina cu \n sau \r\n.
- * Marca de ordine a octetilor (BOM) pe care Excel o pune in fata fisierului se
- * taie, altfel primul antet ar fi "\uFEFFDenumire" si nu s-ar potrivi cu nimic.
- */
-export function parseCsv(input: string): string[][] {
-  const text = input.replace(/^\uFEFF/, "");
-  const delimiter = sniffDelimiter(text);
-
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  let i = 0;
-
-  const endCell = () => {
-    row.push(cell);
-    cell = "";
-  };
-  const endRow = () => {
-    endCell();
-    rows.push(row);
-    row = [];
-  };
-
-  while (i < text.length) {
-    const char = text[i]!;
-
-    if (quoted) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i += 2;
-          continue;
-        }
-        quoted = false;
-        i += 1;
-        continue;
-      }
-      cell += char;
-      i += 1;
-      continue;
-    }
-
-    if (char === '"' && cell.trim() === "") {
-      // Ghilimelele deschid celula numai cand nu s-a scris nimic in ea inca:
-      // asa un apostrof tipografic din mijlocul unui text nu deschide nimic.
-      cell = "";
-      quoted = true;
-      i += 1;
-      continue;
-    }
-    if (char === delimiter) {
-      endCell();
-      i += 1;
-      continue;
-    }
-    if (char === "\n") {
-      endRow();
-      i += 1;
-      continue;
-    }
-    if (char === "\r") {
-      if (text[i + 1] === "\n") i += 1;
-      endRow();
-      i += 1;
-      continue;
-    }
-    cell += char;
-    i += 1;
-  }
-
-  if (cell !== "" || row.length > 0) endRow();
-
-  // Un rand complet gol nu este un rand: fisierele salvate din Excel se termina
-  // aproape mereu cu unul, si el ar deveni un rand fara denumire, adica o eroare
-  // pe care nu a scris-o nimeni.
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
-}
-
-/** Scrie randuri ca CSV, cu virgula, pentru sablon si pentru fisierul randurilor
- *  sarite. BOM in fata, ca Excel sa deschida diacriticele corect. */
-export function buildCsv(rows: string[][]): string {
-  const body = rows
-    .map((row) =>
-      row
-        .map((cell) => (/[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-        .join(","),
-    )
-    .join("\r\n");
-  return `\uFEFF${body}\r\n`;
+  return autoMatchColumnsGeneric(headers, SYNONYM_INDEX);
 }
 
 /** Sablonul gol: exact antetele pe care ecranul le stie sa potriveasca. */
@@ -457,8 +320,9 @@ export type PreparedLead = {
   fiscalCode: string;
 };
 
-/** Numarul randului asa cum il vede operatorul in Excel: antetul este randul 1. */
-export type RowNumber = number;
+// RowNumber vine din import-shared.ts, re-exportat mai sus: "numarul randului
+// asa cum il vede operatorul in Excel, antetul este randul 1" este o notiune
+// comuna oricarei entitati, nu numai leadurilor.
 
 export type PreparedRow =
   | { ok: true; line: RowNumber; lead: PreparedLead; phoneKey: string | null; emailKey: string | null }
@@ -580,10 +444,10 @@ export function prepareRow(
   };
 }
 
-/** Coloanele fisierului de randuri nepreluate: motivul, apoi randul cum a venit. */
+/** Coloanele fisierului de randuri nepreluate: motivul, apoi randul cum a venit.
+ *
+ *  SUBTIRE PESTE buildErrorCsv DIN import-shared.ts, cardul P3-121 clauza 5: forma
+ *  fisierului de erori este comuna oricarei entitati, nu numai leadurilor. */
 export function skippedCsv(headers: string[], rows: { line: number; reason: string; raw: string[] }[]): string {
-  return buildCsv([
-    ["Rând", "Motiv", ...headers],
-    ...rows.map((r) => [String(r.line), r.reason, ...r.raw]),
-  ]);
+  return buildErrorCsv(headers, rows);
 }
