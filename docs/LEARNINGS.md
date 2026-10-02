@@ -8695,3 +8695,24 @@ together**; when a script flips a card, set both, and run the validator before t
 discovering it at the gate. The message names the expected value outright, so the fix is mechanical, but
 it costs a cycle if the flip is written by a script that was copied from one that only ever touched
 `status`.
+
+### A hardcoded board timestamp fails `check:board-clock`, which the close-out gate list does not name
+**Tag:** board
+**ERROR:** card P3-132's board-edit script wrote `const AT = "2026-10-02T21:40:00Z"` as a literal and
+used it for both `last_checkpoint` and `evidence.at`. The commit that carried it landed at 21:37:25, so
+both stamps were **three minutes ahead of the commit that wrote them**, and `quality` went red in 1m40s
+on `check:board-clock`: "2 of 333 timestamp(s) are AHEAD of the commit that wrote them". Two things made
+this invisible before the push. First, the literal was written minutes before the commit was made, so it
+read as "about now" while being in the future of the commit. Second, and this is the part worth
+generalising, **`check:board-clock` is not in the close-out block's gate list.** That list names thirteen
+`check:` scripts; `.github/workflows/quality.yml` runs **thirty**, plus thirteen `prove:` scripts. Every
+one of the thirteen passed locally and the run still failed on the fourteenth.
+**SOLUTION:** read the clock at the moment of writing and never type a timestamp:
+`new Date().toISOString().replace(/\.\d{3}Z$/, "Z")` inside the script, with the commit made immediately
+after. Note that running `check:board-clock` locally on an **uncommitted** board passes trivially, because
+the script then uses the current clock as its basis instead of a commit time, so a local green there is
+not evidence; the real check is the one after the commit. RULE: **the close-out gate list is a subset of
+what CI runs, so derive the list from `.github/workflows/quality.yml` rather than from the close-out
+block**, and run at least every gate that touches a file you changed. `grep -oE 'npm run [a-z:_-]+'`
+over that workflow gives the full set in one line. And **never write a timestamp as a literal into a
+board edit**: a stamp ahead of its own commit is the one defect this particular gate exists to catch.
