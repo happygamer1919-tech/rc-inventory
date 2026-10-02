@@ -2,6 +2,13 @@ import { readFile } from "node:fs/promises";
 import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
+import {
+  parseCsv,
+  templateCsv,
+  IMPORT_FIELDS,
+  IMPORT_MAX_BYTES,
+  IMPORT_MAX_ROWS,
+} from "@/lib/data/lead-import-types";
 
 // lead-import.spec - linia de acceptanta a cardului P3-101, goal G58.
 //
@@ -48,6 +55,9 @@ const CASE = {
   // clientii cu care fisierul s-a potrivit) si G18 (cele trei numere adună fisierul).
   contacts: 6,
   accounting: 7,
+  // P3-122, cardul care aduce importul la standardul Item 3.
+  overwrite: 8,
+  motiv: 9,
 } as const;
 
 /** Numar moldovenesc local, scris cum il scrie un om: 0 urmat de opt cifre. */
@@ -853,4 +863,150 @@ test("G70 (G18): create plus completate plus nepreluate este numărul de rândur
   const merged = written.find((row) => row.name === `${tag} unu`)!;
   expect(merged.email, "emailul primului rand dublat a fost completat").toBe(e1);
   expect(merged.email, "si al doilea nu a suprascris nimic").not.toBe(e2);
+});
+
+// ---------------------------------------------------------------------------
+// Cardul P3-122. Importul de leaduri aduse la standardul Item 3: modelul cu
+// exemplu, instructiunile pe ecran, coloana Motiv (deja acolo, verificata ca
+// sa nu regreseze tacut) si garantia de nesuprascriere, cu numele ei propriu.
+// ---------------------------------------------------------------------------
+
+test("import leaduri: modelul descarcat are antetele, un rand exemplu si coloanele obligatorii marcate", async ({
+  page,
+}) => {
+  // Ce ar trebui sa contina fisierul, citit din aceeasi functie pe care ecranul
+  // o apeleaza: acest test verifica forma lui, nu reinventeaza o a doua.
+  const expected = parseCsv(templateCsv());
+  expect(expected, "antetul plus un rand exemplu").toHaveLength(2);
+  const [header, example] = expected as [string[], string[]];
+
+  // DENUMIRE ESTE SINGURA MARCATA OBLIGATORIE: telefonul si emailul cer unul
+  // din doua, nu amandoua, deci a marca amandoua ar spune o regula mai stricta
+  // decat cea pe care importul o aplica de fapt.
+  expect(header[0]).toBe("Denumire *");
+  expect(header.filter((h) => h.endsWith(" *")), "o singura coloana marcata").toHaveLength(1);
+  expect(header, "cate campuri, atatea coloane in antet").toHaveLength(IMPORT_FIELDS.length);
+  expect(example, "randul exemplu are aceleasi coloane ca antetul").toHaveLength(header.length);
+  expect(example[0], "exemplul are o denumire scrisa").not.toBe("");
+
+  await openImport(page);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("import-template").click(),
+  ]);
+  expect(download.suggestedFilename()).toBe("sablon-leaduri.csv");
+  const text = await readFile(await download.path(), "utf8");
+  expect(parseCsv(text), "fisierul descarcat este exact ce arata functia").toEqual(expected);
+
+  // SI RANDUL EXEMPLU, REINTORS IN ACELASI IMPORT, SE IMPORTA CURAT: un exemplu
+  // care ar fi refuzat ar invata operatorul lucrul gresit.
+  await chooseFile(page, "sablon-leaduri.csv", text);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-error"), "randul exemplu nu cade la nicio verificare").toBe(0);
+});
+
+test("import leaduri: instructiunile romanesti numesc campurile obligatorii, valorile acceptate, regula de dublare si cele doua limite", async ({
+  page,
+}) => {
+  await openImport(page);
+
+  const instructions = page.getByTestId("import-instructions");
+  await expect(instructions).toBeVisible();
+
+  // CAMPUL OBLIGATORIU, SI CELE DOUA DIN CARE SE CERE UNUL.
+  await expect(instructions).toContainText("Denumire");
+  await expect(instructions).toContainText("Telefon");
+  await expect(instructions).toContainText("Email");
+  await expect(instructions).toContainText("obligator");
+  await expect(instructions).toContainText("opțional");
+
+  // VALORILE ACCEPTATE, pe tip, etapa si sursa.
+  await expect(instructions).toContainText("Companie");
+  await expect(instructions).toContainText("Persoană fizică");
+  await expect(instructions).toContainText("Lead rece");
+  await expect(instructions).toContainText("Recomandare");
+
+  // REGULA DE DUBLARE, cu emailul numit drept cheia, D5 pe cardul P3-122.
+  await expect(instructions).toContainText("dublat");
+  await expect(instructions).toContainText("cheia de dublare");
+
+  // CELE DOUA LIMITE, citite din constantele comune si nu scrise a doua oara.
+  await expect(instructions).toContainText(`${IMPORT_MAX_ROWS}`);
+  await expect(instructions).toContainText(`${(IMPORT_MAX_BYTES / (1024 * 1024)).toFixed(0)} MB`);
+});
+
+test("import leaduri: fisierul randurilor nepreluate are coloana Motiv", async ({ page }) => {
+  const tag = testName("motiv");
+  const c = CASE.motiv;
+
+  const body = csv([
+    HEADERS,
+    ["", localPhone(c, 1), "", "", "fără nume", "", "", ""],
+    [`${tag} bun`, localPhone(c, 2), "", "", "", "", "", ""],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "motiv.csv", body);
+  await toVerify(page);
+  await runImport(page);
+  expect(await countAt(page, "import-skipped")).toBe(1);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("import-download-skipped").click(),
+  ]);
+  const text = await readFile(await download.path(), "utf8");
+  const rows = parseCsv(text);
+
+  // ANTETUL FISIERULUI DE ERORI, CARDUL P3-121 CLAUZA 5 DEJA IL SCRIE: acest
+  // caz este o verificare impotriva unei regresii tacute, nu o functie noua.
+  expect(rows[0]).toEqual(["Rând", "Motiv", ...HEADERS]);
+  const skippedRow = rows.find((r) => r[1] === "Rândul nu are denumire.");
+  expect(skippedRow, "randul nepreluat este in fisier, cu motivul lui").toBeTruthy();
+});
+
+test("import leaduri: un dublat nu suprascrie niciodata o valoare scrisa de om", async ({ page }) => {
+  const rest = await ownerRest();
+  const tag = testName("suprascrie");
+  const c = CASE.overwrite;
+
+  // UN CLIENT STOCAT CU ADRESA DEJA SCRISA SI EMAILUL GOL, ca cele doua cazuri
+  // ("nu se atinge" si "se completeaza") sa fie vazute in acelasi caz.
+  const storedId = await seedClient(rest, {
+    name: `${tag} stocat`,
+    phone: localPhone(c, 1),
+    address: "Orhei",
+  });
+  const before = await storedById(rest, storedId);
+
+  const body = csv([
+    HEADERS,
+    [
+      `${tag} din fișier`,
+      spacedPhone(c, 1),
+      testEmail("suprascrie", "nou"),
+      "",
+      "",
+      "",
+      "",
+      "Adresă scrisă de fișier, care nu trebuie să ajungă în bază",
+    ],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "suprascrie.csv", body);
+  await toVerify(page);
+  await expect(page.getByTestId("import-duplicate")).toHaveCount(1);
+  await page.getByTestId("import-duplicate-choice").selectOption("fill");
+  await runImport(page);
+  expect(await countAt(page, "import-filled")).toBe(1);
+
+  const after = await storedById(rest, storedId);
+  // CAMPUL PE CARE L-A SCRIS UN OM NU SE ATINGE, chiar cand fisierul aduce o
+  // valoare diferita pentru el si operatorul a ales "Completează".
+  expect(after.address).toBe(before.address);
+  expect(after.address).toBe("Orhei");
+  // CAMPUL GOL SE COMPLETEAZA, ca diferenta dintre "nu se atinge" si
+  // "se completeaza" sa se vada in acelasi caz si nu doar sa se presupuna.
+  expect(after.email).toBe(testEmail("suprascrie", "nou"));
 });
