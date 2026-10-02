@@ -8515,3 +8515,27 @@ type.** More generally: an assertion about "nothing else changed this" must be w
 the schema is in, because one written from a migration's text goes red on correct work and reads as a
 defect in whatever card happens to be holding the branch. A false red is worse than a false green, and
 `docs/LEARNINGS.md` already names why: a false green is ignored once and a false red is ignored forever.
+
+### A `̀` escape typed into a tool call lands in the file as the literal character, not the escape
+**Tag:** infra
+**ERROR:** Moving `normaliseKey`'s diacritic-stripping regex, `/[̀-ͯ]/g`, from
+`lead-import-types.ts` into the new `lib/data/import-shared.ts` by typing the same source text into a
+file-write tool call did not reproduce the two six-character escape sequences. The agent's own text
+channel decodes a single-backslash `\uNNNN` sequence before it reaches the file, so the regex landed as
+`[̀-ͯ]`, a character class between two literal combining-mark characters rather than between two escape
+sequences. A second attempt, typing `\\u0300-\\u036f` to "escape the escape", did not restore the
+original either: it landed as two literal backslash characters followed by the literal text `u0300`,
+which inside a regex character class parses as a literal `\` plus the plain characters `u`, `0`, `3`,
+`0`, `0`, not as a code point at all.
+**SOLUTION:** the literal-character form is not a defect by itself: `node -e` confirmed the two
+characters are codepoints U+0300 and U+036F, the exact bounds of the original escape range, so
+`[̀-ͯ]` and `[̀-ͯ]` compile to the identical regex and behave identically on every Romanian
+diacritic tested (ă, â, î, ș, ț). The defect was the SECOND attempt, the doubled backslash, which is a
+silent behaviour change that `tsc` cannot catch (a regex character class accepts almost anything
+without erroring) and that only a runtime comparison against the original function's output on real
+input would reveal. RULE: **when a tool call's text channel does not round-trip a `\u` escape, verify
+the landed bytes with a throwaway `node -e` codepoint dump before trusting the file, and prove
+equivalence by running both the original and the new regex against the same inputs rather than by
+eyeballing the source.** Never paper over the uncertainty by typing more backslashes and assuming it
+compiled; a regex with a silently wrong character class is a defect that passes typecheck, passes
+build, and fails only on the one diacritic nobody happened to test.
