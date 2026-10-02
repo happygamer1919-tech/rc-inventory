@@ -176,6 +176,20 @@ const TOLERATED_WORDS = {
   'components/facturare/FacturaEditor.tsx': {
     description: 'campul `description` al unei linii din formularul de factura, primit ca prop; componentul nu cheama nicio tabela.',
   },
+  // P3-130, goal G73, Item 4 al lui Ivan. MODULUL DE TIPURI AL SARCINILOR, care
+  // poarta cuvantul `description` si NU atinge nicio tabela de extragere. Coloana
+  // in asteptare cu acest nume este extraction_draft_lines.description, din 0053.
+  // Coloana pe care o descrie fisierul de mai jos este public.tasks.description,
+  // creata de 0068 in aceeasi instructiune `create table` cu tabela, deci ea nu
+  // este in lista de coloane pe care aceasta verificare o cauta: tabela ESTE
+  // cautata, prin `.from(...)`, si acest fisier nu o cheama niciodata.
+  //
+  // Citirile si scrierile reale ale sarcinilor stau in lib/data/tasks.ts si
+  // lib/data/tasks-actions.ts, si amandoua importa si folosesc hasTasks, deci trec
+  // poarta pe care aceasta verificare o cere.
+  'lib/data/tasks-types.ts': {
+    description: 'campul `description` al unei sarcini, un modul de tipuri si etichete fara nicio citire; fisierul nu cheama nicio tabela.',
+  },
 };
 
 function pendingMigrations() {

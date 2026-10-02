@@ -1447,6 +1447,27 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "tests/e2e/cross-links.spec.ts",
     "tests/e2e/phone-lists.spec.ts",
     ".gitignore",
+    // CARDUL P3-130 ISI ADAUGA FISIERELE AICI, pentru acelasi motiv pe care l-a scris
+    // P3-120 doua grupe mai sus: regula este una singura, "nicio liniuta em sau en
+    // nicaieri", deci un al doilea caz care o masoara ar fi un al doilea loc de tinut
+    // la zi. Acceptanta (g) a cardului P3-130 este chiar randurile de mai jos.
+    //
+    // docs/LEARNINGS.md SI docs/reports/ NU SUNT PE LISTA, SI GOLUL ESTE EXPLICAT:
+    // LEARNINGS.md poarta trei liniute em de pe `main`, scrise de alte carduri inainte
+    // ca aceasta regula sa existe, si ele nu sunt ale cardului P3-130. A le pune pe
+    // lista ar face cazul sa cada pe o datorie veche in locul in care el masoara munca
+    // acestui card; a le "repara" in treacat ar fi o atingere pe care niciun card nu a
+    // cerut-o. Randurile adaugate de P3-130 in acel fisier nu poarta niciuna.
+    "supabase/migrations/0068_tasks.sql",
+    "scripts/poc-free/local-db/assertions/0068_tasks.sql",
+    "scripts/poc-free/check-pending-schema-reads.mjs",
+    "docs/migrations/APPLY-LOG.md",
+    "lib/data/schema-capability.ts",
+    "lib/data/tasks-types.ts",
+    "lib/data/tasks-shape.ts",
+    "lib/data/tasks.ts",
+    "lib/data/tasks-actions.ts",
+    "tests/e2e/tasks.spec.ts",
   ];
 
   // CELE DOUA SEMNE SE CONSTRUIESC DIN CODURILE LOR SI NU SE SCRIU, ca acest

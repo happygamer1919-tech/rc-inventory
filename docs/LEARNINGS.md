@@ -8435,3 +8435,83 @@ returns null when none does, so the case skips with a message exactly like the e
 issue in the database" branch beside it. What the case defends did not change. RULE: **a test that
 says "the first row" is asserting about whichever row the most recent write produced.** When the
 rows stop being interchangeable, make the test find the row its assertion is about.
+
+### A headless run can die on an account usage limit, and the recovery is to resume the worktree, not to branch again
+**Tag:** process
+**ERROR:** the first run of card P3-130 ended on 2026-10-01 at about 15:57 with a one line log,
+"You've hit your weekly limit". There is no stack, no failing check and no red run to read: the log
+is one sentence and the task file lands in `queue/failed/`, which is the same place a genuinely
+broken brief lands. Every signal says "this task failed". Nothing in it says what is true, which is
+that the account ran out of allowance and the work is fine. The trap is what comes next: the obvious
+move on a failed card is the setup block at the top of its brief, `git worktree add ... -b card/<id>
+origin/main`, and that would have thrown away FOUR GOOD COMMITS sitting unpushed on
+`card/p3-130` (the board flip, migration 0068, the assertions file, the pending register line and
+the capability gate) plus two more files in the working tree. Unpushed is the dangerous part: the
+branch exists nowhere else, so nothing would have objected.
+**SOLUTION:** before re-running any failed task, `cd` into the worktree and read `git status -sb` and
+`git log --oneline origin/main..HEAD` there, and judge from the commits, not from the folder the brief
+sits in. For P3-130 the recovery was `cd` into the existing worktree, `git fetch origin`, confirm
+`origin/main` had not moved (so 0068 was still the next free migration number), commit the two
+working tree files, and continue from commit five. RULE: **a one line log naming an account limit is
+not a fault in the task, the card or the code, and the first question on any resumed card is what
+the branch already holds.** The distinguishing mark of this class: the log has no error from any
+tool the task ran. A real failure names a check; this names a quota.
+
+### A board timestamp written slightly in the future fails check:board-clock on the next run
+**Tag:** board
+**ERROR:** `npm run check:board-clock` went red on a worktree nobody had touched for a day:
+"card P3-130.last_checkpoint = 2026-10-01T20:10:00Z, 8 minute(s) ahead" of the commit that wrote it.
+The previous session had rounded the checkpoint up to a tidy minute while writing the card into
+`in_flight`, and committed a few minutes earlier than the time it had written. Eight minutes is
+invisible to a reader and fatal to the check, and the failure surfaces in whichever session comes
+next, which reads it as a defect in its own work.
+**SOLUTION:** read the clock immediately before the commit and write what it says, never a rounded
+or an anticipated minute: `date -u +"%Y-%m-%dT%H:%M:%SZ"`. The same applies to the board's `as_of`,
+which is allowed 60 minutes of slack in either direction and will eventually run out of it. RULE:
+**a board timestamp is a record of when a commit happened, so it is written from the clock at commit
+time and never from intention.** A timestamp ahead of its own commit is a board claiming to know
+something the repository does not yet contain.
+
+### A new column of your own table can share a name with a pending column of somebody else's
+**Tag:** tooling
+**ERROR:** `lib/data/tasks-types.ts` carries the word `description`, because a task has one. The
+word is also the name of `extraction_draft_lines.description` from migration 0053, which is in the
+pending register, and `check:pending-schema-reads` searches for a pending column name ANYWHERE in a
+file under `lib/` or `app/` and demands a capability gate. A types module has no read to gate: there
+is nothing for a gate to protect, so adding one would be a gate that answers no question. The
+existing learning beside this one says the `TOLERATED_WORDS` allowlist was deliberately NOT widened
+for a case like this, and it was right about its own case: there the word was in a COMMENT and the
+comment could simply be rephrased to describe the column instead of naming it.
+**SOLUTION:** the two cases are different and the difference is worth stating. A comment can be
+rephrased; the field of a type cannot be renamed to dodge a check without renaming the column it
+mirrors. `tasks.description` is created by `create table` in migration 0068, which the check does not
+index as a pending COLUMN at all, and the file names no table, so it can never reach the pending one.
+An entry in `TOLERATED_WORDS` with the reason written out is what the map already holds for exactly
+this shape in `lib/data/facturare-create-types.ts`, `lib/data/facturare-detail-types.ts` and
+`components/facturare/FacturaEditor.tsx`. RULE: **rephrase a comment, register a field.** The test of
+a tolerated entry is whether the file can reach the pending object at all: if it names no table and
+calls no function, the word is a coincidence of vocabulary and the entry says so. A tolerated entry
+is not a weakened check, and an entry whose file stops carrying the word is itself reported stale.
+
+### An assertion that pins an enum's labels read from the migration that CREATED it accuses the wrong card
+**Tag:** assertion
+**ERROR:** `scripts/poc-free/local-db/assertions/0068_tasks.sql` proved that card P3-130 had not
+widened the shared `public.status_entity` type with
+`if txt is distinct from 'inbound_order,outbound_issue'`. That is exactly the list migration 0001
+creates, and it had been read off 0001 rather than off the schema as it stands. Two more labels had
+been added since, each by its own migration: `project` by `0015_status_entity_project.sql` and
+`client` by `0038_status_entity_client.sql`. So the assertion **refused a schema that was entirely
+correct** and its refusal text accused this card of a change it had not made:
+"status_entity labels are (inbound_order,outbound_issue,project,client), and this card must not have
+touched them". CI caught it on run 37000948483, after the assertion had already passed review twice,
+because it reads like a careful pin.
+**SOLUTION:** two halves instead of one. The exact list now names the four labels AND the migration
+that created each, so it is readable against the schema rather than against one migration; and beside
+it sits the check that is actually load bearing, that `status_entity` carries **no `task` label**,
+which is the single way this card could have touched that type. The second half keeps working when a
+future card legitimately adds a fifth label and updates the list above it. RULE: **before pinning the
+labels of a shared enum, grep every migration for `add value`, not just the one that created the
+type.** More generally: an assertion about "nothing else changed this" must be written from the state
+the schema is in, because one written from a migration's text goes red on correct work and reads as a
+defect in whatever card happens to be holding the branch. A false red is worse than a false green, and
+`docs/LEARNINGS.md` already names why: a false green is ignored once and a false red is ignored forever.
