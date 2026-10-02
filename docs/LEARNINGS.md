@@ -8516,6 +8516,95 @@ the schema is in, because one written from a migration's text goes red on correc
 defect in whatever card happens to be holding the branch. A false red is worse than a false green, and
 `docs/LEARNINGS.md` already names why: a false green is ignored once and a false red is ignored forever.
 
+### Three buckets that group a list hide every row that falls in none of them
+**Tag:** frontend
+**ERROR:** card P3-131 asks for the list of jobs to be grouped into the three buckets the owner
+named, `Azi`, `Această săptămână` and `Restante`, and says in its clause 6 that they are "a way of
+grouping the same list, not three separate queries". Written literally, as three groups, the screen
+silently drops every task that is in none of the three, and there are two whole kinds of those: a
+task with **no due date**, which `lib/data/tasks-types.ts` says in as many words is a true state and
+not missing data, and a task **with** a due date that falls outside all three, either beyond this
+Sunday or past its date and already finished or cancelled, which clause 5 excludes from `Restante`
+on purpose. On a seeded set those tasks existed in the database, were returned by the read, were
+counted in the list header, and appeared **nowhere on the screen**. That is worse than any grouping:
+a row that is counted and invisible reads as a data problem for weeks, which is the exact failure
+mode the card's own notes warn about one clause earlier.
+**SOLUTION:** the grouping function is **total**, and the containers for the remainder are **derived
+from the same single function** rather than computed beside it. `taskGroup(task, today)` calls
+`taskBucket(task, today)` and, only when it answers `null`, splits the remainder on
+`dueDate === null`, which is not a question about a day at all. So there is still exactly ONE day
+comparison on the screen, the buckets stay exactly the three the owner named, and no row can be
+hidden. The second container is called `Alte sarcini` and not `Mai târziu` deliberately: a time word
+would have been false for half of what lands in it. RULE: **a grouping is a partition or it is a
+filter, and a filter that calls itself a grouping loses rows.** When a card names the groups it
+wants, ask what the groups do NOT cover before writing them, and give the remainder a heading that
+is true of everything in it. Keep the named groups exactly as named; the container is presentation
+and must say so in its own comment, or the next reader will count it as a fourth bucket.
+
+### A "no delete control" assertion over a table row counts the record link too
+**Tag:** frontend
+**ERROR:** acceptance (f) of card P3-131 requires that no delete affordance is rendered in the row,
+the menu or the panel. The natural assertion gathers every `button, a` inside the row and requires
+the set to be exactly `["Modifică"]`, the one action the row carries. That is wrong before it is
+ever run, and for a reason that is easy to miss while writing it: clause 2 of the same card requires
+the linked record to be a **link**, so a row attached to a client or a project contains an `<a>`
+whose accessible name is `Client` or `Proiect`. The set is `["Client", "Modifică"]`, and the
+assertion would have gone red in CI on a screen that was entirely correct, costing a twenty minute
+run to learn something readable from the component.
+**SOLUTION:** write the expected set from what the row actually renders, which means reading the row
+renderer before writing the assertion, not after. The exact-set form is still the right one and was
+kept rather than loosened to "none of them looks like deleting": an exact set makes a NEW control
+appearing in a row pass under someone's eyes, which is the whole point when the rule is that no
+delete path may ever appear. RULE: **before asserting the exact set of controls in a region, list
+what each primitive in that region renders.** This is the same family as the entry about counting
+`input[data-testid]` on a filter row and finding one extra per date box: any assertion written from
+what the screen MEANS rather than from what the components PUT IN THE DOM counts the wrong thing.
+
+### A self-test of a case-sensitive word matcher, written with the word in lower case, reddens the case before the real check runs
+**Tag:** ci
+**ERROR:** acceptance (h) of card P3-131 proves no English word reaches the screen, with a matcher
+built as `new RegExp("\\b(" + word + "|" + word.toUpperCase() + ")\\b")`, deliberately
+case-sensitive and deliberately covering the capitalised form twice because `Th` carries the
+`uppercase` class. Before trusting it, the case proves the matcher FINDS something, which is the
+right habit and is why the entry about a grep that matches nothing passing forever exists. The proof
+line was written `englishIn("Save the task")` and asserted `["Save", "Task"]`. It got `["Save"]`,
+because `task` is lower case and the pattern asks for `Task` or `TASK`. **The matcher was correct and
+the proof was wrong**, and the cost is the whole point: the self-test is the first thing in the case,
+so it failed before the real scan of the screen ever ran, and a 37 minute end-to-end suite reported
+nothing at all about the property the case exists to measure. Seen 2026-10-02, PR #389, run
+37011265525: `537 passed, 3 failed`.
+**SOLUTION:** write the proof strings **the way they would appear on the screen**, capitalised, since
+that is what the matcher is for and what an untranslated label looks like in this repository. Lower
+case is outside the match on purpose: Romanian words written in lower case, from `sarcina` to
+`stare`, have no business in a list of English words on screen, and a third proof line now asserts
+exactly that, so the boundary is documented rather than accidental. RULE: **a self-test of a matcher
+is itself a test and can be the wrong one.** When it fails, read which side is wrong before changing
+the matcher, because "instrument proves it finds" failing looks exactly like "instrument is broken"
+and the fix for the wrong one weakens the check. And put the self-test where a failure is cheap: this
+one ran inside a case that needs a signed-in browser and a seeded row, so a one-character mistake in
+a string literal cost a full suite.
+
+### A test fixture's English display name reaches a screen the Romanian check is reading
+**Tag:** ci
+**ERROR:** the same acceptance (h) scans the Sarcini screen's chrome for English words. Two of the
+regions it reads are the assignee `<select>` on the filter row and the one in the panel, and each
+carries an `<option>` for **every active profile**. On the CI stack those profiles are seeded by
+`scripts/seed-test-accounts.mjs` with `full_name` values `"Owner (test)"` and
+`"Account manager (test)"`, which are English. The scan passed only because none of those particular
+words happened to be in the list; it would have gone red the day somebody renamed a test account or
+added `Owner` to the word list, on a card that had not touched the screen.
+**SOLUTION:** the option text of the assignee selects is removed from the scan, on a **clone** of the
+node so the page under test is not modified, with the selector
+`[data-testid$="assignee"] option[value]:not([value=""])`. That is precise: it drops only the profile
+options and keeps the one option this card actually writes, whose `value` is empty. Both of those,
+`Toți responsabilii` and `Nealocată`, are then asserted **by name**, so the region is not left
+unproved. RULE: **a check that reads text off a screen must decide, region by region, which text the
+card WROTE and which text is DATA**, and exclude the data explicitly with the reason written down.
+Profile names, client names and project names are data: in production they are a person's or a
+company's name, and in CI they are whatever a seed script chose. This is the same reasoning that
+keeps the list's own rows out of the scan, and it is a narrowing with a stated boundary rather than a
+loosening: what is excluded is named, and what remains is asserted.
+
 ### A `̀` escape typed into a tool call lands in the file as the literal character, not the escape
 **Tag:** infra
 **ERROR:** Moving `normaliseKey`'s diacritic-stripping regex, `/[̀-ͯ]/g`, from
@@ -8539,3 +8628,29 @@ equivalence by running both the original and the new regex against the same inpu
 eyeballing the source.** Never paper over the uncertainty by typing more backslashes and assuming it
 compiled; a regex with a silently wrong character class is a defect that passes typecheck, passes
 build, and fails only on the one diacritic nobody happened to test.
+
+### Two of our own pull requests open at once always conflict on exactly two files, and the resolution is mechanical
+**Tag:** ci
+**ERROR:** the "one open pull request of ours at a time" rule was dropped on 2026-09-23, so two of our
+cards are now routinely in flight together. Whichever of the two is reviewed second is then guaranteed
+to go `mergeStateStatus DIRTY` the moment the first one merges, because branch protection here is
+strict and every merge to `main` invalidates every other open pull request. On 2026-10-02 card P3-131
+had pull request #389 green on head `2b3296c` at 14:42 UTC; BLUE's #390 for card P3-121 merged at
+17:20 UTC, and #389 became unmergeable with no fault in its own work. The run that built #389 had
+already died on an unrelated network error, `API Error: Can't reach the API server`, with everything
+committed and pushed, so the conflict sat there with nobody watching it.
+**SOLUTION:** the conflict is in exactly two files and will be for every such pair, because they are
+the only two files every card of ours touches: the phase board JSON and this file. Neither needs
+judgement. On the board the card entries merge cleanly on their own, since the two cards are different
+objects, and the ONLY real collision is the top-level `as_of` clock, resolved by reading
+`date -u +%Y-%m-%dT%H:%M:%SZ` just before the edit so the merged value is later than both parents and
+no clock moves backwards. This file is append only and both sets of entries are kept, in authoring
+order. Then prove it card by card with a throwaway node script kept outside every checkout: every card
+in the merge equals main's copy except ours, which equals the branch's copy, and the card count is
+unchanged. P3-131's run proved 182 cards, ours kept for P3-131 and main's kept for P3-121.
+RULE: **a board conflict between two of our own cards is never a choice between two versions, it is an
+`as_of` collision wearing a conflict marker.** Resolve it by taking a fresh clock, keep every card
+entry from both sides, prove the set rather than eyeballing the diff, and run the validator and
+`npm run check:conflict-residue` AFTER staging. Expect this on the second of any two pull requests and
+budget the sync rather than treating it as a surprise; what it costs is one fresh `quality` run on the
+merged head, because the old green belongs to a sha nobody is proposing to merge any more.

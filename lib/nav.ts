@@ -29,7 +29,14 @@ export type IconName =
   | "clients"
   | "projects"
   // P3-109: grupul Facturare.
-  | "invoice";
+  | "invoice"
+  // P3-131: fila Sarcini din CRM. UN NUME NOU SI NU UNUL REFOLOSIT, fiindca niciuna
+  // din cele unsprezece de mai sus nu desenează o listă de treburi: `bell` este
+  // mementoul de stoc si ecranul Azi, `orders` este doua documente de comanda, iar
+  // `invoice` este o factura. O pictograma care spune altceva decat eticheta de
+  // langa ea este mai rea decat niciuna. Forma este in components/ui/Icon.tsx si
+  // uniunea aceasta o cere, deci compilatorul refuza un nume fara desen.
+  | "tasks";
 
 /**
  * P3-46. Ecranele la care se ajunge prin CRM si nu direct din meniu. Adresele lor
@@ -52,6 +59,23 @@ export const CRM_SCREENS: NavItem[] = [
     label: "Proiecte",
     icon: "projects",
     description: "Șantierele, cu stadiul lor și cu bugetul lor",
+  },
+  // P3-131, goal G73, Item 4 al lui Ivan. SARCINI ESTE O FILA A SECTIUNII CRM, deci
+  // sta aici si NU in NAV.
+  //
+  // DE CE AICI SI NU O INTRARE PROPRIE IN MENIU. Clauza 1 a cardului cere "a new tab
+  // Sarcini in the CRM section, alongside the tabs that are already there", iar
+  // /clienti si /proiecte nu au nici ele intrare proprie: se ajunge la ele prin
+  // cardurile ecranului /crm, exact cum se ajunge acum la aceasta. Antetul acestei
+  // liste spune pentru cine exista ea: cei doi cititori ai listei de navigatie,
+  // labelForPath, care da titlul din bara de sus, si ALL_ROUTES, pe care o parcurge
+  // tests/e2e/headers.spec.ts. Un ecran lasat in afara amandurora isi pierde titlul
+  // si testul lui de antet FARA NICIUN SEMNAL.
+  {
+    href: "/sarcini",
+    label: "Sarcini",
+    icon: "tasks",
+    description: "Treburile de făcut, cu termenul lor și cu cine le duce",
   },
 ];
 
@@ -109,7 +133,8 @@ export const NAV: NavGroup[] = [
         href: "/crm",
         label: "CRM",
         icon: "clients",
-        description: "Clienți, leaduri și proiecte",
+        // P3-131. Linia numeste ce se deschide prin CRM, deci creste cu fila nouă.
+        description: "Clienți, leaduri, proiecte și sarcini",
         activeFor: CRM_SCREENS.map((s) => s.href),
       },
     ],

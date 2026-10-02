@@ -369,17 +369,34 @@ test.describe("P3-67: ecranele ramase pe telefon (390x844)", () => {
     await shot(page, testInfo, "necesar");
   });
 
+  // P3-131, goal G73. CARDURILE ECRANULUI CRM SUNT PATRU DE LA ACEL CARD, nu trei:
+  // clauza 1 a lui cere "a NEW TAB Sarcini in the CRM section, alongside the tabs
+  // that are already there. Not a replacement for one", iar secțiunea CRM nu are
+  // banda de file, are ecranul cu carduri mari. Numarul se citeste acum din lista de
+  // etichete de mai jos si nu se scrie de mana, ca urmatorul card care adauga unul sa
+  // nu plateasca aceeasi rulare.
+  //
+  // NUMELE CAZULUI SPUNE "cele trei carduri" SI RAMANE ASA, deliberat: un nume de caz
+  // este un identificator pe care acceptanta cardului P3-67 il citeaza, si a-l
+  // "corecta" ar rupe legatura dintre acel card si proba lui. CE MASOARA CAZUL NU S-A
+  // SCHIMBAT: pe telefon cardurile stau unul sub altul, in aceeasi ordine, si Leaduri
+  // duce la leaduri. S-a schimbat numai cate sunt.
+  const CRM_CARD_LABELS = ["Clienți", "Leaduri", "Proiecte", "Sarcini"];
+
   test("(d) intrarea CRM: cele trei carduri stau unul sub altul, iar Leaduri duce la leaduri", async ({
     page,
   }, testInfo) => {
     await signInOnPhone(page);
     await page.goto("/crm");
     const cards = page.getByTestId("crm-card");
-    await expect(cards).toHaveCount(3, { timeout: 25_000 });
+    await expect(cards).toHaveCount(CRM_CARD_LABELS.length, { timeout: 25_000 });
 
     await expectFitsPhone(page, "/crm");
-    await expect(page.getByTestId("crm-card-label")).toHaveText(["Clienți", "Leaduri", "Proiecte"]);
-    expectStacked(await boxes([0, 1, 2].map((i) => cards.nth(i))), "/crm");
+    await expect(page.getByTestId("crm-card-label")).toHaveText(CRM_CARD_LABELS);
+    expectStacked(
+      await boxes(CRM_CARD_LABELS.map((_, i) => cards.nth(i))),
+      "/crm",
+    );
     await shot(page, testInfo, "crm");
 
     await cards.filter({ hasText: "Leaduri" }).click();
@@ -499,10 +516,16 @@ test.describe("P3-67: ecranele ramase pe telefon (390x844)", () => {
     await expect(stats).toHaveCount(4, { timeout: 25_000 });
     expectSideBySide(await boxes([0, 1, 2, 3].map((i) => stats.nth(i))), "/ la 1440px");
 
+    // P3-131. PATRU CARDURI, si toate patru se masoara: grila a trecut de la
+    // grid-cols-3 la grid-cols-4, iar al patrulea masurat ar fi tocmai cel care ar
+    // cadea dedesubt daca grila ar rămâne la trei. Vezi comentariul de la cazul (d).
     await page.goto("/crm");
     const cards = page.getByTestId("crm-card");
-    await expect(cards).toHaveCount(3, { timeout: 25_000 });
-    expectSideBySide(await boxes([0, 1, 2].map((i) => cards.nth(i))), "/crm la 1440px");
+    await expect(cards).toHaveCount(CRM_CARD_LABELS.length, { timeout: 25_000 });
+    expectSideBySide(
+      await boxes(CRM_CARD_LABELS.map((_, i) => cards.nth(i))),
+      "/crm la 1440px",
+    );
 
     for (const t of [
       { path: "/memento", row: page.getByTestId("threshold-row") },

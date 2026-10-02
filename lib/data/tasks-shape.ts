@@ -24,7 +24,9 @@
 
 import type {
   NewTaskInput,
+  TaskBucket,
   TaskEntityType,
+  TaskGroup,
   TaskPatch,
   TaskPriority,
   TaskStatus,
@@ -62,6 +64,144 @@ export function isTaskEntityType(value: unknown): value is TaskEntityType {
  *  refuzata de coloana `date`, iar tasks-actions.ts traduce refuzul. Vezi antetul. */
 export function isDayString(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/* =======================================================================
+   O SINGURA DEFINITIE A ZILEI, CLAUZA 6 A CARDULUI P3-131
+   ======================================================================= */
+//
+// NOTELE CARDULUI SPUN CA ASTA ESTE PARTEA DE NIMERIT: "CLAUSE 6 IS THE ONE TO GET
+// RIGHT. Two definitions of 'late' on one screen is a defect that looks like a data
+// problem for weeks." Ce urmeaza este scris ca acel defect sa nu poata exista.
+//
+// O FUNCTIE, SI MARCAJUL DE INTARZIERE SE DEDUCE DIN GALEATA. `isTaskOverdue` este
+// literal `taskBucket(...) === "restante"`, iar `taskGroup` cheama tot `taskBucket`.
+// Acceptanta (d) cere ca MULTIMEA sarcinilor din Restante sa fie EGALA cu multimea
+// celor care poarta marcajul, iar doua predicate care trebuie sa fie de acord pentru
+// totdeauna este defectul pe care acest depozit l-a plata de mai multe ori: antetele
+// lui lib/data/outbound-mode.ts si lib/data/outbound.ts il scriu amandoua. Deducerea
+// le face incapabile sa nu fie de acord; un al doilea predicat le-ar face doar
+// egale astazi.
+//
+// ZILELE SE COMPARA CA SIRURI, SI ASA TREBUIE SA RAMANA. Comentariul lui
+// chisinauToday() din lib/data/format.ts este cel care conteaza si este purtator de
+// sens: "2026-09-22" <= "2026-09-22" este exact comparatia pe care o face baza cu
+// `(now() at time zone 'Europe/Chisinau')::date`, in timp ce `new Date("2026-09-22")`
+// este miezul noptii UTC, adica ora 3 in Chisinau, si ar muta ziua pentru o parte din
+// fiecare zi. NU SE "REPARA" INTR-O COMPARATIE DE Date. `due_date` este o coloana
+// `date` din migratia 0068 si soseste in aceeasi forma `yyyy-mm-dd`.
+//
+// SINGURUL LOC IN CARE SE FACE ARITMETICA DE CALENDAR este marginea de duminica de
+// mai jos, si acolo nu se compara nimic: se NUMARA zile intre doua date de calendar,
+// plecand de la ziua Chisinauului deja aflata si citind inapoi tot parti de
+// calendar. Niciun moment si niciun fus nu intra in socoteala, iar rezultatul se
+// intoarce ca sir si se compara ca sir, ca tot restul.
+
+/** Cele trei galeti, in ordinea in care ecranul le deseneaza. */
+export const ALL_TASK_BUCKETS: TaskBucket[] = ["restante", "azi", "saptamana"];
+
+/** Cele cinci capete de grup, in ordinea in care ecranul le deseneaza: cele trei
+ *  galeti, apoi cele doua recipiente de afisare. Vezi TaskGroup. */
+export const ALL_TASK_GROUPS: TaskGroup[] = [...ALL_TASK_BUCKETS, "altele", "fara_termen"];
+
+function twoDigits(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Ultima zi a saptamanii in care cade ziua primita, ca sir `yyyy-mm-dd`.
+ *
+ * SAPTAMANA SE TERMINA DUMINICA, fiindca lunea este prima zi a saptamanii in uzul
+ * romanesc si moldovenesc, iar interfata este romaneasca. Duminica insasi este
+ * ultima zi a propriei saptamani, nu prima zi a celei urmatoare.
+ *
+ * ARITMETICA PE ZILE DE CALENDAR SI NU PE MOMENTE. Se construieste miezul noptii
+ * UTC din chiar cifrele zilei primite si se citesc inapoi numai parti UTC, deci
+ * construirea si citirea se anuleaza una pe alta si niciun fus nu are cum sa mute
+ * ziua. Asta NU este comparatia pe care comentariul lui chisinauToday() o interzice:
+ * aceea era despre a COMPARA un `new Date(zi)` cu un moment, iar aici nu se compara
+ * nimic si nu exista niciun moment. Rezultatul pleaca de aici ca sir si se compara
+ * ca sir.
+ */
+export function endOfChisinauWeek(today: string): string {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
+  // O zi nerecunoscuta se intoarce neatinsa: atunci marginea este ziua insasi, deci
+  // galeata "Această săptămână" se goleste in loc sa inghita toata lista.
+  if (!parts) return today;
+
+  const at = new Date(
+    Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])),
+  );
+  // getUTCDay: 0 este duminica, 1 este luni. Cate zile mai sunt pana duminica.
+  const weekday = at.getUTCDay();
+  at.setUTCDate(at.getUTCDate() + (weekday === 0 ? 0 : 7 - weekday));
+
+  return `${at.getUTCFullYear()}-${twoDigits(at.getUTCMonth() + 1)}-${twoDigits(at.getUTCDate())}`;
+}
+
+/** Cat ii trebuie lui `taskBucket` ca sa raspunda: termenul si starea, nimic
+ *  altceva. Scris ca forma si nu ca `Task` intreg, ca sa poata fi chemat si pe un
+ *  rand pe jumatate citit si ca un test sa nu aiba de construit un `Task` complet. */
+export type TaskDay = { dueDate: string | null; status: TaskStatus };
+
+/**
+ * In care din cele trei galeti cade sarcina, sau null cand in niciuna.
+ *
+ * ACEASTA ESTE SINGURA DEFINITIE A LUI "INTARZIAT" DIN TOT ECRANUL. Clauza 6:
+ * "one definition, used three times".
+ *
+ * RESTANTE: termenul este INAINTEA zilei de azi SI starea nu este nici finalizata,
+ * nici anulata. Excluderea de stare este formularea clauzei 5 cuvant cu cuvant,
+ * "past its due date and not finished or cancelled", si sta AICI, in singura
+ * functie, exact ca marcajul sa o poarte identic.
+ *
+ * AZI: termenul este chiar ziua de azi. O SARCINA CU TERMEN AZI NU ESTE
+ * INTARZIATA, ceea ce cardul spune de doua ori si acceptanta (c) verifica pe
+ * margine. Galeata Azi NU scoate starile finalizata si anulata, si nici asta nu
+ * este o scapare: galeata lui Ivan este "ce are termen astazi", iar excluderea de
+ * stare este scrisa de clauza 5 numai despre intarziere.
+ *
+ * ACEASTA SAPTAMANA: termenul este DUPA azi si cel mai tarziu duminica aceasta.
+ *
+ * FARA TERMEN: nicio galeata, si niciodata intarziata.
+ */
+export function taskBucket(task: TaskDay, today: string): TaskBucket | null {
+  const due = task.dueDate ?? "";
+  if (due === "") return null;
+
+  if (due < today) {
+    return task.status === "done" || task.status === "cancelled" ? null : "restante";
+  }
+  if (due === today) return "azi";
+  return due <= endOfChisinauWeek(today) ? "saptamana" : null;
+}
+
+/**
+ * Poarta sarcina marcajul de intarziere, clauza 5?
+ *
+ * DEDUS DIN GALEATA SI NU CALCULAT LANGA EA. Acesta este tot corpul functiei, si
+ * atat trebuie sa fie: acceptanta (d) cere ca cele doua sa fie de acord pentru
+ * totdeauna, si singurul fel in care doua raspunsuri nu pot sa se abata unul de
+ * altul este sa fie acelasi raspuns.
+ */
+export function isTaskOverdue(task: TaskDay, today: string): boolean {
+  return taskBucket(task, today) === "restante";
+}
+
+/**
+ * Sub ce cap de grup se deseneaza sarcina. Cele trei galeti, apoi cele doua
+ * recipiente de afisare pentru restul, ca nicio sarcina sa nu existe si sa nu se
+ * vada nicaieri. Vezi TaskGroup in lib/data/tasks-types.ts pentru de ce cele doua
+ * recipiente NU sunt galeti.
+ *
+ * SI AICI GALEATA ESTE CEA CARE RASPUNDE PRIMA, deci nu exista nicio a doua
+ * comparatie de zi: ce rămâne se desparte pe `dueDate === null`, care nu este o
+ * intrebare despre zi, ci despre existenta termenului.
+ */
+export function taskGroup(task: TaskDay, today: string): TaskGroup {
+  const bucket = taskBucket(task, today);
+  if (bucket !== null) return bucket;
+  return (task.dueDate ?? "") === "" ? "fara_termen" : "altele";
 }
 
 /** Un refuz, cu propozitia romaneasca si campul pe care se aseaza pe ecran. */
