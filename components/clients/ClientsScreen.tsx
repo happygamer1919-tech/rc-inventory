@@ -107,6 +107,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { ClientForm } from "./ClientForm";
+import { ClientImportSheet } from "./ClientImportSheet";
 import { LeadImportSheet } from "./LeadImportSheet";
 import { LeaduriForm } from "./LeaduriForm";
 import { ReactivateRowButton } from "./ReactivateRowButton";
@@ -179,6 +180,9 @@ export function ClientsScreen({
   // P3-101. Importul este un panou al vederii Leaduri, nu un ecran nou, exact ca
   // formularul de lead de mai sus.
   const [importing, setImporting] = React.useState(false);
+  // P3-123. Importul de clienti este un panou al vederii Clienți, langa Client
+  // nou, exact ca importul de leaduri langa Lead nou.
+  const [importingClients, setImportingClients] = React.useState(false);
 
   // P3-96, constatarea F7. CASUTA DE CAUTARE URMEAZA URL-UL, care este adevarul.
   //
@@ -324,6 +328,14 @@ export function ClientsScreen({
                   Lead nou
                 </Button>
               ) : null}
+              <Button
+                variant="secondary"
+                onClick={() => setImportingClients(true)}
+                data-testid="clienti-import"
+                className="max-md:min-h-11"
+              >
+                Importă din CSV
+              </Button>
               <Button
                 onClick={() => setCreating(true)}
                 data-testid="client-new"
@@ -902,6 +914,8 @@ export function ClientsScreen({
       ) : null}
 
       {importing ? <LeadImportSheet onClose={() => setImporting(false)} /> : null}
+
+      {importingClients ? <ClientImportSheet onClose={() => setImportingClients(false)} /> : null}
 
       {creatingLead && leaduri ? (
         <LeaduriForm
