@@ -4277,7 +4277,7 @@
       "last_checkpoint": "2026-10-03T00:00:00.000Z",
       "evidence": {
         "kind": "pr",
-        "ref": "PR pending, branch card/p3-127",
+        "ref": "PR #398, branch card/p3-127",
         "at": "2026-10-03T00:00:00.000Z"
       },
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-123 because the round-trip acceptance needs the clients import to exist.\n\nIMPLEMENTAT 2026-10-03 de EXECUTOR (BLUE), goal LB11. Butonul Exporta CSV (vederea Clienți, administrator) cheama exportClients din lib/data/client-export-actions.ts. Citirea listei este unica, aceeasi listClientRowsForExport ca la leaduri (P3-126), deci aceleasi trei functii din baza si aceleasi argumente; starea (Activi, Inactivi, Toate) vine de pe ecran si nu este atinsa. ANTETUL vine din clientModelHeaders(), citit din templateCsv() al clientilor, fara coloana de persoana de contact, moneda sau unitate. Reimportul dedupe dupa email, deci cazul de dus-intors da email fiecarui rand. LIMITA CUNOSCUTA: un client fara email se reimporta ca rand nou, nu ca dublat."
