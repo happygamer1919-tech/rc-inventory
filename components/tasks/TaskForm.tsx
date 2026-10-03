@@ -22,6 +22,17 @@
 // ZIUA SE SCRIE IN SINGURA CASUTA zz.ll.aaaa, components/ui/DateField.tsx, pe care
 // cardul P3-49 si constatarea F4 au facut-o standard. NICIUN AL DOILEA FEL DE CASUTA
 // DE DATA, si asta este regula si nu o alegere a acestui ecran.
+//
+// `fixedEntity` ESTE CLAUZA 2 A CARDULUI P3-132 SI NU UN AL DOILEA FORMULAR. Panoul
+// de pe fisa unei inregistrari deschide ACEST formular, iar cuvintele cardului sunt:
+// "A TASK IS CREATED FROM THE PANEL, already attached to the record whose page it is.
+// That is the whole convenience: the operator is looking at the customer, so the task
+// they are about to write belongs to that customer and they should not have to say
+// so." Cand parametrul soseste, cele doua selectoare ale inregistrarii legate NU SE
+// DESENEAZA si in locul lor sta numele inregistrarii, ca text: asa operatorul nu o
+// alege, nu o poate schimba si nu o poate desface din panoul fisei ei. Cand
+// parametrul lipseste, ceea ce este cazul filei /sarcini, acest fisier se poarta exact
+// ca inainte, si cele opt cazuri ale cardului P3-131 il citesc asa.
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -40,25 +51,38 @@ import {
   TASK_PRIORITY_LABEL,
   TASK_STATUS_LABEL,
   type Task,
+  type TaskEntityType,
 } from "@/lib/data/tasks-types";
 
 export type TaskAssignee = { id: string; fullName: string };
 export type TaskLinkChoice = { id: string; label: string; hint?: string };
 
+/** Inregistrarea de care sarcina este legata din start, fara ca operatorul sa o
+ *  aleaga: cardul P3-132 clauza 2. `label` este numele ei pe ecran, adica denumirea
+ *  clientului sau a proiectului, si este DATA si nu text de interfata. */
+export type TaskFixedEntity = { type: TaskEntityType; id: string; label: string };
+
 export function TaskForm({
   task,
   assignees,
-  clients,
-  projects,
+  clients = [],
+  projects = [],
+  fixedEntity,
   onClose,
 }: {
   /** Lipsa inseamna o sarcina nouă. */
   task?: Task;
   assignees: TaskAssignee[];
   /** Clientii activi, LEADURILE INCLUSE: un lead este un rand din public.clients
-   *  care poarta o etapa, deci se leaga pe tokenul `client`. */
-  clients: TaskLinkChoice[];
-  projects: TaskLinkChoice[];
+   *  care poarta o etapa, deci se leaga pe tokenul `client`.
+   *
+   *  OPTIONALE DE LA CARDUL P3-132: cand `fixedEntity` soseste, cele doua selectoare
+   *  nu se deseneaza, deci cele doua liste nu au pe ce sa fie desenate si pagina care
+   *  deschide panoul nu are de ce sa le citeasca. */
+  clients?: TaskLinkChoice[];
+  projects?: TaskLinkChoice[];
+  /** Cand soseste, inregistrarea legata este ACEASTA si nu se alege. Vezi antetul. */
+  fixedEntity?: TaskFixedEntity;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -70,8 +94,15 @@ export function TaskForm({
   const [priority, setPriority] = React.useState<string>(task?.priority ?? "medium");
   const [dueDate, setDueDate] = React.useState(task?.dueDate ?? "");
   const [assigneeId, setAssigneeId] = React.useState(task?.assigneeId ?? "");
-  const [entityType, setEntityType] = React.useState<string>(task?.entityType ?? "");
-  const [entityId, setEntityId] = React.useState(task?.entityId ?? "");
+  // PERECHEA PLEACA DE LA INREGISTRAREA FIXATA CAND EXISTA UNA, si pentru o sarcina
+  // care exista pleaca de la ce poarta randul: cele doua sunt aceeasi inregistrare
+  // cand panoul este cel al fisei ei, fiindca panoul citeste numai sarcinile legate de
+  // acea inregistrare. Randul are prioritate, ca o modificare sa nu poata rescrie in
+  // tacere o legatura care exista deja.
+  const [entityType, setEntityType] = React.useState<string>(
+    task?.entityType ?? fixedEntity?.type ?? "",
+  );
+  const [entityId, setEntityId] = React.useState(task?.entityId ?? fixedEntity?.id ?? "");
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -275,42 +306,64 @@ export function TaskForm({
               entity (lead, client or project, optional)". Felul si inregistrarea se
               aleg impreuna, iar un LEAD se alege din lista de clienti, fiindca in
               aceasta platforma un lead ESTE un rand din public.clients care poarta o
-              etapa. Motivul intreg este in lib/data/tasks-types.ts. */}
-          <div className={`grid grid-cols-2 gap-4 ${PHONE_STACK}`}>
-            <Field label="Fel înregistrare">
-              <Select
-                value={entityType}
-                onChange={(e) => changeEntityType(e.target.value)}
-                className={fieldClass("entityType")}
-                data-testid="field-task-entity-type"
-              >
-                <option value="">Fără înregistrare</option>
-                {ALL_TASK_ENTITY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {TASK_ENTITY_TYPE_LABEL[t]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+              etapa. Motivul intreg este in lib/data/tasks-types.ts.
 
-            {entityType === "" ? null : (
-              <Field label="Înregistrare" required>
-                <span className="block" data-testid="field-task-entity">
-                  <Combobox
-                    options={linkOptions}
-                    value={entityId}
-                    onChange={setEntityId}
-                    placeholder={
-                      entityType === "project"
-                        ? "Caută proiectul după nume"
-                        : "Caută clientul după nume"
-                    }
-                    emptyLabel="Niciun rezultat"
-                  />
-                </span>
+              DIN PANOUL FISEI NU SE ALEGE NIMIC, cardul P3-132 clauza 2:
+              inregistrarea este cea a paginii deschise, deci se SCRIE, nu se cere.
+              Cele doua selectoare nu se deseneaza acolo, si asta este si cum
+              acceptanta (b) a acelui card poate cere legatura stocata "without the
+              operator having selected it": nu exista control prin care sa o fi
+              ales. */}
+          {fixedEntity ? (
+            <Field label="Înregistrare legată" hint="Sarcina rămâne pe această înregistrare.">
+              <p
+                className="rounded-[10px] border border-rc-line bg-rc-paper px-3.5 py-2.5 text-[13.5px] text-rc-black"
+                data-testid="field-task-entity-fixed"
+                data-entity-type={fixedEntity.type}
+                data-entity-id={fixedEntity.id}
+              >
+                <span className="font-semibold">{TASK_ENTITY_TYPE_LABEL[fixedEntity.type]}</span>
+                {": "}
+                {fixedEntity.label}
+              </p>
+            </Field>
+          ) : (
+            <div className={`grid grid-cols-2 gap-4 ${PHONE_STACK}`}>
+              <Field label="Fel înregistrare">
+                <Select
+                  value={entityType}
+                  onChange={(e) => changeEntityType(e.target.value)}
+                  className={fieldClass("entityType")}
+                  data-testid="field-task-entity-type"
+                >
+                  <option value="">Fără înregistrare</option>
+                  {ALL_TASK_ENTITY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {TASK_ENTITY_TYPE_LABEL[t]}
+                    </option>
+                  ))}
+                </Select>
               </Field>
-            )}
-          </div>
+
+              {entityType === "" ? null : (
+                <Field label="Înregistrare" required>
+                  <span className="block" data-testid="field-task-entity">
+                    <Combobox
+                      options={linkOptions}
+                      value={entityId}
+                      onChange={setEntityId}
+                      placeholder={
+                        entityType === "project"
+                          ? "Caută proiectul după nume"
+                          : "Caută clientul după nume"
+                      }
+                      emptyLabel="Niciun rezultat"
+                    />
+                  </span>
+                </Field>
+              )}
+            </div>
+          )}
 
           {error ? (
             <p

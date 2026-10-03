@@ -30,6 +30,14 @@
 // "Two definitions of 'late' on one screen is a defect that looks like a data
 // problem for weeks."
 //
+// TABELUL S-A MUTAT IN components/tasks/TaskTable.tsx, CARDUL P3-132. Antetele,
+// capetele de grup, randul si marcajul erau scrise aici si nu erau exportate, deci
+// panoul de pe fisa unei inregistrari nu avea cum sa le foloseasca, iar clauza 5 a
+// acelui card interzice un al doilea randator. Ele s-au mutat NEATINSE, cu fiecare
+// data-testid neschimbat, si acum fila si panoul le importa din acelasi loc. Cele
+// trei propozitii de mai sus rămân adevarate: ele descriu ce face acum TaskTable, si
+// gruparea de care vorbesc este chiar acolo.
+//
 // ZIUA VINE DE LA PAGINA, O SINGURA DATA PE RANDARE. Citita aici, o randare de la
 // 23:59:59 ar putea afla o zi pentru grupare si alta pentru marcaj.
 //
@@ -51,33 +59,17 @@ import {
   Button,
   Card,
   CardHeader,
-  Chip,
   EmptyState,
   PageHeader,
   Select,
-  Table,
-  Td,
-  Th,
-  type ChipTone,
 } from "@/components/ui/primitives";
 import { DateField } from "@/components/ui/DateField";
-import { RecordLink } from "@/components/ui/RecordLink";
-import {
-  PHONE_ACTIONS_CELL,
-  PHONE_CELL,
-  PHONE_CONTROL,
-  PHONE_ROW,
-  PHONE_TABLE,
-  PHONE_WIDE,
-} from "@/components/ui/phone";
-import { formatDate, plural } from "@/lib/data/format";
+import { PHONE_CONTROL, PHONE_TABLE } from "@/components/ui/phone";
+import { plural } from "@/lib/data/format";
 import {
   ALL_TASK_ENTITY_TYPES,
-  ALL_TASK_GROUPS,
   ALL_TASK_PRIORITIES,
   ALL_TASK_STATUSES,
-  isTaskOverdue,
-  taskGroup,
 } from "@/lib/data/tasks-shape";
 import {
   ALL_TASK_SORT_DIRECTIONS,
@@ -88,47 +80,15 @@ import {
 } from "@/lib/data/tasks-query";
 import {
   TASK_ENTITY_TYPE_LABEL,
-  TASK_GROUP_LABEL,
   TASK_PRIORITY_LABEL,
   TASK_SORT_DIRECTION_LABEL,
   TASK_SORT_LABEL,
   TASK_STATUS_LABEL,
   type Task,
-  type TaskGroup,
-  type TaskPriority,
-  type TaskStatus,
   type TaskListQuery,
 } from "@/lib/data/tasks-types";
 import { TaskForm, type TaskAssignee, type TaskLinkChoice } from "./TaskForm";
-
-/** Tonul cipului fiecarei stari. Culoarea sta LANGA cuvant si niciodata in locul
- *  lui, regula acestui depozit: cine nu deosebeste culorile citeste tot eticheta. */
-const STATUS_TONE: Record<TaskStatus, ChipTone> = {
-  todo: "neutral",
-  in_progress: "info",
-  done: "ok",
-  cancelled: "warn",
-};
-
-/** Tonul cipului fiecarei urgente. Rosul este al marcajului de intarziere, nu al
- *  urgentei: o sarcina urgenta si la timp nu este o eroare. */
-const PRIORITY_TONE: Record<TaskPriority, ChipTone> = {
-  low: "neutral",
-  medium: "info",
-  high: "orange",
-};
-
-/** Numarul de coloane ale tabelului, pentru randul de cap de grup. Scris ca lungime
- *  a listei de antete si nu ca cifra, ca un antet adaugat mai tarziu sa nu lase
- *  randul de grup mai scurt decat tabelul. */
-const HEADERS = [
-  "Titlu",
-  "Stare",
-  "Urgență",
-  "Termen",
-  "Responsabil",
-  "Înregistrare legată",
-] as const;
+import { TaskTable } from "./TaskTable";
 
 export function SarciniScreen({
   rows,
@@ -154,7 +114,12 @@ export function SarciniScreen({
   const params = useSearchParams();
 
   const [creating, setCreating] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  // P3-133: o legatura de pe Azi (`?sarcina=<id>`) deschide direct sarcina, in acelasi
+  // panou ca butonul Modifică. Un id care nu este pe lista nu deschide nimic.
+  const [editingId, setEditingId] = React.useState<string | null>(() => {
+    const wanted = params.get("sarcina");
+    return wanted !== null && rows.some((r) => r.id === wanted) ? wanted : null;
+  });
   const editing = rows.find((r) => r.id === editingId);
 
   function push(patch: Record<string, string>) {
@@ -174,14 +139,6 @@ export function SarciniScreen({
     query.assigneeId !== "" && !assignees.some((a) => a.id === query.assigneeId)
       ? [...assignees, { id: query.assigneeId, fullName: "Responsabil inactiv" }]
       : assignees;
-
-  // CAPUL DE GRUP AL FIECARUI RAND, O SINGURA DATA PER RAND. Ordinea randurilor
-  // dinauntrul fiecarui grup este ordinea in care au sosit de la baza, adica
-  // sortarea ceruta: un `filter` pastreaza ordinea.
-  const grouped: { group: TaskGroup; rows: Task[] }[] = ALL_TASK_GROUPS.map((group) => ({
-    group,
-    rows: rows.filter((r) => taskGroup(r, today) === group),
-  })).filter((g) => g.rows.length > 0);
 
   return (
     <>
@@ -357,152 +314,16 @@ export function SarciniScreen({
             }
           />
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                {HEADERS.map((h) => (
-                  <Th key={h}>{h}</Th>
-                ))}
-                {canWrite ? <Th aria-label="Acțiuni" /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {grouped.map((g) => (
-                <React.Fragment key={g.group}>
-                  {/* CAPUL DE GRUP. Cele trei galeti ale clauzei 6, apoi cele doua
-                      recipiente de afisare pentru restul listei, ca nicio sarcina sa
-                      nu existe si sa nu se vada nicaieri. Vezi TaskGroup in
-                      lib/data/tasks-types.ts. Numarul este langa cuvant, ca pe
-                      cipurile de etapa de pe Clienți. */}
-                  <tr data-testid="tasks-group-head" data-group={g.group}>
-                    <th
-                      scope="colgroup"
-                      colSpan={HEADERS.length + (canWrite ? 1 : 0)}
-                      className="bg-rc-paper px-4 py-2 text-left text-[12.5px] font-bold text-rc-black border-b border-rc-line max-md:col-span-2"
-                    >
-                      <span data-testid="tasks-group-label">{TASK_GROUP_LABEL[g.group]}</span>
-                      <span
-                        className="ml-2 font-semibold tabular-nums text-rc-muted"
-                        data-testid="tasks-group-count"
-                      >
-                        {g.rows.length}
-                      </span>
-                    </th>
-                  </tr>
-
-                  {g.rows.map((task) => {
-                    // MARCAJUL SE DEDUCE DIN GALEATA, nu se calculeaza langa ea.
-                    const overdue = isTaskOverdue(task, today);
-                    const href =
-                      task.entityType === null || task.entityId === null
-                        ? null
-                        : task.entityType === "project"
-                          ? `/proiecte/${task.entityId}`
-                          : `/clienti/${task.entityId}`;
-
-                    return (
-                      <tr
-                        key={task.id}
-                        data-testid="task-row"
-                        data-id={task.id}
-                        data-group={g.group}
-                        data-overdue={overdue ? "true" : "false"}
-                        className={PHONE_ROW}
-                      >
-                        {/* TITLUL ESTE TEXT SI NU UN CONTROL, deliberat: modificarea
-                            are butonul ei pe rand. Un titlu apasabil ar fi facut din
-                            fiecare titlu de sarcina numele unui control, iar un titlu
-                            scris de operator ar fi devenit text de interfata. */}
-                        <Td data-label={HEADERS[0]} className={PHONE_WIDE}>
-                          <span className="font-semibold" data-testid="task-title">
-                            {task.title}
-                          </span>
-                        </Td>
-
-                        <Td data-label={HEADERS[1]} className={PHONE_CELL}>
-                          <Chip tone={STATUS_TONE[task.status]}>
-                            <span data-testid="task-status">{TASK_STATUS_LABEL[task.status]}</span>
-                          </Chip>
-                        </Td>
-
-                        <Td data-label={HEADERS[2]} className={PHONE_CELL}>
-                          <Chip tone={PRIORITY_TONE[task.priority]}>
-                            <span data-testid="task-priority">
-                              {TASK_PRIORITY_LABEL[task.priority]}
-                            </span>
-                          </Chip>
-                        </Td>
-
-                        {/* CLAUZA 5: INTARZIEREA ESTE MARCATA VIZIBIL PE RAND, langa
-                            termenul despre care vorbeste. Cuvantul este langa cip, nu
-                            inlocuit de o culoare. */}
-                        <Td data-label={HEADERS[3]} className={PHONE_CELL}>
-                          <span className="inline-flex items-center gap-2">
-                            <span className="tabular-nums" data-testid="task-due-date">
-                              {task.dueDate === null ? "Fără termen" : formatDate(task.dueDate)}
-                            </span>
-                            {overdue ? (
-                              <Chip tone="danger">
-                                <span data-testid="task-overdue">Întârziată</span>
-                              </Chip>
-                            ) : null}
-                          </span>
-                        </Td>
-
-                        <Td data-label={HEADERS[4]} className={PHONE_CELL}>
-                          <span data-testid="task-assignee">
-                            {task.assigneeName ?? "Nealocată"}
-                          </span>
-                        </Td>
-
-                        {/* CLAUZA 2: INREGISTRAREA LEGATA ESTE O LEGATURA catre acel
-                            lead, client sau proiect. Trei pagini, DOUA TOKENURI: un
-                            lead este un rand din public.clients care poarta o etapa,
-                            deci fisa lui este /clienti/<id>, exact randul pe care
-                            sarcina il poarta. Motivul intreg este scris la
-                            TaskEntityType in lib/data/tasks-types.ts (randul de mai
-                            sus nu se rupe anume: o cale singura pe un rand este ce
-                            devine un marcaj de conflict caruia i s-au sters semnele,
-                            si check:conflict-residue o refuza, pe bune).
-                            RecordLink, si nu un <Link> scris aici: o destinatie
-                            absenta nu este niciodata o legatura moarta, ci text cu o
-                            explicatie romaneasca. */}
-                        <Td data-label={HEADERS[5]} className={PHONE_CELL}>
-                          <RecordLink
-                            href={href}
-                            fallback="Fără înregistrare"
-                            testId="task-entity"
-                          >
-                            {task.entityType === null
-                              ? ""
-                              : TASK_ENTITY_TYPE_LABEL[task.entityType]}
-                          </RecordLink>
-                        </Td>
-
-                        {canWrite ? (
-                          // O SINGURA ACTIUNE PE RAND, SI EA DESCHIDE PANOUL. Nu
-                          // exista meniu de rand si nu exista nicio stergere: nici
-                          // aici, nici in panou, nici in spatele unei confirmari.
-                          // Anularea este o schimbare de stare si sta in panou, langa
-                          // celelalte campuri pe care le schimba.
-                          <Td data-label="Acțiuni" className={PHONE_ACTIONS_CELL}>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => setEditingId(task.id)}
-                              data-testid="task-edit"
-                            >
-                              Modifică
-                            </Button>
-                          </Td>
-                        ) : null}
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </Table>
+          // ACELASI TABEL CA AL PANOULUI DE PE FISA UNEI INREGISTRARI, cardul
+          // P3-132 clauza 5: un singur randator, un singur set de data-testid si o
+          // singura definitie a zilei. Coloana Înregistrare legată se deseneaza AICI
+          // fiindca randurile acestei file vin de la inregistrari amestecate.
+          <TaskTable
+            rows={rows}
+            today={today}
+            canWrite={canWrite}
+            onEdit={setEditingId}
+          />
         )}
       </Card>
 

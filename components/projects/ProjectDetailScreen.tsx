@@ -11,6 +11,12 @@
 // ISTORICUL SE VEDE AICI, SCURT. P3-08 ii da o fila proprie. Pana atunci fisa
 // arata ultimele cateva miscari, pentru ca un card care schimba starea si nu
 // arata ca s-a schimbat cere unui om sa aiba incredere.
+//
+// PANOUL SARCINI, CARDUL P3-132, clauza 1: a treia din cele trei pagini pe care
+// cardul le cere. Acelasi component ca pe fisa clientului, pe tokenul `project` cu
+// id-ul acestui proiect, si acelasi randator de randuri ca fila /sarcini. Deviatia D7
+// nu atinge acest ecran, fiindca urmatorul pas este un camp al unui CLIENT si nu al
+// unui proiect; nimic de aici nu il citeste si nu il scrie.
 
 import * as React from "react";
 import Link from "next/link";
@@ -28,6 +34,9 @@ import { setProjectStatus } from "@/lib/data/project-actions";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectTabs } from "./ProjectTabs";
 import { ProjectBudgetPanel } from "./ProjectBudgetPanel";
+import { TaskPanel } from "@/components/tasks/TaskPanel";
+import type { TaskAssignee } from "@/components/tasks/TaskForm";
+import type { Task } from "@/lib/data/tasks-types";
 import { projectBudgetSummary } from "@/lib/reporting/project-budget";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
 import type { ProjectMaterialCost } from "@/lib/reporting/material-cost";
@@ -67,6 +76,10 @@ export function ProjectDetailScreen({
   documents,
   invoices,
   canWrite,
+  tasks,
+  taskAssignees = [],
+  today,
+  canWriteTasks = false,
 }: {
   project: ProjectDetail;
   history: StatusEvent[];
@@ -81,6 +94,17 @@ export function ProjectDetailScreen({
   /** P3-110. Fila Facturi. null cand migratia 0063 nu este inca aplicata. */
   invoices: InvoiceListRow[] | null;
   canWrite: boolean;
+  /** P3-132. Sarcinile legate de ACEST proiect, pentru panoul Sarcini. null cand
+   *  tabela sarcinilor nu este inca vizibila, si atunci panoul nu se deseneaza. */
+  tasks?: Task[] | null;
+  taskAssignees?: TaskAssignee[];
+  /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata de pagina o singura data
+   *  pe randare prin chisinauToday(). Lipsa numai cand `tasks` lipseste. */
+  today?: string;
+  /** AMANDOUA ROLURILE SCRIU SARCINI, deci acesta NU este `canWrite` de mai sus, care
+   *  este dreptul de a modifica fisa proiectului. Motivul intreg este scris pe
+   *  acelasi parametru in components/clients/ClientDetailScreen.tsx. */
+  canWriteTasks?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
@@ -224,6 +248,24 @@ export function ProjectDetailScreen({
           summary={projectBudgetSummary(project.budgetMdl, deviz.list, cost.totalValueMdl)}
         />
       </div>
+
+      {/* P3-132, clauza 1. INTRE CELE TREI NUMERE SI BANDA DE FILE, acelasi loc ca pe
+          fisa clientului: sarcinile proiectului se vad fara nicio apasare, si nu dupa
+          o fila. Nu se deseneaza cand tabela nu este vizibila, acelasi motiv scris pe
+          fisa clientului. */}
+      {tasks !== null && tasks !== undefined && today !== undefined ? (
+        <div className="mt-5">
+          <TaskPanel
+            entityType="project"
+            entityId={project.id}
+            entityLabel={project.name}
+            rows={tasks}
+            assignees={taskAssignees}
+            today={today}
+            canWrite={canWriteTasks}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <ProjectTabs

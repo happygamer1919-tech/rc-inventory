@@ -10,6 +10,19 @@
 // FILELE NU SUNT AICI. P3-08 le aduce, complete, cu stari goale pentru cele
 // nezidite inca. Cardul acesta livreaza fisa clientului si atat, pentru ca un
 // card care ar livra si filele ar fi doua carduri intr-un singur pull request.
+//
+// PANOUL SARCINI, CARDUL P3-132, STA LANGA URMATORUL PAS SI NU IN LOCUL LUI. Clauza
+// 6 a acelui card si deviatia D7: blocul "Următorul pas" de mai jos, cu data si
+// textul lui, este NEATINS. Panoul nu il inlocuieste, nu il ascunde, nu il citeste si
+// nu il scrie, iar fisa arata urmatorul pas exact ca inainte de acel card. Cele doua
+// sunt lucruri diferite si cardul P3-130 a scris de ce: urmatorul pas este O SINGURA
+// promisiune per client, inlocuita de fiecare data, iar Sarcini este o coada cu mai
+// multe treburi, fiecare cu starea, urgenta, termenul si responsabilul ei.
+//
+// ACEST ECRAN SERVESTE SI LEADUL SI CLIENTUL, ceea ce comentariul de mai jos despre
+// ClientNotesPanel spune deja, si de aceea panoul leadului cerut de clauza 1 este
+// chiar panoul de aici: un lead este un rand de client cu o etapa, deci sarcina lui
+// poarta tokenul `client` cu id-ul acestui rand.
 
 import * as React from "react";
 import Link from "next/link";
@@ -31,6 +44,9 @@ import { ClientNotesPanel } from "./ClientNotesPanel";
 import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
 import { PHONE_ROW_LABEL, PHONE_ROW_PAIR, PHONE_ROW_VALUE } from "@/components/ui/phone";
+import { TaskPanel } from "@/components/tasks/TaskPanel";
+import type { TaskAssignee } from "@/components/tasks/TaskForm";
+import type { Task } from "@/lib/data/tasks-types";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
 import type { DocumentsView } from "@/lib/data/documents-types";
 import type { InvoiceListRow } from "@/lib/data/facturare-list-types";
@@ -69,6 +85,10 @@ export function ClientDetailScreen({
   timeline,
   canWrite,
   owners,
+  tasks,
+  taskAssignees = [],
+  today,
+  canWriteTasks = false,
 }: {
   client: ClientDetail;
   contacts: ClientContact[];
@@ -84,6 +104,23 @@ export function ClientDetailScreen({
   /** P3-48. Responsabilii pentru Modifică. Lipsa inseamna fara Sursă, Interes si
    *  Responsabil in formular. */
   owners?: ClientOwnerChoice[];
+  /** P3-132. Sarcinile legate de ACEST rand de client, pentru panoul Sarcini.
+   *  null cand tabela sarcinilor nu este inca vizibila, si atunci panoul nu se
+   *  deseneaza deloc: ce nu se poate folosi nu apare pe ecran, obiceiul acestei
+   *  aplicatii, si "nu exista inca tabela" nu se arata ca "nicio sarcina". */
+  tasks?: Task[] | null;
+  taskAssignees?: TaskAssignee[];
+  /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata de pagina o singura data
+   *  pe randare prin chisinauToday(). Lipsa numai cand `tasks` lipseste. */
+  today?: string;
+  /** AMANDOUA ROLURILE SCRIU SARCINI, deci acesta NU este `canWrite` de mai sus,
+   *  care este dreptul de a modifica fisa clientului si il are numai
+   *  administratorul. Politicile tasks_insert si tasks_update din migratia 0068 cer
+   *  public.current_app_role() nenul, si amandoua rolurile acestei platforme au drept
+   *  de operatiuni, hotararea migratiei 0001 secțiunea 9. Un buton pe care baza il
+   *  refuza este defectul, cardul P3-06, si un buton lipsa pentru cine are dreptul
+   *  este celalalt. */
+  canWriteTasks?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
@@ -275,6 +312,31 @@ export function ClientDetailScreen({
           canWrite={canWrite}
         />
       </div>
+
+      {/* P3-132, clauza 1. SUB NOTE SI DEASUPRA BENZII DE FILE, si locul este ales si
+          nu intamplator. Deasupra notelor ar fi mutat in jos casuta "Ce s-a discutat",
+          pe care cardul P3-99 a adus-o anume sus fiindca a scrie o nota costa altfel o
+          derulare; sub banda de file ar fi pus sarcinile dupa cinci file, adica exact
+          defectul pe care acel card l-a reparat. Blocul "Următorul pas" din cardul de
+          identificare rămâne unde este, clauza 6 si deviatia D7.
+
+          PANOUL NU SE DESENEAZA CAND TABELA NU ESTE VIZIBILA. `tasks` este null
+          atunci, iar ce nu se poate folosi nu apare pe ecran: altfel fisa ar arata
+          "Nicio sarcină" despre o tabela care nu exista, care sunt doua lucruri
+          diferite spuse cu aceleasi cuvinte. */}
+      {tasks !== null && tasks !== undefined && today !== undefined ? (
+        <div className="mt-5">
+          <TaskPanel
+            entityType="client"
+            entityId={client.id}
+            entityLabel={client.name}
+            rows={tasks}
+            assignees={taskAssignees}
+            today={today}
+            canWrite={canWriteTasks}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <ClientTabs
