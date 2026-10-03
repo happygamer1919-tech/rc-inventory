@@ -213,3 +213,21 @@ Card P3-123 moved to `shipped` on the phase 3 board in this same pull request, w
 `evidence.ref` ("branch card/p3-123, awaiting PR number and green quality run sha") updated to the
 real PR number and green run id once CI concludes, and `notes` carrying Decisions A, C and E as
 summarised above.
+
+## Correction after the first push (ruling q114, carried out under q117 and q118)
+
+Acceptance lines (d) and (e) were copied from the materials card, but `public.clients` has no
+currency column and no unit column. A green case named "EUR and RON are refused in the preview" on
+a screen that never offers a currency would be read later as proof of behaviour that does not
+exist. Changes in this pull request:
+
+- Card P3-123 (d) and (e) renamed to `import clienti: fisa clientului nu are moneda, iar o coloana
+  Moneda din CSV nu scrie nimic` and `import clienti: fisa clientului nu are unitate, iar o coloana
+  Unitate din CSV nu scrie nimic`. The absence proofs stay as the substance. The card `notes` cite q114.
+- `tests/e2e/clients-import.spec.ts`: the two cases renamed to match; the `ALL_UNITS` nine-entry
+  assertion and the on-screen MDL assertion removed. P3-125 (b), (c) and (f) own those proofs.
+- `lib/data/client-import-types.ts`: the MDL sentence removed from `clientImportInstructions`.
+  There is no money on a client import.
+- `docs/LEARNINGS.md`: two ERROR/SOLUTION pairs added (acceptance names must be checked against the
+  table the card writes to; a spec path that nothing collects).
+- Main was merged into the branch (P3-132 and P3-133 board edits kept alongside P3-123).

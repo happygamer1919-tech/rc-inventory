@@ -8680,3 +8680,27 @@ for this entity specifically: a fixed-constant default on an optional field fits
 `validate` function today, and only a default that depends on a value chosen per import run, or a rule
 across two fields (a cross-field constraint, an OR-of-two-fields requirement, a lookup keyed on another
 field's match result), genuinely needs a bespoke prepare function outside the shared module.**
+
+### An acceptance clause that names a field must be checked against the table the card writes to
+**Tag:** process
+**ERROR:** card P3-123 (clients import) carried two acceptance lines, (d) EUR and RON refused with a
+reason naming MDL and (e) all nine units accepted and an invented one refused, copied from the
+materials import card. `public.clients` has no currency column and no unit column (migration 0013 and
+none after it). The executor kept the names verbatim and proved absence under them, so two green
+cases claimed behaviour the screen does not have. Someone reading the case names later would conclude
+the clients import refuses EUR, and it does not.
+**SOLUTION:** ruling q114 renamed the two cases to say what they prove ("fisa clientului nu are
+moneda..." and "...nu are unitate...") and left the real proofs on P3-125 (b), (c) and (f), where the
+fields exist. RULE: **at authoring time, grep the card's target table in `supabase/migrations/` for
+every field an acceptance line names. A test name must describe what the body proves; when a line
+travels from one card to a sibling, re-derive it against the sibling's own table, and never keep a
+name that overstates the behaviour just because the card text says so.**
+
+### A spec path that Playwright does not collect proves nothing
+**Tag:** process
+**ERROR:** a sibling import card named `tests/import-shared.spec.ts` as the home of its named cases.
+The Playwright config only collects `tests/e2e/**`, so a file at that path never runs in `quality`
+and a "green" claim on it is empty (the defect behind the q111 answer).
+**SOLUTION:** the clients cases live in `tests/e2e/clients-import.spec.ts`, which the config collects.
+RULE: **when a card names a test file, confirm the path matches the runner's `testDir` or `testMatch`
+before accepting it, and confirm the named cases appear in the CI log of the card's own run.**

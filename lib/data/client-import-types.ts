@@ -413,13 +413,11 @@ export function importNoteBody(fileName: string, day: string): string {
  * propozitie citeste constantele si listele campurilor, ca ecranul sa nu poata
  * spune un numar sau o lista diferita de cea pe care importul o aplica de fapt.
  *
- * ULTIMA PROPOZITIE ESTE DECIZIA A A CARDULUI P3-123: acceptanta (d) a cardului
- * cere ca EUR si RON sa fie respinse "cu motiv românesc care numește MDL". Acest
- * ecran nu are deloc un câmp de monedă (public.clients nu are coloana aceea), deci
- * o coloană "Monedă" dintr-un fișier rămâne pe "Nu importa" prin lipsa câmpului
- * din listă, nu printr-o validare. Propoziția de mai jos spune asta pe ecran, cu
- * aceeași formulă pe care validateCurrency din import-shared.ts o scrie pentru
- * deviz și factură, ca cele trei locuri să nu poată spune lucruri diferite.
+ * NICIO PROPOZITIE DESPRE MDL: pe q114, sentinta "platforma ține evidența numai
+ * în MDL" a fost scoasă de aici. Nu exista niciun pret pe un import de clienti,
+ * deci instructiunea despre moneda este zgomot pe acest ecran; ea ramane la
+ * locul ei, pe importul de materiale si pe ecranele de export, unde apare un
+ * pret.
  */
 export function clientImportInstructions(): string[] {
   const limitMb = (IMPORT_MAX_BYTES / (1024 * 1024)).toFixed(0);
@@ -437,7 +435,5 @@ export function clientImportInstructions(): string[] {
       "și nu se suprascrie niciodată: ori se sare peste el, ori i se completează numai câmpurile " +
       "goale.",
     `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB.`,
-    "Importul nu are coloană de monedă sau de unitate de măsură: platforma ține evidența numai " +
-      "în MDL, iar o coloană cu acest nume rămâne pe „Nu importa”.",
   ];
 }

@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
-import { ALL_UNITS } from "@/lib/data/units";
 import { parseCsv, templateCsv, CLIENT_IMPORT_FIELDS } from "@/lib/data/client-import-types";
 
 // clients-import.spec - linia de acceptanta a cardului P3-123, Item 3 al lui Ivan.
@@ -357,17 +356,20 @@ test("import clienti: un dublat pe email nu suprascrie nicio valoare scrisa de o
   expect(after.name).toBe(before.name);
 });
 
-test("import clienti: EUR si RON sunt respinse in previzualizare cu motiv romanesc care numeste MDL", async ({
+test("import clienti: fisa clientului nu are moneda, iar o coloana Moneda din CSV nu scrie nimic", async ({
   page,
 }) => {
-  // DECIZIA A A CARDULUI P3-123: public.clients nu are nicio coloana de monedă,
-  // deci acceptanta (d) se verifică drept o DOVADĂ DE ABSENȚĂ, nu o validare de
-  // câmp care încă nu există. Cele trei lucruri pe care cardul le cere:
+  // DECIZIA A A CARDULUI P3-123, CORECTATA PE q114: public.clients nu are nicio
+  // coloana de monedă, deci acceptanta (d) se verifică drept o DOVADĂ DE ABSENȚĂ,
+  // nu o validare de câmp care încă nu există. Cele două lucruri pe care cardul
+  // le cere:
   //
   //   1. lista campurilor de import nu are niciun camp de monedă;
   //   2. o coloană "Monedă" dintr-un fișier, cu EUR sau RON scrise pe ea, rămâne
-  //      pe "Nu importa" și nu oprește niciun rând;
-  //   3. instrucțiunile de pe ecran numesc MDL, cu formula din validateCurrency.
+  //      pe "Nu importa" și nu oprește niciun rând.
+  //
+  // Respingerea EUR si RON cu motiv romanesc care numește MDL este dovedită pe
+  // P3-125 (f), unde ecranul chiar are un câmp de monedă.
   expect(
     (CLIENT_IMPORT_FIELDS as readonly string[]).some((f) => /moned|currency/i.test(f)),
     "nu exista camp de moneda in lista de import a clientilor",
@@ -404,39 +406,25 @@ test("import clienti: EUR si RON sunt respinse in previzualizare cu motiv romane
   await runImport(page);
   const stored = await storedByTag(rest, tag);
   expect(stored).toHaveLength(2);
-
-  // INSTRUCTIUNILE DE PE ECRAN NUMESC MDL, cu aceeasi formula ca
-  // validateCurrency din import-shared.ts.
-  await openImport(page);
-  await expect(page.getByTestId("import-instructions")).toContainText("MDL");
 });
 
-test("import clienti: toate cele noua unitati sunt acceptate si o unitate inventata este respinsa", async ({
+test("import clienti: fisa clientului nu are unitate, iar o coloana Unitate din CSV nu scrie nimic", async ({
   page,
 }) => {
-  // DECIZIA A A CARDULUI P3-123, A DOUA JUMATATE: public.clients nu are nicio
-  // coloana de unitate de masura, deci acceptanta (e) este, la fel, o dovadă de
-  // absență. Cele trei lucruri:
+  // DECIZIA A A CARDULUI P3-123, A DOUA JUMATATE, CORECTATA PE q114: public.clients
+  // nu are nicio coloana de unitate de masura, deci acceptanta (e) este, la fel,
+  // o dovadă de absență. Cele două lucruri:
   //
   //   1. lista campurilor de import nu are niciun camp de unitate;
-  //   2. ALL_UNITS tine inca exact noua unitati (deviatia D3, nu se scade);
-  //   3. o coloana "Unitate" dintr-un fisier, cu orice cuvant pe ea, inclusiv
+  //   2. o coloana "Unitate" dintr-un fisier, cu orice cuvant pe ea, inclusiv
   //      unul inventat, ramane pe "Nu importa" si nu oprește niciun rând.
+  //
+  // Faptul ca ALL_UNITS tine exact noua unitati (deviatia D3) este dovedit pe
+  // P3-125 (b), care le numeste individual, nu numarat de pe un card de clienti.
   expect(
     (CLIENT_IMPORT_FIELDS as readonly string[]).some((f) => /unit/i.test(f)),
     "nu exista camp de unitate in lista de import a clientilor",
   ).toBe(false);
-  expect(ALL_UNITS, "cele noua unitati, deviatia D3").toEqual([
-    "m2",
-    "lm",
-    "pcs",
-    "bag",
-    "kg",
-    "roll",
-    "m3",
-    "t",
-    "l",
-  ]);
 
   const rest = await ownerRest();
   const tag = testName("unitate");
