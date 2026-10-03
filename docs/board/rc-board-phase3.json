@@ -4327,7 +4327,7 @@
       "last_checkpoint": "2026-10-03T00:00:00.000Z",
       "evidence": {
         "kind": "pr",
-        "ref": "branch card/p3-129",
+        "ref": "PR #400, branch card/p3-129",
         "at": "2026-10-03T00:00:00.000Z"
       },
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71.\n\nIMPLEMENTAT 2026-10-03 de EXECUTOR (BLUE), goal LB11. Butonul Exporta CSV (vederea Inventar, administrator) cheama exportMaterials din lib/data/material-export-actions.ts. Citirea este cea a listei: listProducts, fara nicio cale noua. Alegerea randurilor sta acum intr-un singur loc, lib/data/product-filter.ts, folosit si de ecran si de export, ca fisierul sa fie vederea de pe ecran. ANTETUL vine din materialModelHeaders(), citit din templateCsv() al materialelor. UNITATEA se scrie ca eticheta de pe ecran (buc, m²), forma din randul exemplu al modelului, iar importul o citeste prin readUnit; nicio conversie, nicio lista scrisa aici. CATEGORIA se scrie dupa denumire. STOCUL NU INTRA IN FISIER: importul nu are camp de stoc, iar stocul se calculeaza din loturi; pragul este valoare de prag si se scrie. LIMITE CUNOSCUTE: (1) listProducts citeste prin PostgREST, cu max_rows 1000, deci exportul vede cel mult ce vede si lista, indiferent de limita de 5000; (2) doua categorii cu aceeasi denumire fac ca importul sa refuze randurile lor (ambiguousCategory).\n\nDEPENDS ON P3-125 because the round-trip acceptance needs the materials import to exist, and because clauses 3 and 6 are statements about what that import reads and ignores."
