@@ -8898,3 +8898,20 @@ re-importing an export into the same database creates nothing.
 whose name, phone, email and IDNO moved to a second series and compares the other eleven fields and the contact
 person with `toEqual` on the stored rows. RULE: **when the store cannot be emptied, change only the keys the
 dedupe reads and compare everything else**.
+
+### A second export reuses the first one's read path and writes its own header
+**Tag:** export
+**ERROR:** the clients export could have copied the leads export header (it has a Persoană de contact column the
+clients import does not read), or called `exportLeads` with a flag. Either one breaks the round trip: the file
+would carry a column the clients import has no field for, or drift from the clients template.
+**SOLUTION:** `exportClients` calls the same `listClientRowsForExport` as the leads export, and
+`clientModelHeaders()` parses the clients `templateCsv()`. The leads files are untouched. RULE: **one export per
+import model; share the read of the list, never the header**.
+
+### The status filter is the export's only opinion about deactivated rows, and it is the screen's
+**Tag:** export
+**ERROR:** an export that adds `active = true` of its own drops deactivated clients when the operator is looking
+at them, and one that ignores the filter adds them when the operator is not.
+**SOLUTION:** `status` goes from the screen, through `readRequest`, straight to the list function. The case seeds
+one active and one deactivated client and exports under Activi, Inactivi and Toate. RULE: **an export has no
+filter of its own; test each value of every filter the screen offers**.

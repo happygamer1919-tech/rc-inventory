@@ -4261,9 +4261,9 @@
       "id": "P3-127",
       "title": "Item 3, CLIENTS EXPORT: an 'Exporta CSV' button on the Clienti view that writes THE CURRENT FILTERED VIEW to a CSV with the same headers as the client import model, re-importing cleanly. ALL FOUR EXPORTS ARE NEW, D5. (1) THE CURRENT FILTERED VIEW AND NOT THE WHOLE TABLE: every active filter, search term, type and status selection applies. What the operator narrowed the list to is what comes out. (2) THE HEADERS ARE THE CLIENT IMPORT MODEL'S HEADERS, EXACTLY, Romanian, matching the field labels shown on the client form. (3) UTF-8 WITH A BYTE-ORDER-MARK, COMMA SEPARATED, through the shared writer from P3-121, so Excel opens the diacritics correctly. (4) THE ROUND TRIP IS THE ACCEPTANCE: export then re-import yields identical records, as Ivan wrote it. (5) ALL ROWS OF THE FILTERED VIEW, not the visible page, up to the 5000-row limit, with a Romanian sentence when the file is truncated. (6) NO NEW READ PATH: the export reads through the query the clients list already uses, so the file and the screen can never disagree about what a filter means. (7) DEACTIVATED CLIENTS FOLLOW THE SCREEN'S OWN STATUS FILTER AND ARE NOT SILENTLY DROPPED OR SILENTLY INCLUDED: if the operator is looking at active clients, the file holds active clients; if the filter shows deactivated ones, they are in the file. The export has no opinion of its own about which rows exist.",
       "plain": "A button on the customers screen saves whatever the operator is currently looking at, filters and all, as a spreadsheet file. It uses the same column headings as the example import file, so the file can be edited outside the system and loaded back in. Sending it back through the import produces exactly the same records, which is the proof the two halves fit. Deactivated customers appear in the file only if the operator's own filter is showing them.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4274,9 +4274,13 @@
       "question": null,
       "acceptance": "(a) THE ROUND TRIP: the case `export clienti: export apoi import produce inregistrari identice` in tests/e2e/clients-export.spec.ts is green in this pull request's own `quality` run, asserting field-by-field equality and not a count. (b) The named case `export clienti: exportul respecta filtrele curente` is green. (c) The named case `export clienti: un client dezactivat apare in fisier numai cand filtrul il arata` is green, asserted in both directions. (d) The named case `export clienti: fisierul incepe cu marca de ordine a octetilor si diacriticele supravietuiesc` is green. (e) The named case `export clienti: antetele exportului sunt identice cu antetele modelului de import` is green, compared as an array. (f) The named case `export clienti: se exporta toate randurile filtrului, nu doar pagina vizibila` is green. (g) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
       "defaults": "SOURCE: owner request from Ivan, 2026-09-30, routed via Max, Item 3. Authored 2026-09-30 by AUTHOR under goal G71.\n\nD5: all four exports are NEW.\n\nD8 CURRENCY, MDL ONLY: CONTEXT.md, 'Decided, do not reopen': 'One currency per document. No cross-currency totals, no exchange rates.' The database pins it, devize_currency_mdl in supabase/migrations/0025_deviz.sql and invoices_currency_mdl in supabase/migrations/0063_invoices.sql. An export writes MDL and never a second currency.\n\nTHE FILTERED VIEW, NOT THE TABLE. Every active filter, search term, type and status selection applies.\n\nTHE EXPORT HAS NO OPINION ABOUT DEACTIVATED ROWS: it follows the screen's status filter, in both directions.\n\nEVERY ROW OF THE FILTER, NOT THE VISIBLE PAGE, up to 5000, with a Romanian sentence when truncated.\n\nSAME HEADERS AS THE IMPORT MODEL, through the shared writer from P3-121. Never a second header list.\n\nNO NEW READ PATH: reuse the query the list already uses.\n\nTHE lead= GREP TRAP: components/ui/primitives.tsx around lines 259 to 270. NEVER rename or sweep on the word lead.\n\nNO MIGRATION.",
-      "last_checkpoint": "2026-09-30T16:37:35Z",
-      "evidence": null,
-      "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-123 because the round-trip acceptance needs the clients import to exist."
+      "last_checkpoint": "2026-10-03T00:00:00.000Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "PR pending, branch card/p3-127",
+        "at": "2026-10-03T00:00:00.000Z"
+      },
+      "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-123 because the round-trip acceptance needs the clients import to exist.\n\nIMPLEMENTAT 2026-10-03 de EXECUTOR (BLUE), goal LB11. Butonul Exporta CSV (vederea Clienți, administrator) cheama exportClients din lib/data/client-export-actions.ts. Citirea listei este unica, aceeasi listClientRowsForExport ca la leaduri (P3-126), deci aceleasi trei functii din baza si aceleasi argumente; starea (Activi, Inactivi, Toate) vine de pe ecran si nu este atinsa. ANTETUL vine din clientModelHeaders(), citit din templateCsv() al clientilor, fara coloana de persoana de contact, moneda sau unitate. Reimportul dedupe dupa email, deci cazul de dus-intors da email fiecarui rand. LIMITA CUNOSCUTA: un client fara email se reimporta ca rand nou, nu ca dublat."
     },
     {
       "id": "P3-128",

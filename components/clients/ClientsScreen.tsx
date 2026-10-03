@@ -111,6 +111,8 @@ import { ClientImportSheet } from "./ClientImportSheet";
 import { LeadImportSheet, download } from "./LeadImportSheet";
 import { exportLeads } from "@/lib/data/lead-export-actions";
 import { EXPORT_FILE_NAME } from "@/lib/data/lead-import-types";
+import { exportClients } from "@/lib/data/client-export-actions";
+import { CLIENT_EXPORT_FILE_NAME } from "@/lib/data/client-export-types";
 import { LeaduriForm } from "./LeaduriForm";
 import { ReactivateRowButton } from "./ReactivateRowButton";
 import { StageMark } from "./StageMark";
@@ -191,23 +193,26 @@ export function ClientsScreen({
   const [exportNotice, setExportNotice] = React.useState<string | null>(null);
   const [exportError, setExportError] = React.useState<string | null>(null);
 
-  async function runExport() {
+  // P3-127. Aceeasi functie pentru ambele vederi: Clienți scrie clienti.csv cu antetul
+  // modelului de clienti, Leaduri scrie leaduri.csv cu al celui de leaduri.
+  async function runExport(kind: "leads" | "clients") {
     setExporting(true);
     setExportNotice(null);
     setExportError(null);
     try {
-      const result = await exportLeads({
+      const filters = {
         q: query.q,
         type: query.type,
         status: query.status,
         view: query.view,
         stage: query.stage,
-      });
+      };
+      const result = kind === "clients" ? await exportClients(filters) : await exportLeads(filters);
       if (!result.ok) {
         setExportError(result.message);
         return;
       }
-      download(result.value.csv, EXPORT_FILE_NAME);
+      download(result.value.csv, kind === "clients" ? CLIENT_EXPORT_FILE_NAME : EXPORT_FILE_NAME);
       setExportNotice(
         result.value.notice ??
           `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
@@ -346,7 +351,7 @@ export function ClientsScreen({
               {/* P3-126. Exporta vederea de acum, cu toate filtrele, toate randurile. */}
               <Button
                 variant="secondary"
-                onClick={runExport}
+                onClick={() => runExport("leads")}
                 disabled={exporting}
                 data-testid="leaduri-export"
                 className="max-md:min-h-11"
@@ -380,6 +385,16 @@ export function ClientsScreen({
                 className="max-md:min-h-11"
               >
                 Importă din CSV
+              </Button>
+              {/* P3-127. Exporta vederea de acum, cu toate filtrele, toate randurile. */}
+              <Button
+                variant="secondary"
+                onClick={() => runExport("clients")}
+                disabled={exporting}
+                data-testid="clienti-export"
+                className="max-md:min-h-11"
+              >
+                Exportă CSV
               </Button>
               <Button
                 onClick={() => setCreating(true)}
