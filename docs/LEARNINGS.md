@@ -8986,3 +8986,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** board
 **ERROR:** P3-134 wrote a round `last_checkpoint` of 22:45 while the commit landed at 22:42, so `check:board-clock` failed in CI ("2 of 343 timestamp(s) are AHEAD of the commit").
 **SOLUTION:** use a time clearly before the commit moment, or read `date -u` right before the edit. RULE: **run `npm run check:board-clock` locally before the first push**; it is not in the close-out list.
+
+### The region proof needs no curl: node https.get reads x-vercel-id and times in one pass
+**Tag:** infra
+**ERROR:** the P3-134 proof task asked for ten `curl -s -D - -o /dev/null` calls to read `x-vercel-id`. The factory allows exactly one curl form, so that form stops a headless run for approval.
+**SOLUTION:** one Node script with `https.get` and `agent: false` records `res.headers["x-vercel-id"]` and the timings for every request. Result 2026-10-03: ten of ten `fra1::dub1::`, median 217 ms against 566 ms. RULE: **a proof task that measures the live site names the node script, not curl flags**.
+
+### A prerendered or edge-redirected route cannot show a region gain
+**Tag:** infra
+**ERROR:** the six unauthenticated screens read 133 to 163 ms before and after the move to dub1, which could look like the move did nothing.
+**SOLUTION:** they return a 307 from the Frankfurt edge and never run a function. Only a dynamic route such as `/api/health` shows the region gain. RULE: **pick a route that runs a function when proving a function region**.
