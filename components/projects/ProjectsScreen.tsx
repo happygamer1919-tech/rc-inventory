@@ -36,7 +36,9 @@ import {
   type ProjectRow,
 } from "@/lib/data/projects-list-types";
 import { ProjectForm } from "./ProjectForm";
-import { ProjectImportSheet, downloadProjectTemplate } from "./ProjectImportSheet";
+import { ProjectImportSheet, download, downloadProjectTemplate } from "./ProjectImportSheet";
+import { exportProjects } from "@/lib/data/project-export-actions";
+import { PROJECT_EXPORT_FILE_NAME } from "@/lib/data/project-export-types";
 
 // P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
 // nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
@@ -87,6 +89,37 @@ export function ProjectsScreen({
   const [creating, setCreating] = React.useState(false);
   // P3-124. Importul de proiecte este un panou al ecranului, langa Proiect nou.
   const [importing, setImporting] = React.useState(false);
+  // P3-128. Exportul scrie vederea curenta; propozitia de dupa el (fisier taiat) si refuzul
+  // stau sub antetul cardului.
+  const [exporting, setExporting] = React.useState(false);
+  const [exportNotice, setExportNotice] = React.useState<string | null>(null);
+  const [exportError, setExportError] = React.useState<string | null>(null);
+
+  async function runExport() {
+    setExporting(true);
+    setExportNotice(null);
+    setExportError(null);
+    try {
+      const result = await exportProjects({
+        q: query.q,
+        stare: query.allStatuses ? "toate" : query.statuses.length === 1 ? query.statuses[0]! : "",
+        client: query.clientId,
+      });
+      if (!result.ok) {
+        setExportError(result.message);
+        return;
+      }
+      download(result.value.csv, PROJECT_EXPORT_FILE_NAME);
+      setExportNotice(
+        result.value.notice ??
+          `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
+      );
+    } catch {
+      setExportError("Exportul nu a reușit. Încearcă din nou.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   React.useEffect(() => {
     if (q === query.q) return;
@@ -138,6 +171,16 @@ export function ProjectsScreen({
               >
                 Importă din CSV
               </Button>
+              {/* P3-128. Exporta vederea de acum, cu toate filtrele, toate randurile. */}
+              <Button
+                variant="secondary"
+                onClick={runExport}
+                disabled={exporting}
+                data-testid="projects-export"
+                className="max-md:min-h-11"
+              >
+                Exportă CSV
+              </Button>
               <Button
                 onClick={() => setCreating(true)}
                 data-testid="project-new"
@@ -155,6 +198,25 @@ export function ProjectsScreen({
           title="Listă"
           hint={total === 1 ? "1 proiect" : `${total} proiecte`}
         />
+
+        {exportNotice ? (
+          <p
+            role="status"
+            data-testid="projects-export-notice"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-ok/25 bg-rc-ok-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportNotice}
+          </p>
+        ) : null}
+        {exportError ? (
+          <p
+            role="alert"
+            data-testid="projects-export-error"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportError}
+          </p>
+        ) : null}
 
         {/* P3-52. Grila explicita, ca pe Inventar: Input si Select poarta w-full,
             deci intr-un rand flex-wrap fiecare cerea tot randul. Coloana auto de

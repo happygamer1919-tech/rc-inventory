@@ -8915,3 +8915,21 @@ at them, and one that ignores the filter adds them when the operator is not.
 **SOLUTION:** `status` goes from the screen, through `readRequest`, straight to the list function. The case seeds
 one active and one deactivated client and exports under Activi, Inactivi and Toate. RULE: **an export has no
 filter of its own; test each value of every filter the screen offers**.
+
+### A column the import resolves by name is exported as the name, never the id
+**Tag:** export
+**ERROR:** the project list rows carry both `client_id` and `client_name`. Writing the id is the easy mistake: the
+file looks right in a spreadsheet and the import (`clientNameKey` over the client name) rejects every row as an
+unknown client.
+**SOLUTION:** `exportProjects` writes `clientName` exactly as stored. The round trip case reads the cell and asserts
+it equals the seeded name (diacritics, comma, upper case), then re-imports with only the project name moved and
+asserts zero row errors and the same `client_id` on every stored row. RULE: **export the key the import reads, and
+prove it by re-importing with the other fields moved**.
+
+### Fields the list does not return are read for the chosen ids, not by a second filter
+**Tag:** export
+**ERROR:** the Proiecte list returns no start date and no notes, but the import model has both columns. Re-running
+the filter through a second query could pick a different set of rows than the list did.
+**SOLUTION:** `listProjectRowsForExport` pages `search_projects` (the list's own function, same arguments); the
+two missing columns are read with `in (ids)` in chunks of 100 for the rows already chosen. RULE: **complete the
+chosen rows, never choose them twice**.

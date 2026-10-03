@@ -63,14 +63,18 @@ export function parseProjectQuery(params: {
   };
 }
 
-export async function listProjects(query: ProjectListQuery): Promise<ProjectListResult> {
+async function readProjectRows(
+  query: ProjectListQuery,
+  limit: number,
+  offset: number,
+): Promise<{ rows: ProjectRow[]; total: number }> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("search_projects", {
     p_q: query.q,
     p_statuses: query.statuses,
     p_client_id: query.clientId === "" ? null : query.clientId,
-    p_limit: PROJECTS_PAGE_SIZE,
-    p_offset: (query.page - 1) * PROJECTS_PAGE_SIZE,
+    p_limit: limit,
+    p_offset: offset,
   });
 
   if (error) throw new Error(`Nu s-au putut citi proiectele: ${error.message}`);
@@ -103,9 +107,44 @@ export async function listProjects(query: ProjectListQuery): Promise<ProjectList
       clientName: r.client_name,
     })),
     total,
+  };
+}
+
+export async function listProjects(query: ProjectListQuery): Promise<ProjectListResult> {
+  const { rows, total } = await readProjectRows(
+    query,
+    PROJECTS_PAGE_SIZE,
+    (query.page - 1) * PROJECTS_PAGE_SIZE,
+  );
+
+  return {
+    rows,
+    total,
     page: query.page,
     pageCount: Math.max(1, Math.ceil(total / PROJECTS_PAGE_SIZE)),
   };
+}
+
+/** P3-128. TOATE RANDURILE FILTRULUI, pana la `max`, pentru export. ACEEASI FUNCTIE DIN
+ *  BAZA CA LISTA (search_projects), aceleasi argumente, doar cu paginile luate una dupa
+ *  alta in loc de una singura. Pagina din `query` nu conteaza. */
+export async function listProjectRowsForExport(
+  query: ProjectListQuery,
+  max: number,
+): Promise<{ rows: ProjectRow[]; total: number }> {
+  const PAGE = 1000;
+  const rows: ProjectRow[] = [];
+  let total = 0;
+
+  while (rows.length < max) {
+    const got = await readProjectRows(query, Math.min(PAGE, max - rows.length), rows.length);
+    if (got.rows.length === 0) break;
+    total = got.total;
+    rows.push(...got.rows);
+    if (rows.length >= total) break;
+  }
+
+  return { rows, total };
 }
 
 export async function getProject(id: string): Promise<ProjectDetail | null> {
