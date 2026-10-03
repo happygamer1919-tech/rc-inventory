@@ -8981,3 +8981,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** the first guess for the new function region was Frankfurt (the edge). The database host resolves to Amazon eu-west-1 (Ireland), pooler aws-0-eu-west-1, so Frankfurt would still have meant a cross-country hop per query.
 **SOLUTION:** card P3-134 sets `regions` to `dub1` in a committed vercel.json after reading the database host. RULE: **resolve the database host before choosing a function region**.
+
+### A board timestamp typed by hand can be ahead of the commit
+**Tag:** board
+**ERROR:** P3-134 wrote a round `last_checkpoint` of 22:45 while the commit landed at 22:42, so `check:board-clock` failed in CI ("2 of 343 timestamp(s) are AHEAD of the commit").
+**SOLUTION:** use a time clearly before the commit moment, or read `date -u` right before the edit. RULE: **run `npm run check:board-clock` locally before the first push**; it is not in the close-out list.
