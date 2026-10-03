@@ -36,6 +36,7 @@ import {
   type ProjectRow,
 } from "@/lib/data/projects-list-types";
 import { ProjectForm } from "./ProjectForm";
+import { ProjectImportSheet, downloadProjectTemplate } from "./ProjectImportSheet";
 
 // P3-64. PE TELEFON (sub 768px) FIECARE RAND DEVINE UN CARD, iar peste 768px
 // nimic nu se schimba: fiecare clasa de mai jos poarta max-md. ACELASI DOM, nu o a
@@ -84,6 +85,8 @@ export function ProjectsScreen({
 
   const [q, setQ] = React.useState(query.q);
   const [creating, setCreating] = React.useState(false);
+  // P3-124. Importul de proiecte este un panou al ecranului, langa Proiect nou.
+  const [importing, setImporting] = React.useState(false);
 
   React.useEffect(() => {
     if (q === query.q) return;
@@ -118,13 +121,31 @@ export function ProjectsScreen({
         lead="Șantierele, cu stadiul lor și cu clientul căruia îi aparțin."
         actions={
           canWrite ? (
-            <Button
-              onClick={() => setCreating(true)}
-              data-testid="project-new"
-              className="max-md:min-h-11"
-            >
-              Proiect nou
-            </Button>
+            <>
+              <button
+                type="button"
+                onClick={downloadProjectTemplate}
+                data-testid="projects-import-template"
+                className="text-[13px] font-semibold text-rc-black underline underline-offset-2 hover:text-rc-orange max-md:min-h-11"
+              >
+                Descarcă modelul de import
+              </button>
+              <Button
+                variant="secondary"
+                onClick={() => setImporting(true)}
+                data-testid="projects-import"
+                className="max-md:min-h-11"
+              >
+                Importă din CSV
+              </Button>
+              <Button
+                onClick={() => setCreating(true)}
+                data-testid="project-new"
+                className="max-md:min-h-11"
+              >
+                Proiect nou
+              </Button>
+            </>
           ) : null
         }
       />
@@ -296,6 +317,8 @@ export function ProjectsScreen({
           </div>
         ) : null}
       </Card>
+
+      {importing ? <ProjectImportSheet onClose={() => setImporting(false)} /> : null}
 
       {creating ? (
         <ProjectForm
