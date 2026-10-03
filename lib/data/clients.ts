@@ -109,6 +109,86 @@ type SearchRow = {
   next_action?: string | null;
 };
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * CITIREA UNICA A LISTEI: argumentele si cele trei cai (0058, 0040, 0020) sunt scrise
+ * AICI, o data, iar ecranul (o pagina de 25) si exportul de leaduri (P3-126, pagini de
+ * pana la 1000) trec amandoua prin ea. Asa fisierul si ecranul nu pot ajunge sa inteleaga
+ * diferit un filtru: nu exista o a doua interogare si nici o a doua functie in baza.
+ */
+async function searchClientRows(
+  supabase: SupabaseClient,
+  query: ClientListQuery,
+  limit: number,
+  offset: number,
+): Promise<{ rows: SearchRow[]; withLeaduri: boolean; withNextAction: boolean }> {
+  const common = {
+    p_q: query.q,
+    p_type: query.type === "" ? null : query.type,
+    p_status: query.status,
+    p_limit: limit,
+    p_offset: offset,
+  };
+
+  const withLeaduri = await hasClientLeaduri(supabase);
+  const withNextAction = withLeaduri && (await hasClientNextAction(supabase));
+  // P3-112. INACTIVI TRIMITE p_view NULL, EXPLICIT. Vederea aceea arata fiecare
+  // rand dezactivat, lead si client, adica exact ce inseamna "fara vedere" pentru
+  // functia din 0040; comentariul ei spune ca orice alta valoare decat leaduri sau
+  // clienti este "every row by name", deci "inactivi" ar merge si nescris. Se scrie
+  // oricum, fiindca o vedere care functioneaza pentru ca un token nu este recunoscut
+  // este o vedere pe care urmatoarea versiune a functiei o poate strica in tacere.
+  // Starea, `inactive`, este cea care alege randurile, si ea vine din `common`.
+  const staged = {
+    ...common,
+    p_view: query.view === "" || query.view === "inactivi" ? null : query.view,
+    p_stage: query.stage === "" ? null : query.stage,
+  };
+  const { data, error } = withNextAction
+    ? await supabase.rpc("search_clients_next_action", staged)
+    : withLeaduri
+      ? await supabase.rpc("search_clients_by_stage", staged)
+      : await supabase.rpc("search_clients", common);
+
+  if (error) throw new Error(`Nu s-au putut citi clienții: ${error.message}`);
+
+  return { rows: (data ?? []) as SearchRow[], withLeaduri, withNextAction };
+}
+
+/**
+ * P3-126. TOATE RANDURILE FILTRULUI, nu pagina vizibila, pana la `max`, pentru export.
+ *
+ * ACELASI FILTRU, ACEEASI CITIRE: pagini de 1000 prin `searchClientRows`, adica prin
+ * aceleasi functii din baza ca lista. Paginile sunt de 1000 fiindca PostgREST taie un
+ * raspuns la `max_rows` (1000 in supabase/config.toml); o singura cerere de 5000 ar
+ * intoarce in tacere numai 1000. Ordinea este a listei.
+ */
+export async function listClientRowsForExport(
+  query: ClientListQuery,
+  max: number,
+): Promise<{ rows: SearchRow[]; total: number; withLeaduri: boolean; withNextAction: boolean }> {
+  const supabase = await createClient();
+  const PAGE = 1000;
+
+  const rows: SearchRow[] = [];
+  let total = 0;
+  let withLeaduri = false;
+  let withNextAction = false;
+
+  while (rows.length < max) {
+    const got = await searchClientRows(supabase, query, Math.min(PAGE, max - rows.length), rows.length);
+    withLeaduri = got.withLeaduri;
+    withNextAction = got.withNextAction;
+    if (got.rows.length === 0) break;
+    total = Number(got.rows[0]!.total_count);
+    rows.push(...got.rows);
+    if (rows.length >= total) break;
+  }
+
+  return { rows, total, withLeaduri, withNextAction };
+}
+
 /**
  * Lista de clienti, filtrata si paginata.
  *
@@ -135,37 +215,13 @@ type SearchRow = {
 export async function listClients(query: ClientListQuery): Promise<ClientListResult> {
   const supabase = await createClient();
 
-  const common = {
-    p_q: query.q,
-    p_type: query.type === "" ? null : query.type,
-    p_status: query.status,
-    p_limit: CLIENTS_PAGE_SIZE,
-    p_offset: (query.page - 1) * CLIENTS_PAGE_SIZE,
-  };
+  const { rows, withLeaduri, withNextAction } = await searchClientRows(
+    supabase,
+    query,
+    CLIENTS_PAGE_SIZE,
+    (query.page - 1) * CLIENTS_PAGE_SIZE,
+  );
 
-  const withLeaduri = await hasClientLeaduri(supabase);
-  const withNextAction = withLeaduri && (await hasClientNextAction(supabase));
-  // P3-112. INACTIVI TRIMITE p_view NULL, EXPLICIT. Vederea aceea arata fiecare
-  // rand dezactivat, lead si client, adica exact ce inseamna "fara vedere" pentru
-  // functia din 0040; comentariul ei spune ca orice alta valoare decat leaduri sau
-  // clienti este "every row by name", deci "inactivi" ar merge si nescris. Se scrie
-  // oricum, fiindca o vedere care functioneaza pentru ca un token nu este recunoscut
-  // este o vedere pe care urmatoarea versiune a functiei o poate strica in tacere.
-  // Starea, `inactive`, este cea care alege randurile, si ea vine din `common`.
-  const staged = {
-    ...common,
-    p_view: query.view === "" || query.view === "inactivi" ? null : query.view,
-    p_stage: query.stage === "" ? null : query.stage,
-  };
-  const { data, error } = withNextAction
-    ? await supabase.rpc("search_clients_next_action", staged)
-    : withLeaduri
-      ? await supabase.rpc("search_clients_by_stage", staged)
-      : await supabase.rpc("search_clients", common);
-
-  if (error) throw new Error(`Nu s-au putut citi clienții: ${error.message}`);
-
-  const rows = (data ?? []) as SearchRow[];
 
   // P3-48. INTERESUL SE CITESTE PENTRU RANDURILE PAGINII, printr-un select simplu
   // pe aceleasi id-uri, si numai in vederea Leaduri, singura care il arata.
