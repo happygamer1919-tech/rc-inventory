@@ -61,7 +61,7 @@ const NEED_COLUMNS =
   "Alege ce coloană este Denumire, ce coloană este Categorie și ce coloană este Unitate de măsură: " +
   "fără ele un produs nu poate fi salvat.";
 
-function download(text: string, name: string): void {
+export function download(text: string, name: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;

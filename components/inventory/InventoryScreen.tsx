@@ -19,16 +19,22 @@ import {
   Th,
 } from "@/components/ui/primitives";
 import { PHONE_CELL, PHONE_CONTROL, PHONE_ROW, PHONE_TABLE } from "@/components/ui/phone";
-import { formatMoney, formatNumber, formatQty, normalizeText, plural } from "@/lib/data/format";
+import { formatMoney, formatNumber, formatQty, plural } from "@/lib/data/format";
 import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
 import { ProductForm } from "./ProductForm";
-import { MaterialImportSheet, downloadMaterialTemplate } from "./MaterialImportSheet";
+import { MaterialImportSheet, download, downloadMaterialTemplate } from "./MaterialImportSheet";
+import { exportMaterials } from "@/lib/data/material-export-actions";
+import { MATERIAL_EXPORT_FILE_NAME } from "@/lib/data/material-export-types";
+import {
+  filterByRest,
+  filterByVisibility,
+  type StockLevel,
+  type Visibility,
+} from "@/lib/data/product-filter";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
 import type { SheetOption } from "@/lib/data/sheet-options-types";
-
-type StockLevel = "toate" | "redus" | "epuizat" | "suficient";
 
 const STOCK_LEVELS: Array<{ value: StockLevel; label: string }> = [
   { value: "toate", label: "Toate nivelurile" },
@@ -53,8 +59,6 @@ const STOCK_LEVELS: Array<{ value: StockLevel; label: string }> = [
 // casuta de stoc sa se rupa in loc sa fie tinuta pe un rand: clasa aceea trece pe
 // cele sapte celule unde se foloseste, scrisa acolo si nu sub un nume nou, deci
 // setul de clase desenat ramane exact cel de azi.
-
-type Visibility = "active" | "toate" | "inactive";
 
 const VISIBILITY: Array<{ value: Visibility; label: string }> = [
   { value: "active", label: "Doar produse active" },
@@ -119,35 +123,42 @@ export function InventoryScreen({
   const [creating, setCreating] = React.useState(false);
   // P3-125. Importul de produse este un panou al ecranului, langa Adaugă produs.
   const [importing, setImporting] = React.useState(false);
+  // P3-129. Exportul scrie vederea curenta; propozitia de dupa el (fisier taiat) si refuzul
+  // stau sub filtre.
+  const [exporting, setExporting] = React.useState(false);
+  const [exportNotice, setExportNotice] = React.useState<string | null>(null);
+  const [exportError, setExportError] = React.useState<string | null>(null);
 
-  const visible = React.useMemo(
-    () =>
-      products.filter((p) =>
-        visibility === "active" ? p.active : visibility === "inactive" ? !p.active : true,
-      ),
-    [products, visibility],
+  async function runExport() {
+    setExporting(true);
+    setExportNotice(null);
+    setExportError(null);
+    try {
+      const result = await exportMaterials({ q, category, supplier, level, visibility });
+      if (!result.ok) {
+        setExportError(result.message);
+        return;
+      }
+      download(result.value.csv, MATERIAL_EXPORT_FILE_NAME);
+      setExportNotice(
+        result.value.notice ??
+          `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
+      );
+    } catch {
+      setExportError("Exportul nu a reușit. Încearcă din nou.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // P3-129. Alegerea randurilor sta in lib/data/product-filter.ts, ca exportul sa o foloseasca
+  // pe aceeasi si fisierul sa fie vederea de pe ecran.
+  const visible = React.useMemo(() => filterByVisibility(products, visibility), [products, visibility]);
+
+  const rows = React.useMemo(
+    () => filterByRest(visible, { q, category, supplier, level }),
+    [visible, q, category, supplier, level],
   );
-
-  const rows = React.useMemo(() => {
-    const needle = normalizeText(q.trim());
-    return visible.filter((p) => {
-      if (
-        needle &&
-        !normalizeText(p.name).includes(needle) &&
-        !normalizeText(p.sku).includes(needle)
-      )
-        return false;
-      if (category && p.categoryId !== category) return false;
-      // Filtrul compara ID-uri de acum, nu nume: doua scrieri ale aceluiasi
-      // furnizor erau doua optiuni in lista si un filtru gasea doar jumatate.
-      if (supplier && (p.supplierId ?? "") !== supplier) return false;
-      const low = p.stock <= p.threshold;
-      if (level === "redus" && !(low && p.stock > 0)) return false;
-      if (level === "epuizat" && p.stock !== 0) return false;
-      if (level === "suficient" && low) return false;
-      return true;
-    });
-  }, [visible, q, category, supplier, level]);
 
   const filtersActive =
     q !== "" || category !== "" || supplier !== "" || level !== "toate" || visibility !== "active";
@@ -191,6 +202,16 @@ export function InventoryScreen({
                 >
                   Importă din CSV
                 </Button>
+                {/* P3-129. Exporta vederea de acum, cu toate filtrele, toate randurile. */}
+                <Button
+                  variant="secondary"
+                  onClick={runExport}
+                  disabled={exporting}
+                  data-testid="products-export"
+                  className="max-md:min-h-11"
+                >
+                  Exportă CSV
+                </Button>
                 <Button
                   onClick={() => setCreating(true)}
                   data-testid="product-new"
@@ -229,6 +250,7 @@ export function InventoryScreen({
           <Select
             value={supplier}
             onChange={(e) => setSupplier(e.target.value)}
+            data-testid="filter-supplier"
             className={PHONE_CONTROL}
           >
             <option value="">Toți furnizorii</option>
@@ -241,6 +263,7 @@ export function InventoryScreen({
           <Select
             value={level}
             onChange={(e) => setLevel(e.target.value as StockLevel)}
+            data-testid="filter-level"
             className={PHONE_CONTROL}
           >
             {STOCK_LEVELS.map((l) => (
@@ -262,6 +285,24 @@ export function InventoryScreen({
             ))}
           </Select>
         </div>
+        {exportNotice ? (
+          <p
+            role="status"
+            data-testid="products-export-notice"
+            className="mx-4 mb-3 rounded-[10px] border border-rc-ok/25 bg-rc-ok-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportNotice}
+          </p>
+        ) : null}
+        {exportError ? (
+          <p
+            role="alert"
+            data-testid="products-export-error"
+            className="mx-4 mb-3 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportError}
+          </p>
+        ) : null}
         <div className="px-4 pb-3 -mt-1">
           <p className="text-[12.5px] text-rc-muted" data-testid="product-count">
             {/* P3-51. Substantivul se acorda cu primul numar afisat: "1 produs din 42". */}
