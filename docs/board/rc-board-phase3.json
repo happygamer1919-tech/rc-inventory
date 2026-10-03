@@ -4252,7 +4252,7 @@
       "last_checkpoint": "2026-10-03T00:00:00.000Z",
       "evidence": {
         "kind": "pr",
-        "ref": "PR pending, branch card/p3-126",
+        "ref": "PR #397, branch card/p3-126",
         "at": "2026-10-03T00:00:00.000Z"
       },
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-122 because the round-trip acceptance needs the matching import to exist and to be at Item 3's standard.\n\nIMPLEMENTAT 2026-10-03 de EXECUTOR (BLUE), goal LB11. Butonul Exporta CSV (Leaduri, administrator) cheama exportLeads din lib/data/lead-export-actions.ts. CITIREA LISTEI ESTE UNICA: listClients si exportul trec prin searchClientRows din lib/data/clients.ts (aceleasi trei functii din baza, aceleasi argumente); exportul cere pagini de 1000 pana la 5000 de randuri, fiindca PostgREST taie raspunsul la max_rows (1000). Coloanele pe care lista nu le intoarce se citesc pentru id-urile deja alese. ANTETUL vine din leadModelHeaders(), citit din templateCsv, deci include asteriscul de pe Denumire. Fisierul trece prin buildCsv din import-shared.ts, care scrie deja BOM. LIMITA CUNOSCUTA: un lead fara telefon si fara email (posibil prin formular) iese in fisier dar importul il refuza, iar o sursa goala se reimporta ca sursa aleasa in pasul 4."
