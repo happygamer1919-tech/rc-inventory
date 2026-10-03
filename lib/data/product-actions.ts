@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
+import { productHasMovements } from "./product-movement";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
 import {
@@ -449,19 +450,8 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
   // UNITATEA ESTE FIXATA DE PRODUS. Odata ce exista un lot sau o linie care il
   // refera, schimbarea unitatii ar reinterpreta tacit fiecare cantitate stocata:
   // 40 de m2 ar deveni 40 de bucati fara ca nimic sa se schimbe pe ecran.
-  const [{ count: batchCount }, { count: orderLineCount }, { count: outboundCount }] =
-    await Promise.all([
-      supabase.from("batches").select("id", { count: "exact", head: true }).eq("product_id", id),
-      supabase.from("order_lines").select("id", { count: "exact", head: true }).eq("product_id", id),
-      supabase
-        .from("outbound_lines")
-        .select("id", { count: "exact", head: true })
-        .eq("product_id", id),
-    ]);
-
-  const referenced = (batchCount ?? 0) + (orderLineCount ?? 0) + (outboundCount ?? 0) > 0;
-
-  if (referenced) {
+  // P3-125: definitia lui "s-a miscat" este in product-movement.ts, folosita si de import.
+  if (await productHasMovements(supabase, id)) {
     const { data: current } = await supabase
       .from("products")
       .select("unit")

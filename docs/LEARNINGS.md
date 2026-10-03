@@ -8837,3 +8837,37 @@ the table grows, so a duplicate beyond that slips past the plan and surfaces lat
 **SOLUTION:** page through the table with `.order("id").range(from, from + 999)` until a short page comes
 back. The write path still translates 23505 into a row error, so the plan and the database agree either way.
 RULE: **a "read all rows to compare" step on a growing table needs pagination**.
+
+### "Name plus unit where there is no SKU" is a matching rule, not a way to create a product
+**Tag:** import
+**ERROR:** P3-125 clause 4 says the dedupe key is SKU, or name plus unit when there is no SKU. Read as a
+creation rule it would insert a product with no SKU, but `public.products.sku` is NOT NULL and unique
+(`products_sku_unique`, 0001), so the insert would fail, or tempt the import to invent a code.
+**SOLUTION:** use name plus unit only to MATCH a row without a SKU to a stored product (a duplicate). A row
+without a SKU that matches nothing is a row error that asks for a SKU. No SKU is ever generated. RULE: **a
+dedupe key that is weaker than the table's own key can find a record, never make one**.
+
+### Read the unit from ALL_UNITS by code and by label, and fold superscripts with NFKD
+**Tag:** import
+**ERROR:** `normaliseKey` in `import-shared.ts` uses NFD and keeps only a-z and 0-9, so `m²` and `m³` both
+become `m`, which collides, and the on-screen labels (`buc`, `ml`, `rolă`) are not the stored codes.
+**SOLUTION:** a local key function with NFKD (`m²` becomes `m2`), compared against both the code and
+`unitLabel(code)` of every unit in `ALL_UNITS`. No unit list is written in the import. Packaging words `set`,
+`cutie`, `palet`, `bax` are checked FIRST and refused by name. RULE: **when two normalisers disagree on a
+symbol, write the narrow one next to the field that needs it instead of changing the shared one**.
+
+### One definition of "a product has moved"
+**Tag:** import
+**ERROR:** the unit lock lived inline in `updateProduct` (batches, order lines, outbound lines). An import
+that needs the same question would have copied it, and two definitions drift.
+**SOLUTION:** move the three counts to `lib/data/product-movement.ts` (`productHasMovements`), call it from
+`updateProduct` (behaviour unchanged) and from the import, and ask it only for the stored products whose SKU
+comes in with a different unit. RULE: **extract a rule before a second caller needs it, then keep behaviour
+identical for the first**.
+
+### A fill-empty rule needs a meaning of "empty" for NOT NULL defaults
+**Tag:** import
+**ERROR:** `threshold` and `unit_value_mdl` are NOT NULL default 0, so there is no null to test for "empty".
+**SOLUTION:** treat 0 as unset for those two fields only, fill only from a file value above zero, and never
+fill name, category or unit. The report names this as a decision. RULE: **say what "empty" means per column
+when the schema has no nulls**.
