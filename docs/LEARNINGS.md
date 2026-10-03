@@ -8976,3 +8976,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** on 2026-10-03 the live system ran every server function in iad1 (Washington DC), Vercel's default, and nothing in the repository sets a region: no preferredRegion, no vercel.json. Nobody had looked, and the 2 to 4 second screen changes were measured as 0.2 seconds on a CI copy where server and database share a machine.
 **SOLUTION:** read `x-vercel-id` on any dynamic public route (`/api/health`): `<edge>::<function region>::<id>`. A prerendered page shows only the edge. Card P3-134 pins the region. RULE: **a hosting region is a decision, so it is written down in the repository**, not left at the platform default.
+
+### A region setting must name the database region, not the edge region
+**Tag:** infra
+**ERROR:** the first guess for the new function region was Frankfurt (the edge). The database host resolves to Amazon eu-west-1 (Ireland), pooler aws-0-eu-west-1, so Frankfurt would still have meant a cross-country hop per query.
+**SOLUTION:** card P3-134 sets `regions` to `dub1` in a committed vercel.json after reading the database host. RULE: **resolve the database host before choosing a function region**.
