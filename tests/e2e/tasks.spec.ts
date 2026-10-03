@@ -2811,3 +2811,243 @@ test("fisa clientului: pasul urmator este neschimbat", async ({ page }) => {
     }
   }
 });
+
+/* =======================================================================
+   CARDUL P3-133, goal G73, Item 4 al lui Ivan, partea a patra: SECTIUNEA DE
+   SARCINI DE PE AZI
+   ======================================================================= */
+//
+// NUMELE CAZURILOR SUNT CELE PE CARE LE SCRIE ACCEPTANTA CARDULUI, cuvant cu cuvant,
+// fara diacritice.
+//
+// ACCEPTANTA (c) CERE UN CAZ "EXISTENT" CU NUMELE `azi: lista de sunat este
+// neschimbata`, SI NICIUN CAZ CU ACEST NUME NU EXISTA IN DEPOZIT. Garda existenta sunt
+// cele opt cazuri G46/B1 din tests/e2e/azi-screen.spec.ts, care ruleaza in aceeasi
+// suita NEMODIFICATE (`git diff` nu listeaza fisierul). Amandoua jumatatile se
+// respecta: acelea raman neatinse, iar cazul de mai jos se adauga pe numele cerut.
+//
+// DATELE NU SE STERG, deci nicio afirmatie nu numara randuri din baza: fiecare caz isi
+// masoara id-urile. Singura masura peste toata lista este cazul de acord, ca la
+// galetile P3-131.
+
+const P133 = `TEST-P3133-${RUN}`;
+
+/** Randurile sectiunii de sarcini de pe Azi, dupa id, in ordinea din DOM. */
+async function aziTaskIds(page: Page): Promise<string[]> {
+  return page
+    .getByTestId("azi-task-row")
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-id") ?? ""));
+}
+
+async function openAziTasks(page: Page, params = ""): Promise<void> {
+  await page.goto(`/azi${params}`);
+  await expect(page.getByTestId("azi-tasks")).toBeVisible({ timeout: 30_000 });
+}
+
+test("azi: sectiunea de sarcini arata numai sarcinile scadente azi si deschise", async ({ page }) => {
+  test.setTimeout(240_000);
+
+  const yesterday = await seed({ title: `${P133} a ieri`, due_date: shiftDay(TODAY, -1) });
+  const todo = await seed({ title: `${P133} a azi de facut`, due_date: TODAY, status: "todo" });
+  const working = await seed({
+    title: `${P133} a azi in lucru`,
+    due_date: TODAY,
+    status: "in_progress",
+  });
+  const tomorrow = await seed({ title: `${P133} a maine`, due_date: shiftDay(TODAY, 1) });
+  const done = await seed({ title: `${P133} a azi finalizata`, due_date: TODAY, status: "done" });
+  const cancelled = await seed({
+    title: `${P133} a azi anulata`,
+    due_date: TODAY,
+    status: "cancelled",
+  });
+  const noDate = await seed({ title: `${P133} a fara termen` });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page);
+
+  const shown = await aziTaskIds(page);
+  for (const id of [todo, working]) {
+    expect(shown, `sarcina deschisa de azi ${id} este pe lista`).toContain(id);
+  }
+  for (const [why, id] of [
+    ["de ieri", yesterday],
+    ["de maine", tomorrow],
+    ["finalizata", done],
+    ["anulata", cancelled],
+    ["fara termen", noDate],
+  ] as const) {
+    expect(shown, `sarcina ${why} nu este pe lista`).not.toContain(id);
+  }
+});
+
+test("azi: sectiunea de sarcini si galeata Azi din fila Sarcini contin exact aceleasi sarcini", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+
+  // UN SET PESTE MARGINEA ZILEI: ieri, azi, maine, plus cele doua stari inchise pe azi.
+  await seed({ title: `${P133} acord ieri`, due_date: shiftDay(TODAY, -1) });
+  await seed({ title: `${P133} acord azi de facut`, due_date: TODAY, status: "todo" });
+  await seed({ title: `${P133} acord azi in lucru`, due_date: TODAY, status: "in_progress" });
+  const closedToday = await seed({
+    title: `${P133} acord azi finalizata`,
+    due_date: TODAY,
+    status: "done",
+  });
+  await seed({ title: `${P133} acord azi anulata`, due_date: TODAY, status: "cancelled" });
+  await seed({ title: `${P133} acord maine`, due_date: shiftDay(TODAY, 1) });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page);
+  const onAzi = (await aziTaskIds(page)).sort();
+  expect(onAzi.length, "sectiunea are randuri, deci egalitatea spune ceva").toBeGreaterThan(0);
+
+  await openSarcini(page);
+  const bucket = await page
+    .locator('[data-testid="task-row"][data-group="azi"]')
+    .evaluateAll((els) =>
+      els.map((e) => ({
+        id: e.getAttribute("data-id") ?? "",
+        status: (e.querySelector('[data-testid="task-status"]')?.textContent ?? "").trim(),
+      })),
+    );
+
+  // GALEATA FILEI POARTA SI STARILE INCHISE (taskBucket nu le scoate din Azi), iar
+  // sectiunea de pe Azi este "ce de facut acum". Egalitatea este deci peste cele
+  // DESCHISE din galeata, iar randul inchis semanat mai sus dovedeste ca excluderea
+  // are ce exclude.
+  expect(
+    bucket.map((r) => r.id),
+    "galeata Azi a filei poarta si sarcina finalizata de azi",
+  ).toContain(closedToday);
+  const closed: string[] = [TASK_STATUS_LABEL.done, TASK_STATUS_LABEL.cancelled];
+  const openInBucket = bucket
+    .filter((r) => !closed.includes(r.status))
+    .map((r) => r.id)
+    .sort();
+  expect(onAzi, "sectiunea de pe Azi si galeata Azi a filei contin aceleasi sarcini deschise").toEqual(
+    openInBucket,
+  );
+});
+
+test("azi: lista de sunat este neschimbata", async ({ page }) => {
+  test.setTimeout(240_000);
+
+  // CAZUL CERUT PE NUME DE ACCEPTANTA (c): lista de sunat se randeaza la fel cu
+  // sarcini de azi de fata. Cele opt cazuri ale lui azi-screen.spec.ts ruleaza
+  // nemodificate si sunt garda adevarata.
+  const leadName = `${P133} lead de sunat`;
+  const leadId = await seedClient(leadName);
+  const wrote = await asService(`clients?id=eq.${leadId}`, {
+    method: "PATCH",
+    body: { next_action_at: TODAY, next_action: "sun pentru oferta", phone: "069 000 133" },
+  });
+  expect(wrote.ok, `pasul de test nu a putut fi scris: ${wrote.text}`).toBe(true);
+  const taskId = await seed({
+    title: `${P133} sarcina langa lista`,
+    due_date: TODAY,
+    entity_type: "client",
+    entity_id: leadId,
+  });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page);
+
+  const callRow = page.locator(`[data-testid="azi-row"][data-id="${leadId}"]`);
+  await expect(callRow, "leadul este pe lista de sunat").toHaveCount(1);
+  await expect(callRow.getByTestId("azi-name")).toHaveText(leadName);
+  await expect(callRow.getByTestId("azi-next-action")).toHaveText("sun pentru oferta");
+  await expect(callRow.getByTestId("azi-call")).toHaveAttribute("href", "tel:069000133");
+
+  // NICIO SARCINA NU INTRA PE LISTA DE SUNAT, nici ca rand, nici ca text.
+  const callIds = await page
+    .getByTestId("azi-row")
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-id") ?? ""));
+  expect(callIds, "lista de sunat nu primeste sarcina").not.toContain(taskId);
+  await expect(
+    page.locator('[data-testid="azi-tasks"] [data-testid="azi-row"]'),
+    "si niciun rand de apel nu sta in sectiunea de sarcini",
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("azi-row").filter({ hasText: `${P133} sarcina langa lista` }),
+  ).toHaveCount(0);
+});
+
+test("azi: cele doua sectiuni au titluri proprii si nu sunt o singura lista", async ({ page }) => {
+  test.setTimeout(240_000);
+
+  const leadId = await seedClient(`${P133} lead titluri`);
+  const wrote = await asService(`clients?id=eq.${leadId}`, {
+    method: "PATCH",
+    body: { next_action_at: TODAY, next_action: "sun" },
+  });
+  expect(wrote.ok, `pasul de test nu a putut fi scris: ${wrote.text}`).toBe(true);
+  const taskId = await seed({ title: `${P133} sarcina titluri`, due_date: TODAY });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page);
+
+  await expect(page.getByRole("heading", { level: 2, name: "De sunat", exact: true })).toBeVisible();
+  const tasksRegion = page.getByTestId("azi-tasks");
+  await expect(
+    tasksRegion.getByRole("heading", { level: 2, name: "Sarcini scadente azi", exact: true }),
+  ).toBeVisible();
+  await expect(
+    tasksRegion.getByRole("heading", { name: "De sunat", exact: true }),
+    "titlul listei de sunat nu sta in sectiunea de sarcini",
+  ).toHaveCount(0);
+
+  // DOUA TABELE, nu una: randul de apel si randul de sarcina nu impart un tabel.
+  await expect(page.locator("table")).toHaveCount(2);
+  await expect(
+    page.locator('table:has([data-testid="azi-row"]) [data-testid="azi-task-row"]'),
+  ).toHaveCount(0);
+  await expect(page.locator(`[data-testid="azi-task-row"][data-id="${taskId}"]`)).toHaveCount(1);
+});
+
+test("azi: sectiunea goala spune in romana ca nu este nimic scadent", async ({ page }) => {
+  test.setTimeout(240_000);
+
+  // UN RESPONSABIL NOU, FARA NICIO SARCINA: filtrul `responsabil` al ecranului Azi se
+  // aplica si sectiunii, deci ea este goala pe un cont pe care nu este pus nimic, oricate
+  // sarcini de azi ar avea ceilalti. O baza partajata nu poate fi goala altfel.
+  const fresh = await newDeactivatableAccount("azi-gol");
+  await seed({ title: `${P133} sarcina a altcuiva`, due_date: TODAY });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page, `?responsabil=${fresh.id}`);
+
+  await expect(page.getByTestId("azi-task-row")).toHaveCount(0);
+  const empty = page.getByTestId("azi-tasks-empty");
+  await expect(empty, "o sectiune goala spune ceva").toBeVisible();
+  await expect(empty).toHaveText("Nicio sarcină scadentă azi.");
+});
+
+test("azi: un rand de sarcina deschide sarcina", async ({ page }) => {
+  test.setTimeout(240_000);
+
+  const clientRow = await seedClient(`${P133} client legat`);
+  const title = `${P133} sarcina de deschis`;
+  const taskId = await seed({
+    title,
+    due_date: TODAY,
+    entity_type: "client",
+    entity_id: clientRow,
+  });
+
+  await signIn(page, ownerAccount());
+  await openAziTasks(page);
+
+  const row = page.locator(`[data-testid="azi-task-row"][data-id="${taskId}"]`);
+  await expect(row).toHaveCount(1);
+
+  // INREGISTRAREA LEGATA ESTE O LEGATURA CATRE FISA EI.
+  await expect(row.getByTestId("azi-task-entity")).toHaveAttribute("href", `/clienti/${clientRow}`);
+
+  // TITLUL DESCHIDE SARCINA, in formularul fisei ei.
+  await row.getByTestId("azi-task-open").click();
+  await expect(page).toHaveURL(/\/sarcini\?sarcina=/, { timeout: 30_000 });
+  await expect(page.getByTestId("task-form")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("field-task-title")).toHaveValue(title);
+});

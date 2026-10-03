@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/phone";
 import type { AziRow, ClientOwnerChoice } from "@/lib/data/clients-types";
 import { formatDate, plural } from "@/lib/data/format";
+import type { Task } from "@/lib/data/tasks-types";
+import { AziTasksSection } from "@/components/tasks/AziTasksSection";
 import { ClientNoteForm } from "./ClientNoteForm";
 
 /** Textul cu care porneste nota, cuvintele proprietarului pentru buton. */
@@ -51,6 +53,7 @@ export function AziScreen({
   ownerId,
   canWrite,
   nextActionAvailable,
+  tasks,
 }: {
   rows: AziRow[];
   owners: ClientOwnerChoice[];
@@ -58,6 +61,9 @@ export function AziScreen({
   ownerId: string;
   canWrite: boolean;
   nextActionAvailable: boolean;
+  /** Sarcinile deschise cu termenul azi (P3-133), sau null cand tabela lor nu exista
+   *  inca: atunci sectiunea nu se arata, iar lista de sunat se randeaza ca de obicei. */
+  tasks: Task[] | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState<string | null>(null);
@@ -231,6 +237,8 @@ export function AziScreen({
           </Table>
         )}
       </Card>
+
+      {tasks === null ? null : <AziTasksSection tasks={tasks} />}
     </>
   );
 }

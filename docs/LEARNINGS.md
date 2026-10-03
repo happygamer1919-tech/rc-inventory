@@ -8716,3 +8716,37 @@ what CI runs, so derive the list from `.github/workflows/quality.yml` rather tha
 block**, and run at least every gate that touches a file you changed. `grep -oE 'npm run [a-z:_-]+'`
 over that workflow gives the full set in one line. And **never write a timestamp as a literal into a
 board edit**: a stamp ahead of its own commit is the one defect this particular gate exists to catch.
+
+### A card's "same list as the other screen" can hide a status rule the bucket does not carry
+**Tag:** tasks
+**ERROR:** card P3-133 asked for an Azi section that holds "exactly the same tasks" as the Azi bucket of
+the Sarcini tab, and also that finished and cancelled tasks are not listed. Read literally the two clauses
+collide: `taskBucket()` in `lib/data/tasks-shape.ts` leaves finished and cancelled tasks in the Azi bucket
+on purpose (the tab's bucket is "what is due today"), so a section built from the bucket alone would list
+closed tasks, and a section that drops them is not equal to the bucket.
+**SOLUTION:** write the status exclusion once, as `isTaskOpen()` next to `taskBucket()`, apply it on top of
+the bucket in the page, and state the agreement test as "section equals the tab's Azi bucket minus the
+closed states", after asserting the bucket really holds a finished task so the exclusion has something to
+exclude. RULE: **when two clauses of a card pull a shared definition two ways, keep the shared function
+untouched and add the narrower rule beside it**, and write the decision into the card notes so the next
+reader does not read the difference as a bug.
+
+### A card that cites an "existing test" by name may be citing one that does not exist
+**Tag:** tests
+**ERROR:** acceptance (c) of P3-133 names `azi: lista de sunat este neschimbata` as "the EXISTING Azi
+test, re-run unmodified". No case of that name existed; the real guard is the eight G46/B1 cases in
+`tests/e2e/azi-screen.spec.ts`. Editing that file to add the name would have broken the very rule (D7) the
+acceptance exists to protect.
+**SOLUTION:** satisfy both halves: leave the existing spec out of the diff (`git diff --name-only
+origin/main...HEAD` must not list it) and add a new case under the exact name in the card's own spec.
+Same shape as P3-132 acceptance (e). RULE: **before trusting "existing test" in an acceptance line, grep
+for the name**, and record the decision in the card notes and the report.
+
+### A Sarcini row could not be opened by link
+**Tag:** tasks
+**ERROR:** P3-133 clause 5 asks that a row on Azi "opens the task", but the Sarcini tab only opened a task
+through its row button, so there was no URL that meant "this task".
+**SOLUTION:** `SarciniScreen` now initialises its edit state from `?sarcina=<id>` when that id is on the
+loaded list; an unknown id opens nothing. Additive, and the tab behaves as before without the parameter.
+RULE: **a screen that links to another screen's item needs that item to be addressable first**; check
+before drawing the link.

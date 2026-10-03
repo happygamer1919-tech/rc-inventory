@@ -189,6 +189,19 @@ export function isTaskOverdue(task: TaskDay, today: string): boolean {
 }
 
 /**
+ * Este sarcina deschisa, adica nici finalizata, nici anulata?
+ *
+ * ECRANUL AZI O FOLOSESTE PESTE GALEATA AZI, nu in locul ei. taskBucket() raspunde
+ * singura la intrebarea "ce zi", iar galeata Azi nu scoate nicio stare (vezi mai sus),
+ * fiindca galeata filei este "ce are termen astazi". Sectiunea de pe Azi este "ce de
+ * facut acum", deci scoate cele doua stari inchise. Excluderea sta aici, o singura
+ * data, ca pagina si orice alt cititor sa nu scrie a doua oara lista starilor.
+ */
+export function isTaskOpen(task: { status: TaskStatus }): boolean {
+  return task.status !== "done" && task.status !== "cancelled";
+}
+
+/**
  * Sub ce cap de grup se deseneaza sarcina. Cele trei galeti, apoi cele doua
  * recipiente de afisare pentru restul, ca nicio sarcina sa nu existe si sa nu se
  * vada nicaieri. Vezi TaskGroup in lib/data/tasks-types.ts pentru de ce cele doua
