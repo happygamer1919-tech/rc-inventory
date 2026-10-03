@@ -4302,7 +4302,7 @@
       "last_checkpoint": "2026-10-03T00:00:00.000Z",
       "evidence": {
         "kind": "pr",
-        "ref": "branch card/p3-128",
+        "ref": "PR #399, branch card/p3-128",
         "at": "2026-10-03T00:00:00.000Z"
       },
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71.\n\nIMPLEMENTAT 2026-10-03 de EXECUTOR (BLUE), goal LB11. Butonul Exporta CSV (vederea Proiecte, administrator) cheama exportProjects din lib/data/project-export-actions.ts. Citirea listei este unica: aceeasi functie din baza ca ecranul (search_projects), prin listProjectRowsForExport din lib/data/projects-list.ts, cu aceleasi argumente, paginile luate una dupa alta pana la 5000. Data inceput si notele, pe care lista nu le intoarce, se citesc pentru id-urile alese de lista. ANTETUL vine din projectModelHeaders(), citit din templateCsv() al proiectelor. CLIENTUL se scrie dupa denumire, exact cum e stocata, nu dupa id: asa il potriveste importul (clientNameKey). Bugetul se scrie in MDL, numar simplu. LIMITE CUNOSCUTE, importul nu se schimba aici: (1) doi clienti cu aceeasi denumire dupa normalizare fac ca importul sa refuze randurile lor (ambiguousClient), deci dus-intorsul este garantat numai peste denumiri distincte; (2) un proiect al unui client dezactivat se exporta, dar importul il refuza (inactiveClient) pana la reactivarea clientului.\n\nDEPENDS ON P3-124 because the round-trip acceptance needs the projects import to exist, and because clause 3 is a statement about what that import reads."
