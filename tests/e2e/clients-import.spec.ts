@@ -442,8 +442,11 @@ test("import clienti: fisa clientului nu are unitate, iar o coloana Unitate din 
 
   await page.getByTestId("import-next").click();
   await expect(page.getByTestId("import-step-2")).toBeVisible();
-  const unitateColumn = page.getByTestId("import-column").filter({ hasText: "Unitate" });
-  await expect(unitateColumn.getByTestId("import-column-select")).toHaveValue("");
+  // Selectorul este dupa eticheta exacta a selectului, nu dupa textul coloanei:
+  // numele de test al acestui caz contine cuvantul "unitate" si apare in
+  // valorile exemplu ale coloanelor Denumire si Email, deci filtrul pe text
+  // gaseste trei coloane si cade pe strict mode.
+  await expect(page.getByLabel("Câmpul pentru coloana Unitate", { exact: true })).toHaveValue("");
 
   await page.getByTestId("import-next").click();
   await expect(page.getByTestId("import-step-3")).toBeVisible();
