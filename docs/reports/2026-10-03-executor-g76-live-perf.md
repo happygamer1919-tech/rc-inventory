@@ -204,7 +204,16 @@ Setări, with 10 to 18 calls and a chain of up to 5, are where the distance mult
 
 `mailbox/questions/q131-g76-live-numbers.md` in the factory, starting `OWNER:`.
 
-## 8. Safety
+## 8. Local gates, each command run alone, all exit 0
+
+Board validator on all three boards (before every commit); `npx tsc --noEmit`; `npm run build`;
+`check:card-ids`; `check:board-edit` (record-only pull request, P3-134 resolved); `check:unique-ids`;
+`check:open-branch-ids` (0 open pull requests); `check:no-destructive-migration` (0 files);
+`check:conflict-residue`; `check:categories`; `check:ledger-rows`; `check:no-prod-target`;
+`check:pending-schema-reads`; `check:removal-safety`; `check:assertion-register`.
+The end to end suite needs Docker and a local Supabase stack; it runs in CI only.
+
+## 9. Safety
 
 No credential seen or used. No login. No form post. No production database access. No client name or
 row content read or recorded: the measured responses were the prerendered login page, 307 redirects
