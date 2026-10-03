@@ -114,7 +114,12 @@ export function SarciniScreen({
   const params = useSearchParams();
 
   const [creating, setCreating] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  // P3-133: o legatura de pe Azi (`?sarcina=<id>`) deschide direct sarcina, in acelasi
+  // panou ca butonul Modifică. Un id care nu este pe lista nu deschide nimic.
+  const [editingId, setEditingId] = React.useState<string | null>(() => {
+    const wanted = params.get("sarcina");
+    return wanted !== null && rows.some((r) => r.id === wanted) ? wanted : null;
+  });
   const editing = rows.find((r) => r.id === editingId);
 
   function push(patch: Record<string, string>) {
