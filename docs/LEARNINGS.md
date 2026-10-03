@@ -8800,3 +8800,40 @@ through its row button, so there was no URL that meant "this task".
 loaded list; an unknown id opens nothing. Additive, and the tab behaves as before without the parameter.
 RULE: **a screen that links to another screen's item needs that item to be addressable first**; check
 before drawing the link.
+
+### A card clause can name a field the table does not have
+**Tag:** import
+**ERROR:** P3-124 clause 6 and acceptance (f) ask for "a unit outside ALL_UNITS" on a project import and a
+case `toate cele noua unitati sunt acceptate`. `public.projects` has no unit column (`0016_projects.sql`, and
+no later migration touches it), so the case would assert a field that does not exist. The same premise was
+already corrected for clients in ruling q114.
+**SOLUTION:** rename the case to `fisa proiectului nu are unitate, iar o coloana Unitate din CSV nu scrie
+nimic` and prove the absence: no unit field in the import list, a `Unitate` column stays on "Nu importa" and
+every row still imports. Leave the nine-unit proof to P3-125 (b). RULE: **grep the migration for the column
+before writing a validator for it**, and record the renamed case in the card notes and the PR body.
+
+### A currency column can be validated without being stored
+**Tag:** import
+**ERROR:** acceptance (e) wants EUR and RON refused in the preview, but `public.projects` has only
+`budget_mdl`, no currency column, so there is nothing to write a currency into.
+**SOLUTION:** add a `currency` field to the import field list that runs `validateCurrency` from
+`import-shared.ts` and is then dropped; it is left out of the model file. A missing or MDL value passes, EUR
+and RON become a row error naming MDL. RULE: **a field that exists only to be refused still belongs in the
+descriptor**, otherwise the column falls on "Nu importa" and the bad value is silently ignored.
+
+### An unknown parent must be a row error, and the lookup key decides how many rows that is
+**Tag:** import
+**ERROR:** a project import that resolved the Client column by creating missing clients would turn a typo
+into a customer nobody asked for. A lookup that is too loose does the opposite harm: `normaliseKey` strips
+punctuation and diacritics, so two different clients can collapse onto one key.
+**SOLUTION:** resolve by name with only lowercase and collapsed spaces, send the result as a client id, and
+make zero hits, several hits and an inactive hit three separate Romanian row errors. The import never writes
+to `clients`. RULE: **when a file names a record that must already exist, match narrowly and fail loudly**.
+
+### PostgREST stops a plain select at 1000 rows
+**Tag:** import
+**ERROR:** a dedupe check that reads every stored project with a plain `select` sees only the first 1000 once
+the table grows, so a duplicate beyond that slips past the plan and surfaces later as a database 23505.
+**SOLUTION:** page through the table with `.order("id").range(from, from + 999)` until a short page comes
+back. The write path still translates 23505 into a row error, so the plan and the database agree either way.
+RULE: **a "read all rows to compare" step on a growing table needs pagination**.

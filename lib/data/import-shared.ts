@@ -402,3 +402,45 @@ export function buildImportPreview<F extends string>(
 
   return { valid, invalid, validCount: valid.length, invalidCount: invalid.length };
 }
+
+// ---------------------------------------------------------------------------
+// Data calendaristica, comuna: P3-124
+// ---------------------------------------------------------------------------
+
+/**
+ * Citeste o data scrisa AAAA-LL-ZZ sau ZZ.LL.AAAA (punct sau bara) si o
+ * intoarce ca AAAA-LL-ZZ, sau `null` cand sirul nu este o zi reala. ADAUGAT de
+ * cardul P3-124, FARA sa atinga nimic din ce era aici: importul de proiecte este
+ * primul care il ia din fisierul comun, iar copiile mai vechi din importul de
+ * leaduri si de clienti raman cum sunt.
+ */
+export function readImportDate(raw: string): string | null {
+  const value = raw.trim();
+  if (value === "") return null;
+
+  let year: number;
+  let month: number;
+  let day: number;
+
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  const local = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/.exec(value);
+  if (iso) {
+    year = Number(iso[1]);
+    month = Number(iso[2]);
+    day = Number(iso[3]);
+  } else if (local) {
+    day = Number(local[1]);
+    month = Number(local[2]);
+    year = Number(local[3]);
+  } else return null;
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    return null;
+  return date.toISOString().slice(0, 10);
+}
