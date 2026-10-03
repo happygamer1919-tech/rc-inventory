@@ -92,7 +92,7 @@ const TOO_MANY_ROWS = `Fișierul are mai mult de ${IMPORT_MAX_ROWS} de rânduri.
 const NEED_NAME = "Alege ce coloană este Denumire: fără ea un lead nu poate fi salvat.";
 const NEED_CONTACT = "Alege ce coloană este Telefon sau ce coloană este Email. Cel puțin una din două.";
 
-function download(text: string, name: string): void {
+export function download(text: string, name: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;

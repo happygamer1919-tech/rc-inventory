@@ -202,6 +202,42 @@ export function templateCsv(): string {
 
 export const TEMPLATE_FILE_NAME = "sablon-leaduri.csv";
 export const SKIPPED_FILE_NAME = "randuri-nepreluate.csv";
+export const EXPORT_FILE_NAME = "leaduri.csv";
+
+/**
+ * Antetul sablonului, exact cum il scrie `templateCsv`: aceleasi etichete, aceeasi
+ * ordine, Denumire cu asterisc. CARDUL P3-126, clauza 2: exportul de leaduri foloseste
+ * ACEST antet si nu o a doua lista, ca un fisier exportat sa se reimporte fara nicio
+ * potrivire manuala. Se citeste din `templateCsv` insusi, nu se reconstruieste, deci o
+ * schimbare a sablonului muta si exportul.
+ */
+export function leadModelHeaders(): string[] {
+  return parseCsv(templateCsv())[0] ?? [];
+}
+
+/** Un lead gata de scris in fisierul exportat: fiecare camp ca text, sub aceleasi
+ *  chei ca importul. Tipul, etapa si sursa sunt deja etichetele romanesti. */
+export type ExportLeadRow = Record<ImportField, string>;
+
+/**
+ * Fisierul exportului: antetul modelului, apoi cate un rand pe lead, coloanele in
+ * ordinea `IMPORT_FIELDS`. Prin `buildCsv` din import-shared.ts, deci cu BOM si cu
+ * ghilimelele puse de acelasi scriitor ca la sablon.
+ */
+export function leadExportCsv(leads: ExportLeadRow[]): string {
+  return buildCsv([
+    leadModelHeaders(),
+    ...leads.map((lead) => IMPORT_FIELDS.map((field) => lead[field])),
+  ]);
+}
+
+/** Propozitia de dupa un export taiat la limita. */
+export function exportTruncatedNotice(total: number): string {
+  return (
+    `Filtrul are ${total} de rânduri, dar fișierul poate avea cel mult ${IMPORT_MAX_ROWS}. ` +
+    `Am exportat primele ${IMPORT_MAX_ROWS}. Restrânge filtrul și exportă din nou pentru restul.`
+  );
+}
 
 /**
  * Instructiunile romanesti aratate PE ECRAN, cardul P3-122 clauza 3, nu numai

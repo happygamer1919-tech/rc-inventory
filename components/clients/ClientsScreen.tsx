@@ -108,7 +108,9 @@ import {
 } from "@/components/ui/phone";
 import { ClientForm } from "./ClientForm";
 import { ClientImportSheet } from "./ClientImportSheet";
-import { LeadImportSheet } from "./LeadImportSheet";
+import { LeadImportSheet, download } from "./LeadImportSheet";
+import { exportLeads } from "@/lib/data/lead-export-actions";
+import { EXPORT_FILE_NAME } from "@/lib/data/lead-import-types";
 import { LeaduriForm } from "./LeaduriForm";
 import { ReactivateRowButton } from "./ReactivateRowButton";
 import { StageMark } from "./StageMark";
@@ -183,6 +185,39 @@ export function ClientsScreen({
   // P3-123. Importul de clienti este un panou al vederii Clienți, langa Client
   // nou, exact ca importul de leaduri langa Lead nou.
   const [importingClients, setImportingClients] = React.useState(false);
+  // P3-126. Exportul scrie vederea curenta; propozitia de dupa el (fisier taiat) si
+  // refuzul stau sub antetul cardului, ca cele de la reactivare.
+  const [exporting, setExporting] = React.useState(false);
+  const [exportNotice, setExportNotice] = React.useState<string | null>(null);
+  const [exportError, setExportError] = React.useState<string | null>(null);
+
+  async function runExport() {
+    setExporting(true);
+    setExportNotice(null);
+    setExportError(null);
+    try {
+      const result = await exportLeads({
+        q: query.q,
+        type: query.type,
+        status: query.status,
+        view: query.view,
+        stage: query.stage,
+      });
+      if (!result.ok) {
+        setExportError(result.message);
+        return;
+      }
+      download(result.value.csv, EXPORT_FILE_NAME);
+      setExportNotice(
+        result.value.notice ??
+          `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
+      );
+    } catch {
+      setExportError("Exportul nu a reușit. Încearcă din nou.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // P3-96, constatarea F7. CASUTA DE CAUTARE URMEAZA URL-UL, care este adevarul.
   //
@@ -308,6 +343,16 @@ export function ClientsScreen({
               >
                 Importă din CSV
               </Button>
+              {/* P3-126. Exporta vederea de acum, cu toate filtrele, toate randurile. */}
+              <Button
+                variant="secondary"
+                onClick={runExport}
+                disabled={exporting}
+                data-testid="leaduri-export"
+                className="max-md:min-h-11"
+              >
+                Exportă CSV
+              </Button>
               <Button
                 onClick={() => setCreatingLead(true)}
                 data-testid="leaduri-new"
@@ -375,6 +420,24 @@ export function ClientsScreen({
             className="mx-5 mt-3 rounded-[10px] border border-rc-ok/25 bg-rc-ok-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
           >
             {rowNotice}
+          </p>
+        ) : null}
+        {exportNotice ? (
+          <p
+            role="status"
+            data-testid="leaduri-export-notice"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-ok/25 bg-rc-ok-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportNotice}
+          </p>
+        ) : null}
+        {exportError ? (
+          <p
+            role="alert"
+            data-testid="leaduri-export-error"
+            className="mx-5 mt-3 rounded-[10px] border border-rc-danger bg-rc-danger-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+          >
+            {exportError}
           </p>
         ) : null}
         {rowError ? (

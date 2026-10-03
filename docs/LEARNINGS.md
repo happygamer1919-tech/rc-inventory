@@ -8871,3 +8871,30 @@ identical for the first**.
 **SOLUTION:** treat 0 as unset for those two fields only, fill only from a file value above zero, and never
 fill name, category or unit. The report names this as a decision. RULE: **say what "empty" means per column
 when the schema has no nulls**.
+
+### An export must read the list through the list's own function, one page at a time
+**Tag:** export
+**ERROR:** an export that asks the list RPC for 5000 rows in one call gets 1000, silently: PostgREST cuts a
+response at `max_rows` (1000 in `supabase/config.toml`). The file would stop at 1000 rows with no sentence
+saying so, and a second query written "just for the export" would one day filter differently from the screen.
+**SOLUTION:** move the argument building and the three-way RPC choice out of `listClients` into
+`searchClientRows`, call it from `listClients` (25 rows) and from `listClientRowsForExport` (pages of 1000 up to
+5000). The columns the list does not return are read with a plain select on the ids the list already chose.
+RULE: **an export shares the list's read path and pages it; it never widens a limit past what the API returns**.
+
+### The export header is the import template's header, read, not rebuilt
+**Tag:** export
+**ERROR:** a second header list (even a correct one) drifts the day the template gains a column, and the round
+trip breaks without a test noticing.
+**SOLUTION:** `leadModelHeaders()` parses `templateCsv()` and returns its first row, so the export carries the
+same labels, order and the `*` on Denumire. The import matcher strips non-letters, so the asterisk matches.
+RULE: **derive the export header from the template function itself**.
+
+### A round trip into a non-empty database moves identity, then compares the rest
+**Tag:** test
+**ERROR:** the suite never deletes test data and the import skips a duplicate by phone and email, so
+re-importing an export into the same database creates nothing.
+**SOLUTION:** the case re-imports the untouched file and asserts every row is a duplicate, then re-imports a copy
+whose name, phone, email and IDNO moved to a second series and compares the other eleven fields and the contact
+person with `toEqual` on the stored rows. RULE: **when the store cannot be emptied, change only the keys the
+dedupe reads and compare everything else**.
