@@ -24,6 +24,7 @@ import { unitLabel, type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
 import { ProductForm } from "./ProductForm";
+import { MaterialImportSheet, downloadMaterialTemplate } from "./MaterialImportSheet";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
 import type { SheetOption } from "@/lib/data/sheet-options-types";
 
@@ -116,6 +117,8 @@ export function InventoryScreen({
   );
   const [focusThreshold, setFocusThreshold] = React.useState(editFromUrl);
   const [creating, setCreating] = React.useState(false);
+  // P3-125. Importul de produse este un panou al ecranului, langa Adaugă produs.
+  const [importing, setImporting] = React.useState(false);
 
   const visible = React.useMemo(
     () =>
@@ -171,13 +174,31 @@ export function InventoryScreen({
               </Button>
             ) : null}
             {canWrite ? (
-              <Button
-                onClick={() => setCreating(true)}
-                data-testid="product-new"
-                className="max-md:min-h-11"
-              >
-                Adaugă produs
-              </Button>
+              <>
+                <button
+                  type="button"
+                  onClick={downloadMaterialTemplate}
+                  data-testid="products-import-template"
+                  className="text-[13px] font-semibold text-rc-black underline underline-offset-2 hover:text-rc-orange max-md:min-h-11"
+                >
+                  Descarcă modelul de import
+                </button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setImporting(true)}
+                  data-testid="products-import"
+                  className="max-md:min-h-11"
+                >
+                  Importă din CSV
+                </Button>
+                <Button
+                  onClick={() => setCreating(true)}
+                  data-testid="product-new"
+                  className="max-md:min-h-11"
+                >
+                  Adaugă produs
+                </Button>
+              </>
             ) : null}
           </div>
         }
@@ -406,6 +427,8 @@ export function InventoryScreen({
           onClose={() => setCreating(false)}
         />
       ) : null}
+
+      {importing ? <MaterialImportSheet onClose={() => setImporting(false)} /> : null}
 
       {editing ? (
         <ProductForm
