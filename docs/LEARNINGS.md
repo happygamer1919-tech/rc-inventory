@@ -8655,6 +8655,56 @@ entry from both sides, prove the set rather than eyeballing the diff, and run th
 budget the sync rather than treating it as a surprise; what it costs is one fresh `quality` run on the
 merged head, because the old green belongs to a sha nobody is proposing to merge any more.
 
+### A descriptor's per-field `validate` CAN express "empty means a fixed default", only a per-import parameter breaks it
+**Tag:** data
+**ERROR:** card P3-122's own report, read before writing card P3-123's client import, states as one of
+four reasons the lead import cannot sit on `buildImportPreview`/`ImportFieldDescriptor` from
+`import-shared.ts`: "etapa si sursa au un implicit la camp gol (cold, respectiv fallbackSource), nu o
+validare care refuza golul; descriptorul comun are `required` (refuza golul) sau `validate` (verifica
+ce este scris); nu are lipsa inseamna X". Taken at face value this reads as a hard limitation of the
+shared descriptor, and would have justified writing a second bespoke `prepareRow` for clients the same
+way leads has one, before even checking whether the client card's own stage default triggers it.
+**SOLUTION:** reading `prepareImportRow` in `lib/data/import-shared.ts` line by line shows `validate`
+runs on EVERY non-required field, including one read as the empty string, before `record[fd.field]` is
+set; nothing stops a `validate` closure from returning `{ ok: true, value: "some fixed default" }` when
+`raw === ""`. The real, narrower reason leads cannot use this for `source` is that the lead import's
+empty-source default is `fallbackSource`, a value chosen by the operator for that one run and supplied
+as a request parameter, not a module-level constant; a descriptor array built once has no way to close
+over a value that only exists per call UNLESS it is constructed fresh per call, which the lead import
+does not do. Card P3-123's own stage default is the fixed literal `"client"` (decision E), with no
+per-run parameter involved, so `buildClientImportPreview` in `lib/data/client-import-types.ts` builds
+the field descriptors inside a function and gives `stage` a `validate` that returns `"client"` on an
+empty cell, and the generic preview handles it with no second `prepareRow`. RULE: **before copying a
+sibling import card's "the shared descriptor cannot do X" conclusion onto a new entity, re-derive WHY
+for this entity specifically: a fixed-constant default on an optional field fits the descriptor's
+`validate` function today, and only a default that depends on a value chosen per import run, or a rule
+across two fields (a cross-field constraint, an OR-of-two-fields requirement, a lookup keyed on another
+field's match result), genuinely needs a bespoke prepare function outside the shared module.**
+
+### An acceptance clause that names a field must be checked against the table the card writes to
+**Tag:** process
+**ERROR:** card P3-123 (clients import) carried two acceptance lines, (d) EUR and RON refused with a
+reason naming MDL and (e) all nine units accepted and an invented one refused, copied from the
+materials import card. `public.clients` has no currency column and no unit column (migration 0013 and
+none after it). The executor kept the names verbatim and proved absence under them, so two green
+cases claimed behaviour the screen does not have. Someone reading the case names later would conclude
+the clients import refuses EUR, and it does not.
+**SOLUTION:** ruling q114 renamed the two cases to say what they prove ("fisa clientului nu are
+moneda..." and "...nu are unitate...") and left the real proofs on P3-125 (b), (c) and (f), where the
+fields exist. RULE: **at authoring time, grep the card's target table in `supabase/migrations/` for
+every field an acceptance line names. A test name must describe what the body proves; when a line
+travels from one card to a sibling, re-derive it against the sibling's own table, and never keep a
+name that overstates the behaviour just because the card text says so.**
+
+### A spec path that Playwright does not collect proves nothing
+**Tag:** process
+**ERROR:** a sibling import card named `tests/import-shared.spec.ts` as the home of its named cases.
+The Playwright config only collects `tests/e2e/**`, so a file at that path never runs in `quality`
+and a "green" claim on it is empty (the defect behind the q111 answer).
+**SOLUTION:** the clients cases live in `tests/e2e/clients-import.spec.ts`, which the config collects.
+RULE: **when a card names a test file, confirm the path matches the runner's `testDir` or `testMatch`
+before accepting it, and confirm the named cases appear in the CI log of the card's own run.**
+
 ### Running a formatter this repository does not use rewrites the very files you were told not to touch
 **Tag:** tooling
 **ERROR:** card P3-132 appended five cases to `tests/e2e/tasks.spec.ts`, whose definition of done
