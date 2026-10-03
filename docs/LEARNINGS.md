@@ -8933,3 +8933,36 @@ the filter through a second query could pick a different set of rows than the li
 **SOLUTION:** `listProjectRowsForExport` pages `search_projects` (the list's own function, same arguments); the
 two missing columns are read with `in (ids)` in chunks of 100 for the rows already chosen. RULE: **complete the
 chosen rows, never choose them twice**.
+
+### A filter that lives in the browser is moved to one shared function before the export copies it
+**Tag:** export
+**ERROR:** the Inventar filters (search, category, supplier, stock level, active/inactive) were `useMemo` bodies inside
+`InventoryScreen`. An export action could only reproduce them by copying, and a copy drifts: the file would stop being
+the view the operator sees the first time one side changes.
+**SOLUTION:** the bodies moved unchanged into `lib/data/product-filter.ts`; the screen and `exportMaterials` both call
+them. The filter case drives the real screen controls (search, category, supplier, level, visibility) and compares
+the file to what each setting should show. RULE: **an export calls the screen's own filter function, never a copy of it**.
+
+### The unit column follows the model file's example row, not a guess about which form is stored
+**Tag:** export
+**ERROR:** the card warned that seven of nine units show a label different from the stored token (`pcs` shows `buc`).
+Writing the wrong one of the two makes a file that fails on every row of the re-import.
+**SOLUTION:** `materialImportFields` writes its example unit as `unitLabel("pcs")`, so the export writes
+`unitLabel(unit)`. The unit case seeds all nine, compares each cell to a hand-written label list, re-imports, and asserts
+zero unit errors and the same stored code on every row. RULE: **when two forms are accepted, write the one the model
+file shows, and test every value**.
+
+### A stock figure is not exported, because the import would ignore it
+**Tag:** export
+**ERROR:** stock has no stored counter (it is the sum of batches) and the materials import has no stock field. A quantity
+column in the file would look editable and change nothing, the most convincing wrong number the system could produce.
+**SOLUTION:** the file has exactly the six model columns; the threshold stays because it is a threshold. The stock case
+edits threshold and value on every row, re-imports, and asserts batches, issues and the on-screen stock are unchanged.
+RULE: **leave a computed figure out of an export the import cannot read back**.
+
+### A list read through PostgREST stops at 1000 rows whatever the export limit says
+**Tag:** export
+**ERROR:** `listProducts` has no paging, and `supabase/config.toml` sets `max_rows = 1000`, so the 5000 row limit of the
+export is unreachable for products: the list itself shows at most 1000.
+**SOLUTION:** not fixed in this card (every screen reads `listProducts`); recorded in the report and the board notes
+so a later card can page it. RULE: **check the read's own ceiling before promising an export limit above it**.
