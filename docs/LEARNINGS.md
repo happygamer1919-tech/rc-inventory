@@ -8966,3 +8966,13 @@ RULE: **leave a computed figure out of an export the import cannot read back**.
 export is unreachable for products: the list itself shows at most 1000.
 **SOLUTION:** not fixed in this card (every screen reads `listProducts`); recorded in the report and the board notes
 so a later card can page it. RULE: **check the read's own ceiling before promising an export limit above it**.
+
+### A headless factory run cannot use curl -w to time the live site
+**Tag:** infra
+**ERROR:** goal G76 asked for `curl -s -o /dev/null -w ...` timings of app.rapidconstruct.md. The factory permission list allows exactly one curl form, `curl -s https://app.rapidconstruct.md/api/health`, so every timing form stopped for approval, which a headless run never gets.
+**SOLUTION:** the same five timings (dns, connect, tls, first byte, total) were taken with `node` and `https.get` with `agent: false`, one fresh connection per request, timing the socket lookup, connect and secureConnect events. RULE: **a task that needs a command outside the factory allow-list names the allowed equivalent in the task file**, or the run spends its first minutes finding one.
+
+### x-vercel-id tells you the function region from outside, and ours was the default
+**Tag:** infra
+**ERROR:** on 2026-10-03 the live system ran every server function in iad1 (Washington DC), Vercel's default, and nothing in the repository sets a region: no preferredRegion, no vercel.json. Nobody had looked, and the 2 to 4 second screen changes were measured as 0.2 seconds on a CI copy where server and database share a machine.
+**SOLUTION:** read `x-vercel-id` on any dynamic public route (`/api/health`): `<edge>::<function region>::<id>`. A prerendered page shows only the edge. Card P3-134 pins the region. RULE: **a hosting region is a decision, so it is written down in the repository**, not left at the platform default.
