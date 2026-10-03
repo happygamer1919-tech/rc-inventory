@@ -71,12 +71,18 @@ async function restGet<T>(rest: OwnerRest, path: string): Promise<T> {
 }
 
 async function seedClients(rest: OwnerRest, rows: Record<string, unknown>[]): Promise<string[]> {
-  const created = await rest.api.post("/rest/v1/clients", {
-    headers: { ...rest.headers, Prefer: "return=representation" },
-    data: rows,
-  });
-  expect(created.status(), await created.text()).toBe(201);
-  return ((await created.json()) as { id: string }[]).map((r) => r.id);
+  // UN RAND PE CERERE: PostgREST cere ca toate obiectele unei cereri in lot sa aiba
+  // aceleasi chei (PGRST102), iar leadurile de aici au campuri diferite.
+  const ids: string[] = [];
+  for (const row of rows) {
+    const created = await rest.api.post("/rest/v1/clients", {
+      headers: { ...rest.headers, Prefer: "return=representation" },
+      data: [row],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    ids.push(((await created.json()) as { id: string }[])[0]!.id);
+  }
+  return ids;
 }
 
 async function seedContact(rest: OwnerRest, clientId: string, name: string): Promise<void> {
