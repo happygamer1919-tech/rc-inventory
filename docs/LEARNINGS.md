@@ -9016,3 +9016,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** a paging test that only sets a small page size passes even when the code ignores the server cap.
 **SOLUTION:** `tests/e2e/stock-read-paging.spec.ts` uses a fake client that cuts every answer at 1000 rows and reports the exact total, then asserts 2500 rows in 3 requests. The code under test lives in `lib/data/stock-read.ts`, which takes the client as an argument and has no `server-only`, so the spec imports it without a database. RULE: **put the paging logic in a file that takes the client as a parameter so a spec can feed it a fake**.
+
+### A number with one dot is ambiguous: 250.000 is two hundred fifty thousand in Romanian
+**Tag:** backend
+**ERROR:** `readBudget` and `readNumber` changed the first comma to a dot and accepted one dot, so a budget typed `250.000` was stored as 250.00 MDL, `1.250` as 1.25, and `1.234,56` was refused because the comma became a second dot. No warning was shown.
+**SOLUTION:** card P3-137 reads both through `parseImportNumber` (`lib/data/import-number.ts`): the last of dot and comma is the decimal mark, one dot before exactly 3 digits is a thousands mark, and anything unclear returns null so the row gets the existing field error. RULE: **never parse a user typed number with a single replace; decide the decimal mark from the whole string and refuse what cannot be decided**.
+
+### A repo with no unit runner can still test a pure function in a Playwright spec
+**Tag:** testing
+**ERROR:** the table of cases for the number reader had no home: package.json has no unit test script.
+**SOLUTION:** `tests/e2e/import-number.spec.ts` imports the function through `@/lib/...` and asserts the table without opening a page, so it needs no database. RULE: **a pure function gets its table in a spec that imports it directly**.

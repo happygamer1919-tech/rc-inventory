@@ -54,6 +54,7 @@ import {
   type ImportPreview,
   type RowNumber,
 } from "./import-shared";
+import { parseImportNumber } from "./import-number";
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from "./projects-types";
 import { ALL_STATUSES } from "./projects-list-types";
 
@@ -188,12 +189,11 @@ function readStatus(raw: string): ProjectStatus | null {
   return null;
 }
 
-/** Bugetul ca text pentru scriere, sau null. Virgula zecimala si spatiile din
- *  mijlocul numarului ("12 500,50") se accepta; numeric(14,2) tine 12 cifre
- *  intregi. */
+/** Bugetul ca text pentru scriere, sau null. Se citesc spatiile din mijloc
+ *  ("12 500,50"), virgula zecimala si punctul la mii ("250.000"), vezi
+ *  parseImportNumber; numeric(14,2) tine 12 cifre intregi. */
 function readBudget(raw: string): string | null {
-  const value = raw.trim().replace(/\s+/g, "").replace(",", ".");
-  return /^\d{1,12}(\.\d+)?$/.test(value) ? value : null;
+  return parseImportNumber(raw, 12);
 }
 
 // ---------------------------------------------------------------------------

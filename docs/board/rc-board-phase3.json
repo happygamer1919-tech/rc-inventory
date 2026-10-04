@@ -4504,6 +4504,32 @@
         "at": "2026-10-04T13:36:00Z"
       },
       "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request, goal G78b. Calls and rows per screen counted from the code, table in the report; no production access was used. Default applied: the whole-catalog stock sum still reads every batch and outbound line row (a database side sum needs a view or function, i.e. a migration), so the gain is the category count, active-only scoping and correctness above 1000 rows."
+    },
+    {
+      "id": "P3-137",
+      "title": "Import numbers written the Romanian way: one shared helper, parseImportNumber in lib/data/import-number.ts, replaces the two copies of the budget and number reader in lib/data/project-import-types.ts (readBudget) and lib/data/material-import-types.ts (readNumber). A dot before exactly three digits is a thousands mark (250.000 is 250000), the last of a dot and a comma is the decimal mark, and an unclear number is refused with the existing row error instead of being stored a thousand times too small. No migration, no change to writers, columns or error texts.",
+      "plain": "Când se importă un fișier, un buget sau un preț scris cu punct la mii (250.000) se salvează corect, iar un număr neclar este respins cu un mesaj, nu salvat de o mie de ori mai mic.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-124",
+        "P3-125"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `numar de import: tabelul de cazuri romanesti si cele neclare` and `numar de import: limita de cifre intregi se pastreaza` in tests/e2e/import-number.spec.ts are green in this pull request's own `quality` run. (b) The named case `import proiecte: un fisier valid creeaza fiecare rand` is green with a third row whose budget is 250.000 and a stored budget of 250000. (c) The named case `import materiale: un fisier valid creeaza fiecare rand` is green with a third row whose price is 1.250 and threshold 1.000, stored as 1250 and 1000. (d) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "RULE (one shared helper, each caller keeps its digit limit: 12 for the project budget, 11 for material price and threshold). Spaces, normal and non-breaking, are removed. Both a dot and a comma present: the LAST one is the decimal mark, the other is the thousands mark, thousands groups exactly 3 digits (1.234,56 and 1,234.56 are 1234.56). Commas only: one comma is decimal (12,5), several are thousands in groups of 3 (1,250,000). Dots only: several are thousands in groups of 3 (1.250.000); ONE dot followed by exactly 3 digits is thousands (250.000 is 250000, 1.250 is 1250), one dot followed by 1, 2 or 4 or more digits is decimal (12.5, 99.99). A leading group of 0 is never a thousands group (0.500 stays 0.500). Anything else (letters, a minus sign, wrong groups) is null and gets the field error that exists today. No migration, no change to the writers, the columns or the error texts.",
+      "last_checkpoint": "2026-10-04T14:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-thousands-separator against main: its quality run on the head sha runs tests/e2e/import-number.spec.ts, projects-import.spec.ts and materials-import.spec.ts; report in docs/reports/2026-10-04-executor-import-thousands-separator.md",
+        "at": "2026-10-04T14:30:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. Cause: both readers did replace(\",\", \".\") and then accepted one dot, so 250.000 became 250.00 and 1.234,56 was refused. No unit runner exists in the repo, so the table of cases runs as a Playwright spec that needs no browser and no database."
     }
   ]
 }
