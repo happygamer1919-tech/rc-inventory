@@ -27,6 +27,8 @@ import { createServerClient } from "@supabase/ssr";
 
 import { FORBIDDEN_PATH, LOGIN_PATH, NO_PROFILE_PATH, OWNER_ONLY_PREFIXES } from "@/lib/routes";
 import { COOKIE_OPTIONS } from "@/lib/supabase/cookies";
+import { SESSION_HANDOFF_HEADER, signSessionHandoff } from "@/lib/supabase/session-handoff";
+import type { AppRole } from "@/lib/supabase/types";
 import { applySecurityHeaders } from "@/lib/security-headers";
 
 /** Lista permisa. Orice altceva cere sesiune. */
@@ -157,7 +159,9 @@ export async function proxy(request: NextRequest) {
   // cererea.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, active")
+    // P3-135. email si full_name se citesc in ACELASI apel, ca randarea sa
+    // primeasca utilizatorul intreg prin antetul semnat de mai jos.
+    .select("role, active, email, full_name")
     .eq("id", user.id)
     .single();
 
@@ -224,6 +228,18 @@ export async function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set("x-rc-role", role);
   headers.set("x-rc-user-id", user.id);
+
+  // P3-135. Utilizatorul verificat mai sus, semnat, pentru getSessionUser() din
+  // lib/supabase/server.ts. Orice valoare venita de la client sub acelasi nume
+  // se sterge intai; fara cheie nu se pune nimic si randarea verifica singura.
+  headers.delete(SESSION_HANDOFF_HEADER);
+  const handoff = await signSessionHandoff({
+    id: user.id,
+    email: profile.email ?? user.email ?? null,
+    role: role as AppRole,
+    fullName: profile.full_name,
+  });
+  if (handoff) headers.set(SESSION_HANDOFF_HEADER, handoff);
 
   const passthrough = NextResponse.next({ request: { headers } });
   for (const cookie of response.cookies.getAll()) passthrough.cookies.set(cookie);
