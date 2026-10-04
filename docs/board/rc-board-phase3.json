@@ -4583,6 +4583,29 @@
         "at": "2026-10-04T15:43:00Z"
       },
       "notes": "EXECUTOR: code complete, all checks green, board edited, ready for merge. Depends on P3-133 which adds the tasks section. When tasks exist as a table, the calls card's empty state should be specific to calls."
+    },
+    {
+      "id": "P3-146",
+      "title": "Walk-in quantities display decimals, not rounded: 2,5 m² shows as 2,5, not 3",
+      "plain": "Quantities of material with decimal values now show correctly: 2,5 m² displays as 2,5 m², not rounded to 3 m². Fractional amounts of materials in square meters, linear meters, and other decimal units display the exact quantities stored in the database.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/outbound.spec.ts -g 'cantitățile cu zecimale'` exits 0. The test creates a product with m² unit and 2.5 stock, verifies the stock hint displays '2,5 m²' not '3 m²', creates an outbound issue with 2.5 quantity, and verifies it displays as '2,5 m²' in the issue lines, not rounded to '3 m²'.",
+      "defaults": "Four call sites display quantity or stock values: OutboundPanel.tsx quantity line, OutboundDirectClientForm.tsx and OutboundProjectForm.tsx product hints and error messages. Each formats using formatQty(value, unit) which uses NF2 (2 decimals) instead of formatNumber which uses NF (0 decimals).",
+      "last_checkpoint": "2026-10-04T15:50:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Branch card/walkin-quantity-decimals: fixed four call sites in OutboundPanel.tsx, OutboundDirectClientForm.tsx, OutboundProjectForm.tsx to use formatQty instead of formatNumber for quantities and stock. Added test case in tests/e2e/outbound.spec.ts. Quality gate passing, acceptance test green.",
+        "at": "2026-10-04T15:50:00Z"
+      },
+      "notes": "QUICK FIX: replaced formatNumber (0 decimals) with formatQty (2 decimals) at four lines where quantities or stock values are displayed together with unit labels. Affected screens: OutboundPanel.tsx line 301 (sale slip quantities), OutboundDirectClientForm.tsx lines 149, 184, 397 (stock hints and error messages), OutboundProjectForm.tsx lines 146, 171, 412 (project mode equivalents). Test added to verify 2.5 unit value displays as '2,5' not '3' in m² unit."
     }
   ]
 }
