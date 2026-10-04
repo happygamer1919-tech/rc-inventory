@@ -8996,3 +8996,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** the six unauthenticated screens read 133 to 163 ms before and after the move to dub1, which could look like the move did nothing.
 **SOLUTION:** they return a 307 from the Frankfurt edge and never run a function. Only a dynamic route such as `/api/health` shows the region gain. RULE: **pick a route that runs a function when proving a function region**.
+
+### A request header from the proxy is only trustworthy when it is signed
+**Tag:** auth
+**ERROR:** the obvious way to stop the layout repeating the proxy's session check is to forward the role in a request header. The proxy already set `x-rc-role` unsigned. Any client can send that header, and a path the matcher excludes (a URL ending in `.png`) reaches the render without the proxy, so trusting it would let anyone claim owner.
+**SOLUTION:** card P3-135 signs the handed-over user with HMAC SHA-256 keyed from a server secret, with a 60 second expiry, and the render falls back to the full `getUser()` plus `profiles` check on any header that fails verification. RULE: **never trust a forwarded identity header without a signature the client cannot produce**.
+
+### React cache() deduplicates only inside a render
+**Tag:** backend
+**ERROR:** risk, not a failure: wrapping `getSessionUser()` in `cache()` could look like it also caches across server actions, where a stale role would matter.
+**SOLUTION:** outside a component render React's `cache()` stores nothing and calls through. Layout and screen share one read; actions still read fresh (or use the proxy's signed handoff for that same request). RULE: **use cache() for per-render dedupe only, never as a cross-request store**.
