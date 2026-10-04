@@ -4479,6 +4479,31 @@
         "at": "2026-10-04T12:48:00Z"
       },
       "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request, goal G78a. SHIPPED in pull request 404. Session calls per logged-in screen: 4 shared (6 on the eleven screens that call getSessionUser() themselves) down to 2, the proxy's own; counted from the code, table in the report. Default applied: the proxy read COULD be shared, by a signed header, so it was; the unsigned fallback was rejected as a role escalation risk."
+    },
+    {
+      "id": "P3-136",
+      "title": "Speed cause 3, BOUNDED LIST READS: the product, stock and outbound lists stop loading whole tables in one unpaged request. (1) listCategories counts products with one relation aggregate (products(count)) instead of reading every product row. (2) listActiveProducts asks the database for active products only and reads batches and outbound lines only for those product ids when they fit one request (ID_LIST_BATCH_SIZE). (3) Every read of products, batches, outbound_lines and outbound_issues in lib/data/products.ts and lib/data/outbound.ts pages with readAllPages until the exact total is reached, so a table over the 1000 row server cap is read completely instead of silently cut at 1000 (a stock sum computed from the first 1000 batch rows was wrong). Tables under the cap still cost one request each, as before. No migration, no index.",
+      "plain": "Product and stock lists ask the database for only what they need and keep reading until they have everything, so they open faster and stay correct as the warehouse grows. Exports still include everything.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-135"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The P3-117 perf step (Baseline p75 of the section transitions, npm run perf:sections) is green in this pull request's quality run on its head sha, and docs/reports/2026-10-04-executor-g78b-bounded-list-reads.md carries a before and after table of database calls and rows read per screen. (b) tests/e2e/stock-read-paging.spec.ts is green: a fake client that caps every answer at 1000 rows returns all 2500 rows through readQuantityRows in 3 requests, and a table under the cap costs 1 request. (c) Every existing spec under tests/e2e passes, and git diff --name-only origin/main...HEAD lists no existing file under tests/e2e/ (the one new spec is an addition).",
+      "defaults": "SOURCE: owner request, Max, 2026-10-04, \"queue the two follow-up fixes\", goal G78b; named in P3-134's defaults. PAGE SIZE 1000 for stock, catalog and outbound reads: it equals the server cap, so a table that fits costs the same single request as before, and only a larger table pays more requests (the old behaviour there was a wrong, silently cut answer). Correctness never depends on the cap value: readAllPages continues after the rows that arrived. NO UI PAGING in this card: the inventory screen filters in the browser on the full catalog, and stock level (low, out) cannot be filtered in the database without an aggregate view or function, which is a migration. That would stop at an OWNER question; the report names it as the next candidate. RULES: no migration, no index; do not touch the proxy or session code, the lead= PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**; edit no existing e2e spec; no em or en dashes.",
+      "last_checkpoint": "2026-10-04T13:36:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-136 against main: its quality run on the head sha runs every spec under tests/e2e (no existing spec edited) and the P3-117 perf step; the calls and rows per screen table is in docs/reports/2026-10-04-executor-g78b-bounded-list-reads.md",
+        "at": "2026-10-04T13:36:00Z"
+      },
+      "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request, goal G78b. Calls and rows per screen counted from the code, table in the report; no production access was used. Default applied: the whole-catalog stock sum still reads every batch and outbound line row (a database side sum needs a view or function, i.e. a migration), so the gain is the category count, active-only scoping and correctness above 1000 rows."
     }
   ]
 }

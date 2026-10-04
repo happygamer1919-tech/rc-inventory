@@ -13,6 +13,8 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
+import { readQuantityRows, type StockClient } from "./stock-read";
 import {
   hasOutboundIssueMode,
   hasPhase3Schema,
@@ -103,27 +105,45 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** P3-136. Cate randuri se cer intr-o pagina la citirile de stoc si de catalog.
+ *  Egal cu limita implicita a PostgREST (1000), ca un tabel sub limita sa se
+ *  citeasca intr-o singura cerere, ca pana acum. Peste limita, citirea continua pe
+ *  pagini in loc sa se opreasca tacut la 1000. */
+export const STOCK_PAGE_SIZE = 1000;
+
 /**
  * Stocul curent per produs: suma loturilor minus suma liniilor de iesire.
  *
  * Iesirile scad stocul in momentul emiterii, nu al expedierii, pentru ca
  * materialul a plecat din depozit fizic chiar daca statusul comenzii inca este
  * "in asteptare expediere". P2-05 detine regula si o va confirma prin testul lui.
+ *
+ * P3-136. `productIds` restrange citirea la produsele cerute, cu `.in`, cand
+ * lista incape intr-o singura cerere (ID_LIST_BATCH_SIZE); peste ea, sau fara ea,
+ * se citesc toate randurile. Citirea merge pe pagini pana la capat: inainte, un
+ * tabel cu peste 1000 de randuri dadea un stoc calculat pe primele 1000.
  */
-async function stockByProduct(): Promise<Map<string, number>> {
-  const supabase = await createClient();
+export async function stockByProduct(
+  productIds?: readonly string[],
+  pageSize: number = STOCK_PAGE_SIZE,
+): Promise<Map<string, number>> {
   const stock = new Map<string, number>();
+  if (productIds && productIds.length === 0) return stock;
 
-  const { data: batches } = await supabase.from("batches").select("product_id, quantity");
-  for (const row of batches ?? []) {
-    const id = row.product_id as string;
-    stock.set(id, (stock.get(id) ?? 0) + toNumber(row.quantity));
+  const supabase = await createClient();
+  const scope = productIds && productIds.length <= ID_LIST_BATCH_SIZE ? [...productIds] : null;
+
+  const client = supabase as unknown as StockClient;
+  const [batches, issued] = await Promise.all([
+    readQuantityRows(client, "batches", "loturile", scope, pageSize),
+    readQuantityRows(client, "outbound_lines", "liniile de iesire", scope, pageSize),
+  ]);
+
+  for (const row of batches) {
+    stock.set(row.product_id, (stock.get(row.product_id) ?? 0) + toNumber(row.quantity));
   }
-
-  const { data: issued } = await supabase.from("outbound_lines").select("product_id, quantity");
-  for (const row of issued ?? []) {
-    const id = row.product_id as string;
-    stock.set(id, (stock.get(id) ?? 0) - toNumber(row.quantity));
+  for (const row of issued) {
+    stock.set(row.product_id, (stock.get(row.product_id) ?? 0) - toNumber(row.quantity));
   }
 
   return stock;
@@ -200,7 +220,8 @@ function toSheetChoice(row: ProductRow): SheetChoice | null {
  * produs dezactivat trebuie sa ramana citibil in istoric. Alegerile din
  * formulare folosesc listActiveProducts, nu aceasta.
  */
-export async function listProducts(): Promise<CatalogProduct[]> {
+export async function listProducts(options: { activeOnly?: boolean } = {}): Promise<CatalogProduct[]> {
+  const activeOnly = options.activeOnly === true;
   const supabase = await createClient();
 
   // P3-05b: ONE COLUMN LIST. The pre-phase-3 fallback named supplier_name, which
@@ -224,13 +245,24 @@ export async function listProducts(): Promise<CatalogProduct[]> {
   // P3-69. SURSA PRODUSULUI, CU ACEEASI GRIJA: numai cand 0049 este aplicata.
   const columns = (await hasProductSourceNote(supabase)) ? `${sheet}, source_note` : sheet;
 
-  const [{ data, error }, stock] = await Promise.all([
-    supabase.from("products").select(columns).order("sku", { ascending: true }),
-    stockByProduct(),
-  ]);
+  // P3-136. CATALOGUL SE CITESTE PE PAGINI, in ordinea cunoscuta (sku, apoi id ca
+  // departajare stabila): peste 1000 de produse, lista se oprea tacut la 1000.
+  const rows = await readAllPages<ProductRow>(
+    "catalogul",
+    (from, to) => {
+      const query = supabase.from("products").select(columns, { count: "exact" });
+      return (activeOnly ? query.eq("active", true) : query)
+        .order("sku", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<CountedPage<ProductRow>>;
+    },
+    STOCK_PAGE_SIZE,
+  );
 
-  if (error) throw new Error(`Nu s-a putut citi catalogul: ${error.message}`);
-  return ((data ?? []) as unknown as ProductRow[]).map((row) => toCatalogProduct(row, stock));
+  // Alegerile din formulare cer doar produsele active, deci si stocul se citeste
+  // numai pentru ele (cand lista incape intr-o cerere), nu pentru tot istoricul.
+  const stock = await stockByProduct(activeOnly ? rows.map((r) => r.id) : undefined);
+  return rows.map((row) => toCatalogProduct(row, stock));
 }
 
 /**
@@ -241,37 +273,34 @@ export async function listProducts(): Promise<CatalogProduct[]> {
  * filtru uitat intr-un formular readuce in lista un produs scos din uz.
  */
 export async function listActiveProducts(): Promise<CatalogProduct[]> {
-  const all = await listProducts();
-  return all.filter((p) => p.active);
+  return listProducts({ activeOnly: true });
 }
 
 /** Categoriile, cu numarul de produse care le folosesc. */
 export async function listCategories(): Promise<Category[]> {
   const supabase = await createClient();
-  const [{ data, error }, { data: products }] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("id, name, sort_order, active")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-    supabase.from("products").select("category_id"),
-  ]);
+  // P3-136. NUMARUL DE PRODUSE VINE DE LA BAZA, ca agregat al relatiei
+  // (`products(count)`), nu din citirea tuturor produselor ca sa fie numarate aici.
+  // O cerere, zero randuri de produs aduse, si nu mai exista taietura la 1000.
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, sort_order, active, products(count)")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
   if (error) throw new Error(`Nu s-au putut citi categoriile: ${error.message}`);
 
-  const counts = new Map<string, number>();
-  for (const row of products ?? []) {
-    const id = row.category_id as string;
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    sortOrder: (row.sort_order as number) ?? 0,
-    active: (row.active as boolean) ?? true,
-    productCount: counts.get(row.id as string) ?? 0,
-  }));
+  return (data ?? []).map((row) => {
+    const counted = row.products as unknown as { count: number }[] | { count: number } | null;
+    const productCount = Array.isArray(counted) ? (counted[0]?.count ?? 0) : (counted?.count ?? 0);
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      sortOrder: (row.sort_order as number) ?? 0,
+      active: (row.active as boolean) ?? true,
+      productCount,
+    };
+  });
 }
 
 /** Unitatile in uz, citite din tabela. Enumul le fixeaza, tabela le ordoneaza. */
