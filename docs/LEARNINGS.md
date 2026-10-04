@@ -9006,3 +9006,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** risk, not a failure: wrapping `getSessionUser()` in `cache()` could look like it also caches across server actions, where a stale role would matter.
 **SOLUTION:** outside a component render React's `cache()` stores nothing and calls through. Layout and screen share one read; actions still read fresh (or use the proxy's signed handoff for that same request). RULE: **use cache() for per-render dedupe only, never as a cross-request store**.
+
+### The database cuts any answer at 1000 rows and does not say so
+**Tag:** backend
+**ERROR:** `stockByProduct`, `listProducts`, `listCategories` and `listOutboundIssues` each read a whole table in one request. Past 1000 rows PostgREST returns the first 1000 and no error, so the stock sums and category counts would have been computed on a cut table.
+**SOLUTION:** card P3-136 reads these through the existing `readAllPages` (exact count, continue after the rows that arrived) with page size 1000, so a table that fits costs one request as before. Category counts come from a relation aggregate (`products(count)`), which sends no product rows. RULE: **a list or total over a table that can grow is read with readAllPages or aggregated in the database, never with a bare select**.
+
+### A paging test needs a fake that caps like the server, not a small page size
+**Tag:** testing
+**ERROR:** a paging test that only sets a small page size passes even when the code ignores the server cap.
+**SOLUTION:** `tests/e2e/stock-read-paging.spec.ts` uses a fake client that cuts every answer at 1000 rows and reports the exact total, then asserts 2500 rows in 3 requests. The code under test lives in `lib/data/stock-read.ts`, which takes the client as an argument and has no `server-only`, so the spec imports it without a database. RULE: **put the paging logic in a file that takes the client as a parameter so a spec can feed it a fake**.

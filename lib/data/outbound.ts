@@ -6,6 +6,7 @@ import "server-only";
 // care pleaca acolo. Regula este a fazei 1 si nu se schimba.
 
 import { createClient } from "@/lib/supabase/server";
+import { readAllPages, type CountedPage } from "./id-list";
 import { hasOutboundIssueMode } from "./schema-capability";
 import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
@@ -126,6 +127,10 @@ export async function outboundModeVisible(): Promise<boolean> {
  *  toate ar trebui sa isi slabeasca tipul pana la punctul in care nu mai verifica nimic. */
 const LINES_ORDER = { referencedTable: "outbound_lines", ascending: true } as const;
 
+/** P3-136. Cate iesiri se cer intr-o pagina; PostgREST taie la 1000, deci o
+ *  singura cerere ca pana acum cat tabelul incape, apoi pagini. */
+const ISSUE_PAGE_SIZE = 1000;
+
 type LineRow = {
   id: string;
   product_id: string;
@@ -240,15 +245,23 @@ function toIssue(row: IssueRow, history: StatusEvent[] = []): OutboundIssue {
 
 export async function listOutboundIssues(): Promise<OutboundIssue[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("outbound_issues")
-    .select(await issueSelect(supabase))
-    .order("created_at", { ascending: false })
-    .order("created_at", LINES_ORDER)
-    .order("id", LINES_ORDER);
-
-  if (error) throw new Error(`Nu s-au putut citi ieșirile: ${error.message}`);
-  return ((data ?? []) as unknown as IssueRow[]).map((row) => toIssue(row));
+  const select = await issueSelect(supabase);
+  // P3-136. PE PAGINI, cu id ca departajare stabila: peste 1000 de iesiri, lista se
+  // oprea tacut la 1000, iar paginile unei ordini fara departajare nu se leaga.
+  const rows = await readAllPages<IssueRow>(
+    "ieșirile",
+    (from, to) =>
+      supabase
+        .from("outbound_issues")
+        .select(select, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .order("created_at", LINES_ORDER)
+        .order("id", LINES_ORDER)
+        .range(from, to) as unknown as PromiseLike<CountedPage<IssueRow>>,
+    ISSUE_PAGE_SIZE,
+  );
+  return rows.map((row) => toIssue(row));
 }
 
 export async function getOutboundIssue(id: string): Promise<OutboundIssue | null> {
