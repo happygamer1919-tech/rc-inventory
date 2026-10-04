@@ -29,7 +29,13 @@ async function ensureTestCategory(page: Page) {
 }
 
 /** Creeaza un produs cu stoc receptionat. Intoarce SKU-ul si denumirea. */
-async function productWithStock(page: Page, tag: string, quantity: string, name?: string) {
+async function productWithStock(
+  page: Page,
+  tag: string,
+  quantity: string,
+  name?: string,
+  unit: string = "pcs",
+) {
   const sku = `TEST-OUT-${tag}-${RUN}`;
   // Numele trebuie sa fie unic pe rulare, nu doar SKU-ul. Comboboxul cauta dupa
   // DENUMIRE, iar datele de test nu se sterg niciodata: un nume repetat face ca
@@ -42,7 +48,7 @@ async function productWithStock(page: Page, tag: string, quantity: string, name?
   await page.getByTestId("field-sku").fill(sku);
   await page.getByTestId("field-name").fill(productName);
   await page.getByTestId("field-category").selectOption({ label: TEST_CATEGORY });
-  await page.getByTestId("field-unit").selectOption("pcs");
+  await page.getByTestId("field-unit").selectOption(unit);
   await page.getByTestId("field-unit-value").fill("10");
   await page.getByTestId("form-submit").click();
   await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
@@ -65,7 +71,7 @@ async function productWithStock(page: Page, tag: string, quantity: string, name?
   await page.getByTestId("receive-order").click();
   await expect(page.getByTestId("receive-notice")).toContainText("S-au creat", { timeout: 25_000 });
 
-  return { sku, productName };
+  return { sku, productName, unit };
 }
 
 /** Stocul afisat pentru un SKU. "Epuizat" inseamna zero. */
@@ -280,5 +286,38 @@ test.describe("Ieșiri materiale", () => {
     await page.goto("/comenzi");
     await page.locator(`[data-testid="outbound-item"][data-reference="${reference}"]`).click();
     await expect(page.getByTestId("outbound-lines")).toContainText("fără preț");
+  });
+
+  test("cantitățile cu zecimale se arată corect, nu rotunjite", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { productName, unit } = await productWithStock(page, "decimals", "2.5", undefined, "m2");
+
+    // Stocul trebuie sa se afiseze cu 2 zecimale in indiciu
+    await page.goto("/iesiri");
+    const input = page.getByTestId("issue-product-0").locator("input");
+    await input.click();
+    await input.fill(productName);
+    const list = page.locator("[data-rc-combo-list]");
+    await expect(list).toBeVisible({ timeout: 10_000 });
+    // Indiciul trebuie sa arate "stoc 2,5 m²" nu "stoc 3 m²"
+    await expect(list).toContainText("2,5 m²");
+    await list.locator("li").first().click();
+
+    // Indiciul sub campul de cantitate trebuie sa arate din nou "În stoc: 2,5 m²"
+    await expect(page.getByTestId("issue-stock-hint-0")).toContainText("În stoc: 2,5 m²");
+
+    // Creaza o iesire cu o cantitate zecimala
+    await comboPick(page, "field-project", TEST_PROJECT);
+    await page.getByTestId("issue-quantity-0").fill("2.5");
+    await page.getByTestId("issue-submit").click();
+
+    await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+    const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+    // Verifica in lista de comenzi: cantitatea trebuie sa arate "2,5 m²" nu "3 m²"
+    await page.goto("/comenzi");
+    await page.locator(`[data-testid="outbound-item"][data-reference="${reference}"]`).click();
+    await expect(page.getByTestId("outbound-lines")).toContainText("2,5 m²");
   });
 });
