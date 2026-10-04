@@ -9026,3 +9026,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** the table of cases for the number reader had no home: package.json has no unit test script.
 **SOLUTION:** `tests/e2e/import-number.spec.ts` imports the function through `@/lib/...` and asserts the table without opening a page, so it needs no database. RULE: **a pure function gets its table in a spec that imports it directly**.
+
+### Widening a shared write action widens every screen that calls it
+**Tag:** auth
+**ERROR:** the obvious fix for the walk-in buyer (P3-147) was to let `createClientRecord` accept the account manager. That action is also the path of the Clienți screen, the lead form and both imports, which call it and rely on its owner check, so the owner's narrow yes ("from a walk-in sale") would have become "anywhere, with every field".
+**SOLUTION:** a second exported action, `createWalkInClient`, checks the two roles and passes only name, type, IDNO and phone to the same non-exported insert. One insert, one validation, two role gates. RULE: **when a decision widens one use of a shared action, add a narrow entry point over the shared body instead of widening the gate**.
+
+### Two open pull requests can claim the same migration number, and the applier refuses a gap
+**Tag:** backend
+**ERROR:** P3-147 and P3-138 (#407) were both open with a migration numbered 0069. Taking 0070 to dodge it fails CI while #407 is unmerged, because the applier asserts the ledger runs 1 to N with no gap (`ledger-no-gaps-ends-at-highest`).
+**SOLUTION:** keep the next number main allows, and say in the PR body and the owner question that whichever merges second is renumbered first. RULE: **before numbering a migration, list the open PRs' migration files; a clash is resolved at merge time by the second PR, never by leaving a gap**.
