@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
-import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
+import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { OUTBOUND_MODE_LABEL, OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
 import type { OutboundIssue } from "@/lib/data/outbound-types";
@@ -298,7 +298,7 @@ export function OutboundPanel({
                   </Td>
                   <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold whitespace-nowrap">
-                      {formatNumber(l.quantity)} {unitLabel(l.unit)}
+                      {formatQty(l.quantity, l.unit)}
                     </span>
                   </Td>
                   <Td align="right" data-label="Preț vânzare" className={PHONE_CELL}>
