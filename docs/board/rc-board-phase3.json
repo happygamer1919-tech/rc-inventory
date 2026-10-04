@@ -4504,6 +4504,31 @@
         "at": "2026-10-04T13:36:00Z"
       },
       "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request, goal G78b. Calls and rows per screen counted from the code, table in the report; no production access was used. Default applied: the whole-catalog stock sum still reads every batch and outbound line row (a database side sum needs a view or function, i.e. a migration), so the gain is the category count, active-only scoping and correctness above 1000 rows."
+    },
+    {
+      "id": "P3-138",
+      "title": "Deactivated account sealed out of outbound lines. Migration 0069 drops and recreates the outbound_lines select, insert and update policies of 0001 (using true, with check true) on the predicate 0067 gave outbound_issues: public.current_app_role() is not null, which filters profiles.active. outbound_lines_delete stays on public.is_owner(). public.outbound_issue_take_stock is not replaced: it is SECURITY INVOKER, so its lines insert now runs into the tightened insert policy and a deactivated caller is refused with the whole call rolled back. No row, table, column, function or grant changes.",
+      "plain": "A switched-off employee can no longer see or change sale lines or take stock, even before their login runs out. Active employees notice no change.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-118"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) supabase/migrations/0069_outbound_lines_active_account.sql exists, and scripts/poc-free/local-db/assertions/0069_outbound_lines_active_account.sql passes in the applier run: outbound_lines has exactly four policies, select, insert and update test current_app_role() is not null, delete stays on is_owner(), outbound_issues keeps its three 0067 policies with no delete policy, and outbound_issue_take_stock(uuid, jsonb) is still SECURITY INVOKER. (b) tests/e2e/outbound-lines-deactivated.spec.ts is green in this pull request quality run on its head sha: with a witness while active, a deactivated account gets no rows from a direct outbound_lines select, cannot insert or update a line, and is refused by rpc/outbound_issue_take_stock with no new line written; an active operator still creates, reads and takes stock. (c) tests/e2e/outbound-direct-client.spec.ts and every other existing spec stay green, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check of 2026-10-04, factory task 130. PREDICATE: exactly the one 0067 uses on outbound_issues, public.current_app_role() is not null; no new helper and no new column. NO ISSUE SCOPE on the line policies: 0067 scopes the header by role only, so a join to the issue would add nothing. TAKE STOCK UNCHANGED: an explicit early refusal inside the function was weighed and not written, because assertions/0067 calls the two outbound doors as superuser with no JWT, where current_app_role() is null; the invoker function is refused by the insert policy instead, proven with a real token. DELETE POLICY unchanged, is_owner() already filters active. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-138 against main: its quality run on the head sha runs the 0069 assertion in the applier proof and tests/e2e/outbound-lines-deactivated.spec.ts; report in docs/reports/2026-10-04-executor-outbound-lines-deactivated.md",
+        "at": "2026-10-04T15:00:00Z"
+      },
+      "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request. The 0067 comment \"A line is reachable only through its issue\" was not true: PostgREST exposes outbound_lines directly. The other readers of outbound_lines (client_material_summary, project_material_summary, project_material_cost, product_available_stock) are all SECURITY INVOKER, so the tightened select policy covers them too and no function needed replacing."
     }
   ]
 }
