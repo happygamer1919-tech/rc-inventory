@@ -9027,6 +9027,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the table of cases for the number reader had no home: package.json has no unit test script.
 **SOLUTION:** `tests/e2e/import-number.spec.ts` imports the function through `@/lib/...` and asserts the table without opening a page, so it needs no database. RULE: **a pure function gets its table in a spec that imports it directly**.
 
+### file.text() reads every upload as UTF-8, so an Excel CSV loses its letters
+**Tag:** backend
+**ERROR:** the four import screens called `file.text()`. Excel's plain CSV save writes Windows-1250 on a Romanian Windows and Windows-1251 on a Russian one, so every ă â î ș ț and every Cyrillic letter became U+FFFD and was written to the database. Nothing checked for it.
+**SOLUTION:** card P3-145 adds `decodeCsvFile` (`lib/data/import-shared.ts`): strict UTF-8 first, then Windows-1250 or Windows-1251, and a Romanian error when U+FFFD is still there. The row preparation also refuses any cell holding U+FFFD, so no client can write them. RULE: **read an upload as bytes and decode it on purpose; never trust file.text() for a file a person saved from Excel**.
+
+### Windows-1250 has no comma-below ș and ț
+**Tag:** backend
+**ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
+**SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
+
 ### Widening a shared write action widens every screen that calls it
 **Tag:** auth
 **ERROR:** the obvious fix for the walk-in buyer (P3-147) was to let `createClientRecord` accept the account manager. That action is also the path of the Clienți screen, the lead form and both imports, which call it and rely on its owner check, so the owner's narrow yes ("from a walk-in sale") would have become "anywhere, with every field".

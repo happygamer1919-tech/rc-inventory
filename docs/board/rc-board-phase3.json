@@ -4532,6 +4532,34 @@
       "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. Cause: both readers did replace(\",\", \".\") and then accepted one dot, so 250.000 became 250.00 and 1.234,56 was refused. No unit runner exists in the repo, so the table of cases runs as a Playwright spec that needs no browser and no database."
     },
     {
+      "id": "P3-145",
+      "title": "Import files saved from Excel the default way: one shared helper, decodeCsvFile in lib/data/import-shared.ts, reads UTF-8 first and falls back to Windows-1250 or Windows-1251, and the four import screens call it instead of file.text(). A file that still holds broken letters is refused with a Romanian message, and the import row preparation refuses any field holding U+FFFD so no broken letters reach the database from any client. No migration.",
+      "plain": "Un fișier CSV salvat din Excel în mod obișnuit se importă cu literele românești și rusești corecte; un fișier cu litere stricate este respins cu un mesaj clar.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123",
+        "P3-124",
+        "P3-125"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `codare csv: UTF-8 cu si fara BOM se citeste neschimbat`, `codare csv: windows-1250 cu Ștefan Țurcanu, Bălți se citeste corect`, `codare csv: windows-1251 cu Иван Петров se citeste corect` and `codare csv: un fisier cu litere deja stricate este refuzat cu mesajul romanesc` in tests/e2e/import-encoding.spec.ts are green in this pull request's own `quality` run. (b) The named case `import server: un camp cu U+FFFD refuza randul, fara sa scrie nimic` in the same file is green. (c) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of components/ for `file.text()` finds nothing.",
+      "defaults": "RULE (decodeCsvFile). Strip a UTF-8 BOM, decode as strict UTF-8; success means UTF-8. If that throws, decode as windows-1250 and windows-1251: pick 1251 when its text has Cyrillic letters (U+0400 to U+04FF) and the 1250 text holds a non-ASCII letter that is not Romanian (mojibake); otherwise pick 1250 and turn the cedilla letters Excel writes into the comma-below letters. If the chosen text still holds U+FFFD, return the Romanian error telling the user to save as CSV UTF-8. Server side, prepareImportRow and the lead prepareRow refuse a row with U+FFFD in any cell, with a row error. No migration, no change to the number rules of P3-137, the duplicate checks or the writers.",
+      "last_checkpoint": "2026-10-04T15:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-csv-encoding against main: its quality run on the head sha runs tests/e2e/import-encoding.spec.ts; report in docs/reports/2026-10-04-executor-import-csv-encoding.md",
+        "at": "2026-10-04T15:30:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request, from the 2026-10-04 bug check. Cause: the four import screens read the upload with file.text(), which always decodes as UTF-8, so a Windows-1250 or Windows-1251 CSV turned every Romanian and Cyrillic letter into U+FFFD and wrote it to the database. The specs are pure Playwright cases that need no browser and no database; locally the decode logic was checked directly with node because the Playwright config starts a web server that needs Supabase variables."
+    },
+    {
       "id": "P3-142",
       "title": "Azi empty state with tasks: when there are no calls but there are tasks due today, the calls card says 'Niciun apel de făcut azi.' (no calls to make today) and the tasks section shows below. 'Nimic de făcut azi.' appears only when there are no calls AND no tasks due today.",
       "plain": "Ecranul Azi nu mai spune că nu este nimic de făcut atunci când există sarcini cu termen azi.",
@@ -4555,6 +4583,29 @@
         "at": "2026-10-04T15:43:00Z"
       },
       "notes": "EXECUTOR: code complete, all checks green, board edited, ready for merge. Depends on P3-133 which adds the tasks section. When tasks exist as a table, the calls card's empty state should be specific to calls."
+    },
+    {
+      "id": "P3-146",
+      "title": "Walk-in quantities display decimals, not rounded: 2,5 m² shows as 2,5, not 3",
+      "plain": "Quantities of material with decimal values now show correctly: 2,5 m² displays as 2,5 m², not rounded to 3 m². Fractional amounts of materials in square meters, linear meters, and other decimal units display the exact quantities stored in the database.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/outbound.spec.ts -g 'cantitățile cu zecimale'` exits 0. The test creates a product with m² unit and 2.5 stock, verifies the stock hint displays '2,5 m²' not '3 m²', creates an outbound issue with 2.5 quantity, and verifies it displays as '2,5 m²' in the issue lines, not rounded to '3 m²'.",
+      "defaults": "Four call sites display quantity or stock values: OutboundPanel.tsx quantity line, OutboundDirectClientForm.tsx and OutboundProjectForm.tsx product hints and error messages. Each formats using formatQty(value, unit) which uses NF2 (2 decimals) instead of formatNumber which uses NF (0 decimals).",
+      "last_checkpoint": "2026-10-04T15:50:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Branch card/walkin-quantity-decimals: fixed four call sites in OutboundPanel.tsx, OutboundDirectClientForm.tsx, OutboundProjectForm.tsx to use formatQty instead of formatNumber for quantities and stock. Added test case in tests/e2e/outbound.spec.ts. Quality gate passing, acceptance test green.",
+        "at": "2026-10-04T15:50:00Z"
+      },
+      "notes": "QUICK FIX: replaced formatNumber (0 decimals) with formatQty (2 decimals) at four lines where quantities or stock values are displayed together with unit labels. Affected screens: OutboundPanel.tsx line 301 (sale slip quantities), OutboundDirectClientForm.tsx lines 149, 184, 397 (stock hints and error messages), OutboundProjectForm.tsx lines 146, 171, 412 (project mode equivalents). Test added to verify 2.5 unit value displays as '2,5' not '3' in m² unit."
     },
     {
       "id": "P3-147",

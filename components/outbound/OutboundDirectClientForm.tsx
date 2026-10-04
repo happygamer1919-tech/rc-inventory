@@ -55,7 +55,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
@@ -147,7 +147,7 @@ export function OutboundDirectClientForm({
   const productOptions: ComboOption[] = products.map((p) => ({
     value: p.id,
     label: p.name,
-    hint: `${p.sku} · stoc ${formatNumber(p.stock)} ${unitLabel(p.unit)}`,
+    hint: `${p.sku} · ${formatQty(p.stock, p.unit)}`,
   }));
 
   const setLine = (key: string, patch: Partial<Line>) =>
@@ -182,7 +182,7 @@ export function OutboundDirectClientForm({
     const p = byId.get(productId);
     if (p && wanted > p.stock) {
       problems.push(
-        `Stoc insuficient pentru ${p.name}: disponibil ${formatNumber(p.stock)} ${unitLabel(p.unit)}.`,
+        `Stoc insuficient pentru ${p.name}: disponibil ${formatQty(p.stock, p.unit)}.`,
       );
     }
   }
@@ -395,7 +395,7 @@ export function OutboundDirectClientForm({
                           ].join(" ")}
                         >
                           {over ? "Stoc insuficient. " : ""}
-                          În stoc: {formatNumber(product.stock)} {unitLabel(product.unit)}
+                          În stoc: {formatQty(product.stock, product.unit)}
                         </p>
                       ) : null}
                     </Td>

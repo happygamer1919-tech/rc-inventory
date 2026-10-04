@@ -39,6 +39,8 @@ import {
   normaliseKey,
   parseCsv,
   sniffDelimiter,
+  BROKEN_LETTERS_ROW_REASON,
+  rowHasBrokenLetters,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
   IMPORT_SAMPLE_COUNT,
@@ -510,6 +512,8 @@ export function prepareRow(
     return at < 0 ? "" : (cells[at] ?? "").trim();
   };
   const refuse = (reason: string): PreparedRow => ({ ok: false, line, reason, raw: cells });
+
+  if (rowHasBrokenLetters(cells)) return refuse(BROKEN_LETTERS_ROW_REASON);
 
   const name = read("name");
   if (name === "") return refuse(IMPORT_REASON.noName);
