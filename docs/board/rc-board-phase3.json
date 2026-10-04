@@ -4535,9 +4535,9 @@
       "id": "P3-142",
       "title": "Azi empty state with tasks: when there are no calls but there are tasks due today, the calls card says 'Niciun apel de făcut azi.' (no calls to make today) and the tasks section shows below. 'Nimic de făcut azi.' appears only when there are no calls AND no tasks due today.",
       "plain": "Ecranul Azi nu mai spune că nu este nimic de făcut atunci când există sarcini cu termen azi.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4548,13 +4548,13 @@
       "question": null,
       "acceptance": "(a) The test 'no calls plus tasks due today, the text \"Nimic de făcut azi.\" is absent and the calls card shows the calls-only message' is green in tests/e2e/azi-screen.spec.ts in this pull request's own `quality` run. (b) The test 'no calls and no tasks, \"Nimic de făcut azi.\" is shown' passes (either shown as the calls card message or overall). (c) The existing test case comments in azi-screen.spec.ts lines 12-19 are updated to reflect the new behavior. (d) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
       "defaults": "Reword the calls card empty state message from 'Nimic de făcut azi.' to 'Niciun apel de făcut azi.' (no calls to make today) when the tasks section exists (tasks is not null). When tasks is null (old behavior, tasks table doesn't exist yet), keep 'Nimic de făcut azi.' for backward compatibility.",
-      "last_checkpoint": "2026-10-04T12:49:00Z",
+      "last_checkpoint": "2026-10-04T15:43:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "Pull request on branch card/azi-empty-state-with-tasks against main: its quality run on the head sha runs tests/e2e/azi-screen.spec.ts; report in docs/reports/2026-10-04-executor-azi-empty-state-with-tasks.md",
-        "at": "2026-10-04T12:49:00Z"
+        "ref": "#408: Pull request on branch card/azi-empty-state-with-tasks against main, quality green on head sha f62b754, acceptance passed in tests/e2e/azi-screen.spec.ts",
+        "at": "2026-10-04T15:43:00Z"
       },
-      "notes": "Depends on P3-133 which adds the tasks section. When tasks exist as a table, the calls card's empty state should be specific to calls."
+      "notes": "EXECUTOR: code complete, all checks green, board edited, ready for merge. Depends on P3-133 which adds the tasks section. When tasks exist as a table, the calls card's empty state should be specific to calls."
     }
   ]
 }
