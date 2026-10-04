@@ -5,10 +5,12 @@
 // nu se calculeaza manual momentul reimprospatarii si nu se prelungeste durata
 // implicita a sesiunii. Regula vine din defaults-urile cardului P2-02.
 
-import { cookies } from "next/headers";
+import { cache } from "react";
+import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseUrl } from "./env";
 import { COOKIE_OPTIONS } from "./cookies";
+import { SESSION_HANDOFF_HEADER, verifySessionHandoff } from "./session-handoff";
 import type { AppRole, SessionUser } from "./types";
 
 export async function createClient() {
@@ -39,8 +41,20 @@ export async function createClient() {
  *
  * getUser() valideaza tokenul la serverul de autentificare. getSession() ar citi
  * doar cookie-ul, care este date furnizate de client si nu proba de identitate.
+ *
+ * P3-135. O SINGURA CITIRE PE CERERE. cache() din React face ca layout-ul si
+ * ecranul sa imparta acelasi rezultat in aceeasi randare; in afara randarii
+ * (actiuni de server, rute API) cache() nu memoreaza nimic si functia ruleaza
+ * ca inainte. Iar cand proxy-ul a verificat deja utilizatorul si profilul pe
+ * aceasta cerere, randarea foloseste antetul lui semnat
+ * (lib/supabase/session-handoff.ts) in loc sa repete cele doua apeluri. Un
+ * antet absent, expirat sau cu semnatura gresita duce la verificarea completa
+ * de mai jos, neschimbata.
  */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+  const handedOver = await verifySessionHandoff((await headers()).get(SESSION_HANDOFF_HEADER));
+  if (handedOver) return handedOver;
+
   const supabase = await createClient();
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -62,4 +76,4 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     role: profile.role as AppRole,
     fullName: profile.full_name,
   };
-}
+});
