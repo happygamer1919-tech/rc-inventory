@@ -51,6 +51,7 @@ import {
   type ImportPreview,
   type RowNumber,
 } from "./import-shared";
+import { parseImportNumber } from "./import-number";
 import { ALL_UNITS, unitLabel, type UnitCode } from "./units";
 
 export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
@@ -201,11 +202,11 @@ export function buildCategoryLookup(categories: CategoryChoice[]): CategoryLooku
   return lookup;
 }
 
-/** Numarul ca text pentru scriere, sau null. Virgula zecimala si spatiile din
- *  mijloc ("12 500,50") se accepta; numeric(14,x) tine 11 cifre intregi. */
+/** Numarul ca text pentru scriere, sau null. Se citesc spatiile din mijloc
+ *  ("12 500,50"), virgula zecimala si punctul la mii ("1.250"), vezi
+ *  parseImportNumber; numeric(14,x) tine 11 cifre intregi. */
 function readNumber(raw: string): string | null {
-  const value = raw.trim().replace(/\s+/g, "").replace(",", ".");
-  return /^\d{1,11}(\.\d+)?$/.test(value) ? value : null;
+  return parseImportNumber(raw, 11);
 }
 
 // ---------------------------------------------------------------------------

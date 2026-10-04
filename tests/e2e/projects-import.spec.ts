@@ -186,21 +186,23 @@ test("import proiecte: un fisier valid creeaza fiecare rand", async ({ page }) =
     HEADERS,
     [client, `${tag} unu`, "Chișinău", "În lucru", "2026-11-01", "2027-03-31", "250 000,50", "prima"],
     [client, `${tag} doi`, "", "", "", "", "", ""],
+    // P3-137: punctul la mii, asa cum se scrie romaneste.
+    [client, `${tag} trei`, "", "", "", "", "250.000", ""],
   ]);
 
   await openImport(page);
   await chooseFile(page, "proiecte-valid.csv", body);
   await toVerify(page);
 
-  expect(await countAt(page, "import-count-new")).toBe(2);
+  expect(await countAt(page, "import-count-new")).toBe(3);
   expect(await countAt(page, "import-count-error")).toBe(0);
 
   await runImport(page);
-  expect(await countAt(page, "import-created")).toBe(2);
+  expect(await countAt(page, "import-created")).toBe(3);
   expect(await countAt(page, "import-skipped")).toBe(0);
 
   const stored = await storedByTag(rest, tag);
-  expect(stored.map((r) => r.name)).toEqual([`${tag} doi`, `${tag} unu`]);
+  expect(stored.map((r) => r.name)).toEqual([`${tag} doi`, `${tag} trei`, `${tag} unu`]);
   const unu = stored.find((r) => r.name === `${tag} unu`)!;
   expect(unu.client_id).toBe(clientId);
   expect(unu.status).toBe("active");
@@ -212,6 +214,8 @@ test("import proiecte: un fisier valid creeaza fiecare rand", async ({ page }) =
   // STAREA GOALA DEVINE Prospect, implicitul din ProjectForm.tsx.
   expect(doi.status).toBe("lead");
   expect(doi.budget_mdl).toBeNull();
+  const trei = stored.find((r) => r.name === `${tag} trei`)!;
+  expect(Number(trei.budget_mdl)).toBe(250000);
 });
 
 test("import proiecte: un fisier invalid nu scrie nimic si arata un motiv pe fiecare rand", async ({
