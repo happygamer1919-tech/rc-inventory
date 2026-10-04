@@ -4573,11 +4573,11 @@
       "question": null,
       "acceptance": "(a) The test 'iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza' is green in tests/e2e/outbound-direct-client.spec.ts in this pull request's own `quality` run: signed in as the test account manager, a direct client issue with a newly created buyer saves, the client row exists afterward and is the issue's client, a PATCH on that client with the manager token changes no row, and /clienti shows no client-new button to the manager. (b) The existing owner case 'iesire client direct: un client nou creat din ecran apare apoi in Clienti' stays green in the same run. (c) scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql passes under `npm run check:migrations` in CI, and the steps 'Refuse a migration that removes rows' and both applier proof steps RAN and passed, not skipped. (d) `npx tsc --noEmit` and `npm run build` exit 0, and the changed files carry no em dash and no en dash.",
       "defaults": "Widen only creating a client and only for the two named roles, active accounts. Keep clients_update, the Clienti screen buttons, the lead form and both imports owner-only. The walk-in action accepts name, type, IDNO and phone and nothing else. The merge waits for the owner: draft pull request plus an OWNER mailbox question.",
-      "last_checkpoint": "2026-10-04T19:30:00Z",
+      "last_checkpoint": "2026-10-04T19:16:00Z",
       "evidence": {
         "kind": "pr",
         "ref": "#413: draft pull request on branch card/p3-147 against main, acceptance in tests/e2e/outbound-direct-client.spec.ts and scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql, merge waits for the owner (migration)",
-        "at": "2026-10-04T19:30:00Z"
+        "at": "2026-10-04T19:16:00Z"
       },
       "notes": "EXECUTOR: code complete in draft PR #413. Migration 0069 is DROP POLICY plus CREATE POLICY only, named as a near-miss per R-031. Merge is apply: owner approval first. PR #407 also uses 0069: whichever merges second is renumbered to 0070 first."
     }
