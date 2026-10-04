@@ -32,10 +32,11 @@ export default async function OutboundPage() {
       products={products}
       projects={projects}
       clients={clients}
-      // P3-06: crearea unui client este numai a administratorului, iar ecranul nu are
-      // voie sa ofere un buton pe care baza il va refuza. Acelasi calcul, cuvant cu
-      // cuvant, pe care il face app/(app)/clienti/page.tsx pentru canWrite.
-      canCreateClient={user?.role === "owner"}
+      // P3-147: clientul de la tejghea il creeaza administratorul SAU managerul de
+      // cont (hotararea q143, 2026-10-04), prin createWalkInClient si politica
+      // clients_insert din migratia 0069. Regula P3-06 ramane: ecranul nu ofera un
+      // buton pe care baza il va refuza. Ecranul Clienți ramane al administratorului.
+      canCreateClient={user?.role === "owner" || user?.role === "account_manager"}
     />
   );
 }

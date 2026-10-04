@@ -64,6 +64,7 @@ The format is machine-read, so keep it exactly:
 - `0066_invoice_settings_company_contact.sql`, card de aplicare P3-116
 - `0067_outbound_direct_client.sql`, card de aplicare P3-118
 - `0068_tasks.sql`, card de aplicare P3-130
+- `0069_walkin_manager_client_insert.sql`, card de aplicare P3-147
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

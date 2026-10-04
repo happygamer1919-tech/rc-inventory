@@ -262,7 +262,55 @@ export async function createClientRecord(
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
   if (user.role !== "owner") return OWNER_ONLY;
+  return insertClientRecord(input);
+}
 
+/** Campurile pe care le cere formularul de tejghea din Ieșiri materiale. */
+export type WalkInClientInput = {
+  name: string;
+  type: string;
+  fiscalCode: string;
+  phone: string;
+};
+
+/** P3-147. UN CLIENT NOU DE LA TEJGHEA, creat de administrator SAU de managerul de
+ *  cont. Hotararea proprietarului (q143, 2026-10-04): managerul de cont poate crea
+ *  un client dintr-o iesire catre client direct, si nimic mai larg.
+ *
+ *  DE CE O ACTIUNE A EI SI NU createClientRecord LARGIT. createClientRecord este si
+ *  calea ecranului Clienți, a formularului de lead si a celor doua importuri, care
+ *  raman ale administratorului. Aici se primesc NUMAI denumirea, tipul, IDNO si
+ *  telefonul, deci managerul nu poate scrie prin aceasta usa nici etapa, nici
+ *  sursa, nici responsabilul, nici o persoana de contact. Insertul este ACELASI,
+ *  insertClientRecord de mai jos, cu aceeasi validare, deci nu exista un al doilea
+ *  set de reguli care sa se departeze de primul.
+ *
+ *  Baza o spune si ea: politica clients_insert din migratia 0069 primeste
+ *  administratorul si managerul de cont, active, iar clients_update ramane a
+ *  administratorului. */
+export async function createWalkInClient(
+  input: WalkInClientInput,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner" && user.role !== "account_manager") return OWNER_ONLY;
+  return insertClientRecord({
+    name: input.name,
+    type: input.type,
+    fiscalCode: input.fiscalCode,
+    phone: input.phone,
+    address: "",
+    email: "",
+    notes: "",
+    active: true,
+  });
+}
+
+/** Insertul comun al celor doua actiuni de mai sus. Rolul se verifica INAINTE, de
+ *  fiecare actiune in felul ei; aceasta functie nu se exporta, deci nu este o usa. */
+async function insertClientRecord(
+  input: ClientInput,
+): Promise<ActionResult<{ id: string }>> {
   const checked = validate(input);
   if (!checked.ok) return checked;
   const stage = validateStage(input);
