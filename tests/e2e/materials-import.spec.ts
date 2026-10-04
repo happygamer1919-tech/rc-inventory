@@ -231,21 +231,23 @@ test("import materiale: un fisier valid creeaza fiecare rand", async ({ page }) 
     HEADERS,
     [skuFor("valid-1"), nameFor("valid unu"), category.name, "buc", "10", "12,50"],
     [skuFor("valid-2"), nameFor("valid doi"), category.name, "kg", "", ""],
+    // P3-137: punctul la mii, asa cum se scrie romaneste.
+    [skuFor("valid-3"), nameFor("valid trei"), category.name, "buc", "1.000", "1.250"],
   ]);
 
   await openImport(page);
   await chooseFile(page, "materiale-valid.csv", body);
   await toVerify(page);
 
-  expect(await countAt(page, "import-count-new")).toBe(2);
+  expect(await countAt(page, "import-count-new")).toBe(3);
   expect(await countAt(page, "import-count-error")).toBe(0);
 
   await runImport(page);
-  expect(await countAt(page, "import-created")).toBe(2);
+  expect(await countAt(page, "import-created")).toBe(3);
   expect(await countAt(page, "import-skipped")).toBe(0);
 
   const stored = await storedByPrefix(rest, skuFor("valid-"));
-  expect(stored.map((r) => r.sku)).toEqual([skuFor("valid-1"), skuFor("valid-2")]);
+  expect(stored.map((r) => r.sku)).toEqual([skuFor("valid-1"), skuFor("valid-2"), skuFor("valid-3")]);
   const unu = stored[0]!;
   expect(unu.name).toBe(nameFor("valid unu"));
   expect(unu.category_id).toBe(category.id);
@@ -256,6 +258,9 @@ test("import materiale: un fisier valid creeaza fiecare rand", async ({ page }) 
   expect(doi.unit).toBe("kg");
   expect(Number(doi.threshold)).toBe(0);
   expect(Number(doi.unit_value_mdl)).toBe(0);
+  const trei = stored[2]!;
+  expect(Number(trei.threshold)).toBe(1000);
+  expect(Number(trei.unit_value_mdl)).toBe(1250);
 });
 
 test("import materiale: un fisier invalid nu scrie nimic si arata un motiv pe fiecare rand", async ({

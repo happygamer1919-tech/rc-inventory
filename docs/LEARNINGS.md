@@ -9026,3 +9026,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** the natural fix for `outbound_issue_take_stock` was an early `if current_app_role() is null then raise`. assertions/0067 calls the two outbound doors as superuser with no JWT, where `current_app_role()` is null, so that refusal would fail an existing assertion.
 **SOLUTION:** the function is SECURITY INVOKER, so its lines insert already runs under the tightened insert policy and the whole call rolls back for a deactivated caller. The refusal is proven with a real token in `tests/e2e/outbound-lines-deactivated.spec.ts`, and assertions/0069 pins the function as invoker so it cannot silently become definer. RULE: **before adding a role check inside an invoker function, check whether the policies it writes through already refuse, and whether any superuser assertion calls it**.
+
+### A number with one dot is ambiguous: 250.000 is two hundred fifty thousand in Romanian
+**Tag:** backend
+**ERROR:** `readBudget` and `readNumber` changed the first comma to a dot and accepted one dot, so a budget typed `250.000` was stored as 250.00 MDL, `1.250` as 1.25, and `1.234,56` was refused because the comma became a second dot. No warning was shown.
+**SOLUTION:** card P3-137 reads both through `parseImportNumber` (`lib/data/import-number.ts`): the last of dot and comma is the decimal mark, one dot before exactly 3 digits is a thousands mark, and anything unclear returns null so the row gets the existing field error. RULE: **never parse a user typed number with a single replace; decide the decimal mark from the whole string and refuse what cannot be decided**.
+
+### A repo with no unit runner can still test a pure function in a Playwright spec
+**Tag:** testing
+**ERROR:** the table of cases for the number reader had no home: package.json has no unit test script.
+**SOLUTION:** `tests/e2e/import-number.spec.ts` imports the function through `@/lib/...` and asserts the table without opening a page, so it needs no database. RULE: **a pure function gets its table in a spec that imports it directly**.
