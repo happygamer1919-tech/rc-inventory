@@ -1,4 +1,4 @@
-# P3-138: CSV saved from Excel imports with the right letters
+# P3-145: CSV saved from Excel imports with the right letters
 
 Date: 2026-10-04. Branch: card/import-csv-encoding. Role: EXECUTOR.
 
@@ -17,7 +17,7 @@ encodings turned letters into U+FFFD and the names were written to the database.
 - `lib/data/lead-import-types.ts`: the lead `prepareRow` does the same.
 - Lead, client, project and material import screens call `decodeCsvFile(await file.arrayBuffer())`.
 - `tests/e2e/import-encoding.spec.ts`: five named pure cases.
-- Board card P3-138, LEARNINGS entries. No migration.
+- Board card P3-145, LEARNINGS entries. No migration.
 
 ## Decoding rule
 Strict UTF-8 (BOM stripped). Otherwise Windows-1251 when it shows Cyrillic and the Windows-1250

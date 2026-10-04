@@ -9030,7 +9030,7 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### file.text() reads every upload as UTF-8, so an Excel CSV loses its letters
 **Tag:** backend
 **ERROR:** the four import screens called `file.text()`. Excel's plain CSV save writes Windows-1250 on a Romanian Windows and Windows-1251 on a Russian one, so every ă â î ș ț and every Cyrillic letter became U+FFFD and was written to the database. Nothing checked for it.
-**SOLUTION:** card P3-138 adds `decodeCsvFile` (`lib/data/import-shared.ts`): strict UTF-8 first, then Windows-1250 or Windows-1251, and a Romanian error when U+FFFD is still there. The row preparation also refuses any cell holding U+FFFD, so no client can write them. RULE: **read an upload as bytes and decode it on purpose; never trust file.text() for a file a person saved from Excel**.
+**SOLUTION:** card P3-145 adds `decodeCsvFile` (`lib/data/import-shared.ts`): strict UTF-8 first, then Windows-1250 or Windows-1251, and a Romanian error when U+FFFD is still there. The row preparation also refuses any cell holding U+FFFD, so no client can write them. RULE: **read an upload as bytes and decode it on purpose; never trust file.text() for a file a person saved from Excel**.
 
 ### Windows-1250 has no comma-below ș and ț
 **Tag:** backend

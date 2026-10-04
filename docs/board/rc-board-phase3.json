@@ -4532,7 +4532,7 @@
       "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. Cause: both readers did replace(\",\", \".\") and then accepted one dot, so 250.000 became 250.00 and 1.234,56 was refused. No unit runner exists in the repo, so the table of cases runs as a Playwright spec that needs no browser and no database."
     },
     {
-      "id": "P3-138",
+      "id": "P3-145",
       "title": "Import files saved from Excel the default way: one shared helper, decodeCsvFile in lib/data/import-shared.ts, reads UTF-8 first and falls back to Windows-1250 or Windows-1251, and the four import screens call it instead of file.text(). A file that still holds broken letters is refused with a Romanian message, and the import row preparation refuses any field holding U+FFFD so no broken letters reach the database from any client. No migration.",
       "plain": "Un fișier CSV salvat din Excel în mod obișnuit se importă cu literele românești și rusești corecte; un fișier cu litere stricate este respins cu un mesaj clar.",
       "lane": "shipped",
