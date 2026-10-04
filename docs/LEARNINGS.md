@@ -9036,3 +9036,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
 **SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
+
+### A normaliser that returns null for "bad" makes a filled cell look empty
+**Tag:** backend
+**ERROR:** `normalisePhone` and `normaliseEmail` returned null both for an empty cell and for an unreadable one, and `normalisePhone` stripped every non-digit. Two phones in one cell became one long number, `069 123 45` gained +373, and a bad email left the row created without it.
+**SOLUTION:** card P3-140 adds `readPhone` and `readEmail`, which say empty, ok, many or bad; the import refuses many and bad with a Romanian reason. RULE: **a reader of user input must tell "nothing there" from "there but unreadable"; only the first may be silently skipped**.
