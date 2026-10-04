@@ -28,14 +28,9 @@ test.describe("Esc in dropdown al formularului de sarcina (P3-150)", () => {
   }) => {
     await signIn(page, ownerAccount());
 
-    // Deschide ecranul de clienti si creeaza un client pentru a avea date in Înregistrare
-    await page.goto("/clienti");
-    const clientName = `TEST P3-150 Client ${RUN}`;
-    await page.getByTestId("client-new").click();
-    await expect(page.getByTestId("client-form")).toBeVisible();
-    await page.getByTestId("field-client-name").fill(clientName);
-    await page.getByTestId("client-submit").click();
-    await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
+    // Deschide ecranul Sarcini
+    await page.goto("/sarcini");
+    await expect(page.getByTestId("tasks-filters")).toBeVisible({ timeout: 30_000 });
 
     // Deschide formularul de sarcina noua
     await page.getByTestId("task-new").click();
