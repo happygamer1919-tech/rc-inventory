@@ -356,6 +356,10 @@ export function prepareImportRow<F extends string>(
     return at < 0 ? "" : (cells[at] ?? "").trim();
   };
 
+  if (rowHasBrokenLetters(cells)) {
+    return { ok: false, line, reason: BROKEN_LETTERS_ROW_REASON, raw: cells };
+  }
+
   const record = {} as Record<F, string>;
   for (const fd of fields) {
     const raw = read(fd.field);
@@ -443,4 +447,72 @@ export function readImportDate(raw: string): string | null {
   )
     return null;
   return date.toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Codarea fisierului, P3-145
+// ---------------------------------------------------------------------------
+
+export const BROKEN_LETTERS_FILE_ERROR =
+  "Fișierul conține caractere care nu pot fi citite. Salvați-l din Excel ca „CSV UTF-8” și încercați din nou.";
+
+export const BROKEN_LETTERS_ROW_REASON =
+  "Rândul conține litere stricate (caractere care nu au putut fi citite).";
+
+/** Semnul de inlocuire U+FFFD: apare cand un octet nu se poate decoda. */
+export function hasReplacementChar(text: string): boolean {
+  return text.includes("�");
+}
+
+/** Linia de aparare de pe server: un rand cu orice camp stricat nu ajunge in baza. */
+export function rowHasBrokenLetters(cells: string[]): boolean {
+  return cells.some(hasReplacementChar);
+}
+
+/**
+ * Citeste octetii unui CSV. REGULA, simpla:
+ *  1. UTF-8 strict (marca BOM taiata). Daca merge, este UTF-8.
+ *  2. Altfel, se incearca windows-1250 (Excel pe Windows romanesc) si
+ *     windows-1251 (Excel pe Windows rusesc). Se alege 1251 cand rezultatul ei
+ *     are litere chirilice (U+0400 la U+04FF) SI rezultatul 1250 are vreo litera
+ *     in afara ASCII care nu este romaneasca (mojibake, de felul "Èâàí" pentru
+ *     "Иван"). Altfel 1250, cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu
+ *     virgula.
+ *  3. Daca textul ales tot are U+FFFD, se intoarce eroare, nu text.
+ */
+const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
+
+export function decodeCsvFile(
+  buf: ArrayBuffer,
+): { text: string; encoding: string } | { error: string } {
+  let bytes = new Uint8Array(buf);
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) bytes = bytes.subarray(3);
+
+  let text: string;
+  let encoding: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    encoding = "utf-8";
+  } catch {
+    const t1250 = new TextDecoder("windows-1250").decode(bytes);
+    const t1251 = new TextDecoder("windows-1251").decode(bytes);
+    const cyrillic = /[Ѐ-ӿ]/.test(t1251);
+    const foreign1250 = [...t1250].some(
+      (ch) => ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch) && !ROMANIAN_LETTERS.includes(ch),
+    );
+    if (cyrillic && foreign1250) {
+      text = t1251;
+      encoding = "windows-1251";
+    } else {
+      text = t1250
+        .replace(/Ş/g, "Ș")
+        .replace(/ş/g, "ș")
+        .replace(/Ţ/g, "Ț")
+        .replace(/ţ/g, "ț");
+      encoding = "windows-1250";
+    }
+  }
+
+  if (hasReplacementChar(text)) return { error: BROKEN_LETTERS_FILE_ERROR };
+  return { text, encoding };
 }
