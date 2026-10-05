@@ -46,9 +46,14 @@ test.describe("Esc in dropdown al formularului de sarcina (P3-150)", () => {
     await expect(page.getByTestId("field-task-title")).toHaveValue(titleText);
     await expect(page.getByTestId("field-task-description")).toHaveValue(descriptionText);
 
-    // Deschide dropdown-ul Înregistrare (entity type selector)
-    const entityTypeDropdown = page.getByTestId("field-task-entity-type");
-    await entityTypeDropdown.click();
+    // Fel înregistrare este un select nativ. Alegerea unui fel (prima optiune
+    // dupa "Fără înregistrare") arata campul Înregistrare, care este un Combobox.
+    await page.getByTestId("field-task-entity-type").selectOption({ index: 1 });
+    const entityInput = page.getByTestId("field-task-entity").locator("input");
+    await expect(entityInput).toBeVisible();
+
+    // Focusul pe camp deschide lista.
+    await entityInput.click();
 
     // Verifica ca lista dropdown-ului este deschisa (cautam o optiune in lista)
     const dropdownOptions = page.locator('[data-rc-combo-list]');
