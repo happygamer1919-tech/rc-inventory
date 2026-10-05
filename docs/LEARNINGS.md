@@ -9104,3 +9104,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** PR for 0071 passed every step except `headers.spec.ts` case 5, after a 40 minute run: no APPLY-LOG entry and no pending line for the file.
 **SOLUTION:** add the line "- `NNNN_name.sql`, card de aplicare <card>" under the pending list in `docs/migrations/APPLY-LOG.md` in the same PR. RULE: **a migration PR also edits APPLY-LOG.md; grep that file for the previous migration number before pushing.**
+
+### A CSV cell that starts with = + - or @ runs as a formula, and a phone or IDNO opens damaged in Excel
+**Tag:** backend
+**ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
+**SOLUTION:** card P3-139: text cells that start with `=`, `+`, `-`, `@`, tab or CR get one leading apostrophe, except a negative number from `formatCsvNumber`; phone and fiscal code cells are written `="value"` through `csvText`, which Excel shows clean as text. `parseCsv` undoes both. The first draft doubled the quotes only once, so a value holding a quote broke the round trip. RULE: **escape at the formula level and again at the CSV level, and prove it with a round trip that includes a quote.**
