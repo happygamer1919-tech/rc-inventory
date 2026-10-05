@@ -4940,11 +4940,11 @@
       "question": null,
       "acceptance": "(a) The logic in components/clients/AziScreen.tsx line 121 shows 'Nimic de facut azi.' when rows.length === 0 AND (tasks === null OR tasks.length === 0), and shows 'Niciun apel de facut azi.' when rows.length === 0 AND tasks has items. (b) Two new test cases in tests/e2e/azi-screen.spec.ts replace the old P3-142 test: P3-142a checks that 'Nimic de facut azi.' is shown when there are no calls and no tasks, and P3-142b checks that 'Niciun apel de facut azi.' is shown when there are no calls but tasks are due today. Both assertions are UNCONDITIONAL (not inside an if statement). Both tests are green in the PR's quality run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
       "defaults": "No Romanian diacritics on screen, no em dash or en dash anywhere. No changes to the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the AziTasksSection component, or any other route.",
-      "last_checkpoint": "2026-10-05T21:20:00Z",
+      "last_checkpoint": "2026-10-05T21:10:00Z",
       "evidence": {
         "kind": "pr",
         "ref": "Pull request on branch card/azi-empty-both-cases against main: quality check runs tests/e2e/azi-screen.spec.ts with two deterministic test cases P3-142a and P3-142b, both unconditional assertions",
-        "at": "2026-10-05T21:20:00Z"
+        "at": "2026-10-05T21:10:00Z"
       },
       "notes": "Card created as a follow-up to P3-142. The original test on lines 434-455 of azi-screen.spec.ts asserts only inside an if statement, which allows it to pass while checking nothing. This card splits it into two separate deterministic test cases: P3-142a tests the no-calls-no-tasks case, P3-142b tests the no-calls-with-tasks case. Both assertions are unconditional."
     }
