@@ -4957,7 +4957,7 @@
       "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "low",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
