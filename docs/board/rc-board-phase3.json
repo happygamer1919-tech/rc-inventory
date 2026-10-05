@@ -4957,7 +4957,7 @@
       "plain": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată».",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "low",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
