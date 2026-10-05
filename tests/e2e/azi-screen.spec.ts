@@ -476,8 +476,8 @@ test.describe("Ecranul Azi (P3-91)", () => {
         title: taskTitle,
         status: "todo",
         priority: "medium",
-        dueDate: today,
-        assigneeId: rest.userId,
+        due_date: today,
+        assignee_id: rest.userId,
       },
     });
     expect(taskCreated.ok()).toBe(true);
