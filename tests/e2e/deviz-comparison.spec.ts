@@ -170,6 +170,8 @@ test.describe("Deviz față de realitate", () => {
 
     // Catalogul se schimba PRIN ECRAN, 120.00 -> 150.00.
     await page.goto("/inventar");
+    // P3-142. Lista are pagini: produsul se cauta dupa SKU, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill("TEST-CMP-01");
     const row = page.locator('[data-testid="product-row"][data-sku="TEST-CMP-01"]');
     await expect(row).toBeVisible({ timeout: 25_000 });
     await row.click();
@@ -191,6 +193,7 @@ test.describe("Deviz față de realitate", () => {
     // in care ruleaza. Un test care lasa baza schimbata este un test care trece
     // o singura data.
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill("TEST-CMP-01");
     const again = page.locator('[data-testid="product-row"][data-sku="TEST-CMP-01"]');
     await expect(again).toBeVisible({ timeout: 25_000 });
     await again.click();
