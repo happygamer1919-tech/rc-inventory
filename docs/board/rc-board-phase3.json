@@ -4873,9 +4873,9 @@
       "id": "P3-148",
       "title": "A walk-in sale line with a product but no quantity is refused with a clear Romanian message, never silently dropped (form and server)",
       "plain": "La o vânzare la ghișeu, un rând cu produs ales dar fără cantitate nu mai dispare pe tăcute: bonul nu se creează până când rândul este completat sau șters.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4887,7 +4887,11 @@
       "acceptance": "(a) The named case `outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The named case `outbound walk-in: filling the quantity then saves 3 items` in the same file is green. (c) The named case `outbound walk-in: a payload with a half-filled line is refused by server` in the same file is green. (d) All existing outbound and walk-in specs stay green. (e) `npx tsc --noEmit` and `npm run build` exit 0.",
       "defaults": "RULE (half-filled line). A line with product but no/zero/invalid quantity, or quantity but no product, is \"half-filled\": operationally distinct from an empty line that the user may have added and not used. Form: show the line number and a message per line, exactly as InboundOrderForm does, so the operator can delete it or fill it. Server: refuse the same case for any caller. Empty lines (no product, no quantity) are ignored as today. Use Romanian messages with proper diacritics, matching the style of InboundOrderForm.",
       "last_checkpoint": "2026-10-05T21:30:00Z",
-      "evidence": null,
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #430 on branch card/walkin-line-without-quantity against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-05-executor-walkin-line-without-quantity.md",
+        "at": "2026-10-05T21:30:00Z"
+      },
       "notes": ""
     }
   ]
