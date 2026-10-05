@@ -73,7 +73,7 @@ import { one } from "./row";
 const SELECT_TASK = `
   id, title, description, status, priority, due_date,
   assignee_id, entity_type, entity_id, created_by, created_at, updated_at,
-  assignee:profiles!tasks_assignee_id_fkey ( id, full_name )
+  assignee:profiles!tasks_assignee_id_fkey ( id, full_name, email )
 `;
 
 type TaskRow = {
@@ -89,7 +89,7 @@ type TaskRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  assignee?: { id: string; full_name: string | null } | { id: string; full_name: string | null }[] | null;
+  assignee?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null;
 };
 
 /**
@@ -117,7 +117,7 @@ function toTask(row: TaskRow): Task {
     priority: isTaskPriority(row.priority) ? row.priority : "medium",
     dueDate: row.due_date ?? null,
     assigneeId: row.assignee_id ?? null,
-    assigneeName: assignee?.full_name ?? null,
+    assigneeName: assignee ? (assignee.full_name?.trim() || assignee.email?.trim() || null) : null,
     // PERECHEA SE CITESTE INTREAGA SAU DELOC, exact cum o tine restrictia
     // tasks_entity_both_or_neither: un tip pe care acest fisier nu il cunoaste ar
     // lasa altfel un id care nu poate fi dus la nicio tabela.
