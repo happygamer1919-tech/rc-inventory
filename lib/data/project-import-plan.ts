@@ -24,6 +24,7 @@ import {
   type ProjectImportColumnMapping,
   type ProjectImportField,
 } from "./project-import-types";
+import { projectPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Clientul, denumirea si starea nu
  *  sunt aici: ele alcatuiesc identitatea proiectului sau o judecata a cuiva. */
@@ -65,6 +66,8 @@ export type PlanEntry =
 export type ProjectImportPlan = {
   entries: PlanEntry[];
   counts: { fresh: number; duplicate: number; error: number };
+  /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
+  preview: ImportPreviewTable;
 };
 
 export type DuplicateChoice = "skip" | "fill";
@@ -166,5 +169,11 @@ export function buildProjectPlan(input: {
   // sorteaza dupa linie.
   entries.sort((a, b) => a.line - b.line);
 
-  return { plan: { entries, counts }, prepared };
+  const newRows = projectPreviewTable(
+    entries.filter((e) => e.kind === "new").map((e) => e.line),
+    prepared,
+    clientNames,
+  );
+
+  return { plan: { entries, counts, preview: newRows }, prepared };
 }

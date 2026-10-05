@@ -25,6 +25,7 @@ import * as React from "react";
 import { decodeCsvFile } from "@/lib/data/import-shared";
 import { useRouter } from "next/navigation";
 import { Button, Field, Select } from "@/components/ui/primitives";
+import { ImportPreviewRows } from "@/components/ui/ImportPreviewRows";
 import { FilePicker } from "@/components/ui/FilePicker";
 import {
   PHONE_CLOSE,
@@ -434,6 +435,8 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 <Count label="Dublate" value={plan.counts.duplicate} testId="import-count-duplicate" />
                 <Count label="Cu erori" value={plan.counts.error} testId="import-count-error" />
               </div>
+
+              <ImportPreviewRows preview={plan.preview} />
 
               {duplicates.length > 0 ? (
                 <div className="space-y-2" data-testid="import-duplicates">

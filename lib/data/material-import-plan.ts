@@ -36,6 +36,7 @@ import {
   type MaterialImportField,
 } from "./material-import-types";
 import { unitLabel, type UnitCode } from "./units";
+import { materialPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. */
 export const MATERIAL_FILL_FIELDS = ["threshold", "unitValueMdl"] as const;
@@ -73,6 +74,8 @@ export type PlanEntry =
 export type MaterialImportPlan = {
   entries: PlanEntry[];
   counts: { fresh: number; duplicate: number; error: number };
+  /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
+  preview: ImportPreviewTable;
 };
 
 export type DuplicateChoice = "skip" | "fill";
@@ -271,5 +274,11 @@ export function buildMaterialPlan(input: {
 
   entries.sort((a, b) => a.line - b.line);
 
-  return { plan: { entries, counts }, prepared, unitChecks: [...unitChecks] };
+  const newRows = materialPreviewTable(
+    entries.filter((e) => e.kind === "new").map((e) => e.line),
+    prepared,
+    new Map(input.categories.map((c) => [c.id, c.name])),
+  );
+
+  return { plan: { entries, counts, preview: newRows }, prepared, unitChecks: [...unitChecks] };
 }

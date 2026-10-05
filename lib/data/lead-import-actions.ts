@@ -261,6 +261,15 @@ async function addContactNameFillable(
   }
 }
 
+/** Responsabilii: indexul pentru citirea fisierului si numele pentru previzualizare. */
+async function ownerInputs() {
+  const choices = await listClientOwnerChoices();
+  return {
+    owners: buildOwnerIndex(choices),
+    ownerNames: new Map(choices.map((o) => [o.id, o.fullName])),
+  };
+}
+
 /** Planul, calculat pe server, fara nicio scriere. */
 export async function planLeadImport(
   request: LeadImportRequest,
@@ -274,7 +283,7 @@ export async function planLeadImport(
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
-    owners: buildOwnerIndex(await listClientOwnerChoices()),
+    ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: await loadExisting(supabase),
   });
@@ -398,7 +407,7 @@ export async function runLeadImport(
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
-    owners: buildOwnerIndex(await listClientOwnerChoices()),
+    ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: await loadExisting(supabase),
   });

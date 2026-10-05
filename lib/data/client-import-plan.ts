@@ -21,6 +21,7 @@ import {
   type OwnerIndex,
   type PreparedClient,
 } from "./client-import-types";
+import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Denumirea, etapa si data de
  *  reluare nu sunt aici: un camp gol este o lipsa, iar o etapa este o judecata
@@ -66,6 +67,8 @@ export type PlanEntry =
 export type ClientImportPlan = {
   entries: PlanEntry[];
   counts: { fresh: number; duplicate: number; error: number };
+  /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
+  preview: ImportPreviewTable;
 };
 
 export type DuplicateChoice = "skip" | "fill";
@@ -123,6 +126,8 @@ export function buildClientPlan(input: {
   mapping: ClientImportColumnMapping;
   owners: OwnerIndex;
   existing: ExistingClient[];
+  /** id responsabil -> nume, pentru coloana Responsabil din previzualizare. */
+  ownerNames?: ReadonlyMap<string, string>;
   headerLine?: number;
 }): { plan: ClientImportPlan; prepared: Map<number, PreparedWithOwnerId> } {
   const headerLine = input.headerLine ?? 1;
@@ -188,7 +193,14 @@ export function buildClientPlan(input: {
   // fisierul de erori sa arate fisierul asa cum a fost citit.
   entries.sort((a, b) => a.line - b.line);
 
-  return { plan: { entries, counts }, prepared };
+  const newRows = personPreviewTable(
+    entries.filter((e) => e.kind === "new").map((e) => e.line),
+    prepared,
+    input.ownerNames ?? new Map(),
+    false,
+  );
+
+  return { plan: { entries, counts, preview: newRows }, prepared };
 }
 
 /**

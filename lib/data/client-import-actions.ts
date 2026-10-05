@@ -149,11 +149,14 @@ export async function planClientImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const owners: OwnerIndex = buildOwnerIndex(await listClientOwnerChoices());
+  const ownerChoices = await listClientOwnerChoices();
+  const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
+  const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const { plan } = buildClientPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     owners,
+    ownerNames,
     existing: await loadExisting(supabase),
   });
 
@@ -236,11 +239,14 @@ export async function runClientImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const owners: OwnerIndex = buildOwnerIndex(await listClientOwnerChoices());
+  const ownerChoices = await listClientOwnerChoices();
+  const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
+  const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const { plan, prepared } = buildClientPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     owners,
+    ownerNames,
     existing: await loadExisting(supabase),
   });
 

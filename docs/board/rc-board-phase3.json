@@ -4606,6 +4606,30 @@
         "at": "2026-10-04T15:50:00Z"
       },
       "notes": "QUICK FIX: replaced formatNumber (0 decimals) with formatQty (2 decimals) at four lines where quantities or stock values are displayed together with unit labels. Affected screens: OutboundPanel.tsx line 301 (sale slip quantities), OutboundDirectClientForm.tsx lines 149, 184, 397 (stock hints and error messages), OutboundProjectForm.tsx lines 146, 171, 412 (project mode equivalents). Test added to verify 2.5 unit value displays as '2,5' not '3' in m² unit."
+    },
+    {
+      "id": "P3-141",
+      "title": "The check step of all four import screens (clients, leads, projects, materials) lists the rows that will be created, with their values as they will be saved, before the operator presses import. One shared component components/ui/ImportPreviewRows.tsx, fed by a preview table each import plan now carries (lib/data/import-preview-rows.ts). First 50 rows, then a line saying how many more. Clause 3 of the import cards: the parsed rows shown to the operator. No migration, no change to what the import writes.",
+      "plain": "La import, pasul de verificare arată rândurile care vor fi create, cu valorile așa cum vor fi salvate, ca operatorul să vadă o greșeală înainte de import.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123",
+        "P3-124",
+        "P3-125"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases in tests/e2e/import-preview-rows.spec.ts are green in this pull request's own quality run: a project budget of 250.000 is listed as the app formats 250000, a client email is listed normalised, the lead table has the contact person column, a material price of 1.250 is listed as 1250, and a file with 60 new rows lists 50 and the line \"și încă 10 rânduri\". (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0.",
+      "defaults": "RULE (a table Rânduri noi under the counts, columns are the template field labels plus Rândul, values after number parsing, phone and email normalisation and stage mapping, not the raw cell text; at most 50 rows then a line și încă N rânduri; an empty optional value is an empty cell; existing table primitives and money formatters; one shared component for all four screens). Counts, duplicate and error lists, what the import writes and the work of P3-137, P3-145 stay as they are.",
+      "last_checkpoint": "2026-10-05T00:42:11Z",
+      "evidence": null,
+      "notes": "Cause: step 3 showed counts, duplicates and errors but never the new rows, so a budget read as 250 instead of 250000 or a dropped email could not be seen before the import ran. Bug check 2026-10-04."
     }
   ]
 }
