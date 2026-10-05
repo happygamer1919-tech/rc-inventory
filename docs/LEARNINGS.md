@@ -9110,6 +9110,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
 **SOLUTION:** card P3-139: text cells that start with `=`, `+`, `-`, `@`, tab or CR get one leading apostrophe, except a negative number from `formatCsvNumber`; phone and fiscal code cells are written `="value"` through `csvText`, which Excel shows clean as text. `parseCsv` undoes both. The first draft doubled the quotes only once, so a value holding a quote broke the round trip. RULE: **escape at the formula level and again at the CSV level, and prove it with a round trip that includes a quote.**
 
+### Editing a task tied to a closed project or inactive client showed an empty record box
+**Tag:** frontend
+**ERROR:** the Sarcini page built the record choice lists from open projects and active clients only, and `Combobox` shows a blank for a value that is not in its option list. A task linked to a project that was closed later (or a client made inactive) opened for editing with an empty "Înregistrare" box, although the link was stored and kept on save.
+**SOLUTION:** card P3-160: `listClosedLinkChoices` reads only the linked records missing from the lists, and `linkChoicesWithCurrent` adds that one record, labelled with its name and (închis) or (inactiv), to the list of the task being edited. New tasks still get the plain lists, and `Combobox` is untouched. RULE: **a picker that edits a stored value must always be able to show the stored value, even when that value would no longer be offered as a new choice.**
+
 ### A task save from a form opened earlier undid a colleague's change
 **Tag:** frontend
 **ERROR:** `TaskForm` sent all eight task fields back to `updateTask` as they were when the page loaded, and `updateTask` wrote every key it received. A colleague marked a task "Finalizată", the operator who had the page open from before changed only the due date and saved, and the status went back to "De făcut". "Anulează sarcina" sent the same eight fields with the status swapped, so it reverted the other seven.

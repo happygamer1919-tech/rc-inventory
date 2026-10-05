@@ -54,6 +54,26 @@ export function isTaskPriority(value: unknown): value is TaskPriority {
   return typeof value === "string" && (ALL_TASK_PRIORITIES as string[]).includes(value);
 }
 
+/** Inregistrarea legata a unei sarcini, asa cum o arata caseta "Înregistrare" cand
+ *  inregistrarea nu mai este in lista de alegere (proiect inchis, client inactiv).
+ *  Cheia hartii este `<fel>:<id>`, ca o singura harta sa serveasca ambele feluri. */
+export type TaskLinkChoiceLike = { id: string; label: string; hint?: string };
+
+export function taskLinkKey(entityType: string, entityId: string): string {
+  return `${entityType}:${entityId}`;
+}
+
+/** Lista de alegere pentru o sarcina care exista: cea obisnuita, plus inregistrarea
+ *  ei curenta daca lipseste din lista. O sarcina noua nu are `current`, deci primeste
+ *  lista neschimbata: proiectele inchise si clientii inactivi nu se ofera la legare. */
+export function linkChoicesWithCurrent<T extends TaskLinkChoiceLike>(
+  options: T[],
+  current: T | undefined,
+): T[] {
+  if (current === undefined || options.some((o) => o.id === current.id)) return options;
+  return [...options, current];
+}
+
 export function isTaskEntityType(value: unknown): value is TaskEntityType {
   return typeof value === "string" && (ALL_TASK_ENTITY_TYPES as string[]).includes(value);
 }

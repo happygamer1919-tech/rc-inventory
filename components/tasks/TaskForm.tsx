@@ -47,6 +47,7 @@ import {
   ALL_TASK_STATUSES,
   cancelTaskPatch,
   changedTaskFields,
+  linkChoicesWithCurrent,
   type TaskFormValues,
 } from "@/lib/data/tasks-shape";
 import {
@@ -72,6 +73,7 @@ export function TaskForm({
   clients = [],
   projects = [],
   fixedEntity,
+  currentLink,
   onClose,
 }: {
   /** Lipsa inseamna o sarcina nouă. */
@@ -87,6 +89,9 @@ export function TaskForm({
   projects?: TaskLinkChoice[];
   /** Cand soseste, inregistrarea legata este ACEASTA si nu se alege. Vezi antetul. */
   fixedEntity?: TaskFixedEntity;
+  /** Inregistrarea curenta a sarcinii cand nu este in liste (proiect inchis, client
+   *  inactiv): se adauga la lista, ca sa i se vada numele. Sarcinile noi nu o au. */
+  currentLink?: TaskLinkChoice;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -150,7 +155,13 @@ export function TaskForm({
         ]
       : assignees;
 
-  const linkOptions: ComboOption[] = (entityType === "project" ? projects : clients).map((o) => ({
+  // Numai cat timp felul ales este cel al legaturii salvate: daca operatorul trece pe
+  // alt fel, inregistrarea inchisa nu are ce cauta in lista noului fel.
+  const currentForType = entityType === task?.entityType ? currentLink : undefined;
+  const linkOptions: ComboOption[] = linkChoicesWithCurrent(
+    entityType === "project" ? projects : clients,
+    currentForType,
+  ).map((o) => ({
     value: o.id,
     label: o.label,
     hint: o.hint,
