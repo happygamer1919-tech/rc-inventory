@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 import { MAKE_CALLBACK_SECRET, firedFor } from "./support/make";
+import { showOutboundIssue } from "./support/orders-pages";
 
 // phone-forms.spec - linia de acceptanta a cardului P3-65 (G23 partea 3).
 //
@@ -467,7 +468,8 @@ test.describe("P3-65: formularele si panourile pe telefon (390x844)", () => {
     await inbound.getByRole("button", { name: "Închide", exact: true }).click();
     await expect(inbound).toHaveCount(0);
 
-    await page.locator(`[data-testid='outbound-item'][data-reference='${SEED_OUTBOUND_REFERENCE}']`).click();
+    // P3-142. Lista de iesiri are pagini; bonul semanat este cel mai vechi, deci se trec paginile.
+    await (await showOutboundIssue(page, SEED_OUTBOUND_REFERENCE)).click();
     const outbound = page.getByTestId("outbound-panel");
     await expect(outbound).toBeVisible({ timeout: 20_000 });
     await expect.poll(() => page.getByTestId("outbound-line").count()).toBeGreaterThanOrEqual(1);
@@ -642,6 +644,8 @@ test.describe("P3-97: formularul de produs si fisa de verificare pe telefon (390
     await page.getByTestId("field-threshold").fill("12");
     await page.getByTestId("field-unit-value").fill("76.72");
     await page.getByTestId("form-submit").click();
+    // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill(sku);
     await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
       timeout: 30_000,
     });
