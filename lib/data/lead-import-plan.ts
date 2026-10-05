@@ -16,6 +16,7 @@
 // trebuie sa existe.
 
 import type { ClientSource } from "./clients-types";
+import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 import {
   IMPORT_FIELD_LABEL,
   type ColumnMapping,
@@ -84,6 +85,8 @@ export type PlanEntry =
 export type LeadImportPlan = {
   entries: PlanEntry[];
   counts: { fresh: number; duplicate: number; error: number };
+  /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
+  preview: ImportPreviewTable;
 };
 
 /** Ce a ales operatorul pentru fiecare rand dublat. Lipsa inseamna "Sari peste". */
@@ -130,6 +133,8 @@ export function buildPlan(input: {
   owners: OwnerIndex;
   fallbackSource: ClientSource | "";
   existing: ExistingClient[];
+  /** id responsabil -> nume, pentru coloana Responsabil din previzualizare. */
+  ownerNames?: ReadonlyMap<string, string>;
   /** Numarul randului de antet, ca numerotarea sa fie cea din Excel. */
   headerLine?: number;
 }): { plan: LeadImportPlan; prepared: Map<number, PreparedLead> } {
@@ -228,7 +233,14 @@ export function buildPlan(input: {
     counts.fresh += 1;
   }
 
-  return { plan: { entries, counts }, prepared };
+  const preview = personPreviewTable(
+    entries.filter((e) => e.kind === "new").map((e) => e.line),
+    prepared,
+    input.ownerNames ?? new Map(),
+    true,
+  );
+
+  return { plan: { entries, counts, preview }, prepared };
 }
 
 /**
