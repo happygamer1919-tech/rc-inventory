@@ -4737,6 +4737,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
     },
     {
+      "id": "P3-143",
+      "title": "Home",
+      "plain": "Home screen",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Test",
+      "defaults": "None",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #410",
+        "at": "2026-10-04T16:00:00Z"
+      },
+      "notes": null
+    },
+    {
       "id": "P3-154",
       "title": "Excel separator: every exported CSV (leads, clients, projects, inventory, the import templates and the import error file) opens in Excel on a Romanian or Russian Windows as proper columns, with decimals Excel reads as numbers and not dates. buildCsv in lib/data/import-shared.ts wrote commas between columns and dots in decimals; Excel with Romanian or Russian regional settings expects semicolons and decimal commas, so a double-clicked export showed each whole row in column A and, after a manual split, a price like 12.5 was read as a date. (1) buildCsv writes ; between columns, one UTF-8 BOM at the start (it already wrote one), and quotes a cell holding a double quote, ;, comma or line break (quote doubling kept). (2) New formatCsvNumber next to buildCsv writes a decimal with a decimal comma (12,5); the materials export (exportNumber) and the projects export (budget) use it. (3) parseCsv already detects the separator from the header line and parseImportNumber already reads decimal commas, so the exports round trip. (4) The import rules text now says the file is separated by semicolon. No migration. Cell escaping of values starting with = + - @ is the next task, not this one.",
       "plain": "Fișierele exportate se deschid corect în Excel pe un calculator cu setări românești sau rusești: fiecare valoare în coloana ei, iar prețurile cu zecimale rămân numere.",
