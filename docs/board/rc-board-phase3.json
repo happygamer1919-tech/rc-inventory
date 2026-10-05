@@ -4433,6 +4433,32 @@
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-130 for the table and on P3-131 for the day definition and the components.\n\nACCEPTANCE (c) IS THE D7 GUARD. The existing Azi test being re-run unmodified is the only machine-checkable way to prove the call list was not quietly reshaped while a section was added beneath it.\n\nEXECUTED 2026-10-03T00:03:10Z by EXECUTOR. DECISION A, KEPT: ACCEPTANCE (c) IS SATISFIED BOTH WAYS. It names `azi: lista de sunat este neschimbata` as the EXISTING Azi test, but no case of that name existed. The existing guard is the eight G46/B1 cases of tests/e2e/azi-screen.spec.ts, which run unmodified (the file is not in git diff --name-only). A new case was added under the exact name asserting that the call list renders the same rows with tasks present. DECISION B, KEPT: THE AGREEMENT IS OVER THE OPEN TASKS OF THE TAB'S AZI BUCKET. taskBucket() leaves finished and cancelled tasks in the Azi bucket on purpose (the tab's bucket is what is due today), while the Azi screen lists what to do now. The exclusion is written once, as isTaskOpen() in lib/data/tasks-shape.ts, applied by the Azi page on top of taskBucket(). Case (b) asserts the tab's bucket holds the finished task and that the Azi section equals the bucket minus the closed states. DECISION C, KEPT: A TASK ROW OPENS THE TASK THROUGH `/sarcini?sarcina=<id>`. The tab had no way to open one task by link, so SarciniScreen now starts with that task's form open when the id is on its list; nothing else on the tab changed. DECISION D, KEPT: THE `responsabil` FILTER OF THE AZI SCREEN ALSO NARROWS THE TASK SECTION, by task assignee, since both lists use the same profile ids. With no filter set the section equals the tab's bucket. The section is absent, not empty, when the tasks table is absent (tasksVisible), and the call list renders as before. The Azi section is components/tasks/AziTasksSection.tsx, outside the nine TASK_FILES of the P3-132 D7 guard, which stays untouched. lib/data/azi.ts is not changed."
     },
     {
+      "id": "P3-162",
+      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the way to start a request as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
+      "plain": "Lista de sarcini arată toate sarcinile, oricâte ar fi, nu doar primele o mie; sarcinile noi și cele fără termen nu mai dispar.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-133",
+        "P3-39"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `P3-162: listTasks fara argumente aduce 2500 de sarcini, complete, in ordine, fara dubluri`, `P3-162: listTasks dupa termen aduce toate sarcinile, cele fara termen la sfarsit`, `P3-162: filtrele raman pe server si se pagineaza si ele` and `P3-162: listTasksForEntity aduce 2500 de sarcini ale unei inregistrari, complete, in ordine, fara dubluri` in tests/e2e/tasks-list-paging.spec.ts are green in this pull request's own `quality` run. (b) The existing tests/e2e/tasks.spec.ts and tests/e2e/azi-screen.spec.ts stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0, no migration file is added, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "Both reads go through readAllPages with the page size ROW_PAGE_SIZE and keep today's order with id as the last tie breaker. Filters, sort and the shape returned stay exactly as before; callers do not change. A short or total-less answer is a visible failure, never a shorter list. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/tasks-list-paging against main: its quality run on the head sha runs tests/e2e/tasks-list-paging.spec.ts; report in docs/reports/2026-10-04-executor-tasks-list-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Only listTasks and listTasksForEntity had the flaw; getTask is a single-row read and tasks-actions.ts only writes. The card sits in the middle of the file, not at the end, so it does not conflict with every other card appended at the end."
+    },
+    {
       "id": "P3-134",
       "title": "Speed cause 1, REGION DISTANCE: run the server functions in the same region as the database. Measured on 2026-10-03 by goal G76 from outside, with no login: every server-rendered response carries x-vercel-id `fra1::iad1::<id>`, so the edge is Frankfurt and every function runs in iad1 (Washington DC, Vercel's default; the repository sets no preferredRegion and has no vercel.json). /api/health, which makes exactly one database call, costs 285 to 480 ms of server time warm (median total 566 ms over 19 warm requests) against 160 ms for the prerendered login page from the same edge. A logged-in screen makes 4 shared database calls (proxy getUser and profiles, layout getUser and profiles) plus 2 to 18 of its own with a sequential chain of up to 5, so a per-call cost of that size reaches the 2 to 4 seconds Rapid Construct reports. (1) THE FIX is one setting: pin the function region to the region nearest the Supabase project, either `regions` in a new vercel.json or the Vercel project's Functions region setting, whichever the owner prefers; the pull request says which. (2) NO CODE PATH CHANGES. No query, no route, no proxy logic is edited by this card. (3) The database region is the one fact this card cannot start without, and it is not knowable from the factory machine: it is asked in the owner question of goal G76.",
       "plain": "Every screen of the live system is built by a server in Washington, in the United States, while the people using it are in Moldova and the front door is in Frankfurt. Each screen asks the database several questions, one after another, and each one makes that long trip. This moves the server next to the database so those trips become short. It changes no screen and no data; the system should simply answer faster. It waits for one fact: which region the database lives in.",
@@ -5002,30 +5028,30 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. The email fallback logic is connected through lib/data/tasks.ts assigneeName."
     },
     {
-      "id": "P3-162",
-      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the way to start a request as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
-      "plain": "Lista de sarcini arată toate sarcinile, oricâte ar fi, nu doar primele o mie; sarcinile noi și cele fără termen nu mai dispar.",
+      "id": "P3-167",
+      "title": "A spec locks in that every number the materials export writes is read back by the import as the same number.",
+      "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
       "lane": "shipped",
       "home_lane": "in_flight",
       "status": "shipped",
-      "priority": "medium",
+      "priority": "low",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
       "depends_on": [
-        "P3-133",
-        "P3-39"
+        "P3-137",
+        "P3-129"
       ],
       "blocked_on": null,
       "question": null,
-      "acceptance": "(a) The named cases `P3-162: listTasks fara argumente aduce 2500 de sarcini, complete, in ordine, fara dubluri`, `P3-162: listTasks dupa termen aduce toate sarcinile, cele fara termen la sfarsit`, `P3-162: filtrele raman pe server si se pagineaza si ele` and `P3-162: listTasksForEntity aduce 2500 de sarcini ale unei inregistrari, complete, in ordine, fara dubluri` in tests/e2e/tasks-list-paging.spec.ts are green in this pull request's own `quality` run. (b) The existing tests/e2e/tasks.spec.ts and tests/e2e/azi-screen.spec.ts stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0, no migration file is added, and a grep of the changed files finds no em dash and no en dash.",
-      "defaults": "Both reads go through readAllPages with the page size ROW_PAGE_SIZE and keep today's order with id as the last tie breaker. Filters, sort and the shape returned stay exactly as before; callers do not change. A short or total-less answer is a visible failure, never a shorter list. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
-      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/import-number.spec.ts` green in this pull request's quality run on the head sha, including the case `numar de import: exportul de materiale se citeste inapoi la fel`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Doar test. Cititorul de numere nu se schimba: un singur punct urmat de trei cifre ramane separator de mii (250.000 = 250000), ca in P3-137.",
+      "last_checkpoint": "2026-10-05T12:00:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "Pull request on branch card/tasks-list-paging against main: its quality run on the head sha runs tests/e2e/tasks-list-paging.spec.ts; report in docs/reports/2026-10-04-executor-tasks-list-paging.md",
-        "at": "2026-10-05T00:00:00Z"
+        "ref": "Pull request on branch card/import-number-round-trip against main: its quality run on the head sha will run tests/e2e/import-number.spec.ts and report the named test case green; report in docs/reports/2026-10-05-executor-import-number-round-trip.md",
+        "at": "2026-10-05T12:00:00Z"
       },
-      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Only listTasks and listTasksForEntity had the flaw; getTask is a single-row read and tasks-actions.ts only writes."
+      "notes": null
     }
   ]
 }
