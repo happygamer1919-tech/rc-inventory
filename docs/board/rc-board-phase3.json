@@ -5002,6 +5002,32 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. The email fallback logic is connected through lib/data/tasks.ts assigneeName."
     },
     {
+      "id": "P3-167",
+      "title": "A spec locks in that every number the materials export writes is read back by the import as the same number.",
+      "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-137",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/import-number.spec.ts` green in this pull request's quality run on the head sha, including the case `numar de import: exportul de materiale se citeste inapoi la fel`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Doar test. Cititorul de numere nu se schimba: un singur punct urmat de trei cifre ramane separator de mii (250.000 = 250000), ca in P3-137.",
+      "last_checkpoint": "2026-10-05T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-number-round-trip against main: its quality run on the head sha will run tests/e2e/import-number.spec.ts and report the named test case green; report in docs/reports/2026-10-05-executor-import-number-round-trip.md",
+        "at": "2026-10-05T12:00:00Z"
+      },
+      "notes": null
+    },
+    {
       "id": "P3-144",
       "title": "Outbound screen: the 'Tip ieșire' choice is locked while a slip is saving. Before, clicking 'Creează bonul' and then the other option before the answer came back unmounted the form that was waiting, so the issue was saved and stock deducted but the screen showed an empty form and no confirmation, and the operator could enter the slip twice. (1) OutboundModeChoice takes a disabled prop that disables both radio options and the fieldset (disabled and aria-disabled). (2) OutboundProjectForm and OutboundDirectClientForm pass their own pending state to it and ignore a mode change that arrives while pending. No change to the save logic, stock deduction, labels, layout or server actions. No migration.",
       "plain": "Cât timp bonul de ieșire se salvează, alegerea «Tip ieșire» este blocată, iar confirmarea apare mereu după salvare.",
