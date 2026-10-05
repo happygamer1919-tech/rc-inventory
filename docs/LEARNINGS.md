@@ -9095,6 +9095,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `runClientImport` and `runLeadImport` pushed skipped duplicates and database-refused rows with `raw: []`, so the downloaded file showed only the row number and the reason. `parseCsv` also dropped blank lines before numbering, so every "Rândul N" after a blank line was off against Excel. A client whose stage or contact step failed after the insert came back as a plain refusal, and uploading that row again would have created a second client.
 **SOLUTION:** card P3-155: `parseCsvWithLines` returns the physical line of each row, the sheets send `lines` with the rows, and `rawRowAt` gives every skipped row its original cells. `createClientRecord` returns `saved.clientId` on a failure after the insert, and the import counts that row as created with a warning. RULE: **a row that is reported back to the operator carries everything needed to fix it, and a failure after the insert is never reported as a row that saved nothing.**
 
+### A client summary joined only through projects misses a sale that has no project
+**Tag:** backend
+**ERROR:** `client_material_summary` (0022) reached issue lines through `projects.client_id`. Since 0067 a walk-in sale has no project and names its buyer in `outbound_issues.client_id`, so the buyer Consum materiale tab said nothing was consumed. The brief also said to keep a status filter that the function never had: an outbound issue has no cancelled state.
+**SOLUTION:** card P3-159, migration 0071: left join projects and count a line when the project client or the issue client is the asked client. RULE: **when a second way to link a record to its owner is added, grep every function that joins to the owner through the first way**; and read the function body before trusting a brief that says what it filters.
+
+### A new migration file needs a pending line in APPLY-LOG.md or the production headers spec fails
+**Tag:** tests
+**ERROR:** PR for 0071 passed every step except `headers.spec.ts` case 5, after a 40 minute run: no APPLY-LOG entry and no pending line for the file.
+**SOLUTION:** add the line "- `NNNN_name.sql`, card de aplicare <card>" under the pending list in `docs/migrations/APPLY-LOG.md` in the same PR. RULE: **a migration PR also edits APPLY-LOG.md; grep that file for the previous migration number before pushing.**
+
 ### A CSV cell that starts with = + - or @ runs as a formula, and a phone or IDNO opens damaged in Excel
 **Tag:** backend
 **ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
