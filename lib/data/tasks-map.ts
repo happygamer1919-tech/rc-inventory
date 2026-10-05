@@ -1,5 +1,5 @@
 // Randul unei sarcini, redus la forma aplicatiei, si lista echipei din care vine
-// numele responsabilului. Cardul P3-156.
+// numele responsabilului. Cardul P3-157.
 //
 // FISIERUL ACESTA NU IMPORTA NIMIC DE SERVER, deliberat, ca specificatia lui sa il
 // poata citi fara baza de date (aceeasi regula ca lib/data/row.ts si

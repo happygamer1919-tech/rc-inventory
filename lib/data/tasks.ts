@@ -107,7 +107,7 @@ async function readNames(
 
 /**
  * Optiunile selectorului Responsabil: colegii ACTIVI, vazuti de orice cont activ, nu
- * numai de administrator (cardul P3-156). Cand functia nu exista inca pe baza, cade pe
+ * numai de administrator (cardul P3-157). Cand functia nu exista inca pe baza, cade pe
  * citirea de pana acum, listClientOwnerChoices.
  */
 export async function listTaskAssigneeChoices(): Promise<AssigneeChoice[]> {

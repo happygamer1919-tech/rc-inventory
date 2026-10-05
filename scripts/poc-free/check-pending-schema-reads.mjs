@@ -190,7 +190,7 @@ const TOLERATED_WORDS = {
   'lib/data/tasks-types.ts': {
     description: 'campul `description` al unei sarcini, un modul de tipuri si etichete fara nicio citire; fisierul nu cheama nicio tabela.',
   },
-  // P3-156. MAPAREA RANDULUI DE SARCINA, mutata din lib/data/tasks.ts intr-un modul fara
+  // P3-157. MAPAREA RANDULUI DE SARCINA, mutata din lib/data/tasks.ts intr-un modul fara
   // server ca specificatia sa o poata citi fara baza de date. Acelasi motiv ca la
   // tasks-types.ts: cuvantul `description` este campul descrierii unei sarcini, iar
   // coloana in asteptare cu acest nume este extraction_draft_lines.description din

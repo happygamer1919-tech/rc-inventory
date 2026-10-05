@@ -1,4 +1,4 @@
-# P3-156: task assignee names for account managers
+# P3-157: task assignee names for account managers
 
 Role: EXECUTOR. Branch `card/task-assignee-names`. Bug check 2026-10-04.
 
@@ -15,7 +15,7 @@ An account manager now sees the real person on every task and can give a task to
 - `components/tasks/TaskForm.tsx`: a deactivated current assignee shows by name, marked "(inactiv)".
 - `TaskTable.tsx`, `AziTasksSection.tsx`: "Nealocată" only when no one is assigned.
 - `scripts/poc-free/check-pending-schema-reads.mjs`: one exemption for `tasks-map.ts`, same reason as `tasks-types.ts` (word `description`, no table call).
-- Board card P3-156 (P3-140 was taken), APPLY-LOG line, LEARNINGS entry.
+- Board card P3-157 (P3-140 was taken), APPLY-LOG line, LEARNINGS entry.
 
 Owner view: for an owner `display_name` falls back to the email when the full name is empty, as the screens did before.
 

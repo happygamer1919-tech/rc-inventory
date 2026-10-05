@@ -1,5 +1,5 @@
 -- 0072_list_team_members.sql
--- RC Inventory phase 3, card P3-156. An active user can read the id, the display
+-- RC Inventory phase 3, card P3-157. An active user can read the id, the display
 -- name and the active flag of every colleague, and nothing else about them.
 --
 -- WHY IT EXISTS.
@@ -62,7 +62,7 @@ as $$
 $$;
 
 comment on function public.list_team_members() is
-  'P3-156. id, display name and active flag of every profile, for an ACTIVE caller only; nothing else about a colleague. Lets an account manager see and pick the assignee of a task without widening profiles_select.';
+  'P3-157. id, display name and active flag of every profile, for an ACTIVE caller only; nothing else about a colleague. Lets an account manager see and pick the assignee of a task without widening profiles_select.';
 
 revoke all on function public.list_team_members() from public;
 revoke all on function public.list_team_members() from anon;

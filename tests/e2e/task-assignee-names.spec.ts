@@ -11,7 +11,7 @@ import {
 import { managerAccount, ownerAccount, type TestAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 
-// task-assignee-names.spec - linia de acceptanta a cardului P3-156: un manager de
+// task-assignee-names.spec - linia de acceptanta a cardului P3-157: un manager de
 // cont vede cine raspunde de fiecare sarcina si poate aloca o sarcina oricarui coleg
 // activ.
 //
@@ -23,7 +23,7 @@ import { signIn } from "./support/auth";
 // DATELE DE TEST NU SE STERG, conventia P2-07: conturile raman, sarcinile se anuleaza.
 
 const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
-const TAG = `TEST-P3156-${RUN}`;
+const TAG = `TEST-P3157-${RUN}`;
 
 /* ------------------------------------------------------- cazuri pure -- */
 
@@ -126,8 +126,8 @@ async function accessToken(account: TestAccount): Promise<string> {
 /** Un cont nou, cu profil de manager si un nume cunoscut, care poate fi dezactivat fara
  *  sa atinga conturile comune de test. */
 async function newAccount(fullName: string): Promise<{ id: string; account: TestAccount }> {
-  const email = `p3-156-${RUN}-${randomUUID().slice(0, 8)}@rc-inventory.local`;
-  const password = `p3-156-${randomUUID()}`;
+  const email = `p3-157-${RUN}-${randomUUID().slice(0, 8)}@rc-inventory.local`;
+  const password = `p3-157-${randomUUID()}`;
   const created = await fetch(`${env().origin}/auth/v1/admin/users`, {
     method: "POST",
     headers: { ...serviceHeaders(), "Content-Type": "application/json" },
