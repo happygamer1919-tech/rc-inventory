@@ -4922,6 +4922,27 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
+    },
+    {
+      "id": "P3-164",
+      "title": "Azi screen empty state, P3-142 follow-up: 'Nimic de facut azi.' is shown only when there are NO calls AND NO tasks due today; the test has two deterministic cases without assertions inside conditionals",
+      "plain": "Ecranul Azi arata 'Nimic de facut azi.' numai cand nu sunt nici apeluri de facut si nici sarcini cu termen azi. Testul verifica amandoua situatiile.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-142"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The logic in components/clients/AziScreen.tsx line 121 shows 'Nimic de facut azi.' when rows.length === 0 AND (tasks === null OR tasks.length === 0), and shows 'Niciun apel de facut azi.' when rows.length === 0 AND tasks has items. (b) Two new test cases in tests/e2e/azi-screen.spec.ts replace the old P3-142 test: P3-142a checks that 'Nimic de facut azi.' is shown when there are no calls and no tasks, and P3-142b checks that 'Niciun apel de facut azi.' is shown when there are no calls but tasks are due today. Both assertions are UNCONDITIONAL (not inside an if statement). Both tests are green in the PR's quality run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "No Romanian diacritics on screen, no em dash or en dash anywhere. No changes to the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the AziTasksSection component, or any other route.",
+      "last_checkpoint": "2026-10-05T14:00:00Z",
+      "evidence": null,
+      "notes": "Card created as a follow-up to P3-142. The original test on lines 434-455 of azi-screen.spec.ts asserts only inside an if statement, which allows it to pass while checking nothing. This card splits it into two separate deterministic test cases that run against actual test data."
     }
   ]
 }
