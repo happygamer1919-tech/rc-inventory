@@ -21,7 +21,7 @@
 
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
-import { listClientOwnerChoices, listClientRowsForExport } from "./clients";
+import { listClientRowsForExport, ownerDisplayName } from "./clients";
 import {
   CLIENT_SOURCE_LABEL,
   CLIENT_STAGE_LABEL,
@@ -120,13 +120,27 @@ export async function exportClients(
   ].join(",");
 
   const details = new Map<string, DetailRow>();
+  const ownerIds = new Set<string>();
   for (const part of chunks(ids, ID_CHUNK)) {
     const { data, error } = await supabase.from("clients").select(columns).in("id", part);
     if (error) return { ok: false, message: `Nu s-au putut citi clienții: ${error.message}` };
-    for (const d of (data ?? []) as unknown as DetailRow[]) details.set(d.id, d);
+    for (const d of (data ?? []) as unknown as DetailRow[]) {
+      details.set(d.id, d);
+      if (d.owner_id) ownerIds.add(d.owner_id);
+    }
   }
 
-  const ownerName = new Map((await listClientOwnerChoices()).map((o) => [o.id, o.fullName]));
+  const ownerName = new Map<string, string>();
+  for (const part of chunks(Array.from(ownerIds), ID_CHUNK)) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", part);
+    if (error) return { ok: false, message: `Nu s-au putut citi responsabilii: ${error.message}` };
+    for (const p of (data ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+      ownerName.set(p.id, ownerDisplayName(p));
+    }
+  }
 
   const clients: ExportClientRow[] = rows.map((r) => {
     const d = details.get(r.id);

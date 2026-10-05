@@ -446,3 +446,53 @@ test("export clienti: se exporta toate randurile filtrului, nu doar pagina vizib
   expect(rows, "toate cele 30, nu cele 25 de pe pagina").toHaveLength(count);
   expect(new Set(rows.map((r) => r[0])).size, "fara randuri repetate").toBe(count);
 });
+
+test("export clienti: exportul arata nume responsabil chiar cand contul e dezactivat", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = tagOf("deact");
+  const c = SERIES.inactive;
+
+  const manager = ownerAccount();
+
+  // Creeaza un client cu responsabil care va fi dezactivat.
+  await seedClients(rest, [
+    {
+      name: `${tag} cu responsabil`,
+      type: "company",
+      phone: phone(c, 1),
+      email: email("deact-active", 1),
+      stage: "client",
+      owner_id: rest.userId,
+    },
+    {
+      name: `${tag} fara responsabil`,
+      type: "company",
+      phone: phone(c, 2),
+      email: email("deact-none", 2),
+      stage: "client",
+      owner_id: null,
+    },
+  ]);
+
+  // Dezactiveaza administratorul (care e responsabilul primului client).
+  await rest.api.patch(`/rest/v1/profiles?id=eq.${rest.userId}`, {
+    headers: rest.headers,
+    data: { active: false },
+  });
+
+  const exported = await exportView(page, { q: tag });
+  const rows = dataRows(exported.text);
+  expect(rows).toHaveLength(2);
+
+  const ownerCol = CLIENT_IMPORT_FIELDS.indexOf("ownerName");
+
+  // Primul client are responsabil dezactivat, dar exportul arata email-ul.
+  const firstOwnerName = rows[0]![ownerCol];
+  expect(firstOwnerName, "raspunditor dezactivat apare in export cu email").toBe(manager.email);
+
+  // Al doilea client n-are responsabil, deci spatiu gol.
+  const secondOwnerName = rows[1]![ownerCol];
+  expect(secondOwnerName, "lipsa responsabil = spatiu gol").toBe("");
+});
