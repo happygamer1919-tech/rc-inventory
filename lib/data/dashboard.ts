@@ -100,12 +100,13 @@ function buildActivity(
   }
 
   for (const o of outbound) {
+    const destination = o.mode === "direct_client" ? o.clientName : o.projectName;
     items.push({
       id: `act-out-${o.id}`,
       at: o.shippedAt ?? o.issuedAt,
       kind: "ieșire",
-      title: `${o.status === "shipped" ? "Expediere" : "Bon de eliberare"} către ${o.projectName}`,
-      detail: `${o.clientName}, ${o.lines.length} ${o.lines.length === 1 ? "poziție" : "poziții"}`,
+      title: `${o.status === "shipped" ? "Expediere" : "Bon de eliberare"} către ${destination}`,
+      detail: `${o.lines.length} ${o.lines.length === 1 ? "poziție" : "poziții"}`,
       reference: o.reference,
     });
   }
