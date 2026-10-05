@@ -33,7 +33,7 @@ import * as React from "react";
 
 export const DATE_PLACEHOLDER = "zz.ll.aaaa";
 export const DATE_INVALID_MESSAGE =
-  "Data nu este validă. Scrie ziua, luna și anul, de exemplu 01.12.2026.";
+  "Data nu este completă. Scrie ziua, luna și anul, de exemplu zz.ll.aaaa, sau lasă câmpul gol.";
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -176,8 +176,7 @@ export function DateField({
   }
 
   const parsed = isoFromRomanian(text);
-  const digitCount = text.replace(/\D/g, "").length;
-  const invalid = parsed === null && (touched || digitCount >= 8);
+  const invalid = text !== "" && parsed === null;
 
   // P3-92. Parintele afla cand mesajul rosu apare si cand pleaca.
   //
