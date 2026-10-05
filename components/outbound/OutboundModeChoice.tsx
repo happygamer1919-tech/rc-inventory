@@ -16,9 +16,12 @@
 // <fieldset> cu <legend>, si nu <div>-uri cu onClick: tastatura le muta cu
 // sagetile fara nicio linie de cod, si un cititor de ecran anunta "1 din 2".
 //
-// ALEGEREA NU ESTE DEZACTIVATA CAT TIMP SE TRIMITE. Trimiterea schimba formularul
-// pe confirmare, iar confirmarea nu arata alegerea deloc, deci nu exista o stare
-// in care o alegere schimbata ar ajunge la o cerere deja plecata.
+// P3-144: ALEGEREA ESTE DEZACTIVATA CAT TIMP SE TRIMITE. Ce scria aici inainte (ca
+// nu exista nicio stare in care o alegere schimbata ar ajunge la o cerere deja
+// plecata) era gresit: cererea pleaca, operatorul schimba modul, formularul care
+// astepta raspunsul este demontat, iar iesirea este salvata si stocul scazut fara
+// nicio confirmare pe ecran. De aceea `disabled` vine de la formularul care
+// trimite.
 
 import * as React from "react";
 import { Card, CardHeader } from "@/components/ui/primitives";
@@ -36,9 +39,12 @@ const HINT: Record<OutboundMode, string> = {
 export function OutboundModeChoice({
   value,
   onChange,
+  disabled = false,
 }: {
   value: OutboundMode;
   onChange: (mode: OutboundMode) => void;
+  /** P3-144. Adevarat cat timp formularul trimite: ambele optiuni stau oprite. */
+  disabled?: boolean;
 }) {
   return (
     /* data-testid="field-issue-mode" CUPRINDE SI TITLUL VIZIBIL, nu numai butoanele.
@@ -67,7 +73,13 @@ export function OutboundModeChoice({
           aria-label da exact acelasi nume grupului, fara niciun element de
           desenat, deci nu exista nimic de taiat. Detectorul lui P3-67 NU s-a
           atins: el apara orice alt ecran si a avut dreptate aici. */}
-        <fieldset className="p-5 m-0 border-0" aria-label="Tip ieșire">
+        <fieldset
+          className="p-5 m-0 border-0"
+          aria-label="Tip ieșire"
+          disabled={disabled}
+          aria-disabled={disabled}
+          data-testid="issue-mode-group"
+        >
           <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {/* LISTA MODURILOR VINE DIN ALL_OUTBOUND_MODES si nu este scrisa aici,
               acelasi motiv pentru care unitatile vin din ALL_UNITS: un mod adaugat
@@ -79,7 +91,8 @@ export function OutboundModeChoice({
                 key={mode}
                 data-testid={`issue-mode-option-${mode}`}
                 className={[
-                  "flex items-start gap-3 rounded-[10px] border px-4 py-3 cursor-pointer transition-colors",
+                  "flex items-start gap-3 rounded-[10px] border px-4 py-3 transition-colors",
+                  disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
                   PHONE_TAP,
                   chosen
                     ? "border-rc-orange bg-rc-orange-soft"
@@ -92,6 +105,7 @@ export function OutboundModeChoice({
                   value={mode}
                   checked={chosen}
                   onChange={() => onChange(mode)}
+                  disabled={disabled}
                   data-testid={`issue-mode-${mode}`}
                   className="mt-0.5 h-4 w-4 accent-rc-orange"
                 />

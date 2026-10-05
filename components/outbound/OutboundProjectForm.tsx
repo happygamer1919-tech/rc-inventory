@@ -325,7 +325,14 @@ export function OutboundProjectForm({
       <div className="space-y-4" data-testid="outbound-form">
         {/* P3-119 clauza 1: ALEGEREA VINE PRIMA. Singurul rand de JSX adaugat in
             acest fisier. */}
-        <OutboundModeChoice value={mode} onChange={onModeChange} />
+        <OutboundModeChoice
+          value={mode}
+          onChange={(next) => {
+            // P3-144: si fara `disabled`, o schimbare sosita in timpul trimiterii nu se aplica.
+            if (!pending) onModeChange(next);
+          }}
+          disabled={pending}
+        />
 
         <Card>
           <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />

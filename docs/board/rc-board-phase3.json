@@ -4840,6 +4840,31 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-141 was taken, P3-155 was the next free one. The database-refused and partial-failure paths live in runClientImport and runLeadImport, which need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
+    },
+    {
+      "id": "P3-144",
+      "title": "Outbound screen: the 'Tip ieșire' choice is locked while a slip is saving. Before, clicking 'Creează bonul' and then the other option before the answer came back unmounted the form that was waiting, so the issue was saved and stock deducted but the screen showed an empty form and no confirmation, and the operator could enter the slip twice. (1) OutboundModeChoice takes a disabled prop that disables both radio options and the fieldset (disabled and aria-disabled). (2) OutboundProjectForm and OutboundDirectClientForm pass their own pending state to it and ignore a mode change that arrives while pending. No change to the save logic, stock deduction, labels, layout or server actions. No migration.",
+      "plain": "Cât timp bonul de ieșire se salvează, alegerea «Tip ieșire» este blocată, iar confirmarea apare mereu după salvare.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/outbound-mode-lock.spec.ts are green in this pull request's own `quality` run: `iesire P3-144: pe Client direct, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: pe Proiect, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: dupa salvare, alegerea Tip iesire este din nou libera`. (b) tests/e2e/outbound-direct-client.spec.ts and outbound.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "While a save is in flight, both 'Tip ieșire' options are disabled and a mode change that arrives anyway is ignored, so the form that waits for the answer is never unmounted and its confirmation always shows. When the save ends, the choice is enabled again. Nothing else changes: same labels, same layout, same server actions, no migration, no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/outbound-mode-lock against main: its quality run on the head sha runs tests/e2e/outbound-mode-lock.spec.ts; report in docs/reports/2026-10-05-executor-outbound-mode-lock.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. The task asked for a component spec, but the repo has no component test runner (Playwright only), so the disabled-while-saving check is an end to end case with the save request held for two seconds. Needs the CI database, so it was not run locally."
     }
   ]
 }
