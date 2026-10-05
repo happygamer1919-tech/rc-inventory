@@ -175,14 +175,28 @@ export function sniffDelimiter(text: string): string {
  * taie, altfel primul antet ar fi "﻿Denumire" si nu s-ar potrivi cu nimic.
  */
 export function parseCsv(input: string): string[][] {
+  return parseCsvWithLines(input).rows;
+}
+
+/**
+ * La fel ca parseCsv, dar spune si pe ce linie fizica din fisier (antetul este linia 1)
+ * incepe fiecare rand intors, ca "Randul N" sa fie randul pe care operatorul il vede in
+ * Excel. Liniile goale nu devin randuri, dar se numara: un rand de dupa o linie goala
+ * nu mai este randul de dupa antet cu un indice mai sus. O celula intre ghilimele cu
+ * rand nou inauntru ocupa mai multe linii, si randul urmator se numara dupa ele.
+ */
+export function parseCsvWithLines(input: string): { rows: string[][]; lines: number[] } {
   const text = input.replace(/^﻿/, "");
   const delimiter = sniffDelimiter(text);
 
   const rows: string[][] = [];
+  const lines: number[] = [];
   let row: string[] = [];
   let cell = "";
   let quoted = false;
   let i = 0;
+  let lineNo = 1;
+  let startLine = 1;
 
   const endCell = () => {
     row.push(cell);
@@ -191,7 +205,9 @@ export function parseCsv(input: string): string[][] {
   const endRow = () => {
     endCell();
     rows.push(row);
+    lines.push(startLine);
     row = [];
+    startLine = lineNo;
   };
 
   while (i < text.length) {
@@ -208,6 +224,7 @@ export function parseCsv(input: string): string[][] {
         i += 1;
         continue;
       }
+      if (char === "\n" || (char === "\r" && text[i + 1] !== "\n")) lineNo += 1;
       cell += char;
       i += 1;
       continue;
@@ -227,12 +244,14 @@ export function parseCsv(input: string): string[][] {
       continue;
     }
     if (char === "\n") {
+      lineNo += 1;
       endRow();
       i += 1;
       continue;
     }
     if (char === "\r") {
       if (text[i + 1] === "\n") i += 1;
+      lineNo += 1;
       endRow();
       i += 1;
       continue;
@@ -246,7 +265,26 @@ export function parseCsv(input: string): string[][] {
   // Un rand complet gol nu este un rand: fisierele salvate din Excel se termina
   // aproape mereu cu unul, si el ar deveni un rand fara denumire, adica o eroare
   // pe care nu a scris-o nimeni.
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+  const kept = rows.map((_, at) => at).filter((at) => rows[at]!.some((c) => c.trim() !== ""));
+  return { rows: kept.map((at) => rows[at]!), lines: kept.map((at) => lines[at]!) };
+}
+
+/** Celulele originale ale randului de la linia `line` din Excel, pentru fisierul de erori:
+ *  un rand sarit se poate corecta si incarca din nou numai daca isi are toate celulele. */
+export function rawRowAt(
+  rows: string[][],
+  lines: number[] | undefined,
+  headerLine: number,
+  line: number,
+): string[] {
+  const index = lines ? lines.indexOf(line) : line - headerLine - 1;
+  return rows[index] ?? [];
+}
+
+/** Linia din Excel a randului de date `index` (de la 0, fara antet): cea din `lines`
+ *  cand ecranul a trimis-o, altfel cea de dupa antet, fara linii goale. */
+export function dataRowLine(lines: number[] | undefined, headerLine: number, index: number): number {
+  return lines?.[index] ?? headerLine + 1 + index;
 }
 
 /** Un numar pentru o celula de export, cu virgula zecimala (12,5), cum il citeste Excel pe un
@@ -402,12 +440,13 @@ export function buildImportPreview<F extends string>(
   mapping: ColumnMapping<F>,
   fields: ImportFieldDescriptor<F>[],
   headerLine = 1,
+  lines?: number[],
 ): ImportPreview<F> {
   const valid: ImportPreview<F>["valid"] = [];
   const invalid: ImportPreview<F>["invalid"] = [];
 
   for (let i = 0; i < rows.length; i += 1) {
-    const line = headerLine + 1 + i;
+    const line = dataRowLine(lines, headerLine, i);
     const prepared = prepareImportRow(rows[i] ?? [], mapping, fields, line);
     if (prepared.ok) valid.push({ line, record: prepared.record });
     else invalid.push({ line, reason: prepared.reason, raw: prepared.raw });

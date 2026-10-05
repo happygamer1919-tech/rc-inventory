@@ -38,6 +38,7 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
   sniffDelimiter,
   BROKEN_LETTERS_ROW_REASON,
   rowHasBrokenLetters,
@@ -54,7 +55,7 @@ import {
 // nu mai DEFINESTE cititorul, scriitorul sau limitele, le PRIMESTE de la
 // import-shared.ts, ca sa existe un singur cititor si un singur scriitor de CSV
 // in tot depozitul (acceptanta (g) a cardului P3-121).
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile RC in care poate intra o coloana din fisier, IN ORDINEA din goal G58. */

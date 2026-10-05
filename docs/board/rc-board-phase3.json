@@ -4814,6 +4814,32 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-138 was taken, P3-154 was the next free one. The existing case `import comun: fisierul scris incepe cu marca de ordine a octetilor si este separat prin punct si virgula` was updated, because it encoded the old comma separator."
+    },
+    {
+      "id": "P3-155",
+      "title": "Import error file: the client and lead imports put the full original row into the downloadable error file for every skipped row (duplicates and rows the database refused had an empty row, so the operator could not correct and re-upload), and every 'Randul N' matches the row number in Excel (parseCsv dropped blank lines before numbering, so every row after a blank line was off). (1) parseCsvWithLines in lib/data/import-shared.ts returns each row with its physical line, header = line 1, blank lines skipped as data but counted; parseCsv keeps its behaviour. (2) The client and lead import sheets send the lines with the rows, planClientImport, runClientImport, planLeadImport and runLeadImport pass them to the plan, and every skipped row in the outcome carries its original cells through rawRowAt. (3) A client whose stage or contact step fails after the insert is counted as created and reported as a warning with the step's own Romanian message, not put in the error file, because re-uploading it would create a duplicate; createClientRecord returns saved.clientId on those two failures. Projects and materials imports are not changed. No migration.",
+      "plain": "Fișierul cu erori de la import conține rândul întreg pentru fiecare rând sărit, iar numărul rândului corespunde celui din Excel.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-error-file-rows.spec.ts are green in this pull request's own `quality` run: `import: parseCsv numara linia fizica, deci un rand de dupa o linie goala are linia din Excel`, `import: o celula cu rand nou intre ghilimele ocupa mai multe linii, iar randul urmator se numara dupa ele`, `import: randurile sarite isi pastreaza celulele originale, dupa linia din Excel`, `import clienti: un dublat si un rand cu eroare poarta linia din Excel si celulele lui`, `import leaduri: un dublat dupa linie goala are linia din Excel, nu cea din ordine`. (b) tests/e2e/import-shared.spec.ts, clients-import.spec.ts and lead-import.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Row numbers count the file's physical lines, header = line 1, blank lines skipped as data but counted. Every skipped or refused row in the client and lead error files carries its original cells in the file's own column order plus the reason. A client created whose later step failed is counted as created and listed as a warning, never in the error file. No change to the projects and materials imports, the import template columns, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-error-file-rows against main: its quality run on the head sha runs tests/e2e/import-error-file-rows.spec.ts; report in docs/reports/2026-10-05-executor-import-error-file-rows.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-141 was taken, P3-155 was the next free one. The database-refused and partial-failure paths live in runClientImport and runLeadImport, which need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
     }
   ]
 }

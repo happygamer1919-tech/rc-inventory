@@ -29,6 +29,7 @@ import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
 import { listClientOwnerChoices } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
+import { rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
 import {
@@ -66,6 +67,9 @@ const TOO_MANY: ActionResult<never> = {
 /** Ce trimite ecranul: randurile citite din fisier si potrivirea coloanelor. */
 export type LeadImportRequest = {
   rows: string[][];
+  /** Linia din Excel a fiecarui rand de date (liniile goale se numara), ca "Rândul N"
+   *  sa fie cel pe care operatorul il vede in foaie. Lipsa inseamna randuri una dupa alta. */
+  lines?: number[];
   /** Cate un camp sau null pentru fiecare coloana, in ordinea coloanelor. */
   mapping: (ImportField | null)[];
   /** Sursa scrisa o singura data si pusa pe randurile care nu au una a lor. */
@@ -282,6 +286,7 @@ export async function planLeadImport(
   if (!existing.ok) return existing;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
+    lines: request.lines,
     mapping: readMapping(request.mapping),
     ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
@@ -408,6 +413,7 @@ export async function runLeadImport(
   if (!existing.ok) return existing;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
+    lines: request.lines,
     mapping: readMapping(request.mapping),
     ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
@@ -433,6 +439,7 @@ export async function runLeadImport(
   // este un avertisment, asa ca merge intr-o lista a lui, langa cele trei numere.
   const warnings: { line: number; reason: string }[] = [];
   const noteBody = importNoteBody(request.fileName, request.day);
+  const rawAt = (line: number) => rawRowAt(request.rows, request.lines, 1, line);
 
   for (const entry of plan.entries) {
     if (entry.kind === "error") {
@@ -456,12 +463,12 @@ export async function runLeadImport(
         //
         // mergeWithinFile SPUNE ACUM CARE RANDURI, nu cate, deci intrebarea se poate pune.
         if (choice !== "fill") {
-          skippedRows.push({ line: entry.line, reason: duplicateReason(entry), raw: [] });
+          skippedRows.push({ line: entry.line, reason: duplicateReason(entry), raw: rawAt(entry.line) });
         } else if (entry.against.kind === "file" && !mergedLines.has(entry.line)) {
           skippedRows.push({
             line: entry.line,
             reason: `Dublat cu rândul ${entry.against.line}, "${entry.against.name}", care are deja completate câmpurile din fișier.`,
-            raw: [],
+            raw: rawAt(entry.line),
           });
         }
         continue;
@@ -474,7 +481,7 @@ export async function runLeadImport(
         skippedRows.push({
           line: entry.line,
           reason: "Rândul nu a putut fi pregătit pentru scriere.",
-          raw: [],
+          raw: rawAt(entry.line),
         });
         continue;
       }
@@ -486,7 +493,7 @@ export async function runLeadImport(
           reason:
             result.message ??
             `Dublat cu "${entry.against.name}", care are deja completate câmpurile din fișier.`,
-          raw: [],
+          raw: rawAt(entry.line),
         });
       continue;
     }
@@ -497,7 +504,7 @@ export async function runLeadImport(
       skippedRows.push({
         line: entry.line,
         reason: "Rândul nu a putut fi pregătit pentru scriere.",
-        raw: [],
+        raw: rawAt(entry.line),
       });
       continue;
     }
@@ -522,7 +529,22 @@ export async function runLeadImport(
     });
 
     if (!result.ok) {
-      skippedRows.push({ line: entry.line, reason: result.message, raw: [] });
+      // CLIENTUL EXISTA DEJA cand un pas de dupa insert a esuat (etapa, persoana de
+      // contact): nu este un rand nepreluat si nu se pune in fisierul de erori, fiindca
+      // incarcat din nou ar crea un al doilea client. Se numara ca creat si se spune
+      // ce lipseste, cu mesajul pasului.
+      if (result.saved?.clientId) {
+        created += 1;
+        warnings.push({ line: entry.line, reason: result.message });
+        const partialNote = await addClientNote(result.saved.clientId, noteBody);
+        if (!partialNote.ok)
+          warnings.push({
+            line: entry.line,
+            reason: `Nota de import nu s-a salvat. ${partialNote.message}`,
+          });
+        continue;
+      }
+      skippedRows.push({ line: entry.line, reason: result.message, raw: rawAt(entry.line) });
       continue;
     }
     created += 1;

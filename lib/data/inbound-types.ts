@@ -70,7 +70,7 @@ export type InboundOrder = {
  *  Fara `saved`, nu s-a pastrat nimic, exact ca pana la acest card. */
 export type ActionResult<T = undefined> =
   | { ok: true; value: T }
-  | { ok: false; message: string; field?: string; saved?: { orderId?: string } };
+  | { ok: false; message: string; field?: string; saved?: { orderId?: string; clientId?: string } };
 
 export type NewOrderLine = {
   productId: string;

@@ -316,6 +316,7 @@ export async function createClientRecord(
         return {
           ok: false,
           message: `Clientul a fost creat, dar etapa nu s-a salvat. Deschide-l din listă și alege etapa din nou. ${moved.message}`,
+          saved: { clientId: id },
         };
       }
     }
@@ -342,6 +343,7 @@ export async function createClientRecord(
       return {
         ok: false,
         message: `Clientul a fost creat, dar persoana de contact nu s-a salvat. Deschide-l din listă și adaug-o din fila Contacte. ${contact.message}`,
+        saved: { clientId: id },
       };
     }
   }
