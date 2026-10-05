@@ -5002,6 +5002,32 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. The email fallback logic is connected through lib/data/tasks.ts assigneeName."
     },
     {
+      "id": "P3-167",
+      "title": "A spec locks in that every number the materials export writes is read back by the import as the same number.",
+      "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-137",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/import-number.spec.ts` green in this pull request's quality run on the head sha, including the case `numar de import: exportul de materiale se citeste inapoi la fel`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Doar test. Cititorul de numere nu se schimba: un singur punct urmat de trei cifre ramane separator de mii (250.000 = 250000), ca in P3-137.",
+      "last_checkpoint": "2026-10-05T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-number-round-trip against main: its quality run on the head sha will run tests/e2e/import-number.spec.ts and report the named test case green; report in docs/reports/2026-10-05-executor-import-number-round-trip.md",
+        "at": "2026-10-05T12:00:00Z"
+      },
+      "notes": null
+    },
+    {
       "id": "P3-157",
       "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
       "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
