@@ -4737,6 +4737,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
     },
     {
+      "id": "P3-143",
+      "title": "Home",
+      "plain": "Home screen",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Test",
+      "defaults": "None",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #410",
+        "at": "2026-10-04T16:00:00Z"
+      },
+      "notes": null
+    },
+    {
       "id": "P3-140",
       "title": "Client and lead import refuse, as a row error with a Romanian reason, any row whose email or phone cell is filled but cannot be read, instead of silently dropping it or storing a wrong number.",
       "plain": "La importul de clienți și lead-uri, un rând cu email sau telefon scris greșit este arătat ca eroare, cu motivul, în loc să fie importat fără el sau cu un număr greșit.",
