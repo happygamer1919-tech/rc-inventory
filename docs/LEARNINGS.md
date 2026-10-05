@@ -9129,3 +9129,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** process
 **ERROR:** the first version of `lib/data/tasks-read.ts` wrote the table name itself and the check refused it, because only files that import and use `hasTasks` may name that table.
 **SOLUTION:** the table is named only in `lib/data/tasks.ts` (`startRead`); `tasks-read.ts` receives a function that starts the request. RULE: **when a helper is split out of a gated data file, the table name stays in the gated file.**
+
+### The client pickers lost clients past 1000 active rows
+**Tag:** backend
+**ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
+**SOLUTION:** card P3-166: `readActiveClientOptions` (`lib/data/client-options-read.ts`) reads pages of 1000 ordered by name then id until a short page, keeps the Romanian sort and the shape, and throws on error so `app/error.tsx` shows. Proved with a stubbed client (1000 + 1000 + 250 rows, exactly 1000 rows, a failing page). RULE: **any read of a table that can grow past 1000 rows pages with a stable order and throws on error, never returns an empty list.**
