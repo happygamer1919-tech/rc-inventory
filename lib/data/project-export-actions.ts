@@ -22,6 +22,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
 import { listProjectRowsForExport, parseProjectQuery } from "./projects-list";
 import { IMPORT_MAX_ROWS } from "./project-import-types";
+import { formatCsvNumber } from "./import-shared";
 import { PROJECT_STATUS_LABEL } from "./projects-types";
 import {
   projectExportCsv,
@@ -101,8 +102,8 @@ export async function exportProjects(
       status: PROJECT_STATUS_LABEL[r.status],
       startDate: d?.start_date ?? "",
       plannedEndDate: r.plannedEndDate ?? "",
-      // MDL, numar simplu: forma pe care o citeste readBudget din import.
-      budgetMdl: r.budgetMdl === null ? "" : String(r.budgetMdl),
+      // MDL, cu virgula zecimala: forma pe care o citeste readBudget din import si Excel romanesc.
+      budgetMdl: r.budgetMdl === null ? "" : formatCsvNumber(r.budgetMdl),
       notes: d?.notes ?? "",
     };
   });

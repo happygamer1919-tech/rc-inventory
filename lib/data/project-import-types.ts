@@ -348,6 +348,6 @@ export function projectImportInstructions(): string[] {
       "doi clienți diferiți înseamnă două proiecte. Un dublat nu se șterge și nu se suprascrie " +
       "niciodată: ori se sare peste el, ori i se completează numai câmpurile goale.",
     `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB, în format CSV, ` +
-      "UTF-8 cu BOM, separat prin virgulă.",
+      "UTF-8 cu BOM, separat prin punct și virgulă.",
   ];
 }

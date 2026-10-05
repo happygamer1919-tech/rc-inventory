@@ -185,7 +185,7 @@ async function stockOf(rest: OwnerRest, sku: string): Promise<{ batches: number;
 function csv(rows: string[][]): string {
   return rows
     .map((row) =>
-      row.map((cell) => (/[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join(","),
+      row.map((cell) => (/[",;\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join(";"),
     )
     .join("\r\n");
 }
