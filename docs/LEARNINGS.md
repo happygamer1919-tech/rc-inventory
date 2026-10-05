@@ -9079,3 +9079,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** about twenty specs created a product and expected its row on `/inventar` without searching, which was true while the whole catalog was one list.
 **SOLUTION:** each types the SKU in the search box first; seeded issues on `/comenzi` are reached with `tests/e2e/support/orders-pages.ts`, which presses "Înainte" until the reference shows. RULE: **when a list gets pages, grep the specs for the row locators on that route in the same pull request**.
+
+### A CSV with commas and dot decimals does not open in Excel on a Romanian or Russian Windows
+**Tag:** backend
+**ERROR:** `buildCsv` wrote commas between columns and dots in decimals. Excel with Romanian or Russian regional settings expects semicolons and decimal commas, so a double-clicked export showed each whole row in column A, and after a manual split a price like 12.5 was read as a date.
+**SOLUTION:** card P3-154: `buildCsv` writes `;`, quotes a cell with `;` too, and `formatCsvNumber` writes decimals with a comma where the export rows are built. The import already read both separators and both decimal marks. RULE: **an export is checked against the program that opens it; our own parser reading it back proves nothing about Excel.**

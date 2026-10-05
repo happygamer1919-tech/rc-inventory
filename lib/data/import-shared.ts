@@ -249,15 +249,24 @@ export function parseCsv(input: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-/** Scrie randuri ca CSV, cu virgula, pentru sablon, pentru export si pentru
+/** Un numar pentru o celula de export, cu virgula zecimala (12,5), cum il citeste Excel pe un
+ *  calculator cu setari romanesti sau ruse. Cu punct (12.5) Excel il citeste ca data.
+ *  `parseImportNumber` citeste inapoi virgula zecimala. Fara notatie stiintifica. */
+export function formatCsvNumber(value: number | string): string {
+  const text = typeof value === "number" ? String(Number(value.toFixed(3))) : value;
+  return text.replace(".", ",");
+}
+
+/** Scrie randuri ca CSV, cu punct si virgula intre coloane (Excel cu setari romanesti sau
+ *  ruse nu desparte coloanele la virgula), pentru sablon, pentru export si pentru
  *  fisierul randurilor sarite. BOM in fata, ca Excel sa deschida diacriticele
  *  corect. */
 export function buildCsv(rows: string[][]): string {
   const body = rows
     .map((row) =>
       row
-        .map((cell) => (/[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-        .join(","),
+        .map((cell) => (/[",;\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+        .join(";"),
     )
     .join("\r\n");
   return `﻿${body}\r\n`;

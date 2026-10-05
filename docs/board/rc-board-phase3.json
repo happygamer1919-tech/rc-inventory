@@ -4735,6 +4735,34 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
+    },
+    {
+      "id": "P3-154",
+      "title": "Excel separator: every exported CSV (leads, clients, projects, inventory, the import templates and the import error file) opens in Excel on a Romanian or Russian Windows as proper columns, with decimals Excel reads as numbers and not dates. buildCsv in lib/data/import-shared.ts wrote commas between columns and dots in decimals; Excel with Romanian or Russian regional settings expects semicolons and decimal commas, so a double-clicked export showed each whole row in column A and, after a manual split, a price like 12.5 was read as a date. (1) buildCsv writes ; between columns, one UTF-8 BOM at the start (it already wrote one), and quotes a cell holding a double quote, ;, comma or line break (quote doubling kept). (2) New formatCsvNumber next to buildCsv writes a decimal with a decimal comma (12,5); the materials export (exportNumber) and the projects export (budget) use it. (3) parseCsv already detects the separator from the header line and parseImportNumber already reads decimal commas, so the exports round trip. (4) The import rules text now says the file is separated by semicolon. No migration. Cell escaping of values starting with = + - @ is the next task, not this one.",
+      "plain": "Fișierele exportate se deschid corect în Excel pe un calculator cu setări românești sau rusești: fiecare valoare în coloana ei, iar prețurile cu zecimale rămân numere.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-126",
+        "P3-127",
+        "P3-128",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/import-shared.spec.ts, green in this pull request's quality run on its head sha: the cases `export Excel: buildCsv scrie punct si virgula, un singur BOM, ghilimele pentru ; si ghilimelele dublate`, `export Excel: pretul 12.5 se scrie 12,5` and `export Excel: dus-intors, parseCsv(buildCsv(randuri)) da aceleasi randuri, iar numarul isi pastreaza valoarea`. (b) Every existing spec under tests/e2e passes, including the four export specs. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "FORMAT RULE: columns are separated by ; (semicolon); the file starts with exactly one UTF-8 BOM; a cell holding a double quote, ;, comma or line break is wrapped in double quotes with inner quotes doubled; a decimal number is written with a decimal comma (12,5), through formatCsvNumber, at the place where the export rows are built and never by replacing dots in free text. The import side keeps reading both separators (sniffDelimiter) and both decimal marks (parseImportNumber). Cell escaping of values starting with = + - @ is NOT part of this card. No migration. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/export-excel-separator against main: its quality run on the head sha runs tests/e2e/import-shared.spec.ts; report in docs/reports/2026-10-05-executor-export-excel-separator.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-138 was taken, P3-154 was the next free one. The existing case `import comun: fisierul scris incepe cu marca de ordine a octetilor si este separat prin punct si virgula` was updated, because it encoded the old comma separator."
     }
   ]
 }
