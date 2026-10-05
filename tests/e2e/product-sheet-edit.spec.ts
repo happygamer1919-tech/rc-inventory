@@ -110,6 +110,8 @@ async function createSheetProduct(page: Page, sku: string, name: string) {
 /** Deschide formularul de modificare al produsului, din panoul lui. */
 async function openEditForm(page: Page, sku: string) {
   await page.goto("/inventar");
+  // P3-142. Lista are pagini: produsul se cauta dupa SKU, ca sa fie pe pagina deschisa.
+  await page.getByTestId("product-search").fill(sku);
   await page.locator(`[data-testid="product-row"][data-sku="${sku}"]`).click();
   await expect(page.getByTestId("product-panel")).toBeVisible();
   await page.getByTestId("panel-edit").click();

@@ -55,6 +55,9 @@ async function createProduct(
   if (opts.packageFactor) await page.getByTestId("field-package-factor").fill(opts.packageFactor);
   await page.getByTestId("form-submit").click();
   await settled(page);
+  // P3-142. Lista de inventar are pagini de cate 50: produsul nou se cauta dupa SKU, ca sa fie
+  // pe pagina deschisa. Cautarea sta in adresa, deci supravietuieste unei reincarcari.
+  await page.getByTestId("product-search").fill(opts.sku);
 }
 
 /**
@@ -107,6 +110,7 @@ test.describe("Catalog de produse", () => {
     await createProduct(page, { sku, name: "Produs de listare" });
 
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill(sku);
     await expect(rowForSku(page, sku)).toHaveCount(1);
 
     // Stocul unui produs nou este zero, pentru ca stocul este suma loturilor si
@@ -209,6 +213,7 @@ test.describe("Catalog de produse", () => {
     await createProduct(page, { sku: skuA, name: `Produs furnizor A ${run}`, supplier });
 
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill(skuA);
     const rowA = page.locator(`[data-testid="product-row"][data-sku="${skuA}"]`);
     await expect(rowA).toHaveCount(1);
     await expect(rowA).toContainText(supplier);
@@ -234,6 +239,7 @@ test.describe("Catalog de produse", () => {
 
     // Si NUMELE STOCAT ESTE CEL DE PE RANDUL DE FURNIZOR, nu ce a scris
     // operatorul a doua oara: randul B arata scrierea reconciliata.
+    await page.getByTestId("product-search").fill(skuB);
     const rowB = page.locator(`[data-testid="product-row"][data-sku="${skuB}"]`);
     await expect(rowB).toContainText(supplier);
   });
@@ -283,6 +289,7 @@ test.describe("Catalog de produse", () => {
 
     // Si nimic nu s-a salvat pe jumatate.
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill(sku);
     await expect(rowForSku(page, sku)).toHaveCount(0);
   });
 
@@ -295,7 +302,9 @@ test.describe("Catalog de produse", () => {
     await expect(rowForSku(page, sku)).toHaveCount(1);
 
     // Operatorul scrie repede si fara diacritice. Defectul din faza 1.
-    await page.getByTestId("product-search").fill("tigla metalica");
+    // P3-142. "test" ingusteaza lista la produsele de test, ca produsul sa fie pe pagina deschisa
+    // chiar daca lista de materiale incarcata are multe randuri de tigla metalica.
+    await page.getByTestId("product-search").fill("tigla metalica test");
     await expect(rowForSku(page, sku)).toHaveCount(1);
   });
 

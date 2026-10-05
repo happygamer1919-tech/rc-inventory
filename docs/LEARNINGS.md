@@ -9064,3 +9064,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
 **SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.
+
+### "Read in pages" was recorded as "shown in pages"
+**Tag:** frontend
+**ERROR:** card P3-136 was marked "load long lists in pages" and the status page said long lists load only the rows on screen. The code read page after page until it had every row, then the screen filtered and showed all of them, and the stock sum still read every batch. Its own report said "No UI paging", so the claim and the report disagreed and nobody compared them.
+**SOLUTION:** card P3-153 reads one page with `.range` and an exact count (`lib/data/list-paging.ts`), puts the page and the filters in the address, and sums stock only for the ids on the page. RULE: **a done-claim about what the user sees is checked on the screen or in a spec that counts rows on the screen, not by reading the data layer**.
+
+### A browser-side filter cannot become a paged query without losing something
+**Tag:** backend
+**ERROR:** Inventar filtered the whole catalog in the browser. Search ignores diacritics (`ilike` does not) and the stock level filter depends on a computed sum, so neither can be a query condition without a migration.
+**SOLUTION:** active/inactive, category and supplier go into the query; with a search or a stock level set, `listProductsPage` reads the whole catalog, filters it with the same function as the export, and cuts the page. RULE: **before moving a filter into the query, list the ones the database cannot express and keep a correct fallback for them**.
+
+### Specs that find a row by SKU on a list break when the list gets pages
+**Tag:** tests
+**ERROR:** about twenty specs created a product and expected its row on `/inventar` without searching, which was true while the whole catalog was one list.
+**SOLUTION:** each types the SKU in the search box first; seeded issues on `/comenzi` are reached with `tests/e2e/support/orders-pages.ts`, which presses "Înainte" until the reference shows. RULE: **when a list gets pages, grep the specs for the row locators on that route in the same pull request**.
