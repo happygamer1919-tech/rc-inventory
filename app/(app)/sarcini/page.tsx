@@ -22,7 +22,7 @@ import { listClientOwnerChoices } from "@/lib/data/clients";
 import { listClientOptions } from "@/lib/data/projects-list";
 import { listSelectableProjects } from "@/lib/data/projects";
 import { chisinauToday } from "@/lib/data/format";
-import { listTasks, tasksVisible } from "@/lib/data/tasks";
+import { listClosedLinkChoices, listTasks, tasksVisible } from "@/lib/data/tasks";
 import { parseTaskQuery } from "@/lib/data/tasks-query";
 import { SarciniScreen } from "@/components/tasks/SarciniScreen";
 
@@ -83,6 +83,14 @@ export default async function SarciniPage({
   const assigneeId = assignees.some((a) => a.id === query.assigneeId) ? query.assigneeId : "";
   const rows = await listTasks({ ...query, assigneeId });
 
+  // O SARCINA LEGATA DE UN PROIECT INCHIS SAU DE UN CLIENT INACTIV isi arata
+  // inregistrarea la modificare: ea nu este in cele doua liste, deci se citeste aparte.
+  const closedLinks = await listClosedLinkChoices(
+    rows,
+    clientRows.map((c) => c.id),
+    projectRows.map((p) => p.id),
+  );
+
   return (
     <SarciniScreen
       rows={rows}
@@ -98,6 +106,7 @@ export default async function SarciniPage({
       canWrite={user !== null}
       clients={clientRows.map((c) => ({ id: c.id, label: c.name }))}
       projects={projectRows.map((p) => ({ id: p.id, label: p.name, hint: p.clientName }))}
+      closedLinks={closedLinks}
     />
   );
 }
