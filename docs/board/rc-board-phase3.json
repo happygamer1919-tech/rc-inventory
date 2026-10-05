@@ -4737,6 +4737,57 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
     },
     {
+      "id": "P3-143",
+      "title": "Home",
+      "plain": "Home screen",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Test",
+      "defaults": "None",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #410",
+        "at": "2026-10-04T16:00:00Z"
+      },
+      "notes": null
+    },
+    {
+      "id": "P3-140",
+      "title": "Client and lead import refuse, as a row error with a Romanian reason, any row whose email or phone cell is filled but cannot be read, instead of silently dropping it or storing a wrong number.",
+      "plain": "La importul de clienți și lead-uri, un rând cu email sau telefon scris greșit este arătat ca eroare, cu motivul, în loc să fie importat fără el sau cu un număr greșit.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases in tests/e2e/import-bad-contact.spec.ts are green in this pull request's own `quality` run: `telefon de import: formele acceptate dau +37369123456, cele ilizibile sunt refuzate`, `import leaduri: email sau telefon scris gresit este eroare pe rand, cu motiv`, `import leaduri: email gol cu telefon bun si invers raman acceptate, fara niciunul se refuza` and `import clienti: email sau telefon scris gresit este eroare pe rand, cel gol ramane acceptat`. (b) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "A filled phone or email cell that does not read as one valid value is a row error with a Romanian reason, never silently empty. A phone cell with several whole numbers (separated by comma, semicolon or slash, or two runs of eight or more digits) is refused as several numbers. A number starting with local 0 that is not 0 plus exactly 8 digits is refused, and a string that started with local 0 is never given a plus prefix. A foreign number needs 7 to 15 digits. An email cell with several addresses is refused as several addresses. An empty cell stays allowed and the rule that a lead needs a phone or an email stays. Accepted forms keep working: 069123456, 0 69 12 34 56, +373 69 123 456, 00373691234 56, foreign numbers with their own prefix. Applies to the lead import and the client import. No migration.",
+      "last_checkpoint": "2026-10-04T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "#414: Pull request on branch card/import-bad-contact against main, awaiting green quality run sha",
+        "at": "2026-10-04T19:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request, from the 2026-10-04 bug check. Cause: normalisePhone stripped every non-digit, so two phones in one cell became one long number and a mistyped local number gained a +373 prefix; normaliseEmail returned null for a bad address and the row was created without it. Both import modules keep their own copy of the pure readers, as P3-123 decided. The specs are pure Playwright cases; locally they were run with a temporary config without the web server, which needs Supabase variables."
+    },
+    {
       "id": "P3-150",
       "title": "Tasta Esc în comboboxul formularul de sarcină inchide lista; formularul și textul scris rămân. In Combobox.tsx, pe Escape: doar când lista este deschisă, se apelează e.preventDefault() și e.stopPropagation() (și e.nativeEvent.stopImmediatePropagation() dacă stopPropagation singur nu oprește window listener-ul; se verifică în spec), apoi se inchide lista. Când lista este inchisă, tasta Escape rămâne neatinsă ca să inchidă formularul.",
       "plain": "Tasta Esc într-o listă deschisă din formularul de sarcină închide doar lista; formularul și textul scris rămân.",

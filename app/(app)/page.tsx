@@ -329,7 +329,9 @@ export default async function Dashboard() {
                     </span>
                   </Td>
                   <Td data-label="Proiect" className={PHONE_WIDE}>
-                    <span className="text-[13px] text-rc-black">{o.projectName}</span>
+                    <span className={`text-[13px] ${o.mode === "direct_client" ? "text-rc-muted" : "text-rc-black"}`}>
+                      {o.mode === "direct_client" ? "Vânzare directă" : o.projectName}
+                    </span>
                   </Td>
                   <Td data-label="Client" className={PHONE_CELL}>
                     <span className="text-[12.5px] text-rc-muted">{o.clientName}</span>
