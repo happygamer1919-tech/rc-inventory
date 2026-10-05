@@ -6,7 +6,9 @@ import {
   buildSynonymIndex,
   checkByteLimit,
   checkRowLimit,
+  csvText,
   formatCsvNumber,
+  type CsvCell,
   parseCsv,
   prepareImportRow,
   validateCurrency,
@@ -287,4 +289,45 @@ test("import comun: indexul de sinonime si potrivirea automata nu cunosc nicio e
   expect(index.get("codprodus"), "un sinonim scris cu spatiu se normalizeaza").toBe("sku");
   expect(index.get("um"), "un sinonim scurt se potriveste").toBe("unit");
   expect(index.get("ceva"), "un antet necunoscut nu se potriveste cu nimic").toBeUndefined();
+});
+
+/* =======================================================================
+   (g) EXPORT FARA FORMULE: apostrof in fata, telefon si IDNO ca text
+   ======================================================================= */
+
+test("export celule: buildCsv pune apostrof in fata textului care ar porni o formula", () => {
+  const csv = buildCsv([["=1+1", "+37369123456", "-10% la a doua comandă", "@x", "Ion Popescu"]]);
+  expect(csv.slice(1).trimEnd()).toBe("'=1+1;'+37369123456;'-10% la a doua comandă;'@x;Ion Popescu");
+});
+
+test("export celule: textul obisnuit si numarul negativ din formatCsvNumber nu primesc apostrof", () => {
+  const csv = buildCsv([["Vopsea", formatCsvNumber(-5), formatCsvNumber(-12.5), formatCsvNumber(30)]]);
+  // -12,5 este intre ghilimele fiindca are virgula (regula veche), dar fara apostrof.
+  expect(csv.slice(1).trimEnd()).toBe('Vopsea;-5;"-12,5";30');
+  expect(parseCsv(csv)[0]).toEqual(["Vopsea", "-5", "-12,5", "30"]);
+});
+
+test("export celule: IDNO 0123456789012 si telefonul +37369123456 se scriu ca text pentru Excel", () => {
+  const csv = buildCsv([[csvText("0123456789012"), csvText("+37369123456"), csvText("")]]);
+  expect(csv.slice(1).trimEnd()).toBe('"=""0123456789012""";"=""+37369123456""";');
+});
+
+test("export celule: dus-intors, parseCsv(buildCsv(randuri)) da valorile originale", () => {
+  const original = [
+    "=1+1",
+    "+37369123456",
+    "-10% la a doua comandă",
+    "@x",
+    "0123456789012",
+    '=HYPERLINK("http://x";"y")',
+    "'text cu apostrof",
+    "Popescu, Ion",
+  ];
+  const rows: CsvCell[][] = [
+    original,
+    [csvText("0123456789012"), csvText("+37369123456"), csvText('cod "A"'), formatCsvNumber(-5)],
+  ];
+  const back = parseCsv(buildCsv(rows));
+  expect(back[0]).toEqual(original);
+  expect(back[1]).toEqual(["0123456789012", "+37369123456", 'cod "A"', "-5"]);
 });

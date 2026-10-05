@@ -33,6 +33,7 @@ import {
 import {
   autoMatchColumns as autoMatchColumnsGeneric,
   buildCsv,
+  csvText,
   buildErrorCsv,
   buildModelCsv,
   buildSynonymIndex,
@@ -234,7 +235,11 @@ export type ExportLeadRow = Record<ImportField, string>;
 export function leadExportCsv(leads: ExportLeadRow[]): string {
   return buildCsv([
     leadModelHeaders(),
-    ...leads.map((lead) => IMPORT_FIELDS.map((field) => lead[field])),
+    ...leads.map((lead) =>
+      IMPORT_FIELDS.map((field) =>
+        field === "phone" || field === "fiscalCode" ? csvText(lead[field]) : lead[field],
+      ),
+    ),
   ]);
 }
 

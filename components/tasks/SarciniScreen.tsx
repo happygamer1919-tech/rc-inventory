@@ -70,6 +70,7 @@ import {
   ALL_TASK_ENTITY_TYPES,
   ALL_TASK_PRIORITIES,
   ALL_TASK_STATUSES,
+  taskLinkKey,
 } from "@/lib/data/tasks-shape";
 import {
   ALL_TASK_SORT_DIRECTIONS,
@@ -98,6 +99,7 @@ export function SarciniScreen({
   canWrite,
   clients = [],
   projects = [],
+  closedLinks = {},
 }: {
   rows: Task[];
   query: TaskListQuery;
@@ -108,6 +110,9 @@ export function SarciniScreen({
   canWrite: boolean;
   clients?: TaskLinkChoice[];
   projects?: TaskLinkChoice[];
+  /** Inregistrarile legate care nu sunt in liste (proiect inchis, client inactiv),
+   *  dupa taskLinkKey(fel, id). Se adauga numai la modificarea sarcinii lor. */
+  closedLinks?: Record<string, TaskLinkChoice>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -341,6 +346,11 @@ export function SarciniScreen({
           assignees={assignees}
           clients={clients}
           projects={projects}
+          currentLink={
+            editing.entityType && editing.entityId
+              ? closedLinks[taskLinkKey(editing.entityType, editing.entityId)]
+              : undefined
+          }
           onClose={() => setEditingId(null)}
         />
       ) : null}

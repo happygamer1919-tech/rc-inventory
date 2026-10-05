@@ -147,6 +147,11 @@ export function Combobox({
             if (open && filtered[active]) pick(filtered[active]);
             else commitAndClose();
           } else if (e.key === "Escape") {
+            if (open) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+            }
             setOpen(false);
             setQuery("");
           }
