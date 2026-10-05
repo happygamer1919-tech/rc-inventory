@@ -66,6 +66,7 @@ The format is machine-read, so keep it exactly:
 - `0068_tasks.sql`, card de aplicare P3-130
 - `0069_unassigned_issue_count_walkin.sql`, card de aplicare P3-152
 - `0070_outbound_lines_active_account.sql`, card de aplicare P3-138
+- `0072_list_team_members.sql`, card de aplicare P3-157
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
