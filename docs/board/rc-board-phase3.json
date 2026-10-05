@@ -4868,6 +4868,32 @@
         "at": "2026-10-04T20:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. The bug: when a dropdown in TaskForm is open and Esc is pressed, the event propagates to a window keydown listener that closes the form, losing typed text. Fix: in Combobox.tsx, call preventDefault, stopPropagation and nativeEvent.stopImmediatePropagation when Escape is pressed with the list open."
+    },
+    {
+      "id": "P3-159",
+      "title": "client_material_summary counts a walk-in sale for the buyer: one new migration (0071) redefines the function with the same signature, return type and grant, and an issue now counts for a client through a project or directly through outbound_issues.client_id (left join on projects). Before, a walk-in sale has no project and never reached the Consum materiale tab. The Vezi toate link already filters by client and by project, so it already shows walk-in sales. No row is changed.",
+      "plain": "Ce a cumpărat un client direct la ghișeu (fără proiect) apare pe pagina lui, în fila Consum materiale, alături de consumul pe proiecte.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120",
+        "P3-08"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The new assertion scripts/poc-free/local-db/assertions/0071_client_material_summary_walkin.sql passes in this pull request's own quality run, applier proofs included and not skipped: a walk-in sale of 50 units shows 50 for its client, a client with a project issue and a walk-in sale shows the sum with each line counted once, another client does not leak in. (b) tests/e2e/client-material-walkin.spec.ts is green in the same run, and tests/e2e/client-detail.spec.ts stays green. (c) Refuse a migration that removes rows has run and passed on migration 0071_client_material_summary_walkin.sql. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "RULE (an issue counts for a client through its project or through outbound_issues.client_id; same signature, security invoker, stable, same search_path, grant execute to authenticated; no drop, no row change). There is no cancelled state on an outbound issue, so the function has no status filter, as before. The ClientTabs layout, the Vezi toate link, the hasPhase3Schema gate and the lead PageHeader prop stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/walkin-on-client-page against main: its quality run on the head sha applies migration 0071_client_material_summary_walkin.sql and runs its assertion and tests/e2e/client-material-walkin.spec.ts; report in docs/reports/2026-10-04-executor-walkin-on-client-page.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: 0022 joined issue lines to the client only through projects, and 0067 gave walk-in sales no project. The brief named P3-145 and then P3-153 but both ids were taken, so this card is P3-159."
     }
   ]
 }
