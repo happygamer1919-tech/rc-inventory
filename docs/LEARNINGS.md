@@ -9057,6 +9057,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** P3-147 and P3-138 (#407) were both open with a migration numbered 0069. Taking 0070 to dodge it fails CI while #407 is unmerged, because the applier asserts the ledger runs 1 to N with no gap (`ledger-no-gaps-ends-at-highest`).
 **SOLUTION:** keep the next number main allows, and say in the PR body and the owner question that whichever merges second is renumbered first. RULE: **before numbering a migration, list the open PRs' migration files; a clash is resolved at merge time by the second PR, never by leaving a gap**.
 
+### A normaliser that returns null for "bad" makes a filled cell look empty
+**Tag:** backend
+**ERROR:** `normalisePhone` and `normaliseEmail` returned null both for an empty cell and for an unreadable one, and `normalisePhone` stripped every non-digit. Two phones in one cell became one long number, `069 123 45` gained +373, and a bad email left the row created without it.
+**SOLUTION:** card P3-140 adds `readPhone` and `readEmail`, which say empty, ok, many or bad; the import refuses many and bad with a Romanian reason. RULE: **a reader of user input must tell "nothing there" from "there but unreadable"; only the first may be silently skipped**.
+
 ### The check step counted rows but never showed the new ones
 **Tag:** frontend
 **ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
@@ -9089,3 +9094,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** about twenty specs created a product and expected its row on `/inventar` without searching, which was true while the whole catalog was one list.
 **SOLUTION:** each types the SKU in the search box first; seeded issues on `/comenzi` are reached with `tests/e2e/support/orders-pages.ts`, which presses "Înainte" until the reference shows. RULE: **when a list gets pages, grep the specs for the row locators on that route in the same pull request**.
+
+### A CSV with commas and dot decimals does not open in Excel on a Romanian or Russian Windows
+**Tag:** backend
+**ERROR:** `buildCsv` wrote commas between columns and dots in decimals. Excel with Romanian or Russian regional settings expects semicolons and decimal commas, so a double-clicked export showed each whole row in column A, and after a manual split a price like 12.5 was read as a date.
+**SOLUTION:** card P3-154: `buildCsv` writes `;`, quotes a cell with `;` too, and `formatCsvNumber` writes decimals with a comma where the export rows are built. The import already read both separators and both decimal marks. RULE: **an export is checked against the program that opens it; our own parser reading it back proves nothing about Excel.**
+
+### An import error file with empty rows cannot be corrected and uploaded again
+**Tag:** backend
+**ERROR:** `runClientImport` and `runLeadImport` pushed skipped duplicates and database-refused rows with `raw: []`, so the downloaded file showed only the row number and the reason. `parseCsv` also dropped blank lines before numbering, so every "Rândul N" after a blank line was off against Excel. A client whose stage or contact step failed after the insert came back as a plain refusal, and uploading that row again would have created a second client.
+**SOLUTION:** card P3-155: `parseCsvWithLines` returns the physical line of each row, the sheets send `lines` with the rows, and `rawRowAt` gives every skipped row its original cells. `createClientRecord` returns `saved.clientId` on a failure after the insert, and the import counts that row as created with a warning. RULE: **a row that is reported back to the operator carries everything needed to fix it, and a failure after the insert is never reported as a row that saved nothing.**

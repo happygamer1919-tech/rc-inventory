@@ -4737,6 +4737,139 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
     },
     {
+      "id": "P3-143",
+      "title": "Home",
+      "plain": "Home screen",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Test",
+      "defaults": "None",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #410",
+        "at": "2026-10-04T16:00:00Z"
+      },
+      "notes": null
+    },
+    {
+      "id": "P3-140",
+      "title": "Client and lead import refuse, as a row error with a Romanian reason, any row whose email or phone cell is filled but cannot be read, instead of silently dropping it or storing a wrong number.",
+      "plain": "La importul de clienți și lead-uri, un rând cu email sau telefon scris greșit este arătat ca eroare, cu motivul, în loc să fie importat fără el sau cu un număr greșit.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases in tests/e2e/import-bad-contact.spec.ts are green in this pull request's own `quality` run: `telefon de import: formele acceptate dau +37369123456, cele ilizibile sunt refuzate`, `import leaduri: email sau telefon scris gresit este eroare pe rand, cu motiv`, `import leaduri: email gol cu telefon bun si invers raman acceptate, fara niciunul se refuza` and `import clienti: email sau telefon scris gresit este eroare pe rand, cel gol ramane acceptat`. (b) `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "A filled phone or email cell that does not read as one valid value is a row error with a Romanian reason, never silently empty. A phone cell with several whole numbers (separated by comma, semicolon or slash, or two runs of eight or more digits) is refused as several numbers. A number starting with local 0 that is not 0 plus exactly 8 digits is refused, and a string that started with local 0 is never given a plus prefix. A foreign number needs 7 to 15 digits. An email cell with several addresses is refused as several addresses. An empty cell stays allowed and the rule that a lead needs a phone or an email stays. Accepted forms keep working: 069123456, 0 69 12 34 56, +373 69 123 456, 00373691234 56, foreign numbers with their own prefix. Applies to the lead import and the client import. No migration.",
+      "last_checkpoint": "2026-10-04T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "#414: Pull request on branch card/import-bad-contact against main, awaiting green quality run sha",
+        "at": "2026-10-04T19:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request, from the 2026-10-04 bug check. Cause: normalisePhone stripped every non-digit, so two phones in one cell became one long number and a mistyped local number gained a +373 prefix; normaliseEmail returned null for a bad address and the row was created without it. Both import modules keep their own copy of the pure readers, as P3-123 decided. The specs are pure Playwright cases; locally they were run with a temporary config without the web server, which needs Supabase variables."
+    },
+    {
+      "id": "P3-154",
+      "title": "Excel separator: every exported CSV (leads, clients, projects, inventory, the import templates and the import error file) opens in Excel on a Romanian or Russian Windows as proper columns, with decimals Excel reads as numbers and not dates. buildCsv in lib/data/import-shared.ts wrote commas between columns and dots in decimals; Excel with Romanian or Russian regional settings expects semicolons and decimal commas, so a double-clicked export showed each whole row in column A and, after a manual split, a price like 12.5 was read as a date. (1) buildCsv writes ; between columns, one UTF-8 BOM at the start (it already wrote one), and quotes a cell holding a double quote, ;, comma or line break (quote doubling kept). (2) New formatCsvNumber next to buildCsv writes a decimal with a decimal comma (12,5); the materials export (exportNumber) and the projects export (budget) use it. (3) parseCsv already detects the separator from the header line and parseImportNumber already reads decimal commas, so the exports round trip. (4) The import rules text now says the file is separated by semicolon. No migration. Cell escaping of values starting with = + - @ is the next task, not this one.",
+      "plain": "Fișierele exportate se deschid corect în Excel pe un calculator cu setări românești sau rusești: fiecare valoare în coloana ei, iar prețurile cu zecimale rămân numere.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-126",
+        "P3-127",
+        "P3-128",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/import-shared.spec.ts, green in this pull request's quality run on its head sha: the cases `export Excel: buildCsv scrie punct si virgula, un singur BOM, ghilimele pentru ; si ghilimelele dublate`, `export Excel: pretul 12.5 se scrie 12,5` and `export Excel: dus-intors, parseCsv(buildCsv(randuri)) da aceleasi randuri, iar numarul isi pastreaza valoarea`. (b) Every existing spec under tests/e2e passes, including the four export specs. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "FORMAT RULE: columns are separated by ; (semicolon); the file starts with exactly one UTF-8 BOM; a cell holding a double quote, ;, comma or line break is wrapped in double quotes with inner quotes doubled; a decimal number is written with a decimal comma (12,5), through formatCsvNumber, at the place where the export rows are built and never by replacing dots in free text. The import side keeps reading both separators (sniffDelimiter) and both decimal marks (parseImportNumber). Cell escaping of values starting with = + - @ is NOT part of this card. No migration. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/export-excel-separator against main: its quality run on the head sha runs tests/e2e/import-shared.spec.ts; report in docs/reports/2026-10-05-executor-export-excel-separator.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-138 was taken, P3-154 was the next free one. The existing case `import comun: fisierul scris incepe cu marca de ordine a octetilor si este separat prin punct si virgula` was updated, because it encoded the old comma separator."
+    },
+    {
+      "id": "P3-155",
+      "title": "Import error file: the client and lead imports put the full original row into the downloadable error file for every skipped row (duplicates and rows the database refused had an empty row, so the operator could not correct and re-upload), and every 'Randul N' matches the row number in Excel (parseCsv dropped blank lines before numbering, so every row after a blank line was off). (1) parseCsvWithLines in lib/data/import-shared.ts returns each row with its physical line, header = line 1, blank lines skipped as data but counted; parseCsv keeps its behaviour. (2) The client and lead import sheets send the lines with the rows, planClientImport, runClientImport, planLeadImport and runLeadImport pass them to the plan, and every skipped row in the outcome carries its original cells through rawRowAt. (3) A client whose stage or contact step fails after the insert is counted as created and reported as a warning with the step's own Romanian message, not put in the error file, because re-uploading it would create a duplicate; createClientRecord returns saved.clientId on those two failures. Projects and materials imports are not changed. No migration.",
+      "plain": "Fișierul cu erori de la import conține rândul întreg pentru fiecare rând sărit, iar numărul rândului corespunde celui din Excel.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-error-file-rows.spec.ts are green in this pull request's own `quality` run: `import: parseCsv numara linia fizica, deci un rand de dupa o linie goala are linia din Excel`, `import: o celula cu rand nou intre ghilimele ocupa mai multe linii, iar randul urmator se numara dupa ele`, `import: randurile sarite isi pastreaza celulele originale, dupa linia din Excel`, `import clienti: un dublat si un rand cu eroare poarta linia din Excel si celulele lui`, `import leaduri: un dublat dupa linie goala are linia din Excel, nu cea din ordine`. (b) tests/e2e/import-shared.spec.ts, clients-import.spec.ts and lead-import.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Row numbers count the file's physical lines, header = line 1, blank lines skipped as data but counted. Every skipped or refused row in the client and lead error files carries its original cells in the file's own column order plus the reason. A client created whose later step failed is counted as created and listed as a warning, never in the error file. No change to the projects and materials imports, the import template columns, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-error-file-rows against main: its quality run on the head sha runs tests/e2e/import-error-file-rows.spec.ts; report in docs/reports/2026-10-05-executor-import-error-file-rows.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-141 was taken, P3-155 was the next free one. The database-refused and partial-failure paths live in runClientImport and runLeadImport, which need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
+    },
+    {
+      "id": "P3-150",
+      "title": "Tasta Esc în comboboxul formularul de sarcină inchide lista; formularul și textul scris rămân. In Combobox.tsx, pe Escape: doar când lista este deschisă, se apelează e.preventDefault() și e.stopPropagation() (și e.nativeEvent.stopImmediatePropagation() dacă stopPropagation singur nu oprește window listener-ul; se verifică în spec), apoi se inchide lista. Când lista este inchisă, tasta Escape rămâne neatinsă ca să inchidă formularul.",
+      "plain": "Tasta Esc într-o listă deschisă din formularul de sarcină închide doar lista; formularul și textul scris rămân.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "The named case `task-form-esc-dropdown` in tests/e2e/task-form-esc-dropdown.spec.ts is green in this pull request's own `quality` run: dropdown open + Esc keeps the form open with the typed title still there; a second Esc (list closed) closes the form. `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "Esc cu lista deschisă inchide lista. Esc cu lista inchisă inchide formularul, ca până acum.",
+      "last_checkpoint": "2026-10-04T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-form-esc-dropdown against main: its quality run on the head sha runs tests/e2e/task-form-esc-dropdown.spec.ts; report in docs/reports/2026-10-04-executor-task-form-esc-dropdown.md",
+        "at": "2026-10-04T20:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. The bug: when a dropdown in TaskForm is open and Esc is pressed, the event propagates to a window keydown listener that closes the form, losing typed text. Fix: in Combobox.tsx, call preventDefault, stopPropagation and nativeEvent.stopImmediatePropagation when Escape is pressed with the list open."
+    },
+    {
       "id": "P3-147",
       "title": "Account manager adds a new walk-in buyer on Iesiri materiale (owner decision q143, 2026-10-04). Migration 0071 replaces clients_insert so an ACTIVE owner or ACTIVE account_manager may insert a client (current_app_role() in the two named roles); clients_update stays owner-only and there is still no delete policy. New server action createWalkInClient (owner or account_manager, name, type, IDNO and phone only) shares the one insert with createClientRecord, which stays owner-only for the Clienti screen, the lead form and both imports. Iesiri page shows the '+ Client nou' button to both roles.",
       "plain": "Operatorul de la tejghea poate adăuga pe loc un cumpărător nou când eliberează material, fără să aștepte administratorul. Modificarea clienților rămâne a administratorului.",

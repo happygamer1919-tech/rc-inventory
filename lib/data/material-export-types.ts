@@ -25,6 +25,7 @@ import {
   templateCsv,
   type MaterialImportField,
 } from "./material-import-types";
+import { formatCsvNumber } from "./import-shared";
 
 export const MATERIAL_EXPORT_FILE_NAME = "materiale.csv";
 
@@ -38,10 +39,10 @@ export function materialModelHeaders(): string[] {
  *  Categoria este denumirea ei, unitatea este eticheta de pe ecran. */
 export type ExportMaterialRow = Record<Exclude<MaterialImportField, "currency">, string>;
 
-/** Un numar din baza, ca text pe care il citeste `readNumber` din import: cifre si punct
- *  zecimal, fara notatie stiintifica. Coloanele sunt numeric(14,3) si numeric(14,2). */
+/** Un numar din baza, ca text pe care il citeste `readNumber` din import: cifre si virgula
+ *  zecimala (12,5), fara notatie stiintifica. Coloanele sunt numeric(14,3) si numeric(14,2). */
 export function exportNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
+  return formatCsvNumber(value);
 }
 
 /** Fisierul exportului: antetul modelului, apoi cate un rand pe material, coloanele in

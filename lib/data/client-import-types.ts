@@ -56,6 +56,7 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
   sniffDelimiter,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
@@ -68,7 +69,7 @@ import {
   type RowNumber,
 } from "./import-shared";
 
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile RC in care poate intra o coloana din fisierul de clienti. Aceleasi
@@ -161,6 +162,10 @@ export const CLIENT_IMPORT_REASON = {
   unknownType: (value: string) => `Tipul "${value}" nu este nici Companie, nici Persoană fizică.`,
   unknownOwner: (value: string) => `Responsabilul "${value}" nu este în echipă.`,
   followUpNeedsDate: FOLLOW_UP_DATE_REQUIRED,
+  badPhone: "Telefonul nu este valid.",
+  manyPhones: "Celula de telefon conține mai multe numere; lăsați unul singur.",
+  badEmail: "Emailul nu este valid.",
+  manyEmails: "Celula de email conține mai multe adrese; lăsați una singură.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -168,33 +173,69 @@ export const CLIENT_IMPORT_REASON = {
 // ---------------------------------------------------------------------------
 
 export function normalisePhone(raw: string): string | null {
+  const reading = readPhone(raw);
+  return reading.kind === "ok" ? reading.value : null;
+}
+
+export type PhoneReading =
+  | { kind: "empty" }
+  | { kind: "ok"; value: string }
+  | { kind: "many" }
+  | { kind: "bad" };
+
+const WHOLE_NUMBER_DIGITS = 7;
+
+/** O celula completata care nu se citeste ca un singur numar valid este "mai
+ *  multe" sau "gresit", niciodata goala (aceeasi regula ca in lead-import-types.ts). */
+export function readPhone(raw: string): PhoneReading {
   const trimmed = raw.trim();
-  if (trimmed === "") return null;
+  if (trimmed === "") return { kind: "empty" };
+
+  const wholeNumbers = trimmed
+    .split(/[;,/\n]/)
+    .filter((part) => part.replace(/\D/g, "").length >= WHOLE_NUMBER_DIGITS);
+  if (wholeNumbers.length > 1 || /\d{8,}\D+\d{8,}/.test(trimmed)) return { kind: "many" };
 
   const hasPlus = trimmed.startsWith("+");
   let digits = trimmed.replace(/\D/g, "");
-  if (digits === "") return null;
+  if (digits === "") return { kind: "bad" };
 
   if (digits.startsWith("00")) digits = digits.slice(2);
   else if (!hasPlus && digits.startsWith("0")) {
     const local = digits.slice(1);
-    if (local.length === 8) return `+373${local}`;
+    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
   }
 
   if (digits.startsWith("373")) {
     const local = digits.slice(3);
-    return local.length === 8 ? `+373${local}` : null;
+    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
   }
 
-  if (!hasPlus && digits.length === 8) return `+373${digits}`;
+  if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
 
-  return digits.length >= 7 ? `+${digits}` : null;
+  if (digits.startsWith("0") || digits.length < WHOLE_NUMBER_DIGITS || digits.length > 15) {
+    return { kind: "bad" };
+  }
+  return { kind: "ok", value: `+${digits}` };
+}
+
+export type EmailReading =
+  | { kind: "empty" }
+  | { kind: "ok"; value: string }
+  | { kind: "many" }
+  | { kind: "bad" };
+
+export function readEmail(raw: string): EmailReading {
+  const value = raw.trim().toLowerCase();
+  if (value === "") return { kind: "empty" };
+  const addresses = value.split(/[;,\s]+/).filter((part) => part.includes("@"));
+  if (addresses.length > 1) return { kind: "many" };
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? { kind: "ok", value } : { kind: "bad" };
 }
 
 export function normaliseEmail(raw: string): string | null {
-  const value = raw.trim().toLowerCase();
-  if (value === "") return null;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
+  const reading = readEmail(raw);
+  return reading.kind === "ok" ? reading.value : null;
 }
 
 function readDate(raw: string): string | null {
@@ -305,11 +346,18 @@ function clientImportFields(owners: OwnerIndex): ImportFieldDescriptor<ClientImp
       const type = readType(raw);
       return type ? { ok: true, value: type } : { ok: false, reason: CLIENT_IMPORT_REASON.unknownType(raw) };
     }),
-    field("phone", false, "069000001", (raw) => ({ ok: true, value: raw === "" ? "" : normalisePhone(raw) ?? "" })),
-    field("email", false, "contact@exemplu.md", (raw) => ({
-      ok: true,
-      value: raw === "" ? "" : normaliseEmail(raw) ?? "",
-    })),
+    field("phone", false, "069000001", (raw) => {
+      const reading = readPhone(raw);
+      if (reading.kind === "many") return { ok: false, reason: CLIENT_IMPORT_REASON.manyPhones };
+      if (reading.kind === "bad") return { ok: false, reason: CLIENT_IMPORT_REASON.badPhone };
+      return { ok: true, value: reading.kind === "ok" ? reading.value : "" };
+    }),
+    field("email", false, "contact@exemplu.md", (raw) => {
+      const reading = readEmail(raw);
+      if (reading.kind === "many") return { ok: false, reason: CLIENT_IMPORT_REASON.manyEmails };
+      if (reading.kind === "bad") return { ok: false, reason: CLIENT_IMPORT_REASON.badEmail };
+      return { ok: true, value: reading.kind === "ok" ? reading.value : "" };
+    }),
     field("interest", false, "", (raw) => ({ ok: true, value: raw })),
     field("source", false, "", (raw) => {
       if (raw === "") return { ok: true, value: "" };
@@ -359,16 +407,17 @@ export function buildClientImportPreview(
   mapping: ClientImportColumnMapping,
   owners: OwnerIndex,
   headerLine = 1,
+  lines?: number[],
 ): ImportPreview<ClientImportField> {
   const fields = clientImportFields(owners);
-  const preview = buildImportPreview(rows, mapping, fields, headerLine);
+  const preview = buildImportPreview(rows, mapping, fields, headerLine, lines);
 
   const valid: ImportPreview<ClientImportField>["valid"] = [];
   const invalid: ImportPreview<ClientImportField>["invalid"] = [...preview.invalid];
 
   for (const entry of preview.valid) {
     if (entry.record.stage === "follow_up" && entry.record.followUpDate === "") {
-      const index = entry.line - headerLine - 1;
+      const index = lines ? lines.indexOf(entry.line) : entry.line - headerLine - 1;
       invalid.push({
         line: entry.line,
         reason: CLIENT_IMPORT_REASON.followUpNeedsDate,

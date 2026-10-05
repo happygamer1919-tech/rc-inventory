@@ -38,6 +38,7 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
   sniffDelimiter,
   BROKEN_LETTERS_ROW_REASON,
   rowHasBrokenLetters,
@@ -54,7 +55,7 @@ import {
 // nu mai DEFINESTE cititorul, scriitorul sau limitele, le PRIMESTE de la
 // import-shared.ts, ca sa existe un singur cititor si un singur scriitor de CSV
 // in tot depozitul (acceptanta (g) a cardului P3-121).
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile RC in care poate intra o coloana din fisier, IN ORDINEA din goal G58. */
@@ -291,40 +292,82 @@ export function importNoteBody(fileName: string, day: string): string {
  * moldovenizeaza.
  */
 export function normalisePhone(raw: string): string | null {
+  const reading = readPhone(raw);
+  return reading.kind === "ok" ? reading.value : null;
+}
+
+export type PhoneReading =
+  | { kind: "empty" }
+  | { kind: "ok"; value: string }
+  | { kind: "many" }
+  | { kind: "bad" };
+
+/** Cate cifre are un numar intreg: sub sapte nu poate fi un telefon. */
+const WHOLE_NUMBER_DIGITS = 7;
+
+/**
+ * Citeste o celula de telefon. O celula completata care nu se citeste ca un
+ * singur numar valid NU este goala: este "mai multe" sau "gresit", ca importul
+ * sa o arate ca eroare in loc sa o piarda sau sa pastreze un numar inventat.
+ */
+export function readPhone(raw: string): PhoneReading {
   const trimmed = raw.trim();
-  if (trimmed === "") return null;
+  if (trimmed === "") return { kind: "empty" };
+
+  const wholeNumbers = trimmed
+    .split(/[;,/\n]/)
+    .filter((part) => part.replace(/\D/g, "").length >= WHOLE_NUMBER_DIGITS);
+  if (wholeNumbers.length > 1 || /\d{8,}\D+\d{8,}/.test(trimmed)) return { kind: "many" };
 
   const hasPlus = trimmed.startsWith("+");
   let digits = trimmed.replace(/\D/g, "");
-  if (digits === "") return null;
+  if (digits === "") return { kind: "bad" };
 
   if (digits.startsWith("00")) digits = digits.slice(2);
   else if (!hasPlus && digits.startsWith("0")) {
-    // Forma locala: 0 urmat de opt cifre.
+    // Forma locala: 0 urmat de exact opt cifre, altfel este o greseala de tastare.
     const local = digits.slice(1);
-    if (local.length === 8) return `+373${local}`;
+    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
   }
 
   if (digits.startsWith("373")) {
     const local = digits.slice(3);
-    return local.length === 8 ? `+373${local}` : null;
+    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
   }
 
   // Opt cifre fara niciun prefix este un numar moldovenesc scris scurt.
-  if (!hasPlus && digits.length === 8) return `+373${digits}`;
+  if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
 
-  // Orice altceva: un numar international, pastrat cum este. Sub sapte cifre nu
-  // este un numar de telefon, este o greseala de tastare.
-  return digits.length >= 7 ? `+${digits}` : null;
+  // Un numar strain se pastreaza cu prefixul lui, dar nu poate incepe cu 0 si are
+  // cel mult cincisprezece cifre.
+  if (digits.startsWith("0") || digits.length < WHOLE_NUMBER_DIGITS || digits.length > 15) {
+    return { kind: "bad" };
+  }
+  return { kind: "ok", value: `+${digits}` };
+}
+
+export type EmailReading =
+  | { kind: "empty" }
+  | { kind: "ok"; value: string }
+  | { kind: "many" }
+  | { kind: "bad" };
+
+/** Ca readPhone: o celula completata fara o adresa valida este "mai multe" sau
+ *  "gresita". Litere mici: doua adrese care difera doar prin majuscule sunt
+ *  aceeasi casuta. */
+export function readEmail(raw: string): EmailReading {
+  const value = raw.trim().toLowerCase();
+  if (value === "") return { kind: "empty" };
+  const addresses = value.split(/[;,\s]+/).filter((part) => part.includes("@"));
+  if (addresses.length > 1) return { kind: "many" };
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? { kind: "ok", value } : { kind: "bad" };
 }
 
 /** Emailul in forma cu care se compara doua randuri, sau null cand nu arata a
- *  email. Litere mici: doua adrese care difera doar prin majuscule sunt aceeasi
- *  casuta. */
+ *  email. */
 export function normaliseEmail(raw: string): string | null {
-  const value = raw.trim().toLowerCase();
-  if (value === "") return null;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
+  const reading = readEmail(raw);
+  return reading.kind === "ok" ? reading.value : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +519,10 @@ export const IMPORT_REASON = {
   unknownOwner: (value: string) => `Responsabilul "${value}" nu este în echipă.`,
   followUpNeedsDate: FOLLOW_UP_DATE_REQUIRED,
   noContact: "Rândul nu are nici telefon, nici email.",
+  badPhone: "Telefonul nu este valid.",
+  manyPhones: "Celula de telefon conține mai multe numere; lăsați unul singur.",
+  badEmail: "Emailul nu este valid.",
+  manyEmails: "Celula de email conține mai multe adrese; lăsați una singură.",
 } as const;
 
 /** Numele complet al fiecarui responsabil, normalizat, catre id-ul lui. */
@@ -550,8 +597,14 @@ export function prepareRow(
 
   const rawPhone = read("phone");
   const rawEmail = read("email");
-  const phoneKey = normalisePhone(rawPhone);
-  const emailKey = normaliseEmail(rawEmail);
+  const phone = readPhone(rawPhone);
+  if (phone.kind === "many") return refuse(IMPORT_REASON.manyPhones);
+  if (phone.kind === "bad") return refuse(IMPORT_REASON.badPhone);
+  const email = readEmail(rawEmail);
+  if (email.kind === "many") return refuse(IMPORT_REASON.manyEmails);
+  if (email.kind === "bad") return refuse(IMPORT_REASON.badEmail);
+  const phoneKey = phone.kind === "ok" ? phone.value : null;
+  const emailKey = email.kind === "ok" ? email.value : null;
   if (phoneKey === null && emailKey === null) return refuse(IMPORT_REASON.noContact);
 
   const nextAction = read("nextAction");
