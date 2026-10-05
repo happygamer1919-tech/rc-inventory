@@ -327,6 +327,6 @@ export function materialImportInstructions(): string[] {
     "Unitatea unui produs este fixă după prima lui mișcare. Importul nu schimbă niciodată " +
       "unitatea unui produs care s-a mișcat: rândul se respinge, iar unitatea stocată rămâne.",
     `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB, în format CSV, ` +
-      "UTF-8 cu BOM, separat prin virgulă.",
+      "UTF-8 cu BOM, separat prin punct și virgulă.",
   ];
 }

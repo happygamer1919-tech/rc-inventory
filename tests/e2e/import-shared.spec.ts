@@ -6,6 +6,7 @@ import {
   buildSynonymIndex,
   checkByteLimit,
   checkRowLimit,
+  formatCsvNumber,
   parseCsv,
   prepareImportRow,
   validateCurrency,
@@ -13,6 +14,7 @@ import {
   IMPORT_MAX_ROWS,
   type ImportFieldDescriptor,
 } from "@/lib/data/import-shared";
+import { parseImportNumber } from "@/lib/data/import-number";
 
 // import-shared.spec - linia de acceptanta (b) la (f) a cardului P3-121.
 //
@@ -206,7 +208,7 @@ test(
    ======================================================================= */
 
 test(
-  "import comun: fisierul scris incepe cu marca de ordine a octetilor si este separat prin virgula",
+  "import comun: fisierul scris incepe cu marca de ordine a octetilor si este separat prin punct si virgula",
   () => {
     const csv = buildCsv([
       ["Denumire", "Oraș"],
@@ -217,7 +219,7 @@ test(
 
     const withoutBom = csv.slice(1);
     const firstLine = withoutBom.split("\r\n")[0] ?? "";
-    expect(firstLine, "antetul este separat prin virgula").toBe("Denumire,Oraș");
+    expect(firstLine, "antetul este separat prin punct si virgula").toBe("Denumire;Oraș");
 
     // UN CAMP CARE CONTINE VIRGULA SE SCRIE INTRE GHILIMELE, dupa RFC 4180, ca
     // separatorul din interiorul lui sa nu se citeasca drept o coloana noua.
@@ -231,6 +233,40 @@ test(
     ]);
   },
 );
+
+test("export Excel: buildCsv scrie punct si virgula, un singur BOM, ghilimele pentru ; si ghilimelele dublate", () => {
+  const csv = buildCsv([
+    ["A", "B"],
+    ["x;y", 'zice "da"'],
+  ]);
+  expect(csv.codePointAt(0), "primul caracter este BOM").toBe(0xfeff);
+  expect(csv.slice(1).includes("﻿"), "BOM apare o singura data").toBe(false);
+  const lines = csv.slice(1).split("\r\n");
+  expect(lines[0]).toBe("A;B");
+  expect(lines[1], "celula cu ; este intre ghilimele, ghilimelele sunt dublate").toBe('"x;y";"zice ""da"""');
+});
+
+test("export Excel: pretul 12.5 se scrie 12,5", () => {
+  expect(formatCsvNumber(12.5)).toBe("12,5");
+  expect(formatCsvNumber(0.35)).toBe("0,35");
+  expect(formatCsvNumber(250000)).toBe("250000");
+  expect(formatCsvNumber("12500.5")).toBe("12500,5");
+  expect(formatCsvNumber(1.23456)).toBe("1,235");
+});
+
+test("export Excel: dus-intors, parseCsv(buildCsv(randuri)) da aceleasi randuri, iar numarul isi pastreaza valoarea", () => {
+  const rows = [
+    ["Cod", "Denumire", "Pret"],
+    ["A-1", "Vopsea; alba", formatCsvNumber(12.5)],
+    ["A-2", 'Ciment "M400", sac', formatCsvNumber(0.35)],
+    ["A-3", "Linie\ndubla", formatCsvNumber(12500.5)],
+  ];
+  const back = parseCsv(buildCsv(rows));
+  expect(back).toEqual(rows);
+  expect(parseImportNumber(back[1]![2]!, 11)).toBe("12.5");
+  expect(parseImportNumber(back[2]![2]!, 11)).toBe("0.35");
+  expect(parseImportNumber(back[3]![2]!, 11)).toBe("12500.5");
+});
 
 /* =======================================================================
    DOVADA SUPLIMENTARA: buildSynonymIndex SI autoMatchColumns SUNT GENERICE
