@@ -16,6 +16,7 @@ import {
   templateCsv,
   type ClientImportField,
 } from "./client-import-types";
+import { csvText } from "./import-shared";
 
 export const CLIENT_EXPORT_FILE_NAME = "clienti.csv";
 
@@ -34,7 +35,11 @@ export type ExportClientRow = Record<ClientImportField, string>;
 export function clientExportCsv(clients: ExportClientRow[]): string {
   return buildCsv([
     clientModelHeaders(),
-    ...clients.map((client) => CLIENT_IMPORT_FIELDS.map((field) => client[field])),
+    ...clients.map((client) =>
+      CLIENT_IMPORT_FIELDS.map((field) =>
+        field === "phone" || field === "fiscalCode" ? csvText(client[field]) : client[field],
+      ),
+    ),
   ]);
 }
 
