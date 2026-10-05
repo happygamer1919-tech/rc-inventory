@@ -56,6 +56,7 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
   sniffDelimiter,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
@@ -68,7 +69,7 @@ import {
   type RowNumber,
 } from "./import-shared";
 
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile RC in care poate intra o coloana din fisierul de clienti. Aceleasi
@@ -406,16 +407,17 @@ export function buildClientImportPreview(
   mapping: ClientImportColumnMapping,
   owners: OwnerIndex,
   headerLine = 1,
+  lines?: number[],
 ): ImportPreview<ClientImportField> {
   const fields = clientImportFields(owners);
-  const preview = buildImportPreview(rows, mapping, fields, headerLine);
+  const preview = buildImportPreview(rows, mapping, fields, headerLine, lines);
 
   const valid: ImportPreview<ClientImportField>["valid"] = [];
   const invalid: ImportPreview<ClientImportField>["invalid"] = [...preview.invalid];
 
   for (const entry of preview.valid) {
     if (entry.record.stage === "follow_up" && entry.record.followUpDate === "") {
-      const index = entry.line - headerLine - 1;
+      const index = lines ? lines.indexOf(entry.line) : entry.line - headerLine - 1;
       invalid.push({
         line: entry.line,
         reason: CLIENT_IMPORT_REASON.followUpNeedsDate,

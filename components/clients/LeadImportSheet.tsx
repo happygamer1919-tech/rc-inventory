@@ -42,7 +42,7 @@ import { plural } from "@/lib/data/format";
 import {
   autoMatchColumns,
   leadImportInstructions,
-  parseCsv,
+  parseCsvWithLines,
   skippedCsv,
   templateCsv,
   IMPORT_FIELDS,
@@ -126,6 +126,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
   const [rows, setRows] = React.useState<string[][]>([]);
+  const [lines, setLines] = React.useState<number[]>([]);
   const [mapping, setMapping] = React.useState<ColumnMapping>([]);
 
   const [plan, setPlan] = React.useState<LeadImportPlan | null>(null);
@@ -176,7 +177,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
       setRows([]);
       return;
     }
-    const parsed = parseCsv(decoded.text);
+    const { rows: parsed, lines: parsedLines } = parseCsvWithLines(decoded.text);
     if (parsed.length < 2) {
       setError(EMPTY_FILE);
       setHeaders([]);
@@ -194,6 +195,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
 
     setHeaders(head);
     setRows(body);
+    setLines(parsedLines.slice(1));
     setMapping(autoMatchColumns(head));
   }
 
@@ -235,7 +237,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planLeadImport({ rows, mapping, fallbackSource: "" });
+    const result = await planLeadImport({ rows, lines, mapping, fallbackSource: "" });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
@@ -251,6 +253,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
     setPending(true);
     const result = await runLeadImport({
       rows,
+      lines,
       mapping,
       fallbackSource: source,
       choices,

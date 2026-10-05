@@ -23,7 +23,7 @@ import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK, PHONE_TAP } from "@/components/u
 import {
   autoMatchClientColumns,
   clientImportInstructions,
-  parseCsv,
+  parseCsvWithLines,
   skippedCsv,
   templateCsv,
   CLIENT_IMPORT_FIELDS,
@@ -94,6 +94,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
   const [rows, setRows] = React.useState<string[][]>([]);
+  const [lines, setLines] = React.useState<number[]>([]);
   const [mapping, setMapping] = React.useState<ClientImportColumnMapping>([]);
 
   const [plan, setPlan] = React.useState<ClientImportPlan | null>(null);
@@ -143,7 +144,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
       setRows([]);
       return;
     }
-    const parsed = parseCsv(decoded.text);
+    const { rows: parsed, lines: parsedLines } = parseCsvWithLines(decoded.text);
     if (parsed.length < 2) {
       setError(EMPTY_FILE);
       setHeaders([]);
@@ -161,6 +162,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
 
     setHeaders(head);
     setRows(body);
+    setLines(parsedLines.slice(1));
     setMapping(autoMatchClientColumns(head));
   }
 
@@ -195,7 +197,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planClientImport({ rows, mapping });
+    const result = await planClientImport({ rows, lines, mapping });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
@@ -211,6 +213,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
     setPending(true);
     const result = await runClientImport({
       rows,
+      lines,
       mapping,
       choices,
       fileName: fileName ?? "fișier",

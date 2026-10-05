@@ -17,6 +17,7 @@
 
 import type { ClientSource } from "./clients-types";
 import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
+import { dataRowLine } from "./import-shared";
 import {
   IMPORT_FIELD_LABEL,
   type ColumnMapping,
@@ -137,6 +138,8 @@ export function buildPlan(input: {
   ownerNames?: ReadonlyMap<string, string>;
   /** Numarul randului de antet, ca numerotarea sa fie cea din Excel. */
   headerLine?: number;
+  /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
+  lines?: number[];
 }): { plan: LeadImportPlan; prepared: Map<number, PreparedLead> } {
   const headerLine = input.headerLine ?? 1;
 
@@ -160,7 +163,7 @@ export function buildPlan(input: {
   const counts = { fresh: 0, duplicate: 0, error: 0 };
 
   for (let i = 0; i < input.rows.length; i += 1) {
-    const line = headerLine + 1 + i;
+    const line = dataRowLine(input.lines, headerLine, i);
     const row: PreparedRow = prepareRow(
       input.rows[i] ?? [],
       input.mapping,
