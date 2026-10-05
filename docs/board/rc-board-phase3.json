@@ -4845,9 +4845,9 @@
       "id": "P3-156",
       "title": "Exportul de leaduri si clienti include si data pasului urmator, iar la reimport data se pastreaza. (1) lead-export-actions.ts, lead-import-types.ts, client-export-actions.ts, client-import-types.ts: add nextActionDate field to the export mappings and import field lists. (2) lead-import-plan.ts and client-import-plan.ts: add nextActionDate to FILL_FIELDS and CLIENT_FILL_FIELDS so the date is fillable on existing records. (3) lead-import-actions.ts and client-import-actions.ts: map nextActionDate to next_action_at in FILL_COLUMN, update readable filter, and pass it to createClientRecord as nextActionAt. (4) The date format is DD.MM.YYYY in exports (what Romanian users read) and accepted in imports as DD.MM.YYYY, DD/MM/YYYY or YYYY-MM-DD. No migration, the date column already exists in the database.",
       "plain": "Exportul de lead-uri si clienti include si data pasului urmator, iar la reimport data se pastreaza.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4861,9 +4861,13 @@
       "question": null,
       "acceptance": "(a) These cases in tests/e2e/export-import-round-trip.spec.ts (a new file) are green in this pull request's own `quality` run: `export: lead row with next step text and date exports both cells`, `export: client row with next step text and date exports both cells`, `import: nextActionDate column maps to the date, empty stays empty, bad date is an error row`, `round trip: export rows then parse them back, the date is unchanged`. (b) tests/e2e/lead-import.spec.ts and clients-import.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
       "defaults": "Date format in exports is DD.MM.YYYY (what users read in Romanian); imports accept DD.MM.YYYY, DD/MM/YYYY and YYYY-MM-DD. Empty date stays empty. Bad dates are error rows with Romanian messages like other bad values. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the import template column order, the duplicate checks, the other export/import columns, the known defects in handoff Part 6 or the board hygiene in Part 7. No migration.",
-      "last_checkpoint": "2026-10-05T00:00:00Z",
-      "evidence": null,
-      "notes": "Working this card 2026-10-05. Bug check 2026-10-04. Requested id P3-139 was taken, P3-156 was the next free one. The leads and clients imports already accept nextAction; this extends them to also read and save nextActionDate, mapped to next_action_at in the database, which already exists from migration 0058 (P3-89, card shipped 2026-10-04)."
+      "last_checkpoint": "2026-10-05T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #423 on branch card/export-next-step-date against main: its quality run on the head sha runs the named acceptance cases and board validator",
+        "at": "2026-10-05T19:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-139 was taken, P3-156 was the next free one. The leads and clients imports already accept nextAction; this extends them to also read and save nextActionDate, mapped to next_action_at in the database, which already exists from migration 0058 (P3-89, shipped 2026-10-04). All acceptance cases must pass in PR #423 quality run. No migration, no changes to extraction boundaries."
     }
   ]
 }
