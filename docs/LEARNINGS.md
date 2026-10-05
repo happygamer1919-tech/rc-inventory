@@ -9099,3 +9099,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
 **SOLUTION:** card P3-139: text cells that start with `=`, `+`, `-`, `@`, tab or CR get one leading apostrophe, except a negative number from `formatCsvNumber`; phone and fiscal code cells are written `="value"` through `csvText`, which Excel shows clean as text. `parseCsv` undoes both. The first draft doubled the quotes only once, so a value holding a quote broke the round trip. RULE: **escape at the formula level and again at the CSV level, and prove it with a round trip that includes a quote.**
+
+### The Sarcini list silently kept only the first 1000 tasks
+**Tag:** backend
+**ERROR:** `listTasks` and `listTasksForEntity` read with no paging and no count. PostgREST answers with at most 1000 rows and says nothing. Tasks are never deleted, and the default order is due date ascending with no date last, so past 1000 tasks the rows kept were the oldest: this week's and all undated tasks vanished from the tab while the header count looked normal.
+**SOLUTION:** card P3-162: both reads go through `readAllPages`, in `lib/data/tasks-read.ts` (no server-only, client passed in, so a spec can use a fake client capped at 1000). Order and filters unchanged, `id` already last. RULE: **every list read of a table that only grows goes through `readAllPages`; a read that can be cut without an error is a defect even when the table is small today.**
+
+### A card id from `id:free` can be taken by another worker before the commit
+**Tag:** process
+**ERROR:** `npm run id:free -- P3-146` named P3-161, and by the time the card was written P3-161 was taken by a parallel worker.
+**SOLUTION:** re-run `npm run id:free -- <ID>` right before the board commit and rename if it says the id is not free. RULE: **the id is checked twice, at the start and just before the commit.**

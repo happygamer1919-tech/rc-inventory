@@ -4896,6 +4896,32 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
+    },
+    {
+      "id": "P3-162",
+      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the client as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
+      "plain": "Lista de sarcini arată toate sarcinile, oricâte ar fi, nu doar primele o mie; sarcinile noi și cele fără termen nu mai dispar.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-133",
+        "P3-39"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `P3-162: listTasks fara argumente aduce 2500 de sarcini, complete, in ordine, fara dubluri`, `P3-162: listTasks dupa termen aduce toate sarcinile, cele fara termen la sfarsit`, `P3-162: filtrele raman pe server si se pagineaza si ele` and `P3-162: listTasksForEntity aduce 2500 de sarcini ale unei inregistrari, complete, in ordine, fara dubluri` in tests/e2e/tasks-list-paging.spec.ts are green in this pull request's own `quality` run. (b) The existing tests/e2e/tasks.spec.ts and tests/e2e/azi-screen.spec.ts stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0, no migration file is added, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "Both reads go through readAllPages with the page size ROW_PAGE_SIZE and keep today's order with id as the last tie breaker. Filters, sort and the shape returned stay exactly as before; callers do not change. A short or total-less answer is a visible failure, never a shorter list. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/tasks-list-paging against main: its quality run on the head sha runs tests/e2e/tasks-list-paging.spec.ts; report in docs/reports/2026-10-04-executor-tasks-list-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Only listTasks and listTasksForEntity had the flaw; getTask is a single-row read and tasks-actions.ts only writes."
     }
   ]
 }
