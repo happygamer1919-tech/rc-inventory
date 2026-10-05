@@ -4950,6 +4950,28 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free (P3-142 was already taken on another branch). Azi links open the same Sarcini screen, so one fix covers them; the record panels on client and project pages show the name as fixed text and were never affected."
+    },
+    {
+      "id": "P3-167",
+      "title": "A spec locks in that every number the materials export writes is read back by the import as the same number.",
+      "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-137",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/import-number.spec.ts` green in this pull request's quality run on the head sha, including the case `numar de import: exportul de materiale se citeste inapoi la fel`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Doar test. Cititorul de numere nu se schimba: un singur punct urmat de trei cifre ramane separator de mii (250.000 = 250000), ca in P3-137.",
+      "last_checkpoint": "2026-10-05T12:00:00Z",
+      "evidence": null,
+      "notes": null
     }
   ]
 }
