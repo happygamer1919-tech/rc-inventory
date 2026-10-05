@@ -9114,3 +9114,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `buildClientPlan` matched duplicates on email only, so a file of clients with name and phone but no email created every row again when uploaded a second time (after fixing error rows, or after a retry that died midway). Two identical rows in one file were both created.
 **SOLUTION:** card P3-164: a row with no email gets a second key, normalised name (trimmed, inner spaces collapsed, lower case in `ro`) plus the last 8 digits of the phone, checked in the file and then among stored clients. A row with an email never uses it. RULE: **when a dedup key can be empty, the rows with an empty key need their own key; "no key" must not mean "always new".**
+
+### Editing a task tied to a closed project or inactive client showed an empty record box
+**Tag:** frontend
+**ERROR:** the Sarcini page built the record choice lists from open projects and active clients only, and `Combobox` shows a blank for a value that is not in its option list. A task linked to a project that was closed later (or a client made inactive) opened for editing with an empty "Înregistrare" box, although the link was stored and kept on save.
+**SOLUTION:** card P3-160: `listClosedLinkChoices` reads only the linked records missing from the lists, and `linkChoicesWithCurrent` adds that one record, labelled with its name and (închis) or (inactiv), to the list of the task being edited. New tasks still get the plain lists, and `Combobox` is untouched. RULE: **a picker that edits a stored value must always be able to show the stored value, even when that value would no longer be offered as a new choice.**
