@@ -9099,3 +9099,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `client_material_summary` (0022) reached issue lines through `projects.client_id`. Since 0067 a walk-in sale has no project and names its buyer in `outbound_issues.client_id`, so the buyer Consum materiale tab said nothing was consumed. The brief also said to keep a status filter that the function never had: an outbound issue has no cancelled state.
 **SOLUTION:** card P3-159, migration 0071: left join projects and count a line when the project client or the issue client is the asked client. RULE: **when a second way to link a record to its owner is added, grep every function that joins to the owner through the first way**; and read the function body before trusting a brief that says what it filters.
+
+### A new migration file needs a pending line in APPLY-LOG.md or the production headers spec fails
+**Tag:** tests
+**ERROR:** PR for 0071 passed every step except `headers.spec.ts` case 5, after a 40 minute run: no APPLY-LOG entry and no pending line for the file.
+**SOLUTION:** add the line "- `NNNN_name.sql`, card de aplicare <card>" under the pending list in `docs/migrations/APPLY-LOG.md` in the same PR. RULE: **a migration PR also edits APPLY-LOG.md; grep that file for the previous migration number before pushing.**
