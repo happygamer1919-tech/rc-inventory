@@ -493,13 +493,10 @@ test.describe("Ecranul Azi (P3-91)", () => {
     const callRows = page.getByTestId("azi-row");
     const hasNoCallRows = (await callRows.count()) === 0;
 
-    // Both conditions should be true: no calls but tasks exist
-    expect(hasNoCallRows || callRows.count() === 0).toBe(true); // ensure no calls (or very few)
-    if (hasTasksSection) {
-      const pageContent = await page.locator("body").textContent();
-      expect(pageContent).toContain("Niciun apel de făcut azi.");
-      expect(pageContent).not.toContain("Nimic de făcut azi.");
-    }
+    // When tasks exist and there are no calls, verify the message is shown
+    const pageContent = await page.locator("body").textContent();
+    expect(pageContent).toContain("Niciun apel de făcut azi.");
+    expect(pageContent).not.toContain("Nimic de făcut azi.");
 
     await rest.api.dispose();
   });
