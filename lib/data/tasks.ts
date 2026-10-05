@@ -51,9 +51,16 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasTasks } from "./schema-capability";
-import { isTaskEntityType, isTaskPriority, isTaskStatus } from "./tasks-shape";
+import { listClientOwnerChoices } from "./clients";
+import {
+  assigneeChoices,
+  teamNameLookup,
+  toTask,
+  type AssigneeChoice,
+  type TaskRow,
+  type TeamMember,
+} from "./tasks-map";
 import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
-import { one } from "./row";
 
 // NUMELE COLOANELOR SE SCRIU AICI, intr-un fisier care trece pe langa poarta, si
 // nu in lib/data/tasks-types.ts, care nu are ce sa apere cu una.
@@ -70,57 +77,44 @@ const SELECT_TASK = `
   assignee:profiles!tasks_assignee_id_fkey ( id, full_name )
 `;
 
-type TaskRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  assignee_id: string | null;
-  entity_type: string | null;
-  entity_id: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-  assignee?: { id: string; full_name: string | null } | { id: string; full_name: string | null }[] | null;
-};
+/**
+ * Lista echipei, din list_team_members() (migratia 0072), sau null cand functia nu
+ * exista inca pe baza sau raspunde cu eroare.
+ *
+ * NULL INSEAMNA "NU STIU", NU "NIMENI". Migratia ajunge in productie pe fuziune, in
+ * aproximativ doua minute, iar codul nou poate vorbi cateva minute cu schema veche:
+ * atunci o eroare nu are voie sa faca ecranul 500, ci sa lase citirea cum era (numele
+ * din imbinarea cu profilul, lista de responsabili din profiluri).
+ */
+async function readTeam(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<TeamMember[] | null> {
+  const { data, error } = await supabase.rpc("list_team_members");
+  if (error || !Array.isArray(data)) return null;
+  return (data as { id: string; display_name: string | null; active: boolean }[]).map((m) => ({
+    id: m.id,
+    displayName: m.display_name,
+    active: m.active,
+  }));
+}
+
+/** Numele responsabililor pentru o citire de sarcini; gol cand lista nu se poate citi. */
+async function readNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<ReadonlyMap<string, string>> {
+  return teamNameLookup((await readTeam(supabase)) ?? []);
+}
 
 /**
- * Randul, redus la forma pe care o citeste aplicatia.
- *
- * TOKENURILE NECUNOSCUTE CAD PE IMPLICITUL COLOANEI si nu arunca. Cele trei
- * enumerari sunt inchise in baza, deci un sir in afara lor nu poate ajunge aici din
- * PostgreSQL; ce se apara este cazul in care cineva adauga o eticheta de enum intr-o
- * migratie viitoare si desfasoara inainte ca TASK_STATUS_LABEL sa o cunoasca. Atunci
- * o lista care raspunde cu starea cea mai nevinovata este mai buna decat un ecran care
- * cade, iar `npx tsc --noEmit` prinde oricum eticheta fara eticheta, fiindca hartile
- * din tasks-types.ts sunt un `Record` pe uniune si nu un `Partial`.
+ * Optiunile selectorului Responsabil: colegii ACTIVI, vazuti de orice cont activ, nu
+ * numai de administrator (cardul P3-156). Cand functia nu exista inca pe baza, cade pe
+ * citirea de pana acum, listClientOwnerChoices.
  */
-function toTask(row: TaskRow): Task {
-  const assignee = one(row.assignee ?? null);
-  const entityType: TaskEntityType | null = isTaskEntityType(row.entity_type)
-    ? row.entity_type
-    : null;
-
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description ?? null,
-    status: isTaskStatus(row.status) ? row.status : "todo",
-    priority: isTaskPriority(row.priority) ? row.priority : "medium",
-    dueDate: row.due_date ?? null,
-    assigneeId: row.assignee_id ?? null,
-    assigneeName: assignee?.full_name ?? null,
-    // PERECHEA SE CITESTE INTREAGA SAU DELOC, exact cum o tine restrictia
-    // tasks_entity_both_or_neither: un tip pe care acest fisier nu il cunoaste ar
-    // lasa altfel un id care nu poate fi dus la nicio tabela.
-    entityType,
-    entityId: entityType === null ? null : (row.entity_id ?? null),
-    createdBy: row.created_by ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+export async function listTaskAssigneeChoices(): Promise<AssigneeChoice[]> {
+  const supabase = await createClient();
+  const team = await readTeam(supabase);
+  if (team === null) return listClientOwnerChoices();
+  return assigneeChoices(team);
 }
 
 /**
@@ -184,9 +178,9 @@ export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
     request = request.order(column, { ascending, nullsFirst: false });
   }
 
-  const { data, error } = await request;
+  const [{ data, error }, names] = await Promise.all([request, readNames(supabase)]);
   if (error) throw new Error(`Nu s-au putut citi sarcinile: ${error.message}`);
-  return ((data ?? []) as unknown as TaskRow[]).map(toTask);
+  return ((data ?? []) as unknown as TaskRow[]).map((row) => toTask(row, names));
 }
 
 /**
@@ -234,15 +228,14 @@ export async function getTask(id: string): Promise<Task | null> {
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return null;
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(SELECT_TASK)
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data, error }, names] = await Promise.all([
+    supabase.from("tasks").select(SELECT_TASK).eq("id", id).maybeSingle(),
+    readNames(supabase),
+  ]);
 
   if (error) throw new Error(`Nu s-a putut citi sarcina: ${error.message}`);
   if (!data) return null;
-  return toTask(data as unknown as TaskRow);
+  return toTask(data as unknown as TaskRow, names);
 }
 
 /**
@@ -264,14 +257,17 @@ export async function listTasksForEntity(
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return [];
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(SELECT_TASK)
-    .eq("entity_type", entityType)
-    .eq("entity_id", entityId)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false });
+  const [{ data, error }, names] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select(SELECT_TASK)
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }),
+    readNames(supabase),
+  ]);
 
   if (error) throw new Error(`Nu s-au putut citi sarcinile înregistrării: ${error.message}`);
-  return ((data ?? []) as unknown as TaskRow[]).map(toTask);
+  return ((data ?? []) as unknown as TaskRow[]).map((row) => toTask(row, names));
 }
