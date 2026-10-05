@@ -132,7 +132,7 @@ export async function exportClients(
     const d = details.get(r.id);
     const type = isClientType(r.type) ? r.type : "company";
     const source = d?.source;
-    const nextActionDate = withNextAction && r.next_action_at ? new Date(r.next_action_at).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, ".") : "";
+    const nextActionDate = withNextAction && (r as any).next_action_at ? new Date((r as any).next_action_at).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, ".") : "";
     return {
       name: r.name,
       type: CLIENT_TYPE_LABEL[type],
