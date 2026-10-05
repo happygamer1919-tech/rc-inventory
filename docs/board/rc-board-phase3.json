@@ -4929,7 +4929,7 @@
       "plain": "Ecranul Azi arata 'Nimic de facut azi.' numai cand nu sunt nici apeluri de facut si nici sarcini cu termen azi. Testul verifica amandoua situatiile.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
