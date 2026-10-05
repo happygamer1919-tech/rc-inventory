@@ -9036,3 +9036,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
 **SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
+
+### The check step counted rows but never showed the new ones
+**Tag:** frontend
+**ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
+**SOLUTION:** card P3-141: every import plan carries a `preview` table built by `lib/data/import-preview-rows.ts` from the prepared rows (after parsing and normalisation), shown by `components/ui/ImportPreviewRows.tsx`, first 50 rows plus a line with the rest. RULE: **a preview shows the converted values, not the raw cells, or it cannot catch a conversion mistake**.
+
+**ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
+**SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
