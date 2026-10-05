@@ -28,6 +28,7 @@ import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
 import { listClientOwnerChoices } from "./clients";
+import { loadOrRefuse, readAllClients } from "./import-clients-read";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
 import {
@@ -136,10 +137,7 @@ async function loadExisting(
     ...(next ? ["next_action"] : []),
   ].join(",");
 
-  const { data, error } = await supabase.from("clients").select(columns);
-  if (error || !data) return [];
-
-  const rows = data as unknown as Record<string, string | null>[];
+  const rows = await readAllClients(supabase, columns);
 
   // NIMIC DESPRE PERSOANELE DE CONTACT NU SE CITESTE AICI, si asta este constatarea G17
   // a raportului docs/reports/2026-09-29-critic-bug-sweep-2.md, reparata de cardul P3-115.
@@ -280,12 +278,14 @@ export async function planLeadImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
+  const existing = await loadOrRefuse(() => loadExisting(supabase));
+  if (!existing.ok) return existing;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
-    existing: await loadExisting(supabase),
+    existing: existing.value,
   });
   await addContactNameFillable(supabase, plan, prepared);
 
@@ -404,12 +404,14 @@ export async function runLeadImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
+  const existing = await loadOrRefuse(() => loadExisting(supabase));
+  if (!existing.ok) return existing;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     ...(await ownerInputs()),
     fallbackSource: readFallbackSource(request.fallbackSource),
-    existing: await loadExisting(supabase),
+    existing: existing.value,
   });
   // P3-115, G17: aceeasi intrebare, pusa despre aceiasi clienti, in amandoua caile. Daca
   // ar fi pusa numai in planLeadImport, ecranul ar oferi completarea persoanei de contact si
