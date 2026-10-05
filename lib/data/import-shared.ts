@@ -199,7 +199,7 @@ export function parseCsvWithLines(input: string): { rows: string[][]; lines: num
   let startLine = 1;
 
   const endCell = () => {
-    row.push(cell);
+    row.push(unwrapCsvCell(cell));
     cell = "";
   };
   const endRow = () => {
@@ -295,18 +295,50 @@ export function formatCsvNumber(value: number | string): string {
   return text.replace(".", ",");
 }
 
+/** O celula pe care Excel trebuie sa o pastreze ca text (telefon, IDNO): fara asta, +37369123456
+ *  ajunge numarul 37369123456, iar 0123456789012 ajunge 1,23E+11 fara zeroul din fata. */
+export type CsvTextCell = { csvText: string };
+export type CsvCell = string | CsvTextCell;
+
+export function csvText(value: string): CsvTextCell {
+  return { csvText: value };
+}
+
+// Un numar negativ scris de formatCsvNumber (-5, -12,5) ramane numar, nu primeste apostrof.
+const NEGATIVE_NUMBER = /^-\d+(,\d+)?$/;
+const FORMULA_START = /^[=+\-@\t\r]/;
+const TEXT_FORMULA = /^="((?:[^"]|"")*)"$/;
+
+function writeCsvCell(cell: CsvCell): string {
+  if (typeof cell !== "string") {
+    // Forma ="..." este un sir literal pentru Excel: se afiseaza fara apostrof si nu poate
+    // porni nicio formula. parseCsv o desface la citire (unwrapCsvCell).
+    if (cell.csvText === "") return "";
+    const literal = `="${cell.csvText.replace(/"/g, '""')}"`;
+    return `"${literal.replace(/"/g, '""')}"`;
+  }
+  // OWASP, injectare de formule: o celula care incepe cu = + - @ tab sau CR primeste un
+  // apostrof in fata. Numerele negative nu: Excel le citeste ca numere, nu ca formule.
+  const safe = FORMULA_START.test(cell) && !NEGATIVE_NUMBER.test(cell) ? `'${cell}` : cell;
+  return /[",;\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/** Inversul lui writeCsvCell, la citire: scoate ="..." si apostroful pus in fata unei celule care
+ *  incepe cu = + - @ tab sau CR. Alt apostrof de la inceputul unui text ramane cum este. */
+function unwrapCsvCell(cell: string): string {
+  const literal = TEXT_FORMULA.exec(cell);
+  if (literal) return literal[1]!.replace(/""/g, '"');
+  if (cell.startsWith("'") && FORMULA_START.test(cell.slice(1))) return cell.slice(1);
+  return cell;
+}
+
 /** Scrie randuri ca CSV, cu punct si virgula intre coloane (Excel cu setari romanesti sau
  *  ruse nu desparte coloanele la virgula), pentru sablon, pentru export si pentru
  *  fisierul randurilor sarite. BOM in fata, ca Excel sa deschida diacriticele
- *  corect. */
-export function buildCsv(rows: string[][]): string {
-  const body = rows
-    .map((row) =>
-      row
-        .map((cell) => (/[",;\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-        .join(";"),
-    )
-    .join("\r\n");
+ *  corect. Celulele de text care ar porni o formula primesc un apostrof; `csvText`
+ *  marcheaza telefoanele si codurile fiscale, pastrate ca text de Excel. */
+export function buildCsv(rows: CsvCell[][]): string {
+  const body = rows.map((row) => row.map(writeCsvCell).join(";")).join("\r\n");
   return `﻿${body}\r\n`;
 }
 
