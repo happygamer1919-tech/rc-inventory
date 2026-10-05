@@ -12,8 +12,10 @@
 // pasul "Verifică" nu scrie nimic.
 
 import * as React from "react";
+import { decodeCsvFile } from "@/lib/data/import-shared";
 import { useRouter } from "next/navigation";
 import { Button, Select } from "@/components/ui/primitives";
+import { ImportPreviewRows } from "@/components/ui/ImportPreviewRows";
 import { FilePicker } from "@/components/ui/FilePicker";
 import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK, PHONE_TAP } from "@/components/ui/phone";
 import {
@@ -51,7 +53,7 @@ const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Imp
 
 export const XLSX_NOT_YET =
   "Fișierele Excel (.xlsx) nu pot fi citite încă. Deschide fișierul în Excel, alege " +
-  "Salvare ca și tipul CSV, apoi încarcă fișierul CSV. Modelul de mai jos este deja CSV.";
+  "Salvare ca și tipul CSV UTF-8, apoi încarcă fișierul CSV. Modelul de mai jos este deja CSV.";
 
 const TOO_BIG = "Fișierul este mai mare de 5 MB. Încarcă un fișier mai mic.";
 const WRONG_KIND = "Se acceptă doar fișiere CSV. Alege un fișier cu extensia .csv.";
@@ -127,7 +129,13 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    const parsed = parseCsv(await file.text());
+    const decoded = decodeCsvFile(await file.arrayBuffer());
+    if ("error" in decoded) {
+      setError(decoded.error);
+      clearFile();
+      return;
+    }
+    const parsed = parseCsv(decoded.text);
     if (parsed.length < 2) {
       setError(EMPTY_FILE);
       clearFile();
@@ -359,6 +367,8 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
                 <Count label="Dublate" value={plan.counts.duplicate} testId="import-count-duplicate" />
                 <Count label="Cu erori" value={plan.counts.error} testId="import-count-error" />
               </div>
+
+              <ImportPreviewRows preview={plan.preview} />
 
               {duplicates.length > 0 ? (
                 <div className="space-y-2" data-testid="import-duplicates">

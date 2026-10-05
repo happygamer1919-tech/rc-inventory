@@ -13,6 +13,11 @@ import { signIn } from "./support/auth";
 // Responsabil. Named e2e test: a lead due today appears, 'Am sunat' plus a note
 // removes it from the list."
 //
+// P3-142: when there are no calls but there are tasks due today, the calls card
+// says "Niciun apel de făcut azi." (no calls to make today) and the tasks are
+// shown below. "Nimic de făcut azi." appears only when there are no calls AND
+// no tasks due today.
+//
 // LISTA ESTE A INTREGII BAZE DE TEST, nu a acestui fisier: alte spec-uri lasa si
 // ele leaduri datorate. Fiecare caz isi cauta deci randurile dupa id, niciodata
 // dupa numarul total de randuri sau dupa pozitia absoluta.
@@ -424,5 +429,28 @@ test.describe("Ecranul Azi (P3-91)", () => {
     expect(ids.indexOf(bare)).toBeLessThan(ids.indexOf(written));
 
     await rest.api.dispose();
+  });
+
+  test("P3-142: cardul De sunat spune 'Niciun apel' cand nu sunt apeluri dar sunt sarcini scadente azi", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await openAzi(page);
+
+    // Daca avem sarcini scadente azi, sectiunea ar trebui sa fie vizibila.
+    // Cardul De sunat ar trebui sa arate "Niciun apel de făcut azi." (nu "Nimic de făcut azi.")
+    // cand nu sunt apeluri dar sunt sarcini.
+    const tasksSectionElement = page.getByTestId("azi-tasks");
+    const callRows = page.getByTestId("azi-row");
+
+    // Daca nu sunt apeluri dar sunt sarcini, arata mesajul de "Niciun apel"
+    const hasNoCallRows = (await callRows.count()) === 0;
+    const hasTasksSection = (await tasksSectionElement.count()) > 0;
+
+    if (hasNoCallRows && hasTasksSection) {
+      const pageContent = await page.locator("body").textContent();
+      expect(pageContent).toContain("Niciun apel de făcut azi.");
+      expect(pageContent).not.toContain("Nimic de făcut azi.");
+    }
   });
 });

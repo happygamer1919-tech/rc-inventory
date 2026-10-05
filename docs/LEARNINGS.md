@@ -9026,3 +9026,31 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** the table of cases for the number reader had no home: package.json has no unit test script.
 **SOLUTION:** `tests/e2e/import-number.spec.ts` imports the function through `@/lib/...` and asserts the table without opening a page, so it needs no database. RULE: **a pure function gets its table in a spec that imports it directly**.
+
+### file.text() reads every upload as UTF-8, so an Excel CSV loses its letters
+**Tag:** backend
+**ERROR:** the four import screens called `file.text()`. Excel's plain CSV save writes Windows-1250 on a Romanian Windows and Windows-1251 on a Russian one, so every ă â î ș ț and every Cyrillic letter became U+FFFD and was written to the database. Nothing checked for it.
+**SOLUTION:** card P3-145 adds `decodeCsvFile` (`lib/data/import-shared.ts`): strict UTF-8 first, then Windows-1250 or Windows-1251, and a Romanian error when U+FFFD is still there. The row preparation also refuses any cell holding U+FFFD, so no client can write them. RULE: **read an upload as bytes and decode it on purpose; never trust file.text() for a file a person saved from Excel**.
+
+### Windows-1250 has no comma-below ș and ț
+**Tag:** backend
+**ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
+**SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
+
+### The check step counted rows but never showed the new ones
+**Tag:** frontend
+**ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
+**SOLUTION:** card P3-141: every import plan carries a `preview` table built by `lib/data/import-preview-rows.ts` from the prepared rows (after parsing and normalisation), shown by `components/ui/ImportPreviewRows.tsx`, first 50 rows plus a line with the rest. RULE: **a preview shows the converted values, not the raw cells, or it cannot catch a conversion mistake**.
+
+**ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
+**SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
+
+### The client and lead imports read only the first 1000 stored clients
+**Tag:** backend
+**ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
+**SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.
+
+### A counter narrowed in one migration was left wide in its twin
+**Tag:** backend
+**ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
+**SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.
