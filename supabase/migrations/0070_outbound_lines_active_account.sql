@@ -1,4 +1,4 @@
--- 0069_outbound_lines_active_account.sql
+-- 0070_outbound_lines_active_account.sql
 -- RC Inventory phase 3, card P3-138. Found by the bug check of 2026-10-04.
 --
 -- WHAT IT CHANGES: three row level security policies on public.outbound_lines,

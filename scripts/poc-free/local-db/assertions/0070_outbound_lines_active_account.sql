@@ -1,5 +1,5 @@
--- assertions/0069_outbound_lines_active_account.sql
--- Card P3-138. What 0069 must have left behind, and what it must NOT have changed.
+-- assertions/0070_outbound_lines_active_account.sql
+-- Card P3-138. What 0070 must have left behind, and what it must NOT have changed.
 --
 --   1. public.outbound_lines has exactly four policies: select, insert and update
 --      on public.current_app_role() is not null, and delete still on

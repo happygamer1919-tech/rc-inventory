@@ -9020,12 +9020,12 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### Closing a header table does not close its child table
 **Tag:** security
 **ERROR:** migration 0067 made `outbound_issues` refuse a deactivated account and its comment said "a line is reachable only through its issue". PostgREST exposes every table directly, so `outbound_lines` kept 0001's `using (true)` policies and a deactivated account with a valid token could still read sale prices, add and change lines, and call `outbound_issue_take_stock` to deduct stock.
-**SOLUTION:** card P3-138, migration 0069, puts the same `public.current_app_role() is not null` predicate on the line select, insert and update policies. RULE: **when a policy is tightened on a table, grep every child table and every policy written `using (true)` on it; a child is never "reachable only through" its parent over PostgREST**.
+**SOLUTION:** card P3-138, migration 0070, puts the same `public.current_app_role() is not null` predicate on the line select, insert and update policies. RULE: **when a policy is tightened on a table, grep every child table and every policy written `using (true)` on it; a child is never "reachable only through" its parent over PostgREST**.
 
 ### A security invoker function inherits the caller's policies, so an early refusal can be redundant and harmful
 **Tag:** backend
 **ERROR:** the natural fix for `outbound_issue_take_stock` was an early `if current_app_role() is null then raise`. assertions/0067 calls the two outbound doors as superuser with no JWT, where `current_app_role()` is null, so that refusal would fail an existing assertion.
-**SOLUTION:** the function is SECURITY INVOKER, so its lines insert already runs under the tightened insert policy and the whole call rolls back for a deactivated caller. The refusal is proven with a real token in `tests/e2e/outbound-lines-deactivated.spec.ts`, and assertions/0069 pins the function as invoker so it cannot silently become definer. RULE: **before adding a role check inside an invoker function, check whether the policies it writes through already refuse, and whether any superuser assertion calls it**.
+**SOLUTION:** the function is SECURITY INVOKER, so its lines insert already runs under the tightened insert policy and the whole call rolls back for a deactivated caller. The refusal is proven with a real token in `tests/e2e/outbound-lines-deactivated.spec.ts`, and assertions/0070 pins the function as invoker so it cannot silently become definer. RULE: **before adding a role check inside an invoker function, check whether the policies it writes through already refuse, and whether any superuser assertion calls it**.
 
 ### A number with one dot is ambiguous: 250.000 is two hundred fifty thousand in Romanian
 **Tag:** backend
@@ -9046,3 +9046,21 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
 **SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
+
+### The check step counted rows but never showed the new ones
+**Tag:** frontend
+**ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
+**SOLUTION:** card P3-141: every import plan carries a `preview` table built by `lib/data/import-preview-rows.ts` from the prepared rows (after parsing and normalisation), shown by `components/ui/ImportPreviewRows.tsx`, first 50 rows plus a line with the rest. RULE: **a preview shows the converted values, not the raw cells, or it cannot catch a conversion mistake**.
+
+**ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
+**SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
+
+### The client and lead imports read only the first 1000 stored clients
+**Tag:** backend
+**ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
+**SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.
+
+### A counter narrowed in one migration was left wide in its twin
+**Tag:** backend
+**ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
+**SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.

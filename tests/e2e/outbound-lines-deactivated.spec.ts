@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 
 // outbound-lines-deactivated.spec - linia de acceptanta a cardului P3-138.
 //
-// CE SE DOVEDESTE. Migratia 0069 pune pe public.outbound_lines acelasi predicat
+// CE SE DOVEDESTE. Migratia 0070 pune pe public.outbound_lines acelasi predicat
 // pe care 0067 l-a pus pe antetul iesirii: public.current_app_role() is not null.
 // Un postgres gol ruleaza ca superutilizator si ocoleste politicile, deci
-// asertiunea assertions/0069 poate arata doar ca politicile EXISTA. Ce lasa ele
+// asertiunea assertions/0070 poate arata doar ca politicile EXISTA. Ce lasa ele
 // sa treaca se vede numai cu jetoane adevarate prin PostgREST, si de aici vine.
 //
 // FIECARE CAZ ARE UN MARTOR. Acelasi cont face intai, cat timp este activ, exact
@@ -16,7 +16,7 @@ import { expect, test } from "@playwright/test";
 // public.outbound_issue_take_stock NU ARE UN REFUZ AL SAU. Este SECURITY INVOKER,
 // deci inserarea pozitiilor din ea trece prin politica de inserare a apelantului.
 // Cazul de mai jos o cheama direct, pe o iesire care exista deja, adica exact
-// calea pe care un cont dezactivat ar fi putut scadea stocul inainte de 0069.
+// calea pe care un cont dezactivat ar fi putut scadea stocul inainte de 0070.
 //
 // DATELE DE TEST NU SE STERG NICIODATA, conventia P2-07. Tot ce se scrie aici
 // este prefixat TEST si rulat pe stiva locala din CI, niciodata pe productie.
