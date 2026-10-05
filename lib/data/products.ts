@@ -15,6 +15,14 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
 import { readQuantityRows, type StockClient } from "./stock-read";
+import { clampPage, LIST_PAGE_SIZE } from "./list-paging";
+import {
+  applyQueryFilter,
+  readProductPage,
+  type ProductPageClient,
+  type QueryFilter,
+} from "./product-page-read";
+import { filterByRest, filterByVisibility, type ProductFilter } from "./product-filter";
 import {
   hasOutboundIssueMode,
   hasPhase3Schema,
@@ -213,17 +221,9 @@ function toSheetChoice(row: ProductRow): SheetChoice | null {
   return { model, series: row.sheet_series, thicknessMm, finish: row.sheet_finish ?? "" };
 }
 
-/**
- * Tot catalogul, produsele inactive incluse.
- *
- * Ecranul de inventar le arata pe toate, cu cele inactive marcate, pentru ca un
- * produs dezactivat trebuie sa ramana citibil in istoric. Alegerile din
- * formulare folosesc listActiveProducts, nu aceasta.
- */
-export async function listProducts(options: { activeOnly?: boolean } = {}): Promise<CatalogProduct[]> {
-  const activeOnly = options.activeOnly === true;
-  const supabase = await createClient();
-
+/** Lista de coloane a catalogului, cu coloanele facute de migratii numai cand migratiile
+ *  sunt aplicate. O singura lista, pentru citirea intreaga, pe pagini si dupa SKU. */
+async function productColumns(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
   // P3-05b: ONE COLUMN LIST. The pre-phase-3 fallback named supplier_name, which
   // 0027 drops, and it was only ever reached when hasPhase3Schema() said no. The
   // wave 1 migrations are applied, so that branch is unreachable AND unsafe.
@@ -243,7 +243,24 @@ export async function listProducts(options: { activeOnly?: boolean } = {}): Prom
     ? `${packaging}, sheet_model, sheet_series, sheet_thickness_mm, sheet_finish`
     : packaging;
   // P3-69. SURSA PRODUSULUI, CU ACEEASI GRIJA: numai cand 0049 este aplicata.
-  const columns = (await hasProductSourceNote(supabase)) ? `${sheet}, source_note` : sheet;
+  return (await hasProductSourceNote(supabase)) ? `${sheet}, source_note` : sheet;
+}
+
+/**
+ * Tot catalogul, produsele inactive incluse.
+ *
+ * Ecranul de inventar le arata pe toate, cu cele inactive marcate, pentru ca un
+ * produs dezactivat trebuie sa ramana citibil in istoric. Alegerile din
+ * formulare folosesc listActiveProducts, nu aceasta.
+ *
+ * P3-142. CITIREA INTREAGA RAMANE PENTRU CE AFLA TOTALURI PE TOT CATALOGUL: tabloul de
+ * bord, memento-ul de stoc, necesarul, exportul si alegerile din formulare. Lista de pe
+ * ecranul Inventar foloseste listProductsPage, mai jos.
+ */
+export async function listProducts(options: { activeOnly?: boolean } = {}): Promise<CatalogProduct[]> {
+  const activeOnly = options.activeOnly === true;
+  const supabase = await createClient();
+  const columns = await productColumns(supabase);
 
   // P3-136. CATALOGUL SE CITESTE PE PAGINI, in ordinea cunoscuta (sku, apoi id ca
   // departajare stabila): peste 1000 de produse, lista se oprea tacut la 1000.
@@ -263,6 +280,110 @@ export async function listProducts(options: { activeOnly?: boolean } = {}): Prom
   // numai pentru ele (cand lista incape intr-o cerere), nu pentru tot istoricul.
   const stock = await stockByProduct(activeOnly ? rows.map((r) => r.id) : undefined);
   return rows.map((row) => toCatalogProduct(row, stock));
+}
+
+export type ProductPage = {
+  products: CatalogProduct[];
+  /** Randurile listei cu toate filtrele ecranului, nu ale paginii. */
+  total: number;
+  /** Randurile dupa filtrul activ/inactiv singur: "din" cat se arata cifra de mai sus. */
+  visibleTotal: number;
+  /** Tot catalogul, activ si inactiv. Spune daca "Catalogul este gol". */
+  catalogTotal: number;
+  /** Pagina adusa de fapt (ultima, daca cea ceruta era dincolo de capat). */
+  page: number;
+};
+
+type CountQuery = PromiseLike<{ count: number | null; error: { message: string } | null }> & {
+  eq(column: string, value: string | boolean): CountQuery;
+};
+
+async function countProducts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  filter: QueryFilter,
+): Promise<number> {
+  const query = supabase.from("products").select("id", { count: "exact", head: true }) as unknown as CountQuery;
+  const { count, error } = await applyQueryFilter(query, filter);
+  if (error) throw new Error(`Nu s-au putut număra produsele: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * P3-142. O PAGINA din lista de inventar, cu filtrele ecranului.
+ *
+ * CALEA RAPIDA (fara cautare si fara nivel de stoc): activ/inactiv, categoria si
+ * furnizorul se pun in cerere, se cere o pagina cu `.range` si totalul exact, iar stocul
+ * se aduna numai pentru cele cel mult 50 de produse de pe pagina (stockByProduct cu
+ * `.in`). Citirea nu mai trece prin toate loturile si prin toate liniile de iesire.
+ *
+ * CAND NU SE POATE IN CERERE. Doua filtre nu au un echivalent in cererea de produse fara
+ * migratie, iar cardul nu are voie sa adauge una:
+ *  - cautarea ignora diacriticele ("tigla" gaseste "Țiglă", P3-129 si faza 1), iar
+ *    `ilike` din baza nu le ignora fara extensia unaccent;
+ *  - nivelul de stoc (redus, epuizat, suficient) depinde de stocul CALCULAT, care nu este o
+ *    coloana (vezi antetul fisierului).
+ * Cu unul dintre ele pus, se citeste tot catalogul ca inainte, se alege cu aceeasi functie
+ * ca exportul (filterProducts) si apoi se taie pagina. Corect pe toate randurile, cu
+ * costul de dinainte, numai cat timp operatorul cauta sau filtreaza dupa stoc.
+ */
+export async function listProductsPage(filter: ProductFilter, page: number): Promise<ProductPage> {
+  const needsFullRead = filter.q.trim() !== "" || filter.level !== "toate";
+
+  if (needsFullRead) {
+    const all = await listProducts();
+    const visible = filterByVisibility(all, filter.visibility);
+    const matched = filterByRest(visible, filter);
+    const current = clampPage(page, matched.length);
+    const start = (current - 1) * LIST_PAGE_SIZE;
+    return {
+      products: matched.slice(start, start + LIST_PAGE_SIZE),
+      total: matched.length,
+      visibleTotal: visible.length,
+      catalogTotal: all.length,
+      page: current,
+    };
+  }
+
+  const supabase = await createClient();
+  const columns = await productColumns(supabase);
+  const read = await readProductPage<ProductRow>(
+    supabase as unknown as ProductPageClient<ProductRow>,
+    columns,
+    filter,
+    page,
+    (ids) => stockByProduct(ids),
+  );
+
+  // "din N" apare numai cand alt filtru decat activ/inactiv ingusteaza lista; altfel
+  // totalul listei este chiar N si nu mai este nevoie de o a doua numaratoare.
+  const visibleTotal =
+    filter.category || filter.supplier
+      ? await countProducts(supabase, { category: "", supplier: "", visibility: filter.visibility })
+      : read.total;
+  const catalogTotal =
+    read.total > 0
+      ? visibleTotal
+      : await countProducts(supabase, { category: "", supplier: "", visibility: "toate" });
+
+  return {
+    products: read.rows.map((row) => toCatalogProduct(row, read.stock)),
+    total: read.total,
+    visibleTotal,
+    catalogTotal,
+    page: read.page,
+  };
+}
+
+/** Un produs dupa SKU, cu stocul lui, pentru legaturile `?produs=<sku>` din alte ecrane:
+ *  produsul deschis nu este neaparat pe pagina de pe ecran. Null daca nu exista. */
+export async function getProductBySku(sku: string): Promise<CatalogProduct | null> {
+  const supabase = await createClient();
+  const columns = await productColumns(supabase);
+  const { data, error } = await supabase.from("products").select(columns).eq("sku", sku).maybeSingle();
+  if (error) throw new Error(`Nu s-a putut citi produsul: ${error.message}`);
+  if (!data) return null;
+  const row = data as unknown as ProductRow;
+  return toCatalogProduct(row, await stockByProduct([row.id]));
 }
 
 /**
