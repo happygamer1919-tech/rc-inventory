@@ -4977,6 +4977,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free (P3-142 was already taken on another branch). Azi links open the same Sarcini screen, so one fix covers them; the record panels on client and project pages show the name as fixed text and were never affected."
     },
     {
+      "id": "P3-166",
+      "title": "Every active client can be picked in the client pickers however many clients there are. listClientOptions in lib/data/projects-list.ts read clients with no paging and no order, so past 1000 active rows (the database returns at most 1000) an arbitrary set of clients was missing from the Proiecte filter, the project form, the walk-in buyer picker on Ieșiri, the task record picker and the invoice editor, and a failed read showed an empty picker. It now delegates to readActiveClientOptions in lib/data/client-options-read.ts, which reads pages of 1000 ordered by name then id until a page comes back short, keeps the Romanian sort and the { id, name } shape, and throws on a read error so the app error screen shows instead of an empty list. No migration.",
+      "plain": "Toți clienții activi pot fi aleși în listele de clienți, oricât de mulți ar fi.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-124"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/client-options-read.spec.ts are green in this pull request's own `quality` run: `P3-166: selector clienti: 1000, 1000 si 250 de clienti se citesc toti, in trei pagini, ordonati`, `P3-166: selector clienti: exact 1000 de clienti cere si o a doua pagina, goala`, `P3-166: selector clienti: o citire care esueaza arunca, nu da lista goala`. (b) The other client, project and task specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "The paging loop is unit-tested with a stubbed Supabase client (seeding 1000+ rows in CI would be slow, and the loop is what is under test). The return shape { id, name }[] and the localeCompare Romanian sort are unchanged, so no caller changes. A read error throws and lands on app/error.tsx. No change to the look of any picker, the Romanian labels, the lead PageHeader prop, the hasPhase3Schema gate, supabase/config.toml, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/client-picker-paging against main: its quality run on the head sha runs tests/e2e/client-options-read.spec.ts; report in docs/reports/2026-10-04-executor-client-picker-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free. Callers: sarcini, iesiri, proiecte, proiecte/[id] pages and lib/data/facturare-create.ts; no other picker reads all clients this way (the import reads already page)."
+    },
+    {
       "id": "P3-165",
       "title": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată», în Sarcini, în panoul de înregistrare și în Azi.",
       "plain": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată».",
