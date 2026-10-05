@@ -95,6 +95,10 @@ export function OrdersScreen({
   // aduce o singura pagina si trebuie sa stie filtrul ca sa o aleaga din toate iesirile,
   // nu doar din cele de pe pagina deschisa. O schimbare de filtru intoarce lista la pagina 1.
   const { setFilter, setPage } = useListUrl();
+  // Alegerea se arata cand se face, nu abia cand vine raspunsul serverului: un select care ar
+  // sari inapoi pe "Toate" pana atunci ar arata ca alegerea nu a prins.
+  const [modeChoice, setModeChoice] = React.useState<ModeFilter>(modeFilter);
+  React.useEffect(() => setModeChoice(modeFilter), [modeFilter]);
 
   // FILTRAREA SE FACE PE INREGISTRARE SI NU PE TEXT, acum in cererea de citire (lib/data/
   // outbound.ts). Randurile istorice fara proiect au projectId null si sunt deci excluse de
@@ -230,8 +234,11 @@ export function OrdersScreen({
           {modeVisible ? (
             <div className="px-5 pb-4" data-testid="outbound-mode-filter">
               <Select
-                value={modeFilter}
-                onChange={(e) => setFilter({ tip: e.target.value === "toate" ? null : e.target.value })}
+                value={modeChoice}
+                onChange={(e) => {
+                  setModeChoice(e.target.value as ModeFilter);
+                  setFilter({ tip: e.target.value === "toate" ? null : e.target.value });
+                }}
                 aria-label="Filtrează ieșirile după tipul eliberării"
                 data-testid="outbound-mode-filter-select"
                 className={PHONE_CONTROL}

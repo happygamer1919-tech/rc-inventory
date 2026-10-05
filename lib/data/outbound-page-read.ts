@@ -32,8 +32,10 @@ export type IssueScope = {
   projectId?: string;
   /** Conditie `.or(...)` deja scrisa: iesirile pe proiectele clientului sau catre el direct. */
   clientClause?: string | null;
-  /** Felul eliberarii, numai cand baza are coloana lui. */
-  mode?: string | null;
+  /** Conditii `coloana = valoare` in plus, puse de apelant. Felul eliberarii vine asa, nu
+   *  numit aici: coloana lui exista numai dupa migratia 0067, deci o numeste numai fisierul
+   *  care intreaba poarta (lib/data/outbound.ts), iar acest fisier nu citeste schema. */
+  equals?: Array<[column: string, value: string]>;
 };
 
 /** O ordine de linii imbricate, ca in listOutboundIssues (P3-115). */
@@ -51,7 +53,7 @@ function narrow<R>(query: IssueQuery<R>, scope: IssueScope): IssueQuery<R> {
   let q = query;
   if (scope.projectId) q = q.eq("project_id", scope.projectId);
   if (scope.clientClause) q = q.or(scope.clientClause);
-  if (scope.mode) q = q.eq("issue_mode", scope.mode);
+  for (const [column, value] of scope.equals ?? []) q = q.eq(column, value);
   return q;
 }
 

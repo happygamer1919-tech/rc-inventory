@@ -236,6 +236,18 @@ test("P3-142: filtrul de proiect si cel de fel se pun in cererea iesirilor", asy
   expect(got.total).toBe(170);
   expect(got.rows).toHaveLength(50);
   expect(calls.every((c) => c.eq.some(([column, value]) => column === "project_id" && value === "proj-a"))).toBe(true);
+
+  // Conditiile in plus ale apelantului (felul eliberarii) se aplica si ele in cerere.
+  const extra: Call[] = [];
+  const shipped = await readIssuePage(
+    issueClient(issues(340), extra),
+    "id",
+    { equals: [["status", "shipped"]] },
+    1,
+    LINES_ORDER,
+  );
+  expect(shipped.total).toBe(255);
+  expect(extra.some((c) => c.eq.some(([column, value]) => column === "status" && value === "shipped"))).toBe(true);
 });
 
 test("P3-142: ajutoarele de pagina: numarul din adresa, numarul de pagini, textele", () => {

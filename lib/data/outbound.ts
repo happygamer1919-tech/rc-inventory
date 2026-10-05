@@ -327,7 +327,8 @@ export async function listOutboundIssuesPage(
     {
       projectId: filter.projectId,
       clientClause,
-      mode: modeActive ? (filter.mode ?? null) : null,
+      // Felul eliberarii se filtreaza numai cand poarta a raspuns da (coloana exista).
+      equals: modeActive && filter.mode ? [["issue_mode", filter.mode]] : [],
     },
     page,
     LINES_ORDER,

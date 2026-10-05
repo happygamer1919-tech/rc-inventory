@@ -175,15 +175,10 @@ export function InventoryScreen({
     setExportNotice(null);
     setExportError(null);
     try {
-      // Exportul ia filtrele cu care s-a citit lista (cele din adresa) si scrie TOATE randurile
-      // lor, nu pagina deschisa.
-      const result = await exportMaterials({
-        q: filter.q,
-        category: filter.category,
-        supplier: filter.supplier,
-        level: filter.level,
-        visibility: filter.visibility,
-      });
+      // Exportul ia ce arata comenzile de filtrare in clipa apasarii (starea locala, care poate
+      // fi cu o clipa inaintea listei, pana vine raspunsul serverului) si scrie TOATE randurile
+      // filtrului, nu pagina deschisa.
+      const result = await exportMaterials({ q, category, supplier, level, visibility });
       if (!result.ok) {
         setExportError(result.message);
         return;

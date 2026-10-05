@@ -46,6 +46,8 @@ async function orderWithDocument(page: Page, tag: string) {
   await page.getByTestId("field-unit").selectOption("pcs");
   await page.getByTestId("field-unit-value").fill("10");
   await page.getByTestId("form-submit").click();
+  // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+  await page.getByTestId("product-search").fill(sku);
   await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
     timeout: 20_000,
   });

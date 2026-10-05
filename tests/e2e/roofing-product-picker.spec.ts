@@ -109,6 +109,8 @@ async function submitAndWaitClosed(page: Page) {
 
 async function openPanel(page: Page, sku: string) {
   await page.goto("/inventar");
+  // P3-142. Lista are pagini: produsul se cauta dupa SKU, ca sa fie pe pagina deschisa.
+  await page.getByTestId("product-search").fill(sku);
   await page.locator(`[data-testid="product-row"][data-sku="${sku}"]`).click();
   await expect(page.getByTestId("product-panel")).toBeVisible();
 }
@@ -244,6 +246,8 @@ test.describe("Tablă și țiglă metalică din lista Dasterum", () => {
     // Doua randuri in inventar, fiecare cu SKU-ul lui.
     await page.goto("/inventar");
     for (const pick of picks) {
+      // P3-142. Lista are pagini: produsul se cauta dupa SKU, ca sa fie pe pagina deschisa.
+      await page.getByTestId("product-search").fill(pick.sku);
       await expect(page.locator(`[data-testid="product-row"][data-sku="${pick.sku}"]`)).toHaveCount(1);
     }
   });
