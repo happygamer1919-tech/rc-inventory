@@ -302,7 +302,9 @@ test("export celule: buildCsv pune apostrof in fata textului care ar porni o for
 
 test("export celule: textul obisnuit si numarul negativ din formatCsvNumber nu primesc apostrof", () => {
   const csv = buildCsv([["Vopsea", formatCsvNumber(-5), formatCsvNumber(-12.5), formatCsvNumber(30)]]);
-  expect(csv.slice(1).trimEnd()).toBe("Vopsea;-5;-12,5;30");
+  // -12,5 este intre ghilimele fiindca are virgula (regula veche), dar fara apostrof.
+  expect(csv.slice(1).trimEnd()).toBe('Vopsea;-5;"-12,5";30');
+  expect(parseCsv(csv)[0]).toEqual(["Vopsea", "-5", "-12,5", "30"]);
 });
 
 test("export celule: IDNO 0123456789012 si telefonul +37369123456 se scriu ca text pentru Excel", () => {
