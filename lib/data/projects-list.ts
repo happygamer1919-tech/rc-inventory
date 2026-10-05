@@ -8,6 +8,7 @@ import "server-only";
 // tabela merge pana in ziua in care nu mai merge.
 
 import { createClient } from "@/lib/supabase/server";
+import { readActiveClientOptions } from "./client-options-read";
 import {
   ALL_STATUSES,
   LIVE_STATUSES,
@@ -195,13 +196,10 @@ export async function getProjectHistory(id: string): Promise<StatusEvent[]> {
   }));
 }
 
-/** Clientii, pentru filtrul si pentru selectorul din formular. */
+/** Clientii, pentru filtrul si pentru selectorul din formular. Citirea pe
+ *  pagini sta in client-options-read.ts. */
 export async function listClientOptions(): Promise<{ id: string; name: string }[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("clients").select("id, name").eq("active", true);
-  return (data ?? [])
-    .map((r) => ({ id: r.id as string, name: r.name as string }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ro"));
+  return readActiveClientOptions(await createClient());
 }
 
 export type ProjectIssueRow = {

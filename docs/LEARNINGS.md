@@ -9099,3 +9099,28 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** frontend
 **ERROR:** `OutboundModeChoice` stayed enabled while a slip was saving, and its header comment said no changed choice could reach a request already sent. Changing the mode before the answer came back unmounted the form that was waiting: the issue was saved and stock deducted, but the screen showed an empty form and no confirmation, and the operator could enter the slip twice.
 **SOLUTION:** card P3-144: `OutboundModeChoice` takes `disabled`, both forms pass their own `pending`, and a mode change that arrives while pending is ignored. RULE: **a control that unmounts the component holding an in-flight request is disabled until the request ends; a comment saying it cannot matter is not a proof.**
+
+### A client summary joined only through projects misses a sale that has no project
+**Tag:** backend
+**ERROR:** `client_material_summary` (0022) reached issue lines through `projects.client_id`. Since 0067 a walk-in sale has no project and names its buyer in `outbound_issues.client_id`, so the buyer Consum materiale tab said nothing was consumed. The brief also said to keep a status filter that the function never had: an outbound issue has no cancelled state.
+**SOLUTION:** card P3-159, migration 0071: left join projects and count a line when the project client or the issue client is the asked client. RULE: **when a second way to link a record to its owner is added, grep every function that joins to the owner through the first way**; and read the function body before trusting a brief that says what it filters.
+
+### A new migration file needs a pending line in APPLY-LOG.md or the production headers spec fails
+**Tag:** tests
+**ERROR:** PR for 0071 passed every step except `headers.spec.ts` case 5, after a 40 minute run: no APPLY-LOG entry and no pending line for the file.
+**SOLUTION:** add the line "- `NNNN_name.sql`, card de aplicare <card>" under the pending list in `docs/migrations/APPLY-LOG.md` in the same PR. RULE: **a migration PR also edits APPLY-LOG.md; grep that file for the previous migration number before pushing.**
+
+### A CSV cell that starts with = + - or @ runs as a formula, and a phone or IDNO opens damaged in Excel
+**Tag:** backend
+**ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
+**SOLUTION:** card P3-139: text cells that start with `=`, `+`, `-`, `@`, tab or CR get one leading apostrophe, except a negative number from `formatCsvNumber`; phone and fiscal code cells are written `="value"` through `csvText`, which Excel shows clean as text. `parseCsv` undoes both. The first draft doubled the quotes only once, so a value holding a quote broke the round trip. RULE: **escape at the formula level and again at the CSV level, and prove it with a round trip that includes a quote.**
+
+### Editing a task tied to a closed project or inactive client showed an empty record box
+**Tag:** frontend
+**ERROR:** the Sarcini page built the record choice lists from open projects and active clients only, and `Combobox` shows a blank for a value that is not in its option list. A task linked to a project that was closed later (or a client made inactive) opened for editing with an empty "Înregistrare" box, although the link was stored and kept on save.
+**SOLUTION:** card P3-160: `listClosedLinkChoices` reads only the linked records missing from the lists, and `linkChoicesWithCurrent` adds that one record, labelled with its name and (închis) or (inactiv), to the list of the task being edited. New tasks still get the plain lists, and `Combobox` is untouched. RULE: **a picker that edits a stored value must always be able to show the stored value, even when that value would no longer be offered as a new choice.**
+
+### The client pickers lost clients past 1000 active rows
+**Tag:** backend
+**ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
+**SOLUTION:** card P3-166: `readActiveClientOptions` (`lib/data/client-options-read.ts`) reads pages of 1000 ordered by name then id until a short page, keeps the Romanian sort and the shape, and throws on error so `app/error.tsx` shows. Proved with a stubbed client (1000 + 1000 + 250 rows, exactly 1000 rows, a failing page). RULE: **any read of a table that can grow past 1000 rows pages with a stable order and throws on error, never returns an empty list.**

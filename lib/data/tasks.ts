@@ -51,7 +51,13 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasTasks } from "./schema-capability";
-import { isTaskEntityType, isTaskPriority, isTaskStatus } from "./tasks-shape";
+import {
+  isTaskEntityType,
+  isTaskPriority,
+  isTaskStatus,
+  taskLinkKey,
+  type TaskLinkChoiceLike,
+} from "./tasks-shape";
 import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
 import { one } from "./row";
 
@@ -67,7 +73,7 @@ import { one } from "./row";
 const SELECT_TASK = `
   id, title, description, status, priority, due_date,
   assignee_id, entity_type, entity_id, created_by, created_at, updated_at,
-  assignee:profiles!tasks_assignee_id_fkey ( id, full_name )
+  assignee:profiles!tasks_assignee_id_fkey ( id, full_name, email )
 `;
 
 type TaskRow = {
@@ -83,7 +89,7 @@ type TaskRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  assignee?: { id: string; full_name: string | null } | { id: string; full_name: string | null }[] | null;
+  assignee?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null;
 };
 
 /**
@@ -111,7 +117,7 @@ function toTask(row: TaskRow): Task {
     priority: isTaskPriority(row.priority) ? row.priority : "medium",
     dueDate: row.due_date ?? null,
     assigneeId: row.assignee_id ?? null,
-    assigneeName: assignee?.full_name ?? null,
+    assigneeName: assignee ? (assignee.full_name?.trim() || assignee.email?.trim() || null) : null,
     // PERECHEA SE CITESTE INTREAGA SAU DELOC, exact cum o tine restrictia
     // tasks_entity_both_or_neither: un tip pe care acest fisier nu il cunoaste ar
     // lasa altfel un id care nu poate fi dus la nicio tabela.
@@ -274,4 +280,63 @@ export async function listTasksForEntity(
 
   if (error) throw new Error(`Nu s-au putut citi sarcinile înregistrării: ${error.message}`);
   return ((data ?? []) as unknown as TaskRow[]).map(toTask);
+}
+
+/**
+ * Inregistrarile legate de sarcinile date, DOAR cele care nu sunt in listele de
+ * alegere obisnuite: un proiect inchis sau un client inactiv. Formularul de
+ * modificare le adauga la lista sarcinii respective, ca sa arate numele lor si nu o
+ * casuta goala. Cheia hartii este taskLinkKey(fel, id).
+ *
+ * Cel mult doua citiri, numai pentru legaturile care lipsesc din liste; nicio citire
+ * cand toate sunt in liste. Un rand pe care baza nu il da lipseste din harta, ca
+ * inainte.
+ */
+export async function listClosedLinkChoices(
+  rows: Task[],
+  selectableClientIds: string[],
+  selectableProjectIds: string[],
+): Promise<Record<string, TaskLinkChoiceLike>> {
+  const clientIds = new Set<string>();
+  const projectIds = new Set<string>();
+  for (const t of rows) {
+    if (t.entityType === null || t.entityId === null) continue;
+    if (t.entityType === "project") {
+      if (!selectableProjectIds.includes(t.entityId)) projectIds.add(t.entityId);
+    } else if (t.entityType === "client") {
+      if (!selectableClientIds.includes(t.entityId)) clientIds.add(t.entityId);
+    }
+  }
+
+  const out: Record<string, TaskLinkChoiceLike> = {};
+  if (clientIds.size === 0 && projectIds.size === 0) return out;
+
+  const supabase = await createClient();
+  const [clients, projects] = await Promise.all([
+    clientIds.size === 0
+      ? { data: [] }
+      : supabase.from("clients").select("id, name, active").in("id", [...clientIds]),
+    projectIds.size === 0
+      ? { data: [] }
+      : supabase.from("projects").select("id, name, status, active").in("id", [...projectIds]),
+  ]);
+
+  for (const c of (clients.data ?? []) as { id: string; name: string; active: boolean }[]) {
+    out[taskLinkKey("client", c.id)] = {
+      id: c.id,
+      label: c.active ? c.name : `${c.name} (inactiv)`,
+    };
+  }
+  for (const p of (projects.data ?? []) as {
+    id: string;
+    name: string;
+    status: string;
+    active: boolean;
+  }[]) {
+    out[taskLinkKey("project", p.id)] = {
+      id: p.id,
+      label: p.status === "closed" ? `${p.name} (închis)` : `${p.name} (inactiv)`,
+    };
+  }
+  return out;
 }
