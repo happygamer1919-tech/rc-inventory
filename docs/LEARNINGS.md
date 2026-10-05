@@ -9044,3 +9044,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 
 **ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
 **SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
+
+### The client and lead imports read only the first 1000 stored clients
+**Tag:** backend
+**ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
+**SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.

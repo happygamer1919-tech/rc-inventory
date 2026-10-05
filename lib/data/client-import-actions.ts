@@ -24,6 +24,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { listClientOwnerChoices } from "./clients";
+import { loadOrRefuse, readAllClients } from "./import-clients-read";
 import type { ActionResult } from "./inbound-types";
 import {
   buildOwnerIndex,
@@ -105,10 +106,7 @@ async function loadExisting(
     ...(next ? ["next_action"] : []),
   ].join(",");
 
-  const { data, error } = await supabase.from("clients").select(columns);
-  if (error || !data) return [];
-
-  const rows = data as unknown as Record<string, string | null>[];
+  const rows = await readAllClients(supabase, columns);
 
   return rows.map((row) => {
     const value = (column: string): string => (row[column] ?? "").trim();
@@ -152,12 +150,14 @@ export async function planClientImport(
   const ownerChoices = await listClientOwnerChoices();
   const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
+  const existing = await loadOrRefuse(() => loadExisting(supabase));
+  if (!existing.ok) return existing;
   const { plan } = buildClientPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     owners,
     ownerNames,
-    existing: await loadExisting(supabase),
+    existing: existing.value,
   });
 
   return { ok: true, value: plan };
@@ -242,12 +242,14 @@ export async function runClientImport(
   const ownerChoices = await listClientOwnerChoices();
   const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
+  const existing = await loadOrRefuse(() => loadExisting(supabase));
+  if (!existing.ok) return existing;
   const { plan, prepared } = buildClientPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
     owners,
     ownerNames,
-    existing: await loadExisting(supabase),
+    existing: existing.value,
   });
 
   const mergedLines = mergeClientsWithinFile(plan, prepared, request.choices);
