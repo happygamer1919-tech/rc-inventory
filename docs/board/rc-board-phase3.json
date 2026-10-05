@@ -4868,6 +4868,34 @@
         "at": "2026-10-04T20:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. The bug: when a dropdown in TaskForm is open and Esc is pressed, the event propagates to a window keydown listener that closes the form, losing typed text. Fix: in Combobox.tsx, call preventDefault, stopPropagation and nativeEvent.stopImmediatePropagation when Escape is pressed with the list open."
+    },
+    {
+      "id": "P3-139",
+      "title": "Exported CSV cells: a text cell that starts with = + - @ tab or CR gets a leading apostrophe (OWASP CSV injection rule) so no cell can run as a formula, and phone and fiscal code columns are written as =\"...\" so Excel keeps +373... and 0123456789012 exactly as stored. (1) buildCsv in lib/data/import-shared.ts takes cells that are text or csvText(value); numbers from formatCsvNumber, including negative ones, are not prefixed. (2) parseCsv undoes both forms (the =\"...\" wrapper and the one added apostrophe), so our own export re-imports to identical values; any other leading apostrophe in user text is untouched. (3) The client, lead exports write phone and fiscalCode through csvText. No migration.",
+      "plain": "În fișierele exportate, numerele de telefon, codurile fiscale și notițele apar în Excel exact cum sunt salvate, iar nicio celulă nu poate porni o formulă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-126",
+        "P3-127",
+        "P3-128",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-shared.spec.ts are green in this pull request's own `quality` run: `export celule: buildCsv pune apostrof in fata textului care ar porni o formula`, `export celule: textul obisnuit si numarul negativ din formatCsvNumber nu primesc apostrof`, `export celule: IDNO 0123456789012 si telefonul +37369123456 se scriu ca text pentru Excel`, `export celule: dus-intors, parseCsv(buildCsv(randuri)) da valorile originale`. (b) The other import and export specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Text cells starting with = + - @ tab or CR get one leading apostrophe; a negative number from formatCsvNumber does not. Phone and fiscal code columns are written as =\"value\" (it shows clean in Excel, unlike a visible apostrophe) and parseCsv unwraps it, plus the one added apostrophe; no other leading apostrophe is touched. Separator, BOM and decimal comma unchanged, import parsing rules of P3-118, P3-119 and P3-122 unchanged, no change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/export-cell-escaping against main: its quality run on the head sha runs tests/e2e/import-shared.spec.ts; report in docs/reports/2026-10-05-executor-export-cell-escaping.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
     }
   ]
 }
