@@ -4842,6 +4842,34 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-141 was taken, P3-155 was the next free one. The database-refused and partial-failure paths live in runClientImport and runLeadImport, which need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
     },
     {
+      "id": "P3-150",
+      "title": "Tasta Esc în comboboxul formularul de sarcină inchide lista; formularul și textul scris rămân. In Combobox.tsx, pe Escape: doar când lista este deschisă, se apelează e.preventDefault() și e.stopPropagation() (și e.nativeEvent.stopImmediatePropagation() dacă stopPropagation singur nu oprește window listener-ul; se verifică în spec), apoi se inchide lista. Când lista este inchisă, tasta Escape rămâne neatinsă ca să inchidă formularul.",
+      "plain": "Tasta Esc într-o listă deschisă din formularul de sarcină închide doar lista; formularul și textul scris rămân.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "The named case `task-form-esc-dropdown` in tests/e2e/task-form-esc-dropdown.spec.ts is green in this pull request's own `quality` run: dropdown open + Esc keeps the form open with the typed title still there; a second Esc (list closed) closes the form. `npx tsc --noEmit` and `npm run build` exit 0, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "Esc cu lista deschisă inchide lista. Esc cu lista inchisă inchide formularul, ca până acum.",
+      "last_checkpoint": "2026-10-04T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-form-esc-dropdown against main: its quality run on the head sha runs tests/e2e/task-form-esc-dropdown.spec.ts; report in docs/reports/2026-10-04-executor-task-form-esc-dropdown.md",
+        "at": "2026-10-04T20:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. The bug: when a dropdown in TaskForm is open and Esc is pressed, the event propagates to a window keydown listener that closes the form, losing typed text. Fix: in Combobox.tsx, call preventDefault, stopPropagation and nativeEvent.stopImmediatePropagation when Escape is pressed with the list open."
+    },
+    {
       "id": "P3-144",
       "title": "Outbound screen: the 'Tip ieșire' choice is locked while a slip is saving. Before, clicking 'Creează bonul' and then the other option before the answer came back unmounted the form that was waiting, so the issue was saved and stock deducted but the screen showed an empty form and no confirmation, and the operator could enter the slip twice. (1) OutboundModeChoice takes a disabled prop that disables both radio options and the fieldset (disabled and aria-disabled). (2) OutboundProjectForm and OutboundDirectClientForm pass their own pending state to it and ignore a mode change that arrives while pending. No change to the save logic, stock deduction, labels, layout or server actions. No migration.",
       "plain": "Cât timp bonul de ieșire se salvează, alegerea «Tip ieșire» este blocată, iar confirmarea apare mereu după salvare.",
