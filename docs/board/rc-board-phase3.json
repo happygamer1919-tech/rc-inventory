@@ -4608,8 +4608,137 @@
       "notes": "QUICK FIX: replaced formatNumber (0 decimals) with formatQty (2 decimals) at four lines where quantities or stock values are displayed together with unit labels. Affected screens: OutboundPanel.tsx line 301 (sale slip quantities), OutboundDirectClientForm.tsx lines 149, 184, 397 (stock hints and error messages), OutboundProjectForm.tsx lines 146, 171, 412 (project mode equivalents). Test added to verify 2.5 unit value displays as '2,5' not '3' in m² unit."
     },
     {
+      "id": "P3-141",
+      "title": "The check step of all four import screens (clients, leads, projects, materials) lists the rows that will be created, with their values as they will be saved, before the operator presses import. One shared component components/ui/ImportPreviewRows.tsx, fed by a preview table each import plan now carries (lib/data/import-preview-rows.ts). First 50 rows, then a line saying how many more. Clause 3 of the import cards: the parsed rows shown to the operator. No migration, no change to what the import writes.",
+      "plain": "La import, pasul de verificare arată rândurile care vor fi create, cu valorile așa cum vor fi salvate, ca operatorul să vadă o greșeală înainte de import.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123",
+        "P3-124",
+        "P3-125"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases in tests/e2e/import-preview-rows.spec.ts are green in this pull request's own quality run: a project budget of 250.000 is listed as the app formats 250000, a client email is listed normalised, the lead table has the contact person column, a material price of 1.250 is listed as 1250, and a file with 60 new rows lists 50 and the line \"și încă 10 rânduri\". (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0.",
+      "defaults": "RULE (a table Rânduri noi under the counts, columns are the template field labels plus Rândul, values after number parsing, phone and email normalisation and stage mapping, not the raw cell text; at most 50 rows then a line și încă N rânduri; an empty optional value is an empty cell; existing table primitives and money formatters; one shared component for all four screens). Counts, duplicate and error lists, what the import writes and the work of P3-137, P3-145 stay as they are.",
+      "last_checkpoint": "2026-10-05T02:59:53Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #416 on branch card/import-preview-rows against main: its quality run on the head sha runs tests/e2e/import-preview-rows.spec.ts; report in docs/reports/2026-10-04-executor-import-preview-rows.md",
+        "at": "2026-10-05T02:59:53Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. Cause: step 3 showed counts, duplicates and errors but never the new rows, so a budget read as 250 instead of 250000 or a dropped email could not be seen before the import ran. Bug check 2026-10-04."
+    },
+    {
+      "id": "P3-151",
+      "title": "Client and lead import find duplicates against every stored client, not just the first 1000: the existing clients are read in pages of 1000 ordered by id (lib/data/import-clients-read.ts, shared by lib/data/client-import-actions.ts and lib/data/lead-import-actions.ts), and a failed read stops the import with a Romanian message instead of returning an empty list that treats every row as new. No migration.",
+      "plain": "La importul de clienți și lead-uri, dublurile sunt găsite printre toți clienții existenți, oricât de mulți ar fi; dacă lista nu poate fi citită, importul se oprește cu un mesaj.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases in tests/e2e/import-clients-read.spec.ts are green in this pull request's own quality run: a fake client answering 1000, 1000 and 250 rows makes the read return all 2250 and ask for three pages, and a fake client answering an error makes the read refuse with the message Nu am putut citi clienții existenți. Încercați din nou. instead of an empty list. (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0.",
+      "defaults": "RULE (read the clients table with range in pages of 1000 ordered by id until a short page, the same page size as the projects and materials imports; a failed read in either the check or the write step returns the Romanian message and never an empty list; one shared helper for both imports). The work of P3-122 and P3-123 (number parsing, file decoding, large files, bad contact refusal, preview rows), the duplicate keys, the hasPhase3Schema gate and the lead PageHeader prop stay as they are. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #417 on branch card/import-dedup-paging against main: its quality run on the head sha runs tests/e2e/import-clients-read.spec.ts; report in docs/reports/2026-10-05-executor-import-dedup-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Cause: loadExisting in both import action files read the clients table in one request, which the database cuts at 1000 rows, and returned an empty list when the read failed. Bug check 2026-10-04. The brief named P3-141 but that id was taken, so this card is P3-151."
+    },
+    {
+      "id": "P3-152",
+      "title": "unassigned_issue_count() counts only project issues with no project: a walk-in (direct_client) issue has no project by design and no longer raises the warning on every client page. One new migration (0069) redefines the function with the condition 0067 gave unassigned_outbound_count(). No row is changed.",
+      "plain": "O vânzare la ghișeu, fără proiect, nu mai face ca fiecare pagină de client să avertizeze că o ieșire din sistem nu are proiect; avertismentul rămâne pentru ieșirile de proiect rămase fără proiect.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-118"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The new case in scripts/poc-free/local-db/assertions/0069_unassigned_issue_count_walkin.sql passes in this pull request's own quality run, applier proofs included and not skipped: a direct_client issue leaves unassigned_issue_count() unchanged, and a project issue with no project raises it by one. (b) Refuse a migration that removes rows has run and passed on migration 0069_unassigned_issue_count_walkin.sql. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULE (the condition is issue_mode = 'project' and project_id is null, copied from 0067's unassigned_outbound_count(); same signature, security invoker, stable, same search_path, grant execute to authenticated; no drop, no row change). unassigned_outbound_count(), lib/reporting/material-cost.ts, the Romanian warning text, the ClientTabs layout, the hasPhase3Schema gate and the lead PageHeader prop stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #418 on branch card/p3-152 against main: its quality run on the head sha applies migration 0069_unassigned_issue_count_walkin.sql and runs scripts/poc-free/local-db/assertions/0069_unassigned_issue_count_walkin.sql; report in docs/reports/2026-10-04-executor-walkin-unassigned-count.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: 0067 narrowed the twin counter and missed this one, so the first walk-in sale made the 'o ieșire din sistem nu are încă un proiect' line on every client page false."
+    },
+    {
+      "id": "P3-138",
+      "title": "Deactivated account sealed out of outbound lines. Migration 0070 drops and recreates the outbound_lines select, insert and update policies of 0001 (using true, with check true) on the predicate 0067 gave outbound_issues: public.current_app_role() is not null, which filters profiles.active. outbound_lines_delete stays on public.is_owner(). public.outbound_issue_take_stock is not replaced: it is SECURITY INVOKER, so its lines insert now runs into the tightened insert policy and a deactivated caller is refused with the whole call rolled back. No row, table, column, function or grant changes.",
+      "plain": "A switched-off employee can no longer see or change sale lines or take stock, even before their login runs out. Active employees notice no change.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-118"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) supabase/migrations/0070_outbound_lines_active_account.sql exists, and scripts/poc-free/local-db/assertions/0070_outbound_lines_active_account.sql passes in the applier run: outbound_lines has exactly four policies, select, insert and update test current_app_role() is not null, delete stays on is_owner(), outbound_issues keeps its three 0067 policies with no delete policy, and outbound_issue_take_stock(uuid, jsonb) is still SECURITY INVOKER. (b) tests/e2e/outbound-lines-deactivated.spec.ts is green in this pull request quality run on its head sha: with a witness while active, a deactivated account gets no rows from a direct outbound_lines select, cannot insert or update a line, and is refused by rpc/outbound_issue_take_stock with no new line written; an active operator still creates, reads and takes stock. (c) tests/e2e/outbound-direct-client.spec.ts and every other existing spec stay green, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check of 2026-10-04, factory task 130. PREDICATE: exactly the one 0067 uses on outbound_issues, public.current_app_role() is not null; no new helper and no new column. NO ISSUE SCOPE on the line policies: 0067 scopes the header by role only, so a join to the issue would add nothing. TAKE STOCK UNCHANGED: an explicit early refusal inside the function was weighed and not written, because assertions/0067 calls the two outbound doors as superuser with no JWT, where current_app_role() is null; the invoker function is refused by the insert policy instead, proven with a real token. DELETE POLICY unchanged, is_owner() already filters active. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-138 against main: its quality run on the head sha runs the 0070 assertion in the applier proof and tests/e2e/outbound-lines-deactivated.spec.ts; report in docs/reports/2026-10-04-executor-outbound-lines-deactivated.md",
+        "at": "2026-10-04T15:00:00Z"
+      },
+      "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request. The 0067 comment \"A line is reachable only through its issue\" was not true: PostgREST exposes outbound_lines directly. The other readers of outbound_lines (client_material_summary, project_material_summary, project_material_cost, product_available_stock) are all SECURITY INVOKER, so the tightened select policy covers them too and no function needed replacing."
+    },
+    {
+      "id": "P3-153",
+      "title": "Paging on screen: the Inventar product list and the Comenzi outbound list show one page of 50 rows at a time with page controls, and the Inventar stock sum is read only for the 50 products on the open page. P3-136 read page after page until it had every row and showed the whole list, so nothing was shorter on screen and every product screen still summed every batch and every outbound line. (1) New lib/data/list-paging.ts (page size 50, readPage: one request with the exact count, a page past the end returns the last page). (2) listProductsPage reads one page with .range and an exact count, filters active, category and supplier in the query, sorted by sku then id, and calls stockByProduct with only the ids on the page. (3) listOutboundIssuesPage does the same for outbound issues (newest first, id as tiebreak) with the destination and kind filters in the query. (4) The page number and every filter live in the URL (?pagina=2); a filter change goes back to page 1. (5) Pager under both lists: Pagina 2 din 7, Înapoi, Înainte, Afișate 51-100 din 340. Search and the stock level filter read the whole catalog as before and cut the page afterwards (search ignores diacritics and stock is a computed sum, neither can be a query filter without a migration). No migration, no index.",
+      "plain": "Listele lungi de produse și de ieșiri se văd pe pagini, cu butoane de navigare; stocul se calculează doar pentru produsele de pe pagina deschisă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-136"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/list-paging.spec.ts is green in this pull request's quality run on its head sha: a fake client holding 340 products asked for page 2 returns rows 51 to 100, total 340, in one request of rows, and the stock read asks only for those 50 ids; the same for page 2 of 340 outbound issues; a page past the end returns the last page. (b) The e2e case in tests/e2e/inventory-paging.spec.ts is green: Inventar with more than 50 products shows 'Pagina 1 din', clicking 'Înainte' shows page 2 and the URL has pagina=2. (c) Every existing spec under tests/e2e passes. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "RULES: page size 50 (LIST_PAGE_SIZE), one number in one place. Inventar order is sku then id; Comenzi order is newest first then id. The page number is the query parameter pagina and lives in the URL, so reload and back keep it; any filter change drops it (back to page 1). Controls under the table, Romanian with diacritics: 'Pagina 2 din 7', 'Înapoi', 'Înainte', 'Afișate 51-100 din 340' with a plain hyphen. The pager does not show for one page. Active/inactive, category and supplier filters, and the Comenzi destination and kind filters, are applied in the query. Search and the stock level filter read the whole catalog and then cut the page, because search ignores diacritics (ilike does not, without the unaccent extension) and stock is a computed sum, not a column; both would need a migration, which this card does not add. The dashboard, Memento stoc, Necesar, the pickers and the exports keep reading the whole catalog (listProducts, listOutboundIssues): they need whole-catalog totals. No migration, no index. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/list-paging-on-screen against main: its quality run on the head sha runs tests/e2e/list-paging.spec.ts and tests/e2e/inventory-paging.spec.ts; report in docs/reports/2026-10-05-executor-list-paging-on-screen.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
+    },
+    {
       "id": "P3-147",
-      "title": "Account manager adds a new walk-in buyer on Iesiri materiale (owner decision q143, 2026-10-04). Migration 0069 replaces clients_insert so an ACTIVE owner or ACTIVE account_manager may insert a client (current_app_role() in the two named roles); clients_update stays owner-only and there is still no delete policy. New server action createWalkInClient (owner or account_manager, name, type, IDNO and phone only) shares the one insert with createClientRecord, which stays owner-only for the Clienti screen, the lead form and both imports. Iesiri page shows the '+ Client nou' button to both roles.",
+      "title": "Account manager adds a new walk-in buyer on Iesiri materiale (owner decision q143, 2026-10-04). Migration 0071 replaces clients_insert so an ACTIVE owner or ACTIVE account_manager may insert a client (current_app_role() in the two named roles); clients_update stays owner-only and there is still no delete policy. New server action createWalkInClient (owner or account_manager, name, type, IDNO and phone only) shares the one insert with createClientRecord, which stays owner-only for the Clienti screen, the lead form and both imports. Iesiri page shows the '+ Client nou' button to both roles.",
       "plain": "Operatorul de la tejghea poate adăuga pe loc un cumpărător nou când eliberează material, fără să aștepte administratorul. Modificarea clienților rămâne a administratorului.",
       "lane": "shipped",
       "home_lane": "in_flight",
@@ -4622,15 +4751,15 @@
       ],
       "blocked_on": null,
       "question": null,
-      "acceptance": "(a) The test 'iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza' is green in tests/e2e/outbound-direct-client.spec.ts in this pull request's own `quality` run: signed in as the test account manager, a direct client issue with a newly created buyer saves, the client row exists afterward and is the issue's client, a PATCH on that client with the manager token changes no row, and /clienti shows no client-new button to the manager. (b) The existing owner case 'iesire client direct: un client nou creat din ecran apare apoi in Clienti' stays green in the same run. (c) scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql passes under `npm run check:migrations` in CI, and the steps 'Refuse a migration that removes rows' and both applier proof steps RAN and passed, not skipped. (d) `npx tsc --noEmit` and `npm run build` exit 0, and the changed files carry no em dash and no en dash.",
+      "acceptance": "(a) The test 'iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza' is green in tests/e2e/outbound-direct-client.spec.ts in this pull request's own `quality` run: signed in as the test account manager, a direct client issue with a newly created buyer saves, the client row exists afterward and is the issue's client, a PATCH on that client with the manager token changes no row, and /clienti shows no client-new button to the manager. (b) The existing owner case 'iesire client direct: un client nou creat din ecran apare apoi in Clienti' stays green in the same run. (c) scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql passes under `npm run check:migrations` in CI, and the steps 'Refuse a migration that removes rows' and both applier proof steps RAN and passed, not skipped. (d) `npx tsc --noEmit` and `npm run build` exit 0, and the changed files carry no em dash and no en dash.",
       "defaults": "Widen only creating a client and only for the two named roles, active accounts. Keep clients_update, the Clienti screen buttons, the lead form and both imports owner-only. The walk-in action accepts name, type, IDNO and phone and nothing else. The merge waits for the owner: draft pull request plus an OWNER mailbox question.",
       "last_checkpoint": "2026-10-04T19:16:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "#413: draft pull request on branch card/p3-147 against main, acceptance in tests/e2e/outbound-direct-client.spec.ts and scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql, merge waits for the owner (migration)",
+        "ref": "#413: draft pull request on branch card/p3-147 against main, acceptance in tests/e2e/outbound-direct-client.spec.ts and scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql, merge waits for the owner (migration)",
         "at": "2026-10-04T19:16:00Z"
       },
-      "notes": "EXECUTOR: code complete in draft PR #413. Migration 0069 is DROP POLICY plus CREATE POLICY only, named as a near-miss per R-031. Merge is apply: owner approval first. PR #407 also uses 0069: whichever merges second is renumbered to 0070 first."
+      "notes": "EXECUTOR: code complete in draft PR #413. Migration 0071 is DROP POLICY plus CREATE POLICY only, named as a near-miss per R-031. Merge is apply: owner approval first. PR #407 also uses 0071: whichever merges second is renumbered to 0070 first."
     }
   ]
 }

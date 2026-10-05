@@ -1,4 +1,4 @@
--- 0069_walkin_manager_client_insert.sql
+-- 0071_walkin_manager_client_insert.sql
 -- RC Inventory phase 3, card P3-147. The account manager may create a client,
 -- so a walk-in buyer can be added on the spot from Iesiri materiale (card
 -- P3-119). Owner decision, mailbox answer q143, 2026-10-04: "YES. Account
@@ -64,7 +64,7 @@
 --
 -- PROVEN BEFORE IT WAS MERGED by `npm run check:migrations`, which applies it
 -- unmodified to a throwaway postgres and then runs
--- scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql,
+-- scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql,
 -- and against a real local Supabase stack by the P3-147 case of
 -- tests/e2e/outbound-direct-client.spec.ts.
 

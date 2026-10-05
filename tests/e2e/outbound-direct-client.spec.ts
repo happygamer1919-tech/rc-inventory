@@ -1541,8 +1541,8 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "lib/data/tasks-actions.ts",
     "tests/e2e/tasks.spec.ts",
     // CARDUL P3-147, acelasi motiv: managerul de cont creeaza clientul de la tejghea.
-    "supabase/migrations/0069_walkin_manager_client_insert.sql",
-    "scripts/poc-free/local-db/assertions/0069_walkin_manager_client_insert.sql",
+    "supabase/migrations/0071_walkin_manager_client_insert.sql",
+    "scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql",
     "lib/data/client-actions.ts",
     "components/outbound/OutboundDirectClientForm.tsx",
     "app/(app)/iesiri/page.tsx",

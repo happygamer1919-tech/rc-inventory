@@ -107,7 +107,7 @@ export function OutboundDirectClientForm({
    * VINE DE PE SESIUNE SI NU SE GHICESTE AICI. Cardul P3-06 scrie regula pentru care
    * exista aceasta proprietate: ecranul nu are voie sa ofere un buton pe care baza il
    * va refuza. De la cardul P3-147, createWalkInClient si politica clients_insert din
-   * migratia 0069 primesc administratorul si managerul de cont, deci amandoi vad
+   * migratia 0071 primesc administratorul si managerul de cont, deci amandoi vad
    * butonul aici. Ecranul Clienți ramane al administratorului.
    */
   canCreateClient: boolean;

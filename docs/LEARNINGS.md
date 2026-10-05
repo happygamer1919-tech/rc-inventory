@@ -9017,6 +9017,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** a paging test that only sets a small page size passes even when the code ignores the server cap.
 **SOLUTION:** `tests/e2e/stock-read-paging.spec.ts` uses a fake client that cuts every answer at 1000 rows and reports the exact total, then asserts 2500 rows in 3 requests. The code under test lives in `lib/data/stock-read.ts`, which takes the client as an argument and has no `server-only`, so the spec imports it without a database. RULE: **put the paging logic in a file that takes the client as a parameter so a spec can feed it a fake**.
 
+### Closing a header table does not close its child table
+**Tag:** security
+**ERROR:** migration 0067 made `outbound_issues` refuse a deactivated account and its comment said "a line is reachable only through its issue". PostgREST exposes every table directly, so `outbound_lines` kept 0001's `using (true)` policies and a deactivated account with a valid token could still read sale prices, add and change lines, and call `outbound_issue_take_stock` to deduct stock.
+**SOLUTION:** card P3-138, migration 0070, puts the same `public.current_app_role() is not null` predicate on the line select, insert and update policies. RULE: **when a policy is tightened on a table, grep every child table and every policy written `using (true)` on it; a child is never "reachable only through" its parent over PostgREST**.
+
+### A security invoker function inherits the caller's policies, so an early refusal can be redundant and harmful
+**Tag:** backend
+**ERROR:** the natural fix for `outbound_issue_take_stock` was an early `if current_app_role() is null then raise`. assertions/0067 calls the two outbound doors as superuser with no JWT, where `current_app_role()` is null, so that refusal would fail an existing assertion.
+**SOLUTION:** the function is SECURITY INVOKER, so its lines insert already runs under the tightened insert policy and the whole call rolls back for a deactivated caller. The refusal is proven with a real token in `tests/e2e/outbound-lines-deactivated.spec.ts`, and assertions/0070 pins the function as invoker so it cannot silently become definer. RULE: **before adding a role check inside an invoker function, check whether the policies it writes through already refuse, and whether any superuser assertion calls it**.
+
 ### A number with one dot is ambiguous: 250.000 is two hundred fifty thousand in Romanian
 **Tag:** backend
 **ERROR:** `readBudget` and `readNumber` changed the first comma to a dot and accepted one dot, so a budget typed `250.000` was stored as 250.00 MDL, `1.250` as 1.25, and `1.234,56` was refused because the comma became a second dot. No warning was shown.
@@ -9046,3 +9056,36 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** P3-147 and P3-138 (#407) were both open with a migration numbered 0069. Taking 0070 to dodge it fails CI while #407 is unmerged, because the applier asserts the ledger runs 1 to N with no gap (`ledger-no-gaps-ends-at-highest`).
 **SOLUTION:** keep the next number main allows, and say in the PR body and the owner question that whichever merges second is renumbered first. RULE: **before numbering a migration, list the open PRs' migration files; a clash is resolved at merge time by the second PR, never by leaving a gap**.
+
+### The check step counted rows but never showed the new ones
+**Tag:** frontend
+**ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
+**SOLUTION:** card P3-141: every import plan carries a `preview` table built by `lib/data/import-preview-rows.ts` from the prepared rows (after parsing and normalisation), shown by `components/ui/ImportPreviewRows.tsx`, first 50 rows plus a line with the rest. RULE: **a preview shows the converted values, not the raw cells, or it cannot catch a conversion mistake**.
+
+**ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
+**SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
+
+### The client and lead imports read only the first 1000 stored clients
+**Tag:** backend
+**ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
+**SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.
+
+### A counter narrowed in one migration was left wide in its twin
+**Tag:** backend
+**ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
+**SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.
+
+### "Read in pages" was recorded as "shown in pages"
+**Tag:** frontend
+**ERROR:** card P3-136 was marked "load long lists in pages" and the status page said long lists load only the rows on screen. The code read page after page until it had every row, then the screen filtered and showed all of them, and the stock sum still read every batch. Its own report said "No UI paging", so the claim and the report disagreed and nobody compared them.
+**SOLUTION:** card P3-153 reads one page with `.range` and an exact count (`lib/data/list-paging.ts`), puts the page and the filters in the address, and sums stock only for the ids on the page. RULE: **a done-claim about what the user sees is checked on the screen or in a spec that counts rows on the screen, not by reading the data layer**.
+
+### A browser-side filter cannot become a paged query without losing something
+**Tag:** backend
+**ERROR:** Inventar filtered the whole catalog in the browser. Search ignores diacritics (`ilike` does not) and the stock level filter depends on a computed sum, so neither can be a query condition without a migration.
+**SOLUTION:** active/inactive, category and supplier go into the query; with a search or a stock level set, `listProductsPage` reads the whole catalog, filters it with the same function as the export, and cuts the page. RULE: **before moving a filter into the query, list the ones the database cannot express and keep a correct fallback for them**.
+
+### Specs that find a row by SKU on a list break when the list gets pages
+**Tag:** tests
+**ERROR:** about twenty specs created a product and expected its row on `/inventar` without searching, which was true while the whole catalog was one list.
+**SOLUTION:** each types the SKU in the search box first; seeded issues on `/comenzi` are reached with `tests/e2e/support/orders-pages.ts`, which presses "Înainte" until the reference shows. RULE: **when a list gets pages, grep the specs for the row locators on that route in the same pull request**.
