@@ -4665,9 +4665,9 @@
       "id": "P3-152",
       "title": "unassigned_issue_count() counts only project issues with no project: a walk-in (direct_client) issue has no project by design and no longer raises the warning on every client page. One new migration (0069) redefines the function with the condition 0067 gave unassigned_outbound_count(). No row is changed.",
       "plain": "O vânzare la ghișeu, fără proiect, nu mai face ca fiecare pagină de client să avertizeze că o ieșire din sistem nu are proiect; avertismentul rămâne pentru ieșirile de proiect rămase fără proiect.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "high",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4679,8 +4679,12 @@
       "acceptance": "(a) The new case in scripts/poc-free/local-db/assertions/0069_unassigned_issue_count_walkin.sql passes in this pull request's own quality run, applier proofs included and not skipped: a direct_client issue leaves unassigned_issue_count() unchanged, and a project issue with no project raises it by one. (b) Refuse a migration that removes rows has run and passed on migration 0069_unassigned_issue_count_walkin.sql. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
       "defaults": "RULE (the condition is issue_mode = 'project' and project_id is null, copied from 0067's unassigned_outbound_count(); same signature, security invoker, stable, same search_path, grant execute to authenticated; no drop, no row change). unassigned_outbound_count(), lib/reporting/material-cost.ts, the Romanian warning text, the ClientTabs layout, the hasPhase3Schema gate and the lead PageHeader prop stay as they are.",
       "last_checkpoint": "2026-10-05T00:00:00Z",
-      "evidence": null,
-      "notes": "Bug check 2026-10-04. Cause: 0067 narrowed the twin counter and missed this one, so the first walk-in sale made the 'o ieșire din sistem nu are încă un proiect' line on every client page false."
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #418 on branch card/p3-152 against main: its quality run on the head sha applies migration 0069_unassigned_issue_count_walkin.sql and runs scripts/poc-free/local-db/assertions/0069_unassigned_issue_count_walkin.sql; report in docs/reports/2026-10-04-executor-walkin-unassigned-count.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: 0067 narrowed the twin counter and missed this one, so the first walk-in sale made the 'o ieșire din sistem nu are încă un proiect' line on every client page false."
     }
   ]
 }
