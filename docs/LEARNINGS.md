@@ -9041,3 +9041,21 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `normalisePhone` and `normaliseEmail` returned null both for an empty cell and for an unreadable one, and `normalisePhone` stripped every non-digit. Two phones in one cell became one long number, `069 123 45` gained +373, and a bad email left the row created without it.
 **SOLUTION:** card P3-140 adds `readPhone` and `readEmail`, which say empty, ok, many or bad; the import refuses many and bad with a Romanian reason. RULE: **a reader of user input must tell "nothing there" from "there but unreadable"; only the first may be silently skipped**.
+
+### The check step counted rows but never showed the new ones
+**Tag:** frontend
+**ERROR:** step 3 of the four import screens showed three counts, the duplicates and the errors, so a budget read as 250 instead of 250000 or a dropped email could not be seen until the rows were in the database.
+**SOLUTION:** card P3-141: every import plan carries a `preview` table built by `lib/data/import-preview-rows.ts` from the prepared rows (after parsing and normalisation), shown by `components/ui/ImportPreviewRows.tsx`, first 50 rows plus a line with the rest. RULE: **a preview shows the converted values, not the raw cells, or it cannot catch a conversion mistake**.
+
+**ERROR:** the Playwright config starts the app, which needs Supabase variables this machine does not have, so a no-database spec timed out locally after 300 seconds.
+**SOLUTION:** run pure specs with a throwaway config that has no `webServer` (`defineConfig({ testDir, testMatch })`), and delete it before committing.
+
+### The client and lead imports read only the first 1000 stored clients
+**Tag:** backend
+**ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
+**SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.
+
+### A counter narrowed in one migration was left wide in its twin
+**Tag:** backend
+**ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
+**SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.

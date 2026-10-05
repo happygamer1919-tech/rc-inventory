@@ -18,6 +18,7 @@ import { decodeCsvFile } from "@/lib/data/import-shared";
 import { useRouter } from "next/navigation";
 import { Button, Field, Select } from "@/components/ui/primitives";
 import { FilePicker } from "@/components/ui/FilePicker";
+import { ImportPreviewRows } from "@/components/ui/ImportPreviewRows";
 import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK, PHONE_TAP } from "@/components/ui/phone";
 import {
   autoMatchClientColumns,
@@ -385,6 +386,8 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
                 <Count label="Dublate" value={plan.counts.duplicate} testId="import-count-duplicate" />
                 <Count label="Cu erori" value={plan.counts.error} testId="import-count-error" />
               </div>
+
+              <ImportPreviewRows preview={plan.preview} />
 
               {duplicates.length > 0 ? (
                 <div className="space-y-2" data-testid="import-duplicates">
