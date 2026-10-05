@@ -4639,9 +4639,9 @@
       "id": "P3-151",
       "title": "Client and lead import find duplicates against every stored client, not just the first 1000: the existing clients are read in pages of 1000 ordered by id (lib/data/import-clients-read.ts, shared by lib/data/client-import-actions.ts and lib/data/lead-import-actions.ts), and a failed read stops the import with a Romanian message instead of returning an empty list that treats every row as new. No migration.",
       "plain": "La importul de clienți și lead-uri, dublurile sunt găsite printre toți clienții existenți, oricât de mulți ar fi; dacă lista nu poate fi citită, importul se oprește cu un mesaj.",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "high",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4654,7 +4654,11 @@
       "acceptance": "(a) The named cases in tests/e2e/import-clients-read.spec.ts are green in this pull request's own quality run: a fake client answering 1000, 1000 and 250 rows makes the read return all 2250 and ask for three pages, and a fake client answering an error makes the read refuse with the message Nu am putut citi clienții existenți. Încercați din nou. instead of an empty list. (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0.",
       "defaults": "RULE (read the clients table with range in pages of 1000 ordered by id until a short page, the same page size as the projects and materials imports; a failed read in either the check or the write step returns the Romanian message and never an empty list; one shared helper for both imports). The work of P3-122 and P3-123 (number parsing, file decoding, large files, bad contact refusal, preview rows), the duplicate keys, the hasPhase3Schema gate and the lead PageHeader prop stay as they are. No migration.",
       "last_checkpoint": "2026-10-05T00:00:00Z",
-      "evidence": null,
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #417 on branch card/import-dedup-paging against main: its quality run on the head sha runs tests/e2e/import-clients-read.spec.ts; report in docs/reports/2026-10-05-executor-import-dedup-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Cause: loadExisting in both import action files read the clients table in one request, which the database cuts at 1000 rows, and returned an empty list when the read failed. Bug check 2026-10-04. The brief named P3-141 but that id was taken, so this card is P3-151."
     }
   ]
