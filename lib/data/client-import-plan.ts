@@ -129,9 +129,17 @@ export function buildClientPlan(input: {
   /** id responsabil -> nume, pentru coloana Responsabil din previzualizare. */
   ownerNames?: ReadonlyMap<string, string>;
   headerLine?: number;
+  /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
+  lines?: number[];
 }): { plan: ClientImportPlan; prepared: Map<number, PreparedWithOwnerId> } {
   const headerLine = input.headerLine ?? 1;
-  const preview = buildClientImportPreview(input.rows, input.mapping, input.owners, headerLine);
+  const preview = buildClientImportPreview(
+    input.rows,
+    input.mapping,
+    input.owners,
+    headerLine,
+    input.lines,
+  );
 
   const storedByEmail = new Map<string, ExistingClient>();
   for (const client of input.existing) {
