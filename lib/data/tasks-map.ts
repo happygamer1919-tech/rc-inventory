@@ -23,7 +23,7 @@ export type TeamMember = { id: string; displayName: string | null; active: boole
 /** O optiune din lista Responsabil. */
 export type AssigneeChoice = { id: string; fullName: string };
 
-type EmbeddedProfile = { id: string; full_name: string | null };
+type EmbeddedProfile = { id: string; full_name: string | null; email?: string | null };
 
 export type TaskRow = {
   id: string;
@@ -96,7 +96,10 @@ export function toTask(row: TaskRow, names: ReadonlyMap<string, string>): Task {
     dueDate: row.due_date ?? null,
     assigneeId,
     assigneeName:
-      assigneeId === null ? null : (names.get(assigneeId) ?? embedded?.full_name ?? null),
+      assigneeId === null
+        ? null
+        : (names.get(assigneeId) ??
+          (embedded?.full_name?.trim() || embedded?.email?.trim() || null)),
     // PERECHEA SE CITESTE INTREAGA SAU DELOC, exact cum o tine restrictia
     // tasks_entity_both_or_neither: un tip pe care acest fisier nu il cunoaste ar
     // lasa altfel un id care nu poate fi dus la nicio tabela.
