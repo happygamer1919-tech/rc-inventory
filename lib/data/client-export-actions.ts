@@ -22,6 +22,7 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
 import { listClientOwnerChoices, listClientRowsForExport } from "./clients";
+import { hasClientNextAction } from "./schema-capability";
 import {
   CLIENT_SOURCE_LABEL,
   CLIENT_STAGE_LABEL,
@@ -105,9 +106,10 @@ export async function exportClients(
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Exportul a eșuat." };
   }
-  const { rows, total, withLeaduri, withNextAction } = listed;
+  const { rows, total, withLeaduri } = listed;
 
   const supabase = await createClient();
+  const withNextAction = await hasClientNextAction(supabase);
   const ids = rows.map((r) => r.id);
 
   const columns = [
@@ -132,8 +134,7 @@ export async function exportClients(
     const d = details.get(r.id);
     const type = isClientType(r.type) ? r.type : "company";
     const source = d?.source;
-    const col = "next_action_at" as const;
-    const nextActionDate = withNextAction && (r as any)[col] ? new Date((r as any)[col]).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, ".") : "";
+    const nextActionDate = withNextAction && r.next_action_at ? new Date(r.next_action_at).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, ".") : "";
     return {
       name: r.name,
       type: CLIENT_TYPE_LABEL[type],
