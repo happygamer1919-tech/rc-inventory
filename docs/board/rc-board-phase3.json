@@ -4955,9 +4955,9 @@
       "id": "P3-165",
       "title": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată», în Sarcini, în panoul de înregistrare și în Azi.",
       "plain": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată».",
-      "lane": "in_flight",
+      "lane": "shipped",
       "home_lane": "in_flight",
-      "status": "in_flight",
+      "status": "shipped",
       "priority": "low",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -4968,9 +4968,13 @@
       "question": null,
       "acceptance": "The named case `task-assignee-email-fallback` in tests/e2e/task-assignee-email-fallback.spec.ts is green in this pull request's own `quality` run: (a) a task with an assignee who has a full name shows the name in the list; (b) a task with an assignee who has an empty full name shows the email; (c) a task with no assignee shows 'Nealocată'. The email also appears on the record panel and the Azi section. `npx tsc --noEmit` and `npm run build` exit 0.",
       "defaults": "Afișăm numele complet; dacă lipsește, emailul; «Nealocată» doar când sarcina nu are pe nimeni alocat. The display rule lives once in lib/data/clients.ts as ownerDisplayName, or added new if the function does not exist yet, and is reused by every display site: lib/data/tasks.ts for assigneeName, TaskTable.tsx, AziTasksSection.tsx and TaskPanel if there is one. No migration.",
-      "last_checkpoint": "2026-10-05T00:00:00Z",
-      "evidence": null,
-      "notes": null
+      "last_checkpoint": "2026-10-05T17:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-assignee-email-fallback against main: its quality run on the head sha runs tests/e2e/task-assignee-email-fallback.spec.ts; report in docs/reports/2026-10-05-executor-task-assignee-email-fallback.md",
+        "at": "2026-10-05T17:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. The email fallback logic is connected through lib/data/tasks.ts assigneeName."
     }
   ]
 }
