@@ -62,12 +62,12 @@ test.describe("Texte românești corecte", () => {
     await page.getByTestId("field-category").selectOption({ label: TEST_CATEGORY });
     await page.getByTestId("field-unit").selectOption("pcs");
     await page.getByTestId("form-submit").click();
+    // Cautarea dupa SKU-ul unic lasa exact un rand. P3-142: si il aduce pe pagina deschisa,
+    // fiindca lista are pagini.
+    await page.getByTestId("product-search").fill(sku);
     await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
       timeout: 20_000,
     });
-
-    // Cautarea dupa SKU-ul unic lasa exact un rand.
-    await page.getByTestId("product-search").fill(sku);
     await expect(page.getByTestId("product-row")).toHaveCount(1);
 
     const counter = page.getByTestId("product-count");
@@ -81,8 +81,11 @@ test.describe("Texte românești corecte", () => {
 
     const counter = page.getByTestId("product-count");
     await expect(counter).toBeVisible();
-    const rows = await page.getByTestId("product-row").count();
-    expect((await counter.innerText()).trim()).toBe(counted(rows, "produs", "produse"));
+    // P3-142. Contorul spune cate produse are lista, nu cate sunt pe pagina deschisa (cel mult 50).
+    const text = (await counter.innerText()).trim();
+    const total = Number(text.split(" ")[0]!.replace(/\D/g, ""));
+    expect(text).toBe(counted(total, "produs", "produse"));
+    expect(await page.getByTestId("product-row").count()).toBe(Math.min(total, 50));
   });
 
   test("tabloul de bord numără produsele din catalog după regulă", async ({ page }) => {

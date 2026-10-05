@@ -4687,6 +4687,56 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: 0067 narrowed the twin counter and missed this one, so the first walk-in sale made the 'o ieșire din sistem nu are încă un proiect' line on every client page false."
     },
     {
+      "id": "P3-138",
+      "title": "Deactivated account sealed out of outbound lines. Migration 0070 drops and recreates the outbound_lines select, insert and update policies of 0001 (using true, with check true) on the predicate 0067 gave outbound_issues: public.current_app_role() is not null, which filters profiles.active. outbound_lines_delete stays on public.is_owner(). public.outbound_issue_take_stock is not replaced: it is SECURITY INVOKER, so its lines insert now runs into the tightened insert policy and a deactivated caller is refused with the whole call rolled back. No row, table, column, function or grant changes.",
+      "plain": "A switched-off employee can no longer see or change sale lines or take stock, even before their login runs out. Active employees notice no change.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-118"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) supabase/migrations/0070_outbound_lines_active_account.sql exists, and scripts/poc-free/local-db/assertions/0070_outbound_lines_active_account.sql passes in the applier run: outbound_lines has exactly four policies, select, insert and update test current_app_role() is not null, delete stays on is_owner(), outbound_issues keeps its three 0067 policies with no delete policy, and outbound_issue_take_stock(uuid, jsonb) is still SECURITY INVOKER. (b) tests/e2e/outbound-lines-deactivated.spec.ts is green in this pull request quality run on its head sha: with a witness while active, a deactivated account gets no rows from a direct outbound_lines select, cannot insert or update a line, and is refused by rpc/outbound_issue_take_stock with no new line written; an active operator still creates, reads and takes stock. (c) tests/e2e/outbound-direct-client.spec.ts and every other existing spec stay green, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check of 2026-10-04, factory task 130. PREDICATE: exactly the one 0067 uses on outbound_issues, public.current_app_role() is not null; no new helper and no new column. NO ISSUE SCOPE on the line policies: 0067 scopes the header by role only, so a join to the issue would add nothing. TAKE STOCK UNCHANGED: an explicit early refusal inside the function was weighed and not written, because assertions/0067 calls the two outbound doors as superuser with no JWT, where current_app_role() is null; the invoker function is refused by the insert policy instead, proven with a real token. DELETE POLICY unchanged, is_owner() already filters active. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-04T15:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-138 against main: its quality run on the head sha runs the 0070 assertion in the applier proof and tests/e2e/outbound-lines-deactivated.spec.ts; report in docs/reports/2026-10-04-executor-outbound-lines-deactivated.md",
+        "at": "2026-10-04T15:00:00Z"
+      },
+      "notes": "AUTHORED 2026-10-04 by AUTHOR and built by EXECUTOR in the same pull request. The 0067 comment \"A line is reachable only through its issue\" was not true: PostgREST exposes outbound_lines directly. The other readers of outbound_lines (client_material_summary, project_material_summary, project_material_cost, product_available_stock) are all SECURITY INVOKER, so the tightened select policy covers them too and no function needed replacing."
+    },
+    {
+      "id": "P3-153",
+      "title": "Paging on screen: the Inventar product list and the Comenzi outbound list show one page of 50 rows at a time with page controls, and the Inventar stock sum is read only for the 50 products on the open page. P3-136 read page after page until it had every row and showed the whole list, so nothing was shorter on screen and every product screen still summed every batch and every outbound line. (1) New lib/data/list-paging.ts (page size 50, readPage: one request with the exact count, a page past the end returns the last page). (2) listProductsPage reads one page with .range and an exact count, filters active, category and supplier in the query, sorted by sku then id, and calls stockByProduct with only the ids on the page. (3) listOutboundIssuesPage does the same for outbound issues (newest first, id as tiebreak) with the destination and kind filters in the query. (4) The page number and every filter live in the URL (?pagina=2); a filter change goes back to page 1. (5) Pager under both lists: Pagina 2 din 7, Înapoi, Înainte, Afișate 51-100 din 340. Search and the stock level filter read the whole catalog as before and cut the page afterwards (search ignores diacritics and stock is a computed sum, neither can be a query filter without a migration). No migration, no index.",
+      "plain": "Listele lungi de produse și de ieșiri se văd pe pagini, cu butoane de navigare; stocul se calculează doar pentru produsele de pe pagina deschisă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-136"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/list-paging.spec.ts is green in this pull request's quality run on its head sha: a fake client holding 340 products asked for page 2 returns rows 51 to 100, total 340, in one request of rows, and the stock read asks only for those 50 ids; the same for page 2 of 340 outbound issues; a page past the end returns the last page. (b) The e2e case in tests/e2e/inventory-paging.spec.ts is green: Inventar with more than 50 products shows 'Pagina 1 din', clicking 'Înainte' shows page 2 and the URL has pagina=2. (c) Every existing spec under tests/e2e passes. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "RULES: page size 50 (LIST_PAGE_SIZE), one number in one place. Inventar order is sku then id; Comenzi order is newest first then id. The page number is the query parameter pagina and lives in the URL, so reload and back keep it; any filter change drops it (back to page 1). Controls under the table, Romanian with diacritics: 'Pagina 2 din 7', 'Înapoi', 'Înainte', 'Afișate 51-100 din 340' with a plain hyphen. The pager does not show for one page. Active/inactive, category and supplier filters, and the Comenzi destination and kind filters, are applied in the query. Search and the stock level filter read the whole catalog and then cut the page, because search ignores diacritics (ilike does not, without the unaccent extension) and stock is a computed sum, not a column; both would need a migration, which this card does not add. The dashboard, Memento stoc, Necesar, the pickers and the exports keep reading the whole catalog (listProducts, listOutboundIssues): they need whole-catalog totals. No migration, no index. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/list-paging-on-screen against main: its quality run on the head sha runs tests/e2e/list-paging.spec.ts and tests/e2e/inventory-paging.spec.ts; report in docs/reports/2026-10-05-executor-list-paging-on-screen.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04: P3-136 was marked 'load long lists in pages' and docs/STATUS.md said long lists load only the rows on screen, but what shipped read every page and showed the whole list; its own report says 'No UI paging'. Requested id P3-142 was taken, P3-153 was the next free one."
+    },
+    {
       "id": "P3-143",
       "title": "Home",
       "plain": "Home screen",

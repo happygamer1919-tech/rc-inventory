@@ -65,6 +65,8 @@ test.describe("Tablou de bord", () => {
     await page.getByTestId("field-unit-value").fill("100");
     await page.getByTestId("field-threshold").fill("5");
     await page.getByTestId("form-submit").click();
+    // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill(sku);
     await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
       timeout: 20_000,
     });
@@ -111,6 +113,8 @@ test.describe("Tablou de bord", () => {
     await page.getByTestId("field-unit").selectOption("pcs");
     await page.getByTestId("field-unit-value").fill("50");
     await page.getByTestId("form-submit").click();
+    // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill(sku);
     await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
       timeout: 20_000,
     });
@@ -283,6 +287,8 @@ test.describe("Tablou de bord", () => {
     await page.getByTestId("field-unit").selectOption("pcs");
     await page.getByTestId("field-threshold").fill("25");
     await page.getByTestId("form-submit").click();
+    // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill(sku);
     await expect(page.locator(`[data-testid="product-row"][data-sku="${sku}"]`)).toHaveCount(1, {
       timeout: 20_000,
     });

@@ -97,6 +97,8 @@ async function createCatalogProduct(
   await page.getByTestId("field-unit").selectOption(p.unit);
   await page.getByTestId("field-unit-value").fill(p.unitValue);
   await page.getByTestId("form-submit").click();
+  // P3-142. Lista are pagini: produsul nou se cauta dupa SKU, ca sa fie pe pagina deschisa.
+  await page.getByTestId("product-search").fill(p.sku);
   await expect(page.locator(`[data-testid="product-row"][data-sku="${p.sku}"]`)).toHaveCount(1, {
     timeout: 20_000,
   });
@@ -683,6 +685,8 @@ test.describe("Verificare si confirmare extragere", () => {
     // Produsul exista in catalog, cu numele de pe document, VERBATIM, si cu
     // needs_review pus.
     await page.goto("/inventar");
+    // P3-142. Lista are pagini: produsele se cauta, ca sa fie pe pagina deschisa.
+    await page.getByTestId("product-search").fill(extracted);
     const product = page.locator(`[data-testid="product-row"][data-name="${extracted}"]`);
     await expect(product).toHaveCount(1, { timeout: 20_000 });
     await expect(product).toHaveAttribute("data-needs-review", "true");
@@ -691,6 +695,7 @@ test.describe("Verificare si confirmare extragere", () => {
     // SI PRODUSUL ASEMANATOR A RAMAS EXACT CUM ERA. Nu a primit linia, nu a
     // fost marcat, nu a fost atins. Aceasta este jumatatea pe care un catalog
     // gol nu o poate dovedi.
+    await page.getByTestId("product-search").fill(similarSku);
     const similar = page.locator(`[data-testid="product-row"][data-sku="${similarSku}"]`);
     await expect(similar).toHaveCount(1);
     await expect(similar).toHaveAttribute("data-needs-review", "false");
@@ -1049,6 +1054,7 @@ test.describe("Verificare si confirmare extragere", () => {
     // rand cu needs_review, deci fiecare rand pe care operatorul il aduce in
     // catalog este vizibil neterminat si asteapta administratorul.
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill(unknown);
     const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
     await expect(product).toHaveCount(1, { timeout: 20_000 });
     await expect(product).toHaveAttribute("data-needs-review", "true");
@@ -1099,6 +1105,7 @@ test.describe("Verificare si confirmare extragere", () => {
     // asa se scrie pe documentul furnizorului, si acolo o citeste operatorul
     // intai.
     await page.goto("/inventar");
+    await page.getByTestId("product-search").fill(unknown);
     const product = page.locator(`[data-testid="product-row"][data-name="${unknown}"]`);
     await expect(product).toHaveCount(1, { timeout: 20_000 });
     await expect(product).toContainText("t");

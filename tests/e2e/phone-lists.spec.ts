@@ -1,6 +1,7 @@
 import { expect, request, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
+import { showOutboundIssue } from "./support/orders-pages";
 
 // phone-lists.spec - linia de acceptanta a cardului P3-64 (G23 partea 2).
 //
@@ -350,10 +351,9 @@ test.describe("P3-64: listele pe telefon (390x844), un card pe rand", () => {
       "/comenzi TEST-NEC-INTRARE",
     );
     for (const reference of ["TEST-NEC-BON-1", "TEST-NEC-BON-2"]) {
-      await expectValueOnScreen(
-        page.locator(`[data-testid='outbound-item'][data-reference='${reference}']`),
-        `/comenzi ${reference}`,
-      );
+      // P3-142. Lista de iesiri are pagini; bonurile semanate sunt cele mai vechi, deci se
+      // trec paginile pana la ele.
+      await expectValueOnScreen(await showOutboundIssue(page, reference), `/comenzi ${reference}`);
     }
     await page.locator("main").evaluate((main) => main.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath("phone-lists-comenzi.png") });
