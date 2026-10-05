@@ -4924,8 +4924,36 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
     },
     {
+      "id": "P3-160",
+      "title": "Editing a task tied to a closed project or an inactive client shows that record's name in the Inregistrare box instead of an empty box. app/(app)/sarcini/page.tsx reads the linked records the choice lists leave out (listClosedLinkChoices in lib/data/tasks.ts, at most two reads, none when every link is in the lists) and passes them to SarciniScreen, which hands the one record of the task being edited to TaskForm as currentLink; linkChoicesWithCurrent in lib/data/tasks-shape.ts adds it to that task's list, labelled with the name and (inchis) or (inactiv). New tasks still offer only open projects and active clients. Saving without touching the box keeps the link. No migration.",
+      "plain": "La editarea unei sarcini legate de un proiect închis sau de un client inactiv se vede numele înregistrării, nu un câmp gol.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/task-record-closed-link.spec.ts are green in this pull request's own `quality` run: `P3-160: functia pura adauga inregistrarea curenta lipsa si nu schimba lista unei sarcini noi`, `P3-160: sarcina legata de un proiect inchis arata numele proiectului, la fel clientul inactiv, iar legatura se pastreaza la salvare`. (b) The other task specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Only the one linked record of the task being edited is added to the choice list, with a short Romanian marker (inchis for a closed project, inactiv for an inactive client or project); a new task offers only open projects and active clients, as before. The add happens on the data side; components/ui/Combobox.tsx is not changed. Saving without touching the record box keeps the stored link. No change to the look of the task form, the Romanian labels, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-record-closed-link against main: its quality run on the head sha runs tests/e2e/task-record-closed-link.spec.ts; report in docs/reports/2026-10-05-executor-task-record-closed-link.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free (P3-142 was already taken on another branch). Azi links open the same Sarcini screen, so one fix covers them; the record panels on client and project pages show the name as fixed text and were never affected."
+    },
+    {
       "id": "P3-162",
-      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the client as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
+      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the way to start a request as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
       "plain": "Lista de sarcini arată toate sarcinile, oricâte ar fi, nu doar primele o mie; sarcinile noi și cele fără termen nu mai dispar.",
       "lane": "shipped",
       "home_lane": "in_flight",
