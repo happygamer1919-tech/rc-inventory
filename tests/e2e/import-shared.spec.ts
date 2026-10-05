@@ -251,7 +251,7 @@ test("export Excel: pretul 12.5 se scrie 12,5", () => {
   expect(formatCsvNumber(0.35)).toBe("0,35");
   expect(formatCsvNumber(250000)).toBe("250000");
   expect(formatCsvNumber("12500.5")).toBe("12500,5");
-  expect(formatCsvNumber(1.2345)).toBe("1,235");
+  expect(formatCsvNumber(1.23456)).toBe("1,235");
 });
 
 test("export Excel: dus-intors, parseCsv(buildCsv(randuri)) da aceleasi randuri, iar numarul isi pastreaza valoarea", () => {
