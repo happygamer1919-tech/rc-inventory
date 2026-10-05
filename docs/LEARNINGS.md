@@ -9049,3 +9049,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `loadExisting` in both import action files read the clients table in one request, which the database cuts at 1000 rows, so past 1000 clients a re-imported file showed the unseen ones as new and created them again. A failed read returned an empty list, so every row counted as new.
 **SOLUTION:** card P3-151: `lib/data/import-clients-read.ts` reads the table in pages of 1000 ordered by id until a short page and throws on any error; `loadOrRefuse` turns that into a Romanian message. RULE: **a read that feeds duplicate detection must page, and must fail loudly, never fall back to an empty list**.
+
+### A counter narrowed in one migration was left wide in its twin
+**Tag:** backend
+**ERROR:** 0067 gave outbound a second mode whose rows have no project by design and narrowed `unassigned_outbound_count()` to project issues, but `unassigned_issue_count()` (0022) still read `where project_id is null`. After the first walk-in sale every client page warned about an issue without a project, and the warning was false.
+**SOLUTION:** card P3-152, migration 0069, redefines it with the same condition (`issue_mode = 'project' and project_id is null`). The assertion file drops the 0067 shape constraint inside its rolled-back transaction to prove a project issue with no project still counts. RULE: **when a migration changes what "no project" means, grep every function that tests `project_id is null` and change or justify each one**.
