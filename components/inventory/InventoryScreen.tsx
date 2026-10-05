@@ -6,7 +6,7 @@
 // care nu existau cand nu exista baza de date.
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { Pager, useListUrl } from "@/components/ui/Pager";
 import {
   Button,
   Card,
@@ -27,12 +27,7 @@ import { ProductForm } from "./ProductForm";
 import { MaterialImportSheet, download, downloadMaterialTemplate } from "./MaterialImportSheet";
 import { exportMaterials } from "@/lib/data/material-export-actions";
 import { MATERIAL_EXPORT_FILE_NAME } from "@/lib/data/material-export-types";
-import {
-  filterByRest,
-  filterByVisibility,
-  type StockLevel,
-  type Visibility,
-} from "@/lib/data/product-filter";
+import type { ProductFilter, StockLevel, Visibility } from "@/lib/data/product-filter";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
 import type { SheetOption } from "@/lib/data/sheet-options-types";
 
@@ -68,6 +63,12 @@ const VISIBILITY: Array<{ value: Visibility; label: string }> = [
 
 export function InventoryScreen({
   products,
+  filter,
+  page,
+  total,
+  visibleTotal,
+  catalogTotal,
+  openProduct,
   categories,
   units,
   suppliers,
@@ -75,7 +76,19 @@ export function InventoryScreen({
   imagesActive,
   sheetOptions,
 }: {
+  /** P3-142. DOAR RANDURILE PAGINII DESCHISE, deja filtrate si ordonate de server. */
   products: CatalogProduct[];
+  /** Filtrele din adresa, cu care s-a citit pagina. */
+  filter: ProductFilter;
+  page: number;
+  /** Randurile listei cu toate filtrele, nu ale paginii. */
+  total: number;
+  /** Randurile dupa filtrul activ/inactiv singur. */
+  visibleTotal: number;
+  /** Tot catalogul, ca sa se poata spune "Catalogul este gol". */
+  catalogTotal: number;
+  /** Produsul numit de `?produs=<sku>`, citit separat: nu este neaparat pe pagina. */
+  openProduct: CatalogProduct | null;
   categories: Category[];
   units: UnitCode[];
   suppliers: SupplierOption[];
@@ -93,14 +106,16 @@ export function InventoryScreen({
   // Restul filtrelor raman locale: nimic nu leaga catre ele si a le muta pe
   // toate in URL ar fi o redesenare a ecranului, care este scop pe care acest
   // card nu il are.
-  const params = useSearchParams();
-  const supplierFromUrl = params.get("furnizor") ?? "";
+  //
+  // P3-142. DE ACUM TOATE FILTRELE SI PAGINA SUNT IN URL: lista vine pe pagini de la server,
+  // care are nevoie de ele ca sa aleaga randurile din tot catalogul si nu doar din pagina
+  // deschisa. Ecranul tine local doar ce se tasteaza si ce tocmai s-a ales, pana vine
+  // raspunsul serverului.
+  const { params, setFilter, setPage } = useListUrl();
   const skuFromUrl = params.get("produs") ?? "";
   // Un sku din URL deschide panoul produsului la prima randare. Un sku care nu
   // exista nu deschide nimic si nu este o eroare: legatura poate fi veche.
-  const productFromUrl = skuFromUrl
-    ? (products.find((p) => p.sku === skuFromUrl) ?? null)
-    : null;
+  const productFromUrl = skuFromUrl && openProduct?.sku === skuFromUrl ? openProduct : null;
   // P3-42. camp=prag vine de pe ecranul de memento si deschide direct fisa
   // produsului, cu pragul in focus. ESTE ACELASI FORMULAR, deci aceeasi scriere,
   // updateProduct; legatura doar scurteaza drumul. Fara drept de scriere nu
@@ -108,11 +123,37 @@ export function InventoryScreen({
   // scrisa de mana nu poate da mai mult decat butonul Modifica.
   const editFromUrl = canWrite && productFromUrl !== null && params.get("camp") === "prag";
 
-  const [q, setQ] = React.useState("");
-  const [category, setCategory] = React.useState("");
-  const [supplier, setSupplier] = React.useState(supplierFromUrl);
-  const [level, setLevel] = React.useState<StockLevel>("toate");
-  const [visibility, setVisibility] = React.useState<Visibility>("active");
+  const [q, setQ] = React.useState(filter.q);
+  const [category, setCategory] = React.useState(filter.category);
+  const [supplier, setSupplier] = React.useState(filter.supplier);
+  const [level, setLevel] = React.useState<StockLevel>(filter.level);
+  const [visibility, setVisibility] = React.useState<Visibility>(filter.visibility);
+
+  // Alegerile din liste se aliniaza la adresa cand ea se schimba din alta parte (butonul
+  // inapoi al browserului, o legatura).
+  React.useEffect(() => setCategory(filter.category), [filter.category]);
+  React.useEffect(() => setSupplier(filter.supplier), [filter.supplier]);
+  React.useEffect(() => setLevel(filter.level), [filter.level]);
+  React.useEffect(() => setVisibility(filter.visibility), [filter.visibility]);
+
+  // CAUTAREA SE TRIMITE LA SERVER DUPA O PAUZA din tastat (300 ms), nu la fiecare litera.
+  // Adresa se copiaza inapoi in camp numai cand operatorul nu a tastat nimic nou de la ultima
+  // trimitere: un raspuns intarziat nu sterge literele tastate intre timp, iar butonul inapoi
+  // al browserului (adresa se schimba, campul a ramas pe ultima trimitere) il aduce la zi.
+  const lastSent = React.useRef(filter.q);
+  React.useEffect(() => {
+    if (q.trim() === filter.q.trim()) return;
+    const timer = setTimeout(() => {
+      lastSent.current = q.trim();
+      setFilter({ q: q.trim() });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q, filter.q, setFilter]);
+  React.useEffect(() => {
+    setQ((current) => (current.trim() === lastSent.current ? filter.q : current));
+    lastSent.current = filter.q;
+  }, [filter.q]);
+
   const [openId, setOpenId] = React.useState<string | null>(
     editFromUrl ? null : (productFromUrl?.id ?? null),
   );
@@ -134,7 +175,15 @@ export function InventoryScreen({
     setExportNotice(null);
     setExportError(null);
     try {
-      const result = await exportMaterials({ q, category, supplier, level, visibility });
+      // Exportul ia filtrele cu care s-a citit lista (cele din adresa) si scrie TOATE randurile
+      // lor, nu pagina deschisa.
+      const result = await exportMaterials({
+        q: filter.q,
+        category: filter.category,
+        supplier: filter.supplier,
+        level: filter.level,
+        visibility: filter.visibility,
+      });
       if (!result.ok) {
         setExportError(result.message);
         return;
@@ -151,25 +200,28 @@ export function InventoryScreen({
     }
   }
 
-  // P3-129. Alegerea randurilor sta in lib/data/product-filter.ts, ca exportul sa o foloseasca
-  // pe aceeasi si fisierul sa fie vederea de pe ecran.
-  const visible = React.useMemo(() => filterByVisibility(products, visibility), [products, visibility]);
-
-  const rows = React.useMemo(
-    () => filterByRest(visible, { q, category, supplier, level }),
-    [visible, q, category, supplier, level],
-  );
+  // P3-129. Alegerea randurilor sta pe server, in lib/data/products.ts (listProductsPage), cu
+  // aceleasi filtre ca exportul. Ecranul arata exact randurile primite.
+  const rows = products;
 
   const filtersActive =
-    q !== "" || category !== "" || supplier !== "" || level !== "toate" || visibility !== "active";
-  const open = openId ? products.find((p) => p.id === openId) ?? null : null;
+    filter.q !== "" ||
+    filter.category !== "" ||
+    filter.supplier !== "" ||
+    filter.level !== "toate" ||
+    filter.visibility !== "active";
+  const open = openId
+    ? (products.find((p) => p.id === openId) ?? (openProduct?.id === openId ? openProduct : null))
+    : null;
 
   function reset() {
     setQ("");
+    lastSent.current = "";
     setCategory("");
     setSupplier("");
     setLevel("toate");
     setVisibility("active");
+    setFilter({ q: null, categorie: null, furnizor: null, nivel: null, vizibilitate: null });
   }
 
   return (
@@ -236,7 +288,10 @@ export function InventoryScreen({
           />
           <Select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setFilter({ categorie: e.target.value });
+            }}
             data-testid="filter-category"
             className={PHONE_CONTROL}
           >
@@ -249,7 +304,10 @@ export function InventoryScreen({
           </Select>
           <Select
             value={supplier}
-            onChange={(e) => setSupplier(e.target.value)}
+            onChange={(e) => {
+              setSupplier(e.target.value);
+              setFilter({ furnizor: e.target.value });
+            }}
             data-testid="filter-supplier"
             className={PHONE_CONTROL}
           >
@@ -262,7 +320,11 @@ export function InventoryScreen({
           </Select>
           <Select
             value={level}
-            onChange={(e) => setLevel(e.target.value as StockLevel)}
+            onChange={(e) => {
+              const next = e.target.value as StockLevel;
+              setLevel(next);
+              setFilter({ nivel: next === "toate" ? null : next });
+            }}
             data-testid="filter-level"
             className={PHONE_CONTROL}
           >
@@ -274,7 +336,11 @@ export function InventoryScreen({
           </Select>
           <Select
             value={visibility}
-            onChange={(e) => setVisibility(e.target.value as Visibility)}
+            onChange={(e) => {
+              const next = e.target.value as Visibility;
+              setVisibility(next);
+              setFilter({ vizibilitate: next === "active" ? null : next });
+            }}
             data-testid="filter-visibility"
             className={PHONE_CONTROL}
           >
@@ -306,9 +372,9 @@ export function InventoryScreen({
         <div className="px-4 pb-3 -mt-1">
           <p className="text-[12.5px] text-rc-muted" data-testid="product-count">
             {/* P3-51. Substantivul se acorda cu primul numar afisat: "1 produs din 42". */}
-            {rows.length === visible.length
-              ? plural(rows.length, "produs", "produse")
-              : `${plural(rows.length, "produs", "produse")} din ${formatNumber(visible.length)}`}
+            {total === visibleTotal
+              ? plural(total, "produs", "produse")
+              : `${plural(total, "produs", "produse")} din ${formatNumber(visibleTotal)}`}
           </p>
         </div>
       </Card>
@@ -411,7 +477,7 @@ export function InventoryScreen({
         </Table>
         {rows.length === 0 ? (
           <div className="px-6 py-14 text-center" data-testid="product-empty">
-            {products.length === 0 ? (
+            {catalogTotal === 0 ? (
               <>
                 <p className="text-[14px] font-semibold text-rc-black">
                   Catalogul este gol
@@ -444,6 +510,7 @@ export function InventoryScreen({
             )}
           </div>
         ) : null}
+        <Pager page={page} total={total} onPage={setPage} />
       </Card>
 
       {open ? (

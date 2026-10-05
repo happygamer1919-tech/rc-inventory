@@ -6,7 +6,9 @@ import "server-only";
 // care pleaca acolo. Regula este a fazei 1 si nu se schimba.
 
 import { createClient } from "@/lib/supabase/server";
-import { readAllPages, type CountedPage } from "./id-list";
+import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
+import { clampPage, LIST_PAGE_SIZE } from "./list-paging";
+import { readIssuePage, type IssueClient } from "./outbound-page-read";
 import { hasOutboundIssueMode } from "./schema-capability";
 import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
@@ -262,6 +264,100 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
     ISSUE_PAGE_SIZE,
   );
   return rows.map((row) => toIssue(row));
+}
+
+/** P3-142. Filtrele listei de iesiri de pe Comenzi. Fiecare lipseste cand nu este pus. */
+export type OutboundFilter = {
+  /** /comenzi?proiect=<id>: iesirile unui proiect. */
+  projectId?: string;
+  /** /comenzi?client=<id>: iesirile unui client, pe proiect sau directe. */
+  clientId?: string;
+  /** Felul eliberarii. Se aplica numai cand 0067 este aplicata (poarta de mai jos). */
+  mode?: OutboundMode;
+};
+
+export type OutboundPage = {
+  issues: OutboundIssue[];
+  /** Iesirile listei filtrate, nu ale paginii. */
+  total: number;
+  /** Din ele, cate sunt de expediat. Numarate in baza, nu pe pagina. */
+  awaiting: number;
+  page: number;
+};
+
+/**
+ * P3-142. O PAGINA din lista de iesiri, cu filtrele puse in cerere, in aceeasi ordine ca
+ * listOutboundIssues (cea mai noua intai, id ca departajare), cu totalul exact si numarul
+ * celor de expediat. Cele 50 de iesiri vin cu liniile lor, intr-o singura cerere.
+ *
+ * listOutboundIssues ramane citirea intreaga, pentru tabloul de bord, necesar si ce mai
+ * are nevoie de toate iesirile.
+ */
+export async function listOutboundIssuesPage(
+  filter: OutboundFilter,
+  page: number,
+): Promise<OutboundPage> {
+  const supabase = await createClient();
+  const select = await issueSelect(supabase);
+  const modeActive = await hasOutboundIssueMode(supabase);
+
+  // Iesirile unui client: cele pe proiectele lui, plus (cand 0067 este aplicata) cele
+  // catre el direct. Proiectele se afla intr-o cerere mica, iar `.in` are un prag de
+  // lungime a adresei (ID_LIST_BATCH_SIZE); un client cu mai multe proiecte decat atat
+  // trece pe citirea intreaga, ca inainte, in loc sa se piarda iesiri.
+  let clientClause: string | null = null;
+  if (filter.clientId) {
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("client_id", filter.clientId);
+    if (error) throw new Error(`Nu s-au putut citi proiectele clientului: ${error.message}`);
+    const ids = (projects ?? []).map((p) => p.id as string);
+    if (ids.length > ID_LIST_BATCH_SIZE) return pageFromFullRead(filter, page);
+    const parts: string[] = [];
+    if (ids.length > 0) parts.push(`project_id.in.(${ids.join(",")})`);
+    if (modeActive) parts.push(`client_id.eq.${filter.clientId}`);
+    if (parts.length === 0) return { issues: [], total: 0, awaiting: 0, page: 1 };
+    clientClause = parts.join(",");
+  }
+
+  const read = await readIssuePage<IssueRow>(
+    supabase as unknown as IssueClient<IssueRow>,
+    select,
+    {
+      projectId: filter.projectId,
+      clientClause,
+      mode: modeActive ? (filter.mode ?? null) : null,
+    },
+    page,
+    LINES_ORDER,
+  );
+
+  return {
+    issues: read.rows.map((row) => toIssue(row)),
+    total: read.total,
+    awaiting: read.awaiting,
+    page: read.page,
+  };
+}
+
+/** Rezerva pentru un client cu prea multe proiecte ca sa le pui in adresa: citirea intreaga,
+ *  aleasa dupa inregistrare (clientId), apoi taiata pe pagina. */
+async function pageFromFullRead(filter: OutboundFilter, page: number): Promise<OutboundPage> {
+  const all = (await listOutboundIssues()).filter(
+    (o) =>
+      (!filter.clientId || o.clientId === filter.clientId) &&
+      (!filter.projectId || o.projectId === filter.projectId) &&
+      (!filter.mode || o.mode === filter.mode),
+  );
+  const current = clampPage(page, all.length);
+  const start = (current - 1) * LIST_PAGE_SIZE;
+  return {
+    issues: all.slice(start, start + LIST_PAGE_SIZE),
+    total: all.length,
+    awaiting: all.filter((o) => o.status === "awaiting_shipment").length,
+    page: current,
+  };
 }
 
 export async function getOutboundIssue(id: string): Promise<OutboundIssue | null> {

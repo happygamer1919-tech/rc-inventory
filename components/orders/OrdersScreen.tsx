@@ -17,6 +17,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Pager, useListUrl } from "@/components/ui/Pager";
 import { PHONE_WRAP } from "@/components/ui/phone";
 import { Button, Card, CardHeader, Chip, PageHeader, Select } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
@@ -55,11 +56,23 @@ const outboundTone = (s: string): ChipTone => (s === "shipped" ? "ok" : "warn");
 export function OrdersScreen({
   inbound,
   outbound,
+  outboundTotal,
+  outboundAwaiting,
+  page,
+  modeFilter,
   filter,
   modeVisible = false,
 }: {
   inbound: InboundOrder[];
+  /** P3-142. DOAR IESIRILE PAGINII DESCHISE, deja filtrate de server (destinatie si fel). */
   outbound: OutboundIssue[];
+  /** Iesirile listei filtrate, nu ale paginii. */
+  outboundTotal: number;
+  /** Din ele, cate sunt de expediat, numarate de baza pe toata lista filtrata. */
+  outboundAwaiting: number;
+  page: number;
+  /** Felul ales in filtru, din adresa (?tip=). "toate" cand nu este ales niciunul. */
+  modeFilter: ModeFilter;
   /** P3-10. Filtrul de destinatie, venit din URL: /comenzi?proiect=<id> sau
    *  /comenzi?client=<id>. Este in URL si nu in starea componentului tocmai ca
    *  legatura din fisa proiectului sa poata fi trimisa cuiva, si ca butonul de
@@ -76,33 +89,27 @@ export function OrdersScreen({
   const [sel, setSel] = React.useState<Selection>(null);
   // P3-120 clauza 4. "Toate" IMPLICIT: lista se deschide aratand tot, fiindca un
   // filtru pus de la sine ar ascunde randuri pe care nimeni nu a cerut sa fie
-  // ascunse. In starea componentului si nu in URL, spre deosebire de filtrul de
-  // destinatie de deasupra, fiindca acesta nu vine de pe nicio alta fisa: el se
-  // alege chiar aici, deci nu exista nicio legatura de trimis cuiva.
-  const [modeFilter, setModeFilter] = React.useState<ModeFilter>("toate");
+  // ascunse.
+  //
+  // P3-142. FILTRUL DE FEL ESTE ACUM IN ADRESA (?tip=), ca si cel de destinatie: serverul
+  // aduce o singura pagina si trebuie sa stie filtrul ca sa o aleaga din toate iesirile,
+  // nu doar din cele de pe pagina deschisa. O schimbare de filtru intoarce lista la pagina 1.
+  const { setFilter, setPage } = useListUrl();
 
-  // FILTRAREA SE FACE PE INREGISTRARE SI NU PE TEXT. Randurile istorice fara
-  // proiect au projectId null si sunt deci excluse de orice filtru, ceea ce este
-  // corect: nu se stie catre cine au plecat.
+  // FILTRAREA SE FACE PE INREGISTRARE SI NU PE TEXT, acum in cererea de citire (lib/data/
+  // outbound.ts). Randurile istorice fara proiect au projectId null si sunt deci excluse de
+  // orice filtru, ceea ce este corect: nu se stie catre cine au plecat.
   //
   // P3-120 clauza 4. CELE DOUA FILTRE SE COMPUN SI NU SE INLOCUIESC. Filtrul de
   // destinatie al lui P3-10 rămâne exact cum era, cu butonul lui de golire; cel de
   // mod se adauga peste el. Niciunul nu il goleste pe celalalt: un control care ar
   // desface in tacere alegerea facuta de langa el este chiar defectul pe care
   // constatarea F6 a cardului P3-96 l-a inchis in alta parte. Si acesta filtreaza
-  // pe INREGISTRARE, pe `o.mode`, si niciodata pe cuvantul scris pe ecran.
-  const byDestination = filter
-    ? outbound.filter((o) =>
-        filter.kind === "proiect" ? o.projectId === filter.id : o.clientId === filter.id,
-      )
-    : outbound;
-  const outboundShown =
-    modeVisible && modeFilter !== "toate"
-      ? byDestination.filter((o) => o.mode === modeFilter)
-      : byDestination;
+  // pe INREGISTRARE, pe modul stocat, si niciodata pe cuvantul scris pe ecran.
+  const outboundShown = outbound;
 
   const pendingIn = inbound.filter((o) => o.status === "pending_arrival").length;
-  const pendingOut = outboundShown.filter((o) => o.status === "awaiting_shipment").length;
+  const pendingOut = outboundAwaiting;
 
   const selectedIn = sel?.kind === "in" ? inbound.find((o) => o.id === sel.id) ?? null : null;
   const selectedOut = sel?.kind === "out" ? outbound.find((o) => o.id === sel.id) ?? null : null;
@@ -205,7 +212,7 @@ export function OrdersScreen({
             hint="Eliberări către proiecte și către clienți direcți"
             right={
               <span className="text-[12px] text-rc-muted">
-                {pendingOut} de expediat din {outboundShown.length}
+                {pendingOut} de expediat din {outboundTotal}
               </span>
             }
           />
@@ -224,7 +231,7 @@ export function OrdersScreen({
             <div className="px-5 pb-4" data-testid="outbound-mode-filter">
               <Select
                 value={modeFilter}
-                onChange={(e) => setModeFilter(e.target.value as ModeFilter)}
+                onChange={(e) => setFilter({ tip: e.target.value === "toate" ? null : e.target.value })}
                 aria-label="Filtrează ieșirile după tipul eliberării"
                 data-testid="outbound-mode-filter-select"
                 className={PHONE_CONTROL}
@@ -311,7 +318,7 @@ export function OrdersScreen({
               </li>
             ))}
           </ul>
-          {outbound.length === 0 ? (
+          {outboundTotal === 0 && !filter && modeFilter === "toate" ? (
             <p
               className="px-5 py-12 text-center text-[13px] text-rc-muted"
               data-testid="outbound-empty"
@@ -319,6 +326,7 @@ export function OrdersScreen({
               Nicio ieșire încă. Creează un bon de eliberare din ecranul Ieșiri.
             </p>
           ) : null}
+          <Pager page={page} total={outboundTotal} onPage={setPage} />
         </Card>
       </div>
 
