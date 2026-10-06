@@ -26,6 +26,7 @@ export function Combobox({
   placeholder = "Caută...",
   creatable = false,
   emptyLabel = "Niciun rezultat",
+  dontSelectOnMultipleExactMatches = false,
 }: {
   options: ComboOption[];
   value: string;
@@ -33,6 +34,7 @@ export function Combobox({
   placeholder?: string;
   creatable?: boolean;
   emptyLabel?: string;
+  dontSelectOnMultipleExactMatches?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -101,9 +103,14 @@ export function Combobox({
       // formularul cere "Completează clientul". Un camp care se sterge singur
       // dupa ce a fost completat corect este cel mai rau fel de defect, pentru
       // ca operatorul crede ca a gresit el.
-      const exact = options.find((o) => o.label === typed);
-      if (exact) {
-        onChange(exact.value);
+      const exactMatches = options.filter((o) => o.label === typed);
+      if (exactMatches.length > 1 && dontSelectOnMultipleExactMatches) {
+        // P3-177: cand mai mult de o optiune se potriveste exact, nu selecta nimic
+        // si lasa lista deschisa. Operatorul trebuie sa faca o alegere inteleapta.
+        return;
+      }
+      if (exactMatches.length > 0) {
+        onChange(exactMatches[0].value);
       } else if (creatable) {
         // Text liber acceptat doar acolo unde lista nu este inchisa.
         onChange(typed);

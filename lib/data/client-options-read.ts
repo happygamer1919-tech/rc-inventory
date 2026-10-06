@@ -16,18 +16,25 @@ export const CLIENT_OPTIONS_READ_FAILED = "Nu am putut citi clienții. Încerca�
 
 export async function readActiveClientOptions(
   supabase: Supabase,
-): Promise<{ id: string; name: string }[]> {
-  const rows: { id: string; name: string }[] = [];
+): Promise<{ id: string; name: string; phone?: string | null; fiscal_code?: string | null }[]> {
+  const rows: { id: string; name: string; phone?: string | null; fiscal_code?: string | null }[] = [];
   for (let from = 0; ; from += CLIENT_OPTIONS_PAGE) {
     const { data, error } = await supabase
       .from("clients")
-      .select("id, name")
+      .select("id, name, phone, fiscal_code")
       .eq("active", true)
+      .eq("stage", "client")
       .order("name")
       .order("id")
       .range(from, from + CLIENT_OPTIONS_PAGE - 1);
     if (error || !data) throw new Error(CLIENT_OPTIONS_READ_FAILED);
-    for (const r of data) rows.push({ id: r.id as string, name: r.name as string });
+    for (const r of data)
+      rows.push({
+        id: r.id as string,
+        name: r.name as string,
+        phone: r.phone as string | null,
+        fiscal_code: r.fiscal_code as string | null,
+      });
     if (data.length < CLIENT_OPTIONS_PAGE) break;
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name, "ro"));
