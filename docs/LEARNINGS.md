@@ -9179,3 +9179,23 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** the projects export wrote only the client name, and the import resolved the client by name inside the field check. A name shared by two clients was refused as ambiguous, a deactivated client was refused as inactive even when the project already existed, so export then re-import returned error rows instead of "already exists".
 **SOLUTION:** card P3-173: the export adds a last column "Identificator client" with the client id (existing columns and headers untouched). The import reads it as the field `clientId` and resolves the client after the fields are read (`resolveProjectClient`): id first, name only when the cell or column is missing. A deactivated client is found, so an existing project is a duplicate, and `buildProjectPlan` refuses only a new project under it. RULE: **an export that a round trip depends on writes a key the import can match on, not only a display name; a field validator cannot see other cells, so a rule that depends on two columns runs after the fields are read.**
+
+### Inbound orders past 1000 dropped off the list without a message
+**Tag:** data
+**ERROR:** `listInboundOrders` read `inbound_orders` in one request with no paging. PostgREST cuts any list at `max_rows` and does not say so, so past 1000 orders the oldest disappeared from Comenzi and from the home screen's pending arrivals. The P3-136 report named it as a follow-up and it stayed open.
+**SOLUTION:** card P3-178: the read goes through `readAllPages` in a new client-injected file `lib/data/inbound-read.ts`, same order (created_at desc) with id desc last. RULE: **every list read that grows with the client's data goes through `readAllPages`; a follow-up named in a report gets its own task the same day.**
+
+### A scope taken from a first read made the second read wait
+**Tag:** data
+**ERROR:** P3-136 limited the pickers' stock read to the active products' ids, which come from the catalog read, so the stock read started only after the catalog came back: one extra database round trip on Inventar, the home screen and every product picker. The numbers were right, only slower.
+**SOLUTION:** card P3-178: the stock read takes the same filter as the catalog, on the linked product (`products!inner(active)` plus `eq("products.active", true)`), so both start together in `readCatalogWithStock` (`lib/data/catalog-read.ts`). RULE: **when a second read only needs the first one's filter, put the filter in the second request instead of passing it the first one's ids.**
+
+### A stable order does not make offset pages safe while colleagues save
+**Tag:** data
+**ERROR:** the batches and outbound_lines paged reads already ordered by `id`, which is unique, so the suspected unstable order was not the cause. Pages are asked by position and ids are random uuids: a row saved between two pages before the read position pushes the previous page's last row onto the next page. A changed total is caught by `readAllPages`; a save plus a delete in the same window keeps the total, and then one row is read twice (stock counted twice) and one can be skipped.
+**SOLUTION:** card P3-178: `dedupeById` in `lib/data/id-list.ts`, used by the stock read and the inbound read, keeps the first row of each id. A skip in that narrow window is still possible with position paging; only reading by key (`id > last id`) would close it. RULE: **position paging over a table others write to needs a unique last sort key AND duplicate removal; name what can still be skipped.**
+
+### Adding a method to a client-injection type breaks every hand-written fake
+**Tag:** ci
+**ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
+**SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**

@@ -7,6 +7,7 @@ import "server-only";
 // text de interfata. Etichetele sunt exact sirurile din faza 1.
 
 import { createClient } from "@/lib/supabase/server";
+import { readInboundOrderRows, type InboundClient } from "./inbound-read";
 import { isUnitCode, type UnitCode } from "./units";
 import type { Currency, InboundOrder, InboundStatus, StatusEvent } from "./inbound-types";
 
@@ -82,13 +83,13 @@ function toOrder(row: OrderRow, history: StatusEvent[] = []): InboundOrder {
 
 export async function listInboundOrders(): Promise<InboundOrder[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("inbound_orders")
-    .select(SELECT)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(`Nu s-au putut citi comenzile de intrare: ${error.message}`);
-  return ((data ?? []) as unknown as OrderRow[]).map((row) => toOrder(row));
+  // P3-178. PE PAGINI, pana la capat (inbound-read.ts): peste 1000 de comenzi,
+  // lista se oprea tacut la 1000 si cele mai vechi dispareau.
+  const rows = await readInboundOrderRows<OrderRow>(
+    supabase as unknown as InboundClient<OrderRow>,
+    SELECT,
+  );
+  return rows.map((row) => toOrder(row));
 }
 
 export async function getInboundOrder(id: string): Promise<InboundOrder | null> {
