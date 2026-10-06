@@ -306,6 +306,7 @@ const FILL_COLUMN: Record<Exclude<FillField, "contactName">, string> = {
   source: "source",
   ownerId: "owner_id",
   nextAction: "next_action",
+  nextActionDate: "next_action_at",
   notes: "notes",
   address: "address",
   fiscalCode: "fiscal_code",
@@ -334,7 +335,7 @@ async function fillEmpty(
   const readable = FILL_FIELDS.filter((field) => {
     if (field === "contactName") return false;
     if (["interest", "source", "ownerId"].includes(field)) return leaduri;
-    if (field === "nextAction") return next;
+    if (["nextAction", "nextActionDate"].includes(field)) return next;
     return true;
   }) as Exclude<FillField, "contactName">[];
 
@@ -524,6 +525,7 @@ export async function runLeadImport(
       interest: lead.interest,
       ownerId: lead.ownerId,
       nextAction: lead.nextAction,
+      nextActionAt: lead.nextActionDate,
       contactName: lead.contactName,
       firstStage: true,
     });
