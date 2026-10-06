@@ -185,8 +185,7 @@ export function DateField({
   }
 
   const parsed = isoFromRomanian(text);
-  const digitCount = text.replace(/\D/g, "").length;
-  const invalid = parsed === null && (touched || digitCount >= 8);
+  const invalid = text !== "" && parsed === null;
 
   // P3-92. Parintele afla cand mesajul rosu apare si cand pleaca.
   //
