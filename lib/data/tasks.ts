@@ -62,6 +62,7 @@ import {
 } from "./tasks-map";
 import { taskLinkKey, type TaskLinkChoiceLike } from "./tasks-shape";
 import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
+import { readEntityTaskRows, readTaskRows, type TaskReadQuery } from "./tasks-read";
 
 // NUMELE COLOANELOR SE SCRIU AICI, intr-un fisier care trece pe langa poarta, si
 // nu in lib/data/tasks-types.ts, care nu are ce sa apere cu una.
@@ -134,6 +135,14 @@ export async function tasksVisible(): Promise<boolean> {
   return hasTasks(supabase);
 }
 
+/** Porneste o citire a sarcinilor cu totalul cerut in aceeasi cerere, pentru citirile
+ *  pe pagini din tasks-read.ts. Tabela se numeste doar aici, dupa poarta hasTasks. */
+function startRead(supabase: Awaited<ReturnType<typeof createClient>>): TaskReadQuery<TaskRow> {
+  return supabase
+    .from("tasks")
+    .select(SELECT_TASK, { count: "exact" }) as unknown as TaskReadQuery<TaskRow>;
+}
+
 /** Toate sarcinile, cele anulate incluse, cele mai noi intai.
  *
  *  CELE ANULATE SUNT AICI SI NU SE ASCUND, clauza 4: o sarcina anulata rămâne pe
@@ -148,80 +157,13 @@ export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return [];
 
-  let request = supabase.from("tasks").select(SELECT_TASK);
-
-  // CELE CINCI FILTRE SE APLICA PE SERVER, nu in memorie, ca pe fiecare alta lista
-  // a acestei aplicatii: antetul lui components/clients/ClientsScreen.tsx scrie
-  // regula ("FILTRAREA SE FACE PE SERVER... Componentul acesta nu filtreaza nimic in
-  // memorie"), iar indexul tasks_status_due_date_idx din migratia 0068 este scris de
-  // P3-130 chiar pentru ele.
-  //
-  // UN CAMP GOL NU SE TRIMITE, deci nu exista "filtrat pe sirul gol": aceea ar fi o
-  // lista mereu goala pe o adresa scrisa de mana.
-  if (query) {
-    if (query.status !== "") request = request.eq("status", query.status);
-    if (query.priority !== "") request = request.eq("priority", query.priority);
-    if (query.assigneeId !== "") request = request.eq("assignee_id", query.assigneeId);
-    if (query.entityType !== "") request = request.eq("entity_type", query.entityType);
-    // INTERVALUL DE TERMEN SE COMPARA CA ZI DE CALENDAR, nu ca moment: `due_date`
-    // este o coloana `date`, iar capetele sunt siruri `yyyy-mm-dd` curatate de
-    // parseTaskQuery. Amandoua capetele sunt INCLUSE, fiindca un operator care scrie
-    // acelasi termen in amandoua casutele cere ziua aceea si nu o lista goala.
-    if (query.dueFrom !== "") request = request.gte("due_date", query.dueFrom);
-    if (query.dueTo !== "") request = request.lte("due_date", query.dueTo);
-  }
-
-  for (const { column, ascending } of orderBy(query)) {
-    // TERMENUL FARA VALOARE STA LA SFARSIT IN AMANDOUA DIRECTIILE, prin nullsFirst
-    // false. O sarcina fara termen nu este nici cea mai apropiata, nici cea mai
-    // indepartata: nu are zi, deci nu are loc in ordinea zilelor, iar lista o aseaza
-    // sub capul ei de grup "Fără termen" oricum.
-    request = request.order(column, { ascending, nullsFirst: false });
-  }
-
-  const [{ data, error }, names] = await Promise.all([request, readNames(supabase)]);
-  if (error) throw new Error(`Nu s-au putut citi sarcinile: ${error.message}`);
-  return ((data ?? []) as unknown as TaskRow[]).map((row) => toTask(row, names));
-}
-
-/**
- * Cele trei sortari ale clauzei 4, traduse in coloane.
- *
- * URGENTA SE SORTEAZA PE ENUMERARE SI NU PE CUVANT, si asta nu este o scurtatura:
- * PostgreSQL ordoneaza o enumerare dupa ORDINEA IN CARE ETICHETELE SUNT DECLARATE, iar
- * migratia 0068 le declara `low`, `medium`, `high`, adica de la cea mai mica la cea mai
- * mare. Deci crescator inseamna Scăzută intai, exact ce citeste operatorul. Sortata ca
- * text ar fi dat `high`, `low`, `medium`, adica o ordine care nu inseamna nimic.
- *
- * `id` LA FINAL, MEREU. Doua randuri cu acelasi termen, aceeasi urgenta sau aceeasi
- * clipa de creare pot sosi in orice ordine de la baza, si o ordine care se schimba
- * intre doua randari este o lista pe care un test nu o poate masura si un om nu o
- * poate urmari.
- */
-function orderBy(query?: TaskListQuery): { column: string; ascending: boolean }[] {
-  const ascending = (query?.direction ?? "crescator") === "crescator";
-  const column =
-    query === undefined
-      ? "created_at"
-      : query.sort === "termen"
-        ? "due_date"
-        : query.sort === "urgenta"
-          ? "priority"
-          : "created_at";
-
-  // Fara nicio sortare ceruta, raspunsul rămâne cel de dinainte de P3-131: cele mai
-  // noi intai.
-  if (query === undefined) {
-    return [
-      { column: "created_at", ascending: false },
-      { column: "id", ascending: false },
-    ];
-  }
-
-  return [
-    { column, ascending },
-    { column: "id", ascending },
-  ];
+  // Filtrele, sortarea si paginarea stau in tasks-read.ts, fara server-only, ca un
+  // test sa le poata rula impotriva unui client fals.
+  const [rows, names] = await Promise.all([
+    readTaskRows<TaskRow>(() => startRead(supabase), query),
+    readNames(supabase),
+  ]);
+  return rows.map((row) => toTask(row, names));
 }
 
 /** O sarcina, dupa id, sau null cand nu exista. */
@@ -258,19 +200,11 @@ export async function listTasksForEntity(
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return [];
 
-  const [{ data, error }, names] = await Promise.all([
-    supabase
-      .from("tasks")
-      .select(SELECT_TASK)
-      .eq("entity_type", entityType)
-      .eq("entity_id", entityId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false }),
+  const [rows, names] = await Promise.all([
+    readEntityTaskRows<TaskRow>(() => startRead(supabase), entityType, entityId),
     readNames(supabase),
   ]);
-
-  if (error) throw new Error(`Nu s-au putut citi sarcinile înregistrării: ${error.message}`);
-  return ((data ?? []) as unknown as TaskRow[]).map((row) => toTask(row, names));
+  return rows.map((row) => toTask(row, names));
 }
 
 /**
