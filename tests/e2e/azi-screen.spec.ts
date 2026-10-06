@@ -485,18 +485,16 @@ test.describe("Ecranul Azi (P3-91)", () => {
     // Open Azi
     await openAzi(page);
 
-    // Check that we have the tasks section visible (at least one task due today)
-    const tasksSectionElement = page.getByTestId("azi-tasks");
-    const hasTasksSection = (await tasksSectionElement.count()) > 0;
+    // The task due today is on screen, so the day is never reported as empty.
+    await expect(page.getByTestId("azi-tasks")).toContainText(taskTitle);
+    expect(await page.locator("body").textContent()).not.toContain("Nimic de făcut azi.");
 
-    // Verify no call rows exist (or very few)
-    const callRows = page.getByTestId("azi-row");
-    const hasNoCallRows = (await callRows.count()) === 0;
-
-    // When tasks exist and there are no calls, verify the message is shown
-    const pageContent = await page.locator("body").textContent();
-    expect(pageContent).toContain("Niciun apel de făcut azi.");
-    expect(pageContent).not.toContain("Nimic de făcut azi.");
+    // The shared test database may hold calls from other specs, so the calls card
+    // wording is only checked when no call row is on screen. The three wordings are
+    // proved without any data in tests/e2e/azi-empty-title.spec.ts.
+    if ((await page.getByTestId("azi-row").count()) === 0) {
+      expect(await page.locator("body").textContent()).toContain("Niciun apel de făcut azi.");
+    }
 
     await rest.api.dispose();
   });
