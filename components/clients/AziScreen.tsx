@@ -118,7 +118,7 @@ export function AziScreen({
         ) : null}
 
         {rows.length === 0 ? (
-          <EmptyState title={tasks === null ? "Nimic de făcut azi." : "Niciun apel de făcut azi."} />
+          <EmptyState title={tasks === null || tasks.length === 0 ? "Nimic de făcut azi." : "Niciun apel de făcut azi."} />
         ) : (
           <Table>
             <thead>
