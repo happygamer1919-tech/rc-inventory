@@ -14,7 +14,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 import { hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import { chisinauToday } from "@/lib/data/format";
-import { listTasksForEntity, tasksVisible } from "@/lib/data/tasks";
+import { listTaskAssigneeChoices, listTasksForEntity, tasksVisible } from "@/lib/data/tasks";
 import { getClient, listClientOwnerChoices } from "@/lib/data/clients";
 import {
   getClientMaterials,
@@ -98,7 +98,7 @@ export default async function ClientDetailPage({
   // clauza 5. UN LEAD SE INTREABA CU TOKENUL `client`, fiindca fisa leadului citeste
   // un rand de client, iar acesta este randul.
   const [tasks, taskAssignees] = tasksOn
-    ? await Promise.all([listTasksForEntity("client", id), listClientOwnerChoices()])
+    ? await Promise.all([listTasksForEntity("client", id), listTaskAssigneeChoices()])
     : [null, []];
 
   return (

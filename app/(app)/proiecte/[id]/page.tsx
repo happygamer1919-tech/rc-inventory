@@ -13,8 +13,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 import { hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import { chisinauToday } from "@/lib/data/format";
-import { listTasksForEntity, tasksVisible } from "@/lib/data/tasks";
-import { listClientOwnerChoices } from "@/lib/data/clients";
+import { listTaskAssigneeChoices, listTasksForEntity, tasksVisible } from "@/lib/data/tasks";
 import {
   getProject,
   getProjectHistory,
@@ -115,7 +114,7 @@ export default async function ProjectDetailPage({
   // vizibila si amandoua odata. Citirea este listTasksForEntity, scrisa de cardul
   // P3-130 pentru chiar acest panou: NICIO INTEROGARE NOUA, clauza 5.
   const [tasks, taskAssignees] = tasksOn
-    ? await Promise.all([listTasksForEntity("project", id), listClientOwnerChoices()])
+    ? await Promise.all([listTasksForEntity("project", id), listTaskAssigneeChoices()])
     : [null, []];
 
   return (

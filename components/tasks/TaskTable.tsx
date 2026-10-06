@@ -49,6 +49,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { formatDate } from "@/lib/data/format";
+import { assigneeLabel } from "@/lib/data/tasks-map";
 import { ALL_TASK_GROUPS, isTaskOverdue, taskGroup } from "@/lib/data/tasks-shape";
 import {
   TASK_ENTITY_TYPE_LABEL,
@@ -232,7 +233,7 @@ export function TaskTable({
                   </Td>
 
                   <Td data-label={TASK_HEADERS[4]} className={PHONE_CELL}>
-                    <span data-testid="task-assignee">{task.assigneeName ?? "Nealocată"}</span>
+                    <span data-testid="task-assignee">{assigneeLabel(task)}</span>
                   </Td>
 
                   {/* CLAUZA 2 A CARDULUI P3-131: INREGISTRAREA LEGATA ESTE O
