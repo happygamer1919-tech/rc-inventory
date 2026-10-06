@@ -180,6 +180,32 @@
   },
   "cards": [
     {
+      "id": "P3-168",
+      "title": "The lead import never writes the file-wide source onto an existing client unless the check step listed it.",
+      "plain": "Importul de leaduri nu mai scrie sursa aleasă pentru tot fișierul pe un client existent, decât dacă pasul Verifică a arătat-o.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-101",
+        "P3-115"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/lead-import-source-fill.spec.ts` green in this pull request's quality run on the head sha, including the case `dublat completat: sursa implicita nu se scrie pe clientul existent` and the case `rand nou fara sursa: primeste sursa implicita`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Sursa implicită rămâne pentru leadurile noi. Un rând care are propria coloană de sursă se completează ca până acum. Fără migrare.",
+      "last_checkpoint": "2026-10-05T21:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-168 against main: its quality run on the head sha will run tests/e2e/lead-import-source-fill.spec.ts and report the named test cases green; report in docs/reports/2026-10-05-executor-lead-import-source-fill.md",
+        "at": "2026-10-05T21:00:00Z"
+      },
+      "notes": null
+    },
+    {
       "id": "EXT-08",
       "title": "The four sample documents are served on signed URLs whose three failure paths hold a fixed contract, proved against the storage layer rather than reported from its documentation.",
       "plain": "Andre can now download the four test documents from our system, and when a download link stops working he is told which of three things went wrong: the link ran out of time, the link is broken, or the file is not there. Before this, all three looked identical to him, so a link that had simply expired was indistinguishable from a system fault.",
