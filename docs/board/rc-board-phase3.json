@@ -5495,6 +5495,31 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken, the next id was taken by an open pull request while this one was built, P3-170 was the next free one. Migration number 0072 because 0071 is carried by the open pull request for the walk-in buyer card. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
+      "id": "P3-185",
+      "title": "Client import instructions state the duplicate rule the import really follows: clientImportInstructions in lib/data/client-import-types.ts still said Un rând se consideră dublat după Email. The code after P3-164 also matches a row without an email on name plus phone. The instruction is corrected to match the code: Un rând se consideră dublat după Email, iar când rândul nu are Email, după Denumire împreună cu Telefon. A unit test assertion verifies the instruction mentions both email and phone. No migration, no route changes, no import logic changes.",
+      "plain": "Instrucțiunea de import pentru clienți spune regula corectă pe care o urmărește importul: după email dacă are email, după nume și telefon dacă nu are email.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-164"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/client-import-instructions.test.ts is green in this pull request's quality run on the head sha: the named case `client import instructions mention both email and phone for dedup rule` passes. (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0.",
+      "defaults": "RULE (clientImportInstructions reads: Un rând se consideră dublat după Email, iar când rândul nu are Email, după Denumire împreună cu Telefon. Un dublat nu se șterge și nu se suprascrie niciodată: ori se sare peste el, ori i se completează numai câmpurile goale.). The named fields are EMAIL, DENUMIRE and TELEFON, matching the import template exactly. The namePhoneKey logic (both name and phone required for a match when no email) and the dedup matching (email first, then name+phone) are not changed. No migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T14:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-instructions-dedup-text against main: its quality run on the head sha runs tests/client-import-instructions.test.ts; report in docs/reports/2026-10-06-executor-import-instructions-dedup-text.md",
+        "at": "2026-10-06T14:30:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. P3-164 is the card that added the name+phone fallback rule and changed what the import does. This instruction text was not updated then, so it still said email-only."
     }
   ]
 }
