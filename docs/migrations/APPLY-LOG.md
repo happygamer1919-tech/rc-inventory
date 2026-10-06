@@ -67,6 +67,7 @@ The format is machine-read, so keep it exactly:
 - `0069_unassigned_issue_count_walkin.sql`, card de aplicare P3-152
 - `0070_outbound_lines_active_account.sql`, card de aplicare P3-138
 - `0071_client_material_summary_walkin.sql`, card de aplicare P3-159
+- `0072_batches_status_history_active_account.sql`, card de aplicare P3-179
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
