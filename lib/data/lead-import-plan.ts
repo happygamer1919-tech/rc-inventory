@@ -38,6 +38,7 @@ export const FILL_FIELDS = [
   "source",
   "ownerId",
   "nextAction",
+  "nextActionDate",
   "notes",
   "address",
   "fiscalCode",
