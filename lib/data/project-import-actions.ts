@@ -24,6 +24,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createProjectRecord } from "./project-actions";
+import { loadOrRefuse, readAllRows, readFailedMessage } from "./import-clients-read";
 import type { ActionResult } from "./inbound-types";
 import {
   PROJECT_IMPORT_FIELDS,
@@ -79,27 +80,19 @@ function readMapping(raw: (ProjectImportField | null)[]): ProjectImportColumnMap
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-/** PostgREST taie un raspuns la 1000 de randuri, deci tabelele se citesc pe
- *  pagini: un dublat peste primul 1000 nu trebuie sa scape planului. */
-const PAGE = 1000;
+/** Tabelele se citesc pe pagini (PostgREST taie la 1000 de randuri). O citire
+ *  care esueaza arunca ImportReadError, nu intoarce o lista pe jumatate citita. */
+const READ_FAILED = {
+  clients: readFailedMessage("clienții"),
+  projects: readFailedMessage("proiectele existente"),
+};
 
 async function readAll(
   supabase: Supabase,
   table: "clients" | "projects",
   columns: string,
 ): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(columns)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error || !data) break;
-    rows.push(...(data as unknown as Record<string, unknown>[]));
-    if (data.length < PAGE) break;
-  }
-  return rows;
+  return readAllRows(supabase, table, columns, READ_FAILED[table]);
 }
 
 async function loadClients(supabase: Supabase): Promise<ClientChoice[]> {
@@ -147,11 +140,15 @@ export async function planProjectImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
+  const loaded = await loadOrRefuse(async () => ({
+    clients: await loadClients(supabase),
+    existing: await loadExisting(supabase),
+  }));
+  if (!loaded.ok) return { ok: false, message: loaded.message };
   const { plan } = buildProjectPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
-    clients: await loadClients(supabase),
-    existing: await loadExisting(supabase),
+    ...loaded.value,
   });
 
   return { ok: true, value: plan };
@@ -217,11 +214,15 @@ export async function runProjectImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
+  const loaded = await loadOrRefuse(async () => ({
+    clients: await loadClients(supabase),
+    existing: await loadExisting(supabase),
+  }));
+  if (!loaded.ok) return { ok: false, message: loaded.message };
   const { plan, prepared } = buildProjectPlan({
     rows: request.rows,
     mapping: readMapping(request.mapping),
-    clients: await loadClients(supabase),
-    existing: await loadExisting(supabase),
+    ...loaded.value,
   });
 
   let created = 0;

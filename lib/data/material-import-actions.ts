@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createProduct } from "./product-actions";
 import { productHasMovements } from "./product-movement";
+import { loadOrRefuse, readAllRows, readFailedMessage } from "./import-clients-read";
 import type { ActionResult } from "./inbound-types";
 import {
   MATERIAL_IMPORT_FIELDS,
@@ -80,26 +81,19 @@ function readMapping(raw: (MaterialImportField | null)[]): MaterialImportColumnM
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-/** PostgREST taie un raspuns la 1000 de randuri, deci tabelele se citesc pe pagini. */
-const PAGE = 1000;
+/** Tabelele se citesc pe pagini (PostgREST taie la 1000 de randuri). O citire
+ *  care esueaza arunca ImportReadError, nu intoarce o lista pe jumatate citita. */
+const READ_FAILED = {
+  categories: readFailedMessage("categoriile"),
+  products: readFailedMessage("produsele existente"),
+};
 
 async function readAll(
   supabase: Supabase,
   table: "categories" | "products",
   columns: string,
 ): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(columns)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error || !data) break;
-    rows.push(...(data as unknown as Record<string, unknown>[]));
-    if (data.length < PAGE) break;
-  }
-  return rows;
+  return readAllRows(supabase, table, columns, READ_FAILED[table]);
 }
 
 async function loadCategories(supabase: Supabase): Promise<CategoryChoice[]> {
@@ -167,8 +161,9 @@ export async function planMaterialImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const { plan } = await buildPlan(supabase, request);
-  return { ok: true, value: plan };
+  const built = await loadOrRefuse(() => buildPlan(supabase, request));
+  if (!built.ok) return { ok: false, message: built.message };
+  return { ok: true, value: built.value.plan };
 }
 
 /**
@@ -219,7 +214,9 @@ export async function runMaterialImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const { plan, prepared } = await buildPlan(supabase, request);
+  const built = await loadOrRefuse(() => buildPlan(supabase, request));
+  if (!built.ok) return { ok: false, message: built.message };
+  const { plan, prepared } = built.value;
 
   let created = 0;
   let filled = 0;
