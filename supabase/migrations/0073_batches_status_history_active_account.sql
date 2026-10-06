@@ -1,4 +1,4 @@
--- 0074_batches_status_history_active_account.sql
+-- 0073_batches_status_history_active_account.sql
 -- RC Inventory phase 3, card P3-179. Found by the bug check of 2026-10-04.
 --
 -- WHAT IT CHANGES: four row level security policies, each dropped and created

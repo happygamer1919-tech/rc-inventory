@@ -9203,7 +9203,7 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### A fix closed on one table leaves its siblings open until someone greps them
 **Tag:** security
 **ERROR:** 0067 closed `outbound_issues` and 0070 closed `outbound_lines` for a deactivated account, but `batches` and `status_history` kept 0001's `to authenticated using (true)` select and insert policies. A deactivated account with a valid token could insert a batch over PostgREST (stock is batches minus outbound lines, so stock rose) and read or add history rows. The P3-138 pull request title also said "migration 0069" for a file named 0070, so a brief that copied the title pointed at the wrong file.
-**SOLUTION:** card P3-179, migration 0074 (first numbered 0072, renamed when 0072 was taken by P3-170), puts `public.current_app_role() is not null` on the four policies; the remaining open stock tables (inbound_orders, order_lines, reminders) are card P3-180. RULE: **when closing one table, grep `using (true)` and `with check (true)` across every migration in the same change and file a card for each table left open; name a migration by its file, never by a title.**
+**SOLUTION:** card P3-179, migration 0073 (first numbered 0072, renamed when 0072 was taken by P3-170), puts `public.current_app_role() is not null` on the four policies; the remaining open stock tables (inbound_orders, order_lines, reminders) are card P3-180. RULE: **when closing one table, grep `using (true)` and `with check (true)` across every migration in the same change and file a card for each table left open; name a migration by its file, never by a title.**
 
 ### One foreign letter turned a whole Romanian CSV into Cyrillic
 **Tag:** data
