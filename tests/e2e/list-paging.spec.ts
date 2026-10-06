@@ -129,6 +129,7 @@ test("P3-142: citirea de stoc a paginii cere cu `.in` numai cele 50 de id-uri, n
               scope = values;
               return query;
             },
+            eq: () => query,
             order: () => query,
             range: () => query,
             then(resolve, reject) {
