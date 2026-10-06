@@ -88,9 +88,9 @@ function readMapping(raw: (ClientImportField | null)[]): ClientImportColumnMappi
 /**
  * Clientii deja stocati, redusi la ce trebuie pentru a recunoaste un dublat.
  *
- * CHEIA DE DUBLARE ESTE EMAILUL SINGUR (clauza 5 a cardului), deci numai coloana
- * email se citeste pentru potrivire; restul coloanelor citite sunt pentru
- * `empty`, adica ce se poate completa.
+ * CHEIA DE DUBLARE ESTE EMAILUL; un client fara email se potriveste dupa nume
+ * si telefon. Restul coloanelor citite sunt pentru `empty`, adica ce se poate
+ * completa.
  */
 async function loadExisting(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -136,6 +136,7 @@ async function loadExisting(
       id: row.id as string,
       name: row.name ?? "",
       emailKey: normaliseEmail(value("email")),
+      phone: value("phone"),
       empty,
     };
   });

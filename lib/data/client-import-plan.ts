@@ -1,10 +1,11 @@
 // P3-123, Item 3 al lui Ivan. CE SE VA INTAMPLA CU FIECARE RAND DE CLIENT,
 // INAINTE SA SE SCRIE CEVA.
 //
-// ACELASI TIPAR CA lib/data/lead-import-plan.ts, cardul P3-101, cu O SINGURA
-// DIFERENTA DE REGULA: CHEIA DE DUBLARE ESTE EMAILUL SINGUR (clauza 5 a cardului
-// P3-123), nu telefon-sau-email ca la leaduri. Un rand fara email nu se poate
-// dubla cu nimic si intra mereu ca nou.
+// ACELASI TIPAR CA lib/data/lead-import-plan.ts, cardul P3-101. CHEIA DE DUBLARE
+// ESTE EMAILUL (clauza 5 a cardului P3-123). Un rand FARA email se potriveste
+// dupa nume si telefon impreuna; un rand fara email si fara telefon nu se poate
+// dubla cu nimic si intra mereu ca nou. Un rand cu email nu se potriveste
+// niciodata dupa nume si telefon.
 //
 // DUBLATUL SE CAUTA IN DOUA LOCURI SI AMANDOUA CONTEAZA: printre clientii deja
 // stocati, si printre randurile de mai sus DIN ACELASI FISIER, cu fisierul
@@ -46,6 +47,8 @@ export type ExistingClient = {
   id: string;
   name: string;
   emailKey: string | null;
+  /** Telefonul stocat, pentru potrivirea dupa nume si telefon a randurilor fara email. */
+  phone?: string;
   /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge. */
   empty: ClientFillField[];
 };
@@ -62,6 +65,8 @@ export type PlanEntry =
       name: string;
       against: DuplicateTarget;
       fillable: ClientFillField[];
+      /** Absent inseamna email. */
+      matchedBy?: "namePhone";
     }
   | { kind: "error"; line: number; reason: string; raw: string[] };
 
@@ -76,9 +81,28 @@ export type DuplicateChoice = "skip" | "fill";
 export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
+  const by = entry.matchedBy === "namePhone" ? "Același nume și telefon" : "Dublat după email";
   return entry.against.kind === "stored"
-    ? `Dublat după email cu "${entry.against.name}", care există deja.`
-    : `Dublat după email cu rândul ${entry.against.line} din același fișier.`;
+    ? `${by} cu "${entry.against.name}", care există deja.`
+    : `${by} cu rândul ${entry.against.line} din același fișier.`;
+}
+
+/** Numele fara diferente de spatii sau de litere mari, cu diacriticele pastrate. */
+function nameKey(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("ro");
+}
+
+/** Ultimele 8 cifre: 069123456 si +373 69 123 456 sunt acelasi numar. */
+function phoneKey(phone: string): string | null {
+  const digits = phone.replace(/\D/g, "");
+  return digits === "" ? null : digits.slice(-8);
+}
+
+/** Cheia pentru randurile fara email; fara nume sau fara telefon nu exista cheie. */
+export function namePhoneKey(name: string, phone: string): string | null {
+  const n = nameKey(name);
+  const p = phoneKey(phone);
+  return n === "" || p === null ? null : `${n}|${p}`;
 }
 
 const FILL_FIELD_LABEL: Record<ClientFillField, string> = {
@@ -148,7 +172,15 @@ export function buildClientPlan(input: {
     if (client.emailKey && !storedByEmail.has(client.emailKey)) storedByEmail.set(client.emailKey, client);
   }
 
+  const storedByNamePhone = new Map<string, ExistingClient>();
+  for (const client of input.existing) {
+    if (client.emailKey) continue;
+    const key = namePhoneKey(client.name, client.phone ?? "");
+    if (key && !storedByNamePhone.has(key)) storedByNamePhone.set(key, client);
+  }
+
   const fileByEmail = new Map<string, { line: number; name: string }>();
+  const fileByNamePhone = new Map<string, { line: number; name: string }>();
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, PreparedWithOwnerId>();
@@ -164,8 +196,14 @@ export function buildClientPlan(input: {
     prepared.set(row.line, client);
     const given = filledFields(client);
     const emailKey = client.email || null;
+    const npKey = emailKey ? null : namePhoneKey(client.name, client.phone);
+    const matchedBy = npKey ? ({ matchedBy: "namePhone" } as const) : {};
 
-    const fileMatch = emailKey ? fileByEmail.get(emailKey) : undefined;
+    const fileMatch = emailKey
+      ? fileByEmail.get(emailKey)
+      : npKey
+        ? fileByNamePhone.get(npKey)
+        : undefined;
     if (fileMatch) {
       const earlier = prepared.get(fileMatch.line);
       const fillable = earlier ? emptyFields(earlier).filter((field) => given.has(field)) : [];
@@ -175,12 +213,17 @@ export function buildClientPlan(input: {
         name: client.name,
         against: { kind: "file", line: fileMatch.line, name: fileMatch.name },
         fillable,
+        ...matchedBy,
       });
       counts.duplicate += 1;
       continue;
     }
 
-    const storedMatch = emailKey ? storedByEmail.get(emailKey) : undefined;
+    const storedMatch = emailKey
+      ? storedByEmail.get(emailKey)
+      : npKey
+        ? storedByNamePhone.get(npKey)
+        : undefined;
     if (storedMatch) {
       entries.push({
         kind: "duplicate",
@@ -188,12 +231,14 @@ export function buildClientPlan(input: {
         name: client.name,
         against: { kind: "stored", id: storedMatch.id, name: storedMatch.name },
         fillable: storedMatch.empty.filter((field) => given.has(field)),
+        ...matchedBy,
       });
       counts.duplicate += 1;
       continue;
     }
 
     if (emailKey) fileByEmail.set(emailKey, { line: row.line, name: client.name });
+    else if (npKey) fileByNamePhone.set(npKey, { line: row.line, name: client.name });
     entries.push({ kind: "new", line: row.line, name: client.name });
     counts.fresh += 1;
   }
