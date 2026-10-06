@@ -802,8 +802,16 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
 
   // UN CLIENT CRM OBISNUIT SI NU UN FEL DEOSEBIT, R-215: apare in Clienți, se
   // poate deschide, si de acolo se poate modifica si dezactiva ca oricare altul.
-  await page.goto("/clienti");
-  await page.getByTestId("clients-search").fill(newClient);
+  //
+  // P3-172. CU FILTRUL VEDERII, nu pe /clienti gol. Pana la P3-172 cazul deschidea
+  // lista fara vedere, care arata toate etapele, si trecea si cand cumparatorul
+  // fusese salvat `cold` si statea printre Leaduri. Vederea Clienți arata numai
+  // etapa `client`, deci acum cazul pica pe exact acel defect.
+  await page.goto(`/clienti?vedere=clienti&q=${encodeURIComponent(newClient)}`);
+  await expect(page.getByTestId("view-clienti"), "vederea Clienți este cea aleasa").toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   const row = page.locator(`[data-testid="client-row"][data-name="${newClient}"]`);
   await expect(row, "clientul creat din Iesiri este un rand obisnuit in Clienți").toHaveCount(1, {
     timeout: 25_000,
@@ -827,10 +835,87 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
   expect(issue.project_id, "o iesire catre client direct nu are proiect").toBeNull();
   expect(issue.pickup_date, "ziua ridicarii este cea tastata romaneste").toBe("2026-12-02");
 
-  const clients = await asService(`clients?select=name&id=eq.${String(issue.client_id ?? "")}`);
+  const clients = await asService(`clients?select=name,stage&id=eq.${String(issue.client_id ?? "")}`);
   expect(String(clients.rows[0]?.name ?? ""), "clientul iesirii este chiar randul creat").toBe(
     newClient,
   );
+  // P3-172. Etapa stocata este `client`, citita din rand si nu de pe ecran.
+  expect(String(clients.rows[0]?.stage ?? ""), "cumparatorul de la tejghea este client").toBe("client");
+});
+
+/** P3-172. Cifra de pe pastila Leaduri, de pe pagina data. */
+async function leadCount(page: Page, path: string): Promise<number> {
+  await page.goto(path);
+  const count = page.getByTestId("view-leaduri").getByTestId("view-count");
+  await expect(count).toHaveText(/^\d+$/, { timeout: 25_000 });
+  return Number((await count.innerText()).trim());
+}
+
+test("iesire client direct: un client nou creat din ecran nu apare printre Leaduri si numarul de leaduri nu creste", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // P3-172. JUMATATEA A DOUA A DEFECTULUI. Cumparatorul salvat `cold` aparea in
+  // Leaduri ca Lead rece si marea cifra de pe pastila. Un nume unic pe caz, `L`,
+  // pentru acelasi motiv scris la cazul (c).
+  const newClient = `${TAG}-L nou client`;
+
+  await signIn(page, ownerAccount());
+  const leadsBefore = await leadCount(page, "/clienti");
+
+  await chooseDirectClient(page);
+  await page.getByTestId("client-create-open").click();
+  await expect(page.getByTestId("client-create-form")).toBeVisible();
+  await page.getByTestId("client-create-name").fill(newClient);
+  await page.getByTestId("client-create-type").selectOption("individual");
+  await page.getByTestId("client-create-save").click();
+  await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
+  await expect(page.getByTestId("field-client").locator("input")).toHaveValue(newClient);
+
+  // 1. NU ESTE IN VEDEREA LEADURI, cautat dupa numele lui.
+  const q = encodeURIComponent(newClient);
+  await page.goto(`/clienti?vedere=leaduri&q=${q}`);
+  await expect(page.getByTestId("view-leaduri")).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-testid="client-row"][data-name="${newClient}"]`),
+    "cumparatorul de la tejghea nu este un lead",
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("view-leaduri").getByTestId("view-count"),
+    "cautat dupa nume, nu numara niciun lead",
+  ).toHaveText("0");
+
+  // MARTORUL: acelasi nume, in vederea Clienți, da exact un rand. Fara el, cazul ar
+  // trece si pe o cautare care nu gaseste nimic.
+  await page.goto(`/clienti?vedere=clienti&q=${q}`);
+  await expect(
+    page.locator(`[data-testid="client-row"][data-name="${newClient}"]`),
+    "acelasi nume este in vederea Clienți",
+  ).toHaveCount(1, { timeout: 25_000 });
+
+  // 2. NUMARUL DE LEADURI NU A CRESCUT.
+  expect(await leadCount(page, "/clienti"), "numarul de leaduri este acelasi").toBe(leadsBefore);
+
+  // 3. Si randul stocat este `client`.
+  const stored = await asService(`clients?select=stage&name=eq.${q}`);
+  expect(stored.ok, `clientul nu s-a putut citi: ${stored.text}`).toBe(true);
+  expect(stored.rows.map((r) => r.stage), "un singur rand, la etapa client").toEqual(["client"]);
+});
+
+test("creare client fara etapa: randul ramane cold, implicitul pe care se bizuie celelalte cai", async () => {
+  // P3-172. CELELALTE CAI DE CREARE NU SE SCHIMBA. createClientRecord nu numeste
+  // `stage` in insert cand apelantul nu trimite o etapa, deci randul ia implicitul
+  // coloanei din migratia 0039. Cazul scrie exact acel insert, cu jetonul
+  // administratorului si prin securitatea pe rand, fara etapa, si citeste `cold`.
+  // Numai formularul de la tejghea trimite acum `client`.
+  const name = `${TAG}-U fara etapa`;
+  const created = await asUser(ownerToken, "clients?select=id,stage", {
+    method: "POST",
+    body: { name, type: "company" },
+  });
+  expect(created.ok, `clientul fara etapa nu a putut fi scris: ${created.status} ${created.text}`).toBe(true);
+  expect(String(created.rows[0]?.stage ?? ""), "un client creat fara etapa este cold").toBe("cold");
 });
 
 /* ------------------------------------------------------------------ (d) -- */

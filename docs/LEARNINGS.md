@@ -9095,6 +9095,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `runClientImport` and `runLeadImport` pushed skipped duplicates and database-refused rows with `raw: []`, so the downloaded file showed only the row number and the reason. `parseCsv` also dropped blank lines before numbering, so every "Rândul N" after a blank line was off against Excel. A client whose stage or contact step failed after the insert came back as a plain refusal, and uploading that row again would have created a second client.
 **SOLUTION:** card P3-155: `parseCsvWithLines` returns the physical line of each row, the sheets send `lines` with the rows, and `rawRowAt` gives every skipped row its original cells. `createClientRecord` returns `saved.clientId` on a failure after the insert, and the import counts that row as created with a warning. RULE: **a row that is reported back to the operator carries everything needed to fix it, and a failure after the insert is never reported as a row that saved nothing.**
 
+### A join on a table the caller cannot read looks like missing data, not an error
+**Tag:** backend
+**ERROR:** the task read joined the assignee's profile, but `profiles_select` (0001) lets only an owner read other people's rows. For an account manager the join returned null without any error, so every task assigned to a colleague showed "Nealocată", the edit form marked the assignee inactive and the Responsabil picker offered only the user. The screen read as "no assignee", which is a different fact from "you may not read the assignee".
+**SOLUTION:** card P3-170, migration 0072: `list_team_members()` is a security definer function returning only id, display name and active flag, for an active caller only; the app reads names from it and keeps the join as a fallback until the migration is applied. "Nealocată" is written only when the task has no assignee. RULE: **when a screen joins a table that row level security narrows by role, test it as the narrowest role; a null from a join is not proof that the row does not exist, and widening the table's read rule is the wrong fix when a three-column function does the job.**
+
+### A choice that swaps the form must be locked while the form is saving
+**Tag:** frontend
+**ERROR:** `OutboundModeChoice` stayed enabled while a slip was saving, and its header comment said no changed choice could reach a request already sent. Changing the mode before the answer came back unmounted the form that was waiting: the issue was saved and stock deducted, but the screen showed an empty form and no confirmation, and the operator could enter the slip twice.
+**SOLUTION:** card P3-144: `OutboundModeChoice` takes `disabled`, both forms pass their own `pending`, and a mode change that arrives while pending is ignored. RULE: **a control that unmounts the component holding an in-flight request is disabled until the request ends; a comment saying it cannot matter is not a proof.**
+
 ### A client summary joined only through projects misses a sale that has no project
 **Tag:** backend
 **ERROR:** `client_material_summary` (0022) reached issue lines through `projects.client_id`. Since 0067 a walk-in sale has no project and names its buyer in `outbound_issues.client_id`, so the buyer Consum materiale tab said nothing was consumed. The brief also said to keep a status filter that the function never had: an outbound issue has no cancelled state.
@@ -9148,9 +9158,78 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### A rule enforced only in the read that hides a button is not enforced
 **Tag:** backend
 **ERROR:** "a walk-in sale is never invoiced" (R-215) lived only in `getIssueInvoiceability`, which keeps the invoice button off a walk-in issue. `saveInvoiceDraft` only checked that `outboundIssueId` was a uuid, and `public.save_invoice_draft` (0064) wrote any issue id it got, so a hand-made request from a signed-in user created a draft invoice tied to a walk-in sale.
-**SOLUTION:** card P3-171: `saveInvoiceDraft` asks the same read through `saveUnlessNeverInvoiceable` (`lib/data/facturare-issue-gate.ts`, no server-only, so a spec can prove the RPC is not called) and refuses only on `neverInvoiceable`; migration 0073 replaces `save_invoice_draft` in place with one check on `issue_mode = 'direct_client'`, raised as P0001 with `direct_client` in the text, which `refusal()` maps to the same Romanian sentence. RULE: **every "never" rule shown on a screen is also enforced in the server action and in the database function that writes; a hidden button is a habit, not a rule.**
+**SOLUTION:** card P3-171: `saveInvoiceDraft` asks the same read through `saveUnlessNeverInvoiceable` (`lib/data/facturare-issue-gate.ts`, no server-only, so a spec can prove the RPC is not called) and refuses only on `neverInvoiceable`; migration 0074 replaces `save_invoice_draft` in place with one check on `issue_mode = 'direct_client'`, raised as P0001 with `direct_client` in the text, which `refusal()` maps to the same Romanian sentence. RULE: **every "never" rule shown on a screen is also enforced in the server action and in the database function that writes; a hidden button is a habit, not a rule.**
 
 ### A PostgREST rpc call is a thenable, not a Promise
 **Tag:** backend
 **ERROR:** passing `() => supabase.rpc(...)` to a helper typed `() => Promise<T>` failed `tsc` with TS2739 (missing `catch`, `finally`), and `T` collapsed to `unknown`.
 **SOLUTION:** type the callback `() => PromiseLike<T>`; `await` works the same. RULE: **a helper that receives a Supabase query takes `PromiseLike`, never `Promise`.**
+### A spec that opened /clienti with no view filter hid a stage bug
+**Tag:** testing
+**ERROR:** the walk-in buyer created with "+ Client nou" on Ieșiri materiale was saved with no stage, so the row took `cold` from migration 0039 and showed under Leaduri as "Lead rece" instead of in the Clienți view. The P3-119 spec still passed, because it searched `/clienti` with no `vedere`, which lists every stage.
+**SOLUTION:** card P3-172: `InlineClientCreate` passes `stage: "client"` to `createClientRecord`, which already accepts only a listed stage and writes it through `set_client_stage`. The spec now opens `/clienti?vedere=clienti`, asserts the pill is pressed, reads the stored stage, and a second case proves the buyer is absent from `vedere=leaduri` and the lead count does not move. RULE: **a spec that proves a row lands in a filtered list opens that list WITH its filter and reads the stored value; the unfiltered list proves only that the row exists.**
+
+### The id the brief named was already taken
+**Tag:** process
+**ERROR:** the brief said to take P3-147; `npm run id:free -- P3-147` reported it CLAIMED by the open pull request #413.
+**SOLUTION:** took P3-172, the id the script named, and re-ran it just before the board commit. RULE: **an id written in a brief is a suggestion; `id:free` decides.**
+
+### A date check that only tests the shape lets an impossible day reach the database
+**Tag:** frontend
+**ERROR:** `isDayString` accepted any `yyyy-mm-dd` text, so `/sarcini?de_la=2026-02-31` went to the database, the `date` column refused it and the page showed the error screen, although the file says an unknown value in the address means no filter. Two more faults on the same screens: with a red date box "Anulează sarcina" stayed clickable but `save()` returned at once (a silent dead button), and the two date filters called `router.push` on every key, because `DateField` sends an empty string for half-typed text.
+**SOLUTION:** card P3-169: `isDayString` round-trips the date through a UTC `Date`; "Anulează sarcina" with a red date is proved to work (main's P3-157 sends only the cancelled state), with a spec; `DateField` gets an opt-in `completeOnly` prop that sends only a whole real day or an empty box, and the two Sarcini filters use it. RULE: **a "valid date" test checks the calendar, not the shape; a control that can refuse a click is disabled, never silent; a field that drives navigation must not report half-typed text.**
+
+### The lead import wrote the file-wide source onto existing clients the check step never listed
+**Tag:** backend
+**ERROR:** the check step plans with no default source, but the import plans with the source picked on the last step. `prepareRow` puts that default on every row without its own source, and `buildPlan` counted it as something the row brings, so a duplicate with "Completează" chosen got the source written on an existing client although the check said only "Adresă".
+**SOLUTION:** card P3-168: in `buildPlan` a row offers `source` to a duplicate only when its own source cell has a value. New leads still get the default. Proved on the pure plan in `tests/e2e/lead-import-source-fill.spec.ts`. RULE: **a default that fills a new record must never count as data the file brought when it merges into an existing record; what is written must equal what the check step listed.**
+
+### An exported projects file did not re-import for deactivated clients or clients sharing a name
+**Tag:** backend
+**ERROR:** the projects export wrote only the client name, and the import resolved the client by name inside the field check. A name shared by two clients was refused as ambiguous, a deactivated client was refused as inactive even when the project already existed, so export then re-import returned error rows instead of "already exists".
+**SOLUTION:** card P3-173: the export adds a last column "Identificator client" with the client id (existing columns and headers untouched). The import reads it as the field `clientId` and resolves the client after the fields are read (`resolveProjectClient`): id first, name only when the cell or column is missing. A deactivated client is found, so an existing project is a duplicate, and `buildProjectPlan` refuses only a new project under it. RULE: **an export that a round trip depends on writes a key the import can match on, not only a display name; a field validator cannot see other cells, so a rule that depends on two columns runs after the fields are read.**
+
+### Inbound orders past 1000 dropped off the list without a message
+**Tag:** data
+**ERROR:** `listInboundOrders` read `inbound_orders` in one request with no paging. PostgREST cuts any list at `max_rows` and does not say so, so past 1000 orders the oldest disappeared from Comenzi and from the home screen's pending arrivals. The P3-136 report named it as a follow-up and it stayed open.
+**SOLUTION:** card P3-178: the read goes through `readAllPages` in a new client-injected file `lib/data/inbound-read.ts`, same order (created_at desc) with id desc last. RULE: **every list read that grows with the client's data goes through `readAllPages`; a follow-up named in a report gets its own task the same day.**
+
+### A scope taken from a first read made the second read wait
+**Tag:** data
+**ERROR:** P3-136 limited the pickers' stock read to the active products' ids, which come from the catalog read, so the stock read started only after the catalog came back: one extra database round trip on Inventar, the home screen and every product picker. The numbers were right, only slower.
+**SOLUTION:** card P3-178: the stock read takes the same filter as the catalog, on the linked product (`products!inner(active)` plus `eq("products.active", true)`), so both start together in `readCatalogWithStock` (`lib/data/catalog-read.ts`). RULE: **when a second read only needs the first one's filter, put the filter in the second request instead of passing it the first one's ids.**
+
+### A stable order does not make offset pages safe while colleagues save
+**Tag:** data
+**ERROR:** the batches and outbound_lines paged reads already ordered by `id`, which is unique, so the suspected unstable order was not the cause. Pages are asked by position and ids are random uuids: a row saved between two pages before the read position pushes the previous page's last row onto the next page. A changed total is caught by `readAllPages`; a save plus a delete in the same window keeps the total, and then one row is read twice (stock counted twice) and one can be skipped.
+**SOLUTION:** card P3-178: `dedupeById` in `lib/data/id-list.ts`, used by the stock read and the inbound read, keeps the first row of each id. A skip in that narrow window is still possible with position paging; only reading by key (`id > last id`) would close it. RULE: **position paging over a table others write to needs a unique last sort key AND duplicate removal; name what can still be skipped.**
+
+### Adding a method to a client-injection type breaks every hand-written fake
+**Tag:** ci
+**ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
+**SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**
+
+### One foreign letter turned a whole Romanian CSV into Cyrillic
+**Tag:** data
+**ERROR:** `decodeCsvFile` chose windows-1251 whenever the 1251 reading had any Cyrillic letter and the 1250 reading had any non-Romanian letter. The 1250 bytes of ă â î ș ț read as Cyrillic in 1251, so the first test is true for almost every Romanian file, and one ü, ä or é (Würth, Kärcher, André) made the second true. "Bălți" became "Bгlюi", no U+FFFD appeared, nothing was refused.
+**SOLUTION:** card P3-182: count Romanian letters and foreign letters in the 1250 reading and pick 1251 only when the foreign ones are more and the 1251 reading has Cyrillic. RULE: **an encoding guess made on "any" of a character class fails on mixed files; decide by majority, and test with a file that mixes the main language with one foreign word.**
+
+### A product's movement history stopped silently at 1000 rows while its stock was right
+**Tag:** data
+**ERROR:** `listProductBatches` and `listProductMovements` in `lib/data/products.ts` read `batches` and `outbound_lines` for one product in one request each, with no paging (and the movements read with no order), then sorted in memory. PostgREST cuts any list at `max_rows` and does not say so, so a product with more than 1000 outbound lines showed a history with arbitrary rows missing, possibly the newest, while its stock (paged since P3-136) was correct. The two numbers on the same panel disagreed. Both reads also dropped the query error and showed an empty list.
+**SOLUTION:** card P3-181: both reads go through `readAllPages` in a new client-injected file `lib/data/movements-read.ts`, each page ordered by its date column then `id` desc, duplicate ids dropped with `dedupeById`, and the final sort newest first with `id` as tie breaker. A read error is now the visible error `readAllPages` raises, like every other paged caller. RULE: **a history that must add up to a paged total is itself paged; a per-entity read is not small just because it is filtered to one entity.**
+
+### Outbound lines cannot be paged by the date the screen sorts on
+**Tag:** data
+**ERROR:** the movement history sorts outbound rows by `outbound_issues.issued_at`, a column of the embedded parent. PostgREST orders the top-level rows only by their own columns (an `order` on a referenced table orders the embedded rows, not the parents), so `issued_at` cannot be the page order of `outbound_lines`.
+**SOLUTION:** card P3-181: pages of `outbound_lines` are ordered by the line's own `created_at` then `id`, which is stable, and the displayed order comes from the final in-memory sort on `issued_at` then `id`, after every page is in. RULE: **page order only has to be stable and unique; display order can be applied after the last page.**
+
+### The product panel waits forever if its detail read throws
+**Tag:** frontend
+**ERROR:** found in passing, not fixed (out of scope): `components/inventory/ProductPanel.tsx` calls `loadProductDetail(...).then(...)` with no `catch`. Since P3-181 a failed batches or movements read raises instead of returning an empty list, so in that failure case the panel would stay on its loading state instead of showing an error.
+**SOLUTION:** none in this card. A follow-up card should add a `catch` that shows a Romanian error message in the panel. RULE: **when a read changes from swallowing an error to raising it, look at every caller's failure path in the same card and name what is left.**
+
+### A paging loop that breaks on error returns a half-read list
+**Tag:** data
+**ERROR:** `readAll` in `lib/data/project-import-actions.ts` and `lib/data/material-import-actions.ts` did `if (error || !data) break` and returned the pages read so far. A failed read of clients or categories refused every row as an unknown client or category; a failed read of projects or products marked every row as new, so the duplicate check and fill choices vanished. P3-151 had fixed the same loop for the client and lead imports only.
+**SOLUTION:** card P3-183: both files read through `readAllRows` in `lib/data/import-clients-read.ts`, which throws `ImportReadError` with a Romanian message per table, and the four import actions return it through `loadOrRefuse` so nothing is written. RULE: **when a bug is fixed in one copy of a loop, search for the other copies in the same card, or move them onto the shared helper.**

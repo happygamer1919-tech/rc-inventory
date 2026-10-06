@@ -116,16 +116,37 @@ export async function createOutboundIssue(
   const refusal = validateNewIssue({ ...input, mode });
   if (refusal) return { ok: false, message: refusal.message, field: refusal.field };
 
-  const lines = input.lines
-    .map((l) => ({
-      product_id: l.productId.trim(),
-      quantity: Number(String(l.quantity).replace(",", ".")),
-      sale_price_mdl:
-        String(l.salePriceMdl).trim() === ""
-          ? null
-          : Number(String(l.salePriceMdl).replace(",", ".")),
-    }))
-    .filter((l) => l.product_id.length > 0 && Number.isFinite(l.quantity) && l.quantity > 0);
+  // P3-148: check for half-filled lines (product without quantity or vice versa) before filtering
+  const processedLines = input.lines.map((l) => ({
+    product_id: l.productId.trim(),
+    quantity: Number(String(l.quantity).replace(",", ".")),
+    sale_price_mdl:
+      String(l.salePriceMdl).trim() === ""
+        ? null
+        : Number(String(l.salePriceMdl).replace(",", ".")),
+  }));
+
+  // P3-148: O POZITIE UMPLUTA PE JUMATATE NU TRECE. Exact cum ecranul o refuza cu
+  // un mesaj pe rand, serverul refuza aceeasi intrare pentru orice alt apelant care
+  // nu este formularul. Nu este o dublare: ecranul ii spune operatorului de pe
+  // tejghea, serverul apara baza pentru toti. Jumatate umplut inseamna: (1) productId
+  // scris dar quantity absent/zero/NaN, SAU (2) quantity scris dar productId absent.
+  // Un rand complet gol NU este jumatate umplut.
+  const halfFilled = processedLines.find(
+    (l) =>
+      (l.product_id.length > 0 && (!Number.isFinite(l.quantity) || l.quantity <= 0)) ||
+      (l.product_id.length === 0 && Number.isFinite(l.quantity) && l.quantity > 0),
+  );
+  if (halfFilled)
+    return {
+      ok: false,
+      message: "Un rând are produs fără cantitate sau invers. Completați ambele sau ștergeți rândul.",
+      field: "lines",
+    };
+
+  const lines = processedLines.filter(
+    (l) => l.product_id.length > 0 && Number.isFinite(l.quantity) && l.quantity > 0,
+  );
 
   if (lines.length === 0)
     return {

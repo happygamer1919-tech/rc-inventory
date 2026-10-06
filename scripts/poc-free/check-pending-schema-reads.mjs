@@ -190,6 +190,15 @@ const TOLERATED_WORDS = {
   'lib/data/tasks-types.ts': {
     description: 'campul `description` al unei sarcini, un modul de tipuri si etichete fara nicio citire; fisierul nu cheama nicio tabela.',
   },
+  // P3-170. MAPAREA RANDULUI DE SARCINA, mutata din lib/data/tasks.ts intr-un modul fara
+  // server ca specificatia sa o poata citi fara baza de date. Acelasi motiv ca la
+  // tasks-types.ts: cuvantul `description` este campul descrierii unei sarcini, iar
+  // coloana in asteptare cu acest nume este extraction_draft_lines.description din
+  // 0053. Fisierul nu cheama nicio tabela si nu trimite nicio interogare: citirea
+  // reala sta in lib/data/tasks.ts, care importa si foloseste hasTasks.
+  'lib/data/tasks-map.ts': {
+    description: 'campul `description` al unei sarcini, o functie pura de mapare a unui rand deja citit; fisierul nu cheama nicio tabela.',
+  },
   // P3-131, goal G73, Item 4 al lui Ivan, partea a doua. FORMULARUL SARCINII, pentru
   // exact acelasi motiv pe care il scrie grupul de mai sus: cuvantul `description`
   // este campul descrierii unei sarcini din formular, iar coloana in asteptare cu

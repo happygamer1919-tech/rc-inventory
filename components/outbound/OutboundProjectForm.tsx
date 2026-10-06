@@ -159,11 +159,38 @@ export function OutboundProjectForm({
     return m;
   }, [filled]);
 
+  // P3-148. O POZITIE UMPLUTA PE JUMATATE NU SE MAI PIERDE IN TACERE. Filtrul de mai
+  // sus trimite catre server doar randurile cu produs SI cantitate pozitiva, iar
+  // singura plangere despre pozitii aparea cand TOATE randurile cadeau. Operatorul
+  // care umplea trei pozitii din patru si lasa cantitatea celei de a patra goala
+  // primea ecranul de reusita, iar pozitia a patra disparea fara un cuvant: singura
+  // urma era numarul din linia de reusita, pe care nimeni nu are motiv sa il verifice.
+  //
+  // Jumatate umplut inseamna EXACT UNUL dintre cele doua campuri prezent. Un rand
+  // complet gol NU este o pozitie umpluta pe jumatate: operatorul poate adauga un
+  // rand si sa nu il foloseasca, iar acela nu opreste salvarea. Indicele este
+  // chiar indicele cu care se deseneaza tabelul mai jos, deci "Poziția N" din
+  // mesaj este pozitia a N-a numarata de sus pe ecran.
+  const halfFilledProblems = lines
+    .map((l, index) => {
+      const hasProduct = Boolean(l.productId);
+      const hasQuantity = Number(l.quantity) > 0;
+      if (hasProduct === hasQuantity) return null;
+      return hasProduct
+        ? `Rândul ${index + 1}: completați cantitatea sau ștergeți rândul.`
+        : `Rândul ${index + 1}: completați produsul sau ștergeți rândul.`;
+    })
+    .filter((m): m is string => m !== null);
+
   const problems: string[] = [];
   // OBLIGATORIU DIN ACEST CARD INAINTE. Asa se opreste multimea de randuri fara
   // proiect din a mai creste, cat timp cele vechi sunt reconciliate de mana.
   if (!project) problems.push("Alege proiectul.");
-  if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
+  if (halfFilledProblems.length > 0) {
+    // Mesajul general de mai jos ramane pentru cazul in care nu exista nicio
+    // pozitie de numit; cand exista una, numele ei spune mai mult decat el.
+    problems.push(...halfFilledProblems);
+  } else if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
   for (const [productId, wanted] of wantedByProduct) {
     const p = byId.get(productId);
     if (p && wanted > p.stock) {
@@ -325,7 +352,14 @@ export function OutboundProjectForm({
       <div className="space-y-4" data-testid="outbound-form">
         {/* P3-119 clauza 1: ALEGEREA VINE PRIMA. Singurul rand de JSX adaugat in
             acest fisier. */}
-        <OutboundModeChoice value={mode} onChange={onModeChange} />
+        <OutboundModeChoice
+          value={mode}
+          onChange={(next) => {
+            // P3-144: si fara `disabled`, o schimbare sosita in timpul trimiterii nu se aplica.
+            if (!pending) onModeChange(next);
+          }}
+          disabled={pending}
+        />
 
         <Card>
           <CardHeader title="Destinație" hint="Către ce șantier pleacă materialul" />

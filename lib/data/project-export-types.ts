@@ -5,14 +5,16 @@
 // si exportul. Randurile se scriu prin `buildCsv`, scriitorul comun din import-shared.ts
 // (cardul P3-121), cu BOM si cu ghilimelele puse de acelasi cod ca la sablon.
 //
-// CLIENTUL SE SCRIE DUPA DENUMIRE, NICIODATA DUPA ID. Importul potriveste celula Client cu
-// denumirea clientului (clientNameKey, project-import-plan.ts), iar un nume necunoscut este
-// eroare de rand. Un fisier cu id-uri ar arata bine si ar cadea pe fiecare rand.
+// CLIENTUL SE SCRIE DUPA DENUMIRE, IN COLOANA Client, SI DUPA ID, IN COLOANA DE LA COADA.
+// Celula Client ramane denumirea (fisierele vechi si cele scrise de mana o potrivesc dupa
+// nume), iar coloana "Identificator client" poarta id-ul: importul il potriveste PRIMUL, deci
+// doi clienti cu aceeasi denumire sau un client dezactivat se reimporta fara eroare.
 //
 // NICIO MONEDA, NICIO UNITATE: sablonul nu le are (public.projects tine numai budget_mdl),
 // iar bugetul se scrie in MDL, forma pe care o citeste importul.
 
 import {
+  PROJECT_IMPORT_FIELD_LABEL,
   PROJECT_TEMPLATE_FIELDS,
   IMPORT_MAX_ROWS,
   buildCsv,
@@ -29,16 +31,25 @@ export function projectModelHeaders(): string[] {
   return parseCsv(templateCsv())[0] ?? [];
 }
 
+/** Antetul exportului: cel al modelului, neschimbat, apoi la coada identificatorul clientului. */
+export function projectExportHeaders(): string[] {
+  return [...projectModelHeaders(), PROJECT_IMPORT_FIELD_LABEL.clientId];
+}
+
 /** Un proiect gata de scris in fisier: fiecare camp ca text, sub aceleasi chei ca importul.
- *  Starea este deja eticheta romaneasca, clientul este denumirea lui. */
+ *  Starea este deja eticheta romaneasca, clientul este denumirea lui, iar `clientId` este
+ *  identificatorul lui (importul il potriveste inaintea denumirii). */
 export type ExportProjectRow = Record<Exclude<ProjectImportField, "currency">, string>;
 
-/** Fisierul exportului: antetul modelului, apoi cate un rand pe proiect, coloanele in
- *  ordinea sablonului. */
+/** Fisierul exportului: antetul modelului plus identificatorul clientului la coada, apoi cate
+ *  un rand pe proiect, coloanele in ordinea sablonului. */
 export function projectExportCsv(projects: ExportProjectRow[]): string {
   return buildCsv([
-    projectModelHeaders(),
-    ...projects.map((project) => PROJECT_TEMPLATE_FIELDS.map((field) => project[field])),
+    projectExportHeaders(),
+    ...projects.map((project) => [
+      ...PROJECT_TEMPLATE_FIELDS.map((field) => project[field]),
+      project.clientId,
+    ]),
   ]);
 }
 

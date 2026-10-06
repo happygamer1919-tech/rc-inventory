@@ -396,8 +396,84 @@ test("export proiecte: antetele exportului sunt identice cu antetele modelului d
   const header = parseCsv(exported.text)[0];
   const model = parseCsv(templateCsv())[0];
 
-  expect(header, "antetul exportului, ca lista").toEqual(model);
-  expect(header, "si ca lista scrisa cu mana").toEqual(LABELS);
+  // Coloanele de pana acum, neschimbate, apoi identificatorul clientului la coada.
+  expect(header, "antetul exportului: modelul plus coloana de la coada").toEqual([
+    ...(model ?? []),
+    "Identificator client",
+  ]);
+  expect(header, "si ca lista scrisa cu mana").toEqual([...LABELS, "Identificator client"]);
+});
+
+test("export proiecte: client dezactivat si doi clienti cu aceeasi denumire se reimporta fara erori", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = tagOf("idc");
+
+  const inactiveId = await restInsert(rest, "clients", { name: `${tag} client oprit`, active: false });
+  const twinName = `${tag} client geaman`;
+  const twinOne = await seedClient(rest, twinName);
+  const twinTwo = await seedClient(rest, twinName);
+  const soloId = await seedClient(rest, `${tag} client singur`);
+
+  await restInsert(rest, "projects", { client_id: inactiveId, name: `${tag} la oprit`, status: "active" });
+  await restInsert(rest, "projects", { client_id: twinOne, name: `${tag} la geaman`, status: "active" });
+  await restInsert(rest, "projects", { client_id: twinTwo, name: `${tag} la geaman`, status: "active" });
+  await restInsert(rest, "projects", { client_id: soloId, name: `${tag} la singur`, status: "active" });
+
+  const exported = await exportView(page, { q: tag });
+  const parsed = parseCsv(exported.text);
+  const rows = parsed.slice(1);
+  expect(rows).toHaveLength(4);
+
+  // Coloana de la coada poarta id-ul clientului, nu denumirea.
+  const idCol = PROJECT_TEMPLATE_FIELDS.length;
+  expect(rows.map((r) => r[idCol]).sort()).toEqual([inactiveId, twinOne, twinTwo, soloId].sort());
+
+  // 1. FISIERUL NEATINS: zero erori, fiecare rand este un dublat.
+  await importFile(page, "proiecte-id.csv", exported.text);
+  expect(await countAt(page, "import-count-error"), "zero randuri cu eroare").toBe(0);
+  expect(await countAt(page, "import-count-new")).toBe(0);
+  expect(await countAt(page, "import-count-duplicate")).toBe(4);
+
+  // 2. UN PROIECT NOU LA CLIENTUL DEZACTIVAT SE REFUZA, ca pana acum; la ceilalti se creeaza.
+  const moved = rows.map((row) => {
+    const copy = [...row];
+    copy[col("name")] = copy[col("name")]!.replace("la ", "nou la ");
+    return copy;
+  });
+  await importFile(page, "proiecte-id-nou.csv", csv([parsed[0]!, ...moved]));
+  expect(await countAt(page, "import-count-new")).toBe(3);
+  expect(await countAt(page, "import-count-error")).toBe(1);
+  await expect(page.getByTestId("import-error-row")).toContainText("dezactivat");
+});
+
+test("export proiecte: un fisier vechi, fara coloana de identificator, se importa ca pana acum", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = tagOf("old");
+
+  const soloId = await seedClient(rest, `${tag} client singur`);
+  const twinName = `${tag} client geaman`;
+  const twinOne = await seedClient(rest, twinName);
+  await seedClient(rest, twinName);
+  await restInsert(rest, "projects", { client_id: soloId, name: `${tag} la singur`, status: "active" });
+  await restInsert(rest, "projects", { client_id: twinOne, name: `${tag} la geaman`, status: "active" });
+
+  const exported = await exportView(page, { q: tag });
+  const parsed = parseCsv(exported.text);
+  const idCol = PROJECT_TEMPLATE_FIELDS.length;
+  const oldFormat = parsed.map((row) => row.slice(0, idCol));
+  expect(oldFormat[0]).toEqual(LABELS);
+
+  await importFile(page, "proiecte-vechi.csv", csv(oldFormat));
+  // Clientul cu nume unic se recunoaste dupa nume si proiectul este dublat; denumirea
+  // dublata ramane ambigua, ca inainte.
+  expect(await countAt(page, "import-count-duplicate")).toBe(1);
+  expect(await countAt(page, "import-count-error")).toBe(1);
+  expect(await countAt(page, "import-count-new")).toBe(0);
+  await expect(page.getByTestId("import-error-row")).toContainText("mai mulți clienți");
 });
 
 test("export proiecte: se exporta toate randurile filtrului, nu doar pagina vizibila", async ({

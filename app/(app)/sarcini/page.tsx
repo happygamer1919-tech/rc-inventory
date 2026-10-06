@@ -18,11 +18,15 @@
 
 import { getSessionUser } from "@/lib/supabase/server";
 import { SchemaPending } from "@/components/ui/SchemaPending";
-import { listClientOwnerChoices } from "@/lib/data/clients";
 import { listClientOptions } from "@/lib/data/projects-list";
 import { listSelectableProjects } from "@/lib/data/projects";
 import { chisinauToday } from "@/lib/data/format";
-import { listClosedLinkChoices, listTasks, tasksVisible } from "@/lib/data/tasks";
+import {
+  listClosedLinkChoices,
+  listTaskAssigneeChoices,
+  listTasks,
+  tasksVisible,
+} from "@/lib/data/tasks";
 import { parseTaskQuery } from "@/lib/data/tasks-query";
 import { SarciniScreen } from "@/components/tasks/SarciniScreen";
 
@@ -73,7 +77,7 @@ export default async function SarciniPage({
   // scrisa aici.
   const [user, assignees, clientRows, projectRows] = await Promise.all([
     getSessionUser(),
-    listClientOwnerChoices(),
+    listTaskAssigneeChoices(),
     listClientOptions(),
     listSelectableProjects(),
   ]);
