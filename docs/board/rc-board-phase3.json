@@ -5160,6 +5160,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken; P3-156 was free when allocated and was taken a minute later by the open pull request #423, so this card moved to P3-157 before its pull request was opened. updateTask already skipped absent keys; the defect was the form sending every key. The colleague in the end to end cases writes through the table with the account manager's token, since the property under test is what the operator's earlier-opened form sends. The work moved to branch card/task-save-changed-fields-r2 as one commit, because the first branch carried a commit subject naming P3-156 and history is never rewritten."
     },
     {
+      "id": "P3-148",
+      "title": "A walk-in sale line with a product but no quantity is refused with a clear Romanian message, never silently dropped (form and server)",
+      "plain": "La o vânzare la ghișeu, un rând cu produs ales dar fără cantitate nu mai dispare pe tăcute: bonul nu se creează până când rândul este completat sau șters.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named case `outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The named case `outbound walk-in: filling the quantity then saves 3 items` in the same file is green. (c) The named case `outbound walk-in: a payload with a half-filled line is refused by server` in the same file is green. (d) All existing outbound and walk-in specs stay green. (e) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "RULE (half-filled line). A line with product but no/zero/invalid quantity, or quantity but no product, is \"half-filled\": operationally distinct from an empty line that the user may have added and not used. Form: show the line number and a message per line, exactly as InboundOrderForm does, so the operator can delete it or fill it. Server: refuse the same case for any caller. Empty lines (no product, no quantity) are ignored as today. Use Romanian messages with proper diacritics, matching the style of InboundOrderForm.",
+      "last_checkpoint": "2026-10-05T19:51:48Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #430 on branch card/walkin-line-without-quantity against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-05-executor-walkin-line-without-quantity.md",
+        "at": "2026-10-05T19:51:48Z"
+      },
+      "notes": ""
+    },
+    {
       "id": "P3-170",
       "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
       "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
