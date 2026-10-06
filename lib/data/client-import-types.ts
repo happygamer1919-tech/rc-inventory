@@ -488,9 +488,10 @@ export function clientImportInstructions(): string[] {
       `${CLIENT_STAGE_LABEL.client} pe un rând fără etapă; ${CLIENT_IMPORT_FIELD_LABEL.source} ` +
       `este una dintre ${CLIENT_SOURCES.map((s) => CLIENT_SOURCE_LABEL[s]).join(", ")}; ` +
       `${CLIENT_IMPORT_FIELD_LABEL.followUpDate} este AAAA-LL-ZZ sau ZZ.LL.AAAA.`,
-    `Un rând se consideră dublat după ${CLIENT_IMPORT_FIELD_LABEL.email}. Un dublat nu se șterge ` +
-      "și nu se suprascrie niciodată: ori se sare peste el, ori i se completează numai câmpurile " +
-      "goale.",
+    `Un rând se consideră dublat după ${CLIENT_IMPORT_FIELD_LABEL.email}, iar când rândul nu are ` +
+      `${CLIENT_IMPORT_FIELD_LABEL.email}, după ${CLIENT_IMPORT_FIELD_LABEL.name} împreună cu ` +
+      `${CLIENT_IMPORT_FIELD_LABEL.phone}. Un dublat nu se șterge și nu se suprascrie niciodată: ` +
+      "ori se sare peste el, ori i se completează numai câmpurile goale.",
     `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB.`,
   ];
 }
