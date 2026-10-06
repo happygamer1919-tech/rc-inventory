@@ -33,7 +33,7 @@ import * as React from "react";
 
 export const DATE_PLACEHOLDER = "zz.ll.aaaa";
 export const DATE_INVALID_MESSAGE =
-  "Data nu este completă. Scrie ziua, luna și anul, de exemplu zz.ll.aaaa, sau lasă câmpul gol.";
+  "Data nu este validă. Scrie ziua, luna și anul, de exemplu 01.12.2026.";
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
