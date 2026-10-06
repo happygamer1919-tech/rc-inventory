@@ -5,6 +5,8 @@ import {
   CLIENTS_READ_FAILED,
   loadOrRefuse,
   readAllClients,
+  readAllRows,
+  readFailedMessage,
 } from "@/lib/data/import-clients-read";
 
 type Page = { data: { id: string }[] | null; error: { message: string } | null };
@@ -65,3 +67,32 @@ test("import: o pagina care esueaza dupa prima opreste tot importul", async () =
   const refused = await loadOrRefuse(() => readAllClients(client, "id"));
   expect(refused.ok).toBe(false);
 });
+
+// P3-183: the same rule for the projects and materials imports.
+const OTHER_TABLES = [
+  ["projects", "proiectele existente"],
+  ["clients", "clienții"],
+  ["products", "produsele existente"],
+  ["categories", "categoriile"],
+] as const;
+
+for (const [table, what] of OTHER_TABLES) {
+  test(`import: citirea esuata a tabelei ${table} refuza importul, nu da lista pe jumatate`, async () => {
+    const message = readFailedMessage(what);
+    expect(message).toMatch(/^Nu am putut citi /);
+
+    const first = fakeSupabase([{ data: null, error: { message: "boom" } }]);
+    await expect(readAllRows(first.client, table, "id", message)).rejects.toThrow(message);
+
+    const later = fakeSupabase([
+      { data: rows(1000, 0), error: null },
+      { data: null, error: { message: "boom" } },
+    ]);
+    const refused = await loadOrRefuse(() => readAllRows(later.client, table, "id", message));
+    expect(refused).toEqual({ ok: false, message });
+
+    const empty = fakeSupabase([{ data: null, error: null }]);
+    const nullData = await loadOrRefuse(() => readAllRows(empty.client, table, "id", message));
+    expect(nullData).toEqual({ ok: false, message });
+  });
+}

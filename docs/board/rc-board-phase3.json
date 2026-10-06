@@ -5393,6 +5393,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check (factory task 152). The brief asked for P3-152, which is taken; npm run id:free named the id right after P3-176, which pull request #450 then took a minute later, before this branch was pushed, so this card took P3-178, the next id the script named. Cause of fault 3 confirmed on origin/main: the batches and outbound_lines reads already ordered by id, which is unique, so the order was stable; the remaining risk is that pages are asked by position and ids are random uuids, so a row saved between two pages before the read position pushes the previous page's last row onto the next page. readAllPages already turns a changed total into a visible error; a save plus a delete in the same window keeps the total, and then a row is read twice (now dropped by id) and one row can be skipped (still possible, written in the report)."
     },
     {
+      "id": "P3-183",
+      "title": "Project and material imports stop on a failed read: readAll in lib/data/project-import-actions.ts and lib/data/material-import-actions.ts no longer breaks out of the paging loop and returns the pages read so far. Both now go through readAllRows in lib/data/import-clients-read.ts (the P3-151 helper), which throws ImportReadError with a Romanian message per table, and planProjectImport, runProjectImport, planMaterialImport and runMaterialImport turn it into the refusal through loadOrRefuse, so nothing is written. No migration.",
+      "plain": "Dacă baza de date nu poate fi citită la importul de proiecte sau de materiale, importul se oprește cu un mesaj și nu scrie nimic, în loc să continue cu o listă citită pe jumătate.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-151"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `import: citirea esuata a tabelei projects|clients|products|categories refuza importul, nu da lista pe jumatate` in tests/e2e/import-clients-read.spec.ts are green in this pull request's own `quality` run: a read error, a read error after a full first page, and null data each refuse with the Nu am putut citi message and return no rows. (b) The three earlier cases of P3-151 in the same file stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) The board validator exits 0 and no migration file is added.",
+      "defaults": "RULE (a read error or null data on any page throws ImportReadError, never a partial list; messages Nu am putut citi clienții / proiectele existente / categoriile / produsele existente. Încercați din nou.; the four import actions return the message and write nothing). The plan and matching logic, routes, the hasPhase3Schema gate and the lead PageHeader prop do not change. No migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-183-r2 against main: its quality run on the head sha runs tests/e2e/import-clients-read.spec.ts; report in docs/reports/2026-10-06-executor-project-material-import-read-error.md",
+        "at": "2026-10-06T12:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check (factory task 221). Cause: the paging loop did `if (error || !data) break`, so a failed clients or categories read refused every row as an unknown client or category, and a failed projects or products read marked every row as new. A stale local branch card/p3-183 existed in the primary checkout, so this one is card/p3-183-r2. Tests run at the helper level with a fake client, like P3-151; the four action files are not run end to end here (no database on this machine)."
+    },
+    {
       "id": "P3-182",
       "title": "decodeCsvFile in lib/data/import-shared.ts decides between Windows-1250 and Windows-1251 by majority: it counts Romanian letters and foreign letters in the 1250 reading and picks 1251 only when foreign letters outnumber Romanian ones and the 1251 reading has Cyrillic. Follow-up to P3-145, whose any-foreign-letter rule turned a Romanian file with one Wurth or Karcher into Cyrillic. No migration.",
       "plain": "Un fișier CSV românesc salvat din Excel, care conține și un nume străin (Würth, Kärcher, André), se importă cu literele românești corecte, nu cu litere chirilice greșite.",

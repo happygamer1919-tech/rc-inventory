@@ -9219,3 +9219,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** frontend
 **ERROR:** found in passing, not fixed (out of scope): `components/inventory/ProductPanel.tsx` calls `loadProductDetail(...).then(...)` with no `catch`. Since P3-181 a failed batches or movements read raises instead of returning an empty list, so in that failure case the panel would stay on its loading state instead of showing an error.
 **SOLUTION:** none in this card. A follow-up card should add a `catch` that shows a Romanian error message in the panel. RULE: **when a read changes from swallowing an error to raising it, look at every caller's failure path in the same card and name what is left.**
+
+### A paging loop that breaks on error returns a half-read list
+**Tag:** data
+**ERROR:** `readAll` in `lib/data/project-import-actions.ts` and `lib/data/material-import-actions.ts` did `if (error || !data) break` and returned the pages read so far. A failed read of clients or categories refused every row as an unknown client or category; a failed read of projects or products marked every row as new, so the duplicate check and fill choices vanished. P3-151 had fixed the same loop for the client and lead imports only.
+**SOLUTION:** card P3-183: both files read through `readAllRows` in `lib/data/import-clients-read.ts`, which throws `ImportReadError` with a Romanian message per table, and the four import actions return it through `loadOrRefuse` so nothing is written. RULE: **when a bug is fixed in one copy of a loop, search for the other copies in the same card, or move them onto the shared helper.**
