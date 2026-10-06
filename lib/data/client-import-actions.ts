@@ -88,9 +88,9 @@ function readMapping(raw: (ClientImportField | null)[]): ClientImportColumnMappi
 /**
  * Clientii deja stocati, redusi la ce trebuie pentru a recunoaste un dublat.
  *
- * CHEIA DE DUBLARE ESTE EMAILUL SINGUR (clauza 5 a cardului), deci numai coloana
- * email se citeste pentru potrivire; restul coloanelor citite sunt pentru
- * `empty`, adica ce se poate completa.
+ * CHEIA DE DUBLARE ESTE EMAILUL; un client fara email se potriveste dupa nume
+ * si telefon. Restul coloanelor citite sunt pentru `empty`, adica ce se poate
+ * completa.
  */
 async function loadExisting(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -136,6 +136,7 @@ async function loadExisting(
       id: row.id as string,
       name: row.name ?? "",
       emailKey: normaliseEmail(value("email")),
+      phone: value("phone"),
       empty,
     };
   });
@@ -176,6 +177,7 @@ const FILL_COLUMN: Record<ClientFillField, string> = {
   source: "source",
   ownerId: "owner_id",
   nextAction: "next_action",
+  nextActionDate: "next_action_at",
   notes: "notes",
   address: "address",
   fiscalCode: "fiscal_code",
@@ -198,7 +200,7 @@ async function fillEmpty(
 
   const readable = CLIENT_FILL_FIELDS.filter((field) => {
     if (["interest", "source", "ownerId"].includes(field)) return leaduri;
-    if (field === "nextAction") return next;
+    if (["nextAction", "nextActionDate"].includes(field)) return next;
     return true;
   });
 
@@ -334,6 +336,7 @@ export async function runClientImport(
       interest: client.interest,
       ownerId: client.ownerId,
       nextAction: client.nextAction,
+      nextActionAt: client.nextActionDate,
       firstStage: true,
     });
 

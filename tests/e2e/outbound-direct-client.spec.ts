@@ -11,7 +11,7 @@ import {
 import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
 // P3-120: ziua ridicarii se compara cu FUNCTIA care o scrie pe ecran si nu cu un
 // sir scris de mana, ca o schimbare de format sa nu treaca pe langa cazul (b).
-import { formatDate } from "@/lib/data/format";
+import { formatDate, formatMoneyExact } from "@/lib/data/format";
 import { DIRECT_CLIENT_NOT_INVOICEABLE } from "@/lib/data/facturare-create-types";
 import { DATE_PLACEHOLDER } from "@/components/ui/DateField";
 import { managerAccount, ownerAccount, type TestAccount } from "./support/accounts";
@@ -802,8 +802,16 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
 
   // UN CLIENT CRM OBISNUIT SI NU UN FEL DEOSEBIT, R-215: apare in Clienți, se
   // poate deschide, si de acolo se poate modifica si dezactiva ca oricare altul.
-  await page.goto("/clienti");
-  await page.getByTestId("clients-search").fill(newClient);
+  //
+  // P3-172. CU FILTRUL VEDERII, nu pe /clienti gol. Pana la P3-172 cazul deschidea
+  // lista fara vedere, care arata toate etapele, si trecea si cand cumparatorul
+  // fusese salvat `cold` si statea printre Leaduri. Vederea Clienți arata numai
+  // etapa `client`, deci acum cazul pica pe exact acel defect.
+  await page.goto(`/clienti?vedere=clienti&q=${encodeURIComponent(newClient)}`);
+  await expect(page.getByTestId("view-clienti"), "vederea Clienți este cea aleasa").toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   const row = page.locator(`[data-testid="client-row"][data-name="${newClient}"]`);
   await expect(row, "clientul creat din Iesiri este un rand obisnuit in Clienți").toHaveCount(1, {
     timeout: 25_000,
@@ -827,10 +835,87 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
   expect(issue.project_id, "o iesire catre client direct nu are proiect").toBeNull();
   expect(issue.pickup_date, "ziua ridicarii este cea tastata romaneste").toBe("2026-12-02");
 
-  const clients = await asService(`clients?select=name&id=eq.${String(issue.client_id ?? "")}`);
+  const clients = await asService(`clients?select=name,stage&id=eq.${String(issue.client_id ?? "")}`);
   expect(String(clients.rows[0]?.name ?? ""), "clientul iesirii este chiar randul creat").toBe(
     newClient,
   );
+  // P3-172. Etapa stocata este `client`, citita din rand si nu de pe ecran.
+  expect(String(clients.rows[0]?.stage ?? ""), "cumparatorul de la tejghea este client").toBe("client");
+});
+
+/** P3-172. Cifra de pe pastila Leaduri, de pe pagina data. */
+async function leadCount(page: Page, path: string): Promise<number> {
+  await page.goto(path);
+  const count = page.getByTestId("view-leaduri").getByTestId("view-count");
+  await expect(count).toHaveText(/^\d+$/, { timeout: 25_000 });
+  return Number((await count.innerText()).trim());
+}
+
+test("iesire client direct: un client nou creat din ecran nu apare printre Leaduri si numarul de leaduri nu creste", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // P3-172. JUMATATEA A DOUA A DEFECTULUI. Cumparatorul salvat `cold` aparea in
+  // Leaduri ca Lead rece si marea cifra de pe pastila. Un nume unic pe caz, `L`,
+  // pentru acelasi motiv scris la cazul (c).
+  const newClient = `${TAG}-L nou client`;
+
+  await signIn(page, ownerAccount());
+  const leadsBefore = await leadCount(page, "/clienti");
+
+  await chooseDirectClient(page);
+  await page.getByTestId("client-create-open").click();
+  await expect(page.getByTestId("client-create-form")).toBeVisible();
+  await page.getByTestId("client-create-name").fill(newClient);
+  await page.getByTestId("client-create-type").selectOption("individual");
+  await page.getByTestId("client-create-save").click();
+  await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
+  await expect(page.getByTestId("field-client").locator("input")).toHaveValue(newClient);
+
+  // 1. NU ESTE IN VEDEREA LEADURI, cautat dupa numele lui.
+  const q = encodeURIComponent(newClient);
+  await page.goto(`/clienti?vedere=leaduri&q=${q}`);
+  await expect(page.getByTestId("view-leaduri")).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-testid="client-row"][data-name="${newClient}"]`),
+    "cumparatorul de la tejghea nu este un lead",
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("view-leaduri").getByTestId("view-count"),
+    "cautat dupa nume, nu numara niciun lead",
+  ).toHaveText("0");
+
+  // MARTORUL: acelasi nume, in vederea Clienți, da exact un rand. Fara el, cazul ar
+  // trece si pe o cautare care nu gaseste nimic.
+  await page.goto(`/clienti?vedere=clienti&q=${q}`);
+  await expect(
+    page.locator(`[data-testid="client-row"][data-name="${newClient}"]`),
+    "acelasi nume este in vederea Clienți",
+  ).toHaveCount(1, { timeout: 25_000 });
+
+  // 2. NUMARUL DE LEADURI NU A CRESCUT.
+  expect(await leadCount(page, "/clienti"), "numarul de leaduri este acelasi").toBe(leadsBefore);
+
+  // 3. Si randul stocat este `client`.
+  const stored = await asService(`clients?select=stage&name=eq.${q}`);
+  expect(stored.ok, `clientul nu s-a putut citi: ${stored.text}`).toBe(true);
+  expect(stored.rows.map((r) => r.stage), "un singur rand, la etapa client").toEqual(["client"]);
+});
+
+test("creare client fara etapa: randul ramane cold, implicitul pe care se bizuie celelalte cai", async () => {
+  // P3-172. CELELALTE CAI DE CREARE NU SE SCHIMBA. createClientRecord nu numeste
+  // `stage` in insert cand apelantul nu trimite o etapa, deci randul ia implicitul
+  // coloanei din migratia 0039. Cazul scrie exact acel insert, cu jetonul
+  // administratorului si prin securitatea pe rand, fara etapa, si citeste `cold`.
+  // Numai formularul de la tejghea trimite acum `client`.
+  const name = `${TAG}-U fara etapa`;
+  const created = await asUser(ownerToken, "clients?select=id,stage", {
+    method: "POST",
+    body: { name, type: "company" },
+  });
+  expect(created.ok, `clientul fara etapa nu a putut fi scris: ${created.status} ${created.text}`).toBe(true);
+  expect(String(created.rows[0]?.stage ?? ""), "un client creat fara etapa este cold").toBe("cold");
 });
 
 /* ------------------------------------------------------------- P3-147 -- */
@@ -1317,6 +1402,68 @@ test("lista iesirilor: filtrul pe mod arata numai modul ales", async ({ page }) 
   ).toBeVisible();
 });
 
+/* =======================================================================
+   CARDUL P3-163, ACCEPTANTA (a) SI (b)
+   ======================================================================= */
+
+test("iesire client direct: pret unitar si total se afiseaza cu bani, nu rotunjite", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // Preturile fractionate cu bani trebuie sa se afiseze exact: 12,50 MDL si
+  // 0,40 MDL, nu 13 MDL si 0 MDL. Aceasta verifica ca formatMoneyExact este
+  // folosit in loc de formatMoney pentru unitati si totaluri.
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("05.12.2026");
+
+  // Linia 1: 0,40 MDL
+  await fillFirstLine(page, "1");
+  await page.getByTestId("issue-price-0").fill("0.40");
+  const expectedPrice1 = formatMoneyExact(0.4);
+  await expect(
+    page.getByTestId("issue-price-0"),
+    `pret 0,40 se afiseaza exact: ${expectedPrice1}`,
+  ).toHaveValue("0.40");
+
+  // Verifica pe display ca nu e rotunjit
+  const line1Total = page.getByTestId("issue-price-0").locator("../..").getByText(expectedPrice1);
+  await expect(line1Total).toBeVisible();
+
+  // Linia 2: 12,50 MDL
+  await page.getByTestId("issue-add-line").click();
+  await comboPick(page, "issue-product-1", PRODUCT_NAME);
+  await page.getByTestId("issue-quantity-1").fill("2");
+  await page.getByTestId("issue-price-1").fill("12.50");
+  const expectedPrice2 = formatMoneyExact(12.5);
+
+  // Total tarifat trebuie sa reflecte suma exacta: 0,40 + 2 x 12,50 = 25,40 MDL
+  const expectedTotal = formatMoneyExact(0.4 + 2 * 12.5);
+  await expect(
+    page.locator("text=" + expectedTotal),
+    `total tarifat se afiseaza exact: ${expectedTotal}`,
+  ).toBeVisible();
+
+  // Trimite si verifica pe fisa ca preturile raman cu bani
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  await openIssuePanel(page, reference);
+
+  // Verifica pe fisa iesirii ca preturile se afiseaza cu bani
+  await expect(
+    page.locator("text=" + expectedPrice1),
+    `unitatile se afiseaza cu bani pe fisa: ${expectedPrice1}`,
+  ).toBeVisible();
+  await expect(
+    page.locator("text=" + expectedPrice2),
+    `unitatile se afiseaza cu bani pe fisa: ${expectedPrice2}`,
+  ).toBeVisible();
+});
+
 /* ------------------------------------------------------------------ (f) -- */
 
 test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele schimbate", async ({
@@ -1541,8 +1688,8 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "lib/data/tasks-actions.ts",
     "tests/e2e/tasks.spec.ts",
     // CARDUL P3-147, acelasi motiv: managerul de cont creeaza clientul de la tejghea.
-    "supabase/migrations/0071_walkin_manager_client_insert.sql",
-    "scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql",
+    "supabase/migrations/0073_walkin_manager_client_insert.sql",
+    "scripts/poc-free/local-db/assertions/0073_walkin_manager_client_insert.sql",
     "lib/data/client-actions.ts",
     "components/outbound/OutboundDirectClientForm.tsx",
     "app/(app)/iesiri/page.tsx",

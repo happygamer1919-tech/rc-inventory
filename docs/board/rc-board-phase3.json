@@ -2,7 +2,7 @@
   "board": "RC-INVENTORY - Phase 3 - CRM and Density",
   "schema_version": 1,
   "phase": "phase-3-crm-and-density",
-  "as_of": "2026-10-04T12:49:00Z",
+  "as_of": "2026-10-06T09:25:41Z",
   "renders_to": "Rendered by docs/board/render-board.mjs into docs/board/rc-board-phase3.rendered.html, a gitignored build product that is generated and never hand-edited. That HTML is published as a claude.ai artifact at https://claude.ai/artifact/6jBmM4FNut6WiKveHtUERf, and the same URL is re-rendered and updated after every board change so the owner link stays live. This JSON remains the single source of truth: the render is strictly downstream of it and never writes back. The phase 1 and phase 2 boards and their artifacts are untouched and stay live at their own URLs. FIRST PUBLISHED 2026-09-27 by EXECUTOR (ORANGE), rendered from main at 7191704, the merge of PR #367. CORRECTED THE SAME DAY UNDER CLAUDE.md SECTION 9c: until this publish the field read, and it is kept as written, \"Rendered by docs/board/render-board.mjs into docs/board/rc-board-phase3.rendered.html, a gitignored build product that is generated and never hand-edited. NO ARTIFACT URL EXISTS YET. This board is authored ahead of its phase and has not been published; the first publish records its URL here and every later board change re-renders and updates that same URL, as both earlier boards do. The phase 1 and phase 2 boards and their artifacts are untouched and stay live at their own URLs. This JSON is the single source of truth and the render is strictly downstream of it. CHECKED 2026-09-18 by card P3-78, Ivan's finding F14: still true. The phase has since begun and this is the board cards are worked from, but no artifact URL for it is recorded anywhere in the repository (the phase 1 and phase 2 URLs are the only two), so there is none to write here yet. This field is where it goes.\" That was true until 2026-09-27 and is now false: the URL above is the one artifact for this board. RE-RENDERED 2026-09-30 by AUTHOR under goal G71, the pull request that added ruling R-215 and cards P3-117 through P3-133 for Ivan's four items: 182 cards, fingerprint a9079f553a5c706c, lanes shipped 132, in_flight 39, rodica_batch 7, loose_ends 4. THE HTML IS REGENERATED AND THE HOSTED ARTIFACT AT THE URL ABOVE IS NOT YET UPDATED FROM IT, and that is said plainly rather than left to be assumed: this run is a headless session and the tool that writes a claude.ai artifact is not available to it, so the render exists in the worktree and the owner's link still shows the board as it stood before these seventeen cards. The next session that has the artifact tool re-publishes this same URL from docs/board/rc-board-phase3.rendered.html, which is reproducible from this JSON by node docs/board/render-board.mjs and will carry the same fingerprint. Nothing about the URL changes.",
   "doctrine": "THIS BOARD IS NOT WIRED INTO THE HARNESS AND MUST NOT BE. The unattended runs in scripts/poc/ read docs/board/rc-board-phase2.json and only that file, by path, in run.sh, inbox.mjs and notify.mjs. Nothing in this board changes that. THE HARNESS CONTINUES TO WORK THE PHASE 2 BOARD, AND THAT PART IS UNCHANGED. The unattended runs still read the phase 2 board by path and are not repointed by anything here. THIS BOARD IS OPEN TO INTERACTIVE TERMINALS AS OF 2026-08-30, BY RULING R-061, AND THE SENTENCE THAT SAID OTHERWISE IS RETIRED. It said the board was worked by nobody until the phase 2 launch gate reached 9 of 9, and that a terminal picking a P3 card before then had made a mistake and should stop. The owner opened phase 3 by dispatch instead, which is exactly the owner ruling that sentence reserved the decision for, and he opened it for a reason the sentence could not have anticipated: the phase 2 gate cannot reach 9 of 9 without Andre, G4 and G9 are parked behind him, and the platform meanwhile has no client or project management at all, which is the owner's primary complaint about it. R-061 records the whole of that. WHAT DID NOT CHANGE: the harness is not repointed, the phase 2 board is still the queue for every unattended run, and a phase 2 card is still worked by whoever picks it. The two boards are now worked in parallel by different terminals rather than in sequence. A board claim is never truth on its own. The evidence field carries the proof and the acceptance field carries the check that produced it. The executor updates this JSON at every checkpoint, in the same PR as the code, and bumps as_of. docs/board/validate-board.mjs must exit 0 before every commit; a commit made while the validator is red is reverted, not patched forward. GATE VOCABULARY. Every card on this board carries green_self_merge, and owner_merge is retired here exactly as it is on phase 2 under ruling R-002. green_self_merge means the executor merges its own PR once the required quality check is green AND the card's named acceptance has passed. Defect review belongs to the CRITIC at wave boundaries and to an optional owner batch review before a client demo, and NEITHER IS A MERGE GATE. cyan_clear, owner_authorizo and owner_merge are unused on this board. SELF-MERGE RUNS UNDER CLAUDE.md SECTION 3.1, granted by R-049, extended to AUTHOR by R-056, and WIDENED TO EVERY PATH BY R-059 ON 2026-08-30 (all three in decisions/inbox.md). EXECUTOR, AUTHOR, POC-BUILDER and TRIAGE each merge their own pull request on ANY path once the quality check is green ON THE HEAD SHA. The path sets are gone and the sentence that said a phase 3 schema card could never be self-merged because it touches supabase/ is retired with them: a card that authors a migration FILE now merges like any other card. THE ONE EXCLUSION IS EXECUTION, NOT A PATH. Applying a migration, or any destructive statement, against the production database is gated by CLAUDE.md 8.6 and R-047 and is not covered by any merge grant, because a green check says nothing about a database. Merging the file is not applying it. THE ACCEPTANCE HALF OF SECTION 5b IS UNTOUCHED: a card still ships on green quality PLUS its named acceptance having been run and passed. What R-059 removed is the wait for the owner, not the proof. THE GRANT DIES IF A paths: FILTER IS EVER ADDED TO .github/workflows/quality.yml, because a pull request would then be skipped and report success in seconds, and merging on a check that never ran is not merging on green. IT ALSO DIES AT P2-13 with every other terminal grant. ESCALATE TO IVAN ONLY ON THE CLOSED LIST, and everything not on it the terminal decides and records. THE LIST IS THE TEN ITEMS IN SECTION 6 OF docs/DOCTRINE-TRIAGE.md, WHICH IS THE SOLE AUTHORITY ON THIS FOR EVERY ROLE UNDER R-057, AND THERE IS NO OTHER LIST ANYWHERE, IN THIS REPOSITORY OR OUTSIDE IT. This board previously said nine, which was already stale when it was authored: R-050 added launch timing on 2026-08-28. The ten: money; pricing; legal; vendor, meaning adding or changing a third-party service that processes client data; credential grants, where widening escalates and narrowing does not; anything that would reach Mihai or Andre as a request; panel actions needing a click in a console someone has to log into, DNS and Vercel and Supabase and BotFather and the email and payment consoles; production DELETE-class execution; acceptance sign-off; and launch timing. Read the section rather than this summary when the two could differ, and a summary that could differ is why R-057 made one file the authority. Everything else, including resequencing this board, authoring cards, correcting a stale acceptance line and ratifying a deviation, is decided and written down rather than asked. An escalation carries a recommended default or it is unfinished. SKIP-NOT-HALT FOR DECISIONS. The run never stops for a question. A card that cannot proceed gets its question field filled with the structured decision-needed text (DECISION NEEDED, CONTEXT, OPTIONS, RECOMMENDATION, IMPACT IF UNANSWERED), blocked_on set to the person who owes the answer, status set to blocked, and the executor moves to the next eligible card in the same session. A recommendation is mandatory: a question without one is unfinished. HALT ON AN ABSENT TOOL OR A FALSE PREMISE, WHICH IS A DIFFERENT RULE AND IS NOT SOFTENED BY THE ONE ABOVE. Skip-not-halt covers a decision the executor lacks the authority to make. It does not cover a card whose premise is wrong. When a card names a tool, table, column, route, file, script, environment variable or service that does not exist, or asserts a fact the repository contradicts, the executor STOPS WORKING THAT CARD IMMEDIATELY. It does not build the missing thing on a guess, does not invent the tool, and does not reinterpret the card until it fits what is there. It sets status blocked, sets blocked_on to the person who owes the correction, and writes into question the structured decision-needed text naming the premise and PASTING THE COMMAND OUTPUT THAT DISPROVES IT, then moves to the next eligible card. status halted stays reserved for the failure ceiling in CLAUDE.md section 10 and is not used for this. Several cards on this board carry a premise that was checked against the repository at authoring time and the check is recorded in their notes; the rule exists for the ones that were not. DEFAULTS ARE WIDE ON THIS BOARD ON PURPOSE. Every card carries a defaults field holding pre-authorized answers to that card's expected ambiguities, and they are deliberately wider than phase 2's because this board is authored ahead of its phase and the owner is not available to referee. When defaults covers an ambiguity the executor APPLIES IT AND LOGS THE APPLICATION IN NOTES, and does not ask. Defaults fill silence; they never override an explicit instruction in the card. ACCEPTANCE: every card names a machine-checkable acceptance line, a command with an expected exit code, a URL with expected content, or a named test. No acceptance, no ship. A card whose acceptance cannot be run yet is blocked, never shipped. A check that has never been seen to fail is not a check. MIGRATIONS: authored as supabase/migrations/NNNN_name.sql and listed in the PR description by path. WHO APPLIES ONE IS READ OFF CLAUDE.md SECTION 8 WHEN THE CARD IS PICKED AND IS NOT ASSERTED HERE, because that section changed three times in the four days before this board was written and this board is not worked for weeks. The card defaults carry both branches so a terminal is correct either way. Section 8.6 stands regardless: a migration containing DROP TABLE, TRUNCATE or DELETE is never auto-applied, and the R-047 assertion-bearing-script exception does not reach migrations. Every migration apply is journalled in docs/migrations/APPLY-LOG.md, and under R-055 every NON-migration production write is journalled in docs/PRODUCTION-WRITES.md with its script sha256; a write with no row in one of the two is a violation. MIGRATION NUMBERS ARE NOT PINNED ANYWHERE ON THIS BOARD, because phase 2 may consume numbers after 0012 before phase 3 starts: each card takes the next free number when it is worked and names its file by suffix in its acceptance. A migration file is never edited after it has been applied; a correction is a new numbered file. A BACKFILL AND A COLUMN DROP NEVER TRAVEL IN THE SAME MIGRATION, which is why P3-04b and P3-05b exist as separate cards. DENSITY DOCTRINE BINDS EVERY SCREEN CARD ON THIS BOARD, not only wave 4: summary first, detail behind a drill-in, never a full-length table dumped into a page. A summary block shows at most 5 rows with a link to the full history; a list paginates at 25; filters live in the URL query string so a filtered view can be linked and so the back button works. UI IS ROMANIAN THROUGHOUT, with proper diacritics, on every label, error, empty state and toast, and DESKTOP FIRST: responsive and mobile layouts are out of scope unless a card says otherwise. P3-21 makes this machine-enforced. SECRETS: environment variable names only. Values never appear in chat, in this board, in a commit, in a log or in tool output. ELIGIBILITY: a card is eligible when status is todo, every id in depends_on belongs to a shipped card, and blocked_on is null. The executor takes the lowest-id eligible card. Ids sort on a tuple of prefix, number and suffix, so the number is compared as a number: AUT-8 before AUT-9 before AUT-16, and P3-04 before P3-04b before P3-05. Corrected 2026-09-05 by BOARD-03; it previously said ids sort lexically, which was true of the code and is why AUT-8 queued behind AUT-16. CONFLICTS ARE RESOLVED LOCALLY, AGAINST THE FULL TREE, WITH THE CHECKS RUN BEFORE THE COMMIT, per R-052 and CLAUDE.md section 3. Never in the GitHub web editor, which shows one file at a time and can run no check in this repository, and never by the owner. A grep for conflict markers is NOT the check, because the characters it looks for are exactly the ones a bad resolution deletes: npm run check:conflict-residue is the check and it runs in quality on every push. A conflicted board JSON is rebuilt from both parents and proven card by card, never hand-edited around the markers. PLAIN HYPHENS ONLY, never an em dash or an en dash, anywhere in this file. The full standing rules are in CLAUDE.md at the repo root.",
   "lanes": [
@@ -179,6 +179,32 @@
     ]
   },
   "cards": [
+    {
+      "id": "P3-168",
+      "title": "The lead import never writes the file-wide source onto an existing client unless the check step listed it.",
+      "plain": "Importul de leaduri nu mai scrie sursa aleasă pentru tot fișierul pe un client existent, decât dacă pasul Verifică a arătat-o.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-101",
+        "P3-115"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/lead-import-source-fill.spec.ts` green in this pull request's quality run on the head sha, including the case `dublat completat: sursa implicita nu se scrie pe clientul existent` and the case `rand nou fara sursa: primeste sursa implicita`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Sursa implicită rămâne pentru leadurile noi. Un rând care are propria coloană de sursă se completează ca până acum. Fără migrare.",
+      "last_checkpoint": "2026-10-05T21:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-168 against main: its quality run on the head sha will run tests/e2e/lead-import-source-fill.spec.ts and report the named test cases green; report in docs/reports/2026-10-05-executor-lead-import-source-fill.md",
+        "at": "2026-10-05T21:00:00Z"
+      },
+      "notes": null
+    },
     {
       "id": "EXT-08",
       "title": "The four sample documents are served on signed URLs whose three failure paths hold a fixed contract, proved against the storage layer rather than reported from its documentation.",
@@ -4433,6 +4459,32 @@
       "notes": "AUTHORED 2026-09-30 by AUTHOR under goal G71. NOT STARTED.\n\nDEPENDS ON P3-130 for the table and on P3-131 for the day definition and the components.\n\nACCEPTANCE (c) IS THE D7 GUARD. The existing Azi test being re-run unmodified is the only machine-checkable way to prove the call list was not quietly reshaped while a section was added beneath it.\n\nEXECUTED 2026-10-03T00:03:10Z by EXECUTOR. DECISION A, KEPT: ACCEPTANCE (c) IS SATISFIED BOTH WAYS. It names `azi: lista de sunat este neschimbata` as the EXISTING Azi test, but no case of that name existed. The existing guard is the eight G46/B1 cases of tests/e2e/azi-screen.spec.ts, which run unmodified (the file is not in git diff --name-only). A new case was added under the exact name asserting that the call list renders the same rows with tasks present. DECISION B, KEPT: THE AGREEMENT IS OVER THE OPEN TASKS OF THE TAB'S AZI BUCKET. taskBucket() leaves finished and cancelled tasks in the Azi bucket on purpose (the tab's bucket is what is due today), while the Azi screen lists what to do now. The exclusion is written once, as isTaskOpen() in lib/data/tasks-shape.ts, applied by the Azi page on top of taskBucket(). Case (b) asserts the tab's bucket holds the finished task and that the Azi section equals the bucket minus the closed states. DECISION C, KEPT: A TASK ROW OPENS THE TASK THROUGH `/sarcini?sarcina=<id>`. The tab had no way to open one task by link, so SarciniScreen now starts with that task's form open when the id is on its list; nothing else on the tab changed. DECISION D, KEPT: THE `responsabil` FILTER OF THE AZI SCREEN ALSO NARROWS THE TASK SECTION, by task assignee, since both lists use the same profile ids. With no filter set the section equals the tab's bucket. The section is absent, not empty, when the tasks table is absent (tasksVisible), and the call list renders as before. The Azi section is components/tasks/AziTasksSection.tsx, outside the nine TASK_FILES of the P3-132 D7 guard, which stays untouched. lib/data/azi.ts is not changed."
     },
     {
+      "id": "P3-162",
+      "title": "The Sarcini list and the record task panels read every task, not just the first 1000. listTasks and listTasksForEntity in lib/data/tasks.ts read with no paging and no count, so PostgREST answered with at most 1000 rows and said nothing. Tasks are never deleted, so finished and cancelled ones pile up, and the default order is due date ascending with no date last: past 1000 tasks the rows kept were the OLDEST, and this week's and all undated tasks dropped off the tab while the header count looked normal. (1) Both reads now go through readAllPages (lib/data/id-list.ts), moved into lib/data/tasks-read.ts, which has no server-only and takes the way to start a request as an argument so a spec can give it a fake one. (2) Filters, sort and returned shape are unchanged; every order already ends with id, so pages never skip or repeat a row. (3) The Azi section reads through listTasks, so it is covered too. getTask reads one row by id and needs no paging. No migration.",
+      "plain": "Lista de sarcini arată toate sarcinile, oricâte ar fi, nu doar primele o mie; sarcinile noi și cele fără termen nu mai dispar.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-133",
+        "P3-39"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `P3-162: listTasks fara argumente aduce 2500 de sarcini, complete, in ordine, fara dubluri`, `P3-162: listTasks dupa termen aduce toate sarcinile, cele fara termen la sfarsit`, `P3-162: filtrele raman pe server si se pagineaza si ele` and `P3-162: listTasksForEntity aduce 2500 de sarcini ale unei inregistrari, complete, in ordine, fara dubluri` in tests/e2e/tasks-list-paging.spec.ts are green in this pull request's own `quality` run. (b) The existing tests/e2e/tasks.spec.ts and tests/e2e/azi-screen.spec.ts stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0, no migration file is added, and a grep of the changed files finds no em dash and no en dash.",
+      "defaults": "Both reads go through readAllPages with the page size ROW_PAGE_SIZE and keep today's order with id as the last tie breaker. Filters, sort and the shape returned stay exactly as before; callers do not change. A short or total-less answer is a visible failure, never a shorter list. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/tasks-list-paging against main: its quality run on the head sha runs tests/e2e/tasks-list-paging.spec.ts; report in docs/reports/2026-10-04-executor-tasks-list-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Only listTasks and listTasksForEntity had the flaw; getTask is a single-row read and tasks-actions.ts only writes. The card sits in the middle of the file, not at the end, so it does not conflict with every other card appended at the end."
+    },
+    {
       "id": "P3-134",
       "title": "Speed cause 1, REGION DISTANCE: run the server functions in the same region as the database. Measured on 2026-10-03 by goal G76 from outside, with no login: every server-rendered response carries x-vercel-id `fra1::iad1::<id>`, so the edge is Frankfurt and every function runs in iad1 (Washington DC, Vercel's default; the repository sets no preferredRegion and has no vercel.json). /api/health, which makes exactly one database call, costs 285 to 480 ms of server time warm (median total 566 ms over 19 warm requests) against 160 ms for the prerendered login page from the same edge. A logged-in screen makes 4 shared database calls (proxy getUser and profiles, layout getUser and profiles) plus 2 to 18 of its own with a sequential chain of up to 5, so a per-call cost of that size reaches the 2 to 4 seconds Rapid Construct reports. (1) THE FIX is one setting: pin the function region to the region nearest the Supabase project, either `regions` in a new vercel.json or the Vercel project's Functions region setting, whichever the owner prefers; the pull request says which. (2) NO CODE PATH CHANGES. No query, no route, no proxy logic is edited by this card. (3) The database region is the one fact this card cannot start without, and it is not knowable from the factory machine: it is asked in the owner question of goal G76.",
       "plain": "Every screen of the live system is built by a server in Washington, in the United States, while the people using it are in Moldova and the front door is in Frankfurt. Each screen asks the database several questions, one after another, and each one makes that long trip. This moves the server next to the database so those trips become short. It changes no screen and no data; the system should simply answer faster. It waits for one fact: which region the database lives in.",
@@ -4870,8 +4922,583 @@
       "notes": "AUTHORED AND BUILT 2026-10-04 by EXECUTOR in the same pull request. The bug: when a dropdown in TaskForm is open and Esc is pressed, the event propagates to a window keydown listener that closes the form, losing typed text. Fix: in Combobox.tsx, call preventDefault, stopPropagation and nativeEvent.stopImmediatePropagation when Escape is pressed with the list open."
     },
     {
+      "id": "P3-159",
+      "title": "client_material_summary counts a walk-in sale for the buyer: one new migration (0071) redefines the function with the same signature, return type and grant, and an issue now counts for a client through a project or directly through outbound_issues.client_id (left join on projects). Before, a walk-in sale has no project and never reached the Consum materiale tab. The Vezi toate link already filters by client and by project, so it already shows walk-in sales. No row is changed.",
+      "plain": "Ce a cumpărat un client direct la ghișeu (fără proiect) apare pe pagina lui, în fila Consum materiale, alături de consumul pe proiecte.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-120",
+        "P3-08"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The new assertion scripts/poc-free/local-db/assertions/0071_client_material_summary_walkin.sql passes in this pull request's own quality run, applier proofs included and not skipped: a walk-in sale of 50 units shows 50 for its client, a client with a project issue and a walk-in sale shows the sum with each line counted once, another client does not leak in. (b) tests/e2e/client-material-walkin.spec.ts is green in the same run, and tests/e2e/client-detail.spec.ts stays green. (c) Refuse a migration that removes rows has run and passed on migration 0071_client_material_summary_walkin.sql. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "RULE (an issue counts for a client through its project or through outbound_issues.client_id; same signature, security invoker, stable, same search_path, grant execute to authenticated; no drop, no row change). There is no cancelled state on an outbound issue, so the function has no status filter, as before. The ClientTabs layout, the Vezi toate link, the hasPhase3Schema gate and the lead PageHeader prop stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/walkin-on-client-page against main: its quality run on the head sha applies migration 0071_client_material_summary_walkin.sql and runs its assertion and tests/e2e/client-material-walkin.spec.ts; report in docs/reports/2026-10-04-executor-walkin-on-client-page.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: 0022 joined issue lines to the client only through projects, and 0067 gave walk-in sales no project. The brief named P3-145 and then P3-153 but both ids were taken, so this card is P3-159."
+    },
+    {
+      "id": "P3-139",
+      "title": "Exported CSV cells: a text cell that starts with = + - @ tab or CR gets a leading apostrophe (OWASP CSV injection rule) so no cell can run as a formula, and phone and fiscal code columns are written as =\"...\" so Excel keeps +373... and 0123456789012 exactly as stored. (1) buildCsv in lib/data/import-shared.ts takes cells that are text or csvText(value); numbers from formatCsvNumber, including negative ones, are not prefixed. (2) parseCsv undoes both forms (the =\"...\" wrapper and the one added apostrophe), so our own export re-imports to identical values; any other leading apostrophe in user text is untouched. (3) The client, lead exports write phone and fiscalCode through csvText. No migration.",
+      "plain": "În fișierele exportate, numerele de telefon, codurile fiscale și notițele apar în Excel exact cum sunt salvate, iar nicio celulă nu poate porni o formulă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-126",
+        "P3-127",
+        "P3-128",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-shared.spec.ts are green in this pull request's own `quality` run: `export celule: buildCsv pune apostrof in fata textului care ar porni o formula`, `export celule: textul obisnuit si numarul negativ din formatCsvNumber nu primesc apostrof`, `export celule: IDNO 0123456789012 si telefonul +37369123456 se scriu ca text pentru Excel`, `export celule: dus-intors, parseCsv(buildCsv(randuri)) da valorile originale`. (b) The other import and export specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Text cells starting with = + - @ tab or CR get one leading apostrophe; a negative number from formatCsvNumber does not. Phone and fiscal code columns are written as =\"value\" (it shows clean in Excel, unlike a visible apostrophe) and parseCsv unwraps it, plus the one added apostrophe; no other leading apostrophe is touched. Separator, BOM and decimal comma unchanged, import parsing rules of P3-118, P3-119 and P3-122 unchanged, no change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/export-cell-escaping against main: its quality run on the head sha runs tests/e2e/import-shared.spec.ts; report in docs/reports/2026-10-05-executor-export-cell-escaping.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
+    },
+    {
+      "id": "P3-164",
+      "title": "Client import matches a row with no email on normalised name plus phone: buildClientPlan builds fileByNamePhone and storedByNamePhone (name trimmed, inner spaces collapsed, lower case in ro; phone reduced to its last 8 digits so 069123456 and +373 69 123 456 are the same). A row with an email keeps the email-only match. The duplicate entry has the same shape and carries matchedBy namePhone, which gives the reason Acelasi nume si telefon. ExistingClient gets the stored phone; the paged read is unchanged. The lead import already matches on phone or email and is not changed. No migration.",
+      "plain": "Dacă încarci de două ori același fișier cu clienți fără email, clienții nu se mai creează a doua oară: se recunosc după nume și telefon.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/clients-import.spec.ts is green in this pull request's quality run, including the four new cases: the same file of two rows with name and phone and no email uploaded twice shows 0 new and 2 duplicates the second time and stores 2 rows; two identical no-email rows in one file give 1 new and 1 duplicate; 069400123 and +373 69 400 123 with the same name are a duplicate; the same name with different phones gives 2 new. (b) The existing email duplicate case stays green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULE (a row with an email never matches on name plus phone; a row with no phone has no second key and stays new; email match first, then the file, then stored; nothing is overwritten). The lead import, the Romanian UI texts other than the new duplicate reason, the import sheet components, the hasPhase3Schema gate and the lead PageHeader prop stay as they are. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-dedup-no-email against main: its quality run on the head sha runs tests/e2e/clients-import.spec.ts; report in docs/reports/2026-10-04-executor-import-dedup-no-email.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: buildClientPlan matched on email only, so every row without an email was new on every upload."
+    },
+    {
+      "id": "P3-160",
+      "title": "Editing a task tied to a closed project or an inactive client shows that record's name in the Inregistrare box instead of an empty box. app/(app)/sarcini/page.tsx reads the linked records the choice lists leave out (listClosedLinkChoices in lib/data/tasks.ts, at most two reads, none when every link is in the lists) and passes them to SarciniScreen, which hands the one record of the task being edited to TaskForm as currentLink; linkChoicesWithCurrent in lib/data/tasks-shape.ts adds it to that task's list, labelled with the name and (inchis) or (inactiv). New tasks still offer only open projects and active clients. Saving without touching the box keeps the link. No migration.",
+      "plain": "La editarea unei sarcini legate de un proiect închis sau de un client inactiv se vede numele înregistrării, nu un câmp gol.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/task-record-closed-link.spec.ts are green in this pull request's own `quality` run: `P3-160: functia pura adauga inregistrarea curenta lipsa si nu schimba lista unei sarcini noi`, `P3-160: sarcina legata de un proiect inchis arata numele proiectului, la fel clientul inactiv, iar legatura se pastreaza la salvare`. (b) The other task specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Only the one linked record of the task being edited is added to the choice list, with a short Romanian marker (inchis for a closed project, inactiv for an inactive client or project); a new task offers only open projects and active clients, as before. The add happens on the data side; components/ui/Combobox.tsx is not changed. Saving without touching the record box keeps the stored link. No change to the look of the task form, the Romanian labels, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-record-closed-link against main: its quality run on the head sha runs tests/e2e/task-record-closed-link.spec.ts; report in docs/reports/2026-10-05-executor-task-record-closed-link.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free (P3-142 was already taken on another branch). Azi links open the same Sarcini screen, so one fix covers them; the record panels on client and project pages show the name as fixed text and were never affected."
+    },
+    {
+      "id": "P3-166",
+      "title": "Every active client can be picked in the client pickers however many clients there are. listClientOptions in lib/data/projects-list.ts read clients with no paging and no order, so past 1000 active rows (the database returns at most 1000) an arbitrary set of clients was missing from the Proiecte filter, the project form, the walk-in buyer picker on Ieșiri, the task record picker and the invoice editor, and a failed read showed an empty picker. It now delegates to readActiveClientOptions in lib/data/client-options-read.ts, which reads pages of 1000 ordered by name then id until a page comes back short, keeps the Romanian sort and the { id, name } shape, and throws on a read error so the app error screen shows instead of an empty list. No migration.",
+      "plain": "Toți clienții activi pot fi aleși în listele de clienți, oricât de mulți ar fi.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-124"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/client-options-read.spec.ts are green in this pull request's own `quality` run: `P3-166: selector clienti: 1000, 1000 si 250 de clienti se citesc toti, in trei pagini, ordonati`, `P3-166: selector clienti: exact 1000 de clienti cere si o a doua pagina, goala`, `P3-166: selector clienti: o citire care esueaza arunca, nu da lista goala`. (b) The other client, project and task specs stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "The paging loop is unit-tested with a stubbed Supabase client (seeding 1000+ rows in CI would be slow, and the loop is what is under test). The return shape { id, name }[] and the localeCompare Romanian sort are unchanged, so no caller changes. A read error throws and lands on app/error.tsx. No change to the look of any picker, the Romanian labels, the lead PageHeader prop, the hasPhase3Schema gate, supabase/config.toml, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/client-picker-paging against main: its quality run on the head sha runs tests/e2e/client-options-read.spec.ts; report in docs/reports/2026-10-04-executor-client-picker-paging.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Id taken through npm run id:free. Callers: sarcini, iesiri, proiecte, proiecte/[id] pages and lib/data/facturare-create.ts; no other picker reads all clients this way (the import reads already page)."
+    },
+    {
+      "id": "P3-165",
+      "title": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată», în Sarcini, în panoul de înregistrare și în Azi.",
+      "plain": "O sarcină alocată unui coleg fără nume complet în profil arată colegul (după email), nu «Nealocată».",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "The named case `task-assignee-email-fallback` in tests/e2e/task-assignee-email-fallback.spec.ts is green in this pull request's own `quality` run: (a) a task with an assignee who has a full name shows the name in the list; (b) a task with an assignee who has an empty full name shows the email; (c) a task with no assignee shows 'Nealocată'. The email also appears on the record panel and the Azi section. `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Afișăm numele complet; dacă lipsește, emailul; «Nealocată» doar când sarcina nu are pe nimeni alocat. The display rule lives once in lib/data/clients.ts as ownerDisplayName, or added new if the function does not exist yet, and is reused by every display site: lib/data/tasks.ts for assigneeName, TaskTable.tsx, AziTasksSection.tsx and TaskPanel if there is one. No migration.",
+      "last_checkpoint": "2026-10-05T17:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-assignee-email-fallback against main: its quality run on the head sha runs tests/e2e/task-assignee-email-fallback.spec.ts; report in docs/reports/2026-10-05-executor-task-assignee-email-fallback.md",
+        "at": "2026-10-05T17:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. The email fallback logic is connected through lib/data/tasks.ts assigneeName."
+    },
+    {
+      "id": "P3-167",
+      "title": "A spec locks in that every number the materials export writes is read back by the import as the same number.",
+      "plain": "Un test verifica faptul ca orice numar scris de exportul de materiale este citit inapoi de import exact la fel.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-137",
+        "P3-129"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/e2e/import-number.spec.ts` green in this pull request's quality run on the head sha, including the case `numar de import: exportul de materiale se citeste inapoi la fel`. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Doar test. Cititorul de numere nu se schimba: un singur punct urmat de trei cifre ramane separator de mii (250.000 = 250000), ca in P3-137.",
+      "last_checkpoint": "2026-10-05T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-number-round-trip against main: its quality run on the head sha will run tests/e2e/import-number.spec.ts and report the named test case green; report in docs/reports/2026-10-05-executor-import-number-round-trip.md",
+        "at": "2026-10-05T12:00:00Z"
+      },
+      "notes": null
+    },
+    {
+      "id": "P3-156",
+      "title": "Exportul de leaduri si clienti include si data pasului urmator, iar la reimport data se pastreaza. (1) lead-export-actions.ts, lead-import-types.ts, client-export-actions.ts, client-import-types.ts: add nextActionDate field to the export mappings and import field lists. (2) lead-import-plan.ts and client-import-plan.ts: add nextActionDate to FILL_FIELDS and CLIENT_FILL_FIELDS so the date is fillable on existing records. (3) lead-import-actions.ts and client-import-actions.ts: map nextActionDate to next_action_at in FILL_COLUMN, update readable filter, and pass it to createClientRecord as nextActionAt. (4) The date format is DD.MM.YYYY in exports (what Romanian users read) and accepted in imports as DD.MM.YYYY, DD/MM/YYYY or YYYY-MM-DD. No migration, the date column already exists in the database.",
+      "plain": "Exportul de lead-uri si clienti include si data pasului urmator, iar la reimport data se pastreaza.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-126",
+        "P3-127",
+        "P3-101",
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/export-import-round-trip.spec.ts (a new file) are green in this pull request's own `quality` run: `export: lead row with next step text and date exports both cells`, `export: client row with next step text and date exports both cells`, `import: nextActionDate column maps to the date, empty stays empty, bad date is an error row`, `round trip: export rows then parse them back, the date is unchanged`. (b) tests/e2e/lead-import.spec.ts and clients-import.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Date format in exports is DD.MM.YYYY (what users read in Romanian); imports accept DD.MM.YYYY, DD/MM/YYYY and YYYY-MM-DD. Empty date stays empty. Bad dates are error rows with Romanian messages like other bad values. No change to the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the import template column order, the duplicate checks, the other export/import columns, the known defects in handoff Part 6 or the board hygiene in Part 7. No migration.",
+      "last_checkpoint": "2026-10-05T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #423 on branch card/export-next-step-date against main: its quality run on the head sha runs the named acceptance cases and board validator",
+        "at": "2026-10-05T19:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-139 was taken, P3-156 was the next free one. The leads and clients imports already accept nextAction; this extends them to also read and save nextActionDate, mapped to next_action_at in the database, which already exists from migration 0058 (P3-89, shipped 2026-10-04). All acceptance cases must pass in PR #423 quality run. No migration, no changes to extraction boundaries."
+    },
+    {
+      "id": "P3-169",
+      "title": "Pe ecranele Sarcini, o data imposibila in adresa inseamna fara filtru, butonul Anulează sarcina nu mai tace cand data este rosie, iar filtrele de data navigheaza o singura data, nu la fiecare tasta. (1) lib/data/tasks-shape.ts: isDayString verifica ca ziua exista in calendar. (2) components/tasks/TaskForm.tsx: Anulează sarcina lucreaza cu data rosie, fiindca trimite numai starea (facut intre timp de P3-157, verificat aici). (3) components/ui/DateField.tsx primeste completeOnly, iar SarciniScreen il pune pe cele doua filtre de termen.",
+      "plain": "Pe ecranele Sarcini, o dată greșită în adresă nu mai duce la pagina de eroare, butonul de anulare nu mai tace când data e greșită, iar filtrele de dată nu reîncarcă pagina la fiecare tastă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/tasks-small-faults.spec.ts (a new file) are green in this pull request's own `quality` run: `sarcini mici: isDayString cere o zi reala din calendar`, `sarcini mici: o data imposibila in adresa inseamna fara filtru, fara pagina de eroare`, `sarcini mici: cu data rosie, Anulează sarcina nu ramane un clic mut`, `sarcini mici: scrisa in filtru, o data produce cel mult o navigare, dupa ce este intreaga`. (b) The existing cases of tests/e2e/tasks.spec.ts stay green. (c) No change under supabase/migrations/. (d) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "1. isDayString checks the date is real (round trip through a UTC Date). An impossible date in the address is treated as no filter, like any unknown value. 2. With the date box red, Anulează sarcina works (it sends only the cancelled state, as P3-157 made it) while Salvează stays disabled, and the red date message stays visible. This card only proves it with a spec. 3. A Sarcini date filter pushes to the address only when the date is complete and real, or the box is empty. Other screens using DateField are unchanged (completeOnly is opt-in). No change to the lead PageHeader prop, the hasPhase3Schema gate, tasks 134, 135 and 146 behaviour.",
+      "last_checkpoint": "2026-10-05T21:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/sarcini-three-small-faults against main: its quality run on the head sha runs the named acceptance cases and the board validator",
+        "at": "2026-10-05T21:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-151 was taken, P3-169 was the next free one."
+    },
+    {
+      "id": "P3-163",
+      "title": "Walk-in sale unit prices and totals show their exact value (12,50 MDL, 0,40 MDL), not rounded to whole lei",
+      "plain": "La vânzarea directă, prețul pe unitate și totalurile se afișează exact, cu bani (12,50 MDL), nu rotunjite la lei întregi.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) A unit spec in tests/unit/format.spec.ts checks that formatMoneyExact(12.5) returns \"12,50 MDL\" and formatMoneyExact(0.4) returns \"0,40 MDL\". (b) If an e2e spec covers the walk-in form or OutboundPanel, it extends to assert a price with bani is shown exactly (e.g., a unit price of 12,50 shows as \"12,50 MDL\" not \"13 MDL\"). (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: use formatMoneyExact instead of formatMoney in OutboundDirectClientForm.tsx (line total and Total tarifat) and OutboundPanel.tsx (unit prices). Do NOT change formatMoney itself; other screens rely on whole-lei display. This is a display fix only; stored values are exact. No migration, no new columns, no new helpers.",
+      "last_checkpoint": "2026-10-05T23:10:50Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #433 on branch card/walkin-price-rounding against main: its quality run on the head sha runs the acceptance cases named in this card.",
+        "at": "2026-10-05T23:10:50Z"
+      },
+      "notes": null
+    },
+    {
+      "id": "P3-157",
+      "title": "Task save writes only the fields the user changed. Bug check 2026-10-04: TaskForm sent all eight task fields back as they were when the page loaded and updateTask wrote every one, so a colleague's newer change (for example a task marked done) was undone by a save that only changed the due date, and 'Anulează sarcina' did the same to the other fields. (1) changedTaskFields in lib/data/tasks-shape.ts compares the form's current values with the values it opened with and returns only the differences; the linked-record pair travels whole. (2) TaskForm sends that diff to updateTask; no difference means no write and the form closes as before. (3) 'Anulează sarcina' sends only the status, through cancelTaskPatch. (4) The row updateTask writes is built by taskPatchRow, a pure function, so a field not sent is never written and a spec can prove it. No conflict dialog. No migration.",
+      "plain": "Când cineva salvează o sarcină, se schimbă doar ce a modificat el, fără să anuleze modificarea unui coleg.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/task-save-changed-fields.spec.ts are green in this pull request's own `quality` run: `sarcina salvata: numai termenul schimbat pleaca numai cu termenul`, `sarcina salvata: nicio schimbare inseamna o modificare goala`, `sarcina salvata: randul pentru un termen singur nu atinge starea`, `sarcina anulata: anularea scrie numai starea`, `sarcina salvata: termenul schimbat dupa ce un coleg a finalizat-o pastreaza starea Finalizata`, `sarcina anulata: anularea dintr-un formular vechi pastreaza ce a schimbat colegul`, `sarcina salvata: Salvează fara nicio schimbare nu scrie nimic`. (b) tests/e2e/tasks.spec.ts stays green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "The task form sends only the fields the user changed compared with the values it opened with, and updateTask writes only the fields it receives; a field not sent is never written. The linked record's type and id travel together. 'Anulează sarcina' writes only the status. No change means no write and the form closes as today. Two people changing the SAME field stay last-save-wins; no blocking conflict dialog. No change to the form's look or Romanian labels, the lead PageHeader prop, the hasPhase3Schema gate, routes, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-05T19:01:40Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-save-changed-fields-r2 against main: its quality run on the head sha runs tests/e2e/task-save-changed-fields.spec.ts; report in docs/reports/2026-10-05-executor-task-save-changed-fields.md",
+        "at": "2026-10-05T19:01:40Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken; P3-156 was free when allocated and was taken a minute later by the open pull request #423, so this card moved to P3-157 before its pull request was opened. updateTask already skipped absent keys; the defect was the form sending every key. The colleague in the end to end cases writes through the table with the account manager's token, since the property under test is what the operator's earlier-opened form sends. The work moved to branch card/task-save-changed-fields-r2 as one commit, because the first branch carried a commit subject naming P3-156 and history is never rewritten."
+    },
+    {
+      "id": "P3-148",
+      "title": "A walk-in sale line with a product but no quantity is refused with a clear Romanian message, never silently dropped (form and server)",
+      "plain": "La o vânzare la ghișeu, un rând cu produs ales dar fără cantitate nu mai dispare pe tăcute: bonul nu se creează până când rândul este completat sau șters.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named case `outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The named case `outbound walk-in: filling the quantity then saves 3 items` in the same file is green. (c) The named case `outbound walk-in: a payload with a half-filled line is refused by server` in the same file is green. (d) All existing outbound and walk-in specs stay green. (e) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "RULE (half-filled line). A line with product but no/zero/invalid quantity, or quantity but no product, is \"half-filled\": operationally distinct from an empty line that the user may have added and not used. Form: show the line number and a message per line, exactly as InboundOrderForm does, so the operator can delete it or fill it. Server: refuse the same case for any caller. Empty lines (no product, no quantity) are ignored as today. Use Romanian messages with proper diacritics, matching the style of InboundOrderForm.",
+      "last_checkpoint": "2026-10-05T19:51:48Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #430 on branch card/walkin-line-without-quantity against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-05-executor-walkin-line-without-quantity.md",
+        "at": "2026-10-05T19:51:48Z"
+      },
+      "notes": ""
+    },
+    {
+      "id": "P3-158",
+      "title": "DateField rejects a half-typed date on form submit so the task never loses its due date silently. When a form (currently TaskForm) has a DateField and the user presses Enter while the field holds a date like '10.10.20' (incomplete), the field is marked with a red error message in Romanian, the form save is blocked, and the previous due date is preserved. Clearing the field fully is still allowed. (1) DateField's validation marks any non-empty text that does not parse as a complete date as invalid immediately, not only on blur or after 8 digits. (2) TaskForm refuses save while any DateField is marked invalid. (3) The error message is in Romanian and names incompleteness, not invalidity. (4) The test simulates editing a task due 10.10.2026, typing '10.10.20' in the due date field, verifying the save is blocked and the field is marked red, then completing the date and confirming the save works. (5) Every other user of DateField (grep imports) stays unchanged: a valid date and an empty field work exactly as today. No migration.",
+      "plain": "O dată scrisă pe jumătate la o sarcină nu mai șterge termenul: salvarea este oprită și câmpul este marcat ca greșit.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) A unit spec on DateField: partial text ('10.10.20') reports invalid on submit; empty reports empty; '10.10.2026' reports that date. (b) A component or unit spec on TaskForm: half-typed date plus Enter does not call the save and shows the message; the due date is unchanged. (c) An end to end spec in CI: task due 10.10.2026, delete two characters in 'Termen', press Enter, the task still shows that due date. (d) Grep every import of DateField and verify each one stays unchanged: a valid date and an empty field work exactly as today. (e) The board validator exits 0 and no migration file is added.",
+      "defaults": "Validation happens at the moment of form submit (when Enter is pressed or the Save button is clicked), not only on blur. A date field that holds non-empty, non-valid text is marked red and blocks the form. An empty date field is not marked invalid. The old 'Data nu este validă' message changes to 'Data nu este completă. Scrie ziua, luna și anul, de exemplu zz.ll.aaaa, sau lasă câmpul gol.' No change to the look, to other fields, to the TaskForm UI labels, to the hasPhase3Schema gate, or to routes that work today. No migration, unless authoring the fix discovers one is needed. DateField is in components/ui/DateField.tsx; TaskForm is in components/tasks/TaskForm.tsx.",
+      "last_checkpoint": "2026-10-05T23:11:09Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #428 on branch card/task-half-typed-date against main: its quality run on the head sha runs the acceptance cases named in this card.",
+        "at": "2026-10-05T23:11:09Z"
+      },
+      "notes": "AUTHORED 2026-10-05. Requested id P3-141 was taken, id:free returned P3-158."
+    },
+    {
+      "id": "P3-144",
+      "title": "Outbound screen: the 'Tip ieșire' choice is locked while a slip is saving. Before, clicking 'Creează bonul' and then the other option before the answer came back unmounted the form that was waiting, so the issue was saved and stock deducted but the screen showed an empty form and no confirmation, and the operator could enter the slip twice. (1) OutboundModeChoice takes a disabled prop that disables both radio options and the fieldset (disabled and aria-disabled). (2) OutboundProjectForm and OutboundDirectClientForm pass their own pending state to it and ignore a mode change that arrives while pending. No change to the save logic, stock deduction, labels, layout or server actions. No migration.",
+      "plain": "Cât timp bonul de ieșire se salvează, alegerea «Tip ieșire» este blocată, iar confirmarea apare mereu după salvare.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/outbound-mode-lock.spec.ts are green in this pull request's own `quality` run: `iesire P3-144: pe Client direct, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: pe Proiect, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: dupa salvare, alegerea Tip iesire este din nou libera`. (b) tests/e2e/outbound-direct-client.spec.ts and outbound.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "While a save is in flight, both 'Tip ieșire' options are disabled and a mode change that arrives anyway is ignored, so the form that waits for the answer is never unmounted and its confirmation always shows. When the save ends, the choice is enabled again. Nothing else changes: same labels, same layout, same server actions, no migration, no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/outbound-mode-lock against main: its quality run on the head sha runs tests/e2e/outbound-mode-lock.spec.ts; report in docs/reports/2026-10-05-executor-outbound-mode-lock.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. The task asked for a component spec, but the repo has no component test runner (Playwright only), so the disabled-while-saving check is an end to end case with the save request held for two seconds. Needs the CI database, so it was not run locally."
+    },
+    {
+      "id": "P3-173",
+      "title": "Projects export and import: an exported projects file re-imports cleanly even when a project's client is deactivated or shares its name with another client. (1) The export keeps every existing column and header and adds one column at the end, 'Identificator client', holding the client's id. (2) The import reads that column as the field clientId and matches the client on it first; when the column is missing or the cell is empty it falls back to the name match exactly as before, so old files keep working. (3) A project that already exists for the client is reported as a duplicate whatever the client's active state; a new project for a deactivated client is still refused with the same Romanian sentence. No migration.",
+      "plain": "A projects file exported from the platform can be imported back without errors, even for projects of switched-off clients or clients with the same name.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-128"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/projects-export.spec.ts, green in this pull request's own `quality` run on its head sha: the case `export proiecte: client dezactivat si doi clienti cu aceeasi denumire se reimporta fara erori` (zero error rows and every row reported as a duplicate on re-import of the untouched file) and the case `export proiecte: un fisier vechi, fara coloana de identificator, se importa ca pana acum`. (b) The updated case `export proiecte: antetele exportului sunt identice cu antetele modelului de import` is green, asserting the old headers unchanged plus 'Identificator client' last. (c) Every other case in tests/e2e/projects-export.spec.ts and tests/e2e/projects-import.spec.ts stays green. (d) `npx tsc --noEmit` and `npm run build` exit 0, the board validator exits 0, and no migration file is added.",
+      "defaults": "The identifier is the client's id, not the IDNO, because it exists for every client and is never shared. The Client column still carries the name. The identifier column is not in the import template. An identifier that matches no client is a row error naming it. A deactivated client is found by the import, so an existing project is a duplicate; creating a new project under it is refused as before. Source: bug check 2026-10-04. No migration, no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/project-export-client-id against main: its quality run on the head sha runs tests/e2e/projects-export.spec.ts; report in docs/reports/2026-10-06-executor-project-export-client-id.md",
+        "at": "2026-10-06T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request. Requested id P3-172 was taken, id:free returned P3-173. The clause in P3-128 saying the client column must never carry an id still holds: the Client column carries the name, the id sits in a separate last column. Needs the CI database, so the end to end cases were not run locally."
+    },
+    {
+      "id": "P3-176",
+      "title": "Azi screen empty state, P3-142 follow-up: 'Nimic de facut azi.' is shown only when there are NO calls AND NO tasks due today; the test has two deterministic cases without assertions inside conditionals",
+      "plain": "Ecranul Azi arata 'Nimic de facut azi.' numai cand nu sunt nici apeluri de facut si nici sarcini cu termen azi. Testul verifica amandoua situatiile.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-142"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) aziEmptyTitle in lib/data/azi-empty.ts, used by components/clients/AziScreen.tsx, returns \"Nimic de facut azi.\" when the task count is 0 or unknown (null) and \"Niciun apel de facut azi.\" when tasks are due today. (b) tests/e2e/azi-empty-title.spec.ts proves the three cases without any data, and the case P3-142b in tests/e2e/azi-screen.spec.ts asserts without conditions that the task due today is on screen and that \"Nimic de facut azi.\" is not. The calls card wording there is checked only when no call row is on screen, because the shared test database holds calls from other specs. Both specs are green in the PR quality run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "No Romanian diacritics on screen, no em dash or en dash anywhere. No changes to the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the AziTasksSection component, or any other route.",
+      "last_checkpoint": "2026-10-05T21:10:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/azi-empty-both-cases-r4 against main: quality check runs tests/e2e/azi-screen.spec.ts with two deterministic test cases P3-142a and P3-142b, both unconditional assertions",
+        "at": "2026-10-05T21:10:00Z"
+      },
+      "notes": "Card created as a follow-up to P3-142. The original test on lines 434-455 of azi-screen.spec.ts asserts only inside an if statement, which allows it to pass while checking nothing. This card splits it into two separate deterministic test cases: P3-142a tests the no-calls-no-tasks case, P3-142b tests the no-calls-with-tasks case. Both assertions are unconditional."
+    },
+    {
+      "id": "P3-172",
+      "title": "Outbound screen, Client direct: a buyer created on the spot with '+ Client nou' is saved at stage 'client', not the column default 'cold'. Before, InlineClientCreate in components/outbound/OutboundDirectClientForm.tsx (card P3-119) called createClientRecord with no stage, so the row took 'cold' from migration 0039: the buyer showed under Leaduri as 'Lead rece', raised the lead count and was missing from the CRM 'Clienți' view, while the form itself promises he appears in Clienți like any other client. (1) InlineClientCreate passes stage 'client'. createClientRecord already accepts a stage only from the allowed list (isClientStage) and writes it through set_client_stage with its history row; it is not changed. (2) Every other create path (Clienți form, lead form, both imports) keeps its own stage or the 'cold' default. (3) The walk-in server action does not create clients, so nothing changes there. (4) Existing records are not touched: no migration, no backfill.",
+      "plain": "Un cumpărător adăugat direct la ghișeu, în timpul unei vânzări, este salvat ca client și apare în lista Clienți, nu printre lead-uri.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/outbound-direct-client.spec.ts are green in this pull request's own `quality` run: `iesire client direct: un client nou creat din ecran apare apoi in Clienti` (now opens /clienti?vedere=clienti and reads the stored stage `client`), `iesire client direct: un client nou creat din ecran nu apare printre Leaduri si numarul de leaduri nu creste`, `creare client fara etapa: randul ramane cold, implicitul pe care se bizuie celelalte cai`. (b) tests/e2e/clients.spec.ts, leaduri.spec.ts and the rest of outbound-direct-client.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "A buyer created at the counter during a walk-in sale IS a client at once, as the form text promises: stage 'client', written by the existing createClientRecord through set_client_stage. Every other create path keeps 'cold' as its default. Existing rows are not changed, no migration, no backfill. Nothing on screen changes; no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/walkin-buyer-is-client against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-04-executor-walkin-buyer-is-client.md",
+        "at": "2026-10-06T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check. The brief named P3-147, which is taken by the open pull request #413; npm run id:free named P3-172. #413 replaces the createClientRecord call in InlineClientCreate with createWalkInClient: whichever lands second must keep stage 'client' on the walk-in path. The brief asked for a unit case, but the repo has no unit runner (Playwright only), so the cold default is proved with the owner token against the local database in CI."
+    },
+    {
+      "id": "P3-178",
+      "title": "P3-136 follow-ups from the 2026-10-04 bug check: (1) listInboundOrders in lib/data/inbound.ts reads every inbound order through readAllPages (new lib/data/inbound-read.ts), same order as before (created_at desc) with id desc as the last tie breaker, so Comenzi and the home screen's pending arrivals no longer stop silently at 1000 orders. (2) listProducts starts the catalog read and the stock read together again (new lib/data/catalog-read.ts, Promise.all): the pickers' active-only stock read filters on the linked product (products!inner(active), products.active = true) instead of waiting for the catalog's id list. (3) The batches and outbound_lines paged reads (lib/data/stock-read.ts) already order by id, which is unique; a row read twice because a colleague saved between two pages is dropped with dedupeById (lib/data/id-list.ts), and the inbound read does the same.",
+      "plain": "Lista de comenzi de intrare arată toate comenzile, chiar și peste 1000, lista de produse se încarcă din nou la fel de repede ca înainte, iar listele lungi nu pierd și nu dublează rânduri când un coleg salvează în timpul citirii.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-136",
+        "P3-162"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/inbound-paging-stock-read.spec.ts is green in this pull request's own quality run on the head sha: a mocked client returning 1200 inbound orders over three pages gives 1200 orders, listInboundOrders goes through the paged read, the catalog and stock reads both start before either resolves (deferred promises), batches and outbound_lines are ordered by id last, a page overlap gives no duplicate row, and the active-only stock read uses the catalog filter. (b) tests/e2e/stock-read-paging.spec.ts, list-paging.spec.ts, tasks-list-paging.spec.ts, inbound.spec.ts, inventory-paging.spec.ts, products.spec.ts and dashboard.spec.ts stay green in the same run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0 and no migration file is added.",
+      "defaults": "listInboundOrders reads all rows through readAllPages, same sort order as today, id as the final tie breaker; a count that changes between pages stays the visible error readAllPages already raises for every other caller. The stock read runs beside the catalog read again; when it needs the active filter it reads by that filter, not by the catalog's id list. Every paged read orders by its sort column plus id last; a row read twice between pages is dropped by id after reading. Stock numbers on Inventar, the home screen and the pickers do not change; tasks paging (P3-162) and P3-124 paging do not change; no route changes; no change to the hasPhase3Schema gate or the lead PageHeader prop; no migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T07:59:57Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/inbound-paging-stock-read against main: its quality run on the head sha runs tests/e2e/inbound-paging-stock-read.spec.ts; report in docs/reports/2026-10-04-executor-inbound-paging-stock-read.md",
+        "at": "2026-10-06T07:59:57Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check (factory task 152). The brief asked for P3-152, which is taken; npm run id:free named the id right after P3-176, which pull request #450 then took a minute later, before this branch was pushed, so this card took P3-178, the next id the script named. Cause of fault 3 confirmed on origin/main: the batches and outbound_lines reads already ordered by id, which is unique, so the order was stable; the remaining risk is that pages are asked by position and ids are random uuids, so a row saved between two pages before the read position pushes the previous page's last row onto the next page. readAllPages already turns a changed total into a visible error; a save plus a delete in the same window keeps the total, and then a row is read twice (now dropped by id) and one row can be skipped (still possible, written in the report)."
+    },
+    {
+      "id": "P3-183",
+      "title": "Project and material imports stop on a failed read: readAll in lib/data/project-import-actions.ts and lib/data/material-import-actions.ts no longer breaks out of the paging loop and returns the pages read so far. Both now go through readAllRows in lib/data/import-clients-read.ts (the P3-151 helper), which throws ImportReadError with a Romanian message per table, and planProjectImport, runProjectImport, planMaterialImport and runMaterialImport turn it into the refusal through loadOrRefuse, so nothing is written. No migration.",
+      "plain": "Dacă baza de date nu poate fi citită la importul de proiecte sau de materiale, importul se oprește cu un mesaj și nu scrie nimic, în loc să continue cu o listă citită pe jumătate.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-151"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `import: citirea esuata a tabelei projects|clients|products|categories refuza importul, nu da lista pe jumatate` in tests/e2e/import-clients-read.spec.ts are green in this pull request's own `quality` run: a read error, a read error after a full first page, and null data each refuse with the Nu am putut citi message and return no rows. (b) The three earlier cases of P3-151 in the same file stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) The board validator exits 0 and no migration file is added.",
+      "defaults": "RULE (a read error or null data on any page throws ImportReadError, never a partial list; messages Nu am putut citi clienții / proiectele existente / categoriile / produsele existente. Încercați din nou.; the four import actions return the message and write nothing). The plan and matching logic, routes, the hasPhase3Schema gate and the lead PageHeader prop do not change. No migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-183-r2 against main: its quality run on the head sha runs tests/e2e/import-clients-read.spec.ts; report in docs/reports/2026-10-06-executor-project-material-import-read-error.md",
+        "at": "2026-10-06T12:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check (factory task 221). Cause: the paging loop did `if (error || !data) break`, so a failed clients or categories read refused every row as an unknown client or category, and a failed projects or products read marked every row as new. A stale local branch card/p3-183 existed in the primary checkout, so this one is card/p3-183-r2. Tests run at the helper level with a fake client, like P3-151; the four action files are not run end to end here (no database on this machine)."
+    },
+    {
+      "id": "P3-182",
+      "title": "decodeCsvFile in lib/data/import-shared.ts decides between Windows-1250 and Windows-1251 by majority: it counts Romanian letters and foreign letters in the 1250 reading and picks 1251 only when foreign letters outnumber Romanian ones and the 1251 reading has Cyrillic. Follow-up to P3-145, whose any-foreign-letter rule turned a Romanian file with one Wurth or Karcher into Cyrillic. No migration.",
+      "plain": "Un fișier CSV românesc salvat din Excel, care conține și un nume străin (Würth, Kärcher, André), se importă cu literele românești corecte, nu cu litere chirilice greșite.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-145"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named cases `codare csv: windows-1250 cu Bălți si Würth ramane romanesc` and `codare csv: windows-1250 cu André si Kärcher ramane romanesc` in tests/e2e/import-encoding.spec.ts are green in this pull request's own `quality` run. (b) The four cases of P3-145 in the same file stay green, including `codare csv: windows-1251 cu Иван Петров se citeste corect`. (c) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "RULE (decodeCsvFile, non UTF-8 branch). In the windows-1250 reading count ro (letters in ROMANIAN_LETTERS) and foreign (other non-ASCII letters). Pick windows-1251 only when the 1251 reading has Cyrillic and foreign is greater than ro; otherwise windows-1250 with the cedilla letters turned into comma-below letters. The U+FFFD refusal, BROKEN_LETTERS_FILE_ERROR, the function signature and the four import sheets stay as they are. No migration.",
+      "last_checkpoint": "2026-10-06T09:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-encoding-majority against main: its quality run on the head sha runs tests/e2e/import-encoding.spec.ts; report in docs/reports/2026-10-06-executor-import-encoding-majority.md",
+        "at": "2026-10-06T09:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check (factory task 144). The brief named pull request #409, which was closed unmerged and replaced by #411 (merged), so this is a new card on a fresh branch. Cause: P3-145 picked 1251 when the 1250 reading held any foreign letter, and the 1251 reading of Romanian bytes is almost always Cyrillic. Locally the decode logic was checked directly with node because the Playwright config starts a web server that needs Supabase variables."
+    },
+    {
+      "id": "P3-181",
+      "title": "Product movement history paged, from the 2026-10-04 bug check: listProductBatches and listProductMovements in lib/data/products.ts read their batches and outbound_lines through readAllPages (new lib/data/movements-read.ts), each page ordered by its date column then id as the last tie breaker, duplicate ids dropped after reading, and the final in-memory sort newest first with id as tie breaker. Before, each read was one unpaged request, so a product with more than 1000 outbound lines showed a history with arbitrary rows missing while its stock (P3-136) was right.",
+      "plain": "Istoricul de mișcări al unui produs arată toate intrările și ieșirile, cele mai noi primele, chiar și peste 1000 de rânduri, așa că se potrivește mereu cu stocul afișat.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-136",
+        "P3-178"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/product-movements-paging.spec.ts is green in this pull request's own quality run on the head sha: a mocked client returning 1200 outbound lines over two pages gives all 1200 plus the batches, newest first; the batches read goes through readAllPages ordered with id last; an overlapping page gives no duplicate row; listProductBatches and listProductMovements go through the paged reads. (b) tests/e2e/products.spec.ts, inventory-paging.spec.ts, stock-read-paging.spec.ts, inbound-paging-stock-read.spec.ts and dashboard.spec.ts stay green in the same run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0 and no migration file is added.",
+      "defaults": "Both reads go through readAllPages in lib/data/id-list.ts, each page ordered by the date column then id as the final tie breaker, duplicate ids dropped after reading. The final in-memory sort stays newest first with id as tie breaker. A count that disagrees with the rows read stays the visible error readAllPages already raises for every other caller. For a product under 1000 rows the page shows the same rows, the same Romanian labels, the same Recepție and Ieșire fallbacks and the same client · proiect text. P3-136 stock numbers, P3-178 changes, routes, the hasPhase3Schema gate and the lead PageHeader prop do not change; no migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T09:25:41Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/product-movements-paging against main: its quality run on the head sha runs tests/e2e/product-movements-paging.spec.ts; report in docs/reports/2026-10-04-executor-product-movements-paging.md",
+        "at": "2026-10-06T09:25:41Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check (factory task 213). The brief asked for P3-153, which is taken; npm run id:free named P3-181. Task 152 merged as P3-178 (pull request #451), so it is named in depends_on."
+    },
+    {
+      "id": "P3-170",
+      "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
+      "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/task-assignee-names.spec.ts, green in this pull request's quality run on its head sha: the cases `responsabil: citirea sarcinii ia numele din lista echipei, nu din imbinarea cu profilul`, `responsabil: Nealocata se arata numai cand nu raspunde nimeni de sarcina`, `responsabil: un manager de cont vede numele unui coleg pe sarcina si il poate alege in Responsabil` and `responsabil: un cont dezactivat nu primeste lista echipei`. (b) The destructive-migration step and both applier proof steps RAN and passed, including assertions/0072_list_team_members.sql. (c) Every existing spec under tests/e2e passes, tasks.spec.ts included. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "list_team_members() returns id, display_name and active and nothing else (no email, no role, no phone), is security definer with search_path set, is executable by authenticated only, and returns no rows when the caller is deactivated or has no profile. The profiles read rule (profiles_select) is not widened. The Responsabil picker offers active colleagues only; a deactivated current assignee still shows by name, marked (inactiv). 'Nealocată' is written only when the task has no assignee. The owner's view does not change: for an owner display_name falls back to the email as before. The migration is additive: no DROP TABLE, TRUNCATE or DELETE. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-assignee-names against main: its quality run on the head sha runs tests/e2e/task-assignee-names.spec.ts and the 0072 assertion; report in docs/reports/2026-10-05-executor-task-assignee-names.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken, the next id was taken by an open pull request while this one was built, P3-170 was the next free one. Migration number 0072 because 0071 is carried by the open pull request for the walk-in buyer card. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
       "id": "P3-147",
-      "title": "Account manager adds a new walk-in buyer on Iesiri materiale (owner decision q143, 2026-10-04). Migration 0071 replaces clients_insert so an ACTIVE owner or ACTIVE account_manager may insert a client (current_app_role() in the two named roles); clients_update stays owner-only and there is still no delete policy. New server action createWalkInClient (owner or account_manager, name, type, IDNO and phone only) shares the one insert with createClientRecord, which stays owner-only for the Clienti screen, the lead form and both imports. Iesiri page shows the '+ Client nou' button to both roles.",
+      "title": "Account manager adds a new walk-in buyer on Iesiri materiale (owner decision q143, 2026-10-04). Migration 0073 replaces clients_insert so an ACTIVE owner or ACTIVE account_manager may insert a client (current_app_role() in the two named roles); clients_update stays owner-only and there is still no delete policy. New server action createWalkInClient (owner or account_manager, name, type, IDNO and phone only) shares the one insert with createClientRecord, which stays owner-only for the Clienti screen, the lead form and both imports. Iesiri page shows the '+ Client nou' button to both roles.",
       "plain": "Operatorul de la tejghea poate adăuga pe loc un cumpărător nou când eliberează material, fără să aștepte administratorul. Modificarea clienților rămâne a administratorului.",
       "lane": "shipped",
       "home_lane": "in_flight",
@@ -4884,15 +5511,15 @@
       ],
       "blocked_on": null,
       "question": null,
-      "acceptance": "(a) The test 'iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza' is green in tests/e2e/outbound-direct-client.spec.ts in this pull request's own `quality` run: signed in as the test account manager, a direct client issue with a newly created buyer saves, the client row exists afterward and is the issue's client, a PATCH on that client with the manager token changes no row, and /clienti shows no client-new button to the manager. (b) The existing owner case 'iesire client direct: un client nou creat din ecran apare apoi in Clienti' stays green in the same run. (c) scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql passes under `npm run check:migrations` in CI, and the steps 'Refuse a migration that removes rows' and both applier proof steps RAN and passed, not skipped. (d) `npx tsc --noEmit` and `npm run build` exit 0, and the changed files carry no em dash and no en dash.",
+      "acceptance": "(a) The test 'iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza' is green in tests/e2e/outbound-direct-client.spec.ts in this pull request's own `quality` run: signed in as the test account manager, a direct client issue with a newly created buyer saves, the client row exists afterward and is the issue's client, a PATCH on that client with the manager token changes no row, and /clienti shows no client-new button to the manager. (b) The existing owner case 'iesire client direct: un client nou creat din ecran apare apoi in Clienti' stays green in the same run. (c) scripts/poc-free/local-db/assertions/0073_walkin_manager_client_insert.sql passes under `npm run check:migrations` in CI, and the steps 'Refuse a migration that removes rows' and both applier proof steps RAN and passed, not skipped. (d) `npx tsc --noEmit` and `npm run build` exit 0, and the changed files carry no em dash and no en dash.",
       "defaults": "Widen only creating a client and only for the two named roles, active accounts. Keep clients_update, the Clienti screen buttons, the lead form and both imports owner-only. The walk-in action accepts name, type, IDNO and phone and nothing else. The merge waits for the owner: draft pull request plus an OWNER mailbox question.",
       "last_checkpoint": "2026-10-04T19:16:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "#413: draft pull request on branch card/p3-147 against main, acceptance in tests/e2e/outbound-direct-client.spec.ts and scripts/poc-free/local-db/assertions/0071_walkin_manager_client_insert.sql, merge waits for the owner (migration)",
+        "ref": "#413: draft pull request on branch card/p3-147 against main, acceptance in tests/e2e/outbound-direct-client.spec.ts and scripts/poc-free/local-db/assertions/0073_walkin_manager_client_insert.sql, merge waits for the owner (migration)",
         "at": "2026-10-04T19:16:00Z"
       },
-      "notes": "EXECUTOR: code complete in draft PR #413. Migration 0071 is DROP POLICY plus CREATE POLICY only, named as a near-miss per R-031. Merge is apply: owner approval first. PR #407 also uses 0071: whichever merges second is renumbered to 0070 first."
+      "notes": "EXECUTOR: code complete in draft PR #413. Migration 0073 is DROP POLICY plus CREATE POLICY only, named as a near-miss per R-031. Merge is apply: owner approval first. PR #407 also uses 0073: whichever merges second is renumbered to 0070 first."
     }
   ]
 }

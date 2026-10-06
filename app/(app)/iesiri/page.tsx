@@ -34,7 +34,7 @@ export default async function OutboundPage() {
       clients={clients}
       // P3-147: clientul de la tejghea il creeaza administratorul SAU managerul de
       // cont (hotararea q143, 2026-10-04), prin createWalkInClient si politica
-      // clients_insert din migratia 0071. Regula P3-06 ramane: ecranul nu ofera un
+      // clients_insert din migratia 0073. Regula P3-06 ramane: ecranul nu ofera un
       // buton pe care baza il va refuza. Ecranul Clienți ramane al administratorului.
       canCreateClient={user?.role === "owner" || user?.role === "account_manager"}
     />

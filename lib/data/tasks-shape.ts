@@ -54,16 +54,39 @@ export function isTaskPriority(value: unknown): value is TaskPriority {
   return typeof value === "string" && (ALL_TASK_PRIORITIES as string[]).includes(value);
 }
 
+/** Inregistrarea legata a unei sarcini, asa cum o arata caseta "Înregistrare" cand
+ *  inregistrarea nu mai este in lista de alegere (proiect inchis, client inactiv).
+ *  Cheia hartii este `<fel>:<id>`, ca o singura harta sa serveasca ambele feluri. */
+export type TaskLinkChoiceLike = { id: string; label: string; hint?: string };
+
+export function taskLinkKey(entityType: string, entityId: string): string {
+  return `${entityType}:${entityId}`;
+}
+
+/** Lista de alegere pentru o sarcina care exista: cea obisnuita, plus inregistrarea
+ *  ei curenta daca lipseste din lista. O sarcina noua nu are `current`, deci primeste
+ *  lista neschimbata: proiectele inchise si clientii inactivi nu se ofera la legare. */
+export function linkChoicesWithCurrent<T extends TaskLinkChoiceLike>(
+  options: T[],
+  current: T | undefined,
+): T[] {
+  if (current === undefined || options.some((o) => o.id === current.id)) return options;
+  return [...options, current];
+}
+
 export function isTaskEntityType(value: unknown): value is TaskEntityType {
   return typeof value === "string" && (ALL_TASK_ENTITY_TYPES as string[]).includes(value);
 }
 
 /** Forma pe care o da si o primeste components/ui/DateField.tsx: yyyy-mm-dd.
  *
- *  NUMAI FORMA, nu existenta zilei in calendar. 31.02.2026 trece de aici si este
- *  refuzata de coloana `date`, iar tasks-actions.ts traduce refuzul. Vezi antetul. */
+ *  Forma si existenta zilei in calendar: 2026-02-31 nu trece. In adresa o data
+ *  imposibila inseamna "fara filtru", ca orice valoare necunoscuta. */
 export function isDayString(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 /* =======================================================================
@@ -318,4 +341,89 @@ export function validateTaskPatch(patch: TaskPatch): TaskRefusal | null {
   if (!sentType) return null;
 
   return refusePair((patch.entityType ?? "").trim(), (patch.entityId ?? "").trim());
+}
+
+/* =======================================================================
+   NUMAI CE S-A SCHIMBAT SE SCRIE, CARDUL P3-157
+   ======================================================================= */
+//
+// DEFECTUL PE CARE IL INCHIDE ACEST BLOC. Formularul trimitea inapoi toate cele opt
+// campuri, asa cum erau cand s-a deschis pagina, si updateTask le scria pe toate.
+// Un coleg marca sarcina "Finalizată", operatorul care avea fisa deschisa de mai
+// devreme schimba numai termenul si salva, iar starea se intorcea la "De făcut" fara
+// ca nimeni sa o fi cerut. "Anulează sarcina" facea acelasi lucru cu celelalte
+// campuri.
+//
+// REGULA: formularul trimite numai campurile pe care operatorul le-a schimbat fata de
+// valorile cu care s-a deschis, iar un camp netrimis nu se scrie niciodata. Asa o
+// modificare a unui coleg pe un camp neatins de operator rămâne cum a lasat-o colegul.
+// Nu exista niciun dialog de conflict: doi oameni care schimba ACELASI camp raman la
+// "ultimul care salveaza castiga", ca pana acum.
+
+/** Cele opt campuri ale formularului, ca siruri, exact cum le tine ecranul: un camp
+ *  gol este sirul gol si nu null. */
+export type TaskFormValues = {
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  assigneeId: string;
+  entityType: string;
+  entityId: string;
+};
+
+/**
+ * Modificarea care pleaca spre server: numai campurile in care `current` difera de
+ * `loaded`. Nicio diferenta inseamna obiectul gol, si atunci formularul nu scrie
+ * nimic.
+ *
+ * PERECHEA SE TRIMITE INTREAGA SAU DELOC, regula lui validateTaskPatch de mai sus:
+ * daca s-a schimbat felul sau inregistrarea, pleaca amandoua.
+ */
+export function changedTaskFields(loaded: TaskFormValues, current: TaskFormValues): TaskPatch {
+  const patch: TaskPatch = {};
+  if (current.title !== loaded.title) patch.title = current.title;
+  if (current.description !== loaded.description) patch.description = current.description;
+  if (current.status !== loaded.status) patch.status = current.status;
+  if (current.priority !== loaded.priority) patch.priority = current.priority;
+  if (current.dueDate !== loaded.dueDate) patch.dueDate = current.dueDate;
+  if (current.assigneeId !== loaded.assigneeId) patch.assigneeId = current.assigneeId;
+  if (current.entityType !== loaded.entityType || current.entityId !== loaded.entityId) {
+    patch.entityType = current.entityType;
+    patch.entityId = current.entityId;
+  }
+  return patch;
+}
+
+/** Ce trimite "Anulează sarcina": starea si NIMIC ALTCEVA, chiar daca operatorul a
+ *  atins si alte campuri in formular inainte sa apese. Anularea nu este o salvare. */
+export function cancelTaskPatch(): TaskPatch {
+  return { status: "cancelled" };
+}
+
+/** Un sir gol inseamna "fara", adica null in baza. */
+export function orNull(value: string | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Randul pe care updateTask il trimite bazei, construit din modificare.
+ *
+ * O CHEIE ABSENTA DIN MODIFICARE ESTE ABSENTA SI DIN RAND, deci coloana ei nu se
+ * scrie. Scos din updateTask ca sa poata fi citit de un test: fisierul acela este
+ * "use server" si nu se importa direct.
+ */
+export function taskPatchRow(patch: TaskPatch): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (patch.title !== undefined) row.title = patch.title.trim();
+  if (patch.description !== undefined) row.description = orNull(patch.description);
+  if (patch.status !== undefined) row.status = patch.status.trim();
+  if (patch.priority !== undefined) row.priority = patch.priority.trim();
+  if (patch.dueDate !== undefined) row.due_date = orNull(patch.dueDate);
+  if (patch.assigneeId !== undefined) row.assignee_id = orNull(patch.assigneeId);
+  if (patch.entityType !== undefined) row.entity_type = orNull(patch.entityType);
+  if (patch.entityId !== undefined) row.entity_id = orNull(patch.entityId);
+  return row;
 }

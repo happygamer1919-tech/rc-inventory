@@ -23,6 +23,7 @@ import {
   type ChipTone,
 } from "@/components/ui/primitives";
 import { RecordLink } from "@/components/ui/RecordLink";
+import { assigneeLabel } from "@/lib/data/tasks-map";
 import { PHONE_CELL, PHONE_ROW, PHONE_TABLE, PHONE_WIDE } from "@/components/ui/phone";
 import {
   TASK_ENTITY_TYPE_LABEL,
@@ -96,7 +97,7 @@ export function AziTasksSection({ tasks }: { tasks: Task[] }) {
                       <Chip tone={PRIORITY_TONE[t.priority]}>{TASK_PRIORITY_LABEL[t.priority]}</Chip>
                     </Td>
                     <Td data-label="Responsabil" className={PHONE_CELL}>
-                      {t.assigneeName ?? "Nealocată"}
+                      {assigneeLabel(t)}
                     </Td>
                     <Td data-label="Înregistrare legată" className={PHONE_CELL}>
                       <RecordLink href={href} fallback="Fără înregistrare" testId="azi-task-entity">

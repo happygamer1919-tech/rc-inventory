@@ -285,7 +285,7 @@ export type WalkInClientInput = {
  *  insertClientRecord de mai jos, cu aceeasi validare, deci nu exista un al doilea
  *  set de reguli care sa se departeze de primul.
  *
- *  Baza o spune si ea: politica clients_insert din migratia 0071 primeste
+ *  Baza o spune si ea: politica clients_insert din migratia 0073 primeste
  *  administratorul si managerul de cont, active, iar clients_update ramane a
  *  administratorului. */
 export async function createWalkInClient(
@@ -303,6 +303,11 @@ export async function createWalkInClient(
     email: "",
     notes: "",
     active: true,
+    // P3-172. Un cumparator de la tejghea este client de la inceput, nu lead.
+    // Etapa se scrie prin set_client_stage (security invoker, clients_update este a
+    // administratorului), deci numai administratorul o poate seta; randul creat de un
+    // manager de cont ramane la implicitul coloanei pana la o hotarare a proprietarului.
+    ...(user.role === "owner" ? { stage: "client" } : {}),
   });
 }
 

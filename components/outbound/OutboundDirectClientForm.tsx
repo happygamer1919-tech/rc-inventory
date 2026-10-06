@@ -55,7 +55,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
@@ -107,7 +107,7 @@ export function OutboundDirectClientForm({
    * VINE DE PE SESIUNE SI NU SE GHICESTE AICI. Cardul P3-06 scrie regula pentru care
    * exista aceasta proprietate: ecranul nu are voie sa ofere un buton pe care baza il
    * va refuza. De la cardul P3-147, createWalkInClient si politica clients_insert din
-   * migratia 0071 primesc administratorul si managerul de cont, deci amandoi vad
+   * migratia 0073 primesc administratorul si managerul de cont, deci amandoi vad
    * butonul aici. Ecranul Clienți ramane al administratorului.
    */
   canCreateClient: boolean;
@@ -164,6 +164,29 @@ export function OutboundDirectClientForm({
     return m;
   }, [filled]);
 
+  // P3-148. O POZITIE UMPLUTA PE JUMATATE NU SE MAI PIERDE IN TACERE. Filtrul de mai
+  // sus trimite catre server doar randurile cu produs SI cantitate pozitiva, iar
+  // singura plangere despre pozitii aparea cand TOATE randurile cadeau. Operatorul
+  // care umplea trei pozitii din patru si lasa cantitatea celei de a patra goala
+  // primea ecranul de reusita, iar pozitia a patra disparea fara un cuvant: singura
+  // urma era numarul din linia de reusita, pe care nimeni nu are motiv sa il verifice.
+  //
+  // Jumatate umplut inseamna EXACT UNUL dintre cele doua campuri prezent. Un rand
+  // complet gol NU este o pozitie umpluta pe jumatate: operatorul poate adauga un
+  // rand si sa nu il foloseasca, iar acela nu opreste salvarea. Indicele este
+  // chiar indicele cu care se deseneaza tabelul mai jos, deci "Poziția N" din
+  // mesaj este pozitia a N-a numarata de sus pe ecran.
+  const halfFilledProblems = lines
+    .map((l, index) => {
+      const hasProduct = Boolean(l.productId);
+      const hasQuantity = Number(l.quantity) > 0;
+      if (hasProduct === hasQuantity) return null;
+      return hasProduct
+        ? `Rândul ${index + 1}: completați cantitatea sau ștergeți rândul.`
+        : `Rândul ${index + 1}: completați produsul sau ștergeți rândul.`;
+    })
+    .filter((m): m is string => m !== null);
+
   // CE LIPSESTE, IN ROMANA, PE ECRAN, INAINTE CA CEREREA SA PLECE. Clauza 6 a
   // cardului. Propozitiile nu se scriu aici: ele sunt ISSUE_REFUSAL din
   // lib/data/outbound-mode.ts, adica EXACT cele pe care le intoarce si validateNewIssue
@@ -177,7 +200,11 @@ export function OutboundDirectClientForm({
   // imposibila ar fi raportata ca "alege data" si operatorul ar reintroduce-o la fel.
   if (pickupInvalid) problems.push(DATE_INVALID_MESSAGE);
   else if (pickupDate === "") problems.push(ISSUE_REFUSAL.pickupDate);
-  if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
+  if (halfFilledProblems.length > 0) {
+    // Mesajul general de mai jos ramane pentru cazul in care nu exista nicio
+    // pozitie de numit; cand exista una, numele ei spune mai mult decat el.
+    problems.push(...halfFilledProblems);
+  } else if (filled.length === 0) problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
   for (const [productId, wanted] of wantedByProduct) {
     const p = byId.get(productId);
     if (p && wanted > p.stock) {
@@ -295,7 +322,14 @@ export function OutboundDirectClientForm({
 
       <div className="space-y-4" data-testid="outbound-form">
         {/* P3-119 clauza 1: ALEGEREA VINE PRIMA, aceeasi in amandoua modurile. */}
-        <OutboundModeChoice value={mode} onChange={onModeChange} />
+        <OutboundModeChoice
+          value={mode}
+          onChange={(next) => {
+            // P3-144: si fara `disabled`, o schimbare sosita in timpul trimiterii nu se aplica.
+            if (!pending) onModeChange(next);
+          }}
+          disabled={pending}
+        />
 
         <Card>
           <CardHeader title="Client direct" hint="Cine ridică materialul și în ce zi" />
@@ -444,7 +478,7 @@ export function OutboundDirectClientForm({
                     <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                       <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
                         {total > 0 ? (
-                          formatMoney(total)
+                          formatMoneyExact(total)
                         ) : (
                           <span className="text-rc-muted-2">fără preț</span>
                         )}
@@ -475,7 +509,7 @@ export function OutboundDirectClientForm({
             <p className="text-[12.5px] text-rc-muted shrink-0">
               Total tarifat:{" "}
               <span className="rc-num font-bold text-rc-black text-[15px]">
-                {formatMoney(pricedTotal)}
+                {formatMoneyExact(pricedTotal)}
               </span>
             </p>
           </div>
@@ -554,6 +588,7 @@ function InlineClientCreate({ onCreated }: { onCreated: (choice: ClientChoice) =
   async function save() {
     setError(null);
     setPending(true);
+    // P3-172 (etapa client la creare) este in createWalkInClient, pentru administrator.
     const result = await createWalkInClient({ name, type, fiscalCode, phone });
     if (!result.ok) {
       // MESAJUL ESTE AL ACTIUNII, NETRADUS SI NEREFORMULAT. Tot ce poate refuza o

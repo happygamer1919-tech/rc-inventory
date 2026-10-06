@@ -17,6 +17,7 @@
 
 import {
   PROJECT_IMPORT_FIELD_LABEL,
+  PROJECT_IMPORT_REASON,
   buildClientLookup,
   buildProjectImportPreview,
   clientNameKey,
@@ -108,6 +109,7 @@ export function buildProjectPlan(input: {
   );
 
   const clientNames = new Map(input.clients.map((c) => [c.id, c.name]));
+  const inactiveClients = new Set(input.clients.filter((c) => !c.active).map((c) => c.id));
 
   const stored = new Map<string, ExistingProject>();
   for (const project of input.existing) {
@@ -157,6 +159,19 @@ export function buildProjectPlan(input: {
         fillable: storedMatch.empty.filter((field) => (project[field] ?? "") !== ""),
       });
       counts.duplicate += 1;
+      continue;
+    }
+
+    // UN PROIECT NOU LA UN CLIENT DEZACTIVAT SE REFUZA, ca inainte; unul care exista deja la el
+    // a fost raportat mai sus ca dublat, oricare ar fi starea clientului.
+    if (inactiveClients.has(project.client)) {
+      entries.push({
+        kind: "error",
+        line: row.line,
+        reason: PROJECT_IMPORT_REASON.inactiveClient(clientName),
+        raw: input.rows[row.line - headerLine - 1] ?? [],
+      });
+      counts.error += 1;
       continue;
     }
 

@@ -74,13 +74,16 @@ export const PROJECT_IMPORT_FIELDS = [
   "budgetMdl",
   "currency",
   "notes",
+  "clientId",
 ] as const;
 
 export type ProjectImportField = (typeof PROJECT_IMPORT_FIELDS)[number];
 
-/** Campurile din sablon: cele ale formularului, fara moneda. */
+/** Campurile din sablon: cele ale formularului, fara moneda si fara identificatorul clientului
+ *  (acela se scrie numai in export, la coada). */
 export const PROJECT_TEMPLATE_FIELDS = PROJECT_IMPORT_FIELDS.filter(
-  (f): f is Exclude<ProjectImportField, "currency"> => f !== "currency",
+  (f): f is Exclude<ProjectImportField, "currency" | "clientId"> =>
+    f !== "currency" && f !== "clientId",
 );
 
 /** Eticheta romaneasca a fiecarui camp. IDENTICA CU ETICHETELE DIN ProjectForm.tsx
@@ -96,6 +99,7 @@ export const PROJECT_IMPORT_FIELD_LABEL: Record<ProjectImportField, string> = {
   budgetMdl: "Buget (MDL)",
   currency: "Monedă",
   notes: "Note",
+  clientId: "Identificator client",
 };
 
 export type ProjectImportColumnMapping = GenericColumnMapping<ProjectImportField>;
@@ -120,6 +124,7 @@ const FIELD_SYNONYMS: Record<ProjectImportField, string[]> = {
   budgetMdl: ["buget", "bugetul", "budget", "valoare", "suma"],
   currency: ["valuta", "currency", "monedaproiect"],
   notes: ["notite", "observatii", "notes", "comentarii", "mentiuni"],
+  clientId: ["idclient", "clientid", "codclient", "identificatorulclientului"],
 };
 
 const SYNONYM_INDEX = buildSynonymIndex(
@@ -142,6 +147,8 @@ export const PROJECT_IMPORT_REASON = {
   /** Clauza 5: numeste clientul si trimite la importul de clienti. */
   unknownClient: (value: string) =>
     `Clientul "${value}" nu există. Importă mai întâi clienții, apoi proiectele lor.`,
+  unknownClientId: (value: string) =>
+    `Identificatorul de client "${value}" nu există. Importă mai întâi clienții, apoi proiectele lor.`,
   ambiguousClient: (value: string) =>
     `Există mai mulți clienți cu denumirea "${value}". Redenumește unul dintre ei, apoi încearcă din nou.`,
   inactiveClient: (value: string) =>
@@ -179,6 +186,31 @@ export function buildClientLookup(clients: ClientChoice[]): ClientLookup {
   return lookup;
 }
 
+/** Clientul unui rand, dupa identificator cand fisierul il are, altfel dupa denumire.
+ *  IDENTIFICATORUL CASTIGA: exportul il scrie langa denumire tocmai ca doi clienti cu aceeasi
+ *  denumire sa se poata deosebi la reimport. O celula goala (sau lipsa coloanei) cade pe
+ *  potrivirea dupa denumire, ca fisierele vechi sa mearga ca pana acum. Un client dezactivat
+ *  se gaseste, nu se refuza aici: planul decide, fiindca un proiect care exista deja la el
+ *  este un dublat, iar unul nou este refuzat (project-import-plan.ts). */
+export function resolveProjectClient(
+  clientCell: string,
+  idCell: string,
+  lookup: ClientLookup,
+  byId: Map<string, ClientChoice>,
+): { ok: true; client: ClientChoice } | { ok: false; reason: string } {
+  const id = idCell.trim();
+  if (id !== "") {
+    const hit = byId.get(id.toLowerCase());
+    return hit
+      ? { ok: true, client: hit }
+      : { ok: false, reason: PROJECT_IMPORT_REASON.unknownClientId(id) };
+  }
+  const hits = lookup.get(clientNameKey(clientCell)) ?? [];
+  if (hits.length === 0) return { ok: false, reason: PROJECT_IMPORT_REASON.unknownClient(clientCell) };
+  if (hits.length > 1) return { ok: false, reason: PROJECT_IMPORT_REASON.ambiguousClient(clientCell) };
+  return { ok: true, client: hits[0]! };
+}
+
 function readStatus(raw: string): ProjectStatus | null {
   const key = normaliseKey(raw);
   if (key === "") return null;
@@ -209,7 +241,7 @@ export type PreparedProject = Record<ProjectImportField, string>;
  *  conducta, ca si cel creat de mana. */
 export const DEFAULT_PROJECT_STATUS: ProjectStatus = "lead";
 
-function projectImportFields(clients: ClientLookup): ImportFieldDescriptor<ProjectImportField>[] {
+function projectImportFields(): ImportFieldDescriptor<ProjectImportField>[] {
   const field = (
     f: ProjectImportField,
     required: boolean,
@@ -232,14 +264,9 @@ function projectImportFields(clients: ClientLookup): ImportFieldDescriptor<Proje
   };
 
   return [
-    field("client", true, "Popescu Construct SRL", (raw) => {
-      const hits = clients.get(clientNameKey(raw)) ?? [];
-      if (hits.length === 0) return { ok: false, reason: PROJECT_IMPORT_REASON.unknownClient(raw) };
-      if (hits.length > 1) return { ok: false, reason: PROJECT_IMPORT_REASON.ambiguousClient(raw) };
-      const hit = hits[0]!;
-      if (!hit.active) return { ok: false, reason: PROJECT_IMPORT_REASON.inactiveClient(raw) };
-      return { ok: true, value: hit.id };
-    }),
+    // CLIENTUL SE REZOLVA DUPA CITIREA CAMPURILOR (buildProjectImportPreview): un `validate` de
+    // camp nu vede celula cu identificatorul, iar identificatorul are prioritate.
+    field("client", true, "Popescu Construct SRL", (raw) => ({ ok: true, value: raw })),
     field("name", true, "Bloc A, Chișinău", (raw) => ({ ok: true, value: raw })),
     field("address", false, "Chișinău, str. Exemplu 1", (raw) => ({ ok: true, value: raw })),
     field("status", false, PROJECT_STATUS_LABEL[DEFAULT_PROJECT_STATUS], (raw) => {
@@ -263,6 +290,7 @@ function projectImportFields(clients: ClientLookup): ImportFieldDescriptor<Proje
     // coloana pe care sa fie scrisa.
     field("currency", false, "", (raw) => validateCurrency(raw)),
     field("notes", false, "", (raw) => ({ ok: true, value: raw })),
+    field("clientId", false, "", (raw) => ({ ok: true, value: raw.trim() })),
   ];
 }
 
@@ -281,12 +309,22 @@ export function buildProjectImportPreview(
   clients: ClientLookup,
   headerLine = 1,
 ): ImportPreview<ProjectImportField> {
-  const preview = buildImportPreview(rows, mapping, projectImportFields(clients), headerLine);
+  const preview = buildImportPreview(rows, mapping, projectImportFields(), headerLine);
 
   const valid: ImportPreview<ProjectImportField>["valid"] = [];
   const invalid: ImportPreview<ProjectImportField>["invalid"] = [...preview.invalid];
 
+  const byId = new Map<string, ClientChoice>();
+  for (const choices of clients.values()) for (const c of choices) byId.set(c.id.toLowerCase(), c);
+
   for (const entry of preview.valid) {
+    const resolved = resolveProjectClient(entry.record.client, entry.record.clientId, clients, byId);
+    if (!resolved.ok) {
+      const index = entry.line - headerLine - 1;
+      invalid.push({ line: entry.line, reason: resolved.reason, raw: rows[index] ?? [] });
+      continue;
+    }
+    entry.record.client = resolved.client.id;
     const { startDate, plannedEndDate } = entry.record;
     if (startDate !== "" && plannedEndDate !== "" && plannedEndDate < startDate) {
       const index = entry.line - headerLine - 1;
@@ -311,7 +349,7 @@ export function buildProjectImportPreview(
  * numele unui client al lui in prima celula.
  */
 export function templateCsv(): string {
-  const fields = projectImportFields(new Map()).filter((f) => f.field !== "currency");
+  const fields = projectImportFields().filter((f) => f.field !== "currency" && f.field !== "clientId");
   return buildModelCsv(fields.map((f) => ({ label: f.label, required: f.required, example: f.example })));
 }
 

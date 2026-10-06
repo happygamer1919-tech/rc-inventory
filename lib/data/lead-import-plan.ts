@@ -38,6 +38,7 @@ export const FILL_FIELDS = [
   "source",
   "ownerId",
   "nextAction",
+  "nextActionDate",
   "notes",
   "address",
   "fiscalCode",
@@ -180,6 +181,12 @@ export function buildPlan(input: {
 
     prepared.set(line, row.lead);
     const given = filledFields(row.lead);
+    // P3-168: SURSA DIN SELECTORUL DE PE ULTIMUL PAS ESTE PENTRU LEADURI NOI. Un
+    // dublat completat primeste numai ce a adus fisierul insusi; altfel pasul
+    // "Verifică" (care ruleaza fara sursa implicita) ar spune "Adresă", iar
+    // importul ar scrie si sursa pe un client existent.
+    const sourceAt = input.mapping.indexOf("source");
+    if (sourceAt < 0 || (input.rows[i]?.[sourceAt] ?? "").trim() === "") given.delete("source");
 
     // FISIERUL INAINTEA BAZEI. Un rand care se potriveste si cu un rand de mai
     // sus si cu un client stocat apartine randului de mai sus: acela decide ce

@@ -178,6 +178,7 @@ const LABELS = [
   "Etapă",
   "Data de reluare",
   "Următorul pas",
+  "Data pasului următor",
   "Note",
   "Adresă",
   "IDNO",

@@ -2,6 +2,7 @@
 // browserul, nici baza: tabelul de cazuri al lui parseImportNumber.
 import { expect, test } from "@playwright/test";
 import { parseImportNumber } from "@/lib/data/import-number";
+import { exportNumber } from "@/lib/data/material-export-types";
 
 const CASES: [string, string | null][] = [
   ["250.000", "250000"],
@@ -35,4 +36,18 @@ test("numar de import: limita de cifre intregi se pastreaza", () => {
   expect(parseImportNumber("1234567890123", 12)).toBeNull();
   expect(parseImportNumber("12345678901", 11)).toBe("12345678901");
   expect(parseImportNumber("123456789012", 11)).toBeNull();
+});
+
+test("numar de import: exportul de materiale se citeste inapoi la fel", () => {
+  expect(exportNumber(1.125)).toBe("1,125");
+
+  const VALUES = [0.001, 1.125, 12.5, 999.999, 1234.567, 1000000, 0];
+  for (const v of VALUES) {
+    const exported = exportNumber(v);
+    const parsed = parseImportNumber(exported, 12);
+    expect(parsed, `${v}`).not.toBeNull();
+    if (parsed !== null) {
+      expect(Number(parsed), `${v}`).toBe(v);
+    }
+  }
 });

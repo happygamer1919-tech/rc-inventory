@@ -1,5 +1,5 @@
--- assertions/0071_walkin_manager_client_insert.sql
--- Card P3-147. What 0071 must have left behind on public.clients, and what it
+-- assertions/0073_walkin_manager_client_insert.sql
+-- Card P3-147. What 0073 must have left behind on public.clients, and what it
 -- must NOT have changed.
 --
 -- THREE GROUPS:

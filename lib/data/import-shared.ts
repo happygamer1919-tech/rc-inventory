@@ -199,7 +199,7 @@ export function parseCsvWithLines(input: string): { rows: string[][]; lines: num
   let startLine = 1;
 
   const endCell = () => {
-    row.push(cell);
+    row.push(unwrapCsvCell(cell));
     cell = "";
   };
   const endRow = () => {
@@ -295,18 +295,50 @@ export function formatCsvNumber(value: number | string): string {
   return text.replace(".", ",");
 }
 
+/** O celula pe care Excel trebuie sa o pastreze ca text (telefon, IDNO): fara asta, +37369123456
+ *  ajunge numarul 37369123456, iar 0123456789012 ajunge 1,23E+11 fara zeroul din fata. */
+export type CsvTextCell = { csvText: string };
+export type CsvCell = string | CsvTextCell;
+
+export function csvText(value: string): CsvTextCell {
+  return { csvText: value };
+}
+
+// Un numar negativ scris de formatCsvNumber (-5, -12,5) ramane numar, nu primeste apostrof.
+const NEGATIVE_NUMBER = /^-\d+(,\d+)?$/;
+const FORMULA_START = /^[=+\-@\t\r]/;
+const TEXT_FORMULA = /^="((?:[^"]|"")*)"$/;
+
+function writeCsvCell(cell: CsvCell): string {
+  if (typeof cell !== "string") {
+    // Forma ="..." este un sir literal pentru Excel: se afiseaza fara apostrof si nu poate
+    // porni nicio formula. parseCsv o desface la citire (unwrapCsvCell).
+    if (cell.csvText === "") return "";
+    const literal = `="${cell.csvText.replace(/"/g, '""')}"`;
+    return `"${literal.replace(/"/g, '""')}"`;
+  }
+  // OWASP, injectare de formule: o celula care incepe cu = + - @ tab sau CR primeste un
+  // apostrof in fata. Numerele negative nu: Excel le citeste ca numere, nu ca formule.
+  const safe = FORMULA_START.test(cell) && !NEGATIVE_NUMBER.test(cell) ? `'${cell}` : cell;
+  return /[",;\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/** Inversul lui writeCsvCell, la citire: scoate ="..." si apostroful pus in fata unei celule care
+ *  incepe cu = + - @ tab sau CR. Alt apostrof de la inceputul unui text ramane cum este. */
+function unwrapCsvCell(cell: string): string {
+  const literal = TEXT_FORMULA.exec(cell);
+  if (literal) return literal[1]!.replace(/""/g, '"');
+  if (cell.startsWith("'") && FORMULA_START.test(cell.slice(1))) return cell.slice(1);
+  return cell;
+}
+
 /** Scrie randuri ca CSV, cu punct si virgula intre coloane (Excel cu setari romanesti sau
  *  ruse nu desparte coloanele la virgula), pentru sablon, pentru export si pentru
  *  fisierul randurilor sarite. BOM in fata, ca Excel sa deschida diacriticele
- *  corect. */
-export function buildCsv(rows: string[][]): string {
-  const body = rows
-    .map((row) =>
-      row
-        .map((cell) => (/[",;\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-        .join(";"),
-    )
-    .join("\r\n");
+ *  corect. Celulele de text care ar porni o formula primesc un apostrof; `csvText`
+ *  marcheaza telefoanele si codurile fiscale, pastrate ca text de Excel. */
+export function buildCsv(rows: CsvCell[][]): string {
+  const body = rows.map((row) => row.map(writeCsvCell).join(";")).join("\r\n");
   return `﻿${body}\r\n`;
 }
 
@@ -521,11 +553,13 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  * Citeste octetii unui CSV. REGULA, simpla:
  *  1. UTF-8 strict (marca BOM taiata). Daca merge, este UTF-8.
  *  2. Altfel, se incearca windows-1250 (Excel pe Windows romanesc) si
- *     windows-1251 (Excel pe Windows rusesc). Se alege 1251 cand rezultatul ei
- *     are litere chirilice (U+0400 la U+04FF) SI rezultatul 1250 are vreo litera
- *     in afara ASCII care nu este romaneasca (mojibake, de felul "Èâàí" pentru
- *     "Иван"). Altfel 1250, cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu
- *     virgula.
+ *     windows-1251 (Excel pe Windows rusesc). Se decide prin majoritate, in
+ *     citirea 1250: se numara literele romanesti (ă â î ș ț) si literele
+ *     straine (ü ä é È à í etc.). Se alege 1251 doar cand literele straine sunt
+ *     mai multe decat cele romanesti (un fisier rusesc citit ca 1250 arata ca
+ *     "Èâàí" pentru "Иван") SI citirea 1251 are litere chirilice. Un fisier
+ *     romanesc cu cateva litere straine (Würth, Kärcher, André) ramane 1250,
+ *     cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu virgula.
  *  3. Daca textul ales tot are U+FFFD, se intoarce eroare, nu text.
  */
 const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
@@ -545,10 +579,13 @@ export function decodeCsvFile(
     const t1250 = new TextDecoder("windows-1250").decode(bytes);
     const t1251 = new TextDecoder("windows-1251").decode(bytes);
     const cyrillic = /[Ѐ-ӿ]/.test(t1251);
-    const foreign1250 = [...t1250].some(
-      (ch) => ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch) && !ROMANIAN_LETTERS.includes(ch),
-    );
-    if (cyrillic && foreign1250) {
+    let ro = 0;
+    let foreign = 0;
+    for (const ch of t1250) {
+      if (ROMANIAN_LETTERS.includes(ch)) ro++;
+      else if (ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch)) foreign++;
+    }
+    if (cyrillic && foreign > ro) {
       text = t1251;
       encoding = "windows-1251";
     } else {

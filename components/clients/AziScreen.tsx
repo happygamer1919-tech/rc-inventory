@@ -38,6 +38,7 @@ import {
   PHONE_TAP,
   PHONE_WIDE,
 } from "@/components/ui/phone";
+import { aziEmptyTitle } from "@/lib/data/azi-empty";
 import type { AziRow, ClientOwnerChoice } from "@/lib/data/clients-types";
 import { formatDate, plural } from "@/lib/data/format";
 import type { Task } from "@/lib/data/tasks-types";
@@ -118,7 +119,7 @@ export function AziScreen({
         ) : null}
 
         {rows.length === 0 ? (
-          <EmptyState title={tasks === null ? "Nimic de făcut azi." : "Niciun apel de făcut azi."} />
+          <EmptyState title={aziEmptyTitle(tasks === null ? null : tasks.length)} />
         ) : (
           <Table>
             <thead>
