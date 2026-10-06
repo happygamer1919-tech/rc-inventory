@@ -5213,6 +5213,31 @@
       "notes": "AUTHORED 2026-10-05. Requested id P3-141 was taken, id:free returned P3-158."
     },
     {
+      "id": "P3-144",
+      "title": "Outbound screen: the 'Tip ieșire' choice is locked while a slip is saving. Before, clicking 'Creează bonul' and then the other option before the answer came back unmounted the form that was waiting, so the issue was saved and stock deducted but the screen showed an empty form and no confirmation, and the operator could enter the slip twice. (1) OutboundModeChoice takes a disabled prop that disables both radio options and the fieldset (disabled and aria-disabled). (2) OutboundProjectForm and OutboundDirectClientForm pass their own pending state to it and ignore a mode change that arrives while pending. No change to the save logic, stock deduction, labels, layout or server actions. No migration.",
+      "plain": "Cât timp bonul de ieșire se salvează, alegerea «Tip ieșire» este blocată, iar confirmarea apare mereu după salvare.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/outbound-mode-lock.spec.ts are green in this pull request's own `quality` run: `iesire P3-144: pe Client direct, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: pe Proiect, Tip iesire este oprit cat se salveaza, apoi confirmarea apare si exista o singura iesire`, `iesire P3-144: dupa salvare, alegerea Tip iesire este din nou libera`. (b) tests/e2e/outbound-direct-client.spec.ts and outbound.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "While a save is in flight, both 'Tip ieșire' options are disabled and a mode change that arrives anyway is ignored, so the form that waits for the answer is never unmounted and its confirmation always shows. When the save ends, the choice is enabled again. Nothing else changes: same labels, same layout, same server actions, no migration, no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/outbound-mode-lock against main: its quality run on the head sha runs tests/e2e/outbound-mode-lock.spec.ts; report in docs/reports/2026-10-05-executor-outbound-mode-lock.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. The task asked for a component spec, but the repo has no component test runner (Playwright only), so the disabled-while-saving check is an end to end case with the save request held for two seconds. Needs the CI database, so it was not run locally."
+    },
+    {
       "id": "P3-170",
       "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
       "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
