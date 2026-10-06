@@ -3051,3 +3051,61 @@ test("azi: un rand de sarcina deschide sarcina", async ({ page }) => {
   await expect(page.getByTestId("task-form")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("field-task-title")).toHaveValue(title);
 });
+
+test("sarcini: o data scrisa pe jumatate la o sarcina nu mai sterge termenul pe salvare", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+
+  const original = "15.06.2035";
+  const id = await seed({
+    title: `${P131} data pe jumatate`,
+    due_date: "2035-06-15",
+    status: "todo",
+  });
+
+  await signIn(page, ownerAccount());
+  await openSarcini(page, { de_la: "2035-06-01", pana_la: "2035-06-30" });
+
+  const row = rowById(page, id);
+  await expect(row.getByTestId("task-due-date")).toHaveText(original);
+
+  /* ---- editeaza pe jumatate si incearca sa salveze ---- */
+  await row.getByTestId("task-edit").click();
+  await expect(page.getByTestId("task-form")).toBeVisible();
+  await expect(page.getByTestId("field-task-due-date")).toHaveValue(original);
+
+  // STERGE DOUA CARACTERE PENTRU A LASA DATA INCOMPLETA: "15.06.20" in loc de "15.06.2035".
+  // Procedura: selecteaza-l pe toti, apoi rescriu cu o zi pe jumatate.
+  const dateField = page.getByTestId("field-task-due-date");
+  await dateField.click({ clickCount: 3 });
+  await dateField.type("15.06.20");
+
+  // CAMPUL NU ESTE INCA ROSU DACA NU S-A ROSIT DEJA, deoarece o zi pe jumatate este
+  // mai putin de 8 caractere. Dar cand apasa Salvează, ar trebui sa:
+  //   1. REFUZE sa salveze (Salvează este blocat de dateInvalid)
+  //   2. ARATE MESAJUL ROSU
+  //   3. NU STEARGA TERMENUL ORIGINAL din forma (asta era defectul: se stergea in tacere)
+
+  await expect(page.getByTestId("field-task-due-date-error")).toBeVisible();
+  await expect(page.getByTestId("task-save")).toBeDisabled();
+
+  // REIA-L SI COMPLETEAZA CU RESTUL: CAMPUL TREBUIE SA DEVINA VERDE.
+  await dateField.click({ clickCount: 3 });
+  await dateField.type(original);
+  await expect(page.getByTestId("field-task-due-date-error")).toHaveCount(0);
+  await expect(page.getByTestId("task-save")).toBeEnabled();
+  await page.getByTestId("task-save").click();
+
+  await expect(page.getByTestId("task-form")).toHaveCount(0, { timeout: 30_000 });
+  await expect(row.getByTestId("task-due-date"), "termenul pe ecran ramane neschimbat").toHaveText(
+    original,
+    { timeout: 30_000 },
+  );
+
+  // SI BAZA POARTA ACEEASI VALOARE (randul s-a rescris din formular, dar cu titlul si
+  // prioritatea si gata; data s-a intors dupa ce s-a anulat formularul).
+  const dbRow = await asUser(ownerToken, `tasks?select=due_date&id=eq.${id}`);
+  expect(dbRow.rows, "randul se citeste").toHaveLength(1);
+  expect(dbRow.rows[0]!.due_date, "termenul in baza ramane neschimbat").toBe("2035-06-15");
+});
