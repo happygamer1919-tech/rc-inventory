@@ -63,11 +63,10 @@ test("sarcini mici: cu data rosie, Anulează sarcina nu ramane un clic mut", asy
   await page.getByTestId("field-task-due-date").fill("31.02.2036");
   await expect(page.getByTestId("field-task-due-date-error")).toBeVisible();
   await expect(page.getByTestId("task-save")).toBeDisabled();
-  await expect(page.getByTestId("task-cancel-task")).toBeDisabled();
 
-  // Data corectata scoate rosul, iar anularea revine. Si sarcina se anuleaza la
-  // sfarsit, ca sa nu ramana deschisa pe lista pentru celelalte cazuri.
-  await page.getByTestId("field-task-due-date").fill("15.06.2036");
+  // Anularea trimite numai starea, deci lucreaza si cu data rosie: clicul nu este
+  // mut. Si sarcina se anuleaza, ca sa nu ramana deschisa pe lista pentru
+  // celelalte cazuri.
   await expect(page.getByTestId("task-cancel-task")).toBeEnabled();
   await page.getByTestId("task-cancel-task").click();
   await expect(page.getByTestId("task-form")).toHaveCount(0, { timeout: 30_000 });

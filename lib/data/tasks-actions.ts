@@ -45,7 +45,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasTasks } from "./schema-capability";
-import { validateNewTask, validateTaskPatch } from "./tasks-shape";
+import { orNull, taskPatchRow, validateNewTask, validateTaskPatch } from "./tasks-shape";
 import type { ActionResult } from "./inbound-types";
 import type { NewTaskInput, TaskPatch } from "./tasks-types";
 
@@ -106,12 +106,6 @@ function translateWriteError(code: string | undefined, message: string): ActionR
 
   if (code === "P0001" || code === "P0002") return { ok: false, message };
   return { ok: false, message: `Operațiunea a eșuat. ${message}` };
-}
-
-/** Un sir gol inseamna "fara", adica null in baza. */
-function orNull(value: string | undefined): string | null {
-  const trimmed = (value ?? "").trim();
-  return trimmed === "" ? null : trimmed;
 }
 
 /**
@@ -208,15 +202,9 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
   const supabase = await createClient();
   if (!(await hasTasks(supabase))) return { ok: false, message: NOT_APPLIED };
 
-  const row: Record<string, unknown> = {};
-  if (patch.title !== undefined) row.title = patch.title.trim();
-  if (patch.description !== undefined) row.description = orNull(patch.description);
-  if (patch.status !== undefined) row.status = patch.status.trim();
-  if (patch.priority !== undefined) row.priority = patch.priority.trim();
-  if (patch.dueDate !== undefined) row.due_date = orNull(patch.dueDate);
-  if (patch.assigneeId !== undefined) row.assignee_id = orNull(patch.assigneeId);
-  if (patch.entityType !== undefined) row.entity_type = orNull(patch.entityType);
-  if (patch.entityId !== undefined) row.entity_id = orNull(patch.entityId);
+  // NUMAI CHEILE PRIMITE AJUNG IN RAND, cardul P3-157: o coloana pe care apelantul nu
+  // a trimis-o nu se scrie, deci nu poate anula modificarea unui coleg.
+  const row = taskPatchRow(patch);
 
   if (Object.keys(row).length === 0) return { ok: true, value: undefined };
 
