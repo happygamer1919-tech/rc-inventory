@@ -16,6 +16,13 @@ import { createClient } from "@/lib/supabase/server";
 import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
 import { readQuantityRows, type StockClient, type StockScope } from "./stock-read";
 import { readCatalogWithStock } from "./catalog-read";
+import {
+  readProductBatches,
+  readProductMovements,
+  type MovementClient,
+  type ProductBatch,
+  type ProductMovement,
+} from "./movements-read";
 import { clampPage, LIST_PAGE_SIZE } from "./list-paging";
 import {
   applyQueryFilter,
@@ -76,36 +83,9 @@ export type Category = {
   productCount: number;
 };
 
-export type ProductBatch = {
-  id: string;
-  quantity: number;
-  arrivedAt: string;
-  orderReference: string | null;
-};
-
-export type ProductMovement = {
-  id: string;
-  direction: "in" | "out";
-  quantity: number;
-  at: string;
-  reference: string;
-  context: string;
-  /** P3-120 clauza 3, hotararea R-215. Ce fel de eliberare a scazut cantitatea.
-   *
-   *  NULABIL AICI, SPRE DEOSEBIRE DE OutboundIssue.mode, SI DIN DOUA MOTIVE CARE
-   *  SUNT AMANDOUA ADEVARATE:
-   *
-   *    O INTRARE NU ARE MOD. Clauza 3 vorbeste despre randurile de IESIRE, si o
-   *    recepție de la furnizor nu este nici proiect, nici client direct: "project"
-   *    pe un rand de intrare ar fi un raspuns inventat la o intrebare care nu se
-   *    pune. Null spune ca intrebarea nu se aplica.
-   *
-   *    CAT TIMP 0067 NU ESTE APLICATA nu se poate citi coloana, deci nu se stie, si
-   *    atunci panoul nu scrie niciun mod: decizia B a instructiunii cardului. Un rand
-   *    de iesire cu mod null este exact fereastra aceea, si componentul nu are nevoie
-   *    de niciun al doilea semnal ca sa o recunoasca. */
-  mode: import("./outbound-types").OutboundMode | null;
-};
+// P3-181. Tipurile au mers langa citirea lor, in movements-read.ts, si raman
+// exportate de aici pentru cine le importa din products.
+export type { ProductBatch, ProductMovement } from "./movements-read";
 
 function toNumber(value: unknown): number {
   // numeric() vine din PostgREST ca string, ca sa nu piarda precizie.
@@ -478,27 +458,22 @@ export async function listSupplierNames(): Promise<string[]> {
   return (await listSuppliers()).map((s) => s.name);
 }
 
-/** Loturile unui produs, cele mai noi primele. Goale pana la P2-04. */
+/** Loturile unui produs, cele mai noi primele. Goale pana la P2-04.
+ *
+ *  P3-181. Toate, pe pagini (movements-read.ts): peste 1000 de loturi lista se
+ *  oprea tacut la 1000. */
 export async function listProductBatches(productId: string): Promise<ProductBatch[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("batches")
-    .select("id, quantity, arrived_at, inbound_orders(reference)")
-    .eq("product_id", productId)
-    .order("arrived_at", { ascending: false });
-
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    quantity: toNumber(row.quantity),
-    arrivedAt: row.arrived_at as string,
-    orderReference:
-      (row.inbound_orders as unknown as { reference: string } | null)?.reference ?? null,
-  }));
+  return readProductBatches(supabase as unknown as MovementClient, productId);
 }
 
 /**
  * Miscarile unui produs: intrarile din loturi si iesirile din liniile de iesire,
  * imbinate si ordonate descrescator. Goale pana la P2-04 si P2-05.
+ *
+ * P3-181. Ambele tabele se citesc pe pagini, pana la capat (movements-read.ts).
+ * Inainte fiecare era o singura cerere, deci un produs cu peste 1000 de linii de
+ * iesire avea un istoric cu randuri lipsa, in timp ce stocul lui era corect.
  */
 export async function listProductMovements(productId: string): Promise<ProductMovement[]> {
   const supabase = await createClient();
@@ -527,103 +502,8 @@ export async function listProductMovements(productId: string): Promise<ProductMo
     ? "id, quantity, outbound_issues(reference, issued_at, issue_mode, projects(name, clients(name)), direct_client:clients!outbound_issues_client_id_fkey(name))"
     : "id, quantity, outbound_issues(reference, issued_at, projects(name, clients(name)))";
 
-  const [{ data: batches }, { data: issued }] = await Promise.all([
-    supabase
-      .from("batches")
-      .select("id, quantity, arrived_at, inbound_orders(reference, supplier_name)")
-      .eq("product_id", productId),
-    supabase
-      .from("outbound_lines")
-      // P3-04b: the destination comes from the joined records. client_name and
-      // project_name were dropped by 0026, and a select naming a dropped column
-      // returns 42703 and answers the screen with a 500.
-      .select(issueSelect)
-      .eq("product_id", productId),
-  ]);
-
-  const movements: ProductMovement[] = [];
-
-  for (const row of batches ?? []) {
-    const order = row.inbound_orders as unknown as
-      | { reference: string; supplier_name: string | null }
-      | null;
-    movements.push({
-      id: row.id as string,
-      direction: "in",
-      quantity: toNumber(row.quantity),
-      at: row.arrived_at as string,
-      reference: order?.reference ?? "-",
-      context: order?.supplier_name ?? "Recepție",
-      // P3-120. RANDURILE DE INTRARE NU SE ATING, si clauza 3 cere exact atat: ea
-      // vorbeste despre randurile de iesire. O recepție de la furnizor nu are un fel
-      // de eliberare, deci nu i se inventeaza unul.
-      mode: null,
-    });
-  }
-
-  for (const row of issued ?? []) {
-    type Named = { name: string } | { name: string }[] | null;
-    const pickName = (v: Named): string | null =>
-      Array.isArray(v) ? (v[0]?.name ?? null) : (v?.name ?? null);
-    const issue = row.outbound_issues as unknown as
-      | {
-          reference: string;
-          issued_at: string;
-          /** P3-120: absent cat timp poarta a raspuns nu, fiindca atunci lista de
-           *  select nu l-a cerut. */
-          issue_mode?: string | null;
-          projects: ({ name: string; clients: Named } | { name: string; clients: Named }[]) | null;
-          /** Clientul PROPRIU al iesirii, al modului direct. */
-          direct_client?: Named;
-        }
-      | null;
-    const project = Array.isArray(issue?.projects) ? issue?.projects[0] : issue?.projects;
-    const projectName = project?.name ?? null;
-
-    // P3-120 clauza 3. MODUL, CITIT NUMAI CAND POARTA L-A LASAT SA FIE CITIT: null
-    // cand 0067 nu este aplicata, si atunci panoul nu scrie nimic despre fel.
-    const mode = withMode
-      ? issue?.issue_mode === "direct_client"
-        ? ("direct_client" as const)
-        : ("project" as const)
-      : null;
-
-    // CUMPARATORUL VINE DE PE DRUMUL MODULUI. Pe o iesire pe proiect clientul se
-    // citeste de pe proiect, cum il citeste de la P3-04b incoace; pe una catre client
-    // direct nu exista proiect de citit, deci se citeste de pe coloana client_id a
-    // iesirii.
-    const clientName =
-      mode === "direct_client"
-        ? pickName(issue?.direct_client ?? null)
-        : pickName(project?.clients ?? null);
-
-    // P3-120 clauza 3. CONTEXTUL SPUNE CUI A PLECAT MATERIALUL, pe amandoua felurile.
-    // Pana la acest card un rand de client direct scria doar "Ieșire": nicio
-    // destinatie, pe exact randul care explica de ce a scazut o cantitate. Pe modul
-    // direct cumparatorul ESTE destinatia intreaga, fiindca nu exista santier in
-    // spatele lui, deci numele lui singur este raspunsul complet. Felul eliberarii nu
-    // se repeta in acest sir: el are coloana lui pe ecran.
-    // Rezerva este "Client necunoscut" si NU cuvantul modului: un rand de mod direct
-    // ARE un client, prin outbound_issues_direct_client_mode_shape, deci singurul fel
-    // in care numele poate lipsi este sa nu fi putut fi citit. Si eticheta modului nu
-    // se scrie de mana nici aici: ea are un singur loc, OUTBOUND_MODE_LABEL.
-    const context =
-      mode === "direct_client"
-        ? (clientName ?? "Client necunoscut")
-        : clientName && projectName
-          ? `${clientName} · ${projectName}`
-          : (projectName ?? "Ieșire");
-
-    movements.push({
-      id: row.id as string,
-      direction: "out",
-      quantity: toNumber(row.quantity),
-      at: issue?.issued_at ?? "",
-      reference: issue?.reference ?? "-",
-      context,
-      mode,
-    });
-  }
-
-  return movements.sort((a, b) => b.at.localeCompare(a.at));
+  // P3-04b: the destination comes from the joined records. client_name and
+  // project_name were dropped by 0026, and a select naming a dropped column
+  // returns 42703 and answers the screen with a 500.
+  return readProductMovements(supabase as unknown as MovementClient, productId, issueSelect, withMode);
 }
