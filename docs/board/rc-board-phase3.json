@@ -4924,6 +4924,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
     },
     {
+      "id": "P3-164",
+      "title": "Client import matches a row with no email on normalised name plus phone: buildClientPlan builds fileByNamePhone and storedByNamePhone (name trimmed, inner spaces collapsed, lower case in ro; phone reduced to its last 8 digits so 069123456 and +373 69 123 456 are the same). A row with an email keeps the email-only match. The duplicate entry has the same shape and carries matchedBy namePhone, which gives the reason Acelasi nume si telefon. ExistingClient gets the stored phone; the paged read is unchanged. The lead import already matches on phone or email and is not changed. No migration.",
+      "plain": "Dacă încarci de două ori același fișier cu clienți fără email, clienții nu se mai creează a doua oară: se recunosc după nume și telefon.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-123"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/clients-import.spec.ts is green in this pull request's quality run, including the four new cases: the same file of two rows with name and phone and no email uploaded twice shows 0 new and 2 duplicates the second time and stores 2 rows; two identical no-email rows in one file give 1 new and 1 duplicate; 069400123 and +373 69 400 123 with the same name are a duplicate; the same name with different phones gives 2 new. (b) The existing email duplicate case stays green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULE (a row with an email never matches on name plus phone; a row with no phone has no second key and stays new; email match first, then the file, then stored; nothing is overwritten). The lead import, the Romanian UI texts other than the new duplicate reason, the import sheet components, the hasPhase3Schema gate and the lead PageHeader prop stay as they are. No migration.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-dedup-no-email against main: its quality run on the head sha runs tests/e2e/clients-import.spec.ts; report in docs/reports/2026-10-04-executor-import-dedup-no-email.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Cause: buildClientPlan matched on email only, so every row without an email was new on every upload."
+    },
+    {
       "id": "P3-160",
       "title": "Editing a task tied to a closed project or an inactive client shows that record's name in the Inregistrare box instead of an empty box. app/(app)/sarcini/page.tsx reads the linked records the choice lists leave out (listClosedLinkChoices in lib/data/tasks.ts, at most two reads, none when every link is in the lists) and passes them to SarciniScreen, which hands the one record of the task being edited to TaskForm as currentLink; linkChoicesWithCurrent in lib/data/tasks-shape.ts adds it to that task's list, labelled with the name and (inchis) or (inactiv). New tasks still offer only open projects and active clients. Saving without touching the box keeps the link. No migration.",
       "plain": "La editarea unei sarcini legate de un proiect închis sau de un client inactiv se vede numele înregistrării, nu un câmp gol.",
