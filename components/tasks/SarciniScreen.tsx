@@ -228,11 +228,13 @@ export function SarciniScreen({
           <DateField
             value={query.dueFrom}
             onChange={(value) => push({ [TASK_PARAM.dueFrom]: value })}
+            completeOnly
             testId="tasks-due-from"
           />
           <DateField
             value={query.dueTo}
             onChange={(value) => push({ [TASK_PARAM.dueTo]: value })}
+            completeOnly
             testId="tasks-due-to"
           />
 

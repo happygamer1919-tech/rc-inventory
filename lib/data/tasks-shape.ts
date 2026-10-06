@@ -80,10 +80,13 @@ export function isTaskEntityType(value: unknown): value is TaskEntityType {
 
 /** Forma pe care o da si o primeste components/ui/DateField.tsx: yyyy-mm-dd.
  *
- *  NUMAI FORMA, nu existenta zilei in calendar. 31.02.2026 trece de aici si este
- *  refuzata de coloana `date`, iar tasks-actions.ts traduce refuzul. Vezi antetul. */
+ *  Forma si existenta zilei in calendar: 2026-02-31 nu trece. In adresa o data
+ *  imposibila inseamna "fara filtru", ca orice valoare necunoscuta. */
 export function isDayString(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 /* =======================================================================

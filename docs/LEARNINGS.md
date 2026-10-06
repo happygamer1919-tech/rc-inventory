@@ -9160,6 +9160,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the brief said to take P3-147; `npm run id:free -- P3-147` reported it CLAIMED by the open pull request #413.
 **SOLUTION:** took P3-172, the id the script named, and re-ran it just before the board commit. RULE: **an id written in a brief is a suggestion; `id:free` decides.**
 
+### A date check that only tests the shape lets an impossible day reach the database
+**Tag:** frontend
+**ERROR:** `isDayString` accepted any `yyyy-mm-dd` text, so `/sarcini?de_la=2026-02-31` went to the database, the `date` column refused it and the page showed the error screen, although the file says an unknown value in the address means no filter. Two more faults on the same screens: with a red date box "Anulează sarcina" stayed clickable but `save()` returned at once (a silent dead button), and the two date filters called `router.push` on every key, because `DateField` sends an empty string for half-typed text.
+**SOLUTION:** card P3-169: `isDayString` round-trips the date through a UTC `Date`; "Anulează sarcina" with a red date is proved to work (main's P3-157 sends only the cancelled state), with a spec; `DateField` gets an opt-in `completeOnly` prop that sends only a whole real day or an empty box, and the two Sarcini filters use it. RULE: **a "valid date" test checks the calendar, not the shape; a control that can refuse a click is disabled, never silent; a field that drives navigation must not report half-typed text.**
+
 ### The lead import wrote the file-wide source onto existing clients the check step never listed
 **Tag:** backend
 **ERROR:** the check step plans with no default source, but the import plans with the source picked on the last step. `prepareRow` puts that default on every row without its own source, and `buildPlan` counted it as something the row brings, so a duplicate with "Completează" chosen got the source written on an existing client although the check said only "Adresă".
