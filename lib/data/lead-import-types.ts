@@ -72,6 +72,7 @@ export const IMPORT_FIELDS = [
   "stage",
   "followUpDate",
   "nextAction",
+  "nextActionDate",
   "notes",
   "address",
   "fiscalCode",
@@ -92,6 +93,7 @@ export const IMPORT_FIELD_LABEL: Record<ImportField, string> = {
   stage: "Etapă",
   followUpDate: "Data de reluare",
   nextAction: "Următorul pas",
+  nextActionDate: "Data pasului următor",
   notes: "Note",
   address: "Adresă",
   fiscalCode: "IDNO",
@@ -131,6 +133,7 @@ const FIELD_SYNONYMS: Record<ImportField, string[]> = {
     "revenire",
   ],
   nextAction: ["urmatorulpas", "pasulurmator", "nextstep", "nextaction", "urmatorul", "actiune"],
+  nextActionDate: ["datapasululuiurmator", "datapasuluiurmator", "dataactiune", "nextstepdate", "actiunedata"],
   notes: ["note", "notite", "observatii", "notes", "comentarii", "mentiuni"],
   address: ["adresa", "address", "adresal", "localitate", "adresaclient"],
   fiscalCode: ["idno", "cui", "codfiscal", "fiscalcode", "idnocui", "cod"],
@@ -179,6 +182,7 @@ const IMPORT_FIELD_EXAMPLE: Record<ImportField, string> = {
   stage: CLIENT_STAGE_LABEL.cold,
   followUpDate: "",
   nextAction: "Trimite ofertă",
+  nextActionDate: "",
   notes: "Interesat de acoperiș nou",
   address: "Chișinău, str. Exemplu 1",
   fiscalCode: "",
@@ -470,6 +474,7 @@ export type PreparedLead = {
   stage: ClientStage;
   followUpDate: string;
   nextAction: string;
+  nextActionDate: string;
   notes: string;
   address: string;
   fiscalCode: string;
@@ -614,6 +619,10 @@ export function prepareRow(
 
   const nextAction = read("nextAction");
 
+  const rawNextActionDate = read("nextActionDate");
+  const nextActionDate = rawNextActionDate === "" ? "" : readDate(rawNextActionDate);
+  if (nextActionDate === null) return refuse(IMPORT_REASON.badNextDate(rawNextActionDate));
+
   return {
     ok: true,
     line,
@@ -633,6 +642,7 @@ export function prepareRow(
       stage,
       followUpDate,
       nextAction,
+      nextActionDate,
       notes: read("notes"),
       address: read("address"),
       fiscalCode: read("fiscalCode"),

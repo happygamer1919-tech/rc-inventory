@@ -86,6 +86,7 @@ export const CLIENT_IMPORT_FIELDS = [
   "stage",
   "followUpDate",
   "nextAction",
+  "nextActionDate",
   "notes",
   "address",
   "fiscalCode",
@@ -107,6 +108,7 @@ export const CLIENT_IMPORT_FIELD_LABEL: Record<ClientImportField, string> = {
   stage: "Etapă",
   followUpDate: "Data de reluare",
   nextAction: "Următorul pas",
+  nextActionDate: "Data pasului următor",
   notes: "Note",
   address: "Adresă",
   fiscalCode: "IDNO",
@@ -134,6 +136,7 @@ const FIELD_SYNONYMS: Record<ClientImportField, string[]> = {
     "revenire",
   ],
   nextAction: ["urmatorulpas", "pasulurmator", "nextstep", "nextaction", "urmatorul", "actiune"],
+  nextActionDate: ["datapasululuiurmator", "datapasuluiurmator", "dataactiune", "nextstepdate", "actiunedata"],
   notes: ["note", "notite", "observatii", "notes", "comentarii", "mentiuni"],
   address: ["adresa", "address", "adresal", "localitate", "adresaclient"],
   fiscalCode: ["idno", "cui", "codfiscal", "fiscalcode", "idnocui", "cod"],
@@ -385,6 +388,11 @@ function clientImportFields(owners: OwnerIndex): ImportFieldDescriptor<ClientImp
       return date ? { ok: true, value: date } : { ok: false, reason: CLIENT_IMPORT_REASON.badDate(raw) };
     }),
     field("nextAction", false, "", (raw) => ({ ok: true, value: raw })),
+    field("nextActionDate", false, "", (raw) => {
+      if (raw === "") return { ok: true, value: "" };
+      const date = readDate(raw);
+      return date ? { ok: true, value: date } : { ok: false, reason: CLIENT_IMPORT_REASON.badDate(raw) };
+    }),
     field("notes", false, "", (raw) => ({ ok: true, value: raw })),
     field("address", false, "Chișinău, str. Exemplu 1", (raw) => ({ ok: true, value: raw })),
     field("fiscalCode", false, "", (raw) => ({ ok: true, value: raw })),

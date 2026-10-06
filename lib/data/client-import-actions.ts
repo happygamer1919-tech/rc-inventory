@@ -177,6 +177,7 @@ const FILL_COLUMN: Record<ClientFillField, string> = {
   source: "source",
   ownerId: "owner_id",
   nextAction: "next_action",
+  nextActionDate: "next_action_at",
   notes: "notes",
   address: "address",
   fiscalCode: "fiscal_code",
@@ -199,7 +200,7 @@ async function fillEmpty(
 
   const readable = CLIENT_FILL_FIELDS.filter((field) => {
     if (["interest", "source", "ownerId"].includes(field)) return leaduri;
-    if (field === "nextAction") return next;
+    if (["nextAction", "nextActionDate"].includes(field)) return next;
     return true;
   });
 
@@ -335,6 +336,7 @@ export async function runClientImport(
       interest: client.interest,
       ownerId: client.ownerId,
       nextAction: client.nextAction,
+      nextActionAt: client.nextActionDate,
       firstStage: true,
     });
 
