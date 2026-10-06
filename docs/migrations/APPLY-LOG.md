@@ -69,7 +69,7 @@ The format is machine-read, so keep it exactly:
 - `0071_client_material_summary_walkin.sql`, card de aplicare P3-159
 - `0072_list_team_members.sql`, card de aplicare P3-170
 - `0073_batches_status_history_active_account.sql`, card de aplicare P3-179
-- `0075_save_invoice_draft_refuses_walkin.sql`, card de aplicare P3-171
+- `0074_save_invoice_draft_refuses_walkin.sql`, card de aplicare P3-171
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

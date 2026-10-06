@@ -1,4 +1,4 @@
--- assertions/0075_save_invoice_draft_refuses_walkin.sql
+-- assertions/0074_save_invoice_draft_refuses_walkin.sql
 -- Card P3-171. public.save_invoice_draft refuses a walk-in sale and nothing else.
 --
 -- FOUR CASES, each with a witness so a function that refuses everything, or

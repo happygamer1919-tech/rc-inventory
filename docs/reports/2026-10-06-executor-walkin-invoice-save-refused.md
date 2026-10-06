@@ -22,12 +22,12 @@ Project sales and invoices with no sale behind them work exactly as before.
   new database error (P0001 with `direct_client` in the text) to the same sentence.
 - `lib/data/facturare-issue-gate.ts` (new): the gate as a small function with the
   read and the save passed in, so a spec can prove the save is not called.
-- `supabase/migrations/0075_save_invoice_draft_refuses_walkin.sql` (new):
+- `supabase/migrations/0074_save_invoice_draft_refuses_walkin.sql` (new):
   `create or replace function public.save_invoice_draft(uuid, jsonb, uuid, uuid,
   uuid, date, text)`, same signature, 0064's body plus one check on
   `issue_mode = 'direct_client'`, the same three grant lines, the comment extended.
   No DROP TABLE, no TRUNCATE, no DELETE. MERGE IS APPLY.
-- `scripts/poc-free/local-db/assertions/0075_save_invoice_draft_refuses_walkin.sql`
+- `scripts/poc-free/local-db/assertions/0074_save_invoice_draft_refuses_walkin.sql`
   (new): walk-in refused with P0001 and no invoice row; project issue, no-issue
   invoice and draft edit still work.
 - `tests/e2e/facturare-walkin-refused.spec.ts` (new): the four acceptance cases.
@@ -52,7 +52,7 @@ only in CI.
 ## Migration number
 
 The next free number on origin/main was 0072, but open PR #426 (P3-157 r2) already
-adds `0072_list_team_members.sql`. This file takes 0075 (renumbered from 0073 on 2026-10-06: 0073 went to P3-147 and 0074 to P3-179) so the two never share a
+adds `0072_list_team_members.sql`. This file takes 0074 (renumbered from 0073 on 2026-10-06: 0073 went to P3-147 and 0074 to P3-179) so the two never share a
 number, the same practice recorded for 0069 and 0071 in the factory's CONTEXT.md.
 
 The first CI run on PR #443 (run 37405055942) failed "Prove the migration applier
