@@ -9144,3 +9144,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
 **SOLUTION:** card P3-166: `readActiveClientOptions` (`lib/data/client-options-read.ts`) reads pages of 1000 ordered by name then id until a short page, keeps the Romanian sort and the shape, and throws on error so `app/error.tsx` shows. Proved with a stubbed client (1000 + 1000 + 250 rows, exactly 1000 rows, a failing page). RULE: **any read of a table that can grow past 1000 rows pages with a stable order and throws on error, never returns an empty list.**
+
+### A rule enforced only in the read that hides a button is not enforced
+**Tag:** backend
+**ERROR:** "a walk-in sale is never invoiced" (R-215) lived only in `getIssueInvoiceability`, which keeps the invoice button off a walk-in issue. `saveInvoiceDraft` only checked that `outboundIssueId` was a uuid, and `public.save_invoice_draft` (0064) wrote any issue id it got, so a hand-made request from a signed-in user created a draft invoice tied to a walk-in sale.
+**SOLUTION:** card P3-171: `saveInvoiceDraft` asks the same read through `saveUnlessNeverInvoiceable` (`lib/data/facturare-issue-gate.ts`, no server-only, so a spec can prove the RPC is not called) and refuses only on `neverInvoiceable`; migration 0073 replaces `save_invoice_draft` in place with one check on `issue_mode = 'direct_client'`, raised as P0001 with `direct_client` in the text, which `refusal()` maps to the same Romanian sentence. RULE: **every "never" rule shown on a screen is also enforced in the server action and in the database function that writes; a hidden button is a habit, not a rule.**
+
+### A PostgREST rpc call is a thenable, not a Promise
+**Tag:** backend
+**ERROR:** passing `() => supabase.rpc(...)` to a helper typed `() => Promise<T>` failed `tsc` with TS2739 (missing `catch`, `finally`), and `T` collapsed to `unknown`.
+**SOLUTION:** type the callback `() => PromiseLike<T>`; `await` works the same. RULE: **a helper that receives a Supabase query takes `PromiseLike`, never `Promise`.**

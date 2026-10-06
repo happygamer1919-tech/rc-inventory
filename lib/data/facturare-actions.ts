@@ -31,6 +31,9 @@ import { hasCompanyContactFields, hasFacturareSettings } from "./schema-capabili
 import { isUnitCode } from "./units";
 import { chisinauToday, formatDate } from "./format";
 import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
+import { getIssueInvoiceability } from "./facturare-create";
+import { DIRECT_CLIENT_NOT_INVOICEABLE } from "./facturare-create-types";
+import { saveUnlessNeverInvoiceable } from "./facturare-issue-gate";
 
 type Failure = { ok: false; message: string; field?: string };
 export type ActionResult = { ok: true } | Failure;
@@ -374,6 +377,12 @@ function refusal(error: { code?: string; message?: string; details?: string } | 
       message: "Baza de date a refuzat valorile facturii. Verifică cantitățile, prețurile și cota TVA.",
     };
   }
+  // P0001 cu `direct_client` in text: P3-171, migratia 0073. Ciorna cerea o
+  // vanzare directa, care nu se factureaza niciodata. Se citeste si textul, fiindca
+  // P0001 este codul implicit al oricarui `raise exception`.
+  if (code === "P0001" && `${error?.message ?? ""}`.includes("direct_client")) {
+    return { ok: false, message: DIRECT_CLIENT_NOT_INVOICEABLE };
+  }
   // 02000 no_data_found si P0002: factura nu mai exista.
   if (code === "02000" || code === "P0002") {
     return { ok: false, message: "Factura nu mai există. Reîncarcă pagina." };
@@ -532,15 +541,26 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
     // Emite, si partea 2 se sprijină pe asta: un rand fara issue_date este o ciornă si
     // ziua lui pe lista este ziua crearii. O ciornă care ar purta o zi de emitere ar fi
     // un rand despre care lista ar spune ca a fost emis in ziua aceea.
-    const created = await supabase.rpc("save_invoice_draft", {
-      p_client_id: input.clientId.trim(),
-      p_lines: rpcLines(clean),
-      p_invoice_id: null,
-      p_project_id: projectId === "" ? null : projectId,
-      p_outbound_issue_id: outboundIssueId === "" ? null : outboundIssueId,
-      p_due_date: dueDate,
-      p_notes: input.notes.trim() === "" ? null : input.notes.trim(),
-    });
+    //
+    // P3-171. O VANZARE DIRECTA ESTE REFUZATA INAINTE DE APEL, cu propozitia pe care
+    // ecranul Iesirii o arata deja. Ecranul nu ofera niciodata butonul, dar o cerere
+    // construita de mana nu trece prin ecran. Functia din 0073 o refuza si ea.
+    const gated = await saveUnlessNeverInvoiceable(
+      outboundIssueId === "" ? null : outboundIssueId,
+      getIssueInvoiceability,
+      () =>
+        supabase.rpc("save_invoice_draft", {
+          p_client_id: input.clientId.trim(),
+          p_lines: rpcLines(clean),
+          p_invoice_id: null,
+          p_project_id: projectId === "" ? null : projectId,
+          p_outbound_issue_id: outboundIssueId === "" ? null : outboundIssueId,
+          p_due_date: dueDate,
+          p_notes: input.notes.trim() === "" ? null : input.notes.trim(),
+        }),
+    );
+    if ("refused" in gated) return { ok: false, message: gated.refused };
+    const created = gated.saved;
     if (created.error) return refusal(created.error);
     const id = idFromRpc(created.data);
     if (id === null) {
