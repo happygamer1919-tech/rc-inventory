@@ -14,7 +14,7 @@ import { expect, test } from "@playwright/test";
 // tabela pe care nimeni nu o poate atinge, adica si pe o politica stricata.
 //
 // public.outbound_issue_take_stock: in 0070 era SECURITY INVOKER si refuzul venea
-// din politica de inserare a apelantului. Din 0076 (cardul P3-185) este SECURITY
+// din politica de inserare a apelantului. Din 0075 (cardul P3-185) este SECURITY
 // DEFINER si refuza singura un cont fara profil activ. Cazul de mai jos o cheama
 // direct, pe o iesire care exista deja, adica exact calea pe care un cont
 // dezactivat ar fi putut scadea stocul inainte de 0070; el trebuie sa treaca la fel
@@ -239,7 +239,7 @@ test("pozitii iesire: un cont dezactivat nu citeste nicio pozitie direct pe tabe
 });
 
 test("pozitii iesire: un cont dezactivat nu poate adauga si nici schimba o pozitie", async () => {
-  // CONTUL ESTE UN PROPRIETAR. Din 0076 (cardul P3-185) numai proprietarul scrie
+  // CONTUL ESTE UN PROPRIETAR. Din 0075 (cardul P3-185) numai proprietarul scrie
   // direct pe outbound_lines; un operator activ este refuzat deja, deci nu ar mai
   // fi un martor. Refuzul operatorului activ este in take-stock-guard.spec.ts.
   const { id, token } = await newDeactivatableAccount("scriere", "owner");

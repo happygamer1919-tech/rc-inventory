@@ -9,8 +9,8 @@
 --   3. public.outbound_issue_take_stock(uuid, jsonb) still refuses a deactivated
 --      caller: either it is SECURITY INVOKER (its lines insert runs under the
 --      caller's own insert policy, the shape 0070 left), or it is SECURITY
---      DEFINER with its own current_app_role() refusal (the shape 0076 left).
---   Since 0076 the insert and update predicates also carry is_owner(); they
+--      DEFINER with its own current_app_role() refusal (the shape 0075 left).
+--   Since 0075 the insert and update predicates also carry is_owner(); they
 --   still test current_app_role() is not null, which is what this file checks.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
@@ -89,9 +89,9 @@ begin
   end if;
 
   -- --- 3. take_stock still refuses a deactivated caller --------------------
-  -- 0076 (card P3-185) made the routine SECURITY DEFINER so that direct line
+  -- 0075 (card P3-185) made the routine SECURITY DEFINER so that direct line
   -- writes could be owner only. A definer version skips the lines insert policy,
-  -- so it must carry its own current_app_role() refusal; assertions/0076 checks
+  -- so it must carry its own current_app_role() refusal; assertions/0075 checks
   -- that refusal in detail. Either shape is accepted here, never a definer
   -- version without the refusal.
   select count(*) into n

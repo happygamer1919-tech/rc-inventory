@@ -1,4 +1,4 @@
--- 0076_take_stock_status_and_line_policies.sql
+-- 0075_take_stock_status_and_line_policies.sql
 -- RC Inventory phase 3, card P3-185. Found by the bug check of 2026-10-06.
 --
 -- TWO DOORS THAT ONLY A HAND-BUILT CALL COULD OPEN, BOTH CLOSED HERE.
@@ -155,7 +155,7 @@ end;
 $$;
 
 comment on function public.outbound_issue_take_stock(uuid, jsonb) is
-  'Card P3-118, ruling R-215: THE ONE SUBTRACTION, called by both outbound doors. CARD P3-185 (0076): SECURITY DEFINER, so its lines insert no longer depends on the caller''s insert policy and direct line writes can be owner only. It refuses a token holder with no active profile, an issue that does not exist and an issue that is not awaiting_shipment (the issue row is locked for the check). The locks, the summed overdraw check under them, the INSUFFICIENT_STOCK contract, the lines insert and the history row are 0067 unchanged.';
+  'Card P3-118, ruling R-215: THE ONE SUBTRACTION, called by both outbound doors. CARD P3-185 (0075): SECURITY DEFINER, so its lines insert no longer depends on the caller''s insert policy and direct line writes can be owner only. It refuses a token holder with no active profile, an issue that does not exist and an issue that is not awaiting_shipment (the issue row is locked for the check). The locks, the summed overdraw check under them, the INSUFFICIENT_STOCK contract, the lines insert and the history row are 0067 unchanged.';
 
 revoke all on function public.outbound_issue_take_stock(uuid, jsonb) from public;
 revoke all on function public.outbound_issue_take_stock(uuid, jsonb) from anon;

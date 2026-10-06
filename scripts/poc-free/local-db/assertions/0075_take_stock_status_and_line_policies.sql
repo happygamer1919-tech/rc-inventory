@@ -1,5 +1,5 @@
--- assertions/0076_take_stock_status_and_line_policies.sql
--- Card P3-185. What 0076 must have left behind, and what it lets through.
+-- assertions/0075_take_stock_status_and_line_policies.sql
+-- Card P3-185. What 0075 must have left behind, and what it lets through.
 --
 --   1. THE SHAPE. outbound_issue_take_stock(uuid, jsonb) is one SECURITY DEFINER
 --      function, executable by authenticated and not by anon; outbound_lines has
