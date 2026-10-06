@@ -431,33 +431,9 @@ test.describe("Ecranul Azi (P3-91)", () => {
     await rest.api.dispose();
   });
 
-  test("P3-142a: when there are no calls and no tasks, the calls card shows 'Nimic de făcut azi.'", async ({
-    page,
-  }) => {
-    await signIn(page, ownerAccount());
-    const rest = await restAs(ownerAccount());
-
-    // Create a unique owner ID to isolate this test and ensure no other calls/tasks exist
-    const testTag = `P3-142a-${RUN}`;
-    const testOwnerId = "f1234567-8901-2345-6789-012345678901"; // dummy ID that won't match any real owner
-
-    // Open Azi with a filter that matches no owners, so we get an empty calls list
-    // Since the filter won't match any owner, we get zero calls
-    await openAzi(page);
-
-    // Verify that "Nimic de făcut azi." is shown when there are no calls and no tasks
-    const pageContent = await page.locator("body").textContent();
-    const callRows = page.getByTestId("azi-row");
-    const hasNoCallRows = (await callRows.count()) === 0;
-
-    // Only assert if we can create an empty state (no calls existing in the base test data)
-    // This test should pass in CI where test data is controlled
-    if (hasNoCallRows) {
-      expect(pageContent).toContain("Nimic de făcut azi.");
-    }
-
-    await rest.api.dispose();
-  });
+  // P3-142a (fara apeluri si fara sarcini, "Nimic de făcut azi.") nu se poate dovedi pe
+  // baza comuna de test, unde alte specuri lasa apeluri si sarcini. Cele trei formulari
+  // sunt dovedite fara date in tests/e2e/azi-empty-title.spec.ts.
 
   test("P3-142b: when there are no calls but tasks are due today, the calls card shows 'Niciun apel de făcut azi.'", async ({
     page,

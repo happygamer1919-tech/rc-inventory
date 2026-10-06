@@ -9209,6 +9209,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
 **SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**
 
+### A fix closed on one table leaves its siblings open until someone greps them
+**Tag:** security
+**ERROR:** 0067 closed `outbound_issues` and 0070 closed `outbound_lines` for a deactivated account, but `batches` and `status_history` kept 0001's `to authenticated using (true)` select and insert policies. A deactivated account with a valid token could insert a batch over PostgREST (stock is batches minus outbound lines, so stock rose) and read or add history rows. The P3-138 pull request title also said "migration 0069" for a file named 0070, so a brief that copied the title pointed at the wrong file.
+**SOLUTION:** card P3-179, migration 0073 (first numbered 0072, renamed when 0072 was taken by P3-170), puts `public.current_app_role() is not null` on the four policies; the remaining open stock tables (inbound_orders, order_lines, reminders) are card P3-180. RULE: **when closing one table, grep `using (true)` and `with check (true)` across every migration in the same change and file a card for each table left open; name a migration by its file, never by a title.**
+
 ### One foreign letter turned a whole Romanian CSV into Cyrillic
 **Tag:** data
 **ERROR:** `decodeCsvFile` chose windows-1251 whenever the 1251 reading had any Cyrillic letter and the 1250 reading had any non-Romanian letter. The 1250 bytes of ă â î ș ț read as Cyrillic in 1251, so the first test is true for almost every Romanian file, and one ü, ä or é (Würth, Kärcher, André) made the second true. "Bălți" became "Bгlюi", no U+FFFD appeared, nothing was refused.
@@ -9233,3 +9238,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `readAll` in `lib/data/project-import-actions.ts` and `lib/data/material-import-actions.ts` did `if (error || !data) break` and returned the pages read so far. A failed read of clients or categories refused every row as an unknown client or category; a failed read of projects or products marked every row as new, so the duplicate check and fill choices vanished. P3-151 had fixed the same loop for the client and lead imports only.
 **SOLUTION:** card P3-183: both files read through `readAllRows` in `lib/data/import-clients-read.ts`, which throws `ImportReadError` with a Romanian message per table, and the four import actions return it through `loadOrRefuse` so nothing is written. RULE: **when a bug is fixed in one copy of a loop, search for the other copies in the same card, or move them onto the shared helper.**
+
+### A spec header can claim coverage another spec was supposed to give
+**Tag:** tests
+**ERROR:** `task-assignee-email-fallback.spec.ts` (P3-165) held only the no-assignee case, and its header said P3-130 tested the name and email cases. Nothing did. The Azi case P3-142a had its only assertion inside an `if`, so it passed on the shared database while checking nothing.
+**SOLUTION:** card P3-184: cases (a) name and (b) blank name shown by email assert in the list, the client panel and Azi; P3-142a is removed and points to `azi-empty-title.spec.ts`, which proves the empty wordings with no data. The email is read as the owner, because `list_team_members()` hides emails from an account manager (they see "Fără nume"). RULE: **a header comment may only state what the file asserts, and an assertion never sits behind an `if` on shared data.**
