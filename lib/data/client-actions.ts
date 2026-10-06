@@ -304,17 +304,18 @@ export async function createWalkInClient(
     notes: "",
     active: true,
     // P3-172. Un cumparator de la tejghea este client de la inceput, nu lead.
-    // Etapa se scrie prin set_client_stage (security invoker, clients_update este a
-    // administratorului), deci numai administratorul o poate seta; randul creat de un
-    // manager de cont ramane la implicitul coloanei pana la o hotarare a proprietarului.
+    // Administratorul il pune prin set_client_stage, cu randul de istoric. Functia
+    // este security invoker si clients_update este a administratorului, deci pentru
+    // managerul de cont etapa se scrie chiar in insert (raspunsul PURPLE, P3-147).
     ...(user.role === "owner" ? { stage: "client" } : {}),
-  });
+  }, user.role === "owner" ? undefined : { stageInInsert: "client" });
 }
 
 /** Insertul comun al celor doua actiuni de mai sus. Rolul se verifica INAINTE, de
  *  fiecare actiune in felul ei; aceasta functie nu se exporta, deci nu este o usa. */
 async function insertClientRecord(
   input: ClientInput,
+  opts?: { stageInInsert?: "client" },
 ): Promise<ActionResult<{ id: string }>> {
   const checked = validate(input);
   if (!checked.ok) return checked;
@@ -338,12 +339,18 @@ async function insertClientRecord(
   const nextAvailable =
     Object.keys(next.value).length > 0 ? await hasClientNextAction(supabase) : false;
 
+  const stageNow =
+    opts?.stageInInsert && (await hasClientStage(supabase))
+      ? { stage: opts.stageInInsert }
+      : {};
+
   const { data, error } = await supabase
     .from("clients")
     .insert({
       ...checked.value,
       ...(leaduriAvailable ? leaduri.value : {}),
       ...(nextAvailable ? next.value : {}),
+      ...stageNow,
     })
     .select("id")
     .single();
