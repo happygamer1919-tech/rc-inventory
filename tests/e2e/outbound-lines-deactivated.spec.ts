@@ -13,10 +13,12 @@ import { expect, test } from "@playwright/test";
 // lucrul care apoi trebuie refuzat. Fara martor, un refuz ar trece si pe o
 // tabela pe care nimeni nu o poate atinge, adica si pe o politica stricata.
 //
-// public.outbound_issue_take_stock NU ARE UN REFUZ AL SAU. Este SECURITY INVOKER,
-// deci inserarea pozitiilor din ea trece prin politica de inserare a apelantului.
-// Cazul de mai jos o cheama direct, pe o iesire care exista deja, adica exact
-// calea pe care un cont dezactivat ar fi putut scadea stocul inainte de 0070.
+// public.outbound_issue_take_stock: in 0070 era SECURITY INVOKER si refuzul venea
+// din politica de inserare a apelantului. Din 0075 (cardul P3-185) este SECURITY
+// DEFINER si refuza singura un cont fara profil activ. Cazul de mai jos o cheama
+// direct, pe o iesire care exista deja, adica exact calea pe care un cont
+// dezactivat ar fi putut scadea stocul inainte de 0070; el trebuie sa treaca la fel
+// sub ambele forme.
 //
 // DATELE DE TEST NU SE STERG NICIODATA, conventia P2-07. Tot ce se scrie aici
 // este prefixat TEST si rulat pe stiva locala din CI, niciodata pe productie.
@@ -134,9 +136,13 @@ async function accessToken(email: string, password: string): Promise<string> {
   return body.access_token;
 }
 
-/** Un cont nou, cu profil activ de operator, care se poate dezactiva fara sa
- *  atinga conturile comune de test, pe care alte specificatii le folosesc. */
-async function newDeactivatableAccount(label: string): Promise<{ id: string; token: string }> {
+/** Un cont nou, cu profil activ (operator, sau proprietar cand se cere), care se
+ *  poate dezactiva fara sa atinga conturile comune de test, pe care alte
+ *  specificatii le folosesc. */
+async function newDeactivatableAccount(
+  label: string,
+  role: "account_manager" | "owner" = "account_manager",
+): Promise<{ id: string; token: string }> {
   const email = `p3-138-${label}-${RUN}-${randomUUID().slice(0, 8)}@rc-inventory.local`;
   const password = `p3-138-${randomUUID()}`;
   const created = await fetch(`${env().origin}/auth/v1/admin/users`, {
@@ -150,7 +156,7 @@ async function newDeactivatableAccount(label: string): Promise<{ id: string; tok
 
   const profile = await asService("profiles?on_conflict=id", {
     method: "POST",
-    body: [{ id, email, role: "account_manager", full_name: "Test P3-138", active: true }],
+    body: [{ id, email, role, full_name: "Test P3-138", active: true }],
   });
   expect(profile.ok, `profilul contului de test nu a putut fi scris: ${profile.text}`).toBe(true);
 
@@ -233,7 +239,10 @@ test("pozitii iesire: un cont dezactivat nu citeste nicio pozitie direct pe tabe
 });
 
 test("pozitii iesire: un cont dezactivat nu poate adauga si nici schimba o pozitie", async () => {
-  const { id, token } = await newDeactivatableAccount("scriere");
+  // CONTUL ESTE UN PROPRIETAR. Din 0075 (cardul P3-185) numai proprietarul scrie
+  // direct pe outbound_lines; un operator activ este refuzat deja, deci nu ar mai
+  // fi un martor. Refuzul operatorului activ este in take-stock-guard.spec.ts.
+  const { id, token } = await newDeactivatableAccount("scriere", "owner");
   const issueId = await createIssue(token, `${TAG}-SCRIERE`);
 
   // MARTORII: activ, contul adauga o pozitie direct pe tabela si schimba un pret.
