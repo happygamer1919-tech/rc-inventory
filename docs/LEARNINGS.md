@@ -9140,6 +9140,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the first version of `lib/data/tasks-read.ts` wrote the table name itself and the check refused it, because only files that import and use `hasTasks` may name that table.
 **SOLUTION:** the table is named only in `lib/data/tasks.ts` (`startRead`); `tasks-read.ts` receives a function that starts the request. RULE: **when a helper is split out of a gated data file, the table name stays in the gated file.**
 
+### A task save from a form opened earlier undid a colleague's change
+**Tag:** frontend
+**ERROR:** `TaskForm` sent all eight task fields back to `updateTask` as they were when the page loaded, and `updateTask` wrote every key it received. A colleague marked a task "Finalizată", the operator who had the page open from before changed only the due date and saved, and the status went back to "De făcut". "Anulează sarcina" sent the same eight fields with the status swapped, so it reverted the other seven.
+**SOLUTION:** card P3-157: the form keeps the values it opened with and sends only `changedTaskFields(loaded, current)`; the linked record's type and id travel together. Cancel sends `cancelTaskPatch()`, the status alone. No difference means no call. The row `updateTask` writes is built by the pure `taskPatchRow`, so a spec can prove an absent key never reaches the database. RULE: **an edit form sends what the user changed, never a snapshot of the whole row; a server action that skips absent keys is only half the fix if the client never leaves a key absent.**
+
 ### The client pickers lost clients past 1000 active rows
 **Tag:** backend
 **ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
