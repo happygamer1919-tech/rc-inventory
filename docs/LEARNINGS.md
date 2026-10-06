@@ -9159,3 +9159,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** process
 **ERROR:** the brief said to take P3-147; `npm run id:free -- P3-147` reported it CLAIMED by the open pull request #413.
 **SOLUTION:** took P3-172, the id the script named, and re-ran it just before the board commit. RULE: **an id written in a brief is a suggestion; `id:free` decides.**
+
+### The lead import wrote the file-wide source onto existing clients the check step never listed
+**Tag:** backend
+**ERROR:** the check step plans with no default source, but the import plans with the source picked on the last step. `prepareRow` puts that default on every row without its own source, and `buildPlan` counted it as something the row brings, so a duplicate with "Completează" chosen got the source written on an existing client although the check said only "Adresă".
+**SOLUTION:** card P3-168: in `buildPlan` a row offers `source` to a duplicate only when its own source cell has a value. New leads still get the default. Proved on the pure plan in `tests/e2e/lead-import-source-fill.spec.ts`. RULE: **a default that fills a new record must never count as data the file brought when it merges into an existing record; what is written must equal what the check step listed.**
