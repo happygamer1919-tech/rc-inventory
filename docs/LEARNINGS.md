@@ -9115,6 +9115,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `buildCsv` quoted a cell only for a quote, separator or line break. Excel read `+37369123456` as a number (plus lost), `0123456789012` as 1,23E+12 (zero lost, and saved back it re-imports damaged), `-10% la a doua comandă` as `#NAME?`, and a name starting with `=` as a formula (CSV injection).
 **SOLUTION:** card P3-139: text cells that start with `=`, `+`, `-`, `@`, tab or CR get one leading apostrophe, except a negative number from `formatCsvNumber`; phone and fiscal code cells are written `="value"` through `csvText`, which Excel shows clean as text. `parseCsv` undoes both. The first draft doubled the quotes only once, so a value holding a quote broke the round trip. RULE: **escape at the formula level and again at the CSV level, and prove it with a round trip that includes a quote.**
 
+### A duplicate check keyed on email alone makes every row without an email new on every upload
+**Tag:** backend
+**ERROR:** `buildClientPlan` matched duplicates on email only, so a file of clients with name and phone but no email created every row again when uploaded a second time (after fixing error rows, or after a retry that died midway). Two identical rows in one file were both created.
+**SOLUTION:** card P3-164: a row with no email gets a second key, normalised name (trimmed, inner spaces collapsed, lower case in `ro`) plus the last 8 digits of the phone, checked in the file and then among stored clients. A row with an email never uses it. RULE: **when a dedup key can be empty, the rows with an empty key need their own key; "no key" must not mean "always new".**
+
 ### Editing a task tied to a closed project or inactive client showed an empty record box
 **Tag:** frontend
 **ERROR:** the Sarcini page built the record choice lists from open projects and active clients only, and `Combobox` shows a blank for a value that is not in its option list. A task linked to a project that was closed later (or a client made inactive) opened for editing with an empty "Înregistrare" box, although the link was stored and kept on save.
