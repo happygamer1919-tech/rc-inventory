@@ -9194,3 +9194,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ci
 **ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
 **SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**
+
+### A product's movement history stopped silently at 1000 rows while its stock was right
+**Tag:** data
+**ERROR:** `listProductBatches` and `listProductMovements` in `lib/data/products.ts` read `batches` and `outbound_lines` for one product in one request each, with no paging (and the movements read with no order), then sorted in memory. PostgREST cuts any list at `max_rows` and does not say so, so a product with more than 1000 outbound lines showed a history with arbitrary rows missing, possibly the newest, while its stock (paged since P3-136) was correct. The two numbers on the same panel disagreed. Both reads also dropped the query error and showed an empty list.
+**SOLUTION:** card P3-181: both reads go through `readAllPages` in a new client-injected file `lib/data/movements-read.ts`, each page ordered by its date column then `id` desc, duplicate ids dropped with `dedupeById`, and the final sort newest first with `id` as tie breaker. A read error is now the visible error `readAllPages` raises, like every other paged caller. RULE: **a history that must add up to a paged total is itself paged; a per-entity read is not small just because it is filtered to one entity.**
+
+### Outbound lines cannot be paged by the date the screen sorts on
+**Tag:** data
+**ERROR:** the movement history sorts outbound rows by `outbound_issues.issued_at`, a column of the embedded parent. PostgREST orders the top-level rows only by their own columns (an `order` on a referenced table orders the embedded rows, not the parents), so `issued_at` cannot be the page order of `outbound_lines`.
+**SOLUTION:** card P3-181: pages of `outbound_lines` are ordered by the line's own `created_at` then `id`, which is stable, and the displayed order comes from the final in-memory sort on `issued_at` then `id`, after every page is in. RULE: **page order only has to be stable and unique; display order can be applied after the last page.**
+
+### The product panel waits forever if its detail read throws
+**Tag:** frontend
+**ERROR:** found in passing, not fixed (out of scope): `components/inventory/ProductPanel.tsx` calls `loadProductDetail(...).then(...)` with no `catch`. Since P3-181 a failed batches or movements read raises instead of returning an empty list, so in that failure case the panel would stay on its loading state instead of showing an error.
+**SOLUTION:** none in this card. A follow-up card should add a `catch` that shows a Romanian error message in the panel. RULE: **when a read changes from swallowing an error to raising it, look at every caller's failure path in the same card and name what is left.**
