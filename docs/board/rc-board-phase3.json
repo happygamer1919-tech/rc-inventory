@@ -5497,6 +5497,52 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken, the next id was taken by an open pull request while this one was built, P3-170 was the next free one. Migration number 0072 because 0071 is carried by the open pull request for the walk-in buyer card. A migration pull request never self-merges: the owner is told before the live database changes."
     },
     {
+      "id": "P3-179",
+      "title": "Deactivated account sealed out of stock batches and status history. Migration 0073 drops and recreates batches_select, batches_insert, status_history_select and status_history_insert of 0001 (using true, with check true) on the predicate 0067 and 0070 use: public.current_app_role() is not null, which filters profiles.active. batches_update and batches_delete stay on public.is_owner(); status_history keeps no update and no delete policy. No row, table, column, function or grant changes.",
+      "plain": "A switched-off employee whose login has not run out yet can no longer add stock or read stock batches, and can no longer read or add entries in the status history. Active employees notice no change: arrivals and walk-in sales work as before.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-138"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) supabase/migrations/0073_batches_status_history_active_account.sql exists, and scripts/poc-free/local-db/assertions/0073_batches_status_history_active_account.sql passes in the applier run: batches has exactly four policies, select and insert test current_app_role() is not null, update and delete stay on is_owner(); status_history has exactly two policies, select and insert on current_app_role() is not null, and no update, delete or all policy; outbound_lines keeps its four 0070 policies. (b) tests/e2e/outbound-lines-deactivated.spec.ts is green in this pull request quality run on its head sha, including its three P3-179 cases: with a witness while active, a deactivated account cannot insert a batch and gets no rows from a direct batches select, cannot insert a status_history row and gets no rows from a direct status_history select; an active account still reads batches and history written by someone else and inserts both. (c) every other existing spec stays green, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check of 2026-10-04, factory task 207. PREDICATE: exactly the one 0067 and 0070 use, public.current_app_role() is not null; no new helper and no new column. CURRENT VERSION: grep of migrations 0002 to 0071 for batches_ and status_history_ finds no later replacement, so 0001's policies are the ones recreated. WRITERS: every SQL function that writes these tables is either SECURITY DEFINER (skips the policies) or SECURITY INVOKER under an active caller (passes them); the extraction callback writes with service_role, which bypasses row level security. OTHER OPEN POLICIES on stock tables (inbound_orders, order_lines, reminders) are card P3-180, not this one. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-06T08:45:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-179 against main: its quality run on the head sha runs the 0073 assertion in the applier proof and tests/e2e/outbound-lines-deactivated.spec.ts; report in docs/reports/2026-10-06-executor-batches-history-deactivated-access.md",
+        "at": "2026-10-06T08:45:00Z"
+      },
+      "notes": "AUTHORED 2026-10-06 by AUTHOR and built by EXECUTOR in the same pull request. Id allocated with npm run id:free. P3-138's LEARNINGS entry says to grep every policy written using (true) on tables related to a tightened one; this card is that grep for batches and status_history. The spec cases sit in the P3-138 spec because they share its fixtures (deactivatable account, service reads). NO SELF-MERGE: real client data has been in production since 2026-09-14, and this pull request adds a migration, so the owner approves the merge."
+    },
+    {
+      "id": "P3-180",
+      "title": "Deactivated account sealed out of inbound orders, order lines and reminders. The select, insert and update policies 0001 wrote on public.inbound_orders, public.order_lines and public.reminders are still `to authenticated using (true)` and `with check (true)`, so a deactivated account with a valid token can read, add and change arrivals, their lines and the low stock reminder state through PostgREST. Recreate them on public.current_app_role() is not null, the predicate of 0067, 0070 and 0073; delete policies stay on is_owner().",
+      "plain": "A switched-off employee whose login has not run out yet can still see and change incoming orders, their lines and the low stock reminders. This closes that, the same way it was closed for sales and stock batches. Active employees notice no change.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "todo",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-179"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) a new migration under supabase/migrations/ drops and recreates inbound_orders_select, inbound_orders_insert, inbound_orders_update, order_lines_select, order_lines_insert, order_lines_update, reminders_select, reminders_insert and reminders_update on public.current_app_role() is not null (update on both using and with check), and its assertion file under scripts/poc-free/local-db/assertions/ passes in the applier run, proving no bare true remains on those nine and the three delete policies stay on is_owner(). (b) an e2e spec green in the pull request quality run on its head sha proves, with a witness while active, that a deactivated account gets no rows from each table and cannot insert or update a row, and that an active account still records an arrival end to end. (c) every other spec stays green, and Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: the P3-179 grep of 2026-10-06 for using (true) and with check (true) on tables tied to stock. outbound_issues was closed by 0067, outbound_lines by 0070, batches and status_history by 0073. NOT IN SCOPE, listed for the record: the select-only using (true) policies on categories, units, products, contacts, suppliers, deviz, sheet options and sheet prices (catalog reads, 0055 kept them by design), and the extraction_drafts policies of 0008, which sit on the extraction track. PREDICATE: public.current_app_role() is not null, no new helper. CHECK before writing: grep later migrations for each policy name and recreate the current version. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-06T08:45:00Z",
+      "evidence": null,
+      "notes": "AUTHORED 2026-10-06 by AUTHOR in the P3-179 pull request, from the open policy grep its brief asked for. Id allocated with npm run id:free."
+    },
+    {
       "id": "P3-185",
       "title": "Client import instructions state the duplicate rule the import really follows: clientImportInstructions in lib/data/client-import-types.ts still said Un rând se consideră dublat după Email. The code after P3-164 also matches a row without an email on name plus phone. The instruction is corrected to match the code: Un rând se consideră dublat după Email, iar când rândul nu are Email, după Denumire împreună cu Telefon. A unit test assertion verifies the instruction mentions both email and phone. No migration, no route changes, no import logic changes.",
       "plain": "Instrucțiunea de import pentru clienți spune regula corectă pe care o urmărește importul: după email dacă are email, după nume și telefon dacă nu are email.",
