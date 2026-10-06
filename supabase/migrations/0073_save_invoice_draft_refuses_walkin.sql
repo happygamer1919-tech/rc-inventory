@@ -1,4 +1,4 @@
--- 0072_save_invoice_draft_refuses_walkin.sql
+-- 0073_save_invoice_draft_refuses_walkin.sql
 -- RC Inventory phase 3, card P3-170. A draft invoice can no longer be tied to a
 -- walk-in sale, whatever sends the request.
 --
@@ -48,7 +48,7 @@
 --
 -- PROVEN BEFORE MERGE by `npm run check:migrations`, which applies it unmodified
 -- to a throwaway postgres and runs
--- scripts/poc-free/local-db/assertions/0072_save_invoice_draft_refuses_walkin.sql,
+-- scripts/poc-free/local-db/assertions/0073_save_invoice_draft_refuses_walkin.sql,
 -- and on the local Supabase stack by tests/e2e/facturare-walkin-refused.spec.ts.
 
 begin;
@@ -216,7 +216,7 @@ end;
 $$;
 
 comment on function public.save_invoice_draft(uuid, jsonb, uuid, uuid, uuid, date, text) is
-  'P3-111. Writes a draft invoice and its lines in ONE transaction, so a refusal part way through leaves no invoice row behind. Creates when p_invoice_id is null, rewrites a draft when it is not. Refuses a caller with no active profile, an invoice past draft, an empty line list, and any attempt to leave a stored line out. Never writes a total: the triggers from 0063 own those. CARD P3-170 (0072) ADDED ONE REFUSAL: a p_outbound_issue_id whose issue_mode is direct_client, a walk-in sale, raises P0001 with direct_client in the text and writes nothing, because a walk-in sale is never invoiced (ruling R-215).';
+  'P3-111. Writes a draft invoice and its lines in ONE transaction, so a refusal part way through leaves no invoice row behind. Creates when p_invoice_id is null, rewrites a draft when it is not. Refuses a caller with no active profile, an invoice past draft, an empty line list, and any attempt to leave a stored line out. Never writes a total: the triggers from 0063 own those. CARD P3-170 (0073) ADDED ONE REFUSAL: a p_outbound_issue_id whose issue_mode is direct_client, a walk-in sale, raises P0001 with direct_client in the text and writes nothing, because a walk-in sale is never invoiced (ruling R-215).';
 
 -- Same three lines as 0064. A `create or replace` keeps the existing grants, and
 -- they are repeated so this file states them rather than relies on them.
