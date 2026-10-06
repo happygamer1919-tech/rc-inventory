@@ -339,3 +339,88 @@ export function validateTaskPatch(patch: TaskPatch): TaskRefusal | null {
 
   return refusePair((patch.entityType ?? "").trim(), (patch.entityId ?? "").trim());
 }
+
+/* =======================================================================
+   NUMAI CE S-A SCHIMBAT SE SCRIE, CARDUL P3-157
+   ======================================================================= */
+//
+// DEFECTUL PE CARE IL INCHIDE ACEST BLOC. Formularul trimitea inapoi toate cele opt
+// campuri, asa cum erau cand s-a deschis pagina, si updateTask le scria pe toate.
+// Un coleg marca sarcina "Finalizată", operatorul care avea fisa deschisa de mai
+// devreme schimba numai termenul si salva, iar starea se intorcea la "De făcut" fara
+// ca nimeni sa o fi cerut. "Anulează sarcina" facea acelasi lucru cu celelalte
+// campuri.
+//
+// REGULA: formularul trimite numai campurile pe care operatorul le-a schimbat fata de
+// valorile cu care s-a deschis, iar un camp netrimis nu se scrie niciodata. Asa o
+// modificare a unui coleg pe un camp neatins de operator rămâne cum a lasat-o colegul.
+// Nu exista niciun dialog de conflict: doi oameni care schimba ACELASI camp raman la
+// "ultimul care salveaza castiga", ca pana acum.
+
+/** Cele opt campuri ale formularului, ca siruri, exact cum le tine ecranul: un camp
+ *  gol este sirul gol si nu null. */
+export type TaskFormValues = {
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  dueDate: string;
+  assigneeId: string;
+  entityType: string;
+  entityId: string;
+};
+
+/**
+ * Modificarea care pleaca spre server: numai campurile in care `current` difera de
+ * `loaded`. Nicio diferenta inseamna obiectul gol, si atunci formularul nu scrie
+ * nimic.
+ *
+ * PERECHEA SE TRIMITE INTREAGA SAU DELOC, regula lui validateTaskPatch de mai sus:
+ * daca s-a schimbat felul sau inregistrarea, pleaca amandoua.
+ */
+export function changedTaskFields(loaded: TaskFormValues, current: TaskFormValues): TaskPatch {
+  const patch: TaskPatch = {};
+  if (current.title !== loaded.title) patch.title = current.title;
+  if (current.description !== loaded.description) patch.description = current.description;
+  if (current.status !== loaded.status) patch.status = current.status;
+  if (current.priority !== loaded.priority) patch.priority = current.priority;
+  if (current.dueDate !== loaded.dueDate) patch.dueDate = current.dueDate;
+  if (current.assigneeId !== loaded.assigneeId) patch.assigneeId = current.assigneeId;
+  if (current.entityType !== loaded.entityType || current.entityId !== loaded.entityId) {
+    patch.entityType = current.entityType;
+    patch.entityId = current.entityId;
+  }
+  return patch;
+}
+
+/** Ce trimite "Anulează sarcina": starea si NIMIC ALTCEVA, chiar daca operatorul a
+ *  atins si alte campuri in formular inainte sa apese. Anularea nu este o salvare. */
+export function cancelTaskPatch(): TaskPatch {
+  return { status: "cancelled" };
+}
+
+/** Un sir gol inseamna "fara", adica null in baza. */
+export function orNull(value: string | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Randul pe care updateTask il trimite bazei, construit din modificare.
+ *
+ * O CHEIE ABSENTA DIN MODIFICARE ESTE ABSENTA SI DIN RAND, deci coloana ei nu se
+ * scrie. Scos din updateTask ca sa poata fi citit de un test: fisierul acela este
+ * "use server" si nu se importa direct.
+ */
+export function taskPatchRow(patch: TaskPatch): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (patch.title !== undefined) row.title = patch.title.trim();
+  if (patch.description !== undefined) row.description = orNull(patch.description);
+  if (patch.status !== undefined) row.status = patch.status.trim();
+  if (patch.priority !== undefined) row.priority = patch.priority.trim();
+  if (patch.dueDate !== undefined) row.due_date = orNull(patch.dueDate);
+  if (patch.assigneeId !== undefined) row.assignee_id = orNull(patch.assigneeId);
+  if (patch.entityType !== undefined) row.entity_type = orNull(patch.entityType);
+  if (patch.entityId !== undefined) row.entity_id = orNull(patch.entityId);
+  return row;
+}
