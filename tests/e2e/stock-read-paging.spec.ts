@@ -28,6 +28,9 @@ function fakeClient(tables: Record<string, QuantityRow[]>, cap: number, calls: C
               scope = values;
               return query;
             },
+            eq() {
+              return query;
+            },
             order() {
               return query;
             },

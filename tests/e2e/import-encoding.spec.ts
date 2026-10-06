@@ -34,6 +34,24 @@ test("codare csv: windows-1250 cu Ștefan Țurcanu, Bălți se citeste corect", 
   expect(result).toEqual({ text: "Ștefan Țurcanu, Bălți", encoding: "windows-1250" });
 });
 
+test("codare csv: windows-1250 cu Bălți si Würth ramane romanesc", () => {
+  const bytes = [
+    ...ascii("B"), 0xe3, ...ascii("l"), 0xfe, ...ascii("i;W"), 0xfc, ...ascii("rth;"),
+    0xaa, ...ascii("tefan;"), 0xde, ...ascii("urcanu;Ia"), 0xba, ...ascii("i"),
+  ];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({ text: "Bălți;Würth;Ștefan;Țurcanu;Iași", encoding: "windows-1250" });
+});
+
+test("codare csv: windows-1250 cu André si Kärcher ramane romanesc", () => {
+  const bytes = [
+    ...ascii("Andr"), 0xe9, ...ascii(";K"), 0xe4, ...ascii("rcher;B"), 0xe3, ...ascii("l"), 0xfe, ...ascii("i;"),
+    0xaa, ...ascii("tefan;Chi"), 0xba, ...ascii("in"), 0xe3, ...ascii("u"),
+  ];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({ text: "André;Kärcher;Bălți;Ștefan;Chișinău", encoding: "windows-1250" });
+});
+
 test("codare csv: windows-1251 cu Иван Петров se citeste corect", () => {
   const bytes = [
     0xc8, 0xe2, 0xe0, 0xed, 0x20, 0xcf, 0xe5, 0xf2, 0xf0, 0xee, 0xe2,
