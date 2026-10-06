@@ -5495,6 +5495,32 @@
         "at": "2026-10-05T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken, the next id was taken by an open pull request while this one was built, P3-170 was the next free one. Migration number 0072 because 0071 is carried by the open pull request for the walk-in buyer card. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
+      "id": "P3-184",
+      "title": "Two tests check what their cards claim: the task assignee spec covers a colleague with a name and a colleague with a blank name in the list, the record panel and Azi, and the Azi P3-142a case no longer hides its only assertion behind a condition. Bug check 2026-10-06. Tests and board only: no app code, no migration.",
+      "plain": "Two automatic checks now test what they say they test: a task shows its colleague by name, or by email when the colleague has no name, and an empty-day check no longer passes without checking anything.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-165",
+        "P3-176"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "tests/e2e/task-assignee-email-fallback.spec.ts holds cases (a) a colleague with a full name, (b) a colleague with a blank full name shown by email, (c) no assignee, and (a) and (b) assert the assignee in the Sarcini list, the client record panel and the Azi tasks card; tests/e2e/azi-screen.spec.ts has no assertion behind a condition in the P3-142a place; both specs are green in this pull request's own `quality` run on its head sha; `grep -n \"hasNoCallRows\\|testOwnerId\" tests/e2e/azi-screen.spec.ts` prints nothing; `npx tsc --noEmit` and `npm run build` exit 0; the board validator exits 0.",
+      "defaults": "Tests and board only. The email fallback is read as the owner, because list_team_members() gives the email to an owner and gives an account manager 'Fără nume' on purpose. P3-142a is removed with a comment that points to tests/e2e/azi-empty-title.spec.ts, which proves the three empty wordings without data. P3-142b is left as it is. Test accounts and clients carry the TEST prefix and the run suffix and are never deleted.",
+      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-184 against main: its quality run on the head sha runs tests/e2e/task-assignee-email-fallback.spec.ts and tests/e2e/azi-screen.spec.ts; report in docs/reports/2026-10-06-executor-honest-assignee-and-azi-tests.md",
+        "at": "2026-10-06T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. The brief asked for the next P3 id; npm run id:free named P3-184."
     }
   ]
 }
