@@ -54,7 +54,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
@@ -470,7 +470,7 @@ export function OutboundDirectClientForm({
                     <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                       <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
                         {total > 0 ? (
-                          formatMoney(total)
+                          formatMoneyExact(total)
                         ) : (
                           <span className="text-rc-muted-2">fără preț</span>
                         )}
@@ -501,7 +501,7 @@ export function OutboundDirectClientForm({
             <p className="text-[12.5px] text-rc-muted shrink-0">
               Total tarifat:{" "}
               <span className="rc-num font-bold text-rc-black text-[15px]">
-                {formatMoney(pricedTotal)}
+                {formatMoneyExact(pricedTotal)}
               </span>
             </p>
           </div>
