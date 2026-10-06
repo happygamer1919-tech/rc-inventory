@@ -9194,3 +9194,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ci
 **ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
 **SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**
+
+### One foreign letter turned a whole Romanian CSV into Cyrillic
+**Tag:** data
+**ERROR:** `decodeCsvFile` chose windows-1251 whenever the 1251 reading had any Cyrillic letter and the 1250 reading had any non-Romanian letter. The 1250 bytes of ă â î ș ț read as Cyrillic in 1251, so the first test is true for almost every Romanian file, and one ü, ä or é (Würth, Kärcher, André) made the second true. "Bălți" became "Bгlюi", no U+FFFD appeared, nothing was refused.
+**SOLUTION:** card P3-182: count Romanian letters and foreign letters in the 1250 reading and pick 1251 only when the foreign ones are more and the 1251 reading has Cyrillic. RULE: **an encoding guess made on "any" of a character class fails on mixed files; decide by majority, and test with a file that mixes the main language with one foreign word.**
