@@ -5264,6 +5264,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. The task asked for a component spec, but the repo has no component test runner (Playwright only), so the disabled-while-saving check is an end to end case with the save request held for two seconds. Needs the CI database, so it was not run locally."
     },
     {
+      "id": "P3-173",
+      "title": "Projects export and import: an exported projects file re-imports cleanly even when a project's client is deactivated or shares its name with another client. (1) The export keeps every existing column and header and adds one column at the end, 'Identificator client', holding the client's id. (2) The import reads that column as the field clientId and matches the client on it first; when the column is missing or the cell is empty it falls back to the name match exactly as before, so old files keep working. (3) A project that already exists for the client is reported as a duplicate whatever the client's active state; a new project for a deactivated client is still refused with the same Romanian sentence. No migration.",
+      "plain": "A projects file exported from the platform can be imported back without errors, even for projects of switched-off clients or clients with the same name.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-128"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/projects-export.spec.ts, green in this pull request's own `quality` run on its head sha: the case `export proiecte: client dezactivat si doi clienti cu aceeasi denumire se reimporta fara erori` (zero error rows and every row reported as a duplicate on re-import of the untouched file) and the case `export proiecte: un fisier vechi, fara coloana de identificator, se importa ca pana acum`. (b) The updated case `export proiecte: antetele exportului sunt identice cu antetele modelului de import` is green, asserting the old headers unchanged plus 'Identificator client' last. (c) Every other case in tests/e2e/projects-export.spec.ts and tests/e2e/projects-import.spec.ts stays green. (d) `npx tsc --noEmit` and `npm run build` exit 0, the board validator exits 0, and no migration file is added.",
+      "defaults": "The identifier is the client's id, not the IDNO, because it exists for every client and is never shared. The Client column still carries the name. The identifier column is not in the import template. An identifier that matches no client is a row error naming it. A deactivated client is found by the import, so an existing project is a duplicate; creating a new project under it is refused as before. Source: bug check 2026-10-04. No migration, no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/project-export-client-id against main: its quality run on the head sha runs tests/e2e/projects-export.spec.ts; report in docs/reports/2026-10-06-executor-project-export-client-id.md",
+        "at": "2026-10-06T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request. Requested id P3-172 was taken, id:free returned P3-173. The clause in P3-128 saying the client column must never carry an id still holds: the Client column carries the name, the id sits in a separate last column. Needs the CI database, so the end to end cases were not run locally."
+    },
+    {
       "id": "P3-170",
       "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
       "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
