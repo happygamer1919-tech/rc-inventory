@@ -9120,6 +9120,21 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the Sarcini page built the record choice lists from open projects and active clients only, and `Combobox` shows a blank for a value that is not in its option list. A task linked to a project that was closed later (or a client made inactive) opened for editing with an empty "Înregistrare" box, although the link was stored and kept on save.
 **SOLUTION:** card P3-160: `listClosedLinkChoices` reads only the linked records missing from the lists, and `linkChoicesWithCurrent` adds that one record, labelled with its name and (închis) or (inactiv), to the list of the task being edited. New tasks still get the plain lists, and `Combobox` is untouched. RULE: **a picker that edits a stored value must always be able to show the stored value, even when that value would no longer be offered as a new choice.**
 
+### The Sarcini list silently kept only the first 1000 tasks
+**Tag:** backend
+**ERROR:** `listTasks` and `listTasksForEntity` read with no paging and no count. PostgREST answers with at most 1000 rows and says nothing. Tasks are never deleted, and the default order is due date ascending with no date last, so past 1000 tasks the rows kept were the oldest: this week's and all undated tasks vanished from the tab while the header count looked normal.
+**SOLUTION:** card P3-162: both reads go through `readAllPages`, in `lib/data/tasks-read.ts` (no server-only, the way to start a request is an argument, so a spec can use a fake client capped at 1000). Order and filters unchanged, `id` already last. RULE: **every list read of a table that only grows goes through `readAllPages`; a read that can be cut without an error is a defect even when the table is small today.**
+
+### A card id from `id:free` can be taken by another worker before the commit
+**Tag:** process
+**ERROR:** `npm run id:free -- P3-146` named P3-161, and by the time the card was written P3-161 was taken by a parallel worker.
+**SOLUTION:** re-run `npm run id:free -- <ID>` right before the board commit and rename if it says the id is not free. RULE: **the id is checked twice, at the start and just before the commit.**
+
+### A new file that names a table the schema gate guards fails check:pending-schema-reads
+**Tag:** process
+**ERROR:** the first version of `lib/data/tasks-read.ts` wrote the table name itself and the check refused it, because only files that import and use `hasTasks` may name that table.
+**SOLUTION:** the table is named only in `lib/data/tasks.ts` (`startRead`); `tasks-read.ts` receives a function that starts the request. RULE: **when a helper is split out of a gated data file, the table name stays in the gated file.**
+
 ### A task save from a form opened earlier undid a colleague's change
 **Tag:** frontend
 **ERROR:** `TaskForm` sent all eight task fields back to `updateTask` as they were when the page loaded, and `updateTask` wrote every key it received. A colleague marked a task "Finalizată", the operator who had the page open from before changed only the due date and saved, and the status went back to "De făcut". "Anulează sarcina" sent the same eight fields with the status swapped, so it reverted the other seven.
