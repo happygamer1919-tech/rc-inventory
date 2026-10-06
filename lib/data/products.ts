@@ -14,7 +14,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
-import { readQuantityRows, type StockClient } from "./stock-read";
+import { readQuantityRows, type StockClient, type StockScope } from "./stock-read";
+import { readCatalogWithStock } from "./catalog-read";
 import { clampPage, LIST_PAGE_SIZE } from "./list-paging";
 import {
   applyQueryFilter,
@@ -130,16 +131,24 @@ export const STOCK_PAGE_SIZE = 1000;
  * lista incape intr-o singura cerere (ID_LIST_BATCH_SIZE); peste ea, sau fara ea,
  * se citesc toate randurile. Citirea merge pe pagini pana la capat: inainte, un
  * tabel cu peste 1000 de randuri dadea un stoc calculat pe primele 1000.
+ *
+ * P3-178. `"active"` restrange citirea la produsele active prin filtrul pus in
+ * cerere (vezi readQuantityRows), fara sa aiba nevoie de id-urile catalogului.
  */
 export async function stockByProduct(
-  productIds?: readonly string[],
+  productIds?: readonly string[] | "active",
   pageSize: number = STOCK_PAGE_SIZE,
 ): Promise<Map<string, number>> {
   const stock = new Map<string, number>();
-  if (productIds && productIds.length === 0) return stock;
+  if (Array.isArray(productIds) && productIds.length === 0) return stock;
 
   const supabase = await createClient();
-  const scope = productIds && productIds.length <= ID_LIST_BATCH_SIZE ? [...productIds] : null;
+  const scope: StockScope =
+    productIds === "active"
+      ? "active"
+      : productIds && productIds.length <= ID_LIST_BATCH_SIZE
+        ? [...productIds]
+        : null;
 
   const client = supabase as unknown as StockClient;
   const [batches, issued] = await Promise.all([
@@ -264,21 +273,25 @@ export async function listProducts(options: { activeOnly?: boolean } = {}): Prom
 
   // P3-136. CATALOGUL SE CITESTE PE PAGINI, in ordinea cunoscuta (sku, apoi id ca
   // departajare stabila): peste 1000 de produse, lista se oprea tacut la 1000.
-  const rows = await readAllPages<ProductRow>(
-    "catalogul",
-    (from, to) => {
-      const query = supabase.from("products").select(columns, { count: "exact" });
-      return (activeOnly ? query.eq("active", true) : query)
-        .order("sku", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to) as unknown as PromiseLike<CountedPage<ProductRow>>;
+  //
+  // P3-178. STOCUL SE CITESTE IN ACELASI TIMP, nu dupa catalog (catalog-read.ts).
+  // Alegerile din formulare cer doar produsele active, deci si stocul se citeste
+  // numai pentru ele, nu pentru tot istoricul: prin acelasi filtru pus in cererea de
+  // stoc, nu prin lista de id-uri a catalogului, care ar face stocul sa astepte.
+  const { rows, stock } = await readCatalogWithStock<ProductRow>(
+    {
+      catalogPage: (from, to) => {
+        const query = supabase.from("products").select(columns, { count: "exact" });
+        return (activeOnly ? query.eq("active", true) : query)
+          .order("sku", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to) as unknown as PromiseLike<CountedPage<ProductRow>>;
+      },
+      stock: (scope) => stockByProduct(scope),
     },
+    activeOnly,
     STOCK_PAGE_SIZE,
   );
-
-  // Alegerile din formulare cer doar produsele active, deci si stocul se citeste
-  // numai pentru ele (cand lista incape intr-o cerere), nu pentru tot istoricul.
-  const stock = await stockByProduct(activeOnly ? rows.map((r) => r.id) : undefined);
   return rows.map((row) => toCatalogProduct(row, stock));
 }
 

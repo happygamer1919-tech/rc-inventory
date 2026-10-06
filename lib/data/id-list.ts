@@ -124,3 +124,25 @@ export async function readAllPages<T>(
   }
   return rows;
 }
+
+/**
+ * P3-178. Pastreaza prima aparitie a fiecarui id, in ordinea citirii.
+ *
+ * DE CE ESTE NEVOIE, CU O ORDINE STABILA. Paginile se cer dupa pozitie
+ * (`.range`), iar id-urile sunt uuid aleatoare. Daca un coleg salveaza un rand nou
+ * intre doua pagini si randul lui cade inaintea pozitiei la care s-a ajuns, ultimul
+ * rand al paginii trecute revine la inceputul paginii urmatoare. Un total schimbat
+ * face din asta o eroare vizibila (readAllPages, mai sus), dar un rand adaugat si
+ * unul sters in aceeasi fereastra lasa totalul neschimbat. Dublura se scoate aici;
+ * un rand sarit in acel caz nu se poate recupera dintr-o citire pe pozitii.
+ */
+export function dedupeById<T extends { id: string }>(rows: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
+}
