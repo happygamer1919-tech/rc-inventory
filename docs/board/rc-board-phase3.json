@@ -5372,7 +5372,7 @@
       "plain": "La o vânzare directă, doi clienți cu același nume se pot deosebi în lista de cumpărători, iar lista arată doar clienți activi.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
@@ -5383,7 +5383,7 @@
       "question": null,
       "acceptance": "(a) Two test clients named the same with different phones: both rows show their phone; picking the second saves the sale on the second. (b) Typing the shared name and leaving the field selects nothing and the slip cannot be saved without a choice. (c) A lead and an inactive client do not appear in the picker. (d) Unit: Combobox default (no new prop) still picks the first exact label match. (e) Existing walk-in and outbound specs stay green: tests/e2e/outbound-direct-client.spec.ts, tests/e2e/outbound.spec.ts and tests/e2e/clients.spec.ts.",
       "defaults": "Each picker row shows: client name (required), phone (if present), or IDNO (if phone missing), or nothing (if both missing). Search matches on name and on the detail. When text matches MORE THAN ONE option exactly, select nothing and keep the list open; any other state (no matches, one match) uses existing Combobox behavior. The picker lists only 'client' stage records that are active (use the same active rule the Clienți view uses). A buyer created inline (P3-119 makes it stage 'client') still appears and is selected at once. The Combobox component itself changes only to add an optional prop for the multi-match behavior; other callers keep existing behavior. No duplicate check on inline create. No migration, no schema change.",
-      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "last_checkpoint": "2026-10-06T07:49:35Z",
       "evidence": null,
       "notes": ""
     }
