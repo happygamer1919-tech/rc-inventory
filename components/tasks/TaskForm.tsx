@@ -394,7 +394,7 @@ export function TaskForm({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={pending}
+                disabled={pending || dateInvalid}
                 onClick={() => void save({ status: "cancelled" })}
                 data-testid="task-cancel-task"
               >

@@ -126,6 +126,7 @@ export function DateField({
   value,
   onChange,
   onValidityChange,
+  completeOnly,
   testId,
   disabled,
   className,
@@ -138,6 +139,10 @@ export function DateField({
   /** P3-92. Adevarat cat timp campul arata mesajul rosu. Formularul opreste
    *  Salvează pe el. Lipsa lui lasa campul exact cum era inainte de card. */
   onValidityChange?: (invalid: boolean) => void;
+  /** Adevarat: onChange se cheama numai cu o zi intreaga si reala sau cu sir gol
+   *  cand casuta este goala, niciodata cu text pe jumatate scris. Pentru filtrele
+   *  care schimba adresa paginii. Lipsa lui lasa campul ca inainte. */
+  completeOnly?: boolean;
   testId: string;
   disabled?: boolean;
   className?: string;
@@ -160,6 +165,10 @@ export function DateField({
   function commit(next: string) {
     setText(next);
     const iso = isoFromRomanian(next);
+    // Pentru filtrele care navigheaza: o data neterminata sau imposibila nu se
+    // trimite parintelui, nici macar ca sir gol. Un sir gol ajunge numai cand
+    // casuta este chiar goala.
+    if (completeOnly && iso === null) return;
     seen.current = iso ?? "";
     onChange(iso ?? "");
   }

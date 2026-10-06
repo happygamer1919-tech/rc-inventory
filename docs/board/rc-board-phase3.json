@@ -5079,6 +5079,34 @@
         "at": "2026-10-05T19:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-139 was taken, P3-156 was the next free one. The leads and clients imports already accept nextAction; this extends them to also read and save nextActionDate, mapped to next_action_at in the database, which already exists from migration 0058 (P3-89, shipped 2026-10-04). All acceptance cases must pass in PR #423 quality run. No migration, no changes to extraction boundaries."
+    },
+    {
+      "id": "P3-169",
+      "title": "Pe ecranele Sarcini, o data imposibila in adresa inseamna fara filtru, butonul Anulează sarcina nu mai tace cand data este rosie, iar filtrele de data navigheaza o singura data, nu la fiecare tasta. (1) lib/data/tasks-shape.ts: isDayString verifica ca ziua exista in calendar. (2) components/tasks/TaskForm.tsx: Anulează sarcina este oprit cat timp casuta de data este rosie. (3) components/ui/DateField.tsx primeste completeOnly, iar SarciniScreen il pune pe cele doua filtre de termen.",
+      "plain": "Pe ecranele Sarcini, o dată greșită în adresă nu mai duce la pagina de eroare, butonul de anulare nu mai tace când data e greșită, iar filtrele de dată nu reîncarcă pagina la fiecare tastă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/sarcini-small-faults.spec.ts (a new file) are green in this pull request's own `quality` run: `sarcini mici: isDayString cere o zi reala din calendar`, `sarcini mici: o data imposibila in adresa inseamna fara filtru, fara pagina de eroare`, `sarcini mici: cu data rosie, Anulează sarcina nu ramane un clic mut`, `sarcini mici: scrisa in filtru, o data produce cel mult o navigare, dupa ce este intreaga`. (b) The existing cases of tests/e2e/tasks.spec.ts stay green. (c) No change under supabase/migrations/. (d) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "1. isDayString checks the date is real (round trip through a UTC Date). An impossible date in the address is treated as no filter, like any unknown value. 2. With the date box red, Anulează sarcina is disabled the same way Salvează is, and the red date message stays visible. Making cancel work without the date was not chosen: save() sends the whole form, so a half-typed date would still travel with it. 3. A Sarcini date filter pushes to the address only when the date is complete and real, or the box is empty. Other screens using DateField are unchanged (completeOnly is opt-in). No change to the lead PageHeader prop, the hasPhase3Schema gate, tasks 134, 135 and 146 behaviour.",
+      "last_checkpoint": "2026-10-05T21:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/sarcini-three-small-faults against main: its quality run on the head sha runs the named acceptance cases and the board validator",
+        "at": "2026-10-05T21:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-151 was taken, P3-169 was the next free one."
     }
   ]
 }
