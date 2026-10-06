@@ -5185,6 +5185,34 @@
       "notes": ""
     },
     {
+      "id": "P3-158",
+      "title": "DateField rejects a half-typed date on form submit so the task never loses its due date silently. When a form (currently TaskForm) has a DateField and the user presses Enter while the field holds a date like '10.10.20' (incomplete), the field is marked with a red error message in Romanian, the form save is blocked, and the previous due date is preserved. Clearing the field fully is still allowed. (1) DateField's validation marks any non-empty text that does not parse as a complete date as invalid immediately, not only on blur or after 8 digits. (2) TaskForm refuses save while any DateField is marked invalid. (3) The error message is in Romanian and names incompleteness, not invalidity. (4) The test simulates editing a task due 10.10.2026, typing '10.10.20' in the due date field, verifying the save is blocked and the field is marked red, then completing the date and confirming the save works. (5) Every other user of DateField (grep imports) stays unchanged: a valid date and an empty field work exactly as today. No migration.",
+      "plain": "O dată scrisă pe jumătate la o sarcină nu mai șterge termenul: salvarea este oprită și câmpul este marcat ca greșit.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) A unit spec on DateField: partial text ('10.10.20') reports invalid on submit; empty reports empty; '10.10.2026' reports that date. (b) A component or unit spec on TaskForm: half-typed date plus Enter does not call the save and shows the message; the due date is unchanged. (c) An end to end spec in CI: task due 10.10.2026, delete two characters in 'Termen', press Enter, the task still shows that due date. (d) Grep every import of DateField and verify each one stays unchanged: a valid date and an empty field work exactly as today. (e) The board validator exits 0 and no migration file is added.",
+      "defaults": "Validation happens at the moment of form submit (when Enter is pressed or the Save button is clicked), not only on blur. A date field that holds non-empty, non-valid text is marked red and blocks the form. An empty date field is not marked invalid. The old 'Data nu este validă' message changes to 'Data nu este completă. Scrie ziua, luna și anul, de exemplu zz.ll.aaaa, sau lasă câmpul gol.' No change to the look, to other fields, to the TaskForm UI labels, to the hasPhase3Schema gate, or to routes that work today. No migration, unless authoring the fix discovers one is needed. DateField is in components/ui/DateField.tsx; TaskForm is in components/tasks/TaskForm.tsx.",
+      "last_checkpoint": "2026-10-05T23:11:09Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #428 on branch card/task-half-typed-date against main: its quality run on the head sha runs the acceptance cases named in this card.",
+        "at": "2026-10-05T23:11:09Z"
+      },
+      "notes": "AUTHORED 2026-10-05. Requested id P3-141 was taken, id:free returned P3-158."
+    },
+    {
       "id": "P3-168",
       "title": "Azi screen empty state, P3-142 follow-up: 'Nimic de facut azi.' is shown only when there are NO calls AND NO tasks due today; the test has two deterministic cases without assertions inside conditionals",
       "plain": "Ecranul Azi arata 'Nimic de facut azi.' numai cand nu sunt nici apeluri de facut si nici sarcini cu termen azi. Testul verifica amandoua situatiile.",
