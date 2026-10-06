@@ -553,11 +553,13 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  * Citeste octetii unui CSV. REGULA, simpla:
  *  1. UTF-8 strict (marca BOM taiata). Daca merge, este UTF-8.
  *  2. Altfel, se incearca windows-1250 (Excel pe Windows romanesc) si
- *     windows-1251 (Excel pe Windows rusesc). Se alege 1251 cand rezultatul ei
- *     are litere chirilice (U+0400 la U+04FF) SI rezultatul 1250 are vreo litera
- *     in afara ASCII care nu este romaneasca (mojibake, de felul "Èâàí" pentru
- *     "Иван"). Altfel 1250, cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu
- *     virgula.
+ *     windows-1251 (Excel pe Windows rusesc). Se decide prin majoritate, in
+ *     citirea 1250: se numara literele romanesti (ă â î ș ț) si literele
+ *     straine (ü ä é È à í etc.). Se alege 1251 doar cand literele straine sunt
+ *     mai multe decat cele romanesti (un fisier rusesc citit ca 1250 arata ca
+ *     "Èâàí" pentru "Иван") SI citirea 1251 are litere chirilice. Un fisier
+ *     romanesc cu cateva litere straine (Würth, Kärcher, André) ramane 1250,
+ *     cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu virgula.
  *  3. Daca textul ales tot are U+FFFD, se intoarce eroare, nu text.
  */
 const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
@@ -577,10 +579,13 @@ export function decodeCsvFile(
     const t1250 = new TextDecoder("windows-1250").decode(bytes);
     const t1251 = new TextDecoder("windows-1251").decode(bytes);
     const cyrillic = /[Ѐ-ӿ]/.test(t1251);
-    const foreign1250 = [...t1250].some(
-      (ch) => ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch) && !ROMANIAN_LETTERS.includes(ch),
-    );
-    if (cyrillic && foreign1250) {
+    let ro = 0;
+    let foreign = 0;
+    for (const ch of t1250) {
+      if (ROMANIAN_LETTERS.includes(ch)) ro++;
+      else if (ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch)) foreign++;
+    }
+    if (cyrillic && foreign > ro) {
       text = t1251;
       encoding = "windows-1251";
     } else {

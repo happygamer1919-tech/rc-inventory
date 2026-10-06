@@ -13,31 +13,43 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export const CLIENTS_READ_FAILED = "Nu am putut citi clienții existenți. Încercați din nou.";
 
+/** Mesajul pentru orice alta citire a importurilor (proiecte, produse, categorii). */
+export const readFailedMessage = (what: string) => `Nu am putut citi ${what}. Încercați din nou.`;
+
 export class ImportReadError extends Error {
-  constructor() {
-    super(CLIENTS_READ_FAILED);
+  constructor(message: string = CLIENTS_READ_FAILED) {
+    super(message);
     this.name = "ImportReadError";
   }
 }
 
 const PAGE = 1000;
 
+export async function readAllRows(
+  supabase: Supabase,
+  table: "clients" | "projects" | "categories" | "products",
+  columns: string,
+  failure: string = CLIENTS_READ_FAILED,
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error || !data) throw new ImportReadError(failure);
+    rows.push(...(data as unknown as Record<string, unknown>[]));
+    if (data.length < PAGE) break;
+  }
+  return rows;
+}
+
 export async function readAllClients(
   supabase: Supabase,
   columns: string,
 ): Promise<Record<string, string | null>[]> {
-  const rows: Record<string, string | null>[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(columns)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error || !data) throw new ImportReadError();
-    rows.push(...(data as unknown as Record<string, string | null>[]));
-    if (data.length < PAGE) break;
-  }
-  return rows;
+  return (await readAllRows(supabase, "clients", columns)) as Record<string, string | null>[];
 }
 
 /** Ruleaza o citire si intoarce mesajul romanesc cand ea esueaza. */

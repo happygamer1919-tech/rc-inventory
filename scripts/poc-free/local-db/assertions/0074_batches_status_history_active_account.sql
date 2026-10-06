@@ -1,5 +1,5 @@
--- assertions/0072_batches_status_history_active_account.sql
--- Card P3-179. What 0072 must have left behind, and what it must NOT have changed.
+-- assertions/0074_batches_status_history_active_account.sql
+-- Card P3-179. What 0074 must have left behind, and what it must NOT have changed.
 --
 --   1. public.batches has exactly four policies: select and insert on
 --      public.current_app_role() is not null, update and delete still on

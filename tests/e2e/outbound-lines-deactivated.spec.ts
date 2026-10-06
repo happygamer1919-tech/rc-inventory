@@ -307,7 +307,7 @@ test("pozitii iesire: un operator activ lucreaza ca inainte, prin ambele usi si 
 });
 
 /* =======================================================================
-   P3-179: LOTURILE SI ISTORICUL STARILOR, ACELASI PREDICAT (MIGRATIA 0072)
+   P3-179: LOTURILE SI ISTORICUL STARILOR, ACELASI PREDICAT (MIGRATIA 0074)
    ======================================================================= */
 
 /** O comanda de intrare cu `count` pozitii fara lot, scrisa cu cheia de serviciu.
