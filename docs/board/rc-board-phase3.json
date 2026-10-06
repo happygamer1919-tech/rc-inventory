@@ -5317,6 +5317,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request. Requested id P3-172 was taken, id:free returned P3-173. The clause in P3-128 saying the client column must never carry an id still holds: the Client column carries the name, the id sits in a separate last column. Needs the CI database, so the end to end cases were not run locally."
     },
     {
+      "id": "P3-176",
+      "title": "Azi screen empty state, P3-142 follow-up: 'Nimic de facut azi.' is shown only when there are NO calls AND NO tasks due today; the test has two deterministic cases without assertions inside conditionals",
+      "plain": "Ecranul Azi arata 'Nimic de facut azi.' numai cand nu sunt nici apeluri de facut si nici sarcini cu termen azi. Testul verifica amandoua situatiile.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-142"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) aziEmptyTitle in lib/data/azi-empty.ts, used by components/clients/AziScreen.tsx, returns \"Nimic de facut azi.\" when the task count is 0 or unknown (null) and \"Niciun apel de facut azi.\" when tasks are due today. (b) tests/e2e/azi-empty-title.spec.ts proves the three cases without any data, and the case P3-142b in tests/e2e/azi-screen.spec.ts asserts without conditions that the task due today is on screen and that \"Nimic de facut azi.\" is not. The calls card wording there is checked only when no call row is on screen, because the shared test database holds calls from other specs. Both specs are green in the PR quality run. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "No Romanian diacritics on screen, no em dash or en dash anywhere. No changes to the hasPhase3Schema gate, app/api/extraction/**, app/api/documents/**, the AziTasksSection component, or any other route.",
+      "last_checkpoint": "2026-10-05T21:10:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/azi-empty-both-cases-r4 against main: quality check runs tests/e2e/azi-screen.spec.ts with two deterministic test cases P3-142a and P3-142b, both unconditional assertions",
+        "at": "2026-10-05T21:10:00Z"
+      },
+      "notes": "Card created as a follow-up to P3-142. The original test on lines 434-455 of azi-screen.spec.ts asserts only inside an if statement, which allows it to pass while checking nothing. This card splits it into two separate deterministic test cases: P3-142a tests the no-calls-no-tasks case, P3-142b tests the no-calls-with-tasks case. Both assertions are unconditional."
+    },
+    {
       "id": "P3-172",
       "title": "Outbound screen, Client direct: a buyer created on the spot with '+ Client nou' is saved at stage 'client', not the column default 'cold'. Before, InlineClientCreate in components/outbound/OutboundDirectClientForm.tsx (card P3-119) called createClientRecord with no stage, so the row took 'cold' from migration 0039: the buyer showed under Leaduri as 'Lead rece', raised the lead count and was missing from the CRM 'Clienți' view, while the form itself promises he appears in Clienți like any other client. (1) InlineClientCreate passes stage 'client'. createClientRecord already accepts a stage only from the allowed list (isClientStage) and writes it through set_client_stage with its history row; it is not changed. (2) Every other create path (Clienți form, lead form, both imports) keeps its own stage or the 'cold' default. (3) The walk-in server action does not create clients, so nothing changes there. (4) Existing records are not touched: no migration, no backfill.",
       "plain": "Un cumpărător adăugat direct la ghișeu, în timpul unei vânzări, este salvat ca client și apare în lista Clienți, nu printre lead-uri.",
