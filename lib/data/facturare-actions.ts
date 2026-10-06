@@ -377,7 +377,7 @@ function refusal(error: { code?: string; message?: string; details?: string } | 
       message: "Baza de date a refuzat valorile facturii. Verifică cantitățile, prețurile și cota TVA.",
     };
   }
-  // P0001 cu `direct_client` in text: P3-171, migratia 0074. Ciorna cerea o
+  // P0001 cu `direct_client` in text: P3-171, migratia 0075. Ciorna cerea o
   // vanzare directa, care nu se factureaza niciodata. Se citeste si textul, fiindca
   // P0001 este codul implicit al oricarui `raise exception`.
   if (code === "P0001" && `${error?.message ?? ""}`.includes("direct_client")) {
@@ -544,7 +544,7 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
     //
     // P3-171. O VANZARE DIRECTA ESTE REFUZATA INAINTE DE APEL, cu propozitia pe care
     // ecranul Iesirii o arata deja. Ecranul nu ofera niciodata butonul, dar o cerere
-    // construita de mana nu trece prin ecran. Functia din 0074 o refuza si ea.
+    // construita de mana nu trece prin ecran. Functia din 0075 o refuza si ea.
     const gated = await saveUnlessNeverInvoiceable(
       outboundIssueId === "" ? null : outboundIssueId,
       getIssueInvoiceability,
