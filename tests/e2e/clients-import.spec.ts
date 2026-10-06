@@ -519,3 +519,98 @@ test("import clienti: modelul descarcat are antetele, un rand exemplu si Denumir
   await toVerify(page);
   expect(await countAt(page, "import-count-error"), "randul exemplu nu cade la nicio verificare").toBe(0);
 });
+
+// ---------------------------------------------------------------------------
+// Randuri FARA email: se potrivesc dupa nume si telefon
+// ---------------------------------------------------------------------------
+
+test("import clienti: acelasi fisier incarcat de doua ori nu dubleaza randurile fara email", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("faraemail");
+  const body = csv([
+    HEADERS,
+    [`${tag} unu`, "069200001", "", "", "", "", "", ""],
+    [`${tag} doi`, "069200002", "", "", "", "", "", ""],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-fara-email.csv", body);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-new")).toBe(2);
+  await runImport(page);
+  expect(await countAt(page, "import-created")).toBe(2);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-fara-email.csv", body);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-new")).toBe(0);
+  expect(await countAt(page, "import-count-duplicate")).toBe(2);
+  await runImport(page);
+  expect(await countAt(page, "import-created")).toBe(0);
+
+  expect(await storedByTag(rest, tag)).toHaveLength(2);
+});
+
+test("import clienti: doua randuri identice fara email in acelasi fisier dau unul nou si un dublat", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("faraemail-fisier");
+  const body = csv([
+    HEADERS,
+    [`${tag} unu`, "069300001", "", "", "", "", "", ""],
+    [`${tag}  UNU`, "069300001", "", "", "", "", "", ""],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-identice.csv", body);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-new")).toBe(1);
+  expect(await countAt(page, "import-count-duplicate")).toBe(1);
+  await runImport(page);
+  expect(await countAt(page, "import-created")).toBe(1);
+
+  expect(await storedByTag(rest, tag)).toHaveLength(1);
+});
+
+test("import clienti: telefonul scris 069... si +373 69... este acelasi numar", async ({ page }) => {
+  const rest = await ownerRest();
+  const tag = testName("faraemail-telefon");
+  const body = csv([
+    HEADERS,
+    [`${tag} unu`, "069400123", "", "", "", "", "", ""],
+    [`${tag} unu`, "+373 69 400 123", "", "", "", "", "", ""],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-telefon.csv", body);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-new")).toBe(1);
+  expect(await countAt(page, "import-count-duplicate")).toBe(1);
+  await runImport(page);
+  expect(await storedByTag(rest, tag)).toHaveLength(1);
+});
+
+test("import clienti: acelasi nume cu alt telefon, fara email, sunt doi clienti noi", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("faraemail-alt-telefon");
+  const body = csv([
+    HEADERS,
+    [`${tag} unu`, "069500001", "", "", "", "", "", ""],
+    [`${tag} unu`, "069500002", "", "", "", "", "", ""],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-alt-telefon.csv", body);
+  await toVerify(page);
+  expect(await countAt(page, "import-count-new")).toBe(2);
+  expect(await countAt(page, "import-count-duplicate")).toBe(0);
+  await runImport(page);
+  expect(await countAt(page, "import-created")).toBe(2);
+
+  expect(await storedByTag(rest, tag)).toHaveLength(2);
+});
