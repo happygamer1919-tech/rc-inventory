@@ -151,7 +151,10 @@ export function TaskForm({
     task?.assigneeId && !assignees.some((a) => a.id === task.assigneeId)
       ? [
           ...assignees,
-          { id: task.assigneeId, fullName: task.assigneeName ?? "Responsabil inactiv" },
+          {
+            id: task.assigneeId,
+            fullName: task.assigneeName ? `${task.assigneeName} (inactiv)` : "Responsabil inactiv",
+          },
         ]
       : assignees;
 

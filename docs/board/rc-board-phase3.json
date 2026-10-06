@@ -5158,6 +5158,34 @@
         "at": "2026-10-05T19:01:40Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken; P3-156 was free when allocated and was taken a minute later by the open pull request #423, so this card moved to P3-157 before its pull request was opened. updateTask already skipped absent keys; the defect was the form sending every key. The colleague in the end to end cases writes through the table with the account manager's token, since the property under test is what the operator's earlier-opened form sends. The work moved to branch card/task-save-changed-fields-r2 as one commit, because the first branch carried a commit subject naming P3-156 and history is never rewritten."
+    },
+    {
+      "id": "P3-170",
+      "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
+      "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-131",
+        "P3-132",
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) In tests/e2e/task-assignee-names.spec.ts, green in this pull request's quality run on its head sha: the cases `responsabil: citirea sarcinii ia numele din lista echipei, nu din imbinarea cu profilul`, `responsabil: Nealocata se arata numai cand nu raspunde nimeni de sarcina`, `responsabil: un manager de cont vede numele unui coleg pe sarcina si il poate alege in Responsabil` and `responsabil: un cont dezactivat nu primeste lista echipei`. (b) The destructive-migration step and both applier proof steps RAN and passed, including assertions/0072_list_team_members.sql. (c) Every existing spec under tests/e2e passes, tasks.spec.ts included. (d) npx tsc --noEmit and npm run build exit 0. (e) The board validator exits 0.",
+      "defaults": "list_team_members() returns id, display_name and active and nothing else (no email, no role, no phone), is security definer with search_path set, is executable by authenticated only, and returns no rows when the caller is deactivated or has no profile. The profiles read rule (profiles_select) is not widened. The Responsabil picker offers active colleagues only; a deactivated current assignee still shows by name, marked (inactiv). 'Nealocată' is written only when the task has no assignee. The owner's view does not change: for an owner display_name falls back to the email as before. The migration is additive: no DROP TABLE, TRUNCATE or DELETE. The lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** and app/api/documents/** stay as they are.",
+      "last_checkpoint": "2026-10-05T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/task-assignee-names against main: its quality run on the head sha runs tests/e2e/task-assignee-names.spec.ts and the 0072 assertion; report in docs/reports/2026-10-05-executor-task-assignee-names.md",
+        "at": "2026-10-05T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-140 was taken, the next id was taken by an open pull request while this one was built, P3-170 was the next free one. Migration number 0072 because 0071 is carried by the open pull request for the walk-in buyer card. A migration pull request never self-merges: the owner is told before the live database changes."
     }
   ]
 }
