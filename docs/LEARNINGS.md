@@ -9113,7 +9113,7 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### A duplicate check keyed on email alone makes every row without an email new on every upload
 **Tag:** backend
 **ERROR:** `buildClientPlan` matched duplicates on email only, so a file of clients with name and phone but no email created every row again when uploaded a second time (after fixing error rows, or after a retry that died midway). Two identical rows in one file were both created.
-**SOLUTION:** card P3-164: a row with no email gets a second key, normalised name (trimmed, inner spaces collapsed, lower case in `ro`) plus the last 8 digits of the phone, checked in the file and then among stored clients. A row with an email never uses it. RULE: **when a dedup key can be empty, the rows with an empty key need their own key; "no key" must not mean "always new".**
+**SOLUTION:** card P3-168: a row with no email gets a second key, normalised name (trimmed, inner spaces collapsed, lower case in `ro`) plus the last 8 digits of the phone, checked in the file and then among stored clients. A row with an email never uses it. RULE: **when a dedup key can be empty, the rows with an empty key need their own key; "no key" must not mean "always new".**
 
 ### Editing a task tied to a closed project or inactive client showed an empty record box
 **Tag:** frontend

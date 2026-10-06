@@ -4924,7 +4924,7 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Project and material exports have no phone or fiscal code column, so only the formula guard applies to them."
     },
     {
-      "id": "P3-164",
+      "id": "P3-168",
       "title": "Client import matches a row with no email on normalised name plus phone: buildClientPlan builds fileByNamePhone and storedByNamePhone (name trimmed, inner spaces collapsed, lower case in ro; phone reduced to its last 8 digits so 069123456 and +373 69 123 456 are the same). A row with an email keeps the email-only match. The duplicate entry has the same shape and carries matchedBy namePhone, which gives the reason Acelasi nume si telefon. ExistingClient gets the stored phone; the paged read is unchanged. The lead import already matches on phone or email and is not changed. No migration.",
       "plain": "Dacă încarci de două ori același fișier cu clienți fără email, clienții nu se mai creează a doua oară: se recunosc după nume și telefon.",
       "lane": "shipped",
