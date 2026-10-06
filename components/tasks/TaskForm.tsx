@@ -45,7 +45,10 @@ import {
   ALL_TASK_ENTITY_TYPES,
   ALL_TASK_PRIORITIES,
   ALL_TASK_STATUSES,
+  cancelTaskPatch,
+  changedTaskFields,
   linkChoicesWithCurrent,
+  type TaskFormValues,
 } from "@/lib/data/tasks-shape";
 import {
   TASK_ENTITY_TYPE_LABEL,
@@ -53,6 +56,7 @@ import {
   TASK_STATUS_LABEL,
   type Task,
   type TaskEntityType,
+  type TaskPatch,
 } from "@/lib/data/tasks-types";
 
 export type TaskAssignee = { id: string; fullName: string };
@@ -93,21 +97,34 @@ export function TaskForm({
   const router = useRouter();
   const editing = task !== undefined;
 
-  const [title, setTitle] = React.useState(task?.title ?? "");
-  const [description, setDescription] = React.useState(task?.description ?? "");
-  const [status, setStatus] = React.useState<string>(task?.status ?? "todo");
-  const [priority, setPriority] = React.useState<string>(task?.priority ?? "medium");
-  const [dueDate, setDueDate] = React.useState(task?.dueDate ?? "");
-  const [assigneeId, setAssigneeId] = React.useState(task?.assigneeId ?? "");
+  // VALORILE CU CARE S-A DESCHIS FORMULARUL, tinute neschimbate cat traieste panoul:
+  // la salvare se trimite numai ce difera de ele, cardul P3-157. Starea de mai jos
+  // pleaca din ACELEASI valori, deci un camp neatins este egal cu ele prin constructie.
+  //
   // PERECHEA PLEACA DE LA INREGISTRAREA FIXATA CAND EXISTA UNA, si pentru o sarcina
   // care exista pleaca de la ce poarta randul: cele doua sunt aceeasi inregistrare
   // cand panoul este cel al fisei ei, fiindca panoul citeste numai sarcinile legate de
   // acea inregistrare. Randul are prioritate, ca o modificare sa nu poata rescrie in
   // tacere o legatura care exista deja.
-  const [entityType, setEntityType] = React.useState<string>(
-    task?.entityType ?? fixedEntity?.type ?? "",
-  );
-  const [entityId, setEntityId] = React.useState(task?.entityId ?? fixedEntity?.id ?? "");
+  const [loaded] = React.useState<TaskFormValues>(() => ({
+    title: task?.title ?? "",
+    description: task?.description ?? "",
+    status: task?.status ?? "todo",
+    priority: task?.priority ?? "medium",
+    dueDate: task?.dueDate ?? "",
+    assigneeId: task?.assigneeId ?? "",
+    entityType: task?.entityType ?? fixedEntity?.type ?? "",
+    entityId: task?.entityId ?? fixedEntity?.id ?? "",
+  }));
+
+  const [title, setTitle] = React.useState(loaded.title);
+  const [description, setDescription] = React.useState(loaded.description);
+  const [status, setStatus] = React.useState<string>(loaded.status);
+  const [priority, setPriority] = React.useState<string>(loaded.priority);
+  const [dueDate, setDueDate] = React.useState(loaded.dueDate);
+  const [assigneeId, setAssigneeId] = React.useState(loaded.assigneeId);
+  const [entityType, setEntityType] = React.useState<string>(loaded.entityType);
+  const [entityId, setEntityId] = React.useState(loaded.entityId);
 
   const [error, setError] = React.useState<string | null>(null);
   const [errorField, setErrorField] = React.useState<string | undefined>(undefined);
@@ -159,25 +176,28 @@ export function TaskForm({
     setEntityId("");
   }
 
-  async function save(patch?: { status: string }) {
-    if (dateInvalid) return;
+  /** `cancel` este butonul "Anulează sarcina": el trimite NUMAI starea anulata. */
+  async function save(cancel = false) {
+    if (dateInvalid && !cancel) return;
     setError(null);
     setErrorField(undefined);
+
+    const input = { title, description, status, priority, dueDate, assigneeId, entityType, entityId };
+
+    // O MODIFICARE TRIMITE NUMAI CE A SCHIMBAT OPERATORUL, cardul P3-157: un camp
+    // netrimis nu se scrie, deci schimbarea unui coleg facuta intre timp pe alt camp
+    // rămâne. Nimic schimbat inseamna nicio scriere, iar panoul se inchide ca pana acum.
+    let patch: TaskPatch = {};
+    if (editing) {
+      patch = cancel ? cancelTaskPatch() : changedTaskFields(loaded, input);
+      if (Object.keys(patch).length === 0) {
+        onClose();
+        return;
+      }
+    }
+
     setPending(true);
-
-    const chosenStatus = patch?.status ?? status;
-    const input = {
-      title,
-      description,
-      status: chosenStatus,
-      priority,
-      dueDate,
-      assigneeId,
-      entityType,
-      entityId,
-    };
-
-    const result = editing ? await updateTask(task!.id, input) : await createTask(input);
+    const result = editing ? await updateTask(task!.id, patch) : await createTask(input);
 
     if (!result.ok) {
       setError(result.message);
@@ -395,7 +415,7 @@ export function TaskForm({
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() => void save({ status: "cancelled" })}
+                onClick={() => void save(true)}
                 data-testid="task-cancel-task"
               >
                 Anulează sarcina
