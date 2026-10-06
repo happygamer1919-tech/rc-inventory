@@ -9155,6 +9155,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
 **SOLUTION:** card P3-166: `readActiveClientOptions` (`lib/data/client-options-read.ts`) reads pages of 1000 ordered by name then id until a short page, keeps the Romanian sort and the shape, and throws on error so `app/error.tsx` shows. Proved with a stubbed client (1000 + 1000 + 250 rows, exactly 1000 rows, a failing page). RULE: **any read of a table that can grow past 1000 rows pages with a stable order and throws on error, never returns an empty list.**
 
+### A spec that opened /clienti with no view filter hid a stage bug
+**Tag:** testing
+**ERROR:** the walk-in buyer created with "+ Client nou" on Ieșiri materiale was saved with no stage, so the row took `cold` from migration 0039 and showed under Leaduri as "Lead rece" instead of in the Clienți view. The P3-119 spec still passed, because it searched `/clienti` with no `vedere`, which lists every stage.
+**SOLUTION:** card P3-172: `InlineClientCreate` passes `stage: "client"` to `createClientRecord`, which already accepts only a listed stage and writes it through `set_client_stage`. The spec now opens `/clienti?vedere=clienti`, asserts the pill is pressed, reads the stored stage, and a second case proves the buyer is absent from `vedere=leaduri` and the lead count does not move. RULE: **a spec that proves a row lands in a filtered list opens that list WITH its filter and reads the stored value; the unfiltered list proves only that the row exists.**
+
+### The id the brief named was already taken
+**Tag:** process
+**ERROR:** the brief said to take P3-147; `npm run id:free -- P3-147` reported it CLAIMED by the open pull request #413.
+**SOLUTION:** took P3-172, the id the script named, and re-ran it just before the board commit. RULE: **an id written in a brief is a suggestion; `id:free` decides.**
+
 ### A date check that only tests the shape lets an impossible day reach the database
 **Tag:** frontend
 **ERROR:** `isDayString` accepted any `yyyy-mm-dd` text, so `/sarcini?de_la=2026-02-31` went to the database, the `date` column refused it and the page showed the error screen, although the file says an unknown value in the address means no filter. Two more faults on the same screens: with a red date box "Anulează sarcina" stayed clickable but `save()` returned at once (a silent dead button), and the two date filters called `router.push` on every key, because `DateField` sends an empty string for half-typed text.

@@ -5342,6 +5342,31 @@
       "notes": "Card created as a follow-up to P3-142. The original test on lines 434-455 of azi-screen.spec.ts asserts only inside an if statement, which allows it to pass while checking nothing. This card splits it into two separate deterministic test cases: P3-142a tests the no-calls-no-tasks case, P3-142b tests the no-calls-with-tasks case. Both assertions are unconditional."
     },
     {
+      "id": "P3-172",
+      "title": "Outbound screen, Client direct: a buyer created on the spot with '+ Client nou' is saved at stage 'client', not the column default 'cold'. Before, InlineClientCreate in components/outbound/OutboundDirectClientForm.tsx (card P3-119) called createClientRecord with no stage, so the row took 'cold' from migration 0039: the buyer showed under Leaduri as 'Lead rece', raised the lead count and was missing from the CRM 'Clienți' view, while the form itself promises he appears in Clienți like any other client. (1) InlineClientCreate passes stage 'client'. createClientRecord already accepts a stage only from the allowed list (isClientStage) and writes it through set_client_stage with its history row; it is not changed. (2) Every other create path (Clienți form, lead form, both imports) keeps its own stage or the 'cold' default. (3) The walk-in server action does not create clients, so nothing changes there. (4) Existing records are not touched: no migration, no backfill.",
+      "plain": "Un cumpărător adăugat direct la ghișeu, în timpul unei vânzări, este salvat ca client și apare în lista Clienți, nu printre lead-uri.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/outbound-direct-client.spec.ts are green in this pull request's own `quality` run: `iesire client direct: un client nou creat din ecran apare apoi in Clienti` (now opens /clienti?vedere=clienti and reads the stored stage `client`), `iesire client direct: un client nou creat din ecran nu apare printre Leaduri si numarul de leaduri nu creste`, `creare client fara etapa: randul ramane cold, implicitul pe care se bizuie celelalte cai`. (b) tests/e2e/clients.spec.ts, leaduri.spec.ts and the rest of outbound-direct-client.spec.ts stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "A buyer created at the counter during a walk-in sale IS a client at once, as the form text promises: stage 'client', written by the existing createClientRecord through set_client_stage. Every other create path keeps 'cold' as its default. Existing rows are not changed, no migration, no backfill. Nothing on screen changes; no change to the lead PageHeader prop or the hasPhase3Schema gate.",
+      "last_checkpoint": "2026-10-06T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/walkin-buyer-is-client against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-04-executor-walkin-buyer-is-client.md",
+        "at": "2026-10-06T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-04 bug check. The brief named P3-147, which is taken by the open pull request #413; npm run id:free named P3-172. #413 replaces the createClientRecord call in InlineClientCreate with createWalkInClient: whichever lands second must keep stage 'client' on the walk-in path. The brief asked for a unit case, but the repo has no unit runner (Playwright only), so the cold default is proved with the owner token against the local database in CI."
+    },
+    {
       "id": "P3-170",
       "title": "Task assignee names: an account manager sees the real assignee on every task and can assign a task to any active colleague. The task read joined the assignee's profile, and the profiles read rule lets only an owner read other people's rows, so for an account manager every task assigned to a colleague showed 'Nealocată' (Sarcini tab, lead, client and project panels, Azi), the edit form showed the assignee as inactive and the Responsabil picker offered only the user. (1) Migration 0072 adds the security definer function list_team_members() returning only id, display_name and active, search_path set, execute granted to authenticated only, no rows for a deactivated caller or an account with no profile; the profiles read rule is not widened. (2) lib/data/tasks.ts takes the assignee name from it (tasks-map.ts, the join stays as fallback before the migration is applied), and the Responsabil picker offers active colleagues, a deactivated current assignee shows by name marked (inactiv). (3) 'Nealocată' shows only when no one is assigned.",
       "plain": "Un manager de cont vede cine răspunde de fiecare sarcină și poate aloca o sarcină oricărui coleg activ.",

@@ -596,6 +596,12 @@ function InlineClientCreate({ onCreated }: { onCreated: (choice: ClientChoice) =
       email: "",
       notes: "",
       active: true,
+      // P3-172. UN CUMPARATOR DE LA TEJGHEA ESTE CLIENT DE
+      // LA INCEPUT, cum promite textul de sub buton. Fara etapa, randul primea `cold`
+      // din implicitul coloanei si aparea printre Leaduri, nu in vederea Clienți.
+      // Actiunea accepta etapa numai din lista permisa si o scrie prin
+      // set_client_stage, cu randul ei de istoric; celelalte cai de creare raman `cold`.
+      stage: "client",
     });
     if (!result.ok) {
       // MESAJUL ESTE AL ACTIUNII, NETRADUS SI NEREFORMULAT. Tot ce poate refuza o
