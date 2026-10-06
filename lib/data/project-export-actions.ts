@@ -14,7 +14,8 @@
 // inceput si notele), citite pentru ID-urile randurilor deja alese de lista. Nu alege nimic,
 // doar completeaza.
 //
-// CLIENTUL SE SCRIE DUPA DENUMIRE, exact cum e stocata: asa il potriveste importul.
+// CLIENTUL SE SCRIE DUPA DENUMIRE, exact cum e stocata, SI DUPA ID, intr-o coloana la coada:
+// importul potriveste intai id-ul, apoi denumirea.
 //
 // NUMAI ADMINISTRATORUL, ca importul si ca exportul de clienti.
 
@@ -97,6 +98,7 @@ export async function exportProjects(
     const d = details.get(r.id);
     return {
       client: r.clientName,
+      clientId: r.clientId,
       name: r.name,
       address: r.address ?? "",
       status: PROJECT_STATUS_LABEL[r.status],
