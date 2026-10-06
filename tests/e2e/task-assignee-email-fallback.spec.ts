@@ -45,7 +45,9 @@ test.describe("Task assignee email fallback display", () => {
     await page.waitForSelector(`text=${taskTitle}`, { timeout: 5000 });
 
     // Verify unassigned task shows "Nealocată" in the list
-    const taskRow = page.locator(`text=${taskTitle}`).locator("../../..");
+    // The row itself, not three levels up from the title: that climb reaches the whole
+    // table when it holds only a few tasks, and then matches every row at once.
+    const taskRow = page.locator("tr", { hasText: taskTitle });
     const assigneeCell = taskRow.locator('[data-testid="task-assignee"]');
 
     await expect(assigneeCell).toContainText("Nealocată");
