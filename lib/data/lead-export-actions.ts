@@ -18,6 +18,7 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
 import { listClientOwnerChoices, listClientRowsForExport } from "./clients";
+import { hasClientNextAction } from "./schema-capability";
 import {
   CLIENT_SOURCE_LABEL,
   CLIENT_STAGE_LABEL,
@@ -100,9 +101,10 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Exportul a eșuat." };
   }
-  const { rows, total, withLeaduri, withNextAction } = listed;
+  const { rows, total, withLeaduri } = listed;
 
   const supabase = await createClient();
+  const withNextAction = await hasClientNextAction(supabase);
   const ids = rows.map((r) => r.id);
 
   const columns = [
@@ -147,6 +149,7 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
     const d = details.get(r.id);
     const type = isClientType(r.type) ? r.type : "company";
     const source = d?.source;
+    const nextActionDate = withNextAction && r.next_action_at ? new Date(r.next_action_at).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, ".") : "";
     return {
       name: r.name,
       type: CLIENT_TYPE_LABEL[type],
@@ -159,6 +162,7 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
       stage: isClientStage(r.stage) ? CLIENT_STAGE_LABEL[r.stage] : "",
       followUpDate: r.follow_up_date ?? "",
       nextAction: withNextAction ? (r.next_action ?? "") : "",
+      nextActionDate,
       notes: d?.notes ?? "",
       address: d?.address ?? "",
       fiscalCode: d?.fiscal_code ?? "",
