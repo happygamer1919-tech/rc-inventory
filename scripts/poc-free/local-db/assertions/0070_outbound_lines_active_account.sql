@@ -6,9 +6,12 @@
 --      public.is_owner(). None of the three may be `true` any more.
 --   2. public.outbound_issues keeps 0067's three policies and still has NO delete
 --      policy: this card does not touch the header.
---   3. public.outbound_issue_take_stock is still SECURITY INVOKER with its
---      (uuid, jsonb) signature. The refusal of a deactivated caller rests on
---      that: its lines insert runs under the caller's own insert policy.
+--   3. public.outbound_issue_take_stock(uuid, jsonb) still refuses a deactivated
+--      caller: either it is SECURITY INVOKER (its lines insert runs under the
+--      caller's own insert policy, the shape 0070 left), or it is SECURITY
+--      DEFINER with its own current_app_role() refusal (the shape 0075 left).
+--   Since 0075 the insert and update predicates also carry is_owner(); they
+--   still test current_app_role() is not null, which is what this file checks.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
 -- proves the policies EXIST with the right predicate and cannot prove what they
@@ -85,14 +88,19 @@ begin
     raise exception 'P3-138: public.outbound_issues gained a delete policy, which 0067 removed';
   end if;
 
-  -- --- 3. take_stock still invoker -----------------------------------------
+  -- --- 3. take_stock still refuses a deactivated caller --------------------
+  -- 0075 (card P3-195) made the routine SECURITY DEFINER so that direct line
+  -- writes could be owner only. A definer version skips the lines insert policy,
+  -- so it must carry its own current_app_role() refusal; assertions/0075 checks
+  -- that refusal in detail. Either shape is accepted here, never a definer
+  -- version without the refusal.
   select count(*) into n
   from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
   where ns.nspname = 'public' and p.proname = 'outbound_issue_take_stock'
     and pg_get_function_identity_arguments(p.oid) = 'p_issue_id uuid, p_lines jsonb'
-    and not p.prosecdef;
+    and (not p.prosecdef or p.prosrc like '%current_app_role() is null%');
   if n <> 1 then
-    raise exception 'P3-138: expected one SECURITY INVOKER public.outbound_issue_take_stock(uuid, jsonb), found %. A definer version would skip the lines insert policy and let a deactivated account take stock.', n;
+    raise exception 'P3-138: expected one public.outbound_issue_take_stock(uuid, jsonb) that is SECURITY INVOKER or refuses a caller whose current_app_role() is null, found %. A definer version without that refusal would let a deactivated account take stock.', n;
   end if;
 end $$;
 

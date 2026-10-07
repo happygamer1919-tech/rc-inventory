@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createProjectRecord } from "./project-actions";
 import { loadOrRefuse, readAllRows, readFailedMessage } from "./import-clients-read";
+import { rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import {
   PROJECT_IMPORT_FIELDS,
@@ -57,6 +58,9 @@ const TOO_MANY: ActionResult<never> = {
 /** Ce trimite ecranul: randurile citite din fisier si potrivirea coloanelor. */
 export type ProjectImportRequest = {
   rows: string[][];
+  /** Linia din Excel a fiecarui rand de date (liniile goale se numara), ca "Rândul N"
+   *  sa fie cel pe care operatorul il vede in foaie. Lipsa inseamna randuri una dupa alta. */
+  lines?: number[];
   mapping: (ProjectImportField | null)[];
 };
 
@@ -147,6 +151,7 @@ export async function planProjectImport(
   if (!loaded.ok) return { ok: false, message: loaded.message };
   const { plan } = buildProjectPlan({
     rows: request.rows,
+    lines: request.lines,
     mapping: readMapping(request.mapping),
     ...loaded.value,
   });
@@ -221,6 +226,7 @@ export async function runProjectImport(
   if (!loaded.ok) return { ok: false, message: loaded.message };
   const { plan, prepared } = buildProjectPlan({
     rows: request.rows,
+    lines: request.lines,
     mapping: readMapping(request.mapping),
     ...loaded.value,
   });
@@ -237,7 +243,7 @@ export async function runProjectImport(
     }
 
     const project = prepared.get(entry.line);
-    const raw = request.rows[entry.line - 2] ?? [];
+    const raw = rawRowAt(request.rows, request.lines, 1, entry.line);
 
     if (!project) {
       skippedRows.push({ line: entry.line, reason: "Rândul nu a putut fi pregătit pentru scriere.", raw });

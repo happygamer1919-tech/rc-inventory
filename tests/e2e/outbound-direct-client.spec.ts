@@ -245,7 +245,7 @@ test.beforeAll(async () => {
       name: `${TAG} produs`,
       category_id: await anyCategoryId(),
       unit: "pcs",
-      unit_value_mdl: 10,
+      unit_value_mdl: 12.5,
     },
   });
   expect(product.ok, `produsul de test nu a putut fi scris: ${product.text}`).toBe(true);
@@ -1439,6 +1439,30 @@ test("lista iesirilor: filtrul pe mod arata numai modul ales", async ({ page }) 
   ).toBeVisible();
 });
 
+test("lista iesirilor: un filtru fara rezultate arata un mesaj, nu o lista goala", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // Un client fara nicio iesire: filtrul de destinatie nu potriveste nimic.
+  const empty = await asService("clients?select=id", {
+    method: "POST",
+    // Numele NU contine `${TAG} client`: cautarile din combo-urile celorlalte cazuri
+    // trebuie sa mai dea exact o potrivire.
+    body: { name: `${TAG} fara iesiri` },
+  });
+  expect(empty.ok, `clientul gol nu a putut fi scris: ${empty.text}`).toBe(true);
+  const emptyClientId = String(empty.rows[0]!.id);
+
+  await signIn(page, ownerAccount());
+  await page.goto(`/comenzi?client=${emptyClientId}`);
+
+  const filtered = page.getByTestId("outbound-empty-filtered");
+  await expect(filtered).toBeVisible({ timeout: 25_000 });
+  await expect(filtered).toHaveText("Nicio ieșire nu se potrivește cu filtrul ales.");
+  await expect(page.getByTestId("outbound-empty")).toHaveCount(0);
+});
+
 /* =======================================================================
    CARDUL P3-163, ACCEPTANTA (a) SI (b)
    ======================================================================= */
@@ -1499,6 +1523,20 @@ test("iesire client direct: pret unitar si total se afiseaza cu bani, nu rotunji
     page.locator("text=" + expectedPrice2),
     `unitatile se afiseaza cu bani pe fisa: ${expectedPrice2}`,
   ).toBeVisible();
+});
+
+test("iesire client direct: casuta de pret sugereaza valoarea exacta a produsului, 12,50 si nu 13", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "1");
+  await expect(
+    page.getByTestId("issue-price-0"),
+    "sugestia de pret este valoarea exacta, nu rotunjita la lei intregi",
+  ).toHaveAttribute("placeholder", "12,50");
 });
 
 /* ------------------------------------------------------------------ (f) -- */

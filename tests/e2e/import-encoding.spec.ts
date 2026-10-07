@@ -79,3 +79,65 @@ test("import server: un camp cu U+FFFD refuza randul, fara sa scrie nimic", () =
   const fine = prepareImportRow(["Ștefan"], ["name"], fields, 3);
   expect(fine.ok).toBe(true);
 });
+
+function utf16le(text: string, bom: boolean): number[] {
+  const out: number[] = bom ? [0xff, 0xfe] : [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    out.push(c & 0xff, c >> 8);
+  }
+  return out;
+}
+
+function utf16be(text: string, bom: boolean): number[] {
+  const out: number[] = bom ? [0xfe, 0xff] : [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    out.push(c >> 8, c & 0xff);
+  }
+  return out;
+}
+
+test("codare csv P3-194: UTF-16 LE cu BOM (Unicode Text din Excel) se citeste corect", () => {
+  const result = decodeCsvFile(buffer(utf16le("Nume\tOraș\nȘtefan Țurcanu\tBălți", true)));
+  expect(result).toEqual({ text: "Nume\tOraș\nȘtefan Țurcanu\tBălți", encoding: "utf-16le" });
+});
+
+test("codare csv P3-194: UTF-16 BE cu BOM si UTF-16 LE fara BOM se citesc corect", () => {
+  expect(decodeCsvFile(buffer(utf16be("Nume\nIași", true)))).toEqual({
+    text: "Nume\nIași",
+    encoding: "utf-16be",
+  });
+  expect(decodeCsvFile(buffer(utf16le("Nume\nIasi", false)))).toEqual({
+    text: "Nume\nIasi",
+    encoding: "utf-16le",
+  });
+});
+
+test("codare csv P3-194: UTF-16 taiat la jumatatea unui caracter este refuzat", () => {
+  const bytes = utf16le("Nume\nIasi", true).slice(0, -1);
+  expect(decodeCsvFile(buffer(bytes))).toEqual({ error: BROKEN_LETTERS_FILE_ERROR });
+});
+
+test("codare csv P3-194: UTF-8 cu un singur octet gresit este refuzat, nu citit ca 1250", () => {
+  const good = [...new TextEncoder().encode("Nume\nȘtefan Țurcanu, Bălți, Iași")];
+  const bytes = [...good.slice(0, 12), 0xff, ...good.slice(12)];
+  expect(decodeCsvFile(buffer(bytes))).toEqual({ error: BROKEN_LETTERS_FILE_ERROR });
+});
+
+test("codare csv P3-194: octet 0x00 sau caracter de control intr-un fisier pe un octet este refuzat", () => {
+  expect(decodeCsvFile(buffer([...ascii("Nume\nIon"), 0xe3, 0x00, ...ascii("x")]))).toEqual({
+    error: BROKEN_LETTERS_FILE_ERROR,
+  });
+  expect(decodeCsvFile(buffer([...ascii("Nume\nIon"), 0xe3, 0x01, ...ascii("x")]))).toEqual({
+    error: BROKEN_LETTERS_FILE_ERROR,
+  });
+});
+
+test("codare csv P3-194: windows-1250 cu tab, CR si LF ramane acceptat", () => {
+  const bytes = [...ascii("Nume\tOra"), 0xba, ...ascii("\r\nB"), 0xe3, ...ascii("l"), 0xfe, ...ascii("i")];
+  expect(decodeCsvFile(buffer(bytes))).toEqual({
+    text: "Nume\tOraș\r\nBălți",
+    encoding: "windows-1250",
+  });
+});

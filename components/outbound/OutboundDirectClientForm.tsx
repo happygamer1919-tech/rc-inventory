@@ -54,7 +54,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumber, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
@@ -484,7 +484,7 @@ export function OutboundDirectClientForm({
                         onChange={(e) => setLine(l.key, { price: e.target.value })}
                         placeholder={
                           product && product.unitValueMdl > 0
-                            ? formatNumber(product.unitValueMdl)
+                            ? formatNumberExact(product.unitValueMdl)
                             : "lasă gol"
                         }
                         data-testid={`issue-price-${index}`}

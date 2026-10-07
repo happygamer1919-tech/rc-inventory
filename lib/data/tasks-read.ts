@@ -11,7 +11,7 @@
 // in aceeasi cerere si esueaza vizibil daca randurile adunate nu sunt cat totalul.
 // Ordinea se termina mereu cu `id`, ca paginile sa nu sara si sa nu repete un rand.
 
-import { readAllPages, type CountedPage } from "./id-list";
+import { dedupeById, readAllPages, type CountedPage } from "./id-list";
 import type { TaskListQuery } from "./tasks-types";
 
 /** Forma minima a interogarii pe care o folosesc citirile de mai jos. Clientul
@@ -70,12 +70,14 @@ export function orderBy(query?: TaskListQuery): { column: string; ascending: boo
 }
 
 /** Toate sarcinile care se potrivesc filtrelor, pe pagini, in ordinea ceruta. */
-export function readTaskRows<T>(
+export async function readTaskRows<T extends { id: string }>(
   start: TaskReadStart<T>,
   query?: TaskListQuery,
   pageSize?: number,
 ): Promise<T[]> {
-  return readAllPages<T>(
+  // O schimbare de termen a unui coleg muta un rand peste marginea paginii: il arata
+  // de doua ori sau deloc, fara eroare. Dublura se scoate, ordinea ramane.
+  const rows = await readAllPages<T>(
     "sarcinile",
     (from, to) => {
       let request = start();
@@ -113,16 +115,17 @@ export function readTaskRows<T>(
     },
     pageSize,
   );
+  return dedupeById(rows);
 }
 
 /** Toate sarcinile unei inregistrari, pe pagini, cele mai noi intai. */
-export function readEntityTaskRows<T>(
+export async function readEntityTaskRows<T extends { id: string }>(
   start: TaskReadStart<T>,
   entityType: string,
   entityId: string,
   pageSize?: number,
 ): Promise<T[]> {
-  return readAllPages<T>(
+  const rows = await readAllPages<T>(
     "sarcinile înregistrării",
     (from, to) =>
       start()
@@ -133,4 +136,5 @@ export function readEntityTaskRows<T>(
         .range(from, to),
     pageSize,
   );
+  return dedupeById(rows);
 }

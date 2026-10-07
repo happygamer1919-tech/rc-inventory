@@ -6,7 +6,7 @@ import "server-only";
 // care pleaca acolo. Regula este a fazei 1 si nu se schimba.
 
 import { createClient } from "@/lib/supabase/server";
-import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
+import { dedupeById, ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
 import { clampPage, LIST_PAGE_SIZE } from "./list-paging";
 import { readIssuePage, type IssueClient } from "./outbound-page-read";
 import { hasOutboundIssueMode } from "./schema-capability";
@@ -263,7 +263,8 @@ export async function listOutboundIssues(): Promise<OutboundIssue[]> {
         .range(from, to) as unknown as PromiseLike<CountedPage<IssueRow>>,
     ISSUE_PAGE_SIZE,
   );
-  return rows.map((row) => toIssue(row));
+  // Un rand mutat intre pagini vine de doua ori; ordinea citirii ramane.
+  return dedupeById(rows).map((row) => toIssue(row));
 }
 
 /** P3-142. Filtrele listei de iesiri de pe Comenzi. Fiecare lipseste cand nu este pus. */

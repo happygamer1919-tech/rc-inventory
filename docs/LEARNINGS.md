@@ -9155,6 +9155,15 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `listClientOptions` read `clients` with no paging and no order. The database returns at most 1000 rows (`max_rows` in `supabase/config.toml`), so past 1000 active clients (leads share the table, one import can add thousands) an arbitrary set was missing from the Proiecte filter, project form, walk-in buyer picker, task record picker and invoice editor, with no message, and the owner would have created a duplicate. The read error was also ignored, so a failed read showed an empty picker.
 **SOLUTION:** card P3-166: `readActiveClientOptions` (`lib/data/client-options-read.ts`) reads pages of 1000 ordered by name then id until a short page, keeps the Romanian sort and the shape, and throws on error so `app/error.tsx` shows. Proved with a stubbed client (1000 + 1000 + 250 rows, exactly 1000 rows, a failing page). RULE: **any read of a table that can grow past 1000 rows pages with a stable order and throws on error, never returns an empty list.**
 
+### A rule enforced only in the read that hides a button is not enforced
+**Tag:** backend
+**ERROR:** "a walk-in sale is never invoiced" (R-215) lived only in `getIssueInvoiceability`, which keeps the invoice button off a walk-in issue. `saveInvoiceDraft` only checked that `outboundIssueId` was a uuid, and `public.save_invoice_draft` (0064) wrote any issue id it got, so a hand-made request from a signed-in user created a draft invoice tied to a walk-in sale.
+**SOLUTION:** card P3-171: `saveInvoiceDraft` asks the same read through `saveUnlessNeverInvoiceable` (`lib/data/facturare-issue-gate.ts`, no server-only, so a spec can prove the RPC is not called) and refuses only on `neverInvoiceable`; migration 0074 replaces `save_invoice_draft` in place with one check on `issue_mode = 'direct_client'`, raised as P0001 with `direct_client` in the text, which `refusal()` maps to the same Romanian sentence. RULE: **every "never" rule shown on a screen is also enforced in the server action and in the database function that writes; a hidden button is a habit, not a rule.**
+
+### A PostgREST rpc call is a thenable, not a Promise
+**Tag:** backend
+**ERROR:** passing `() => supabase.rpc(...)` to a helper typed `() => Promise<T>` failed `tsc` with TS2739 (missing `catch`, `finally`), and `T` collapsed to `unknown`.
+**SOLUTION:** type the callback `() => PromiseLike<T>`; `await` works the same. RULE: **a helper that receives a Supabase query takes `PromiseLike`, never `Promise`.**
 ### A spec that opened /clienti with no view filter hid a stage bug
 **Tag:** testing
 **ERROR:** the walk-in buyer created with "+ Client nou" on Ieșiri materiale was saved with no stage, so the row took `cold` from migration 0039 and showed under Leaduri as "Lead rece" instead of in the Clienți view. The P3-119 spec still passed, because it searched `/clienti` with no `vedere`, which lists every stage.
@@ -9200,6 +9209,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** adding `eq` to `StockQuery` made `npx tsc --noEmit` fail in `tests/e2e/stock-read-paging.spec.ts` and `tests/e2e/list-paging.spec.ts`, whose fakes implement the type by hand.
 **SOLUTION:** added a pass-through `eq` to both fakes. RULE: **grep the type name in `tests/` before widening a client-injection type, and run tsc before the first commit.**
 
+### A fix closed on one table leaves its siblings open until someone greps them
+**Tag:** security
+**ERROR:** 0067 closed `outbound_issues` and 0070 closed `outbound_lines` for a deactivated account, but `batches` and `status_history` kept 0001's `to authenticated using (true)` select and insert policies. A deactivated account with a valid token could insert a batch over PostgREST (stock is batches minus outbound lines, so stock rose) and read or add history rows. The P3-138 pull request title also said "migration 0069" for a file named 0070, so a brief that copied the title pointed at the wrong file.
+**SOLUTION:** card P3-179, migration 0073 (first numbered 0072, renamed when 0072 was taken by P3-170), puts `public.current_app_role() is not null` on the four policies; the remaining open stock tables (inbound_orders, order_lines, reminders) are card P3-180. RULE: **when closing one table, grep `using (true)` and `with check (true)` across every migration in the same change and file a card for each table left open; name a migration by its file, never by a title.**
+
 ### One foreign letter turned a whole Romanian CSV into Cyrillic
 **Tag:** data
 **ERROR:** `decodeCsvFile` chose windows-1251 whenever the 1251 reading had any Cyrillic letter and the 1250 reading had any non-Romanian letter. The 1250 bytes of ă â î ș ț read as Cyrillic in 1251, so the first test is true for almost every Romanian file, and one ü, ä or é (Würth, Kärcher, André) made the second true. "Bălți" became "Bгlюi", no U+FFFD appeared, nothing was refused.
@@ -9224,3 +9238,68 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `readAll` in `lib/data/project-import-actions.ts` and `lib/data/material-import-actions.ts` did `if (error || !data) break` and returned the pages read so far. A failed read of clients or categories refused every row as an unknown client or category; a failed read of projects or products marked every row as new, so the duplicate check and fill choices vanished. P3-151 had fixed the same loop for the client and lead imports only.
 **SOLUTION:** card P3-183: both files read through `readAllRows` in `lib/data/import-clients-read.ts`, which throws `ImportReadError` with a Romanian message per table, and the four import actions return it through `loadOrRefuse` so nothing is written. RULE: **when a bug is fixed in one copy of a loop, search for the other copies in the same card, or move them onto the shared helper.**
+
+### A routine granted to every user trusted the issue it was handed, and line writes were open around it
+**Tag:** database
+**ERROR:** `public.outbound_issue_take_stock(uuid, jsonb)` (0067) is granted to `authenticated` and never looked at the issue's status, so a hand-built call on a shipped slip wrote lines and a fresh `null -> awaiting_shipment` history row. Separately, 0070 kept `outbound_lines` INSERT and UPDATE open to every active role, so an account manager could POST a line past the overdraw check or PATCH `sale_price_mdl`. The routine was SECURITY INVOKER, so its own lines insert needed that open policy: the two defects held each other up.
+**SOLUTION:** card P3-195, migration 0075: the routine becomes SECURITY DEFINER (same signature), locks the issue row and refuses anything not `awaiting_shipment`, and refuses a token holder with no active profile itself; EXECUTE is revoked from public and anon. Direct INSERT and UPDATE on `outbound_lines` become owner only. The active check is gated on `auth.uid() is not null`, because the local applier calls both outbound doors as a superuser with no JWT. RULE: **before narrowing a table's write policy, find every routine that writes it as the caller; a function granted to all users must check the state of the row it acts on, not only the caller.**
+
+### Superseded assertion files are edited in the pull request that changes the invariant
+**Tag:** process
+**ERROR:** assertions/0070 asserted that `outbound_issue_take_stock` stays SECURITY INVOKER, so any later migration making it definer fails the applier run on a correct schema.
+**SOLUTION:** card P3-195 changed that check to accept invoker OR definer carrying its own `current_app_role() is null` refusal (the property the old check stood for), and the new assertions/0075 checks the definer shape and its refusals with real role switches. RULE: **when a later card changes what an older assertion pins, keep the property it protected and change only the shape it named; never just delete the check.**
+
+### A spec header can claim coverage another spec was supposed to give
+**Tag:** tests
+**ERROR:** `task-assignee-email-fallback.spec.ts` (P3-165) held only the no-assignee case, and its header said P3-130 tested the name and email cases. Nothing did. The Azi case P3-142a had its only assertion inside an `if`, so it passed on the shared database while checking nothing.
+**SOLUTION:** card P3-184: cases (a) name and (b) blank name shown by email assert in the list, the client panel and Azi; P3-142a is removed and points to `azi-empty-title.spec.ts`, which proves the empty wordings with no data. The email is read as the owner, because `list_team_members()` hides emails from an account manager (they see "Fără nume"). RULE: **a header comment may only state what the file asserts, and an assertion never sits behind an `if` on shared data.**
+
+### A price rounded for display shows a different number than the product's value
+**Tag:** display
+**ERROR:** P3-163 moved the walk-in line totals to `formatMoneyExact` but the empty price box still used `formatNumber`, which rounds to whole lei, so a product worth 12,50 suggested 13.
+**SOLUTION:** card P3-187: `formatNumberExact` in `lib/data/format.ts` (two decimals, no currency) feeds the placeholder, and the test product is worth 12,50 so the spec can tell 12,50 from 13. RULE: **when a fix swaps a formatter, grep every use of the old one in the same file in the same card.**
+
+### An empty string passed to a validator can mean "clear", not "no value"
+**Tag:** data
+**ERROR:** P3-156 passed `nextActionAt: lead.nextActionDate` to `createClientRecord`. With no date column that is `""`, which `validateNextAction` reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped and an imported "De reluat" row had no date. `loadExisting` also never read `next_action_at`, so the date was not fillable on an existing record.
+**SOLUTION:** card P3-186: `importNextActionAt` (`lib/data/import-shared.ts`) turns `""` into `undefined` in both import actions, and both `loadExisting` functions read `next_action_at` and list `nextActionDate` as fillable. RULE: **when a field distinguishes undefined (no value) from "" (clear), an import must send undefined for an absent cell.**
+
+### A narrowed empty state leaves the filtered case blank
+**Tag:** display
+**ERROR:** P3-153 limited the Ieșiri empty message to the no-filter case. With a client or kind filter that matched nothing, /comenzi showed an empty list and only "0 de expediat din 0".
+**SOLUTION:** card P3-188: a second message (`outbound-empty-filtered`) when the total is 0 and a filter is active, plus a spec on a client with no slips. RULE: **when an empty message is narrowed to one case, add the message for every other case that can still be empty.**
+
+### A test row named like another test's search breaks that test
+**Tag:** tests
+**ERROR:** the P3-188 case created a second client called `<TAG> client fara iesiri`; the P3-163 case searches the combo for `<TAG> client` and expected one match, got two (run 37558596475).
+**SOLUTION:** the extra client is named `<TAG> fara iesiri`. RULE: **a row a spec adds to shared seed data must not contain the text another case in the file searches for.**
+
+### A paged read that stops at the first short page depends on the server cap
+**Tag:** data
+**ERROR:** `readActiveClientOptions` and `readAllRows` read pages of 1000 and stopped at the first page shorter than 1000. If the hosted `max_rows` is below 1000, page one comes back short and clients are silently lost.
+**SOLUTION:** card P3-189: both reads use `readAllPages` with an exact count plus `dedupeById`, covered by `tests/e2e/counted-paging-reads.spec.ts`. RULE: **never end a paged read on "the page was short"; end it on the counted total.**
+
+### An export cell Excel can reformat must be written as protected text
+**Tag:** data
+**ERROR:** the materials export wrote the SKU as a plain cell, so Excel turned 000123 into 123 and 12-05 into a date; a re-imported file missed the SKU match and created a second product.
+**SOLUTION:** card P3-190: the SKU is written with csvText, as P3-139 did for phone and IDNO; parseCsv unwraps it. Covered by tests/e2e/material-export-sku.spec.ts. RULE: **any identifier column in an export that looks like a number or date goes through csvText.**
+
+### Every import of the same family must move together
+**Tag:** data
+**ERROR:** P3-155 gave the clients and leads imports real source lines and left projects and materials on `rows[line - headerLine - 1]` and `request.rows[entry.line - 2]`, so their "Rândul N" was wrong after any blank line or multi-line cell.
+**SOLUTION:** card P3-191: both sheets read with `parseCsvWithLines`, send `lines`, and every error or skipped row finds its cells through `rawRowAt`. Covered by `tests/e2e/import-row-lines-projects-materials.spec.ts`. RULE: **when a fix touches one import, grep the other imports for the same arithmetic before calling it done.**
+
+### A paged read must survive a colleague saving between two pages
+**Tag:** data
+**ERROR:** `readAllPages` threw "totalul s-a schimbat intre pagini" whenever another user inserted a row mid-read, so a viewer of any table past one page saw "Ceva nu a mers". The tasks, full catalog and full outbound reads also lacked `dedupeById`, so a row moved across a page edge showed twice.
+**SOLUTION:** card P3-193: `readAllPages` retries the whole read from page one, 3 attempts, then throws the Romanian "Lista s-a schimbat în timpul citirii. Încercați din nou."; the three reads go through `dedupeById`. Covered by `tests/e2e/tasks-list-paging.spec.ts`. RULE: **a count that changes between pages means retry, not crash; the error a user can see is Romanian.**
+
+### Count words go through plural(), never a hand-written ternary
+**Tag:** copy
+**ERROR:** the import sheets wrote `rows.length === 1 ? "rând" : "de rânduri"`, so 3 rows read "3 de rânduri"; the export notices wrote `"rânduri"` for every count, so 25 read "25 rânduri"; the Azi tasks card wrote "1 deschise".
+**SOLUTION:** card P3-192: every one of these strings goes through `plural()` in lib/data/format.ts (1 rând, 3 rânduri, 20 de rânduri). Covered by `tests/e2e/romanian-plurals-imports-azi.spec.ts`, which also fails if the old ternary comes back. RULE: **a number followed by a Romanian noun is written with plural(), not with `=== 1 ?`.**
+
+### A single-byte fallback never fails, so it needs a plausibility check
+**Tag:** data
+**ERROR:** `decodeCsvFile` fell back to windows-1250 for any invalid UTF-8. A single-byte decoder never produces U+FFFD, so the promised refusal never fired: an Excel UTF-16 "Unicode Text" export, or a UTF-8 file with one bad byte, was imported as mojibake.
+**SOLUTION:** card P3-194: UTF-16 is detected (BOM, or a third of the bytes 0x00) and read as UTF-16; before the fallback the file is refused if it has 0x00, if the text has control characters other than tab, CR and LF, or if it is nearly valid UTF-8 (at least 2 valid and at least twice as many valid as invalid sequences). Covered by `tests/e2e/import-encoding.spec.ts`. RULE: **a decoder that cannot fail needs its own check for "is this text plausible", or the refusal path is dead code.**

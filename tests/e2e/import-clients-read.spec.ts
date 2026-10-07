@@ -9,18 +9,31 @@ import {
   readFailedMessage,
 } from "@/lib/data/import-clients-read";
 
-type Page = { data: { id: string }[] | null; error: { message: string } | null };
+type Page = {
+  data: { id: string }[] | null;
+  count?: number | null;
+  error: { message: string } | null;
+};
 
-/** Un client fals care raspunde pagina cu pagina si tine minte ce i s-a cerut. */
-function fakeSupabase(pages: Page[]) {
+/** Un server fals: raspunde din lista data, taie la `cap` randuri si spune totalul.
+ *  `failAt` da o eroare la cererea cu numarul acela; `broken` da un raspuns fara total. */
+function fakeSupabase(
+  all: { id: string }[],
+  opts: { cap?: number; failAt?: number; broken?: boolean } = {},
+) {
   const ranges: [number, number][] = [];
   const client = {
     from: () => ({
       select: () => ({
         order: () => ({
-          range: async (from: number, to: number) => {
+          range: async (from: number, to: number): Promise<Page> => {
             ranges.push([from, to]);
-            return pages[ranges.length - 1] ?? { data: [], error: null };
+            if (opts.broken) return { data: null, count: null, error: null };
+            if (opts.failAt === ranges.length) {
+              return { data: null, count: null, error: { message: "boom" } };
+            }
+            const end = Math.min(to, from + (opts.cap ?? Infinity) - 1);
+            return { data: all.slice(from, end + 1), count: all.length, error: null };
           },
         }),
       }),
@@ -32,26 +45,24 @@ function fakeSupabase(pages: Page[]) {
 const rows = (count: number, start: number) =>
   Array.from({ length: count }, (_, i) => ({ id: String(start + i) }));
 
-test("import: 1000, 1000 si 250 de clienti se citesc toti, in trei pagini", async () => {
-  const { client, ranges } = fakeSupabase([
-    { data: rows(1000, 0), error: null },
-    { data: rows(1000, 1000), error: null },
-    { data: rows(250, 2000), error: null },
-  ]);
+test("import: 2250 de clienti se citesc toti, pe pagini numarate", async () => {
+  const { client, ranges } = fakeSupabase(rows(2250, 0));
   const all = await readAllClients(client, "id");
   expect(all).toHaveLength(2250);
-  expect(ranges).toEqual([
-    [0, 999],
-    [1000, 1999],
-    [2000, 2999],
-  ]);
+  expect(ranges[0]).toEqual([0, 499]);
+  expect(ranges.length).toBe(5);
+});
+
+test("P3-189: import: un server care taie la 3 randuri tot da toti cei 7", async () => {
+  const { client } = fakeSupabase(rows(7, 0), { cap: 3 });
+  expect(await readAllClients(client, "id")).toHaveLength(7);
 });
 
 test("import: o citire care esueaza opreste importul cu mesaj romanesc, nu da lista goala", async () => {
-  const { client } = fakeSupabase([{ data: null, error: { message: "boom" } }]);
+  const { client } = fakeSupabase(rows(10, 0), { failAt: 1 });
   await expect(readAllClients(client, "id")).rejects.toThrow(CLIENTS_READ_FAILED);
 
-  const again = fakeSupabase([{ data: null, error: { message: "boom" } }]);
+  const again = fakeSupabase(rows(10, 0), { failAt: 1 });
   const refused = await loadOrRefuse(() => readAllClients(again.client, "id"));
   expect(refused).toEqual({
     ok: false,
@@ -60,10 +71,7 @@ test("import: o citire care esueaza opreste importul cu mesaj romanesc, nu da li
 });
 
 test("import: o pagina care esueaza dupa prima opreste tot importul", async () => {
-  const { client } = fakeSupabase([
-    { data: rows(1000, 0), error: null },
-    { data: null, error: { message: "boom" } },
-  ]);
+  const { client } = fakeSupabase(rows(1200, 0), { failAt: 2 });
   const refused = await loadOrRefuse(() => readAllClients(client, "id"));
   expect(refused.ok).toBe(false);
 });
@@ -81,17 +89,14 @@ for (const [table, what] of OTHER_TABLES) {
     const message = readFailedMessage(what);
     expect(message).toMatch(/^Nu am putut citi /);
 
-    const first = fakeSupabase([{ data: null, error: { message: "boom" } }]);
+    const first = fakeSupabase(rows(10, 0), { failAt: 1 });
     await expect(readAllRows(first.client, table, "id", message)).rejects.toThrow(message);
 
-    const later = fakeSupabase([
-      { data: rows(1000, 0), error: null },
-      { data: null, error: { message: "boom" } },
-    ]);
+    const later = fakeSupabase(rows(1200, 0), { failAt: 2 });
     const refused = await loadOrRefuse(() => readAllRows(later.client, table, "id", message));
     expect(refused).toEqual({ ok: false, message });
 
-    const empty = fakeSupabase([{ data: null, error: null }]);
+    const empty = fakeSupabase([], { broken: true });
     const nullData = await loadOrRefuse(() => readAllRows(empty.client, table, "id", message));
     expect(nullData).toEqual({ ok: false, message });
   });

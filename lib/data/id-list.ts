@@ -88,6 +88,33 @@ export async function readAllPages<T>(
   size: number = ROW_PAGE_SIZE,
 ): Promise<T[]> {
   if (size < 1) throw new Error(`marimea paginii trebuie sa fie cel putin 1, a fost ${size}`);
+  // P3-193. Un coleg care adauga sau scoate un rand intre doua pagini schimba totalul.
+  // Citirea se reia de la prima pagina, de cel mult READ_ATTEMPTS ori; numai dupa
+  // ultima incercare lista schimbata devine o eroare, in cuvinte pe care le citeste
+  // operatorul. Niciodata o lista scurta sau cu dubluri, tacut.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await readPagesOnce(what, fetchPage, size);
+    } catch (err) {
+      if (!(err instanceof ListChangedError)) throw err;
+      if (attempt >= READ_ATTEMPTS) throw new Error(LIST_CHANGED_MESSAGE);
+    }
+  }
+}
+
+/** Cate citiri complete se incearca cand totalul se schimba intre pagini. */
+export const READ_ATTEMPTS = 3;
+
+/** Mesajul vazut de operator cand lista se schimba la fiecare incercare. */
+export const LIST_CHANGED_MESSAGE = "Lista s-a schimbat în timpul citirii. Încercați din nou.";
+
+class ListChangedError extends Error {}
+
+async function readPagesOnce<T>(
+  what: string,
+  fetchPage: (from: number, to: number) => PromiseLike<CountedPage<T>>,
+  size: number,
+): Promise<T[]> {
   const rows: T[] = [];
   let total: number | null = null;
 
@@ -104,7 +131,7 @@ export async function readAllPages<T>(
     if (total === null) {
       total = page.count;
     } else if (page.count !== total) {
-      throw new Error(
+      throw new ListChangedError(
         `${what}: totalul s-a schimbat intre pagini, din ${total} in ${page.count}, deci paginile nu descriu aceeasi lista.`,
       );
     }
