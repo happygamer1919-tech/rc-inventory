@@ -529,6 +529,13 @@ export function readImportDate(raw: string): string | null {
   return date.toISOString().slice(0, 10);
 }
 
+/** Data pasului urmator trimisa la creare. O celula goala sau o coloana lipsa inseamna
+ *  "nicio valoare" (undefined), nu o stergere (""): numai asa createClientRecord aplica
+ *  oglindirea "de reluat" ca in formular. */
+export function importNextActionAt(date: string): string | undefined {
+  return date === "" ? undefined : date;
+}
+
 // ---------------------------------------------------------------------------
 // Codarea fisierului, P3-145
 // ---------------------------------------------------------------------------

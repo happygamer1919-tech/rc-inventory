@@ -29,7 +29,7 @@ import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
 import { listClientOwnerChoices } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
-import { rawRowAt } from "./import-shared";
+import { importNextActionAt, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
 import {
@@ -138,7 +138,7 @@ async function loadExisting(
     "fiscal_code",
     "notes",
     ...(leaduri ? ["interest", "source", "owner_id"] : []),
-    ...(next ? ["next_action"] : []),
+    ...(next ? ["next_action", "next_action_at"] : []),
   ].join(",");
 
   const rows = await readAllClients(supabase, columns);
@@ -192,7 +192,12 @@ async function loadExisting(
             ["ownerId", "owner_id"],
           ] as [FillField, string][])
         : []),
-      ...(next ? ([["nextAction", "next_action"]] as [FillField, string][]) : []),
+      ...(next
+        ? ([
+            ["nextAction", "next_action"],
+            ["nextActionDate", "next_action_at"],
+          ] as [FillField, string][])
+        : []),
     ];
     for (const [field, column] of check) if (value(column) === "") empty.push(field);
 
@@ -525,7 +530,9 @@ export async function runLeadImport(
       interest: lead.interest,
       ownerId: lead.ownerId,
       nextAction: lead.nextAction,
-      nextActionAt: lead.nextActionDate,
+      // Celula goala nu este o stergere: fara valoare, validateNextAction aplica
+      // oglindirea "de reluat" ca in formular.
+      nextActionAt: importNextActionAt(lead.nextActionDate),
       contactName: lead.contactName,
       firstStage: true,
     });
