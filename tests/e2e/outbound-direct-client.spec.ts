@@ -967,16 +967,14 @@ test("P3-177: doi clienti cu acelasi nume se pot deosebi in lista dupa telefon s
   expect(hasPhone1, "lista arata telefonul clientului 1").toBe(true);
   expect(hasPhone2, "lista arata telefonul clientului 2").toBe(true);
 
-  // Alegerea celui de al doilea client.
-  await page.locator('[data-rc-combo-list] li button').nth(1).click();
+  // Alegerea celui de al doilea client, dupa telefon: ordinea a doua nume identice
+  // nu este stabila, deci pozitia in lista nu spune care este care.
+  await page.locator("[data-rc-combo-list] li button", { hasText: phone2 }).click();
   await expect(clientInput).toHaveValue(clientName);
 
   // Completare restul formularului si salvare.
-  await page.getByTestId("issue-pickup-date").fill("10.05.2026");
-  await page.getByTestId("issue-product-0").locator("input").fill("Tigla");
-  await page.waitForTimeout(500);
-  await page.locator('[data-rc-combo-list] li button').first().click();
-  await page.getByTestId("issue-quantity-0").fill("1");
+  await page.getByTestId("issue-pickup-date").fill("01.12.2026");
+  await fillFirstLine(page, "1");
   await page.getByTestId("issue-submit").click();
   await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
 
@@ -1012,11 +1010,13 @@ test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic
   await clientInput.fill(clientName);
   await page.waitForTimeout(500);
 
-  // Parasire campul.
-  await clientInput.blur();
-  await page.waitForTimeout(200);
+  // Parasire camp, cu un clic in afara (asa se inchide comboboxul). Cu doua
+  // potriviri exacte nu se alege nimic si lista ramane deschisa.
+  await page.getByTestId("outbound-form").click({ position: { x: 2, y: 2 } });
+  await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
 
-  // Campul trebuie sa ramana gol.
+  // Escape inchide lista fara sa aleaga: campul ramane gol.
+  await clientInput.press("Escape");
   await expect(clientInput).toHaveValue("");
 
   // Formularul cere completarea clientului.

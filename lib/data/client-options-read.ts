@@ -27,7 +27,6 @@ export async function readActiveClientOptions(
         .from("clients")
         .select("id, name, phone, fiscal_code", { count: "exact" })
         .eq("active", true)
-        .eq("stage", "client")
         .order("name")
         .order("id")
         .range(from, to),

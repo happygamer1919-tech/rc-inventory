@@ -9303,3 +9303,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `decodeCsvFile` fell back to windows-1250 for any invalid UTF-8. A single-byte decoder never produces U+FFFD, so the promised refusal never fired: an Excel UTF-16 "Unicode Text" export, or a UTF-8 file with one bad byte, was imported as mojibake.
 **SOLUTION:** card P3-194: UTF-16 is detected (BOM, or a third of the bytes 0x00) and read as UTF-16; before the fallback the file is refused if it has 0x00, if the text has control characters other than tab, CR and LF, or if it is nearly valid UTF-8 (at least 2 valid and at least twice as many valid as invalid sequences). Covered by `tests/e2e/import-encoding.spec.ts`. RULE: **a decoder that cannot fail needs its own check for "is this text plausible", or the refusal path is dead code.**
+
+### A shared reader must not get a filter only one screen needs
+**Tag:** data
+**ERROR:** card P3-177 added `.eq("stage", "client")` to `readActiveClientOptions`, which also feeds the project form, the project filter, the task picker and the invoice editor. Clients created without a stage default to cold, so they vanished from every picker and about 25 end to end cases timed out waiting for them.
+**SOLUTION:** card P3-177 attempt 2: the stage filter is removed from the shared reader. Two of its own cases were also fixed: one picked the second same-name row by position (the order of equal names is not stable, so it now picks by phone), and one expected the field to be empty after a blur that the combobox does not handle (it now clicks outside, checks the list stays open, then presses Escape). RULE: **a shared reader keeps the filter every caller needs; a screen that wants fewer rows filters after the read.**
