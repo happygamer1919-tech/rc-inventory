@@ -5742,6 +5742,29 @@
         "at": "2026-10-07T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request. Found by the bug check 2026-10-06; the P3-155 report lists the projects and materials imports as untouched. The write paths (runProjectImport, runMaterialImport) need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
+    },
+    {
+      "id": "P3-192",
+      "title": "Romanian plurals: the four import sheets said 'Am citit 3 de rânduri' for every count but 1, the export notices on Clients, Projects and Inventory said '25 rânduri' with no 'de', and the Azi tasks card said '1 deschise' for one task. All now go through plural() in lib/data/format.ts: 1 rând, 3 rânduri, 20 de rânduri, 101 rânduri, 120 de rânduri; the Azi card reads '1 sarcină deschisă' and '2 sarcini deschise'. Text only. The plural() rule, routes, queries and import logic are not changed.",
+      "plain": "La importuri, la exporturi și pe cardul de sarcini de pe Azi, numărul de rânduri și de sarcini se scrie corect în română.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/romanian-plurals-imports-azi.spec.ts are green in this pull request's own `quality` run: `foile de import: Am citit n rânduri, cu de doar de la 20 in sus` (n = 0, 1, 3, 19, 20, 25, 101, 120), `notele de export: 25 de rânduri, nu 25 rânduri`, `cardul de sarcini de pe Azi: singular pentru una, plural pentru mai multe`, `ecranele trec prin plural(), nu prin ternarul vechi`. (b) tests/e2e/materials-export.spec.ts expects 'de rânduri' in the export notice and stays green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Only the 'Am citit', 'Am exportat' and Azi tasks hint strings change. The plural() rule, the lead PageHeader prop, routes, queries, import logic, the 'rânduri citite din fișier' total line and the limit texts are not touched. No migration.",
+      "last_checkpoint": "2026-10-07T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-192 against main: its quality run on the head sha runs tests/e2e/romanian-plurals-imports-azi.spec.ts; report in docs/reports/2026-10-07-executor-romanian-plurals.md",
+        "at": "2026-10-07T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. Left for a later card: the 'N rânduri citite din fișier' total line on the import result panels still says 'rânduri' with no 'de' above 19."
     }
   ]
 }

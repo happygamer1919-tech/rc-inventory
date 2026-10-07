@@ -9269,3 +9269,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** P3-155 gave the clients and leads imports real source lines and left projects and materials on `rows[line - headerLine - 1]` and `request.rows[entry.line - 2]`, so their "Rândul N" was wrong after any blank line or multi-line cell.
 **SOLUTION:** card P3-191: both sheets read with `parseCsvWithLines`, send `lines`, and every error or skipped row finds its cells through `rawRowAt`. Covered by `tests/e2e/import-row-lines-projects-materials.spec.ts`. RULE: **when a fix touches one import, grep the other imports for the same arithmetic before calling it done.**
+
+### Count words go through plural(), never a hand-written ternary
+**Tag:** copy
+**ERROR:** the import sheets wrote `rows.length === 1 ? "rând" : "de rânduri"`, so 3 rows read "3 de rânduri"; the export notices wrote `"rânduri"` for every count, so 25 read "25 rânduri"; the Azi tasks card wrote "1 deschise".
+**SOLUTION:** card P3-192: every one of these strings goes through `plural()` in lib/data/format.ts (1 rând, 3 rânduri, 20 de rânduri). Covered by `tests/e2e/romanian-plurals-imports-azi.spec.ts`, which also fails if the old ternary comes back. RULE: **a number followed by a Romanian noun is written with plural(), not with `=== 1 ?`.**
