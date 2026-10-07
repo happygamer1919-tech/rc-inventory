@@ -5692,6 +5692,31 @@
         "at": "2026-10-06T19:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. P3-156 passed an empty string for an absent date column, which validateNextAction reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped. The test covers the pure parts (the helper and the plan); the database write path runs only in CI."
+    },
+    {
+      "id": "P3-190",
+      "title": "The materials export writes the SKU as protected text (csvText, as P3-139 did for phone and IDNO) in lib/data/material-export-types.ts, so Excel keeps 000123 and 12-05 as written and a re-imported file matches the same product instead of creating a second one. parseCsv already unwraps the protected form. No other column changes.",
+      "plain": "Exportul de materiale păstrează codul SKU exact ca text, așa că un fișier salvat din Excel și importat din nou recunoaște același produs, fără să creeze unul nou.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-139"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/material-export-sku.spec.ts is green in this pull request's quality run on the head sha: the exported SKU cell for 000123 is in protected text form and parsing the exported row back yields 000123 and 12-05, and an empty SKU stays an empty cell. (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Only the sku column of the materials export changes. Clients, projects and leads exports are not touched. No migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-07T04:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/material-export-sku-text against main: its quality run on the head sha runs tests/e2e/material-export-sku.spec.ts",
+        "at": "2026-10-07T04:30:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request, from the 2026-10-06 bug check."
     }
   ]
 }

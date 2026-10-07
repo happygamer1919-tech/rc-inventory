@@ -25,7 +25,7 @@ import {
   templateCsv,
   type MaterialImportField,
 } from "./material-import-types";
-import { formatCsvNumber } from "./import-shared";
+import { csvText, formatCsvNumber } from "./import-shared";
 
 export const MATERIAL_EXPORT_FILE_NAME = "materiale.csv";
 
@@ -50,7 +50,11 @@ export function exportNumber(value: number): string {
 export function materialExportCsv(materials: ExportMaterialRow[]): string {
   return buildCsv([
     materialModelHeaders(),
-    ...materials.map((material) => MATERIAL_TEMPLATE_FIELDS.map((field) => material[field])),
+    ...materials.map((material) =>
+      MATERIAL_TEMPLATE_FIELDS.map((field) =>
+        field === "sku" ? csvText(material[field]) : material[field],
+      ),
+    ),
   ]);
 }
 

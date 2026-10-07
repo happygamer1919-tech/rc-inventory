@@ -9259,3 +9259,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `readActiveClientOptions` and `readAllRows` read pages of 1000 and stopped at the first page shorter than 1000. If the hosted `max_rows` is below 1000, page one comes back short and clients are silently lost.
 **SOLUTION:** card P3-189: both reads use `readAllPages` with an exact count plus `dedupeById`, covered by `tests/e2e/counted-paging-reads.spec.ts`. RULE: **never end a paged read on "the page was short"; end it on the counted total.**
+
+### An export cell Excel can reformat must be written as protected text
+**Tag:** data
+**ERROR:** the materials export wrote the SKU as a plain cell, so Excel turned 000123 into 123 and 12-05 into a date; a re-imported file missed the SKU match and created a second product.
+**SOLUTION:** card P3-190: the SKU is written with csvText, as P3-139 did for phone and IDNO; parseCsv unwraps it. Covered by tests/e2e/material-export-sku.spec.ts. RULE: **any identifier column in an export that looks like a number or date goes through csvText.**
