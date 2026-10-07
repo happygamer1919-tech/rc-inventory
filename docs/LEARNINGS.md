@@ -9274,3 +9274,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** copy
 **ERROR:** the import sheets wrote `rows.length === 1 ? "rând" : "de rânduri"`, so 3 rows read "3 de rânduri"; the export notices wrote `"rânduri"` for every count, so 25 read "25 rânduri"; the Azi tasks card wrote "1 deschise".
 **SOLUTION:** card P3-192: every one of these strings goes through `plural()` in lib/data/format.ts (1 rând, 3 rânduri, 20 de rânduri). Covered by `tests/e2e/romanian-plurals-imports-azi.spec.ts`, which also fails if the old ternary comes back. RULE: **a number followed by a Romanian noun is written with plural(), not with `=== 1 ?`.**
+
+### A single-byte fallback never fails, so it needs a plausibility check
+**Tag:** data
+**ERROR:** `decodeCsvFile` fell back to windows-1250 for any invalid UTF-8. A single-byte decoder never produces U+FFFD, so the promised refusal never fired: an Excel UTF-16 "Unicode Text" export, or a UTF-8 file with one bad byte, was imported as mojibake.
+**SOLUTION:** card P3-194: UTF-16 is detected (BOM, or a third of the bytes 0x00) and read as UTF-16; before the fallback the file is refused if it has 0x00, if the text has control characters other than tab, CR and LF, or if it is nearly valid UTF-8 (at least 2 valid and at least twice as many valid as invalid sequences). Covered by `tests/e2e/import-encoding.spec.ts`. RULE: **a decoder that cannot fail needs its own check for "is this text plausible", or the refusal path is dead code.**
