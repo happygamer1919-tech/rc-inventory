@@ -37,6 +37,11 @@ export function formatMoneyExact(value: number): string {
   return `${NF_EXACT.format(value)} ${DISPLAY_CURRENCY}`;
 }
 
+/** Numarul cu doi bani, fara moneda: `12,50`. Pentru o casuta de pret, care tine un numar. */
+export function formatNumberExact(value: number): string {
+  return NF_EXACT.format(value);
+}
+
 export function formatQty(value: number, unit: UnitCode): string {
   return `${NF2.format(value)} ${unitLabel(unit)}`;
 }
