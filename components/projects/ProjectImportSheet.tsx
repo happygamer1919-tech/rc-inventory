@@ -20,7 +20,7 @@ import { FilePicker } from "@/components/ui/FilePicker";
 import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK, PHONE_TAP } from "@/components/ui/phone";
 import {
   autoMatchProjectColumns,
-  parseCsv,
+  parseCsvWithLines,
   projectImportInstructions,
   skippedCsv,
   templateCsv,
@@ -84,6 +84,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
   const [rows, setRows] = React.useState<string[][]>([]);
+  const [lines, setLines] = React.useState<number[]>([]);
   const [mapping, setMapping] = React.useState<ProjectImportColumnMapping>([]);
 
   const [plan, setPlan] = React.useState<ProjectImportPlan | null>(null);
@@ -101,6 +102,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
   function clearFile() {
     setHeaders([]);
     setRows([]);
+    setLines([]);
   }
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -134,7 +136,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
       clearFile();
       return;
     }
-    const parsed = parseCsv(decoded.text);
+    const { rows: parsed, lines: parsedLines } = parseCsvWithLines(decoded.text);
     if (parsed.length < 2) {
       setError(EMPTY_FILE);
       clearFile();
@@ -150,6 +152,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
 
     setHeaders(head);
     setRows(body);
+    setLines(parsedLines.slice(1));
     setMapping(autoMatchProjectColumns(head));
   }
 
@@ -179,7 +182,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planProjectImport({ rows, mapping });
+    const result = await planProjectImport({ rows, lines, mapping });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
@@ -193,7 +196,7 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
   async function onRun() {
     setError(null);
     setPending(true);
-    const result = await runProjectImport({ rows, mapping, choices });
+    const result = await runProjectImport({ rows, lines, mapping, choices });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
