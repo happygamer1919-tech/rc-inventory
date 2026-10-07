@@ -9249,3 +9249,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** display
 **ERROR:** P3-153 limited the Ieșiri empty message to the no-filter case. With a client or kind filter that matched nothing, /comenzi showed an empty list and only "0 de expediat din 0".
 **SOLUTION:** card P3-188: a second message (`outbound-empty-filtered`) when the total is 0 and a filter is active, plus a spec on a client with no slips. RULE: **when an empty message is narrowed to one case, add the message for every other case that can still be empty.**
+
+### A test row named like another test's search breaks that test
+**Tag:** tests
+**ERROR:** the P3-188 case created a second client called `<TAG> client fara iesiri`; the P3-163 case searches the combo for `<TAG> client` and expected one match, got two (run 37558596475).
+**SOLUTION:** the extra client is named `<TAG> fara iesiri`. RULE: **a row a spec adds to shared seed data must not contain the text another case in the file searches for.**

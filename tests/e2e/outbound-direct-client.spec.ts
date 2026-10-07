@@ -1338,7 +1338,9 @@ test("lista iesirilor: un filtru fara rezultate arata un mesaj, nu o lista goala
   // Un client fara nicio iesire: filtrul de destinatie nu potriveste nimic.
   const empty = await asService("clients?select=id", {
     method: "POST",
-    body: { name: `${TAG} client fara iesiri` },
+    // Numele NU contine `${TAG} client`: cautarile din combo-urile celorlalte cazuri
+    // trebuie sa mai dea exact o potrivire.
+    body: { name: `${TAG} fara iesiri` },
   });
   expect(empty.ok, `clientul gol nu a putut fi scris: ${empty.text}`).toBe(true);
   const emptyClientId = String(empty.rows[0]!.id);
