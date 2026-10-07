@@ -9254,3 +9254,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** the P3-188 case created a second client called `<TAG> client fara iesiri`; the P3-163 case searches the combo for `<TAG> client` and expected one match, got two (run 37558596475).
 **SOLUTION:** the extra client is named `<TAG> fara iesiri`. RULE: **a row a spec adds to shared seed data must not contain the text another case in the file searches for.**
+
+### A paged read that stops at the first short page depends on the server cap
+**Tag:** data
+**ERROR:** `readActiveClientOptions` and `readAllRows` read pages of 1000 and stopped at the first page shorter than 1000. If the hosted `max_rows` is below 1000, page one comes back short and clients are silently lost.
+**SOLUTION:** card P3-189: both reads use `readAllPages` with an exact count plus `dedupeById`, covered by `tests/e2e/counted-paging-reads.spec.ts`. RULE: **never end a paged read on "the page was short"; end it on the counted total.**

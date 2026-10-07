@@ -8,6 +8,7 @@
 // rand din fisier sa para nou si importul ar crea dublate. Citirea arunca
 // ImportReadError, iar actiunea o transforma in mesajul de mai jos.
 import type { createClient } from "@/lib/supabase/server";
+import { dedupeById, readAllPages, type CountedPage } from "./id-list";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -23,26 +24,30 @@ export class ImportReadError extends Error {
   }
 }
 
-const PAGE = 1000;
-
 export async function readAllRows(
   supabase: Supabase,
   table: "clients" | "projects" | "categories" | "products",
   columns: string,
   failure: string = CLIENTS_READ_FAILED,
 ): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(columns)
-      .order("id")
-      .range(from, from + PAGE - 1);
-    if (error || !data) throw new ImportReadError(failure);
-    rows.push(...(data as unknown as Record<string, unknown>[]));
-    if (data.length < PAGE) break;
+  let rows: Record<string, unknown>[];
+  try {
+    rows = await readAllPages<Record<string, unknown>>(
+      table,
+      (from, to) =>
+        supabase
+          .from(table)
+          .select(columns, { count: "exact" })
+          .order("id")
+          .range(from, to) as unknown as PromiseLike<CountedPage<Record<string, unknown>>>,
+    );
+  } catch {
+    throw new ImportReadError(failure);
   }
-  return rows;
+  // Fara id in coloane nu se poate deduplica; ordinea dupa id ramane stabila.
+  return rows.every((r) => typeof r.id === "string")
+    ? dedupeById(rows as (Record<string, unknown> & { id: string })[])
+    : rows;
 }
 
 export async function readAllClients(
