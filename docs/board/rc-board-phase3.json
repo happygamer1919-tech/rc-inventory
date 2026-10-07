@@ -5744,6 +5744,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request. Found by the bug check 2026-10-06; the P3-155 report lists the projects and materials imports as untouched. The write paths (runProjectImport, runMaterialImport) need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
     },
     {
+      "id": "P3-193",
+      "title": "Long lists never double or skip a row, and a colleague saving mid-read no longer shows the error screen. (1) The tasks reads (readTaskRows, readEntityTaskRows), the full catalog read (readCatalogWithStock) and the full outbound read (listOutboundIssues) pass through dedupeById, as P3-178 did for stock, inbound and movements, keeping their order. (2) readAllPages retries the whole read from page one when the exact count changes between pages, up to 3 attempts; only after the last one it throws, in Romanian: 'Lista s-a schimbat în timpul citirii. Încercați din nou.' Page sizes and what the screens show are not changed. No migration.",
+      "plain": "Listele lungi (sarcini, catalog, ieșiri) nu mai arată un rând de două ori, iar dacă un coleg salvează ceva în timp ce lista se citește, lista se citește din nou în loc să apară ecranul de eroare.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-178"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/tasks-list-paging.spec.ts are green in this pull request's own `quality` run: `P3-193: un rand mutat peste marginea paginii de un coleg vine o singura data`, `P3-193: totalul se schimba la prima incercare, apoi sta: lista vine intreaga, fara eroare`, `P3-193: totalul se schimba la fiecare incercare: mesaj in romana, dupa trei citiri`. (b) The existing case `P3-39: citirea pe pagini aduna tot sub o limita mai mica decat pagina, iar un raspuns scurt este un esec vizibil` in tests/e2e/review.spec.ts stays green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Retry the whole read from page one, 3 attempts in all, then throw the Romanian message. Duplicates are dropped by id, first occurrence kept; a row skipped by a move is not recoverable from a position read, same as P3-178. No change to page sizes, the screens, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-07T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/paged-reads-stable against main: its quality run on the head sha runs tests/e2e/tasks-list-paging.spec.ts; report in docs/reports/2026-10-07-executor-paged-reads-stable.md",
+        "at": "2026-10-07T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request. Found by the bug check 2026-10-06. The new cases are pure (fake client, no database)."
+    },
+    {
       "id": "P3-192",
       "title": "Romanian plurals: the four import sheets said 'Am citit 3 de rânduri' for every count but 1, the export notices on Clients, Projects and Inventory said '25 rânduri' with no 'de', and the Azi tasks card said '1 deschise' for one task. All now go through plural() in lib/data/format.ts: 1 rând, 3 rânduri, 20 de rânduri, 101 rânduri, 120 de rânduri; the Azi card reads '1 sarcină deschisă' and '2 sarcini deschise'. Text only. The plural() rule, routes, queries and import logic are not changed.",
       "plain": "La importuri, la exporturi și pe cardul de sarcini de pe Azi, numărul de rânduri și de sarcini se scrie corect în română.",
