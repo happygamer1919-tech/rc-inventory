@@ -23,6 +23,7 @@ import {
   type ChipTone,
 } from "@/components/ui/primitives";
 import { RecordLink } from "@/components/ui/RecordLink";
+import { plural } from "@/lib/data/format";
 import { assigneeLabel } from "@/lib/data/tasks-map";
 import { PHONE_CELL, PHONE_ROW, PHONE_TABLE, PHONE_WIDE } from "@/components/ui/phone";
 import {
@@ -53,7 +54,7 @@ export function AziTasksSection({ tasks }: { tasks: Task[] }) {
       <Card className={PHONE_TABLE}>
         <CardHeader
           title="Sarcini scadente azi"
-          hint={tasks.length === 0 ? undefined : `${tasks.length} deschise, cu termenul azi`}
+          hint={tasks.length === 0 ? undefined : `${plural(tasks.length, "sarcină deschisă", "sarcini deschise")}, cu termenul azi`}
         />
 
         {tasks.length === 0 ? (

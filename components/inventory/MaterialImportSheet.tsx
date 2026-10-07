@@ -48,6 +48,7 @@ import {
   runMaterialImport,
   type MaterialImportOutcome,
 } from "@/lib/data/material-import-actions";
+import { plural } from "@/lib/data/format";
 
 const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Importă"] as const;
 
@@ -289,7 +290,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
 
               {ready ? (
                 <p className="text-[13px] text-rc-black" data-testid="import-read">
-                  Am citit {rows.length} {rows.length === 1 ? "rând" : "de rânduri"} și{" "}
+                  Am citit {plural(rows.length, "rând", "rânduri")} și{" "}
                   {headers.length} {headers.length === 1 ? "coloană" : "coloane"}.
                 </p>
               ) : null}
