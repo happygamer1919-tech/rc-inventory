@@ -39,6 +39,7 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
   sniffDelimiter,
   validateCurrency,
   IMPORT_MAX_BYTES,
@@ -54,7 +55,7 @@ import {
 import { parseImportNumber } from "./import-number";
 import { ALL_UNITS, unitLabel, type UnitCode } from "./units";
 
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile in care poate intra o coloana din fisierul de materiale. Primele sase
@@ -276,8 +277,9 @@ export function buildMaterialImportPreview(
   mapping: MaterialImportColumnMapping,
   categories: CategoryLookup,
   headerLine = 1,
+  lines?: number[],
 ): ImportPreview<MaterialImportField> {
-  return buildImportPreview(rows, mapping, materialImportFields(categories), headerLine);
+  return buildImportPreview(rows, mapping, materialImportFields(categories), headerLine, lines);
 }
 
 /**

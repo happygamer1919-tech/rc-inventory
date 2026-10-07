@@ -5717,6 +5717,31 @@
         "at": "2026-10-07T04:30:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request, from the 2026-10-06 bug check."
+    },
+    {
+      "id": "P3-191",
+      "title": "Import error file: the projects and materials imports number their rows as Excel does. P3-155 fixed this for clients and leads and left these two out, so a blank line or a cell with a line break made every later 'Randul N' wrong, and the skipped row's cells were looked up by arithmetic on the line number. (1) ProjectImportSheet and MaterialImportSheet read the file with parseCsvWithLines and send the lines with the rows. (2) planProjectImport, runProjectImport, planMaterialImport and runMaterialImport pass them to buildProjectPlan and buildMaterialPlan, which pass them to the shared preview; every error row and every skipped row finds its original cells through rawRowAt, not through line minus header minus one. Clients and leads imports, columns, refusal texts and dedup rules are not changed. No migration.",
+      "plain": "La importul de proiecte și de materiale, numărul rândului din fișierul cu erori este cel din Excel, chiar dacă fișierul are linii goale sau celule pe mai multe linii.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-155"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-row-lines-projects-materials.spec.ts are green in this pull request's own `quality` run: `import proiecte: un rand gresit dupa linie goala si celula pe doua linii are linia din Excel si celulele lui`, `import proiecte: un client dezactivat dupa linie goala poarta linia din Excel si celulele lui`, `import materiale: un rand gresit dupa linie goala si celula pe doua linii are linia din Excel si celulele lui`, `import materiale: un dublat dupa linie goala are linia din Excel, nu cea din ordine`. (b) tests/e2e/import-error-file-rows.spec.ts stays green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Row numbers count the file's physical lines, header = line 1, blank lines skipped as data but counted, exactly as P3-155 did for clients and leads. No change to the clients and leads imports, the import column sets, refusal texts, dedup rules, the lead PageHeader prop, app/api/extraction/** or app/api/documents/**. No migration.",
+      "last_checkpoint": "2026-10-07T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-191 against main: its quality run on the head sha runs tests/e2e/import-row-lines-projects-materials.spec.ts; report in docs/reports/2026-10-07-executor-import-row-lines-pm.md",
+        "at": "2026-10-07T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request. Found by the bug check 2026-10-06; the P3-155 report lists the projects and materials imports as untouched. The write paths (runProjectImport, runMaterialImport) need a database, so they are covered by typecheck and the existing import specs in CI, not by a new pure case."
     }
   ]
 }

@@ -21,7 +21,7 @@ import { PHONE_CLOSE, PHONE_SHEET, PHONE_STACK, PHONE_TAP } from "@/components/u
 import {
   autoMatchMaterialColumns,
   materialImportInstructions,
-  parseCsv,
+  parseCsvWithLines,
   skippedCsv,
   templateCsv,
   MATERIAL_IMPORT_FIELDS,
@@ -85,6 +85,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
   const [rows, setRows] = React.useState<string[][]>([]);
+  const [lines, setLines] = React.useState<number[]>([]);
   const [mapping, setMapping] = React.useState<MaterialImportColumnMapping>([]);
 
   const [plan, setPlan] = React.useState<MaterialImportPlan | null>(null);
@@ -102,6 +103,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
   function clearFile() {
     setHeaders([]);
     setRows([]);
+    setLines([]);
   }
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -135,7 +137,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
       clearFile();
       return;
     }
-    const parsed = parseCsv(decoded.text);
+    const { rows: parsed, lines: parsedLines } = parseCsvWithLines(decoded.text);
     if (parsed.length < 2) {
       setError(EMPTY_FILE);
       clearFile();
@@ -151,6 +153,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
 
     setHeaders(head);
     setRows(body);
+    setLines(parsedLines.slice(1));
     setMapping(autoMatchMaterialColumns(head));
   }
 
@@ -180,7 +183,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planMaterialImport({ rows, mapping });
+    const result = await planMaterialImport({ rows, lines, mapping });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
@@ -194,7 +197,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
   async function onRun() {
     setError(null);
     setPending(true);
-    const result = await runMaterialImport({ rows, mapping, choices });
+    const result = await runMaterialImport({ rows, lines, mapping, choices });
     setPending(false);
     if (!result.ok) {
       setError(result.message);

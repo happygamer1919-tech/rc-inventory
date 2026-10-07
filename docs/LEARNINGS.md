@@ -9264,3 +9264,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** the materials export wrote the SKU as a plain cell, so Excel turned 000123 into 123 and 12-05 into a date; a re-imported file missed the SKU match and created a second product.
 **SOLUTION:** card P3-190: the SKU is written with csvText, as P3-139 did for phone and IDNO; parseCsv unwraps it. Covered by tests/e2e/material-export-sku.spec.ts. RULE: **any identifier column in an export that looks like a number or date goes through csvText.**
+
+### Every import of the same family must move together
+**Tag:** data
+**ERROR:** P3-155 gave the clients and leads imports real source lines and left projects and materials on `rows[line - headerLine - 1]` and `request.rows[entry.line - 2]`, so their "Rândul N" was wrong after any blank line or multi-line cell.
+**SOLUTION:** card P3-191: both sheets read with `parseCsvWithLines`, send `lines`, and every error or skipped row finds its cells through `rawRowAt`. Covered by `tests/e2e/import-row-lines-projects-materials.spec.ts`. RULE: **when a fix touches one import, grep the other imports for the same arithmetic before calling it done.**
