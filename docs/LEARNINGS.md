@@ -9239,3 +9239,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** display
 **ERROR:** P3-163 moved the walk-in line totals to `formatMoneyExact` but the empty price box still used `formatNumber`, which rounds to whole lei, so a product worth 12,50 suggested 13.
 **SOLUTION:** card P3-187: `formatNumberExact` in `lib/data/format.ts` (two decimals, no currency) feeds the placeholder, and the test product is worth 12,50 so the spec can tell 12,50 from 13. RULE: **when a fix swaps a formatter, grep every use of the old one in the same file in the same card.**
+
+### An empty string passed to a validator can mean "clear", not "no value"
+**Tag:** data
+**ERROR:** P3-156 passed `nextActionAt: lead.nextActionDate` to `createClientRecord`. With no date column that is `""`, which `validateNextAction` reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped and an imported "De reluat" row had no date. `loadExisting` also never read `next_action_at`, so the date was not fillable on an existing record.
+**SOLUTION:** card P3-186: `importNextActionAt` (`lib/data/import-shared.ts`) turns `""` into `undefined` in both import actions, and both `loadExisting` functions read `next_action_at` and list `nextActionDate` as fillable. RULE: **when a field distinguishes undefined (no value) from "" (clear), an import must send undefined for an absent cell.**

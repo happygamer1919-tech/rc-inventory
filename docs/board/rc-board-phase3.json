@@ -5617,6 +5617,31 @@
         "at": "2026-10-06T14:30:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. P3-164 is the card that added the name+phone fallback rule and changed what the import does. This instruction text was not updated then, so it still said email-only."
+    },
+    {
+      "id": "P3-186",
+      "title": "Imported De reluat rows keep the mirrored next-step date, and the next-step date can be filled on an existing client or lead by the normal fill path. (1) lib/data/lead-import-actions.ts and lib/data/client-import-actions.ts pass nextActionAt through importNextActionAt (lib/data/import-shared.ts), which returns undefined for an empty cell instead of an empty string, so validateNextAction applies the follow_up mirror as the form does. validateNextAction is not changed. (2) loadExisting in both files selects next_action_at and lists nextActionDate as a fillable field. No migration.",
+      "plain": "La import, un rând „De reluat” fără dată primește data pasului următor ca în formular, iar data se poate completa și pe un client sau lead existent, dacă este goală.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-156"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/lead-import-next-action-date.spec.ts are green in this pull request's own `quality` run on the head sha: `fara data in fisier: la creare se trimite undefined, nu stergere`, `lead nou dintr-un fisier fara coloana de data: data pregatita este goala`, `existent cu data goala: data din fisier se completeaza`, `existent cu data deja scrisa: data din fisier nu o suprascrie`. (b) tests/e2e/lead-import.spec.ts, clients-import.spec.ts and lead-import-source-fill.spec.ts stay green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0 and no migration file is added.",
+      "defaults": "An empty or absent date cell is no value (undefined), never a clear. An existing non-empty date is never overwritten. validateNextAction and the form keep their meaning: an explicit clear from the form stays a clear. No change to matching, dedup or plan logic, the lead PageHeader prop, the hasPhase3Schema gate, app/api/extraction/** or the known defects in handoff Part 6. No migration. Romanian UI with diacritics, no em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-next-action-date against main: its quality run on the head sha runs tests/e2e/lead-import-next-action-date.spec.ts",
+        "at": "2026-10-06T19:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. P3-156 passed an empty string for an absent date column, which validateNextAction reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped. The test covers the pure parts (the helper and the plan); the database write path runs only in CI."
     }
   ]
 }
