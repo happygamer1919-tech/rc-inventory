@@ -5211,6 +5211,31 @@
       "notes": "Found by bug check 2026-10-06: P3-153 narrowed the empty message to the no-filter case and left the filtered case blank."
     },
     {
+      "id": "P3-189",
+      "title": "The client picker and the client import read every client, whatever the server page cap is",
+      "plain": "Lista de clienți din selectoare și importul de clienți citesc toți clienții, indiferent de limita serverului.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-166"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/counted-paging-reads.spec.ts are green in this pull request's own `quality` run: with a fake server that returns 3 rows per page while the count says 7, readActiveClientOptions and readAllClients both return all 7 rows. (b) npx tsc --noEmit and npm run build exit 0. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "RULES: both reads use readAllPages with an exact count and dedupeById. The picker keeps its error text and its Romanian sort. No change to what the pickers show or in what order. No migration. No em dash or en dash anywhere.",
+      "last_checkpoint": "2026-10-06T22:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/client-options-counted-paging against main: its quality run on the head sha runs tests/e2e/counted-paging-reads.spec.ts",
+        "at": "2026-10-06T22:00:00Z"
+      },
+      "notes": "Found by bug check 2026-10-06: both reads stopped at the first short page, which loses clients if the hosted max_rows is under 1000."
+    },
+    {
       "id": "P3-163",
       "title": "Walk-in sale unit prices and totals show their exact value (12,50 MDL, 0,40 MDL), not rounded to whole lei",
       "plain": "La vânzarea directă, prețul pe unitate și totalurile se afișează exact, cu bani (12,50 MDL), nu rotunjite la lei întregi.",
