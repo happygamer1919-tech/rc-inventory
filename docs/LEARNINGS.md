@@ -9234,3 +9234,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** `task-assignee-email-fallback.spec.ts` (P3-165) held only the no-assignee case, and its header said P3-130 tested the name and email cases. Nothing did. The Azi case P3-142a had its only assertion inside an `if`, so it passed on the shared database while checking nothing.
 **SOLUTION:** card P3-184: cases (a) name and (b) blank name shown by email assert in the list, the client panel and Azi; P3-142a is removed and points to `azi-empty-title.spec.ts`, which proves the empty wordings with no data. The email is read as the owner, because `list_team_members()` hides emails from an account manager (they see "Fără nume"). RULE: **a header comment may only state what the file asserts, and an assertion never sits behind an `if` on shared data.**
+
+### An empty string passed to a validator can mean "clear", not "no value"
+**Tag:** data
+**ERROR:** P3-156 passed `nextActionAt: lead.nextActionDate` to `createClientRecord`. With no date column that is `""`, which `validateNextAction` reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped and an imported "De reluat" row had no date. `loadExisting` also never read `next_action_at`, so the date was not fillable on an existing record.
+**SOLUTION:** card P3-186: `importNextActionAt` (`lib/data/import-shared.ts`) turns `""` into `undefined` in both import actions, and both `loadExisting` functions read `next_action_at` and list `nextActionDate` as fillable. RULE: **when a field distinguishes undefined (no value) from "" (clear), an import must send undefined for an absent cell.**
