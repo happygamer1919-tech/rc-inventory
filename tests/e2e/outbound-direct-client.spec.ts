@@ -245,7 +245,7 @@ test.beforeAll(async () => {
       name: `${TAG} produs`,
       category_id: await anyCategoryId(),
       unit: "pcs",
-      unit_value_mdl: 10,
+      unit_value_mdl: 12.5,
     },
   });
   expect(product.ok, `produsul de test nu a putut fi scris: ${product.text}`).toBe(true);
@@ -1390,6 +1390,20 @@ test("iesire client direct: pret unitar si total se afiseaza cu bani, nu rotunji
     page.locator("text=" + expectedPrice2),
     `unitatile se afiseaza cu bani pe fisa: ${expectedPrice2}`,
   ).toBeVisible();
+});
+
+test("iesire client direct: casuta de pret sugereaza valoarea exacta a produsului, 12,50 si nu 13", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "1");
+  await expect(
+    page.getByTestId("issue-price-0"),
+    "sugestia de pret este valoarea exacta, nu rotunjita la lei intregi",
+  ).toHaveAttribute("placeholder", "12,50");
 });
 
 /* ------------------------------------------------------------------ (f) -- */
