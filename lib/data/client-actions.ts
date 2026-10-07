@@ -285,7 +285,7 @@ export type WalkInClientInput = {
  *  insertClientRecord de mai jos, cu aceeasi validare, deci nu exista un al doilea
  *  set de reguli care sa se departeze de primul.
  *
- *  Baza o spune si ea: politica clients_insert din migratia 0073 primeste
+ *  Baza o spune si ea: politica clients_insert din migratia 0076 primeste
  *  administratorul si managerul de cont, active, iar clients_update ramane a
  *  administratorului. */
 export async function createWalkInClient(

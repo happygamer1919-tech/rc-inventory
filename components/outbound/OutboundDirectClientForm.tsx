@@ -55,7 +55,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumber, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
@@ -75,7 +75,12 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 
-export type ClientChoice = { id: string; name: string };
+export type ClientChoice = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  fiscal_code?: string | null;
+};
 
 type Line = { key: string; productId: string; quantity: string; price: string };
 
@@ -107,7 +112,7 @@ export function OutboundDirectClientForm({
    * VINE DE PE SESIUNE SI NU SE GHICESTE AICI. Cardul P3-06 scrie regula pentru care
    * exista aceasta proprietate: ecranul nu are voie sa ofere un buton pe care baza il
    * va refuza. De la cardul P3-147, createWalkInClient si politica clients_insert din
-   * migratia 0073 primesc administratorul si managerul de cont, deci amandoi vad
+   * migratia 0076 primesc administratorul si managerul de cont, deci amandoi vad
    * butonul aici. Ecranul Clienți ramane al administratorului.
    */
   canCreateClient: boolean;
@@ -143,7 +148,17 @@ export function OutboundDirectClientForm({
 
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
-  const clientOptions: ComboOption[] = allClients.map((c) => ({ value: c.id, label: c.name }));
+  // P3-177: fiecare rand al pickerului arata: nume client (necesar), telefon (daca
+  // exista), sau IDNO (daca lipsa telefonul), sau nimic (daca amandoua lipsesc).
+  // Cautarea se potriveste pe nume si pe detaliu.
+  const clientOptions: ComboOption[] = allClients.map((c) => {
+    const detail = c.phone || c.fiscal_code || "";
+    return {
+      value: c.id,
+      label: c.name,
+      hint: detail,
+    };
+  });
   const productOptions: ComboOption[] = products.map((p) => ({
     value: p.id,
     label: p.name,
@@ -346,6 +361,7 @@ export function OutboundDirectClientForm({
                       ? "Niciun client cu acest nume. Creează-l mai jos."
                       : "Niciun client cu acest nume."
                   }
+                  dontSelectOnMultipleExactMatches={true}
                 />
               </div>
             </Field>
@@ -469,7 +485,7 @@ export function OutboundDirectClientForm({
                         onChange={(e) => setLine(l.key, { price: e.target.value })}
                         placeholder={
                           product && product.unitValueMdl > 0
-                            ? formatNumber(product.unitValueMdl)
+                            ? formatNumberExact(product.unitValueMdl)
                             : "lasă gol"
                         }
                         data-testid={`issue-price-${index}`}

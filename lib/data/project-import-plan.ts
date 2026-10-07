@@ -25,6 +25,7 @@ import {
   type ProjectImportColumnMapping,
   type ProjectImportField,
 } from "./project-import-types";
+import { rawRowAt } from "./import-shared";
 import { projectPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Clientul, denumirea si starea nu
@@ -99,6 +100,8 @@ export function buildProjectPlan(input: {
   clients: ClientChoice[];
   existing: ExistingProject[];
   headerLine?: number;
+  /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
+  lines?: number[];
 }): { plan: ProjectImportPlan; prepared: Map<number, Record<ProjectImportField, string>> } {
   const headerLine = input.headerLine ?? 1;
   const preview = buildProjectImportPreview(
@@ -106,6 +109,7 @@ export function buildProjectPlan(input: {
     input.mapping,
     buildClientLookup(input.clients),
     headerLine,
+    input.lines,
   );
 
   const clientNames = new Map(input.clients.map((c) => [c.id, c.name]));
@@ -169,7 +173,7 @@ export function buildProjectPlan(input: {
         kind: "error",
         line: row.line,
         reason: PROJECT_IMPORT_REASON.inactiveClient(clientName),
-        raw: input.rows[row.line - headerLine - 1] ?? [],
+        raw: rawRowAt(input.rows, input.lines, headerLine, row.line),
       });
       counts.error += 1;
       continue;

@@ -68,7 +68,10 @@ The format is machine-read, so keep it exactly:
 - `0070_outbound_lines_active_account.sql`, card de aplicare P3-138
 - `0071_client_material_summary_walkin.sql`, card de aplicare P3-159
 - `0072_list_team_members.sql`, card de aplicare P3-170
-- `0073_walkin_manager_client_insert.sql`, card de aplicare P3-147
+- `0073_batches_status_history_active_account.sql`, card de aplicare P3-179
+- `0074_save_invoice_draft_refuses_walkin.sql`, card de aplicare P3-171
+- `0075_take_stock_status_and_line_policies.sql`, card de aplicare P3-195
+- `0076_walkin_manager_client_insert.sql`, card de aplicare P3-147
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

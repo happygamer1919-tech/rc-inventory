@@ -567,5 +567,5 @@ test("export materiale: se exporta toate randurile filtrului, nu doar ce arata e
   const rows = dataRows(exported.text);
   expect(rows, "toate cele 30").toHaveLength(count);
   expect(new Set(rows.map((r) => r[col("sku")])).size, "fara randuri repetate").toBe(count);
-  await expect(page.getByTestId("products-export-notice")).toContainText(`Am exportat ${count} rânduri.`);
+  await expect(page.getByTestId("products-export-notice")).toContainText(`Am exportat ${count} de rânduri.`);
 });

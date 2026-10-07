@@ -245,7 +245,7 @@ test.beforeAll(async () => {
       name: `${TAG} produs`,
       category_id: await anyCategoryId(),
       unit: "pcs",
-      unit_value_mdl: 10,
+      unit_value_mdl: 12.5,
     },
   });
   expect(product.ok, `produsul de test nu a putut fi scris: ${product.text}`).toBe(true);
@@ -918,6 +918,115 @@ test("creare client fara etapa: randul ramane cold, implicitul pe care se bizuie
   expect(String(created.rows[0]?.stage ?? ""), "un client creat fara etapa este cold").toBe("cold");
 });
 
+/* ------------------------------------------------------------------ P3-177 -- */
+
+test("P3-177: doi clienti cu acelasi nume se pot deosebi in lista dupa telefon sau IDNO", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // P3-177, acceptanta (a). Doi clienti cu acelasi nume, cu numere de telefon
+  // diferite. Ambele randuri arata telefonul; alegerea celui de al doilea salveaza
+  // vânzarea pe cel de al doilea.
+  const clientName = `${TAG}-Client-identic`;
+  const phone1 = `${TAG}-phone1`;
+  const phone2 = `${TAG}-phone2`;
+
+  // Creare doi clienti cu acelasi nume, cu telefoane diferite.
+  const client1 = await asService(
+    "clients?select=id",
+    { method: "POST", body: { name: clientName, type: "company", phone: phone1, active: true, stage: "client" } },
+  );
+  expect(client1.ok).toBe(true);
+  const client1Id = client1.rows[0]?.id;
+
+  const client2 = await asService(
+    "clients?select=id",
+    { method: "POST", body: { name: clientName, type: "company", phone: phone2, active: true, stage: "client" } },
+  );
+  expect(client2.ok).toBe(true);
+  const client2Id = client2.rows[0]?.id;
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  // Tastarea numelui comun deschide lista.
+  const clientInput = page.getByTestId("field-client").locator("input");
+  await clientInput.fill(clientName);
+  await page.waitForTimeout(500);
+
+  // Ambele randuri arata telefonul.
+  const listItems = page.locator('[data-rc-combo-list] li button');
+  const itemCount = await listItems.count();
+  expect(itemCount).toBeGreaterThanOrEqual(2);
+
+  // Cautare randul care contine phone1 si randul care contine phone2.
+  const allItems = await page.locator('[data-rc-combo-list] li button').allTextContents();
+  const hasPhone1 = allItems.some((text) => text.includes(phone1));
+  const hasPhone2 = allItems.some((text) => text.includes(phone2));
+  expect(hasPhone1, "lista arata telefonul clientului 1").toBe(true);
+  expect(hasPhone2, "lista arata telefonul clientului 2").toBe(true);
+
+  // Alegerea celui de al doilea client, dupa telefon: ordinea a doua nume identice
+  // nu este stabila, deci pozitia in lista nu spune care este care.
+  await page.locator("[data-rc-combo-list] li button", { hasText: phone2 }).click();
+  await expect(clientInput).toHaveValue(clientName);
+
+  // Completare restul formularului si salvare.
+  await page.getByTestId("issue-pickup-date").fill("01.12.2026");
+  await fillFirstLine(page, "1");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+
+  // Verificare ca vânzarea s-a salvat pe al doilea client.
+  const issued = await asService(`outbound_issues?select=client_id&client_id=eq.${client2Id}`);
+  expect(issued.ok).toBe(true);
+  expect(issued.rows.length).toBeGreaterThan(0);
+});
+
+test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  const clientName = `${TAG}-Client-dou`;
+  const phone1 = "111";
+  const phone2 = "222";
+
+  // Creare doi clienti cu acelasi nume.
+  await asService("clients?select=id", {
+    method: "POST",
+    body: { name: clientName, type: "company", phone: phone1, active: true, stage: "client" },
+  });
+  await asService("clients?select=id", {
+    method: "POST",
+    body: { name: clientName, type: "company", phone: phone2, active: true, stage: "client" },
+  });
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  const clientInput = page.getByTestId("field-client").locator("input");
+  await clientInput.fill(clientName);
+  await page.waitForTimeout(500);
+
+  // Parasire camp, cu un clic in afara (asa se inchide comboboxul). Cu doua
+  // potriviri exacte nu se alege nimic si lista ramane deschisa.
+  await page.getByTestId("outbound-form").click({ position: { x: 2, y: 2 } });
+  await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
+
+  // Escape inchide lista fara sa aleaga: campul ramane gol.
+  await clientInput.press("Escape");
+  await expect(clientInput).toHaveValue("");
+
+  // Formularul cere completarea clientului.
+  await page.getByTestId("issue-submit").click();
+  await expect(
+    page.getByTestId("issue-problems"),
+    "formularul refuza trimiterea fara client",
+  ).toContainText("Alege clientul");
+});
+
 /* ------------------------------------------------------------- P3-147 -- */
 
 test("iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza", async ({
@@ -1402,6 +1511,30 @@ test("lista iesirilor: filtrul pe mod arata numai modul ales", async ({ page }) 
   ).toBeVisible();
 });
 
+test("lista iesirilor: un filtru fara rezultate arata un mesaj, nu o lista goala", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // Un client fara nicio iesire: filtrul de destinatie nu potriveste nimic.
+  const empty = await asService("clients?select=id", {
+    method: "POST",
+    // Numele NU contine `${TAG} client`: cautarile din combo-urile celorlalte cazuri
+    // trebuie sa mai dea exact o potrivire.
+    body: { name: `${TAG} fara iesiri` },
+  });
+  expect(empty.ok, `clientul gol nu a putut fi scris: ${empty.text}`).toBe(true);
+  const emptyClientId = String(empty.rows[0]!.id);
+
+  await signIn(page, ownerAccount());
+  await page.goto(`/comenzi?client=${emptyClientId}`);
+
+  const filtered = page.getByTestId("outbound-empty-filtered");
+  await expect(filtered).toBeVisible({ timeout: 25_000 });
+  await expect(filtered).toHaveText("Nicio ieșire nu se potrivește cu filtrul ales.");
+  await expect(page.getByTestId("outbound-empty")).toHaveCount(0);
+});
+
 /* =======================================================================
    CARDUL P3-163, ACCEPTANTA (a) SI (b)
    ======================================================================= */
@@ -1462,6 +1595,20 @@ test("iesire client direct: pret unitar si total se afiseaza cu bani, nu rotunji
     page.locator("text=" + expectedPrice2),
     `unitatile se afiseaza cu bani pe fisa: ${expectedPrice2}`,
   ).toBeVisible();
+});
+
+test("iesire client direct: casuta de pret sugereaza valoarea exacta a produsului, 12,50 si nu 13", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "1");
+  await expect(
+    page.getByTestId("issue-price-0"),
+    "sugestia de pret este valoarea exacta, nu rotunjita la lei intregi",
+  ).toHaveAttribute("placeholder", "12,50");
 });
 
 /* ------------------------------------------------------------------ (f) -- */
@@ -1688,8 +1835,8 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "lib/data/tasks-actions.ts",
     "tests/e2e/tasks.spec.ts",
     // CARDUL P3-147, acelasi motiv: managerul de cont creeaza clientul de la tejghea.
-    "supabase/migrations/0073_walkin_manager_client_insert.sql",
-    "scripts/poc-free/local-db/assertions/0073_walkin_manager_client_insert.sql",
+    "supabase/migrations/0076_walkin_manager_client_insert.sql",
+    "scripts/poc-free/local-db/assertions/0076_walkin_manager_client_insert.sql",
     "lib/data/client-actions.ts",
     "components/outbound/OutboundDirectClientForm.tsx",
     "app/(app)/iesiri/page.tsx",

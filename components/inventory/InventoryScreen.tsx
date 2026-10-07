@@ -186,7 +186,7 @@ export function InventoryScreen({
       download(result.value.csv, MATERIAL_EXPORT_FILE_NAME);
       setExportNotice(
         result.value.notice ??
-          `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
+          `Am exportat ${plural(result.value.count, "rând", "rânduri")}.`,
       );
     } catch {
       setExportError("Exportul nu a reușit. Încearcă din nou.");
