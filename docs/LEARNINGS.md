@@ -9244,3 +9244,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** P3-156 passed `nextActionAt: lead.nextActionDate` to `createClientRecord`. With no date column that is `""`, which `validateNextAction` reads as an explicit clear, so the follow_up mirror (migration 0058) was skipped and an imported "De reluat" row had no date. `loadExisting` also never read `next_action_at`, so the date was not fillable on an existing record.
 **SOLUTION:** card P3-186: `importNextActionAt` (`lib/data/import-shared.ts`) turns `""` into `undefined` in both import actions, and both `loadExisting` functions read `next_action_at` and list `nextActionDate` as fillable. RULE: **when a field distinguishes undefined (no value) from "" (clear), an import must send undefined for an absent cell.**
+
+### A narrowed empty state leaves the filtered case blank
+**Tag:** display
+**ERROR:** P3-153 limited the Ieșiri empty message to the no-filter case. With a client or kind filter that matched nothing, /comenzi showed an empty list and only "0 de expediat din 0".
+**SOLUTION:** card P3-188: a second message (`outbound-empty-filtered`) when the total is 0 and a filter is active, plus a spec on a client with no slips. RULE: **when an empty message is narrowed to one case, add the message for every other case that can still be empty.**

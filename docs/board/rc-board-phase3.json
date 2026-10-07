@@ -5186,6 +5186,31 @@
       "notes": "Found by bug check 2026-10-06: P3-163 moved the totals to formatMoneyExact and missed the placeholder."
     },
     {
+      "id": "P3-188",
+      "title": "Comenzi shows a clear message, not a blank list, when a filter has no results",
+      "plain": "Pe ecranul Comenzi, când un filtru nu găsește nimic, apare un mesaj clar în loc de o listă goală.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-153"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The case `lista iesirilor: un filtru fara rezultate arata un mesaj, nu o lista goala` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run: on /comenzi?client=<client with no slips> the element `outbound-empty-filtered` shows the text and `outbound-empty` is absent. (b) The existing P3-153 and mode filter cases in the same file stay green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: the existing message for the no-filter case stays exactly as it is. A second message with testid outbound-empty-filtered shows when the total is 0 and a client or project filter or a kind filter is active. Nothing else on the screen changes. No migration.",
+      "last_checkpoint": "2026-10-06T21:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/orders-filtered-empty against main: its quality run on the head sha runs the named acceptance case and the board validator",
+        "at": "2026-10-06T21:30:00Z"
+      },
+      "notes": "Found by bug check 2026-10-06: P3-153 narrowed the empty message to the no-filter case and left the filtered case blank."
+    },
+    {
       "id": "P3-163",
       "title": "Walk-in sale unit prices and totals show their exact value (12,50 MDL, 0,40 MDL), not rounded to whole lei",
       "plain": "La vânzarea directă, prețul pe unitate și totalurile se afișează exact, cu bani (12,50 MDL), nu rotunjite la lei întregi.",
