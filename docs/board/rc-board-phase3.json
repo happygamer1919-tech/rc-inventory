@@ -5790,6 +5790,29 @@
         "at": "2026-10-07T00:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request, from the 2026-10-06 bug check. Left for a later card: the 'N rânduri citite din fișier' total line on the import result panels still says 'rânduri' with no 'de' above 19."
+    },
+    {
+      "id": "P3-194",
+      "title": "A spreadsheet saved in an encoding the import cannot read is refused with the Romanian message instead of being imported as garbage. decodeCsvFile now reads UTF-16 (Excel 'Unicode Text', with or without BOM), refuses a UTF-8 file with a few bad bytes, and refuses a single-byte fallback that holds 0x00 or control characters. Plain windows-1250 and windows-1251 files, and the Romanian file with a foreign name from P3-182, read as before.",
+      "plain": "Dacă un fișier de import este salvat într-un format pe care aplicația nu îl poate citi, este refuzat cu mesajul în română, nu mai intră în sistem cu litere stricate. Fișierele „Unicode Text” din Excel se citesc corect.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) These cases in tests/e2e/import-encoding.spec.ts are green in this pull request's own `quality` run: `codare csv P3-194: UTF-16 LE cu BOM (Unicode Text din Excel) se citeste corect`, `codare csv P3-194: UTF-16 BE cu BOM si UTF-16 LE fara BOM se citesc corect`, `codare csv P3-194: UTF-16 taiat la jumatatea unui caracter este refuzat`, `codare csv P3-194: UTF-8 cu un singur octet gresit este refuzat, nu citit ca 1250`, `codare csv P3-194: octet 0x00 sau caracter de control intr-un fisier pe un octet este refuzat`, `codare csv P3-194: windows-1250 cu tab, CR si LF ramane acceptat`. (b) The existing cases in the same file (UTF-8 with and without BOM, windows-1250 with Würth, André and Kärcher, windows-1251, the already broken file) stay green. (c) The board validator exits 0 and no migration file is added.",
+      "defaults": "Only decodeCsvFile in lib/data/import-shared.ts changes. The refusal wording, normal UTF-8 and UTF-8 with BOM reading, the lead PageHeader prop, routes, queries and import logic are not touched. Threshold for a broken UTF-8 file: at least 2 valid UTF-8 characters and at least twice as many valid as invalid sequences. No migration.",
+      "last_checkpoint": "2026-10-07T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/csv-unreadable-refused against main: its quality run on the head sha runs tests/e2e/import-encoding.spec.ts; report in docs/reports/2026-10-07-executor-csv-unreadable-refused.md",
+        "at": "2026-10-07T00:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-07 by EXECUTOR in the same pull request. Found by the bug check 2026-10-06. The spec could not run locally (the web server needs Supabase variables); the same cases were run against decodeCsvFile directly with tsx and all matched."
     }
   ]
 }
