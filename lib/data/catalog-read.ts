@@ -9,7 +9,7 @@
 // la baza in plus, una dupa alta, pe Inventar, pe ecranul principal si in fiecare
 // formular care alege un produs. Cifrele erau corecte, doar mai incet.
 
-import { readAllPages, type CountedPage } from "./id-list";
+import { dedupeById, readAllPages, type CountedPage } from "./id-list";
 
 export type CatalogReads<R> = {
   /** O pagina din catalog, cu totalul, in ordinea stabila (sku, apoi id). */
@@ -23,7 +23,7 @@ export type CatalogReads<R> = {
  * pornite in acelasi timp. Stocul nu are nevoie de id-urile catalogului: filtrul
  * "numai active" se pune in cererea de stoc (readQuantityRows).
  */
-export async function readCatalogWithStock<R>(
+export async function readCatalogWithStock<R extends { id: string }>(
   reads: CatalogReads<R>,
   activeOnly: boolean,
   pageSize: number,
@@ -32,5 +32,6 @@ export async function readCatalogWithStock<R>(
     readAllPages<R>("catalogul", reads.catalogPage, pageSize),
     reads.stock(activeOnly ? "active" : undefined),
   ]);
-  return { rows, stock };
+  // Un rand mutat intre pagini de o salvare a unui coleg vine de doua ori.
+  return { rows: dedupeById(rows), stock };
 }

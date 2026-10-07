@@ -41,6 +41,8 @@ import {
   buildSynonymIndex,
   normaliseKey,
   parseCsv,
+  parseCsvWithLines,
+  rawRowAt,
   readImportDate,
   sniffDelimiter,
   validateCurrency,
@@ -58,7 +60,7 @@ import { parseImportNumber } from "./import-number";
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from "./projects-types";
 import { ALL_STATUSES } from "./projects-list-types";
 
-export { buildCsv, normaliseKey, parseCsv, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
 export type { RowNumber };
 
 /** Campurile in care poate intra o coloana din fisierul de proiecte. Primele opt
@@ -308,8 +310,9 @@ export function buildProjectImportPreview(
   mapping: ProjectImportColumnMapping,
   clients: ClientLookup,
   headerLine = 1,
+  lines?: number[],
 ): ImportPreview<ProjectImportField> {
-  const preview = buildImportPreview(rows, mapping, projectImportFields(), headerLine);
+  const preview = buildImportPreview(rows, mapping, projectImportFields(), headerLine, lines);
 
   const valid: ImportPreview<ProjectImportField>["valid"] = [];
   const invalid: ImportPreview<ProjectImportField>["invalid"] = [...preview.invalid];
@@ -320,18 +323,20 @@ export function buildProjectImportPreview(
   for (const entry of preview.valid) {
     const resolved = resolveProjectClient(entry.record.client, entry.record.clientId, clients, byId);
     if (!resolved.ok) {
-      const index = entry.line - headerLine - 1;
-      invalid.push({ line: entry.line, reason: resolved.reason, raw: rows[index] ?? [] });
+      invalid.push({
+        line: entry.line,
+        reason: resolved.reason,
+        raw: rawRowAt(rows, lines, headerLine, entry.line),
+      });
       continue;
     }
     entry.record.client = resolved.client.id;
     const { startDate, plannedEndDate } = entry.record;
     if (startDate !== "" && plannedEndDate !== "" && plannedEndDate < startDate) {
-      const index = entry.line - headerLine - 1;
       invalid.push({
         line: entry.line,
         reason: PROJECT_IMPORT_REASON.endBeforeStart,
-        raw: rows[index] ?? [],
+        raw: rawRowAt(rows, lines, headerLine, entry.line),
       });
       continue;
     }

@@ -35,6 +35,7 @@ import {
   type MaterialImportColumnMapping,
   type MaterialImportField,
 } from "./material-import-types";
+import { rawRowAt } from "./import-shared";
 import { unitLabel, type UnitCode } from "./units";
 import { materialPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
@@ -134,6 +135,8 @@ export function buildMaterialPlan(input: {
   existing: ExistingMaterial[];
   moved?: ReadonlySet<string>;
   headerLine?: number;
+  /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
+  lines?: number[];
 }): {
   plan: MaterialImportPlan;
   prepared: Map<number, Record<MaterialImportField, string>>;
@@ -146,6 +149,7 @@ export function buildMaterialPlan(input: {
     input.mapping,
     buildCategoryLookup(input.categories),
     headerLine,
+    input.lines,
   );
 
   const storedBySku = new Map<string, ExistingMaterial>();
@@ -174,7 +178,7 @@ export function buildMaterialPlan(input: {
 
   for (const row of preview.valid) {
     const material = row.record;
-    const raw = input.rows[row.line - headerLine - 1] ?? [];
+    const raw = rawRowAt(input.rows, input.lines, headerLine, row.line);
     const unit = material.unit as UnitCode;
     const sku = material.sku.trim();
     const byNameUnit = nameUnitKey(material.name, unit);

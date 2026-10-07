@@ -529,6 +529,13 @@ export function readImportDate(raw: string): string | null {
   return date.toISOString().slice(0, 10);
 }
 
+/** Data pasului urmator trimisa la creare. O celula goala sau o coloana lipsa inseamna
+ *  "nicio valoare" (undefined), nu o stergere (""): numai asa createClientRecord aplica
+ *  oglindirea "de reluat" ca in formular. */
+export function importNextActionAt(date: string): string | undefined {
+  return date === "" ? undefined : date;
+}
+
 // ---------------------------------------------------------------------------
 // Codarea fisierului, P3-145
 // ---------------------------------------------------------------------------
@@ -560,14 +567,70 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  *     "Èâàí" pentru "Иван") SI citirea 1251 are litere chirilice. Un fisier
  *     romanesc cu cateva litere straine (Würth, Kärcher, André) ramane 1250,
  *     cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu virgula.
- *  3. Daca textul ales tot are U+FFFD, se intoarce eroare, nu text.
+ *  3. Inainte de revenirea la o codare pe un octet, verificare de plauzibilitate
+ *     (P3-194): se refuza daca fisierul are octeti 0x00, daca textul are
+ *     caractere de control (altele decat tab, CR, LF), sau daca fisierul este
+ *     UTF-8 aproape curat cu cateva secvente gresite (cel putin 2 caractere UTF-8
+ *     valide si cel putin dublul numarului de secvente gresite): acela este un
+ *     UTF-8 stricat, nu windows-1250.
+ *  4. Daca textul ales tot are U+FFFD, se intoarce eroare, nu text.
+ *  Inaintea tuturor: UTF-16 (export "Unicode Text" din Excel) se detecteaza dupa
+ *  marca BOM FF FE / FE FF sau, fara marca, dupa cel putin o treime octeti 0x00,
+ *  si se citeste ca UTF-16; ce nu se poate citi curat se refuza.
  */
 const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
+
+/** Control C0 fara tab (09), LF (0A), CR (0D). */
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
+
+/** Cel putin o treime din octeti 0x00: aproape sigur UTF-16 fara marca BOM. */
+const UTF16_ZERO_SHARE = 1 / 3;
+
+function detectUtf16(bytes: Uint8Array): "utf-16le" | "utf-16be" | null {
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) return "utf-16le";
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) return "utf-16be";
+  if (bytes.length < 4) return null;
+  let even = 0;
+  let odd = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] !== 0) continue;
+    if (i % 2 === 0) even++;
+    else odd++;
+  }
+  if ((even + odd) / bytes.length < UTF16_ZERO_SHARE) return null;
+  return odd >= even ? "utf-16le" : "utf-16be";
+}
+
+/** Numara caracterele UTF-8 valide (peste ASCII) si secventele gresite. */
+function countUtf8Sequences(bytes: Uint8Array): { valid: number; invalid: number } {
+  let valid = 0;
+  let invalid = 0;
+  for (const ch of new TextDecoder("utf-8").decode(bytes)) {
+    if (ch === "�") invalid++;
+    else if (ch.charCodeAt(0) > 127) valid++;
+  }
+  return { valid, invalid };
+}
 
 export function decodeCsvFile(
   buf: ArrayBuffer,
 ): { text: string; encoding: string } | { error: string } {
   let bytes = new Uint8Array(buf);
+
+  const utf16 = detectUtf16(bytes);
+  if (utf16) {
+    try {
+      const decoded = new TextDecoder(utf16, { fatal: true }).decode(bytes);
+      const text = decoded.charCodeAt(0) === 0xfeff ? decoded.slice(1) : decoded;
+      if (hasReplacementChar(text) || CONTROL_CHARS.test(text)) {
+        return { error: BROKEN_LETTERS_FILE_ERROR };
+      }
+      return { text, encoding: utf16 };
+    } catch {
+      return { error: BROKEN_LETTERS_FILE_ERROR };
+    }
+  }
+
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) bytes = bytes.subarray(3);
 
   let text: string;
@@ -576,6 +639,9 @@ export function decodeCsvFile(
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     encoding = "utf-8";
   } catch {
+    if (bytes.includes(0)) return { error: BROKEN_LETTERS_FILE_ERROR };
+    const seq = countUtf8Sequences(bytes);
+    if (seq.valid >= 2 && seq.valid >= 2 * seq.invalid) return { error: BROKEN_LETTERS_FILE_ERROR };
     const t1250 = new TextDecoder("windows-1250").decode(bytes);
     const t1251 = new TextDecoder("windows-1251").decode(bytes);
     const cyrillic = /[Ѐ-ӿ]/.test(t1251);
@@ -596,6 +662,7 @@ export function decodeCsvFile(
         .replace(/ţ/g, "ț");
       encoding = "windows-1250";
     }
+    if (CONTROL_CHARS.test(text)) return { error: BROKEN_LETTERS_FILE_ERROR };
   }
 
   if (hasReplacementChar(text)) return { error: BROKEN_LETTERS_FILE_ERROR };

@@ -5,6 +5,7 @@ import {
   type TaskReadQuery,
   type TaskReadStart,
 } from "@/lib/data/tasks-read";
+import { LIST_CHANGED_MESSAGE, READ_ATTEMPTS, readAllPages } from "@/lib/data/id-list";
 import type { TaskListQuery } from "@/lib/data/tasks-types";
 
 // P3-162. Citirea pe pagini a sarcinilor, fara baza de date si fara browser,
@@ -263,4 +264,80 @@ test("P3-162: o lista scurta fata de total este esec vizibil, nu o lista mai scu
     },
   };
   await expect(readTaskRows(startOf(failing))).rejects.toThrow("sarcinile");
+});
+
+test("P3-193: un rand mutat peste marginea paginii de un coleg vine o singura data", async () => {
+  // Un coleg schimba termenul lui t3 intre cele doua pagini: t3 ramane ultimul rand
+  // al paginii 1 si revine primul al paginii 2. Totalul ramane 6.
+  const ids = ["t0", "t1", "t2", "t2", "t4", "t5"];
+  const pages: Record<number, string[]> = { 0: ids.slice(0, 3), 3: ids.slice(3) };
+  const client: TaskReadClient<Row> = {
+    from() {
+      return {
+        select() {
+          let from = 0;
+          const query: TaskReadQuery<Row> = {
+            eq: () => query,
+            gte: () => query,
+            lte: () => query,
+            order: () => query,
+            range(f) {
+              from = f;
+              return query;
+            },
+            then: (resolve, reject) =>
+              Promise.resolve({
+                data: (pages[from] ?? []).map((id) => ({
+                  id,
+                  status: "todo",
+                  due_date: null,
+                  created_at: "2026-01-01T00:00:00Z",
+                  entity_type: null,
+                  entity_id: null,
+                })),
+                count: 6,
+                error: null,
+              }).then(resolve, reject),
+          };
+          return query;
+        },
+      };
+    },
+  };
+
+  const got = await readTaskRows(startOf(client), undefined, 3);
+  expect(got.map((r) => r.id)).toEqual(["t0", "t1", "t2", "t4", "t5"]);
+  const entity = await readEntityTaskRows(startOf(client), "client", "c1", 3);
+  expect(entity.map((r) => r.id)).toEqual(["t0", "t1", "t2", "t4", "t5"]);
+});
+
+test("P3-193: totalul se schimba la prima incercare, apoi sta: lista vine intreaga, fara eroare", async () => {
+  const all = Array.from({ length: 23 }, (_, i) => i);
+  let calls = 0;
+  const got = await readAllPages<number>(
+    "randurile de proba",
+    async (from, to) => ({
+      data: all.slice(from, to + 1),
+      // Un coleg adauga un rand dupa prima pagina a primei citiri; apoi sta.
+      count: calls++ === 1 ? all.length + 1 : all.length,
+      error: null,
+    }),
+    10,
+  );
+  expect(got).toEqual(all);
+});
+
+test("P3-193: totalul se schimba la fiecare incercare: mesaj in romana, dupa trei citiri", async () => {
+  const all = Array.from({ length: 23 }, (_, i) => i);
+  let calls = 0;
+  await expect(
+    readAllPages<number>(
+      "randurile de proba",
+      async (from, to) => ({ data: all.slice(from, to + 1), count: all.length + calls++, error: null }),
+      10,
+    ),
+  ).rejects.toThrow(LIST_CHANGED_MESSAGE);
+  expect(LIST_CHANGED_MESSAGE).toBe("Lista s-a schimbat în timpul citirii. Încercați din nou.");
+  // Trei incercari, fiecare oprita la a doua pagina.
+  expect(calls).toBe(READ_ATTEMPTS * 2);
 });
