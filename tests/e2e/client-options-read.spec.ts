@@ -1,6 +1,7 @@
-// Selectoarele de clienti citesc toti clientii activi, pe pagini. Nu atinge nici
-// browserul, nici baza: clientul Supabase este fals. Peste 1000 de randuri in baza
-// ar fi lent in CI, iar bucla de pagini este chiar ce se verifica.
+// Selectoarele de clienti citesc toti clientii activi, pe pagini numarate. Nu atinge
+// nici browserul, nici baza: clientul Supabase este fals. Bucla de pagini si
+// numaratoarea sunt chiar ce se verifica. P3-189: citirea nu mai depinde de
+// marimea paginii si nici de limita serverului.
 import { expect, test } from "@playwright/test";
 import {
   CLIENT_OPTIONS_READ_FAILED,
@@ -8,9 +9,9 @@ import {
 } from "@/lib/data/client-options-read";
 
 type Row = { id: string; name: string };
-type Page = { data: Row[] | null; error: { message: string } | null };
 
-function fakeSupabase(pages: Page[]) {
+/** Un server fals: taie fiecare raspuns la `cap` randuri si spune totalul. */
+function fakeSupabase(all: Row[], opts: { cap?: number; failAt?: number } = {}) {
   const ranges: [number, number][] = [];
   const orders: string[] = [];
   const query = {
@@ -21,7 +22,11 @@ function fakeSupabase(pages: Page[]) {
     },
     range: async (from: number, to: number) => {
       ranges.push([from, to]);
-      return pages[ranges.length - 1] ?? { data: [], error: null };
+      if (opts.failAt === ranges.length) {
+        return { data: null, count: null, error: { message: "boom" } };
+      }
+      const end = Math.min(to, from + (opts.cap ?? Infinity) - 1);
+      return { data: all.slice(from, end + 1), count: all.length, error: null };
     },
   };
   const client = { from: () => ({ select: () => query }) };
@@ -34,40 +39,26 @@ const rows = (count: number, start: number): Row[] =>
     name: `Client ${String(start + i).padStart(5, "0")}`,
   }));
 
-test("P3-166: selector clienti: 1000, 1000 si 250 de clienti se citesc toti, in trei pagini, ordonati", async () => {
+test("P3-166: selector clienti: 2250 de clienti se citesc toti, pe pagini, ordonati", async () => {
   const last: Row = { id: "last", name: "Zz Ultimul client" };
-  const { client, ranges, orders } = fakeSupabase([
-    { data: rows(1000, 0), error: null },
-    { data: rows(1000, 1000), error: null },
-    { data: [...rows(249, 2000), last], error: null },
-  ]);
+  const { client, ranges, orders } = fakeSupabase([...rows(2249, 0), last]);
   const all = await readActiveClientOptions(client);
   expect(all).toHaveLength(2250);
   expect(all[all.length - 1]).toEqual(last);
-  expect(ranges).toEqual([
-    [0, 999],
-    [1000, 1999],
-    [2000, 2999],
-  ]);
+  expect(ranges[0]).toEqual([0, 499]);
+  expect(ranges.length).toBe(5);
   expect(orders.slice(0, 2)).toEqual(["name", "id"]);
 });
 
-test("P3-166: selector clienti: exact 1000 de clienti cere si o a doua pagina, goala", async () => {
-  const { client, ranges } = fakeSupabase([{ data: rows(1000, 0), error: null }]);
-  expect(await readActiveClientOptions(client)).toHaveLength(1000);
-  expect(ranges).toEqual([
-    [0, 999],
-    [1000, 1999],
-  ]);
+test("P3-189: selector clienti: un server care taie la 3 randuri tot da toti cei 7", async () => {
+  const { client } = fakeSupabase(rows(7, 0), { cap: 3 });
+  expect(await readActiveClientOptions(client)).toHaveLength(7);
 });
 
 test("P3-166: selector clienti: o citire care esueaza arunca, nu da lista goala", async () => {
-  const first = fakeSupabase([{ data: null, error: { message: "boom" } }]);
+  const first = fakeSupabase(rows(10, 0), { failAt: 1 });
   await expect(readActiveClientOptions(first.client)).rejects.toThrow(CLIENT_OPTIONS_READ_FAILED);
 
-  const later = fakeSupabase([
-    { data: rows(1000, 0), error: null },
-    { data: null, error: { message: "boom" } },
-  ]);
+  const later = fakeSupabase(rows(1200, 0), { failAt: 2 });
   await expect(readActiveClientOptions(later.client)).rejects.toThrow(CLIENT_OPTIONS_READ_FAILED);
 });
