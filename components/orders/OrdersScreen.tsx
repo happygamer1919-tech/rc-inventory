@@ -333,6 +333,14 @@ export function OrdersScreen({
               Nicio ieșire încă. Creează un bon de eliberare din ecranul Ieșiri.
             </p>
           ) : null}
+          {outboundTotal === 0 && (filter || modeFilter !== "toate") ? (
+            <p
+              className="px-5 py-12 text-center text-[13px] text-rc-muted"
+              data-testid="outbound-empty-filtered"
+            >
+              Nicio ieșire nu se potrivește cu filtrul ales.
+            </p>
+          ) : null}
           <Pager page={page} total={outboundTotal} onPage={setPage} />
         </Card>
       </div>
