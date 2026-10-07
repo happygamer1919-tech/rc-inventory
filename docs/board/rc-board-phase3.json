@@ -5161,6 +5161,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-05 by EXECUTOR in the same pull request. Bug check 2026-10-04. Requested id P3-151 was taken, P3-169 was the next free one."
     },
     {
+      "id": "P3-187",
+      "title": "Walk-in sale price box suggests the product's exact value (12,50), not a value rounded to whole lei (13)",
+      "plain": "La vânzarea directă, căsuța de preț sugerează prețul exact al produsului (12,50), nu unul rotunjit la lei întregi (13).",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-163"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The case `iesire client direct: casuta de pret sugereaza valoarea exacta a produsului, 12,50 si nu 13` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The existing P3-163 case in the same file stays green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: the placeholder of the walk-in price box uses a new plain exact-number formatter (two decimals, Romanian format, no currency) in lib/data/format.ts. Do NOT touch OutboundProjectForm.tsx (ruling R-215). Nothing about how the price is saved changes. No migration.",
+      "last_checkpoint": "2026-10-06T21:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/walkin-price-placeholder against main: its quality run on the head sha runs the named acceptance case and the board validator",
+        "at": "2026-10-06T21:00:00Z"
+      },
+      "notes": "Found by bug check 2026-10-06: P3-163 moved the totals to formatMoneyExact and missed the placeholder."
+    },
+    {
       "id": "P3-163",
       "title": "Walk-in sale unit prices and totals show their exact value (12,50 MDL, 0,40 MDL), not rounded to whole lei",
       "plain": "La vânzarea directă, prețul pe unitate și totalurile se afișează exact, cu bani (12,50 MDL), nu rotunjite la lei întregi.",
