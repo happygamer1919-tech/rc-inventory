@@ -27,7 +27,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
-import { formatDate, formatMoney } from "@/lib/data/format";
+import { formatDate, formatMoney, plural } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import {
   ALL_STATUSES,
@@ -112,7 +112,7 @@ export function ProjectsScreen({
       download(result.value.csv, PROJECT_EXPORT_FILE_NAME);
       setExportNotice(
         result.value.notice ??
-          `Am exportat ${result.value.count} ${result.value.count === 1 ? "rând" : "rânduri"}.`,
+          `Am exportat ${plural(result.value.count, "rând", "rânduri")}.`,
       );
     } catch {
       setExportError("Exportul nu a reușit. Încearcă din nou.");

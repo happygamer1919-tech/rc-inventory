@@ -353,8 +353,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
 
               {ready ? (
                 <p className="text-[13px] text-rc-black" data-testid="import-read">
-                  Am citit {rows.length}{" "}
-                  {rows.length === 1 ? "rând" : "de rânduri"} și {headers.length}{" "}
+                  Am citit {plural(rows.length, "rând", "rânduri")} și {headers.length}{" "}
                   {headers.length === 1 ? "coloană" : "coloane"}.
                 </p>
               ) : null}

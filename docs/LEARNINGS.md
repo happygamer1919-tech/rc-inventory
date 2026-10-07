@@ -9274,3 +9274,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `readAllPages` threw "totalul s-a schimbat intre pagini" whenever another user inserted a row mid-read, so a viewer of any table past one page saw "Ceva nu a mers". The tasks, full catalog and full outbound reads also lacked `dedupeById`, so a row moved across a page edge showed twice.
 **SOLUTION:** card P3-193: `readAllPages` retries the whole read from page one, 3 attempts, then throws the Romanian "Lista s-a schimbat în timpul citirii. Încercați din nou."; the three reads go through `dedupeById`. Covered by `tests/e2e/tasks-list-paging.spec.ts`. RULE: **a count that changes between pages means retry, not crash; the error a user can see is Romanian.**
+
+### Count words go through plural(), never a hand-written ternary
+**Tag:** copy
+**ERROR:** the import sheets wrote `rows.length === 1 ? "rând" : "de rânduri"`, so 3 rows read "3 de rânduri"; the export notices wrote `"rânduri"` for every count, so 25 read "25 rânduri"; the Azi tasks card wrote "1 deschise".
+**SOLUTION:** card P3-192: every one of these strings goes through `plural()` in lib/data/format.ts (1 rând, 3 rânduri, 20 de rânduri). Covered by `tests/e2e/romanian-plurals-imports-azi.spec.ts`, which also fails if the old ternary comes back. RULE: **a number followed by a Romanian noun is written with plural(), not with `=== 1 ?`.**
