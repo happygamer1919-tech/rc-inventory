@@ -1027,6 +1027,78 @@ test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic
   ).toContainText("Alege clientul");
 });
 
+/* ------------------------------------------------------------- P3-147 -- */
+
+test("iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // CARDUL P3-147, hotararea q143 a proprietarului: managerul de cont, care este
+  // omul de la tejghea, poate adauga pe loc un cumparator nou. Numele este unic pe
+  // rulare si pe caz, `M` este semnul cazului, din acelasi motiv ca la cazul (c).
+  const newClient = `${TAG}-M nou client`;
+
+  await signIn(page, managerAccount());
+  await chooseDirectClient(page);
+
+  // BUTONUL EXISTA PENTRU MANAGER. Pana la acest card nu exista deloc.
+  await page.getByTestId("client-create-open").click();
+  await expect(page.getByTestId("client-create-form")).toBeVisible();
+  await page.getByTestId("client-create-name").fill(newClient);
+  await page.getByTestId("client-create-type").selectOption("company");
+  await page.getByTestId("client-create-save").click();
+
+  await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
+  await expect(page.getByTestId("client-create-error")).toHaveCount(0);
+  await expect(
+    page.getByTestId("field-client").locator("input"),
+    "clientul creat de manager este deja ales in camp",
+  ).toHaveValue(newClient);
+
+  // SI IESIREA SE SALVEAZA CU EL.
+  await fillFirstLine(page, "1");
+  await page.getByTestId("issue-pickup-date").fill("04.12.2026");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("issue-created")).toContainText(newClient);
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  // CLIENTUL EXISTA IN BAZA DUPA, si este chiar clientul iesirii.
+  const issue = await storedIssue(reference);
+  expect(issue.issue_mode, "modul scris este client direct").toBe("direct_client");
+  const stored = await asService(
+    `clients?select=id,name,active&name=eq.${encodeURIComponent(newClient)}`,
+  );
+  expect(stored.ok, `clientul nu s-a putut citi: ${stored.text}`).toBe(true);
+  expect(stored.rows.length, "exact un client cu acest nume").toBe(1);
+  expect(String(stored.rows[0]!.id), "clientul iesirii este randul creat de manager").toBe(
+    String(issue.client_id ?? ""),
+  );
+  expect(stored.rows[0]!.active, "clientul creat este activ").toBe(true);
+
+  // SI LARGIREA NU A TRECUT DE CREARE. Prin baza, cu jetonul managerului: o
+  // modificare a clientului este refuzata, fiindca clients_update ramane a
+  // administratorului. Un update refuzat de securitatea pe rand nu atinge niciun
+  // rand si raspunde cu un set gol, deci se masoara randul, nu codul.
+  const managerToken = await accessToken(managerAccount());
+  const renamed = `${newClient} redenumit`;
+  const update = await asUser(
+    managerToken,
+    `clients?id=eq.${String(stored.rows[0]!.id)}&select=id`,
+    { method: "PATCH", body: { name: renamed } },
+  );
+  expect(update.rows.length, `managerul a modificat un client: ${update.status} ${update.text}`).toBe(0);
+  const after = await asService(`clients?select=name&id=eq.${String(stored.rows[0]!.id)}`);
+  expect(String(after.rows[0]?.name ?? ""), "numele clientului a ramas cel creat").toBe(newClient);
+
+  // SI ECRANUL CLIENȚI RAMANE AL ADMINISTRATORULUI: managerul nu vede butonul de
+  // creare acolo.
+  await page.goto("/clienti");
+  await expect(page.getByTestId("clients-filters")).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("client-new")).toHaveCount(0);
+});
+
 /* ------------------------------------------------------------------ (d) -- */
 
 test("iesire pe proiect: nimic nu s-a schimbat", async ({ page }) => {
@@ -1762,6 +1834,12 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     "lib/data/tasks.ts",
     "lib/data/tasks-actions.ts",
     "tests/e2e/tasks.spec.ts",
+    // CARDUL P3-147, acelasi motiv: managerul de cont creeaza clientul de la tejghea.
+    "supabase/migrations/0076_walkin_manager_client_insert.sql",
+    "scripts/poc-free/local-db/assertions/0076_walkin_manager_client_insert.sql",
+    "lib/data/client-actions.ts",
+    "components/outbound/OutboundDirectClientForm.tsx",
+    "app/(app)/iesiri/page.tsx",
   ];
 
   // CELE DOUA SEMNE SE CONSTRUIESC DIN CODURILE LOR SI NU SE SCRIU, ca acest

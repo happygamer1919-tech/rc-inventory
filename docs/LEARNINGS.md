@@ -9047,6 +9047,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** a test that expects "Ștefan Țurcanu" from Windows-1250 bytes cannot be built: the code page only has the cedilla letters Ş ş Ţ ţ (0xAA, 0xBA, 0xDE, 0xFE).
 **SOLUTION:** `decodeCsvFile` turns the cedilla letters into the comma-below ones after a 1250 decode. RULE: **normalise the cedilla letters when decoding a Romanian legacy code page**.
 
+### Widening a shared write action widens every screen that calls it
+**Tag:** auth
+**ERROR:** the obvious fix for the walk-in buyer (P3-147) was to let `createClientRecord` accept the account manager. That action is also the path of the Clienți screen, the lead form and both imports, which call it and rely on its owner check, so the owner's narrow yes ("from a walk-in sale") would have become "anywhere, with every field".
+**SOLUTION:** a second exported action, `createWalkInClient`, checks the two roles and passes only name, type, IDNO and phone to the same non-exported insert. One insert, one validation, two role gates. RULE: **when a decision widens one use of a shared action, add a narrow entry point over the shared body instead of widening the gate**.
+
+### Two open pull requests can claim the same migration number, and the applier refuses a gap
+**Tag:** backend
+**ERROR:** P3-147 and P3-138 (#407) were both open with a migration numbered 0069. Taking 0070 to dodge it fails CI while #407 is unmerged, because the applier asserts the ledger runs 1 to N with no gap (`ledger-no-gaps-ends-at-highest`).
+**SOLUTION:** keep the next number main allows, and say in the PR body and the owner question that whichever merges second is renumbered first. RULE: **before numbering a migration, list the open PRs' migration files; a clash is resolved at merge time by the second PR, never by leaving a gap**.
+
 ### A normaliser that returns null for "bad" makes a filled cell look empty
 **Tag:** backend
 **ERROR:** `normalisePhone` and `normaliseEmail` returned null both for an empty cell and for an unreadable one, and `normalisePhone` stripped every non-digit. Two phones in one cell became one long number, `069 123 45` gained +373, and a bad email left the row created without it.

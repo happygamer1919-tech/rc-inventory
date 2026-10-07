@@ -71,6 +71,7 @@ The format is machine-read, so keep it exactly:
 - `0073_batches_status_history_active_account.sql`, card de aplicare P3-179
 - `0074_save_invoice_draft_refuses_walkin.sql`, card de aplicare P3-171
 - `0075_take_stock_status_and_line_policies.sql`, card de aplicare P3-195
+- `0076_walkin_manager_client_insert.sql`, card de aplicare P3-147
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

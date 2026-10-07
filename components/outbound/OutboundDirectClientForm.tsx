@@ -20,8 +20,9 @@
 // tarziu poate uni cele doua tabele, si atunci schimbarea va fi a unui card care are
 // dreptul sa o faca. Ce NU se repeta nicaieri: unitatile (vin din ALL_UNITS prin
 // unitLabel), propozitiile de refuz (vin din ISSUE_REFUSAL), casuta de data (este
-// DateField, cea a cardului P3-49) si calea de creare a clientului (este
-// createClientRecord, cea de pe ecranul Clienți).
+// DateField, cea a cardului P3-49) si calea de creare a clientului (este insertul
+// din createClientRecord, cea de pe ecranul Clienți, prin createWalkInClient de la
+// cardul P3-147).
 //
 // NICIO LISTA DE UNITATI SCRISA AICI, deviatia D3: unitatea unei pozitii este cea a
 // produsului, citita prin unitLabel, deci toate cele noua apar fara ca fisierul sa
@@ -58,7 +59,7 @@ import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumb
 import { unitLabel } from "@/lib/data/units";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
-import { createClientRecord } from "@/lib/data/client-actions";
+import { createWalkInClient } from "@/lib/data/client-actions";
 import { ISSUE_REFUSAL } from "@/lib/data/outbound-mode";
 import { CLIENT_TYPE_LABEL } from "@/lib/data/clients-types";
 import type { ClientType } from "@/lib/data/clients-types";
@@ -108,11 +109,11 @@ export function OutboundDirectClientForm({
   /**
    * Poate acest utilizator sa creeze un client?
    *
-   * VINE DE PE SESIUNE SI NU SE GHICESTE AICI. createClientRecord este numai a
-   * administratorului, de la cardul P3-06, iar acelasi card scrie regula pentru care
+   * VINE DE PE SESIUNE SI NU SE GHICESTE AICI. Cardul P3-06 scrie regula pentru care
    * exista aceasta proprietate: ecranul nu are voie sa ofere un buton pe care baza il
-   * va refuza. Un manager de cont vede deci lista de clienti si nu vede butonul de
-   * creare, exact ca pe ecranul Clienți.
+   * va refuza. De la cardul P3-147, createWalkInClient si politica clients_insert din
+   * migratia 0076 primesc administratorul si managerul de cont, deci amandoi vad
+   * butonul aici. Ecranul Clienți ramane al administratorului.
    */
   canCreateClient: boolean;
   mode: OutboundMode;
@@ -603,22 +604,8 @@ function InlineClientCreate({ onCreated }: { onCreated: (choice: ClientChoice) =
   async function save() {
     setError(null);
     setPending(true);
-    const result = await createClientRecord({
-      name,
-      type,
-      fiscalCode,
-      phone,
-      address: "",
-      email: "",
-      notes: "",
-      active: true,
-      // P3-172. UN CUMPARATOR DE LA TEJGHEA ESTE CLIENT DE
-      // LA INCEPUT, cum promite textul de sub buton. Fara etapa, randul primea `cold`
-      // din implicitul coloanei si aparea printre Leaduri, nu in vederea Clienți.
-      // Actiunea accepta etapa numai din lista permisa si o scrie prin
-      // set_client_stage, cu randul ei de istoric; celelalte cai de creare raman `cold`.
-      stage: "client",
-    });
+    // P3-172 (etapa client la creare) este in createWalkInClient, pentru administrator.
+    const result = await createWalkInClient({ name, type, fiscalCode, phone });
     if (!result.ok) {
       // MESAJUL ESTE AL ACTIUNII, NETRADUS SI NEREFORMULAT. Tot ce poate refuza o
       // creare de client o refuza deja in romana, pe ecranul Clienți, cu aceeasi
