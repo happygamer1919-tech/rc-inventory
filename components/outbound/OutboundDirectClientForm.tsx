@@ -74,7 +74,12 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 
-export type ClientChoice = { id: string; name: string };
+export type ClientChoice = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  fiscal_code?: string | null;
+};
 
 type Line = { key: string; productId: string; quantity: string; price: string };
 
@@ -142,7 +147,17 @@ export function OutboundDirectClientForm({
 
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
-  const clientOptions: ComboOption[] = allClients.map((c) => ({ value: c.id, label: c.name }));
+  // P3-177: fiecare rand al pickerului arata: nume client (necesar), telefon (daca
+  // exista), sau IDNO (daca lipsa telefonul), sau nimic (daca amandoua lipsesc).
+  // Cautarea se potriveste pe nume si pe detaliu.
+  const clientOptions: ComboOption[] = allClients.map((c) => {
+    const detail = c.phone || c.fiscal_code || "";
+    return {
+      value: c.id,
+      label: c.name,
+      hint: detail,
+    };
+  });
   const productOptions: ComboOption[] = products.map((p) => ({
     value: p.id,
     label: p.name,
@@ -345,6 +360,7 @@ export function OutboundDirectClientForm({
                       ? "Niciun client cu acest nume. Creează-l mai jos."
                       : "Niciun client cu acest nume."
                   }
+                  dontSelectOnMultipleExactMatches={true}
                 />
               </div>
             </Field>

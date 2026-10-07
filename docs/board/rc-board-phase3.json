@@ -5865,6 +5865,31 @@
         "at": "2026-10-06T16:00:00Z"
       },
       "notes": "RENUMBERED 2026-10-07 from P3-185 to P3-195 at merge: main gave P3-185 to the client import instructions card first. AUTHORED AND BUILT 2026-10-06 by EXECUTOR in the same pull request. Migration number 0075 because main holds 0073 and the open pull request #445 holds 0074. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
+      "id": "P3-177",
+      "title": "Walk-in sale, buyer picker for same-name clients: On a direct client issue, when two or more clients share the same name in the list, each row shows a second detail line: phone if present, else ID number, else nothing. When typed text exactly matches MORE THAN ONE option's label, the picker is left open with no selection, and only a deliberate choice accepts the form. The buyer list shows active 'client' stage records only, not leads or clients in later stages. The Combobox component keeps its own default for other callers: first exact match wins. No duplicate check on inline create in this card.",
+      "plain": "La o vânzare directă, doi clienți cu același nume se pot deosebi în lista de cumpărători, iar lista arată doar clienți activi.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-119"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) Two test clients named the same with different phones: both rows show their phone; picking the second saves the sale on the second. (b) Typing the shared name and leaving the field selects nothing and the slip cannot be saved without a choice. (c) A lead and an inactive client do not appear in the picker. (d) Unit: Combobox default (no new prop) still picks the first exact label match. (e) Existing walk-in and outbound specs stay green: tests/e2e/outbound-direct-client.spec.ts, tests/e2e/outbound.spec.ts and tests/e2e/clients.spec.ts.",
+      "defaults": "Each picker row shows: client name (required), phone (if present), or IDNO (if phone missing), or nothing (if both missing). Search matches on name and on the detail. When text matches MORE THAN ONE option exactly, select nothing and keep the list open; any other state (no matches, one match) uses existing Combobox behavior. The picker lists only 'client' stage records that are active (use the same active rule the Clienți view uses). A buyer created inline (P3-119 makes it stage 'client') still appears and is selected at once. The Combobox component itself changes only to add an optional prop for the multi-match behavior; other callers keep existing behavior. No duplicate check on inline create. No migration, no schema change.",
+      "last_checkpoint": "2026-10-06T07:55:16Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #450 on branch card/walkin-buyer-picker-same-name against main",
+        "at": "2026-10-06T07:55:16Z"
+      },
+      "notes": ""
     }
   ]
 }

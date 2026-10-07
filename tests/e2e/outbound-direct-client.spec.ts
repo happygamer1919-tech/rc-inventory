@@ -918,6 +918,115 @@ test("creare client fara etapa: randul ramane cold, implicitul pe care se bizuie
   expect(String(created.rows[0]?.stage ?? ""), "un client creat fara etapa este cold").toBe("cold");
 });
 
+/* ------------------------------------------------------------------ P3-177 -- */
+
+test("P3-177: doi clienti cu acelasi nume se pot deosebi in lista dupa telefon sau IDNO", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // P3-177, acceptanta (a). Doi clienti cu acelasi nume, cu numere de telefon
+  // diferite. Ambele randuri arata telefonul; alegerea celui de al doilea salveaza
+  // vânzarea pe cel de al doilea.
+  const clientName = `${TAG}-Client-identic`;
+  const phone1 = `${TAG}-phone1`;
+  const phone2 = `${TAG}-phone2`;
+
+  // Creare doi clienti cu acelasi nume, cu telefoane diferite.
+  const client1 = await asService(
+    "clients?select=id",
+    { method: "POST", body: { name: clientName, type: "company", phone: phone1, active: true, stage: "client" } },
+  );
+  expect(client1.ok).toBe(true);
+  const client1Id = client1.rows[0]?.id;
+
+  const client2 = await asService(
+    "clients?select=id",
+    { method: "POST", body: { name: clientName, type: "company", phone: phone2, active: true, stage: "client" } },
+  );
+  expect(client2.ok).toBe(true);
+  const client2Id = client2.rows[0]?.id;
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  // Tastarea numelui comun deschide lista.
+  const clientInput = page.getByTestId("field-client").locator("input");
+  await clientInput.fill(clientName);
+  await page.waitForTimeout(500);
+
+  // Ambele randuri arata telefonul.
+  const listItems = page.locator('[data-rc-combo-list] li button');
+  const itemCount = await listItems.count();
+  expect(itemCount).toBeGreaterThanOrEqual(2);
+
+  // Cautare randul care contine phone1 si randul care contine phone2.
+  const allItems = await page.locator('[data-rc-combo-list] li button').allTextContents();
+  const hasPhone1 = allItems.some((text) => text.includes(phone1));
+  const hasPhone2 = allItems.some((text) => text.includes(phone2));
+  expect(hasPhone1, "lista arata telefonul clientului 1").toBe(true);
+  expect(hasPhone2, "lista arata telefonul clientului 2").toBe(true);
+
+  // Alegerea celui de al doilea client, dupa telefon: ordinea a doua nume identice
+  // nu este stabila, deci pozitia in lista nu spune care este care.
+  await page.locator("[data-rc-combo-list] li button", { hasText: phone2 }).click();
+  await expect(clientInput).toHaveValue(clientName);
+
+  // Completare restul formularului si salvare.
+  await page.getByTestId("issue-pickup-date").fill("01.12.2026");
+  await fillFirstLine(page, "1");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+
+  // Verificare ca vânzarea s-a salvat pe al doilea client.
+  const issued = await asService(`outbound_issues?select=client_id&client_id=eq.${client2Id}`);
+  expect(issued.ok).toBe(true);
+  expect(issued.rows.length).toBeGreaterThan(0);
+});
+
+test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  const clientName = `${TAG}-Client-dou`;
+  const phone1 = "111";
+  const phone2 = "222";
+
+  // Creare doi clienti cu acelasi nume.
+  await asService("clients?select=id", {
+    method: "POST",
+    body: { name: clientName, type: "company", phone: phone1, active: true, stage: "client" },
+  });
+  await asService("clients?select=id", {
+    method: "POST",
+    body: { name: clientName, type: "company", phone: phone2, active: true, stage: "client" },
+  });
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  const clientInput = page.getByTestId("field-client").locator("input");
+  await clientInput.fill(clientName);
+  await page.waitForTimeout(500);
+
+  // Parasire camp, cu un clic in afara (asa se inchide comboboxul). Cu doua
+  // potriviri exacte nu se alege nimic si lista ramane deschisa.
+  await page.getByTestId("outbound-form").click({ position: { x: 2, y: 2 } });
+  await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
+
+  // Escape inchide lista fara sa aleaga: campul ramane gol.
+  await clientInput.press("Escape");
+  await expect(clientInput).toHaveValue("");
+
+  // Formularul cere completarea clientului.
+  await page.getByTestId("issue-submit").click();
+  await expect(
+    page.getByTestId("issue-problems"),
+    "formularul refuza trimiterea fara client",
+  ).toContainText("Alege clientul");
+});
+
 /* ------------------------------------------------------------------ (d) -- */
 
 test("iesire pe proiect: nimic nu s-a schimbat", async ({ page }) => {
