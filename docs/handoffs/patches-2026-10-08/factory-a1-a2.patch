@@ -1,0 +1,194 @@
+diff -ruN orig/.claude/settings.json new/.claude/settings.json
+--- a/.claude/settings.json	2026-10-08 15:15:41.904601279 +0000
++++ b/.claude/settings.json	2026-10-08 15:16:19.936995597 +0000
+@@ -38,27 +38,69 @@
+       "Bash(curl -s https://app.rapidconstruct.md/api/health)",
+       "Bash(scripts/poc/claim.sh check:*)",
+       "Bash(scripts/poc/claim.sh list)",
+-      "Bash(git -C * status*)",
+-      "Bash(git -C * log*)",
+-      "Bash(git -C * diff*)",
+-      "Bash(git -C * fetch*)",
+-      "Bash(git -C * worktree*)",
+-      "Bash(git -C * rev-parse*)",
+-      "Bash(git -C * show*)",
+-      "Bash(git -C * show-ref*)",
+-      "Bash(git -C * symbolic-ref*)",
+-      "Bash(git -C * for-each-ref*)",
+-      "Bash(git -C * ls-remote*)",
+-      "Bash(git -C * branch --show-current*)",
+-      "Bash(git -C * add*)",
+-      "Bash(git -C * commit*)",
+-      "Bash(git -C * stash*)",
+-      "Bash(git -C * restore*)",
+-      "Bash(git -C * checkout*)",
+-      "Bash(git -C * switch*)",
+-      "Bash(git -C * merge origin/main*)",
+-      "Bash(git -C * pull --ff-only*)",
+-      "Bash(git -C * push origin card/*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory status*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* status*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory status*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory log*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* log*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory log*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory diff*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* diff*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory diff*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory fetch*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* fetch*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory fetch*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory worktree*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* worktree*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory worktree*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory rev-parse*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* rev-parse*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory rev-parse*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory show*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* show*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory show*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory show-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* show-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory show-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory symbolic-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* symbolic-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory symbolic-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory for-each-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* for-each-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory for-each-ref*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory ls-remote*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* ls-remote*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory ls-remote*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory branch --show-current*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* branch --show-current*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory branch --show-current*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory add*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* add*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory add*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory commit*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* commit*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory commit*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory stash*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* stash*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory stash*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory restore*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* restore*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory restore*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory checkout*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* checkout*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory checkout*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory switch*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* switch*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory switch*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory merge origin/main*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* merge origin/main*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory merge origin/main*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory pull --ff-only*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* pull --ff-only*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory pull --ff-only*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory push origin card/*)",
++      "Bash(git -C /Users/sm33xy/Projects/rc-inventory-worktrees/* push origin card/*)",
++      "Bash(git -C /Users/sm33xy/Projects/prompt-factory-rc-inventory push origin card/*)",
+       "Bash(git ls-remote:*)"
+     ],
+     "deny": [
+@@ -92,7 +134,6 @@
+       "Bash(git push * +*)",
+       "Bash(git push*:main*)",
+       "Bash(git push * main*)",
+-      "Bash(git push * :*)",
+       "Bash(git push * HEAD*)",
+       "Bash(git branch -D*)",
+       "Bash(git branch --delete*)",
+@@ -103,12 +144,19 @@
+       "Bash(git -C * push * +*)",
+       "Bash(git -C * push*:main*)",
+       "Bash(git -C * push * main*)",
+-      "Bash(git -C * push * :*)",
+       "Bash(git -C * push * HEAD*)",
+       "Bash(git -C * branch -D*)",
+       "Bash(git -C * branch --delete*)",
+       "Bash(git -C * branch -d*)",
+-      "Bash(git -C * clean*)"
++      "Bash(git -C * clean*)",
++      "Bash(git push * :card/*)",
++      "Bash(git push * :main*)",
++      "Bash(git -C * push * :card/*)",
++      "Bash(git -C * push * :main*)",
++      "Bash(git -c *)",
++      "Bash(git -C * -c *)",
++      "Bash(git *--exec-path*)",
++      "Bash(git -C * *--exec-path*)"
+     ]
+   }
+ }
+diff -ruN orig/bin/auto-merge.sh new/bin/auto-merge.sh
+--- a/bin/auto-merge.sh	2026-10-08 15:15:41.901808663 +0000
++++ b/bin/auto-merge.sh	2026-10-08 15:15:54.732786394 +0000
+@@ -6,6 +6,8 @@
+ #   - behind main -> update the branch and wait for a fresh run
+ #   - `npm run checks:state <pr>` must exit 0 (green result belongs to the head sha)
+ #   - a migration in the diff must not carry DROP TABLE, TRUNCATE or DELETE FROM
++#   - a migration in the diff needs Max's OK: an approval file naming this PR number
++#     (owner-approval.sh, bug check 2026-10-07 A1). Merging a migration applies it.
+ # Start: nohup zsh ~/Projects/prompt-factory-rc-inventory/bin/auto-merge.sh >/dev/null 2>&1 &
+ REPO_DIR="$HOME/Projects/rc-inventory"
+ LOG="$HOME/Projects/prompt-factory-rc-inventory/logs/auto-merge.log"
+@@ -14,6 +16,7 @@
+ log() { print -r -- "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
+ log "auto-merge started, pid $$"
+ source "${0:A:h}/destructive-filter.sh"
++source "${0:A:h}/owner-approval.sh"
+ 
+ while true; do
+   for pr in $(gh pr list --state open --author sm33xy --json number,isDraft --jq '.[] | select(.isDraft==false) | .number' 2>/dev/null); do
+@@ -30,6 +33,10 @@
+         log "#$pr head $head migration has a destructive statement, NOT merging"
+         continue
+       fi
++      if ! owner_approved "$pr"; then
++        log "#$pr head $head touches supabase/migrations/ and no q-owner-approve-*.md names #$pr, NOT merging"
++        continue
++      fi
+     fi
+     npm run -s checks:state "$pr" > /dev/null 2>&1
+     if [[ $? -ne 0 ]]; then continue; fi
+diff -ruN orig/bin/owner-approval.sh new/bin/owner-approval.sh
+--- a/bin/owner-approval.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/bin/owner-approval.sh	2026-10-08 15:15:54.688448741 +0000
+@@ -0,0 +1,13 @@
++# owner-approval.sh - sourced by auto-merge.sh. A1 of the 2026-10-07 bug check.
++# A PR whose diff touches supabase/migrations/ merges only when an approval file
++# mailbox/answers/q-owner-approve-*.md names THAT PR number as "#<n>". An approval
++# for another number does not count: a replaced or renumbered PR needs a fresh OK.
++# owner_approved <pr> [answers_dir] -> exit 0 when approved, 1 otherwise.
++owner_approved() {
++  local pr=$1 dir=${2:-$HOME/Projects/prompt-factory-rc-inventory/mailbox/answers} f
++  [[ "$pr" == <-> ]] || return 1
++  for f in "$dir"/q-owner-approve-*.md(N); do
++    grep -qE "#${pr}([^0-9]|\$)" "$f" && return 0
++  done
++  return 1
++}
+diff -ruN orig/bin/selftest-owner-approval.sh new/bin/selftest-owner-approval.sh
+--- a/bin/selftest-owner-approval.sh	1970-01-01 00:00:00.000000000 +0000
++++ b/bin/selftest-owner-approval.sh	2026-10-08 15:15:54.737469800 +0000
+@@ -0,0 +1,18 @@
++#!/bin/zsh
++# selftest-owner-approval.sh - proves owner_approved (A1 of the 2026-10-07 bug check).
++source "${0:A:h}/owner-approval.sh"
++tmp=$(mktemp -d); passed=0; failed=0
++check() { if [[ $1 == $2 ]]; then (( passed++ )); else (( failed++ )); print "FAIL: $3 (got $1, want $2)"; fi; }
++owner_approved 469 "$tmp"; check $? 1 "no approval file -> not merged"
++print "Max: OK to merge #458" > "$tmp/q-owner-approve-458.md"
++owner_approved 469 "$tmp"; check $? 1 "approval for #458 does not cover #469"
++owner_approved 45 "$tmp";  check $? 1 "#458 does not cover #45 (prefix)"
++owner_approved 4580 "$tmp"; check $? 1 "#458 does not cover #4580 (suffix guard)"
++owner_approved 458 "$tmp"; check $? 0 "matching approval -> merged"
++print "approved #469." > "$tmp/q-owner-approve-469.md"
++owner_approved 469 "$tmp"; check $? 0 "approval naming #469 -> merged"
++print "#470" > "$tmp/other-470.md"
++owner_approved 470 "$tmp"; check $? 1 "file outside q-owner-approve-* does not count"
++owner_approved "" "$tmp";  check $? 1 "empty pr number refused"
++rm -rf "$tmp"
++print "passed: $passed failed: $failed"; (( failed == 0 ))
