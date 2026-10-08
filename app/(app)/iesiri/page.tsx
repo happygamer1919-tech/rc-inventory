@@ -3,7 +3,7 @@
 import { getSessionUser } from "@/lib/supabase/server";
 import { listActiveProducts } from "@/lib/data/products";
 import { listSelectableProjects } from "@/lib/data/projects";
-import { listClientOptions } from "@/lib/data/projects-list";
+import { listBuyerOptions } from "@/lib/data/projects-list";
 import { OutboundScreen } from "@/components/outbound/OutboundScreen";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +20,11 @@ export default async function OutboundPage() {
   // P3-119: SI CLIENTII, pentru al doilea mod. Aceeasi listClientOptions pe care o
   // citesc si filtrul si selectorul de client de pe celelalte ecrane: clientii
   // activi, o singura definitie a intrebarii "care clienti se pot alege".
+  // P3-196: aici doar clientii la etapa 'client'. Leadurile nu sunt cumparatori.
   const [products, projects, clients, user] = await Promise.all([
     listActiveProducts(),
     listSelectableProjects(),
-    listClientOptions(),
+    listBuyerOptions(),
     getSessionUser(),
   ]);
 

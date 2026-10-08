@@ -1027,6 +1027,37 @@ test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic
   ).toContainText("Alege clientul");
 });
 
+test("P3-196: un lead si un client inactiv nu apar in lista de cumparatori", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  // P3-177, acceptanta (c), care nu fusese acoperita: lista oferea si leaduri.
+  // Un client activ, un lead activ si un client inactiv, cu acelasi prefix.
+  const prefix = `${TAG}-Cumparator`;
+  const rows = [
+    { name: `${prefix}-client`, active: true, stage: "client" },
+    { name: `${prefix}-lead`, active: true, stage: "cold" },
+    { name: `${prefix}-inactiv`, active: false, stage: "client" },
+  ];
+  for (const row of rows) {
+    const created = await asService("clients?select=id", {
+      method: "POST",
+      body: { ...row, type: "company" },
+    });
+    expect(created.ok, `clientul ${row.name} s-a creat`).toBe(true);
+  }
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  const clientInput = page.getByTestId("field-client").locator("input");
+  await clientInput.fill(prefix);
+  await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
+  const items = await page.locator("[data-rc-combo-list] li button").allTextContents();
+  expect(items.some((text) => text.includes(`${prefix}-client`)), "clientul activ apare").toBe(true);
+  expect(items.some((text) => text.includes(`${prefix}-lead`)), "leadul nu apare").toBe(false);
+  expect(items.some((text) => text.includes(`${prefix}-inactiv`)), "clientul inactiv nu apare").toBe(false);
+});
+
 /* ------------------------------------------------------------- P3-147 -- */
 
 test("iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza", async ({
