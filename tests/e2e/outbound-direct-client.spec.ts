@@ -226,7 +226,8 @@ test.beforeAll(async () => {
 
   const client = await asService("clients?select=id", {
     method: "POST",
-    body: { name: `${TAG} client` },
+    // P3-196: cumparatorul este un client, nu un lead (implicitul este cold).
+    body: { name: `${TAG} client`, stage: "client" },
   });
   expect(client.ok, `clientul de test nu a putut fi scris: ${client.text}`).toBe(true);
   clientId = String(client.rows[0]!.id);

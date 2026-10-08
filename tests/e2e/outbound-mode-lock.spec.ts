@@ -61,7 +61,7 @@ async function asService(
 let productId = "";
 
 test.beforeAll(async () => {
-  const client = await asService("clients?select=id", { method: "POST", body: { name: CLIENT_NAME } });
+  const client = await asService("clients?select=id", { method: "POST", body: { name: CLIENT_NAME, stage: "client" } }); // P3-196: un cumparator, nu un lead
   expect(client.ok, `clientul de test nu a putut fi scris: ${client.text}`).toBe(true);
 
   const category = await asService("categories?select=id&limit=1");
