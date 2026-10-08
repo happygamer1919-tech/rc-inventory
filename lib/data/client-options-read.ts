@@ -18,19 +18,24 @@ export const CLIENT_OPTIONS_READ_FAILED = "Nu am putut citi clienții. Încerca�
 
 export async function readActiveClientOptions(
   supabase: Supabase,
+  opts: { buyersOnly?: boolean } = {},
 ): Promise<{ id: string; name: string; phone?: string | null; fiscal_code?: string | null }[]> {
   type Row = { id: string; name: string; phone: string | null; fiscal_code: string | null };
   let rows: Row[];
   try {
-    rows = await readAllPages<Row>("clientii activi", (from, to) =>
-      supabase
+    rows = await readAllPages<Row>("clientii activi", (from, to) => {
+      let query = supabase
         .from("clients")
         .select("id, name, phone, fiscal_code", { count: "exact" })
-        .eq("active", true)
+        .eq("active", true);
+      // P3-196: cumparatorul de la iesiri este doar un client la etapa 'client'.
+      // Leadurile stau in aceeasi tabela si nu se vand (P3-177, acceptanta c).
+      if (opts.buyersOnly) query = query.eq("stage", "client");
+      return query
         .order("name")
         .order("id")
-        .range(from, to),
-    );
+        .range(from, to);
+    });
   } catch {
     throw new Error(CLIENT_OPTIONS_READ_FAILED);
   }

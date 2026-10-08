@@ -9318,3 +9318,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** card P3-177 added `.eq("stage", "client")` to `readActiveClientOptions`, which also feeds the project form, the project filter, the task picker and the invoice editor. Clients created without a stage default to cold, so they vanished from every picker and about 25 end to end cases timed out waiting for them.
 **SOLUTION:** card P3-177 attempt 2: the stage filter is removed from the shared reader. Two of its own cases were also fixed: one picked the second same-name row by position (the order of equal names is not stable, so it now picks by phone), and one expected the field to be empty after a blur that the combobox does not handle (it now clicks outside, checks the list stays open, then presses Escape). RULE: **a shared reader keeps the filter every caller needs; a screen that wants fewer rows filters after the read.**
+
+### A picker filter narrowed by stage breaks fixtures that rely on the stage default
+**Tag:** ci
+**ERROR:** P3-196 filtered the walk-in buyer picker to stage = client. Five e2e cases in outbound-direct-client.spec.ts and outbound-mode-lock.spec.ts went red: their test client was inserted with no stage, took the default cold, and was no longer offered, so the form never saved.
+**SOLUTION:** A fixture that stands for a buyer is written with stage client explicitly. When a read gains a filter, grep every spec that inserts into that table and give its fixtures the filtered value instead of the column default.

@@ -202,6 +202,11 @@ export async function listClientOptions(): Promise<{ id: string; name: string }[
   return readActiveClientOptions(await createClient());
 }
 
+// P3-196: cumparatorii de la iesiri, clientii activi la etapa 'client', fara leaduri.
+export async function listBuyerOptions(): Promise<{ id: string; name: string }[]> {
+  return readActiveClientOptions(await createClient(), { buyersOnly: true });
+}
+
 export type ProjectIssueRow = {
   issueId: string | null;
   reference: string | null;
