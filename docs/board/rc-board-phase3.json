@@ -6167,6 +6167,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Chosen rule: a Cyrillic run of 3 or more letters (CYRILLIC_RUN in lib/data/import-shared.ts) added to the existing vote. Runs of 2 were not used because Romanian 'ta' with cedilla (viata) reads as 2 Cyrillic letters in 1251."
+    },
+    {
+      "id": "P3-206",
+      "title": "When the team list could not be read, the lead and client imports used an empty list and marked every row with a Responsabil as nu este in echipa. Both imports (plan and write) now refuse with Nu am putut citi lista echipei, through the same loadOrRefuse guard P3-183 added to the other reads.",
+      "plain": "If the team list cannot be loaded, an import now stops and says so, instead of wrongly telling the operator that every owner in the file is not on the team.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-183"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test in tests/e2e/import-clients-read.spec.ts named citirea esuata a echipei refuza importul is green in this pull request's own quality run: a failed profiles read gives ok:false with a message starting Nu am putut citi, never an empty list. (b) lib/data/lead-import-actions.ts and lib/data/client-import-actions.ts no longer call listClientOwnerChoices and guard the owners read with loadOrRefuse in both the plan and the write action. (c) npx tsc --noEmit exits 0.",
+      "defaults": "Other callers of listClientOwnerChoices (the screens) are unchanged. Import matching, writing and every other refusal text are unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-206 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09."
     }
   ]
 }
