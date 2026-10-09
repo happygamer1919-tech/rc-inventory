@@ -72,6 +72,7 @@ The format is machine-read, so keep it exactly:
 - `0074_save_invoice_draft_refuses_walkin.sql`, card de aplicare P3-171
 - `0075_take_stock_status_and_line_policies.sql`, card de aplicare P3-195
 - `0076_walkin_manager_client_insert.sql`, card de aplicare P3-147
+- `0077_take_stock_lines_guard.sql`, card de aplicare P3-199
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
