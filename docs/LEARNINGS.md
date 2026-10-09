@@ -9328,3 +9328,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `buildClientPlan` indexed stored clients by name plus phone only when they had no email, so a file row without email never found a stored client that had one. Re-importing created duplicates although the on-screen rule said name plus phone.
 **SOLUTION:** card P3-197: every stored client is indexed by name plus phone; a file row with an email still matches by email only. Covered by `tests/e2e/client-import-namephone.spec.ts`. RULE: **when a screen states a matching rule, test the stored side and the file side of it with one case each, including the stored record that has the extra field.**
+
+### A new filter on a picker needs the screens that create those records to start at the filtered value
+**Tag:** data
+**ERROR:** P3-196 limited the walk-in buyer picker to stage client, but the Client nou form on the Clienti screen started every record at cold, so a real customer added there never appeared at the counter.
+**SOLUTION:** card P3-198: ClientForm takes an optional defaultStage for a new record and the Clienti screen passes client. Covered by `tests/e2e/new-client-stage.spec.ts`. RULE: **when a read gains a filter on a column, check every form that creates rows in that table for the default it writes.**
