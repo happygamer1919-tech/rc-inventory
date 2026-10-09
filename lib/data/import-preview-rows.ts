@@ -78,6 +78,7 @@ type PersonRecord = {
   stage: string;
   followUpDate: string;
   nextAction: string;
+  nextActionDate: string;
   notes: string;
   address: string;
   fiscalCode: string;
@@ -95,6 +96,7 @@ const PERSON_COLUMNS: [string, (r: PersonRecord, owners: ReadonlyMap<string, str
   ["Etapă", (r) => CLIENT_STAGE_LABEL[r.stage as ClientStage] ?? r.stage],
   ["Data de reluare", (r) => date(r.followUpDate)],
   ["Următorul pas", (r) => r.nextAction],
+  ["Data pasului următor", (r) => date(r.nextActionDate)],
   ["Note", (r) => r.notes],
   ["Adresă", (r) => r.address],
   ["IDNO", (r) => r.fiscalCode],
