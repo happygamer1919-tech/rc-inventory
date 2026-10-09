@@ -6016,6 +6016,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Root cause: P3-159 routed walk-in sales into this tab, which still used formatNumber (maximumFractionDigits 0); P3-146 fixed the forms and the slip detail but not this tab."
+    },
+    {
+      "id": "P3-201",
+      "title": "P3-158 made every date box turn red from the first digit typed, although it asked for that only in the task form. DateField gets an optional markWhileTyping prop; only the task form passes it. Every other date box is red only after the box is left, or once 8 digits are typed and the date does not exist, as before P3-158.",
+      "plain": "Date boxes no longer turn red while you are still typing a date; only the task form warns at once.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-158"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test in tests/e2e/p3-201-datefield-red-after-blur.spec.ts that types one digit in a date box without the prop shows no error element, then shows the error after blur, is green in this pull request's own quality run. (b) The test in the same spec that types '10.10.20' in the task form shows the error at once and keeps Salvează disabled is green. (c) On the client form, typing one digit leaves Salvează enabled and no red message visible (same spec). The P3-158 task-form test in tests/e2e/tasks.spec.ts stays green unchanged. (d) npx tsc --noEmit exits 0.",
+      "defaults": "completeOnly (P3-169) is unchanged. The P3-92 guard stays: an invalid date after blur still blocks Salvează on the client form. The task form keeps the P3-158 behaviour. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-201 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Root cause: P3-158 replaced the guard (touched or 8 digits) with a bare incomplete check inside the shared component."
     }
   ]
 }
