@@ -57,6 +57,7 @@ import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { PRICE_INVALID_MESSAGE, parsePriceText } from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { createWalkInClient } from "@/lib/data/client-actions";
@@ -83,6 +84,17 @@ export type ClientChoice = {
 };
 
 type Line = { key: string; productId: string; quantity: string; price: string };
+
+// P3-209: pretul unei pozitii ca numar (0 cand casuta e goala sau nu se citeste) si
+// ca text pentru server ("" cand nu exista pret).
+function linePrice(l: Line): number {
+  const p = parsePriceText(l.price);
+  return p.kind === "ok" ? p.value : 0;
+}
+function priceText(raw: string): string {
+  const p = parsePriceText(raw);
+  return p.kind === "ok" ? p.text : "";
+}
 
 let seq = 0;
 function emptyLine(): Line {
@@ -229,10 +241,15 @@ export function OutboundDirectClientForm({
     }
   }
 
-  const pricedTotal = filled.reduce(
-    (s, l) => s + (l.price ? Number(l.quantity) * Number(l.price) : 0),
-    0,
-  );
+  // P3-209: pretul se citeste din text ("12,50" sau "12.50"). Un text care nu este
+  // pret opreste salvarea; o casuta goala ramane "fara pret".
+  lines.forEach((l, index) => {
+    if (parsePriceText(l.price).kind === "invalid") {
+      problems.push(`Rândul ${index + 1}: ${PRICE_INVALID_MESSAGE}`);
+    }
+  });
+
+  const pricedTotal = filled.reduce((s, l) => s + linePrice(l) * Number(l.quantity), 0);
 
   async function submit() {
     setTouched(true);
@@ -251,7 +268,7 @@ export function OutboundDirectClientForm({
       lines: filled.map((l) => ({
         productId: l.productId,
         quantity: l.quantity,
-        salePriceMdl: l.price,
+        salePriceMdl: priceText(l.price),
       })),
     });
 
@@ -424,7 +441,8 @@ export function OutboundDirectClientForm({
               {lines.map((l, index) => {
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
-                const total = l.price ? Number(l.quantity) * Number(l.price) : 0;
+                const total = linePrice(l) * Number(l.quantity);
+                const priceInvalid = parsePriceText(l.price).kind === "invalid";
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                     <Td data-label="Produs" className={PHONE_WIDE}>
@@ -477,9 +495,10 @@ export function OutboundDirectClientForm({
                           singurul fel de a spune asta fara sa completeze nimic in
                           locul operatorului. */}
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={priceInvalid}
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.price}
                         onChange={(e) => setLine(l.key, { price: e.target.value })}
@@ -490,6 +509,15 @@ export function OutboundDirectClientForm({
                         }
                         data-testid={`issue-price-${index}`}
                       />
+                      {priceInvalid ? (
+                        <p
+                          role="alert"
+                          className="mt-1 text-[12px] text-rc-danger"
+                          data-testid={`issue-price-error-${index}`}
+                        >
+                          {PRICE_INVALID_MESSAGE}
+                        </p>
+                      ) : null}
                     </Td>
                     <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                       <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
