@@ -127,6 +127,7 @@ export function DateField({
   onChange,
   onValidityChange,
   completeOnly,
+  markWhileTyping,
   testId,
   disabled,
   className,
@@ -143,6 +144,10 @@ export function DateField({
    *  cand casuta este goala, niciodata cu text pe jumatate scris. Pentru filtrele
    *  care schimba adresa paginii. Lipsa lui lasa campul ca inainte. */
   completeOnly?: boolean;
+  /** P3-201. Adevarat: rosul apare de la prima cifra tastata (formularul de
+   *  sarcina, P3-158). Lipsa lui: rosul apare numai dupa ce casuta este parasita
+   *  sau cand sunt 8 cifre si data nu exista. */
+  markWhileTyping?: boolean;
   testId: string;
   disabled?: boolean;
   className?: string;
@@ -185,7 +190,9 @@ export function DateField({
   }
 
   const parsed = isoFromRomanian(text);
-  const invalid = text !== "" && parsed === null;
+  const incomplete = text !== "" && parsed === null;
+  const digitCount = text.replace(/\D/g, "").length;
+  const invalid = markWhileTyping ? incomplete : incomplete && (touched || digitCount >= 8);
 
   // P3-92. Parintele afla cand mesajul rosu apare si cand pleaca.
   //

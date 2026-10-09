@@ -314,6 +314,7 @@ export function TaskForm({
                 value={dueDate}
                 onChange={setDueDate}
                 onValidityChange={mark("dueDate")}
+                markWhileTyping
                 className={fieldClass("dueDate")}
                 testId="field-task-due-date"
               />
