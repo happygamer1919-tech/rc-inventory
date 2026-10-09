@@ -9338,3 +9338,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-146 moved the forms and the slip detail to two-decimal quantities, but the Consum materiale tab of the client page still used formatNumber (no decimals), so a walk-in sale of 2,5 m2 showed 3 and 0,4 m3 showed 0.
 **SOLUTION:** card P3-200: the tab uses formatQty with the unit and the new formatQtyNumber without one, in each row and in the total. Covered by `tests/e2e/p3-200-client-materials-decimals.spec.ts`. RULE: **when a quantity format changes, search every screen that renders a quantity with formatNumber and decide each one on purpose.**
+
+### A behaviour a card wants in one form must not be changed inside the shared component for everyone
+**Tag:** ui
+**ERROR:** P3-158 wanted immediate red marking in the task form only, but edited the shared DateField, so the client form, invoices, walk-in pickup and the Sarcini filters turned red after one keystroke and Salvează went disabled while typing.
+**SOLUTION:** card P3-201: DateField takes an optional markWhileTyping prop and only the task form passes it; the others return to touched-or-8-digits. Covered by `tests/e2e/p3-201-datefield-red-after-blur.spec.ts`. RULE: **when a card limits a change to one screen, add an opt-in prop and grep every user of the shared component for the acceptance line "all others unchanged".**
