@@ -6217,6 +6217,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09."
+    },
+    {
+      "id": "P3-209",
+      "title": "P3-187 gave the walk-in sale price box the placeholder 12,50 on an input of type number. On a browser whose language is not Romanian, typing 12,50 into a number input leaves its value empty while the text stays visible, so the line saved with no sale price. The box is now a text input with a decimal keypad; 12,50 and 12.50 both read as 12.50, spaces are ignored, and text that is not a price shows an inline Romanian error and blocks the save. An empty box still means no price.",
+      "plain": "Typing a price with a comma, like 12,50, in the walk-in sale now always saves 12.50 whatever the browser language, and a mistyped price is flagged instead of being saved as no price.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-187"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/price-input.test.ts whose names start with 'P3-209' are green in this pull request's own quality run: 12,50 and 12.50 both give 12.5, a price with spaces is read consistently, abc and other non-numbers are invalid, and an empty box is empty. (b) components/outbound/OutboundDirectClientForm.tsx no longer uses type number for the price box and sends the parsed text to createOutboundIssue. (c) npx tsc --noEmit exits 0.",
+      "defaults": "Only the price box of the walk-in sale form changes. The client picker, the new client flow, how the slip is stored on the server and the server refusal texts are unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-209 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Parser is parsePriceText in lib/data/price-input.ts."
     }
   ]
 }
