@@ -50,6 +50,7 @@ import "server-only";
 // citeste si se numara, care este cererea proprietarului cuvant cu cuvant.
 
 import { createClient } from "@/lib/supabase/server";
+import { readInBatches } from "./id-list";
 import { hasTasks } from "./schema-capability";
 import { listClientOwnerChoices } from "./clients";
 import {
@@ -237,27 +238,28 @@ export async function listClosedLinkChoices(
   if (clientIds.size === 0 && projectIds.size === 0) return out;
 
   const supabase = await createClient();
+  // P3-205. Loturi de cel mult ID_LIST_BATCH_SIZE id-uri (id-list.ts), iar o citire
+  // care a picat arunca, ca si citirea sarcinii de mai sus: nu devine o lista goala.
   const [clients, projects] = await Promise.all([
-    clientIds.size === 0
-      ? { data: [] }
-      : supabase.from("clients").select("id, name, active").in("id", [...clientIds]),
-    projectIds.size === 0
-      ? { data: [] }
-      : supabase.from("projects").select("id, name, status, active").in("id", [...projectIds]),
+    readInBatches<{ id: string; name: string; active: boolean }>(
+      "clientii sarcinilor",
+      [...clientIds],
+      (batch) => supabase.from("clients").select("id, name, active").in("id", batch),
+    ),
+    readInBatches<{ id: string; name: string; status: string; active: boolean }>(
+      "proiectele sarcinilor",
+      [...projectIds],
+      (batch) => supabase.from("projects").select("id, name, status, active").in("id", batch),
+    ),
   ]);
 
-  for (const c of (clients.data ?? []) as { id: string; name: string; active: boolean }[]) {
+  for (const c of clients) {
     out[taskLinkKey("client", c.id)] = {
       id: c.id,
       label: c.active ? c.name : `${c.name} (inactiv)`,
     };
   }
-  for (const p of (projects.data ?? []) as {
-    id: string;
-    name: string;
-    status: string;
-    active: boolean;
-  }[]) {
+  for (const p of projects) {
     out[taskLinkKey("project", p.id)] = {
       id: p.id,
       label: p.status === "closed" ? `${p.name} (închis)` : `${p.name} (inactiv)`,

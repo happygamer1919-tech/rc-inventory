@@ -9363,3 +9363,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** P3-183 put `loadOrRefuse` on the existing-rows reads of the lead and client imports but missed the team read. `listClientOwnerChoices` returns an empty list on an error, so every row with a Responsabil showed "nu este în echipă", a false reason.
 **SOLUTION:** card P3-206: the imports read the team through `readClientOwnerChoices`, which throws `ImportReadError`, wrapped in `loadOrRefuse` in the plan and write actions. Covered by `tests/e2e/import-clients-read.spec.ts`. RULE: **when a guard goes onto an action's reads, list every read the action makes (grep the helpers it calls) and guard each; a helper that swallows errors into an empty list is a read to guard.**
+
+### A new lookup by id list must go through the batch helper and must not swallow its error
+**Tag:** data
+**ERROR:** `listClosedLinkChoices` and the lead import contact lookup sent every id in one `.in(...)` request and read `data ?? []` or returned on error. Past roughly 130 ids the gateway answers 414, the list came back empty, and the task form showed the empty box again with no message.
+**SOLUTION:** card P3-205: both go through `readInBatches` in `lib/data/id-list.ts` (100 ids per request, merged), and a failed batch throws. The import wraps the lookup in `loadOrRefuse`. Covered by `tests/e2e/p3-205-chunk-id-lookups.spec.ts`. RULE: **grep `\.in(` for any list that grows with client data and route it through `readInBatches`; `data ?? []` after a select that can fail is a silent empty list.**

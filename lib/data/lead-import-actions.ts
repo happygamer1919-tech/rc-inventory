@@ -28,7 +28,13 @@ import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
 import { readClientOwnerChoices } from "./clients";
-import { loadOrRefuse, readAllClients } from "./import-clients-read";
+import {
+  ImportReadError,
+  loadOrRefuse,
+  readAllClients,
+  readFailedMessage,
+} from "./import-clients-read";
+import { readInBatches } from "./id-list";
 import { importNextActionAt, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
@@ -250,14 +256,25 @@ async function addContactNameFillable(
   if (matched.length === 0) return;
 
   const ids = [...new Set(matched.map((entry) => (entry.against as { id: string }).id))];
-  const { data, error } = await supabase.from("contacts").select("client_id").in("client_id", ids);
-  // O CITIRE CARE NU REUSESTE NU ADAUGA NIMIC. Persoana de contact rămâne necompletabila,
-  // ceea ce este partea sigura: a presupune "nu are contacte" ar propune o completare pe
-  // un client despre care nu s-a aflat nimic.
-  if (error) return;
+  // P3-205. Loturi de cel mult 100 de id-uri (id-list.ts): o lista lunga trece de limita
+  // adresei si ar da 414.
+  //
+  // O CITIRE CARE NU REUSESTE NU MAI ESTE TACUTA. Inainte se iesea fara nimic, iar
+  // operatorul vedea un plan fara completarea persoanei de contact, fara sa stie de ce.
+  // Acum citirea arunca ImportReadError, iar apelantul o da prin loadOrRefuse: operatorul
+  // citeste "Nu am putut citi ...". A presupune "nu are contacte" ar propune o completare
+  // pe un client despre care nu s-a aflat nimic.
+  let contacts: { client_id: string }[];
+  try {
+    contacts = await readInBatches<{ client_id: string }>("persoanele de contact", ids, (batch) =>
+      supabase.from("contacts").select("client_id").in("client_id", batch),
+    );
+  } catch {
+    throw new ImportReadError(readFailedMessage("persoanele de contact"));
+  }
 
   const withContact = new Set<string>();
-  for (const row of (data ?? []) as { client_id: string }[]) withContact.add(row.client_id);
+  for (const row of contacts) withContact.add(row.client_id);
 
   for (const entry of matched) {
     const clientId = (entry.against as { id: string }).id;
@@ -303,7 +320,8 @@ export async function planLeadImport(
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: existing.value,
   });
-  await addContactNameFillable(supabase, plan, prepared);
+  const fillable = await loadOrRefuse(() => addContactNameFillable(supabase, plan, prepared));
+  if (!fillable.ok) return fillable;
 
   return { ok: true, value: plan };
 }
@@ -437,7 +455,8 @@ export async function runLeadImport(
   // P3-115, G17: aceeasi intrebare, pusa despre aceiasi clienti, in amandoua caile. Daca
   // ar fi pusa numai in planLeadImport, ecranul ar oferi completarea persoanei de contact si
   // scrierea nu ar sti ca a fost cerută.
-  await addContactNameFillable(supabase, plan, prepared);
+  const fillable = await loadOrRefuse(() => addContactNameFillable(supabase, plan, prepared));
+  if (!fillable.ok) return fillable;
 
   // Intai completarile din interiorul fisierului, cat timp niciun rand nu a fost
   // scris: randul de mai sus nu exista in baza, deci se completeaza planul lui.
