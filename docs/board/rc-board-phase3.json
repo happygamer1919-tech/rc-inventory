@@ -5991,6 +5991,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-08. Root cause: ClientForm defaulted every new record to cold."
+    },
+    {
+      "id": "P3-199",
+      "title": "Take stock may add lines only for the owner, or for the creator of a slip that has no line yet. Migration 0077 replaces public.outbound_issue_take_stock(uuid, jsonb) in place, same signature, return type, SECURITY DEFINER, search_path and grants: after the existing refusals (no active profile, no such issue, issue not awaiting_shipment) a caller who is not the owner is refused unless outbound_issues.created_by is the caller and the slip has no outbound_lines row. P3-195 made direct line writes owner only but left this definer routine open, so any account manager could add lines to another person's slip awaiting shipment. The locks, summed overdraw check, INSUFFICIENT_STOCK contract, lines insert and history row are unchanged.",
+      "plain": "A staff member can no longer add goods to somebody else's delivery slip through the back door; only the owner, or the person who just created an empty slip, can.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-195"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/take-stock-lines-guard.spec.ts is green in this pull request quality run on its head sha: an account manager calling outbound_issue_take_stock on a slip created by another user is refused and no outbound_lines row is added. (b) The same call on a slip that already has lines is refused for a non-owner, the slip's own creator included. (c) The creator's first take stock on their own empty slip still succeeds, the owner's call still succeeds, and both outbound doors still work for an account manager. (d) scripts/poc-free/local-db/assertions/0075_take_stock_status_and_line_policies.sql passes in the applier run, and tests/e2e/take-stock-guard.spec.ts, tests/e2e/outbound-lines-deactivated.spec.ts and every other existing spec stay green; the steps Refuse a migration that removes rows and both applier proof steps RAN and passed. (e) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: bug check of 2026-10-09. The legitimate flow is the two doors: each inserts the slip with created_by = auth.uid() and calls the routine last, in the same transaction, on a slip with no line. A caller with no identity (auth.uid() is null) is a server role and is not refused, as in 0075. The status check stays first, so a shipped slip keeps its deja expediata message. The 0075 assertion and the witnesses of take-stock-guard.spec and outbound-lines-deactivated.spec used a take stock on a slip that already had a line; they now use an empty slip of the account, or the owner. The outbound_lines policies of 0075 are untouched. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-09T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-199 against main: its quality run on the head sha runs tests/e2e/take-stock-lines-guard.spec.ts and the applier proofs; report in docs/reports/2026-10-09-executor-take-stock-lines-guard.md",
+        "at": "2026-10-09T12:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-09 by EXECUTOR in the same pull request. Migration number 0077 because main holds 0076. A migration pull request never self-merges: the owner is told before the live database changes."
     }
   ]
 }
