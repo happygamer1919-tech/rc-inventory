@@ -9348,3 +9348,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-192 routed the row count of the lead import sheet through plural(), but the client, project and material sheets kept hand-built counts, and all four sheets wrote the column count with a one or many switch, so 25 rows showed "25 rânduri" instead of "25 de rânduri".
 **SOLUTION:** card P3-202: every count in the four import sheets goes through plural(). Covered by `tests/e2e/p3-202-import-summary-plurals.spec.ts`. RULE: **when a text fix lands on one of several sheets built from the same pattern, grep the siblings for the same string before calling it done.**
+
+### A calendar day must never pass through a Date object
+**Tag:** data
+**ERROR:** The client and lead exports wrote the next-step date with `new Date("2026-10-15").toLocaleDateString(...)`. The text is read as UTC midnight, so a process west of UTC wrote 14.10.2026. It was right on Vercel (UTC) by luck. The follow-up date in the same file was written as AAAA-LL-ZZ, so the two dates looked different.
+**SOLUTION:** card P3-204: both dates go through `formatDate` from `lib/data/format.ts`, which splits the text and never builds a Date. Both importers already read ZZ.LL.AAAA. Covered by `tests/e2e/p3-204-export-next-step-date-timezone.spec.ts`. RULE: **a `date` column is a string until it reaches the screen or the file; grep for `new Date(` on every `date` column before calling a date fix done.**
