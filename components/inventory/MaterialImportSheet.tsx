@@ -291,7 +291,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
               {ready ? (
                 <p className="text-[13px] text-rc-black" data-testid="import-read">
                   Am citit {plural(rows.length, "rând", "rânduri")} și{" "}
-                  {headers.length} {headers.length === 1 ? "coloană" : "coloane"}.
+                  {plural(headers.length, "coloană", "coloane")}.
                 </p>
               ) : null}
 
@@ -461,9 +461,12 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
                   ) : null}
 
                   <p className="text-[12px] text-rc-muted" data-testid="import-total">
-                    {outcome.created + outcome.filled + outcome.skipped === 1
-                      ? "1 rând citit din fișier."
-                      : `${outcome.created + outcome.filled + outcome.skipped} rânduri citite din fișier.`}
+                    {plural(
+                      outcome.created + outcome.filled + outcome.skipped,
+                      "rând citit din fișier",
+                      "rânduri citite din fișier",
+                    )}
+                    .
                   </p>
 
                   {outcome.warnings.length > 0 ? (
