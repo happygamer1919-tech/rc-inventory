@@ -3,9 +3,10 @@
 //
 // ACELASI TIPAR CA lib/data/lead-import-plan.ts, cardul P3-101. CHEIA DE DUBLARE
 // ESTE EMAILUL (clauza 5 a cardului P3-123). Un rand FARA email se potriveste
-// dupa nume si telefon impreuna; un rand fara email si fara telefon nu se poate
-// dubla cu nimic si intra mereu ca nou. Un rand cu email nu se potriveste
-// niciodata dupa nume si telefon.
+// dupa nume si telefon impreuna, cu orice client stocat, cu email sau fara
+// (P3-197); un rand fara email si fara telefon nu se poate dubla cu nimic si
+// intra mereu ca nou. Un rand cu email nu se potriveste niciodata dupa nume si
+// telefon.
 //
 // DUBLATUL SE CAUTA IN DOUA LOCURI SI AMANDOUA CONTEAZA: printre clientii deja
 // stocati, si printre randurile de mai sus DIN ACELASI FISIER, cu fisierul
@@ -174,7 +175,6 @@ export function buildClientPlan(input: {
 
   const storedByNamePhone = new Map<string, ExistingClient>();
   for (const client of input.existing) {
-    if (client.emailKey) continue;
     const key = namePhoneKey(client.name, client.phone ?? "");
     if (key && !storedByNamePhone.has(key)) storedByNamePhone.set(key, client);
   }

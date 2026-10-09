@@ -5940,6 +5940,32 @@
         "at": "2026-10-08T12:34:53Z"
       },
       "notes": "Found by the bug check of 2026-10-07 (High). Root cause: readActiveClientOptions filtered on active only."
+    },
+    {
+      "id": "P3-197",
+      "title": "Client import: a file row with name and phone but no email was matched only against stored clients that also have no email, so re-importing created duplicates of every emailed client. buildClientPlan now indexes every stored client by name plus phone. A file row with an email still matches by email only.",
+      "plain": "Dacă importi din nou un fișier de clienți cu nume și telefon, dar fără email, clienții deja existenți sunt recunoscuți și nu se mai creează dubluri.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-185",
+        "P3-164"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests 'P3-197: un rand fara email, cu acelasi nume si telefon, este dublat al clientului stocat cu email' and 'P3-197: un rand cu alt email si acelasi nume si telefon ramane nou' are green in tests/e2e/client-import-namephone.spec.ts in this pull request's own quality run. (b) The existing cases in tests/e2e/import-preview-rows.spec.ts stay green in that run. (c) npx tsc --noEmit exits 0.",
+      "defaults": "A duplicate found by name plus phone defaults to skip; fill touches only empty fields. A file row with an email still matches by email only. Matching inside the file is unchanged. The lead import already matches by email only and is left as it is. No migration, no schema change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-197 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-07. Root cause: the stored-client index skipped every client with an email."
     }
   ]
 }
