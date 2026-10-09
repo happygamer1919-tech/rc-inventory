@@ -6016,6 +6016,31 @@
         "at": "2026-10-09T12:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-09 by EXECUTOR in the same pull request. Migration number 0077 because main holds 0076. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
+      "id": "P3-200",
+      "title": "The Consum materiale tab of the client page formatted quantities with whole-number formatting, so a walk-in sale of 2,5 m2 showed 3 and 0,4 m3 showed 0. The tab now uses the two-decimal quantity format in each row and in the total. formatNumber itself is unchanged.",
+      "plain": "On a client's page, materials bought at the counter now show exact amounts like 2,5 m² instead of being rounded.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-159"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test 'formatarea cantitatii din fila pastreaza zecimalele: 2,5 m² si 0,4 m³' is green in tests/e2e/p3-200-client-materials-decimals.spec.ts in this pull request's own quality run. (b) The test 'o vanzare la ghiseu de 2,5 m² apare cu zecimala in rand si in total' is green in the same spec and run. (c) npx tsc --noEmit exits 0.",
+      "defaults": "formatNumber and every other screen that uses it are unchanged. The total keeps its current meaning (the sum the database returns); only the decimals change. The Romanian comma separator stays. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-200 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Root cause: P3-159 routed walk-in sales into this tab, which still used formatNumber (maximumFractionDigits 0); P3-146 fixed the forms and the slip detail but not this tab."
     }
   ]
 }

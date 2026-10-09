@@ -9343,3 +9343,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** The P3-195 assertion and two e2e specs used a second take stock on a slip that already had a line as their "allowed" witness. Under P3-199 that call is refused for an account manager.
 **SOLUTION:** the witnesses now use an empty slip created by the account (written with the service key), or the owner. When a rule narrows, grep every spec for the call and move its witness to the narrowest case still allowed.
+
+### A formatting fix for one screen needs a sweep of the other screens that show the same quantity
+**Tag:** ui
+**ERROR:** P3-146 moved the forms and the slip detail to two-decimal quantities, but the Consum materiale tab of the client page still used formatNumber (no decimals), so a walk-in sale of 2,5 m2 showed 3 and 0,4 m3 showed 0.
+**SOLUTION:** card P3-200: the tab uses formatQty with the unit and the new formatQtyNumber without one, in each row and in the total. Covered by `tests/e2e/p3-200-client-materials-decimals.spec.ts`. RULE: **when a quantity format changes, search every screen that renders a quantity with formatNumber and decide each one on purpose.**
