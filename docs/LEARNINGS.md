@@ -9333,3 +9333,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** P3-196 limited the walk-in buyer picker to stage client, but the Client nou form on the Clienti screen started every record at cold, so a real customer added there never appeared at the counter.
 **SOLUTION:** card P3-198: ClientForm takes an optional defaultStage for a new record and the Clienti screen passes client. Covered by `tests/e2e/new-client-stage.spec.ts`. RULE: **when a read gains a filter on a column, check every form that creates rows in that table for the default it writes.**
+
+### A formatting fix for one screen needs a sweep of the other screens that show the same quantity
+**Tag:** ui
+**ERROR:** P3-146 moved the forms and the slip detail to two-decimal quantities, but the Consum materiale tab of the client page still used formatNumber (no decimals), so a walk-in sale of 2,5 m2 showed 3 and 0,4 m3 showed 0.
+**SOLUTION:** card P3-200: the tab uses formatQty with the unit and the new formatQtyNumber without one, in each row and in the total. Covered by `tests/e2e/p3-200-client-materials-decimals.spec.ts`. RULE: **when a quantity format changes, search every screen that renders a quantity with formatNumber and decide each one on purpose.**
