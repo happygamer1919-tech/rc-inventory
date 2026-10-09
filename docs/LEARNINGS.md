@@ -9353,3 +9353,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-156 added the next-step date to lead and client imports after P3-141 built the "Rânduri noi" preview, and no column was added, so the date was saved but the preview, headed "Valorile sunt cele care se vor salva", hid it.
 **SOLUTION:** card P3-203: personPreviewTable has a "Data pasului următor" column after "Următorul pas", for clients and leads. Covered by `tests/e2e/import-preview-rows.spec.ts`. RULE: **when a card adds an imported field, grep the preview table for the list of columns and add the new one in the same pull request.**
+
+### A calendar day must never pass through a Date object
+**Tag:** data
+**ERROR:** The client and lead exports wrote the next-step date with `new Date("2026-10-15").toLocaleDateString(...)`. The text is read as UTC midnight, so a process west of UTC wrote 14.10.2026. It was right on Vercel (UTC) by luck. The follow-up date in the same file was written as AAAA-LL-ZZ, so the two dates looked different.
+**SOLUTION:** card P3-204: both dates go through `formatDate` from `lib/data/format.ts`, which splits the text and never builds a Date. Both importers already read ZZ.LL.AAAA. Covered by `tests/e2e/p3-204-export-next-step-date-timezone.spec.ts`. RULE: **a `date` column is a string until it reaches the screen or the file; grep for `new Date(` on every `date` column before calling a date fix done.**
