@@ -31,6 +31,7 @@ export function ClientForm({
   stageAvailable,
   owners,
   nextActionAvailable = false,
+  defaultStage,
   onClose,
   onSaved,
 }: {
@@ -45,6 +46,9 @@ export function ClientForm({
   /** P3-89. Adevarat numai cand hasClientNextAction a raspuns da, citit de pe
    *  client. Fals inseamna ca formularul nu ofera Următorul pas si nu il trimite. */
   nextActionAvailable?: boolean;
+  /** P3-198. Etapa de pornire a unui client NOU; se ignora la editare. Fara ea,
+   *  un client nou porneste la Lead rece. */
+  defaultStage?: string;
   onClose: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -59,7 +63,7 @@ export function ClientForm({
   const [email, setEmail] = React.useState(client?.email ?? "");
   const [notes, setNotes] = React.useState(client?.notes ?? "");
   const [active, setActive] = React.useState(client?.active ?? true);
-  const [stage, setStage] = React.useState<string>(client?.stage ?? "cold");
+  const [stage, setStage] = React.useState<string>(client?.stage ?? defaultStage ?? "cold");
   const [followUpDate, setFollowUpDate] = React.useState(client?.followUpDate ?? "");
   const [source, setSource] = React.useState<string>(client?.source ?? "");
   const [interest, setInterest] = React.useState(client?.interest ?? "");

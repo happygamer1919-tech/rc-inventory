@@ -983,6 +983,7 @@ export function ClientsScreen({
       {creating ? (
         <ClientForm
           stageAvailable={stageAvailable}
+          defaultStage="client"
           onClose={() => setCreating(false)}
           onSaved={(id) => {
             setCreating(false);

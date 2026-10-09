@@ -5966,6 +5966,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-07. Root cause: the stored-client index skipped every client with an email."
+    },
+    {
+      "id": "P3-198",
+      "title": "A client added with Client nou on the Clienti screen started at stage cold, so it did not appear in the walk-in buyer picker (P3-196 reads stage client only) until someone changed the stage by hand. ClientForm takes an optional defaultStage for a new record and the Clienti screen passes client. Editing keeps the stored stage; leads still start at cold.",
+      "plain": "Un client adăugat din ecranul Clienți pornește ca client și poate fi ales imediat la vânzarea directă.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-196"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test 'P3-198: un client nou de pe ecranul Clienti porneste la etapa client' is green in tests/e2e/new-client-stage.spec.ts in this pull request's own quality run. (b) The test 'P3-198: clientul nou apare in lista de cumparatori de la vanzarea directa' is green in the same spec and run. (c) The test 'P3-198: editarea unui lead existent nu ii schimba etapa' is green in the same spec and run. (d) npx tsc --noEmit exits 0.",
+      "defaults": "The Etapa dropdown still lets the user pick another stage before saving. Only the Client nou path on the Clienti screen changes; the leads screens and the lead import still start at cold. The picker reader and the P3-196 filter are untouched. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-198 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-08. Root cause: ClientForm defaulted every new record to cold."
     }
   ]
 }
