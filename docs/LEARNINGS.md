@@ -9368,3 +9368,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `listClosedLinkChoices` and the lead import contact lookup sent every id in one `.in(...)` request and read `data ?? []` or returned on error. Past roughly 130 ids the gateway answers 414, the list came back empty, and the task form showed the empty box again with no message.
 **SOLUTION:** card P3-205: both go through `readInBatches` in `lib/data/id-list.ts` (100 ids per request, merged), and a failed batch throws. The import wraps the lookup in `loadOrRefuse`. Covered by `tests/e2e/p3-205-chunk-id-lookups.spec.ts`. RULE: **grep `\.in(` for any list that grows with client data and route it through `readInBatches`; `data ?? []` after a select that can fail is a silent empty list.**
+
+### Bytes that are letters in two code pages cannot be evidence for either one
+**Tag:** data
+**ERROR:** The windows-1250 / windows-1251 vote of P3-182 counted the bytes E3, E2, EE, FE (and C3, C2, CE, DE) as Romanian letters, but in windows-1251 they are the Russian letters г, в, о, ю. A mostly Latin Russian file with names like "ООО Строй" tied the vote, was read as 1250 and imported as "ÎÎÎ Ñòðîé", which passes the U+FFFD check.
+**SOLUTION:** card P3-207: a word of 3 or more Cyrillic letters in the 1251 reading (`CYRILLIC_RUN` in `lib/data/import-shared.ts`) now decides for 1251. A run of 2 is not enough, because Romanian "viață" in 1250 bytes reads as 2 Cyrillic letters. Covered by the `codare csv P3-207` tests in `tests/e2e/import-encoding.spec.ts`. RULE: **when a guess between two code pages depends on counting letters, build the test file from real bytes in the other code page, not from the winning side's own text.**

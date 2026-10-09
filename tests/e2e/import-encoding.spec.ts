@@ -60,6 +60,46 @@ test("codare csv: windows-1251 cu Иван Петров se citeste corect", () =
   expect(result).toEqual({ text: "Иван Петров", encoding: "windows-1251" });
 });
 
+// P3-207. Windows-1251: А-я (U+0410-U+044F) sunt octetii C0-FF.
+function cp1251(text: string): number[] {
+  return [...text].map((ch) => {
+    const code = ch.charCodeAt(0);
+    return code >= 0x410 && code <= 0x44f ? code - 0x410 + 0xc0 : code;
+  });
+}
+
+test("codare csv P3-207: windows-1251 mostly Latin cu ООО Строй se citeste ca rusa", () => {
+  const text = "Nume;Firma\nSC Alpha SRL;ООО Строй\nBeta Trading;Gamma";
+  const result = decodeCsvFile(buffer(cp1251(text)));
+  expect(result).toEqual({ text, encoding: "windows-1251" });
+});
+
+test("codare csv P3-207: windows-1250 cu î â ă ș ț ramane romanesc", () => {
+  // î EE, â E2, ă E3, ş BA, ţ FE, Î CE, Â C2, Ă C3, Ş AA, Ţ DE (sedila, ca in Excel).
+  const bytes = [
+    0xce, ...ascii("n Rom"), 0xe2, ...ascii("nia, B"), 0xe3, ...ascii("l"), 0xfe, ...ascii("i, Ia"),
+    0xba, ...ascii("i, via"), 0xfe, 0xe3, ...ascii(", "), 0xc2, ...ascii("ntors, "), 0xc3, ...ascii("sta, "),
+    0xaa, ...ascii("tefan, "), 0xde, ...ascii("ara, W"), 0xfc, ...ascii("rth"),
+  ];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({
+    text: "În România, Bălți, Iași, viață, Ântors, Ăsta, Ștefan, Țara, Würth",
+    encoding: "windows-1250",
+  });
+});
+
+test("codare csv P3-207: un fisier numai rusesc ramane windows-1251", () => {
+  const text = "Название;Количество\nОтвертка;12\nМолоток;5";
+  const result = decodeCsvFile(buffer(cp1251(text)));
+  expect(result).toEqual({ text, encoding: "windows-1251" });
+});
+
+test("codare csv P3-207: UTF-8 cu chirilica ramane neschimbat", () => {
+  const text = "Nume;Firma\nSC Alpha SRL;ООО Строй";
+  const result = decodeCsvFile(buffer([...new TextEncoder().encode(text)]));
+  expect(result).toEqual({ text, encoding: "utf-8" });
+});
+
 test("codare csv: un fisier cu litere deja stricate este refuzat cu mesajul romanesc", () => {
   // U+FFFD salvat deja ca UTF-8 (EF BF BD): un fisier stricat la o salvare anterioara.
   const bytes = [...ascii("Nume\n"), ...ascii("tefan "), 0xef, 0xbf, 0xbd];
