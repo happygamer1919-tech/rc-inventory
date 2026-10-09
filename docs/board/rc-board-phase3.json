@@ -6093,6 +6093,32 @@
       "notes": "Found by the bug check of 2026-10-09. P3-203 is taken by the import preview task."
     },
     {
+      "id": "P3-203",
+      "title": "P3-156 added the next-step date to lead and client imports after P3-141 built the 'Rânduri noi' preview, and no column was added. The date was saved but hidden, while the heading says the values shown are the ones that will be saved. The preview now has a 'Data pasului următor' column right after 'Următorul pas' for both clients and leads.",
+      "plain": "When you import clients or leads, the preview now shows the date of the next step, so you see what will be saved.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-141",
+        "P3-156"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/e2e/import-preview-rows.spec.ts named 'previzualizare persoane' show 15.10.2026 in the 'Data pasului următor' column right after 'Următorul pas' for a record dated 2026-10-15, with and without the contact column, and an empty cell for an empty date, in this pull request's own quality run. (b) npx tsc --noEmit exits 0.",
+      "defaults": "Preview text only: what is imported or saved and the matching rules are unchanged. The existing date() helper in lib/data/import-preview-rows.ts is reused. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-203 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09."
+    },
+    {
       "id": "P3-205",
       "title": "The Sarcini closed-record lookup and the lead import contact lookup sent every id in one in(...) request, which the gateway refuses past roughly 130 ids, and ignored the read error. Both now read in batches of 100 through the shared id-list helper, and a failed read is reported: the task form read throws like the other task readers, and the lead import shows the Nu am putut citi refusal.",
       "plain": "The task edit form keeps showing the name of a closed project or inactive client even when hundreds of tasks point at closed records, and the lead import tells the operator when it cannot read the contacts instead of silently skipping them.",
