@@ -30,8 +30,7 @@ import {
   Td,
   Th,
 } from "@/components/ui/primitives";
-import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
-import { unitLabel } from "@/lib/data/units";
+import { formatDate, formatMoney, formatQty, formatQtyNumber } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import { PROJECT_STATUS_TONE } from "@/lib/data/projects-list-types";
 import type {
@@ -301,7 +300,7 @@ export function ClientTabs({
                           <span className="ml-2 text-[12.5px] text-rc-muted">{r.sku}</span>
                         </Td>
                         <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                          {formatNumber(r.quantity)} {r.unit ? unitLabel(r.unit) : ""}
+                          {r.unit ? formatQty(r.quantity, r.unit) : formatQtyNumber(r.quantity)}
                         </Td>
                         <Td align="right" data-label="Valoare" className={PHONE_CELL}>
                           {formatMoney(r.valueMdl)}
@@ -312,7 +311,7 @@ export function ClientTabs({
                       <tr data-testid="material-total" className={`font-semibold ${PHONE_ROW}`}>
                         <Td className={PHONE_WIDE}>Total, toate produsele</Td>
                         <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                          {formatNumber(materials.total.quantity)}
+                          {formatQtyNumber(materials.total.quantity)}
                         </Td>
                         <Td align="right" data-label="Valoare" className={PHONE_CELL}>
                           {formatMoney(materials.total.valueMdl)}

@@ -46,6 +46,11 @@ export function formatQty(value: number, unit: UnitCode): string {
   return `${NF2.format(value)} ${unitLabel(unit)}`;
 }
 
+/** Cantitatea cu zecimalele ei, fara unitate: `2,5`. Pentru un rand fara unitate si pentru un total. */
+export function formatQtyNumber(value: number): string {
+  return NF2.format(value);
+}
+
 export function formatNumber(value: number): string {
   return NF.format(value);
 }
