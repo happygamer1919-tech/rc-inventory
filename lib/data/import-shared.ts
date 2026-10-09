@@ -580,6 +580,9 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  */
 const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
 
+/** Cel putin 3 litere chirilice la rand (P3-207). */
+const CYRILLIC_RUN = /[Ѐ-ӿ]{3,}/;
+
 /** Control C0 fara tab (09), LF (0A), CR (0D). */
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
 
@@ -651,7 +654,11 @@ export function decodeCsvFile(
       if (ROMANIAN_LETTERS.includes(ch)) ro++;
       else if (ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch)) foreign++;
     }
-    if (cyrillic && foreign > ro) {
+    // P3-207: octetii ă â î ţ (E3 E2 EE FE) sunt in 1251 г в о ю, deci un fisier rusesc
+    // cu text mai ales latin egaleaza votul. Un cuvant cu cel putin 3 litere chirilice
+    // la rand nu apare in text romanesc citit ca 1251, deci hotaraste pentru 1251.
+    const cyrillicWord = CYRILLIC_RUN.test(t1251);
+    if (cyrillic && (foreign > ro || cyrillicWord)) {
       text = t1251;
       encoding = "windows-1251";
     } else {
