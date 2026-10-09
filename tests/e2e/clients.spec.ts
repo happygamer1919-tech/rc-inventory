@@ -357,7 +357,7 @@ async function expectStageOnScreen(page: Page, stage: Stage) {
 test.describe("Clienți, etapa (P3-43)", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test("P3-43 (1)(5): un client nou fără etapă este Lead rece, iar etapa se alege din formular și se citește din rândul stocat", async ({
+  test("P3-43 (1)(5): un client nou din Client nou pornește la Client (P3-198), iar etapa se alege din formular și se citește din rândul stocat", async ({
     page,
   }) => {
     await signIn(page, ownerAccount());
@@ -366,10 +366,11 @@ test.describe("Clienți, etapa (P3-43)", () => {
     await createClient(page, { name: clientName("Etapa") });
     const id = await createdClientId(page);
 
-    // HANDOVER 4.8 LINE 10, A DOUA JUMATATE: un client creat fara etapa aleasa
-    // se stocheaza `cold`.
-    expect((await storedClient(rest, id)).stage).toBe("cold");
-    await expectStageOnScreen(page, "cold");
+    // P3-198: formularul Client nou porneste la `client`, ca un client adaugat de
+    // aici sa apara de indata in lista de cumparatori. Fara etapa aleasa, se
+    // stocheaza deci `client`; implicitul `cold` ramane pentru leaduri.
+    expect((await storedClient(rest, id)).stage).toBe("client");
+    await expectStageOnScreen(page, "client");
 
     // CINCI ETAPE, IN ORDINEA DECLARATA, CU ETICHETE ROMANESTI. Tokenul este doar
     // valoarea optiunii, niciodata textul ei.
@@ -453,7 +454,7 @@ test.describe("Clienți, etapa (P3-43)", () => {
     await createClient(page, { name: clientName("De reluat"), phone: "069 000 111" });
     const id = await createdClientId(page);
     const before = await storedClient(rest, id);
-    expect(before).toEqual({ stage: "cold", follow_up_date: null, phone: "069 000 111" });
+    expect(before).toEqual({ stage: "client", follow_up_date: null, phone: "069 000 111" });
 
     // HANDOVER 4.8 LINE 4, DIN FORMULAR. Se schimba si telefonul, ca "randul
     // stocat este neschimbat" sa insemne tot randul si nu doar etapa.
@@ -503,27 +504,29 @@ test.describe("Clienți, etapa (P3-43)", () => {
 
     await createClient(page, { name: clientName("Istoric") });
     const id = await createdClientId(page);
-    expect(await storedHistory(rest, id)).toHaveLength(0);
+    // P3-198: crearea porneste la `client`, deci scrie singura ei linie, cold ->
+    // client. De aici se numara schimbarile.
+    expect(await storedHistory(rest, id)).toHaveLength(1);
 
     // HANDOVER 4.8 LINE 9.
     await saveStage(page, "nurture");
     await expect.poll(async () => (await storedClient(rest, id)).stage).toBe("nurture");
 
     const history = await storedHistory(rest, id);
-    expect(history).toHaveLength(1);
-    expect(history[0]).toMatchObject({
+    expect(history).toHaveLength(2);
+    expect(history[1]).toMatchObject({
       entity_id: id,
-      from_status: "cold",
+      from_status: "client",
       to_status: "nurture",
       changed_by: rest.userId,
     });
-    expect(Number.isNaN(Date.parse(history[0]!.created_at))).toBe(false);
+    expect(Number.isNaN(Date.parse(history[1]!.created_at))).toBe(false);
 
     // ACEEASI ETAPA, ALT CAMP SCHIMBAT: nicio linie noua. Un dublu clic nu este
     // un eveniment.
     await saveStage(page, "nurture", { phone: "069 222 333" });
     await expect.poll(async () => (await storedClient(rest, id)).phone).toBe("069 222 333");
-    expect(await storedHistory(rest, id)).toHaveLength(1);
+    expect(await storedHistory(rest, id)).toHaveLength(2);
 
     await rest.api.dispose();
   });
