@@ -69,12 +69,16 @@ function fakeTable<Row extends Record<string, unknown>>(table: string, all: Row[
   };
 }
 
+const EVEN_ID = "11111111-1111-4111-8111-111111111111";
+const ODD_ID = "22222222-2222-4222-8222-222222222222";
+const NOTHING_ID = "00000000-0000-0000-0000-000000000000";
+
 function catalog(n: number): ProductRow[] {
   return Array.from({ length: n }, (_, i) => ({
     id: `p${String(i + 1).padStart(4, "0")}`,
     sku: `SKU-${String(i + 1).padStart(4, "0")}`,
     active: true,
-    category_id: i % 2 === 0 ? "even" : "odd",
+    category_id: i % 2 === 0 ? EVEN_ID : ODD_ID,
   }));
 }
 
@@ -171,7 +175,7 @@ test("P3-142: categoria si furnizorul se pun in cerere, iar o pagina dincolo de 
   const got = await readProductPage(
     client,
     "id, sku",
-    { category: "even", supplier: "", visibility: "toate" },
+    { category: EVEN_ID, supplier: "", visibility: "toate" },
     99,
     async () => new Map(),
   );
@@ -180,9 +184,52 @@ test("P3-142: categoria si furnizorul se pun in cerere, iar o pagina dincolo de 
   expect(got.total).toBe(170);
   expect(got.page).toBe(4);
   expect(got.rows).toHaveLength(20);
-  expect(calls.every((c) => c.eq.some(([column, value]) => column === "category_id" && value === "even"))).toBe(true);
+  expect(calls.every((c) => c.eq.some(([column, value]) => column === "category_id" && value === EVEN_ID))).toBe(true);
   // Vizibilitatea "toate" nu pune niciun filtru pe `active`.
   expect(calls.every((c) => !c.eq.some(([column]) => column === "active"))).toBe(true);
+});
+
+test("P3-208: o categorie scrisa de mana in adresa da lista goala, fara eroare si fara sa ajunga in cerere", async () => {
+  const calls: Call[] = [];
+  const got = await readProductPage(
+    productClient(catalog(340), calls),
+    "id, sku",
+    { category: "abc", supplier: "", visibility: "toate" },
+    1,
+    async () => new Map(),
+  );
+  expect(got.rows).toHaveLength(0);
+  expect(got.total).toBe(0);
+  expect(calls.flatMap((c) => c.eq.map(([, value]) => value))).not.toContain("abc");
+  expect(calls.every((c) => c.eq.some(([column, value]) => column === "category_id" && value === NOTHING_ID))).toBe(true);
+});
+
+test("P3-208: un furnizor scris de mana in adresa da lista goala, fara eroare si fara sa ajunga in cerere", async () => {
+  const calls: Call[] = [];
+  const got = await readProductPage(
+    productClient(catalog(340), calls),
+    "id, sku",
+    { category: "", supplier: "abc", visibility: "toate" },
+    1,
+    async () => new Map(),
+  );
+  expect(got.rows).toHaveLength(0);
+  expect(got.total).toBe(0);
+  expect(calls.flatMap((c) => c.eq.map(([, value]) => value))).not.toContain("abc");
+  expect(calls.every((c) => c.eq.some(([column, value]) => column === "supplier_id" && value === NOTHING_ID))).toBe(true);
+});
+
+test("P3-208: un uuid valid de categorie filtreaza ca pana acum", async () => {
+  const calls: Call[] = [];
+  const got = await readProductPage(
+    productClient(catalog(340), calls),
+    "id, sku",
+    { category: ODD_ID, supplier: "", visibility: "toate" },
+    1,
+    async () => new Map(),
+  );
+  expect(got.total).toBe(170);
+  expect(calls.every((c) => c.eq.some(([column, value]) => column === "category_id" && value === ODD_ID))).toBe(true);
 });
 
 function issues(n: number): IssueRow[] {

@@ -6142,6 +6142,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Reuses ID_LIST_BATCH_SIZE and inBatches from lib/data/id-list.ts."
+    },
+    {
+      "id": "P3-208",
+      "title": "A hand-typed category or supplier id in the Inventar address that is not a well-formed uuid went straight into the database filter and made the read fail, so the page fell to the error screen. A malformed id now gives an empty list and a zero count, the same as a real id with no products.",
+      "plain": "If someone edits the Inventar web address by hand and types a nonsense category or supplier, the page now shows an empty list instead of the error screen.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-153"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/list-paging.spec.ts is green in this pull request own quality run: a categorie value of abc gives zero rows and total 0 without throwing and the value abc never reaches the query; the same for a furnizor value of abc; a well-formed uuid still filters as before. (b) npx tsc --noEmit exits 0.",
+      "defaults": "A real read error still throws from listProductsPage and countProducts. A malformed id is not dropped to show everything. The selects, paging, sorting and the error screen are unchanged. No migration, no schema change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-208 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Fix is in applyQueryFilter in lib/data/product-page-read.ts: a value that is not a uuid is replaced by the all-zero uuid, which no row has."
     }
   ]
 }
