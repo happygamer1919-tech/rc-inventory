@@ -6091,6 +6091,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09."
+    },
+    {
+      "id": "P3-204",
+      "title": "The client and lead exports wrote the next-step date through new Date() and toLocaleDateString without a time zone, so on a server west of UTC the file showed the day before. Both exports now write the next-step date and the follow-up date from the plain AAAA-LL-ZZ text, in the same ZZ.LL.AAAA form, with no Date object.",
+      "plain": "The exported client and lead files show the correct next-step date, and write it the same way as the other dates in the file.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-202"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test in tests/e2e/p3-204-export-next-step-date-timezone.spec.ts that formats 2026-10-15 under TZ America/New_York and expects 15.10.2026 is green in this pull request's own quality run. (b) The same spec shows the client and lead export files contain no toLocaleDateString and no Date built from next_action_at, and use formatDate for both dates. (c) The client and lead export round-trip tests (tests/e2e/clients-export.spec.ts and tests/e2e/leads-export.spec.ts) stay green unchanged, since both importers accept ZZ.LL.AAAA. (d) npx tsc --noEmit exits 0.",
+      "defaults": "Column names, column order and the other export columns are unchanged. An empty date stays an empty cell. Data de reluare changes from AAAA-LL-ZZ to ZZ.LL.AAAA because both importers read that form. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-204 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. P3-203 is taken by the import preview task."
     }
   ]
 }
