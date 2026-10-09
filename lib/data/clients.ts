@@ -14,6 +14,7 @@ import "server-only";
 // care, intr-o zi, nu mai sunt de acord asupra unui rand.
 
 import { createClient } from "@/lib/supabase/server";
+import { readOwnerProfiles } from "./import-clients-read";
 import { hasClientLeaduri, hasClientNextAction, hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
@@ -346,6 +347,16 @@ export async function listClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
   if (error || !data) return [];
 
   return (data as { id: string; full_name: string | null; email: string | null }[])
+    .map((p) => ({ id: p.id, fullName: ownerDisplayName(p) }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ro"));
+}
+
+/** Ca listClientOwnerChoices, dar o citire esuata arunca ImportReadError in loc de
+ *  lista goala. Pentru importuri, unde lista goala ar face din fiecare responsabil
+ *  din fisier "nu este in echipa". */
+export async function readClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
+  const profiles = await readOwnerProfiles(await createClient());
+  return profiles
     .map((p) => ({ id: p.id, fullName: ownerDisplayName(p) }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ro"));
 }
