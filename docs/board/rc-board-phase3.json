@@ -6217,6 +6217,32 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Parser is parsePriceText in lib/data/price-input.ts."
+    },
+    {
+      "id": "P3-210",
+      "title": "P3-177 made the client picker refuse to choose when two clients share the exact typed name, but it also left the list open on a click outside, so the operator could not click away until Escape. A buyer created inside the walk-in sale also lost its phone and IDNO in the picker until reload, which is the detail P3-177 added to tell two same-name buyers apart. A click outside now closes the list and chooses nothing, Enter keeps the list open, and a new buyer shows its phone or IDNO in the picker at once.",
+      "plain": "In the walk-in sale, clicking away from the client list now closes it even when two clients have the same name, and a client just created shows its phone or IDNO in the list right away.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-177",
+        "P3-147"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/combobox-commit.test.ts whose names start with 'P3-210' are green in this pull request's own quality run: a click outside with two same-name options closes the list and selects nothing, Enter keeps the list open, one exact match still selects, free text is kept only for creatable lists. (b) The walk-in client spec in tests/e2e/outbound-direct-client.spec.ts shows the phone of a client created on the spot in the picker row. (c) npx tsc --noEmit exits 0.",
+      "defaults": "Only the closing rule of the shared picker for several exact matches and the detail passed on after creating a buyer inline change. Single exact match, free text, Enter on a highlighted row and Escape behave as before. The price box, server side client creation, extraction paths, migrations and permissions are unchanged.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-210 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Rule is decideCommit in lib/data/combobox-commit.ts."
     }
   ]
 }

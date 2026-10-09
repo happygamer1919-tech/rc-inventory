@@ -772,11 +772,25 @@ test("iesire client direct: un client nou creat din ecran apare apoi in Clienti"
   await expect(page.getByTestId("client-create-form")).toBeVisible();
   await page.getByTestId("client-create-name").fill(newClient);
   await page.getByTestId("client-create-type").selectOption("company");
+  // P3-210: telefonul tastat la creare apare indata in lista de clienti, ca
+  // indiciu langa nume, fara reincarcare.
+  const newClientPhone = "069 210 210";
+  await page.getByTestId("client-create-phone").fill(newClientPhone);
   await page.getByTestId("client-create-save").click();
 
   // Formularul se inchide si clientul este DEJA ALES: operatorul are cumparatorul
   // in fata si nu trebuie sa il mai caute.
   await expect(page.getByTestId("client-create-form")).toHaveCount(0, { timeout: 25_000 });
+
+  // P3-210: randul clientului nou din lista arata telefonul.
+  const pickerInput = page.getByTestId("field-client").locator("input");
+  await pickerInput.click();
+  await pickerInput.fill(newClient);
+  await expect(
+    page.locator("[data-rc-combo-list] li").filter({ hasText: newClient }),
+    "randul clientului creat pe loc arata telefonul",
+  ).toContainText(newClientPhone);
+  await pickerInput.press("Escape");
 
   // CLIENTUL ALES SE CITESTE DIN VALOAREA CAMPULUI SI NU DIN TEXTUL CASETEI.
   // Combobox arata alegerea ca <input value={...}>, iar valoarea unui input NU
