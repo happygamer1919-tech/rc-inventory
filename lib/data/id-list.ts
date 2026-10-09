@@ -38,6 +38,34 @@ export function inBatches<T>(items: readonly T[], size: number = ID_LIST_BATCH_S
   return batches;
 }
 
+/** Un lot in forma lui supabase-js: randurile sau eroarea. */
+export type BatchResult<T> = {
+  data: T[] | null;
+  error: { message: string } | null;
+};
+
+/**
+ * P3-205. Citeste randurile pentru o lista de id-uri, in loturi de ID_LIST_BATCH_SIZE,
+ * si le uneste in ordinea loturilor.
+ *
+ * `fetchBatch(ids)` face o singura cerere cu `.in(coloana, ids)`. O eroare la ORICE lot
+ * arunca, cu numele a ceea ce se citea: o lista scurta pentru ca un lot a picat este
+ * exact tacerea pe care antetul de mai sus o interzice. O lista goala nu face nicio cerere.
+ */
+export async function readInBatches<T>(
+  what: string,
+  ids: readonly string[],
+  fetchBatch: (batch: string[]) => PromiseLike<BatchResult<T>>,
+): Promise<T[]> {
+  const results = await Promise.all(inBatches(ids).map((batch) => fetchBatch(batch)));
+  const rows: T[] = [];
+  for (const result of results) {
+    if (result.error) throw new Error(`Nu s-au putut citi ${what}: ${result.error.message}`);
+    for (const row of result.data ?? []) rows.push(row);
+  }
+  return rows;
+}
+
 // P3-39. PAGINI DE RANDURI, CITITE PANA LA CAPAT SI NUMARATE.
 //
 // AL DOILEA PRAG AL ACELEIASI CITIRI, si el nu este in adresa, ci in raspuns.
