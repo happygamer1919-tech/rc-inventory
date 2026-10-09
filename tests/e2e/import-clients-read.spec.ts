@@ -3,7 +3,9 @@
 import { expect, test } from "@playwright/test";
 import {
   CLIENTS_READ_FAILED,
+  OWNERS_READ_FAILED,
   loadOrRefuse,
+  readOwnerProfiles,
   readAllClients,
   readAllRows,
   readFailedMessage,
@@ -74,6 +76,27 @@ test("import: o pagina care esueaza dupa prima opreste tot importul", async () =
   const { client } = fakeSupabase(rows(1200, 0), { failAt: 2 });
   const refused = await loadOrRefuse(() => readAllClients(client, "id"));
   expect(refused.ok).toBe(false);
+});
+
+// Echipa: o citire esuata a profilurilor refuza importul, nu marcheaza fiecare
+// Responsabil drept "nu este in echipa".
+function fakeProfiles(result: { data: unknown; error: { message: string } | null }) {
+  return { from: () => ({ select: () => ({ eq: async () => result }) }) } as never;
+}
+
+test("import: citirea esuata a echipei refuza importul cu 'Nu am putut citi', nu da lista goala", async () => {
+  const failed = await loadOrRefuse(() =>
+    readOwnerProfiles(fakeProfiles({ data: null, error: { message: "boom" } })),
+  );
+  expect(failed).toEqual({ ok: false, message: OWNERS_READ_FAILED });
+  expect(OWNERS_READ_FAILED).toMatch(/^Nu am putut citi /);
+
+  const noData = await loadOrRefuse(() => readOwnerProfiles(fakeProfiles({ data: null, error: null })));
+  expect(noData.ok).toBe(false);
+
+  const profile = { id: "u1", full_name: "Ana", email: null };
+  const fine = await loadOrRefuse(() => readOwnerProfiles(fakeProfiles({ data: [profile], error: null })));
+  expect(fine).toEqual({ ok: true, value: [profile] });
 });
 
 // P3-183: the same rule for the projects and materials imports.

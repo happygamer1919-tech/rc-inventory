@@ -23,7 +23,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
-import { listClientOwnerChoices } from "./clients";
+import { readClientOwnerChoices } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
 import { importNextActionAt, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
@@ -157,12 +157,14 @@ export async function planClientImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const ownerChoices = await listClientOwnerChoices();
+  const loadedOwners = await loadOrRefuse(readClientOwnerChoices);
+  if (!loadedOwners.ok) return loadedOwners;
+  const ownerChoices = loadedOwners.value;
   const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
-  const { plan } = buildClientPlan({
+  const { plan } =buildClientPlan({
     rows: request.rows,
     lines: request.lines,
     mapping: readMapping(request.mapping),
@@ -251,12 +253,14 @@ export async function runClientImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const ownerChoices = await listClientOwnerChoices();
+  const loadedOwners = await loadOrRefuse(readClientOwnerChoices);
+  if (!loadedOwners.ok) return loadedOwners;
+  const ownerChoices = loadedOwners.value;
   const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
-  const { plan, prepared } = buildClientPlan({
+  const { plan, prepared } =buildClientPlan({
     rows: request.rows,
     lines: request.lines,
     mapping: readMapping(request.mapping),

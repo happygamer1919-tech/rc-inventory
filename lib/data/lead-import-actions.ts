@@ -27,7 +27,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
-import { listClientOwnerChoices } from "./clients";
+import { readClientOwnerChoices } from "./clients";
 import {
   ImportReadError,
   loadOrRefuse,
@@ -287,8 +287,11 @@ async function addContactNameFillable(
 
 /** Responsabilii: indexul pentru citirea fisierului si numele pentru previzualizare. */
 async function ownerInputs() {
-  const choices = await listClientOwnerChoices();
+  const loaded = await loadOrRefuse(readClientOwnerChoices);
+  if (!loaded.ok) return loaded;
+  const choices = loaded.value;
   return {
+    ok: true as const,
     owners: buildOwnerIndex(choices),
     ownerNames: new Map(choices.map((o) => [o.id, o.fullName])),
   };
@@ -306,11 +309,14 @@ export async function planLeadImport(
   const supabase = await createClient();
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
+  const ownerInput = await ownerInputs();
+  if (!ownerInput.ok) return ownerInput;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     lines: request.lines,
     mapping: readMapping(request.mapping),
-    ...(await ownerInputs()),
+    owners: ownerInput.owners,
+    ownerNames: ownerInput.ownerNames,
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: existing.value,
   });
@@ -435,11 +441,14 @@ export async function runLeadImport(
   const supabase = await createClient();
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
+  const ownerInput = await ownerInputs();
+  if (!ownerInput.ok) return ownerInput;
   const { plan, prepared } = buildPlan({
     rows: request.rows,
     lines: request.lines,
     mapping: readMapping(request.mapping),
-    ...(await ownerInputs()),
+    owners: ownerInput.owners,
+    ownerNames: ownerInput.ownerNames,
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: existing.value,
   });

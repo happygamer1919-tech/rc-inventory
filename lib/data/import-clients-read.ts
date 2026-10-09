@@ -57,6 +57,21 @@ export async function readAllClients(
   return (await readAllRows(supabase, "clients", columns)) as Record<string, string | null>[];
 }
 
+export const OWNERS_READ_FAILED = readFailedMessage("lista echipei");
+
+export type OwnerProfileRow = { id: string; full_name: string | null; email: string | null };
+
+/** Profilurile active, pentru indexul de responsabili. O eroare NU da lista goala:
+ *  lista goala ar marca fiecare rand cu Responsabil drept "nu este in echipa". */
+export async function readOwnerProfiles(supabase: Supabase): Promise<OwnerProfileRow[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("active", true);
+  if (error || !data) throw new ImportReadError(OWNERS_READ_FAILED);
+  return data as OwnerProfileRow[];
+}
+
 /** Ruleaza o citire si intoarce mesajul romanesc cand ea esueaza. */
 export async function loadOrRefuse<T>(
   read: () => Promise<T>,
