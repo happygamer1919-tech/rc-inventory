@@ -6142,6 +6142,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Reuses ID_LIST_BATCH_SIZE and inBatches from lib/data/id-list.ts."
+    },
+    {
+      "id": "P3-207",
+      "title": "The P3-182 vote between windows-1250 and windows-1251 counted the bytes for a, a with circumflex, i with circumflex and t with cedilla as Romanian letters, but in windows-1251 the same bytes are the Russian letters g, v, o and yu. A mostly Latin file with a few names like 'OOO Stroy' in Cyrillic tied the vote and was read as 1250, giving garbage letters that passed the broken-letter check. A word of 3 or more Cyrillic letters in the 1251 reading now decides for windows-1251.",
+      "plain": "A CSV saved in Russian Windows encoding, with mostly Latin text and a few Cyrillic company names, is now read as Russian instead of being imported as garbled letters.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-182"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/e2e/import-encoding.spec.ts whose names start with 'codare csv P3-207' are green in this pull request's own quality run: a mostly Latin windows-1251 file with 'OOO Stroy' in Cyrillic is read as windows-1251, a windows-1250 Romanian file with the letters a, a circumflex, i circumflex, s and t with comma stays windows-1250, a fully Russian windows-1251 file stays windows-1251, and a UTF-8 file with Cyrillic is unchanged. (b) The existing 'codare csv' tests in the same file still pass. (c) npx tsc --noEmit exits 0.",
+      "defaults": "Only the choice between windows-1250 and windows-1251 in decodeCsvFile changes, and only toward 1251 when a word of 3 or more Cyrillic letters appears. UTF-8 and UTF-16 handling, import matching, writing and the refusal texts are unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-207 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Chosen rule: a Cyrillic run of 3 or more letters (CYRILLIC_RUN in lib/data/import-shared.ts) added to the existing vote. Runs of 2 were not used because Romanian 'ta' with cedilla (viata) reads as 2 Cyrillic letters in 1251."
     }
   ]
 }
