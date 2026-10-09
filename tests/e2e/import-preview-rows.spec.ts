@@ -2,7 +2,7 @@
 // browserul, nici baza: planurile sunt functii pure, iar tabelul vine din ele.
 import { expect, test } from "@playwright/test";
 import { formatMoney } from "@/lib/data/format";
-import { PREVIEW_ROW_LIMIT, morePreviewRowsText } from "@/lib/data/import-preview-rows";
+import { PREVIEW_ROW_LIMIT, morePreviewRowsText, personPreviewTable } from "@/lib/data/import-preview-rows";
 import { buildClientPlan } from "@/lib/data/client-import-plan";
 import { buildPlan as buildLeadPlan } from "@/lib/data/lead-import-plan";
 import { buildMaterialPlan } from "@/lib/data/material-import-plan";
@@ -84,3 +84,34 @@ test("previzualizare: 60 de randuri noi arata 50 si 'și încă 10 rânduri'", (
   expect(morePreviewRowsText(1)).toBe("și încă 1 rând");
   expect(morePreviewRowsText(20)).toBe("și încă 20 de rânduri");
 });
+
+// P3-203. Data pasului urmator se salveaza (P3-156), deci previzualizarea o arata.
+const person = (nextActionDate: string) => ({
+  name: "Ana SRL",
+  type: "company",
+  phone: "",
+  email: "",
+  contactName: "Ion Popa",
+  interest: "",
+  source: "",
+  ownerId: "",
+  stage: "lead",
+  followUpDate: "",
+  nextAction: "Sună",
+  nextActionDate,
+  notes: "",
+  address: "",
+  fiscalCode: "",
+});
+
+for (const withContact of [true, false]) {
+  test(`previzualizare persoane (withContact ${withContact}): data pasului urmator apare dupa Următorul pas`, () => {
+    const full = personPreviewTable([2], new Map([[2, person("2026-10-15")]]), new Map(), withContact);
+    const at = full.columns.indexOf("Următorul pas");
+    expect(full.columns[at + 1]).toBe("Data pasului următor");
+    expect(full.rows[0]!.cells[at - 1]).toBe("Sună");
+    expect(full.rows[0]!.cells[at]).toBe("15.10.2026");
+    const empty = personPreviewTable([2], new Map([[2, person("")]]), new Map(), withContact);
+    expect(empty.rows[0]!.cells[empty.columns.indexOf("Data pasului următor") - 1]).toBe("");
+  });
+}

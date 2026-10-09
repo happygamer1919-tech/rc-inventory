@@ -9348,3 +9348,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-192 routed the row count of the lead import sheet through plural(), but the client, project and material sheets kept hand-built counts, and all four sheets wrote the column count with a one or many switch, so 25 rows showed "25 rânduri" instead of "25 de rânduri".
 **SOLUTION:** card P3-202: every count in the four import sheets goes through plural(). Covered by `tests/e2e/p3-202-import-summary-plurals.spec.ts`. RULE: **when a text fix lands on one of several sheets built from the same pattern, grep the siblings for the same string before calling it done.**
+
+### A field added to the saved record must be added to the preview built from that record
+**Tag:** ui
+**ERROR:** P3-156 added the next-step date to lead and client imports after P3-141 built the "Rânduri noi" preview, and no column was added, so the date was saved but the preview, headed "Valorile sunt cele care se vor salva", hid it.
+**SOLUTION:** card P3-203: personPreviewTable has a "Data pasului următor" column after "Următorul pas", for clients and leads. Covered by `tests/e2e/import-preview-rows.spec.ts`. RULE: **when a card adds an imported field, grep the preview table for the list of columns and add the new one in the same pull request.**
