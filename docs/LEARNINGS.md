@@ -9358,3 +9358,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** The client and lead exports wrote the next-step date with `new Date("2026-10-15").toLocaleDateString(...)`. The text is read as UTC midnight, so a process west of UTC wrote 14.10.2026. It was right on Vercel (UTC) by luck. The follow-up date in the same file was written as AAAA-LL-ZZ, so the two dates looked different.
 **SOLUTION:** card P3-204: both dates go through `formatDate` from `lib/data/format.ts`, which splits the text and never builds a Date. Both importers already read ZZ.LL.AAAA. Covered by `tests/e2e/p3-204-export-next-step-date-timezone.spec.ts`. RULE: **a `date` column is a string until it reaches the screen or the file; grep for `new Date(` on every `date` column before calling a date fix done.**
+
+### A new lookup by id list must go through the batch helper and must not swallow its error
+**Tag:** data
+**ERROR:** `listClosedLinkChoices` and the lead import contact lookup sent every id in one `.in(...)` request and read `data ?? []` or returned on error. Past roughly 130 ids the gateway answers 414, the list came back empty, and the task form showed the empty box again with no message.
+**SOLUTION:** card P3-205: both go through `readInBatches` in `lib/data/id-list.ts` (100 ids per request, merged), and a failed batch throws. The import wraps the lookup in `loadOrRefuse`. Covered by `tests/e2e/p3-205-chunk-id-lookups.spec.ts`. RULE: **grep `\.in(` for any list that grows with client data and route it through `readInBatches`; `data ?? []` after a select that can fail is a silent empty list.**

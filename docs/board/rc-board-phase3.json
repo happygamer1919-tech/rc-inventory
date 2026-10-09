@@ -6117,6 +6117,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09."
+    },
+    {
+      "id": "P3-205",
+      "title": "The Sarcini closed-record lookup and the lead import contact lookup sent every id in one in(...) request, which the gateway refuses past roughly 130 ids, and ignored the read error. Both now read in batches of 100 through the shared id-list helper, and a failed read is reported: the task form read throws like the other task readers, and the lead import shows the Nu am putut citi refusal.",
+      "plain": "The task edit form keeps showing the name of a closed project or inactive client even when hundreds of tasks point at closed records, and the lead import tells the operator when it cannot read the contacts instead of silently skipping them.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-183"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/p3-205-chunk-id-lookups.spec.ts is green in this pull request's own quality run: 250 ids make 3 requests of at most 100 ids and all rows come back merged, an error on one batch is reported and not turned into an empty list, and an empty list makes no request. (b) The same spec shows lib/data/tasks.ts and lib/data/lead-import-actions.ts read through readInBatches and that both import paths wrap the contact lookup in loadOrRefuse. (c) npx tsc --noEmit exits 0.",
+      "defaults": "What both functions return on success and the order of results are unchanged. No migration, no schema change, no permission change. Files for tasks 247 and 248 are not touched.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-205 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Reuses ID_LIST_BATCH_SIZE and inBatches from lib/data/id-list.ts."
     }
   ]
 }
