@@ -9343,3 +9343,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-158 wanted immediate red marking in the task form only, but edited the shared DateField, so the client form, invoices, walk-in pickup and the Sarcini filters turned red after one keystroke and Salvează went disabled while typing.
 **SOLUTION:** card P3-201: DateField takes an optional markWhileTyping prop and only the task form passes it; the others return to touched-or-8-digits. Covered by `tests/e2e/p3-201-datefield-red-after-blur.spec.ts`. RULE: **when a card limits a change to one screen, add an opt-in prop and grep every user of the shared component for the acceptance line "all others unchanged".**
+
+### A fix to one screen's text needs a sweep of its sibling screens
+**Tag:** ui
+**ERROR:** P3-192 routed the row count of the lead import sheet through plural(), but the client, project and material sheets kept hand-built counts, and all four sheets wrote the column count with a one or many switch, so 25 rows showed "25 rânduri" instead of "25 de rânduri".
+**SOLUTION:** card P3-202: every count in the four import sheets goes through plural(). Covered by `tests/e2e/p3-202-import-summary-plurals.spec.ts`. RULE: **when a text fix lands on one of several sheets built from the same pattern, grep the siblings for the same string before calling it done.**

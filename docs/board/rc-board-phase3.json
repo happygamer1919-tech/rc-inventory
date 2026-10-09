@@ -6041,6 +6041,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Root cause: P3-158 replaced the guard (touched or 8 digits) with a bare incomplete check inside the shared component."
+    },
+    {
+      "id": "P3-202",
+      "title": "P3-192 routed only the lead sheet's finish summary through plural(). The client, project and material sheets still wrote the row count by hand, and all four sheets wrote the column count with a one or many switch, so 25 rows showed '25 rânduri' instead of '25 de rânduri'. Every count in the four import sheets now goes through plural().",
+      "plain": "Import screens now write numbers like 25 in correct Romanian: 25 de rânduri citite and 25 de coloane.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-192"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/e2e/p3-202-import-summary-plurals.spec.ts expecting '1 rând citit din fișier', '5 rânduri citite din fișier', '25 de rânduri citite din fișier', '1 coloană', '5 coloane' and '25 de coloane' are green in this pull request's own quality run. (b) The same spec shows the four import sheets contain no hand-built row or column count. (c) npx tsc --noEmit exits 0.",
+      "defaults": "Text only: import logic, matching and what is saved are unchanged. The existing plural() helper in lib/data/format.ts is reused. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-202 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09."
     }
   ]
 }
