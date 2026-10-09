@@ -9373,3 +9373,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** The windows-1250 / windows-1251 vote of P3-182 counted the bytes E3, E2, EE, FE (and C3, C2, CE, DE) as Romanian letters, but in windows-1251 they are the Russian letters г, в, о, ю. A mostly Latin Russian file with names like "ООО Строй" tied the vote, was read as 1250 and imported as "ÎÎÎ Ñòðîé", which passes the U+FFFD check.
 **SOLUTION:** card P3-207: a word of 3 or more Cyrillic letters in the 1251 reading (`CYRILLIC_RUN` in `lib/data/import-shared.ts`) now decides for 1251. A run of 2 is not enough, because Romanian "viață" in 1250 bytes reads as 2 Cyrillic letters. Covered by the `codare csv P3-207` tests in `tests/e2e/import-encoding.spec.ts`. RULE: **when a guess between two code pages depends on counting letters, build the test file from real bytes in the other code page, not from the winning side's own text.**
+
+### A price typed with a comma needs a text box, not a number box
+**Tag:** ui
+**ERROR:** P3-187 put the placeholder 12,50 on an `<input type="number">`. On a browser whose language is not Romanian, typing `12,50` into a number input leaves its value empty while the text stays visible, so the line saved with no sale price and no message.
+**SOLUTION:** card P3-209: the price box is a text input with `inputMode="decimal"`, read by `parsePriceText` in `lib/data/price-input.ts` ("12,50" and "12.50" both give 12.5, spaces ignored, anything else invalid with an inline error that blocks the save). Covered by `tests/price-input.test.ts`. RULE: **a field whose placeholder or hint uses a decimal comma must not be `type="number"`; parse the text yourself and refuse what does not parse.**

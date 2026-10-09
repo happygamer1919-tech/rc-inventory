@@ -1643,6 +1643,26 @@ test("iesire client direct: casuta de pret sugereaza valoarea exacta a produsulu
   ).toHaveAttribute("placeholder", "12,50");
 });
 
+test("iesire client direct P3-209: 12,50 tastat cu virgula intra in total, iar un text care nu e pret se refuza", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "2");
+
+  await page.getByTestId("issue-price-0").fill("12,50");
+  await expect(page.getByTestId("issue-price-error-0")).toHaveCount(0);
+  await expect(
+    page.locator("text=" + formatMoneyExact(25)).first(),
+    "2 x 12,50 = 25 MDL din textul tastat cu virgula",
+  ).toBeVisible();
+
+  await page.getByTestId("issue-price-0").fill("abc");
+  await expect(page.getByTestId("issue-price-error-0")).toHaveText("Preț invalid. Exemplu: 12,50");
+});
+
 /* ------------------------------------------------------------------ (f) -- */
 
 test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele schimbate", async ({
