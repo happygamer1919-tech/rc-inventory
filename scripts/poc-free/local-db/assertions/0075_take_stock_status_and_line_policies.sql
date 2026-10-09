@@ -103,6 +103,7 @@ declare
   v_client  uuid;
   v_open    uuid;
   v_shipped uuid;
+  v_fresh   uuid;
   v_line    uuid;
 begin
   select id into v_product from public.products order by sku limit 1;
@@ -126,12 +127,20 @@ begin
   values ('TEST-P3185-SHIPPED', 'direct_client', v_client, date '2026-10-06', 'shipped', now())
   returning id into v_shipped;
 
+  -- P3-199: the manager's witness is the creator's first take stock on an EMPTY slip
+  -- of their own; a slip that already carries a line is the owner's to extend.
+  insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date, status, created_by)
+  values ('TEST-P3185-FRESH', 'direct_client', v_client, date '2026-10-06', 'awaiting_shipment',
+          'e3850000-0000-4000-8000-000000000002')
+  returning id into v_fresh;
+
   insert into public.outbound_lines (outbound_issue_id, product_id, quantity, sale_price_mdl)
   values (v_open, v_product, 1, 20) returning id into v_line;
 
   perform set_config('p3_185.product', v_product::text, true);
   perform set_config('p3_185.open', v_open::text, true);
   perform set_config('p3_185.shipped', v_shipped::text, true);
+  perform set_config('p3_185.fresh', v_fresh::text, true);
   perform set_config('p3_185.line', v_line::text, true);
 end
 $$;
@@ -149,12 +158,13 @@ declare
   v_product uuid := current_setting('p3_185.product')::uuid;
   v_open    uuid := current_setting('p3_185.open')::uuid;
   v_shipped uuid := current_setting('p3_185.shipped')::uuid;
+  v_fresh   uuid := current_setting('p3_185.fresh')::uuid;
   v_line    uuid := current_setting('p3_185.line')::uuid;
   n         integer;
 begin
-  -- THE WITNESS: the same account takes stock on the awaiting slip.
+  -- THE WITNESS: the same account takes stock on its own empty awaiting slip.
   perform public.outbound_issue_take_stock(
-    v_open, jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 2)));
+    v_fresh, jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 2)));
 
   begin
     perform public.outbound_issue_take_stock(
@@ -232,6 +242,7 @@ do $$
 declare
   v_open    uuid := current_setting('p3_185.open')::uuid;
   v_shipped uuid := current_setting('p3_185.shipped')::uuid;
+  v_fresh   uuid := current_setting('p3_185.fresh')::uuid;
   v_line    uuid := current_setting('p3_185.line')::uuid;
   n         integer;
   txt       text;
@@ -267,10 +278,15 @@ begin
     raise exception 'P3-195: the owner could not change a line price, % row(s)', current_setting('p3_185.owner_update');
   end if;
 
-  -- Fixture line, the manager's take stock and the owner's insert: three.
+  -- Fixture line and the owner's insert: two. The manager's take stock went to the
+  -- fresh slip (P3-199).
   select count(*) into n from public.outbound_lines where outbound_issue_id = v_open;
-  if n <> 3 then
-    raise exception 'P3-195: expected 3 lines on the awaiting slip (fixture, manager take stock, owner insert), found %', n;
+  if n <> 2 then
+    raise exception 'P3-195: expected 2 lines on the awaiting slip (fixture, owner insert), found %', n;
+  end if;
+  select count(*) into n from public.outbound_lines where outbound_issue_id = v_fresh;
+  if n <> 1 then
+    raise exception 'P3-195: expected 1 line on the fresh slip (manager take stock), found %', n;
   end if;
 
   select count(*) into n from public.outbound_lines where id = v_line and sale_price_mdl = 21;
@@ -279,11 +295,16 @@ begin
     raise exception 'P3-195: the line price is %, expected the owner''s 21', txt;
   end if;
 
-  -- Only the manager's take stock wrote history on the awaiting slip.
+  -- Only the manager's take stock wrote history, on the fresh slip.
+  select count(*) into n from public.status_history
+  where entity_type = 'outbound_issue' and entity_id = v_fresh;
+  if n <> 1 then
+    raise exception 'P3-195: expected 1 history row on the fresh slip, found %', n;
+  end if;
   select count(*) into n from public.status_history
   where entity_type = 'outbound_issue' and entity_id = v_open;
-  if n <> 1 then
-    raise exception 'P3-195: expected 1 history row on the awaiting slip, found %', n;
+  if n <> 0 then
+    raise exception 'P3-195: expected no history row on the awaiting slip, found %', n;
   end if;
 end
 $$;

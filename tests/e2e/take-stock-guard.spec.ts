@@ -219,8 +219,10 @@ test("P3-195: take stock pe o iesire expediata este refuzat si nu scrie nici poz
   const manager = await newAccount("expediata", "account_manager");
   const issueId = await createDirectIssue(manager, `${TAG}-EXPEDIATA`);
 
-  // MARTORUL: cat timp iesirea asteapta expedierea, rutina merge pentru acelasi cont.
-  const allowed = await takeStock(manager, issueId, 1);
+  // MARTORUL: cat timp iesirea asteapta expedierea, rutina merge pentru proprietar.
+  // (P3-199: operatorul nu mai poate adauga pozitii pe o iesire care are deja una.)
+  const owner = await newAccount("expediata-prop", "owner");
+  const allowed = await takeStock(owner, issueId, 1);
   expect(allowed.ok, `iesire in asteptare: rutina a refuzat: ${allowed.status} ${allowed.text}`).toBe(true);
 
   const shipped = await ship(manager, issueId);

@@ -183,6 +183,24 @@ async function createIssue(token: string, reference: string): Promise<string> {
   return String(created.rows[0]);
 }
 
+/** P3-199: o iesire GOALA a contului, scrisa cu cheia de serviciu. Rutina de scadere
+ *  accepta de la un operator doar prima scadere pe iesirea lui goala. */
+async function emptyIssueOf(accountId: string, reference: string): Promise<string> {
+  const created = await asService("outbound_issues?select=id", {
+    method: "POST",
+    body: {
+      reference,
+      issue_mode: "direct_client",
+      client_id: clientId,
+      pickup_date: "2026-10-04",
+      status: "awaiting_shipment",
+      created_by: accountId,
+    },
+  });
+  expect(created.ok, `iesirea goala nu a putut fi scrisa: ${created.status} ${created.text}`).toBe(true);
+  return String(created.rows[0]!.id);
+}
+
 async function takeStock(token: string, issueId: string, quantity: number): Promise<Rest> {
   return asUser(token, "rpc/outbound_issue_take_stock", {
     method: "POST",
@@ -283,10 +301,13 @@ test("pozitii iesire: un cont dezactivat nu poate adauga si nici schimba o pozit
 
 test("pozitii iesire: un cont dezactivat nu poate scadea stocul prin outbound_issue_take_stock", async () => {
   const { id, token } = await newDeactivatableAccount("stoc");
-  const issueId = await createIssue(token, `${TAG}-STOC`);
+  // P3-199: doua iesiri goale ale contului, ca refuzul de dupa dezactivare sa vina
+  // doar din cont si nu din regula "doar iesire goala".
+  const witnessIssue = await emptyIssueOf(id, `${TAG}-STOC-MARTOR`);
+  const issueId = await emptyIssueOf(id, `${TAG}-STOC`);
 
-  // MARTORUL: activ, contul scade stocul direct prin rutina, pe iesirea lui.
-  const allowed = await takeStock(token, issueId, 2);
+  // MARTORUL: activ, contul scade stocul direct prin rutina, pe iesirea lui goala.
+  const allowed = await takeStock(token, witnessIssue, 2);
   expect(allowed.ok, `profil activ: rutina a refuzat: ${allowed.status} ${allowed.text}`).toBe(true);
 
   await deactivate(id);
@@ -302,12 +323,17 @@ test("pozitii iesire: un cont dezactivat nu poate scadea stocul prin outbound_is
 test("pozitii iesire: un operator activ lucreaza ca inainte, prin ambele usi si direct", async () => {
   // CE NU TREBUIE SA SE SCHIMBE: un cont activ creeaza iesirea, isi citeste
   // pozitiile, scade stocul prin rutina si vede pozitiile scrise de altcineva.
-  const { token } = await newDeactivatableAccount("activ");
-  const issueId = await createIssue(token, `${TAG}-ACTIV`);
+  const { id, token } = await newDeactivatableAccount("activ");
+  const created = await createIssue(token, `${TAG}-ACTIV`);
+  const read0 = await asUser(token, `outbound_lines?select=id&outbound_issue_id=eq.${created}`);
+  expect(read0.rows, "profil activ: usa creeaza iesirea cu pozitia ei").toHaveLength(1);
+
+  // P3-199: scaderea directa prin rutina merge pe iesirea lui goala.
+  const issueId = await emptyIssueOf(id, `${TAG}-ACTIV-GOALA`);
   expect((await takeStock(token, issueId, 1)).ok, "profil activ: rutina merge").toBe(true);
 
   const read = await asUser(token, `outbound_lines?select=id&outbound_issue_id=eq.${issueId}`);
-  expect(read.rows, "profil activ: vede ambele pozitii").toHaveLength(2);
+  expect(read.rows, "profil activ: vede pozitia scrisa de rutina").toHaveLength(1);
 
   const other = await newDeactivatableAccount("alt-activ");
   const otherIssue = await createIssue(other.token, `${TAG}-ALT`);
