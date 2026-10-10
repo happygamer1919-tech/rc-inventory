@@ -9429,6 +9429,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
 **SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
 
+### A policy that lets a role insert lets it insert every column
+**Tag:** database
+**ERROR:** migration 0076 widened the policy `clients_insert` to the account manager so a counter buyer could be added from Iesiri materiale. The four-field limit (name, type, IDNO, phone) lived only in `createWalkInClient`, so a POST to `/rest/v1/clients` with the manager token could set the stage, the lead owner, the notes or active = false. A row level security policy decides WHICH rows a role may write, never which columns.
+**SOLUTION:** card P3-255, migration 0079: a BEFORE INSERT trigger `clients_insert_manager_columns` that, for `current_user = authenticated` and `is_owner()` false, refuses with P0001 any column outside what the walk-in path sends. The assertion file pins the column list of `public.clients`, so a later column fails `check:migrations` until somebody decides it in the trigger. Covered by `tests/e2e/clients-insert-manager-columns.spec.ts`. RULE: **when a policy widens a write to a new role, limit that role's columns on the table in the same migration (trigger, or column grants when the role has its own database role); an application-side limit is not a limit.**
+
 ### A price parser must read the dot with three digits as thousands, the way Romanian people write it
 **Tag:** data
 **ERROR:** `parsePriceText` (P3-209) accepted `^\d+([.,]\d+)?$` and turned a comma into a dot, so a dot was always decimal. `1.200` parsed as 1.2 and saved as 1,20 MDL with no error, and `1.200,50` was refused.
