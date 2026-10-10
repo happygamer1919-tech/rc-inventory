@@ -213,6 +213,11 @@ export async function createOutboundIssue(
   revalidatePath("/comenzi");
   revalidatePath("/inventar");
   revalidatePath("/memento");
+  // P3-262: un lead vandut la tejghea a devenit Client in aceeasi tranzactie.
+  if (mode === "direct_client") {
+    revalidatePath("/clienti");
+    revalidatePath("/azi");
+  }
   return { ok: true, value: { id: data as string, reference } };
 }
 

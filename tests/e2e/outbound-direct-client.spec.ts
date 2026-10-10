@@ -1082,7 +1082,14 @@ test("P3-219: Enter pe un nume comun a doi clienti nu alege nimic, sageata si En
   ).not.toContainText("Alege clientul");
 });
 
-test("P3-196: un lead si un client inactiv nu apar in lista de cumparatori", async ({ page }) => {
+// P3-262 A SCHIMBAT ACEST CAZ, la decizia proprietarului din 2026-10-10 ("yes do
+// the lead option"). Numele lui era: "P3-196: un lead si un client inactiv nu apar
+// in lista de cumparatori". Leadul activ apare acum, marcat "Lead"; clientul
+// inactiv ramane pe dinafara. Vanzarea catre lead este dovedita in
+// tests/e2e/walkin-buyer-lead.spec.ts.
+test("P3-196 si P3-262: un lead apare marcat Lead, un client inactiv nu apare in lista de cumparatori", async ({
+  page,
+}) => {
   test.setTimeout(120_000);
 
   // P3-177, acceptanta (c), care nu fusese acoperita: lista oferea si leaduri.
@@ -1109,7 +1116,11 @@ test("P3-196: un lead si un client inactiv nu apar in lista de cumparatori", asy
   await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
   const items = await page.locator("[data-rc-combo-list] li button").allTextContents();
   expect(items.some((text) => text.includes(`${prefix}-client`)), "clientul activ apare").toBe(true);
-  expect(items.some((text) => text.includes(`${prefix}-lead`)), "leadul nu apare").toBe(false);
+  const leadItem = items.find((text) => text.includes(`${prefix}-lead`));
+  expect(leadItem, "leadul activ apare").toBeDefined();
+  expect(leadItem, "leadul este marcat Lead").toContain("Lead");
+  const clientItem = items.find((text) => text.includes(`${prefix}-client`)) ?? "";
+  expect(clientItem, "clientul nu este marcat Lead").not.toContain("Lead");
   expect(items.some((text) => text.includes(`${prefix}-inactiv`)), "clientul inactiv nu apare").toBe(false);
 });
 

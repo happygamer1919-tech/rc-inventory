@@ -203,7 +203,10 @@ export async function listClientOptions(): Promise<{ id: string; name: string }[
 }
 
 // P3-196: cumparatorii de la iesiri, clientii activi la etapa 'client', fara leaduri.
-export async function listBuyerOptions(): Promise<{ id: string; name: string }[]> {
+// P3-262: si leadurile active, cu isLead, ca ecranul sa le marcheze "Lead".
+export async function listBuyerOptions(): Promise<
+  { id: string; name: string; phone?: string | null; fiscal_code?: string | null; isLead?: boolean }[]
+> {
   return readActiveClientOptions(await createClient(), { buyersOnly: true });
 }
 

@@ -81,7 +81,12 @@ export type ClientChoice = {
   name: string;
   phone?: string | null;
   fiscal_code?: string | null;
+  /** P3-262: inca un lead (orice etapa in afara de Client). Vanzarea il face Client. */
+  isLead?: boolean;
 };
+
+/** P3-262: cuvantul cu care lista marcheaza un lead, acelasi ca in lista Clienți. */
+export const BUYER_LEAD_MARK = "Lead";
 
 type Line = { key: string; productId: string; quantity: string; price: string };
 
@@ -107,6 +112,8 @@ type Created = {
   clientName: string;
   pickupDate: string;
   lineCount: number;
+  /** P3-262: cumparatorul era un lead si a devenit Client prin aceasta salvare. */
+  becameClient: boolean;
 };
 
 export function OutboundDirectClientForm({
@@ -163,12 +170,14 @@ export function OutboundDirectClientForm({
   // P3-177: fiecare rand al pickerului arata: nume client (necesar), telefon (daca
   // exista), sau IDNO (daca lipsa telefonul), sau nimic (daca amandoua lipsesc).
   // Cautarea se potriveste pe nume si pe detaliu.
+  // P3-262: un lead poarta in fata detaliului cuvantul "Lead".
   const clientOptions: ComboOption[] = allClients.map((c) => {
     const detail = c.phone || c.fiscal_code || "";
+    const hint = c.isLead ? [BUYER_LEAD_MARK, detail].filter(Boolean).join(" · ") : detail;
     return {
       value: c.id,
       label: c.name,
-      hint: detail,
+      hint,
     };
   });
   const productOptions: ComboOption[] = products.map((p) => ({
@@ -284,6 +293,7 @@ export function OutboundDirectClientForm({
       clientName: client!.name,
       pickupDate,
       lineCount: filled.length,
+      becameClient: Boolean(client!.isLead),
     });
     setPending(false);
   }
@@ -312,6 +322,11 @@ export function OutboundDirectClientForm({
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare expediere</Chip>
             </div>
+            {created.becameClient ? (
+              <p className="text-[13px] text-rc-muted mt-3" data-testid="issue-lead-became-client">
+                {created.clientName} era lead și a devenit Client prin acest bon.
+              </p>
+            ) : null}
             <div className="mt-6 flex items-center justify-center gap-2.5 max-md:flex-col max-md:items-stretch">
               <Button
                 className={PHONE_TAP}
@@ -381,6 +396,11 @@ export function OutboundDirectClientForm({
                   dontSelectOnMultipleExactMatches={true}
                 />
               </div>
+              {client?.isLead ? (
+                <p className="text-[12px] text-rc-muted mt-1.5" data-testid="client-lead-note">
+                  Acest cumpărător este încă lead. La crearea bonului devine Client.
+                </p>
+              ) : null}
             </Field>
             <Field label="Data ridicării" required>
               <div data-testid="field-pickup-date">
