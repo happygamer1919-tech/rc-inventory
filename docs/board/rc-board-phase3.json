@@ -6514,6 +6514,31 @@
       "notes": "Added to export buttons in Clienti, Proiecte and Inventar screens as title attributes for hover. Explanation covers both the apostrophe (formula injection guard) and the semicolon/decimal comma (Excel display on English/Mac)."
     },
     {
+      "id": "P3-255",
+      "title": "public.clients refuses an account manager insert that sets anything beyond name, type, fiscal_code (IDNO) and phone, on a direct PostgREST request and not only inside createWalkInClient. Migration 0079 adds the SECURITY INVOKER trigger function public.clients_insert_manager_columns() and the trigger clients_insert_manager_columns, BEFORE INSERT, which for current_user authenticated and is_owner() false raises P0001 with a Romanian sentence naming the refused columns. Allowed besides the four: id; stage cold or client (the walk-in path writes client, P3-172); address, email and notes null; active true; created_by null or the caller; created_at and updated_at at their default; every lead column null. Owner, service role and migrations unchanged. Policies unchanged. Additive only.",
+      "plain": "An account manager can create a client only with its name, type, IDNO and phone, even with a hand-made request that goes around the screens. The owner creates clients exactly as before.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-147"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) Every case in tests/e2e/clients-insert-manager-columns.spec.ts is green in this pull request quality run on its head sha, against the local Supabase stack: the manager four-field insert and the exact walk-in shape are written, the manager inserts naming stage, owner_id, notes, active or source are refused with P0001 and leave no row, the owner insert with every column is written, and the walk-in screen path creates the client with stage client. (b) `npm run check:migrations` passes with scripts/poc-free/local-db/assertions/0079_clients_insert_manager_columns.sql, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed, not skipped. (c) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: bug check of 2026-10-10. The allowed columns are read off createWalkInClient and insertClientRecord in lib/data/client-actions.ts, the only insert path the app gives the account manager. REFUSE rather than reset: a request learns it did not get what it asked for. The check applies to current_user authenticated with is_owner() false, so the owner, the service role (fixtures, server jobs) and migrations are not checked. The assertion file pins the column list of public.clients so a later column must be decided in the trigger. Existing rows are not read, changed or cancelled. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-10T13:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-255 against main: its quality run on the head sha runs tests/e2e/clients-insert-manager-columns.spec.ts, npm run check:migrations with scripts/poc-free/local-db/assertions/0079_clients_insert_manager_columns.sql, and the destructive-migration and applier proof steps; report in docs/reports/2026-10-10-executor-clients-insert-manager-columns.md",
+        "at": "2026-10-10T13:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-10 by EXECUTOR in the same pull request. Migration number 0079: main holds 0077 and open pull request #487 (P3-212) holds 0078, so this one was renumbered from 0078 to 0079 on 2026-10-10 (LEARNINGS, two open pull requests can claim the same migration number). Id P3-255 checked free with npm run id:free. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
       "id": "P3-250",
       "title": "A new client created straight as Client (through the Client nou button or the owner counter buyer) records the entry as the first stage, not a fake move from Lead rece to Client.",
       "plain": "When creating a new client as Client, the system shows it entered that stage, not as a fake move from a non-existent lead stage.",
