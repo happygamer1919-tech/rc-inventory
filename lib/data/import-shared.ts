@@ -350,8 +350,17 @@ export function buildErrorCsv(
 ): string {
   return buildCsv([
     ["Rând", "Motiv", ...headers],
-    ...rows.map((r) => [String(r.line), r.reason, ...r.raw]),
+    ...rows.map((r) => [String(r.line), r.reason, ...r.raw.map(protectRawCell)]),
   ]);
+}
+
+// Celulele originale pe care Excel le strica la deschidere: un cod lung (IDNO, 1,0036E+12), un cod
+// cu zero in fata (00123 devine 123) sau un text care incepe cu + = - @ (telefonul +373...).
+// Primesc aceeasi forma ="..." ca in exporturi (csvText), pe care parseCsv o desface la incarcare.
+const EXCEL_FRAGILE = /^(\d{10,}|0|[+=\-@])/;
+
+function protectRawCell(cell: string): CsvCell {
+  return EXCEL_FRAGILE.test(cell) ? csvText(cell) : cell;
 }
 
 /**
