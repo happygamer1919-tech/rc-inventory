@@ -6468,6 +6468,29 @@
       "notes": "A movedByArrows flag is set by ArrowUp and ArrowDown and cleared on typing and focus; Enter asks decideCommit before picking the highlighted row."
     },
     {
+      "id": "P3-257",
+      "title": "The client import matched rows against deactivated clients as if they were active: the plan said the row was a duplicate of a client the owner could not find on the list, and the fill action wrote into the deactivated record without saying so. loadExisting in lib/data/client-import-actions.ts now reads the active column; a row that matches a deactivated client gets its own plan message, offers nothing to fill, is skipped on import whatever was chosen, and never creates a second client. Same approach as the project import, card P3-173.",
+      "plain": "When a row in a clients file matches a client that was switched off, the import now says so and tells the owner to switch the client back on first. It no longer writes into that client or adds a copy.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": ["P3-173"],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The four cases whose names start with 'P3-257' in tests/e2e/client-import-inactive.spec.ts are green in this pull request own quality run: active match keeps its fillable fields and old message, a stored client without the active flag counts as active, a deactivated match has no fillable fields and the message 'Există deja ca client dezactivat', and a row with no match stays new. (b) The case 'import clienti: un rand care se potriveste cu un client dezactivat' in tests/e2e/clients-import.spec.ts is green: a deactivated test client is matched by email, the plan shows the message, the fill option is disabled, the import skips the row, the stored record is unchanged and no second client appears. (c) The other cases in tests/e2e/clients-import.spec.ts stay green. (d) npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "Active matches, new rows, the encoding and delimiter logic in lib/data/import-shared.ts, the lead PageHeader prop and the hasPhase3Schema gate are unchanged. A deactivated client is never reactivated by the import. The test client is deactivated, never deleted. No migration, no RLS change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-257 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. The plan marks a stored match with inactive and an empty fillable list, so the sheet needs no change: it already shows duplicateReason and disables the fill option when nothing is fillable. The end to end cases need the CI database and were not run locally."
+    },
+    {
       "id": "P3-217",
       "title": "Export cells starting with -, + or @ show a leading apostrophe in Excel. writeCsvCell prefixes an apostrophe for formula safety. Excel shows it literally when reading CSV, so a note like - de sunat luni reads as '- de sunat luni. Re-import strips it, so no data loss. The semicolon and decimal comma make the file one column on an English-region Excel or Mac; a note in the owner instructions explains how to open it.",
       "plain": "The export file now explains to the owner why apostrophes appear in front of cells that start with special characters, and how to open the file correctly in Excel on English-region machines and Macs.",
