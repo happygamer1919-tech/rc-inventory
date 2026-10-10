@@ -12,6 +12,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { normalizeText } from "@/lib/data/format";
+import { decideCommit } from "@/lib/data/combobox-commit";
 
 export type ComboOption = {
   value: string;
@@ -84,40 +85,38 @@ export function Combobox({
       // Lista traieste in document.body prin portal, deci un clic in ea nu este
       // "in afara" chiar daca nu se afla in interiorul containerului.
       const inList = (t as HTMLElement)?.closest?.("[data-rc-combo-list]");
-      if (!inBox && !inList) commitAndClose();
+      if (!inBox && !inList) commitAndClose(true);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   });
 
-  function commitAndClose() {
-    const typed = query.trim();
-    if (typed) {
-      // O potrivire EXACTA pe eticheta alege acea optiune.
-      //
-      // DEFECT REPARAT LA P2-05: varianta din faza 1 verifica exact aceasta
-      // conditie si, cand era adevarata, NU facea nimic. Cu date demonstrative
-      // fixe nu se vedea, pentru ca nimeni nu tasta un nume deja existent. Cu
-      // date reale se vede imediat: operatorul scrie numele unui client pe care
-      // l-a mai folosit, da clic in alta parte, iar campul se goleste singur si
-      // formularul cere "Completează clientul". Un camp care se sterge singur
-      // dupa ce a fost completat corect este cel mai rau fel de defect, pentru
-      // ca operatorul crede ca a gresit el.
-      const exactMatches = options.filter((o) => o.label === typed);
-      if (exactMatches.length > 1 && dontSelectOnMultipleExactMatches) {
-        // P3-177: cand mai mult de o optiune se potriveste exact, nu selecta nimic
-        // si lasa lista deschisa. Operatorul trebuie sa faca o alegere inteleapta.
-        return;
-      }
-      if (exactMatches.length > 0) {
-        onChange(exactMatches[0].value);
-      } else if (creatable) {
-        // Text liber acceptat doar acolo unde lista nu este inchisa.
-        onChange(typed);
-      }
+  function commitAndClose(fromOutsideClick = false) {
+    // O potrivire EXACTA pe eticheta alege acea optiune.
+    //
+    // DEFECT REPARAT LA P2-05: varianta din faza 1 verifica exact aceasta
+    // conditie si, cand era adevarata, NU facea nimic. Cu date demonstrative
+    // fixe nu se vedea, pentru ca nimeni nu tasta un nume deja existent. Cu
+    // date reale se vede imediat: operatorul scrie numele unui client pe care
+    // l-a mai folosit, da clic in alta parte, iar campul se goleste singur si
+    // formularul cere "Completează clientul". Un camp care se sterge singur
+    // dupa ce a fost completat corect este cel mai rau fel de defect, pentru
+    // ca operatorul crede ca a gresit el.
+    //
+    // Regulile (P3-177, text liber doar unde lista nu este inchisa) sunt in
+    // decideCommit, ca sa poata fi probate fara browser.
+    const decision = decideCommit({
+      options,
+      typed: query,
+      creatable,
+      dontSelectOnMultipleExactMatches,
+      fromOutsideClick,
+    });
+    if (decision.select !== null) onChange(decision.select);
+    if (decision.close) {
+      setOpen(false);
+      setQuery("");
     }
-    setOpen(false);
-    setQuery("");
   }
 
   function pick(option: ComboOption) {

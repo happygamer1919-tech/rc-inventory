@@ -643,7 +643,15 @@ function InlineClientCreate({ onCreated }: { onCreated: (choice: ClientChoice) =
       setPending(false);
       return;
     }
-    onCreated({ id: result.value.id, name: name.trim() });
+    // Telefonul si codul fiscal merg mai departe: lista de clienti le arata ca
+    // indiciu (P3-177), iar fara ele doi cumparatori cu acelasi nume nu se disting
+    // pana la reincarcare.
+    onCreated({
+      id: result.value.id,
+      name: name.trim(),
+      phone: phone.trim() || null,
+      fiscal_code: fiscalCode.trim() || null,
+    });
     setName("");
     setFiscalCode("");
     setPhone("");
