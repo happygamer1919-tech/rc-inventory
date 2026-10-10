@@ -101,6 +101,7 @@ export function ClientNoteForm({
                 value={nextActionAt}
                 onChange={setNextActionAt}
                 onValidityChange={mark("nextActionAt")}
+                markWhileTyping
                 testId="note-next-action-at"
               />
             </Field>
