@@ -57,7 +57,7 @@ import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
-import { PRICE_INVALID_MESSAGE, parsePriceText } from "@/lib/data/price-input";
+import { PRICE_INVALID_MESSAGE, parsePriceText, QUANTITY_INVALID_MESSAGE, parseQuantityText } from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { createWalkInClient } from "@/lib/data/client-actions";
@@ -94,6 +94,17 @@ function linePrice(l: Line): number {
 function priceText(raw: string): string {
   const p = parsePriceText(raw);
   return p.kind === "ok" ? p.text : "";
+}
+
+// P3-258: cantitatea unei pozitii ca numar (0 cand casuta e goala sau nu se citeste) si
+// ca text pentru server ("" cand nu exista cantitate).
+function lineQuantity(l: Line): number {
+  const q = parseQuantityText(l.quantity);
+  return q.kind === "ok" ? q.value : 0;
+}
+function quantityText(raw: string): string {
+  const q = parseQuantityText(raw);
+  return q.kind === "ok" ? q.text : "";
 }
 
 let seq = 0;
@@ -180,14 +191,14 @@ export function OutboundDirectClientForm({
   const setLine = (key: string, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
-  const filled = lines.filter((l) => l.productId && Number(l.quantity) > 0);
+  const filled = lines.filter((l) => l.productId && lineQuantity(l) > 0);
 
   // Cantitatile aceluiasi produs se aduna INAINTE de verificare, exact ca la modul
   // proiect: 100 impartit in doua linii de 50 nu are voie sa treaca o verificare pe
   // care 50 ar pica-o.
   const wantedByProduct = React.useMemo(() => {
     const m = new Map<string, number>();
-    for (const l of filled) m.set(l.productId, (m.get(l.productId) ?? 0) + Number(l.quantity));
+    for (const l of filled) m.set(l.productId, (m.get(l.productId) ?? 0) + lineQuantity(l));
     return m;
   }, [filled]);
 
@@ -206,7 +217,7 @@ export function OutboundDirectClientForm({
   const halfFilledProblems = lines
     .map((l, index) => {
       const hasProduct = Boolean(l.productId);
-      const hasQuantity = Number(l.quantity) > 0;
+      const hasQuantity = lineQuantity(l) > 0;
       if (hasProduct === hasQuantity) return null;
       return hasProduct
         ? `Rândul ${index + 1}: completați cantitatea sau ștergeți rândul.`
@@ -249,7 +260,15 @@ export function OutboundDirectClientForm({
     }
   });
 
-  const pricedTotal = filled.reduce((s, l) => s + linePrice(l) * Number(l.quantity), 0);
+  // P3-258: cantitatea se citeste din text ("2,5" sau "2.5"). Un text care nu este
+  // cantitate valida opreste salvarea; o casuta goala ramane "fara cantitate".
+  lines.forEach((l, index) => {
+    if (l.quantity !== "" && parseQuantityText(l.quantity).kind === "invalid") {
+      problems.push(`Rândul ${index + 1}: ${QUANTITY_INVALID_MESSAGE}`);
+    }
+  });
+
+  const pricedTotal = filled.reduce((s, l) => s + linePrice(l) * lineQuantity(l), 0);
 
   async function submit() {
     setTouched(true);
@@ -267,7 +286,7 @@ export function OutboundDirectClientForm({
       pickupDate,
       lines: filled.map((l) => ({
         productId: l.productId,
-        quantity: l.quantity,
+        quantity: quantityText(l.quantity),
         salePriceMdl: priceText(l.price),
       })),
     });
@@ -441,8 +460,9 @@ export function OutboundDirectClientForm({
               {lines.map((l, index) => {
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
-                const total = linePrice(l) * Number(l.quantity);
+                const total = linePrice(l) * lineQuantity(l);
                 const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const quantityInvalid = l.quantity !== "" && parseQuantityText(l.quantity).kind === "invalid";
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                     <Td data-label="Produs" className={PHONE_WIDE}>
@@ -469,15 +489,25 @@ export function OutboundDirectClientForm({
                     </Td>
                     <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={quantityInvalid}
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.quantity}
                         onChange={(e) => setLine(l.key, { quantity: e.target.value })}
                         placeholder="0"
                         data-testid={`issue-quantity-${index}`}
                       />
+                      {quantityInvalid ? (
+                        <p
+                          role="alert"
+                          className="mt-1 text-[12px] text-rc-danger"
+                          data-testid={`issue-quantity-error-${index}`}
+                        >
+                          {QUANTITY_INVALID_MESSAGE}
+                        </p>
+                      ) : null}
                     </Td>
                     {/* UNITATEA ESTE CEA A PRODUSULUI, CITITA PRIN unitLabel. Nicio
                         lista de unitati nu este scrisa in acest fisier, deviatia D3:
