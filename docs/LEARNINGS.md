@@ -9418,3 +9418,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** database
 **ERROR:** P3-171 put the rule "a walk-in sale is never invoiced" inside `public.save_invoice_draft` only. The policies `invoices_insert` and `invoices_update` let any active account write the table directly, and the draft guard lets `outbound_issue_id` change on a draft, so a POST to `/rest/v1/invoices` or a PATCH of a draft tied an invoice to a walk-in sale.
 **SOLUTION:** card P3-212, migration 0078: a BEFORE INSERT OR UPDATE OF `outbound_issue_id` trigger on `public.invoices` with the same P0001 error and text, acting only when the issue is new or changed so existing rows stay editable. Covered by the `tabela:` cases in `tests/e2e/facturare-walkin-refused.spec.ts` and `scripts/poc-free/local-db/assertions/0078_invoices_refuse_walkin_issue.sql`. RULE: **a rule about what a row may hold belongs on the table (trigger or constraint), not in the one function the screen happens to call; PostgREST exposes every table the policies allow.**
+
+### A file the operator fixes in Excel and uploads again must protect its cells the way the exports do
+**Tag:** data
+**ERROR:** `buildErrorCsv` wrote the original cells of a skipped row as plain strings. Opened in Excel, an IDNO of 13 digits became 1,0036E+12, a SKU 00123 became 123 and a phone starting with + showed a leading apostrophe, so the fixed row re-imported with the damaged value. Only the four exports used the text literal form.
+**SOLUTION:** card P3-252: `buildErrorCsv` wraps every original cell that is 10 or more digits, starts with 0, or starts with + = - or @ in `csvText`; `parseCsv` already unwraps it. Covered by the P3-252 case in `tests/e2e/import-shared.spec.ts`. RULE: **every CSV the product writes for the operator to edit and send back goes through the text literal form for codes and phones, and the reader must be tested on the writer's own output.**
+
+### A test file named tests/*.test.ts is not run by CI
+**Tag:** process
+**ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
+**SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
+
+### A fix to a shared rule in the helper misses the key handler that never calls the helper
+**Tag:** ui
+**ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
+**SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**

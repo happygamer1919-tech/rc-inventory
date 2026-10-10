@@ -331,3 +331,16 @@ test("export celule: dus-intors, parseCsv(buildCsv(randuri)) da valorile origina
   expect(back[0]).toEqual(original);
   expect(back[1]).toEqual(["0123456789012", "+37369123456", 'cod "A"', "-5"]);
 });
+
+test("P3-252: fisierul de erori pastreaza IDNO, SKU si telefonul intacte dupa dus-intors", () => {
+  const headers = ["Cod fiscal", "SKU", "Telefon", "Denumire"];
+  const raw = ["1003600012345", "00123", "+37369123456", "Vopsea"];
+  const csv = buildErrorCsv(headers, [{ line: 2, reason: "Motiv de test", raw }]);
+  // Excel vede texte literale, nu numere: nu se schimba in 1,0036E+12, 123 sau '+373...
+  expect(csv).toContain('"=""1003600012345"""');
+  expect(csv).toContain('"=""00123"""');
+  expect(csv).toContain('"=""+37369123456"""');
+  const back = parseCsv(csv);
+  expect(back[0]).toEqual(["Rând", "Motiv", ...headers]);
+  expect(back[1]).toEqual(["2", "Motiv de test", ...raw]);
+});
