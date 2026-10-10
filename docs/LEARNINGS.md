@@ -9428,3 +9428,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `parsePriceText` (P3-209) accepted `^\d+([.,]\d+)?$` and turned a comma into a dot, so a dot was always decimal. `1.200` parsed as 1.2 and saved as 1,20 MDL with no error, and `1.200,50` was refused.
 **SOLUTION:** card P3-253: a dot followed by groups of exactly three digits (first group 1 to 3 digits, not starting with 0) is a thousands separator; a dot with one or two digits stays decimal. Covered by the P3-253 cases in `tests/e2e/price-input.spec.ts` (moved there from `tests/price-input.test.ts`, which CI never ran). RULE: **a number parser for Romanian operators must handle both notations (1.200,50 and 12.50), and an ambiguous input must be tested in both readings.**
+
+### A fix to a shared rule in the helper misses the key handler that never calls the helper
+**Tag:** ui
+**ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
+**SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**

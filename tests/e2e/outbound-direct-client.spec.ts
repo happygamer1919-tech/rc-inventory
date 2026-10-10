@@ -1039,6 +1039,49 @@ test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic
   ).toContainText("Alege clientul");
 });
 
+test("P3-219: Enter pe un nume comun a doi clienti nu alege nimic, sageata si Enter aleg", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  const clientName = `${TAG}-Client-enter`;
+
+  // Doi clienti de test cu acelasi nume, creati de acest caz.
+  for (const phone of ["333", "444"]) {
+    await asService("clients?select=id", {
+      method: "POST",
+      body: { name: clientName, type: "company", phone, active: true, stage: "client" },
+    });
+  }
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  const clientInput = page.getByTestId("field-client").locator("input");
+  const list = page.locator("[data-rc-combo-list]");
+  await clientInput.click();
+  await clientInput.fill(clientName);
+  await expect(list).toBeVisible({ timeout: 10_000 });
+  await expect(list.locator("li")).toHaveCount(2);
+
+  // Enter fara sageti: nu se alege nimic, lista ramane deschisa cu ambele randuri.
+  await clientInput.press("Enter");
+  await expect(list).toBeVisible();
+  await expect(list.locator("li")).toHaveCount(2);
+  await expect(clientInput).toHaveValue(clientName);
+
+  // Sageata in jos si Enter: alege randul marcat, lista se inchide.
+  await clientInput.press("ArrowDown");
+  await clientInput.press("Enter");
+  await expect(list).toHaveCount(0);
+  await expect(clientInput).toHaveValue(clientName);
+  await page.getByTestId("issue-submit").click();
+  await expect(
+    page.getByTestId("issue-problems"),
+    "clientul ales cu sageata si Enter nu mai lipseste din formular",
+  ).not.toContainText("Alege clientul");
+});
+
 test("P3-196: un lead si un client inactiv nu apar in lista de cumparatori", async ({ page }) => {
   test.setTimeout(120_000);
 

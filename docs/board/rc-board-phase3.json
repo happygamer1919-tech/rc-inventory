@@ -6415,6 +6415,32 @@
         "at": "2026-10-10T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-10. The unit cases moved from tests/price-input.test.ts to tests/e2e/price-input.spec.ts because CI runs only tests/e2e."
+    },
+    {
+      "id": "P3-219",
+      "title": "In the buyer picker on the direct-client issue form, typing a name that two clients share and pressing Enter picked the first row without asking, because the Enter key never consulted the same-name rule that P3-177 and P3-210 added for leaving the field. Enter now selects nothing and keeps the list open when the typed text matches more than one client name exactly, unless the operator first moved the highlight with the arrow keys.",
+      "plain": "Pressing Enter on a name that two clients share no longer silently picks the first one; the operator chooses which one.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-177",
+        "P3-210"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test whose name starts with 'P3-219' in tests/e2e/outbound-direct-client.spec.ts is green in this pull request own quality run: two test clients share a name, Enter after typing it picks nothing and the list stays open with both rows, then ArrowDown and Enter pick a row and close the list. (b) npx tsc --noEmit exits 0.",
+      "defaults": "Only the Enter branch of components/ui/Combobox.tsx changes, and only for pickers that set dontSelectOnMultipleExactMatches. Single matches, creatable lists, Escape, outside click, mouse clicks and pickers without the flag behave as before. No migration.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/combobox-enter-same-name against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "A movedByArrows flag is set by ArrowUp and ArrowDown and cleared on typing and focus; Enter asks decideCommit before picking the highlighted row."
     }
   ]
 }
