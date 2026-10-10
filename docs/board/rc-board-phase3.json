@@ -6418,6 +6418,29 @@
       "notes": "A movedByArrows flag is set by ArrowUp and ArrowDown and cleared on typing and focus; Enter asks decideCommit before picking the highlighted row."
     },
     {
+      "id": "P3-217",
+      "title": "Export cells starting with -, + or @ show a leading apostrophe in Excel. writeCsvCell prefixes an apostrophe for formula safety. Excel shows it literally when reading CSV, so a note like - de sunat luni reads as '- de sunat luni. Re-import strips it, so no data loss. The semicolon and decimal comma make the file one column on an English-region Excel or Mac; a note in the owner instructions explains how to open it.",
+      "plain": "The export file now explains to the owner why apostrophes appear in front of cells that start with special characters, and how to open the file correctly in Excel on English-region machines and Macs.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "grep -n \"apostrof\" components/clients/ClientsScreen.tsx components/projects/ProjectsScreen.tsx components/inventory/InventoryScreen.tsx returns three results, one for each export button. npx tsc --noEmit exits 0. npm run build exits 0.",
+      "defaults": "The explanation is shown as a title attribute (hover text) on each export button. The CSV writer and the import strip logic stay unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-217 against main; acceptance is the grep for 'apostrof' and npx tsc and npm run build both exit 0",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Added to export buttons in Clienti, Proiecte and Inventar screens as title attributes for hover. Explanation covers both the apostrophe (formula injection guard) and the semicolon/decimal comma (Excel display on English/Mac)."
+    },
+    {
       "id": "P3-251",
       "title": "Sarcini: drops dead filters from address, shows Șterge filtrele for inactive assignee",
       "plain": "When a link points to a deactivated colleague as the task assignee, the filter now shows with an inactive label and offers to clear it. The ?sarcina= param from the Azi link is removed when the form closes.",

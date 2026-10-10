@@ -85,15 +85,27 @@ async function createTask(token: string, row: Record<string, unknown>) {
       apikey: anon,
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      Prefer: "return=representation",
     },
     body: JSON.stringify(row),
   });
-  const body = (await response.json()) as Record<string, unknown>;
+  const body = (await response.json()) as Record<string, unknown>[];
   expect(response.ok, `task creation failed: ${JSON.stringify(body)}`).toBe(true);
-  return String(body.id);
+  return String(body[0]!.id);
 }
 
+// The manager account is shared with other specs: whatever a test deactivates is put back
+// after it, pass or fail, so a later spec can still sign in with it.
+const deactivated: string[] = [];
+
+test.afterEach(async () => {
+  for (const profileId of deactivated.splice(0)) {
+    await asService(`profiles?id=eq.${profileId}`, { method: "PATCH", body: { active: true } });
+  }
+});
+
 async function deactivateProfile(profileId: string) {
+  deactivated.push(profileId);
   const result = await asService(`profiles?id=eq.${profileId}`, {
     method: "PATCH",
     body: { active: false },
@@ -102,8 +114,9 @@ async function deactivateProfile(profileId: string) {
 }
 
 async function createClient(): Promise<string> {
-  const result = await asService(`clients?select=id`, {
+  const result = await rest(`clients?select=id`, {
     method: "POST",
+    headers: { ...serviceHeaders(), Prefer: "return=representation" },
     body: { name: `TEST sarcini-dead-filters ${RUN}`, active: true },
   });
   expect(result.ok, `failed to create client: ${result.text}`).toBe(true);
