@@ -6346,6 +6346,29 @@
       "notes": "Fix is readAllOwnerProfiles in lib/data/import-clients-read.ts, used by lib/data/client-export-actions.ts and lib/data/lead-export-actions.ts."
     },
     {
+      "id": "P3-218",
+      "title": "A CSV saved by Excel as ANSI with no Romanian diacritics but one German or French letter (Würth, Kärcher, Café) was read as windows-1251 and imported as Cyrillic text (Wьrth). decodeCsvFile now picks windows-1251 only when the file holds a word of 3 or more Cyrillic letters in a row.",
+      "plain": "A supplier or client list with a German or French name like Würth no longer turns into Russian letters on import. Real Russian files still import as Russian.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": ["P3-182", "P3-207"],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/import-encoding.spec.ts is green in this pull request own quality run, including the P3-218 cases (Würth SRL without diacritics, a German supplier list with a Romanian header, Café Ionescu all read as windows-1250; a Russian file with a Latin word reads as windows-1251) and the existing P3-182 and P3-207 cases. (b) npx tsc --noEmit exits 0.",
+      "defaults": "UTF-8, UTF-16 and the refusal paths (null bytes, control characters, replacement character, broken UTF-8) are unchanged. The s and t with cedilla still become s and t with comma below. No migration, no RLS change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/csv-foreign-letter against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Fix is in decodeCsvFile in lib/data/import-shared.ts: the foreign-greater-than-Romanian vote is dropped, only CYRILLIC_RUN decides for 1251."
+    },
+    {
       "id": "P3-219",
       "title": "In the buyer picker on the direct-client issue form, typing a name that two clients share and pressing Enter picked the first row without asking, because the Enter key never consulted the same-name rule that P3-177 and P3-210 added for leaving the field. Enter now selects nothing and keeps the list open when the typed text matches more than one client name exactly, unless the operator first moved the highlight with the arrow keys.",
       "plain": "Pressing Enter on a name that two clients share no longer silently picks the first one; the operator chooses which one.",
