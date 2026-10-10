@@ -178,6 +178,7 @@ export function ProjectsScreen({
                 disabled={exporting}
                 data-testid="projects-export"
                 className="max-md:min-h-11"
+                title="Celulele care încep cu -, + sau @ apar în Excel cu un apostrof în față. Este o protecție; la reimport apostroful se scoate singur. Fișierul folosește punct și virgulă și virgulă zecimală. Pe un Excel în engleză sau pe Mac, deschideți-l prin Date, Din text, cu separatorul punct și virgulă."
               >
                 Exportă CSV
               </Button>
