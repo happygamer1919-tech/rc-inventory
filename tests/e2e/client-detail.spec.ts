@@ -140,10 +140,11 @@ test.describe("Fișa clientului", () => {
 
     // P3-99. Starea goala a notelor nu s-a pierdut odata cu fila: este acum in
     // panoul de deasupra benzii, cu acelasi text.
-    // P3-198: un client nou porneste la `client`, iar crearea scrie linia de etapa
-    // (cold -> client) in jurnalul de sub note; fara nicio notarea manuala, deci
+    // P3-198 then P3-250: un client nou porneste la `client` si isi inregistreaza
+    // etapa ca PRIMA, de la nicio etapa, nu ca o mutare din Lead rece. Randul de
+    // istoric incepe "A intrat în listă..." fara nicio notarea manuala, deci
     // starea goala a notelor ramane doar cand nu exista nici linia de etapa.
-    await expect(page.getByTestId("client-notes")).toContainText("Etapa s-a schimbat din Lead rece în Client");
+    await expect(page.getByTestId("client-notes")).toContainText("A intrat în listă la etapa Client");
   });
 
   test("Contacte listează persoanele și marchează contactul principal", async ({ page }) => {
