@@ -86,10 +86,20 @@ export async function readInBatches<T>(
 // deci un server care taie sub marimea ceruta produce mai multe cereri, nu
 // randuri pierdute. Numarul decide numai cate cereri pleaca.
 //
-// TACEREA SE INCHIDE PRIN NUMARARE. Fiecare pagina cere si totalul, in aceeasi
-// cerere. Randurile adunate trebuie sa fie exact acel total; o pagina goala
-// inainte de el, un total lipsa sau un total care se schimba intre pagini sunt
-// un ESEC VIZIBIL, nu o lista mai scurta.
+// TACEREA SE INCHIDE PRIN NUMARARE SI, CAND SE DA `keyOf`, PRIN CHEIE. Fiecare
+// pagina cere si totalul, in aceeasi cerere. Randurile adunate trebuie sa fie
+// exact acel total; o pagina goala inainte de el, un total lipsa sau un total
+// care se schimba intre pagini sunt un ESEC VIZIBIL, nu o lista mai scurta.
+//
+// NUMARAREA SINGURA NU PRINDE O MUTARE. Un rand adaugat inaintea cursorului si
+// unul sters in aceeasi fereastra lasa totalul neschimbat, dar muta pagina: un
+// rand vine de doua ori, altul nu vine deloc, iar lungimea iese buna. Cu `keyOf`,
+// o cheie care se repeta intre randurile adunate este semnul acelei mutari: citirea
+// se reia de la zero, ca la un total schimbat, si dupa ultima incercare este un
+// esec vizibil. Fara `keyOf` mutarea ramane nevazuta aici (dedupeById scoate doar
+// dublura, nu aduce randul sarit). O mutare care nu repeta nicio cheie nu se
+// poate produce pe o ordine stabila: ce iese dintr-o parte a ferestrei intra in
+// cealalta, iar cursorul avanseaza numai peste randurile venite.
 
 /** Cate randuri se cer intr-o pagina. Vezi antetul P3-39: corectitudinea nu
  *  depinde de el, deci nu este un prag de intalnit. */
@@ -109,11 +119,15 @@ export type CountedPage<T> = {
  * in aceeasi cerere, adica `.select(..., { count: "exact" }).range(from, to)`.
  * Ordinea cererii trebuie sa fie stabila, altfel paginile nu se leaga. `what`
  * numeste in mesajul de eroare ce se citeste.
+ *
+ * `keyOf` (optional) da cheia unica a unui rand. O cheie care se repeta inseamna
+ * ca fereastra s-a mutat intre pagini: citirea se reia, ca la un total schimbat.
  */
 export async function readAllPages<T>(
   what: string,
   fetchPage: (from: number, to: number) => PromiseLike<CountedPage<T>>,
   size: number = ROW_PAGE_SIZE,
+  keyOf?: (row: T) => string,
 ): Promise<T[]> {
   if (size < 1) throw new Error(`marimea paginii trebuie sa fie cel putin 1, a fost ${size}`);
   // P3-193. Un coleg care adauga sau scoate un rand intre doua pagini schimba totalul.
@@ -122,7 +136,7 @@ export async function readAllPages<T>(
   // operatorul. Niciodata o lista scurta sau cu dubluri, tacut.
   for (let attempt = 1; ; attempt++) {
     try {
-      return await readPagesOnce(what, fetchPage, size);
+      return await readPagesOnce(what, fetchPage, size, keyOf);
     } catch (err) {
       if (!(err instanceof ListChangedError)) throw err;
       if (attempt >= READ_ATTEMPTS) throw new Error(LIST_CHANGED_MESSAGE);
@@ -142,8 +156,10 @@ async function readPagesOnce<T>(
   what: string,
   fetchPage: (from: number, to: number) => PromiseLike<CountedPage<T>>,
   size: number,
+  keyOf?: (row: T) => string,
 ): Promise<T[]> {
   const rows: T[] = [];
+  const seen = new Set<string>();
   let total: number | null = null;
 
   for (;;) {
@@ -165,7 +181,18 @@ async function readPagesOnce<T>(
     }
 
     const got = page.data ?? [];
-    for (const row of got) rows.push(row);
+    for (const row of got) {
+      if (keyOf) {
+        const key = keyOf(row);
+        if (seen.has(key)) {
+          throw new ListChangedError(
+            `${what}: un rand a venit de doua ori, deci paginile s-au mutat intre cereri.`,
+          );
+        }
+        seen.add(key);
+      }
+      rows.push(row);
+    }
     if (rows.length >= total) break;
     if (got.length === 0) {
       throw new Error(
