@@ -17,6 +17,23 @@ export type PriceInput =
 
 export const PRICE_INVALID_MESSAGE = "Preț invalid. Exemplu: 12,50";
 
+export type QuantityInput =
+  | { kind: "empty" }
+  | { kind: "ok"; value: number; text: string }
+  | { kind: "invalid" };
+
+export const QUANTITY_INVALID_MESSAGE = "Cantitate invalidă. Exemplu: 2,5";
+
+export function parseQuantityText(raw: string): QuantityInput {
+  const compact = raw.replace(/\s/g, "");
+  if (compact === "") return { kind: "empty" };
+  if (!/^[0-9]+([.,][0-9]+)?$/.test(compact)) return { kind: "invalid" };
+  const text = compact.replace(",", ".");
+  const value = Number(text);
+  if (!Number.isFinite(value) || value <= 0) return { kind: "invalid" };
+  return { kind: "ok", value, text };
+}
+
 export function parsePriceText(raw: string): PriceInput {
   // \s acopera si spatiul fix (U+00A0), deci un numar lipit din alta aplicatie merge.
   const compact = raw.replace(/\s/g, "");
