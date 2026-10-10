@@ -6321,6 +6321,29 @@
         "at": "2026-10-10T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Task 121 died on the cd and git gate before writing code; requeued as 255."
+    },
+    {
+      "id": "P3-215",
+      "title": "The leads and clients exports took owner names from the list of active team members only, so a lead or client assigned to a deactivated colleague exported an empty Responsabil, and a failed read of the team exported every row with an empty Responsabil and no error. Exports now read every profile, active or not, and a failed read refuses the export with a Romanian message.",
+      "plain": "Exports show who is responsible for a lead or client even when that colleague was switched off, and an export that cannot read the team stops with a message instead of leaving the column blank.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/p3-215-export-owner-names.spec.ts is green in this pull request own quality run: readAllOwnerProfiles returns an inactive profile and sends no active filter; a failed profiles read throws ImportReadError and loadOrRefuse gives ok false with the message that names the team list. (b) npx tsc --noEmit exits 0.",
+      "defaults": "listClientOwnerChoices and every picker that uses it still list only active people. Export columns, semicolon separator, decimal comma and cell escaping are unchanged. Exports stay owner only. No migration, no RLS change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/export-owner-deactivated-r2 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Fix is readAllOwnerProfiles in lib/data/import-clients-read.ts, used by lib/data/client-export-actions.ts and lib/data/lead-export-actions.ts."
     }
   ]
 }
