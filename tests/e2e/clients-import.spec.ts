@@ -356,6 +356,47 @@ test("import clienti: un dublat pe email nu suprascrie nicio valoare scrisa de o
   expect(after.name).toBe(before.name);
 });
 
+test("import clienti: un rand care se potriveste cu un client dezactivat este spus ca atare si nu atinge clientul", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = testName("dezactivat");
+
+  // CLIENTUL DE TEST ESTE DEZACTIVAT, NU STERS. Fara telefon, ca o completare ar fi
+  // fost posibila daca importul l-ar fi tratat ca pe unul activ.
+  const storedId = await seedClient(rest, {
+    name: `${tag} stocat`,
+    email: testEmail("dezactivat", "stocat"),
+    address: "Orhei",
+    active: false,
+  });
+  const before = await storedById(rest, storedId);
+
+  const body = csv([
+    HEADERS,
+    [`${tag} din fișier`, "069100091", testEmail("dezactivat", "stocat"), "", "", "", "", "Altă adresă"],
+  ]);
+
+  await openImport(page);
+  await chooseFile(page, "clienti-dezactivat.csv", body);
+  await toVerify(page);
+
+  const duplicate = page.getByTestId("import-duplicate");
+  await expect(duplicate).toHaveCount(1);
+  await expect(duplicate).toContainText("Există deja ca client dezactivat");
+  await expect(duplicate).toContainText("Reactivați-l din fișa clientului înainte de import.");
+  await expect(page.getByTestId("import-duplicate-choice").locator('option[value="fill"]')).toBeDisabled();
+
+  await runImport(page);
+  expect(await countAt(page, "import-created")).toBe(0);
+  expect(await countAt(page, "import-filled")).toBe(0);
+  expect(await countAt(page, "import-skipped")).toBe(1);
+
+  expect(await storedById(rest, storedId)).toEqual(before);
+  const withTag = await storedByTag(rest, tag);
+  expect(withTag, "nu apare niciun al doilea client").toHaveLength(1);
+});
+
 test("import clienti: fisa clientului nu are moneda, iar o coloana Moneda din CSV nu scrie nimic", async ({
   page,
 }) => {

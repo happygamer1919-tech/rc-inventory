@@ -9448,3 +9448,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** backend
 **ERROR:** `tasks_insert` and `tasks_update` (0068) asked only that the caller is active, and the foreign key on `tasks.assignee_id` only that the profile exists. A deactivated colleague still exists, so a direct PostgREST call (or a stale form) could assign a task to someone who left, shown afterwards as (inactiv).
 **SOLUTION:** card P3-259: migration 0080 adds a SECURITY DEFINER BEFORE INSERT OR UPDATE OF assignee_id trigger that refuses a NEW inactive assignee and leaves an unchanged one alone, so old tasks stay editable; `lib/data/tasks-actions.ts` refuses the same case early. RULE: **a column that references a profile must be checked for `active` at write time in the database, not only filtered out of the picker, and the check must compare against the old value so history stays editable.**
+
+### A separator guess that keeps the first of several equal counts reads a Romanian Excel header the wrong way
+**Tag:** data
+**ERROR:** `sniffDelimiter` counted each separator on the first line and kept the first one with the highest count, so on a tie the comma won. A header like `Nume, prenume;Telefon` (a comma inside a column name, a semicolon as the real separator) was read as comma separated and every row shifted.
+**SOLUTION:** card P3-260: on a tie the next five non-empty lines decide (the separator with the same count on each of them), and if that still ties, semicolon beats comma; tab stays last. A file where one separator clearly wins is read as before. Covered by the P3-260 cases in `tests/e2e/import-shared.spec.ts`. RULE: **a guess that can tie must say what wins the tie, and the default must be the one the operator's own tool (Excel on a Romanian machine) writes.**
+
+### A row count cannot tell that a page window shifted
+**Tag:** data
+**ERROR:** `readAllPages` paged by position and only failed when the total changed. An insert before the cursor plus a delete in the same window keeps the total equal, so one row came back twice, another never, and the list was one short with the right length. Callers that used `dedupeById` hid the duplicate but not the lost row.
+**SOLUTION:** card P3-261: `readAllPages` takes an optional `keyOf`; a repeated key restarts the read like a changed total, then fails with the list-changed message. Azi and the two extraction reads pass the row id. Covered by the P3-261 case in `tests/e2e/review.spec.ts`. RULE: **a positional paged read that must not lose a row needs a unique key check, because the count alone passes a shifted window; give new callers a `keyOf`.**
+
+### An import that loads existing rows without the active flag matches switched-off records as live ones
+**Tag:** import
+**ERROR:** `loadExisting` in `lib/data/client-import-actions.ts` read clients without the `active` column, so a row matching a deactivated client was reported as a duplicate of a client missing from the list, and the fill action wrote into it silently. The project import (P3-173) already handled inactive clients; the client import never copied it.
+**SOLUTION:** card P3-257: `loadExisting` reads `active`, the plan marks the match `inactive` with nothing fillable, `duplicateReason` says it is deactivated and must be reactivated first, and `runClientImport` skips it whatever was chosen. Covered by `tests/e2e/client-import-inactive.spec.ts` and a case in `tests/e2e/clients-import.spec.ts`. RULE: **every import that matches against stored rows reads the active flag and decides explicitly what a deactivated match does; none writes into one.**
