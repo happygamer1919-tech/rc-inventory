@@ -239,3 +239,90 @@ test.describe("P3-171, baza: save_invoice_draft si vanzarea directa", () => {
     expect(rows[0]!.status).toBe("draft");
   });
 });
+
+/* ------------------------------------------------- tabela, P3-212 -- */
+
+// CARDUL P3-212. Refuzul lui P3-171 statea numai in save_invoice_draft, iar tabela
+// public.invoices primea orice de la un cont activ. Migratia 0078 pune refuzul pe
+// tabela insasi. Aici se trimit exact cererile construite de mana pe care le descrie
+// defectul: un POST pe /rest/v1/invoices si un PATCH pe o ciorna, cu jetonul unui
+// cont adevarat. Eroarea este aceeasi ca a functiei, deci ecranul arata aceeasi
+// propozitie.
+
+test.describe("P3-212, tabela: invoices si vanzarea directa", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("tabela: o inserare directa a unei facturi pe o iesire directa este refuzata", async () => {
+    const token = await accessToken(ownerAccount());
+    const client = await newClient(token, "ghiseu insert");
+    const walkin = await newIssue(
+      { issue_mode: "direct_client", client_id: client, pickup_date: "2026-10-10" },
+      "WI",
+    );
+
+    const inserted = await asUser(token, "invoices?select=id", "POST", {
+      client_id: client,
+      outbound_issue_id: walkin,
+    });
+    expect(inserted.ok, `o inserare directa a legat o factura de o vanzare directa: ${inserted.text}`).toBe(false);
+    expect(inserted.text, "eroarea poarta codul si cuvantul pe care le citeste refusal()").toContain("P0001");
+    expect(inserted.text).toContain("direct_client");
+
+    expect(await invoicesWhere(token, `outbound_issue_id=eq.${walkin}`), "nicio factura pe vanzarea directa").toHaveLength(0);
+  });
+
+  test("tabela: un PATCH direct care leaga o ciorna de o iesire directa este refuzat", async () => {
+    const token = await accessToken(ownerAccount());
+    const client = await newClient(token, "ghiseu patch");
+    const walkin = await newIssue(
+      { issue_mode: "direct_client", client_id: client, pickup_date: "2026-10-10" },
+      "WP",
+    );
+
+    const draft = await asUser(token, "invoices?select=id", "POST", { client_id: client });
+    expect(draft.ok, `ciorna fara iesire nu a putut fi scrisa: ${draft.text}`).toBe(true);
+    const draftId = String(draft.rows[0]!.id);
+
+    const patched = await asUser(token, `invoices?id=eq.${draftId}&select=id`, "PATCH", {
+      outbound_issue_id: walkin,
+    });
+    expect(patched.ok, `un PATCH a legat ciorna de o vanzare directa: ${patched.text}`).toBe(false);
+    expect(patched.text).toContain("P0001");
+    expect(patched.text).toContain("direct_client");
+
+    const rows = await invoicesWhere(token, `id=eq.${draftId}`);
+    expect(rows, "ciorna exista in continuare").toHaveLength(1);
+    expect(rows[0]!.outbound_issue_id, "ciorna nu a primit vanzarea directa").toBeNull();
+  });
+
+  test("tabela: o factura obisnuita se scrie in continuare prin inserare si PATCH direct", async () => {
+    const token = await accessToken(ownerAccount());
+    const client = await newClient(token, "proiect tabela");
+    const project = await asUser(token, "projects?select=id", "POST", {
+      client_id: client,
+      name: `TEST Șantier P3-212 ${RUN}`,
+    });
+    expect(project.ok, `proiectul de test nu a putut fi creat: ${project.text}`).toBe(true);
+    const projectId = String(project.rows[0]!.id);
+    const issue = await newIssue({ project_id: projectId }, "PT");
+
+    const inserted = await asUser(token, "invoices?select=id", "POST", {
+      client_id: client,
+      project_id: projectId,
+      outbound_issue_id: issue,
+    });
+    expect(inserted.ok, `o factura pe o iesire pe proiect a fost refuzata: ${inserted.text}`).toBe(true);
+    const rows = await invoicesWhere(token, `outbound_issue_id=eq.${issue}`);
+    expect(rows, "exact o ciorna pe iesirea pe proiect").toHaveLength(1);
+    expect(rows[0]!.status).toBe("draft");
+
+    const plain = await asUser(token, "invoices?select=id", "POST", { client_id: client });
+    expect(plain.ok, `o factura fara iesire a fost refuzata: ${plain.text}`).toBe(true);
+    const plainId = String(plain.rows[0]!.id);
+
+    const patched = await asUser(token, `invoices?id=eq.${plainId}&select=id`, "PATCH", {
+      notes: "TEST P3-212 modificata",
+    });
+    expect(patched.ok, `o ciorna obisnuita nu a mai putut fi modificata: ${patched.text}`).toBe(true);
+  });
+});
