@@ -9424,6 +9424,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
 **SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
 
+### A price parser must read the dot with three digits as thousands, the way Romanian people write it
+**Tag:** data
+**ERROR:** `parsePriceText` (P3-209) accepted `^\d+([.,]\d+)?$` and turned a comma into a dot, so a dot was always decimal. `1.200` parsed as 1.2 and saved as 1,20 MDL with no error, and `1.200,50` was refused.
+**SOLUTION:** card P3-253: a dot followed by groups of exactly three digits (first group 1 to 3 digits, not starting with 0) is a thousands separator; a dot with one or two digits stays decimal. Covered by the P3-253 cases in `tests/e2e/price-input.spec.ts` (moved there from `tests/price-input.test.ts`, which CI never ran). RULE: **a number parser for Romanian operators must handle both notations (1.200,50 and 12.50), and an ambiguous input must be tested in both readings.**
+
 ### A fix to a shared rule in the helper misses the key handler that never calls the helper
 **Tag:** ui
 **ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
