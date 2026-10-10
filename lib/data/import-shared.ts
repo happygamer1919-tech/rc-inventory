@@ -143,27 +143,54 @@ export function autoMatchColumns<F extends string>(
  *  punct si virgula, nu cu virgula, deci ordinea aceasta nu este cosmetica. */
 const DELIMITERS = [",", ";", "\t"] as const;
 
+/** Numara aparitiile unui separator pe o linie, in AFARA ghilimelelor. */
+function countDelimiter(line: string, delimiter: string): number {
+  let count = 0;
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && char === delimiter) count += 1;
+  }
+  return count;
+}
+
+/** La egalitate, punct si virgula bate virgula (Excel romanesc), iar tab-ul vine ultimul. */
+const TIE_PREFERENCE = [";", ",", "\t"] as const;
+
+/** Cate linii nevide de dupa antet se citesc cand primul rand nu hotaraste. */
+const SNIFF_EXTRA_LINES = 5;
+
 /** Ghiceste separatorul numarand aparitiile din AFARA ghilimelelor, pe primul
  *  rand. Un nume ca "Popescu, Ion" intre ghilimele nu trebuie sa faca virgula
- *  sa castige. */
+ *  sa castige. Un antet ca "Nume, prenume;Telefon" (o virgula, un punct si
+ *  virgula) este o egalitate: se rezolva uitandu-ne la urmatoarele randuri, iar
+ *  daca tot nu se hotaraste, punct si virgula castiga. */
 export function sniffDelimiter(text: string): string {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
-  let best = ",";
+  const lines = text.split(/\r?\n/);
+  const firstLine = lines[0] ?? "";
   let bestCount = -1;
+  let tied: string[] = [];
   for (const delimiter of DELIMITERS) {
-    let count = 0;
-    let quoted = false;
-    for (let i = 0; i < firstLine.length; i += 1) {
-      const char = firstLine[i];
-      if (char === '"') quoted = !quoted;
-      else if (!quoted && char === delimiter) count += 1;
-    }
+    const count = countDelimiter(firstLine, delimiter);
     if (count > bestCount) {
       bestCount = count;
-      best = delimiter;
+      tied = [delimiter];
+    } else if (count === bestCount) {
+      tied.push(delimiter);
     }
   }
-  return best;
+  if (tied.length === 1 || bestCount === 0) return tied[0] ?? ",";
+
+  const nextLines = lines
+    .slice(1)
+    .filter((line) => line.trim() !== "")
+    .slice(0, SNIFF_EXTRA_LINES);
+  const steady = tied.filter((delimiter) =>
+    nextLines.every((line) => countDelimiter(line, delimiter) === bestCount),
+  );
+  const pool = steady.length > 0 ? steady : tied;
+  return TIE_PREFERENCE.find((delimiter) => pool.includes(delimiter)) ?? ",";
 }
 
 /**
