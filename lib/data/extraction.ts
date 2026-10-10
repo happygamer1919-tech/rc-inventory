@@ -14,7 +14,7 @@ import "server-only";
 // mai e nimic de confirmat, si a o oferi spre confirmare ar produce un duplicat.
 
 import { createClient } from "@/lib/supabase/server";
-import { inBatches, readAllPages } from "./id-list";
+import { inBatches, readAllPages, ROW_PAGE_SIZE } from "./id-list";
 import { isDocumentSource, isScanArm, readExtractionMeta } from "./extraction-types";
 import {
   hasExtractionDocumentSource,
@@ -326,6 +326,8 @@ export async function listReviewDrafts(): Promise<ExtractionDraft[]> {
         .range(from, to);
       return { data: data as unknown as Record<string, unknown>[] | null, count, error };
     },
+    ROW_PAGE_SIZE,
+    (r) => String(r.order_id),
   );
   if (rows.length === 0) return [];
 
@@ -455,6 +457,8 @@ export async function listCancelledDrafts(): Promise<ExtractionDraft[] | null> {
         .range(from, to);
       return { data: data as unknown as Record<string, unknown>[] | null, count, error };
     },
+    ROW_PAGE_SIZE,
+    (r) => String(r.order_id),
   );
   if (rows.length === 0) return [];
 
