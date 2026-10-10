@@ -9423,3 +9423,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** process
 **ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
 **SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
+
+### A fix to a shared rule in the helper misses the key handler that never calls the helper
+**Tag:** ui
+**ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
+**SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**
