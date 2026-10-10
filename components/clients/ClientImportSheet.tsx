@@ -51,6 +51,15 @@ import {
   type ClientImportOutcome,
 } from "@/lib/data/client-import-actions";
 import { plural } from "@/lib/data/format";
+import {
+  batchProgress,
+  CHECK_FAILED,
+  importFailed,
+  mergeOutcomes,
+  mergePlans,
+  runImportBatches,
+  savedRows,
+} from "@/lib/data/import-batches";
 
 const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Importă"] as const;
 
@@ -91,6 +100,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
   const [step, setStep] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [progress, setProgress] = React.useState<string | null>(null);
 
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
@@ -198,35 +208,60 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planClientImport({ rows, lines, mapping });
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await runImportBatches({
+        step: "check",
+        rows,
+        lines,
+        call: (batch) => planClientImport({ ...batch, mapping }),
+        onProgress: (done, total) => setProgress(batchProgress("check", done, total)),
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setPlan(mergePlans(result.parts));
+      setChoices({});
+      setStep(2);
+    } catch {
+      setError(CHECK_FAILED);
+    } finally {
+      setProgress(null);
+      setPending(false);
     }
-    setPlan(result.value);
-    setChoices({});
-    setStep(2);
   }
 
   async function onRun() {
     setError(null);
     setPending(true);
-    const result = await runClientImport({
-      rows,
-      lines,
-      mapping,
-      choices,
-      fileName: fileName ?? "fișier",
-      day: chisinauToday(),
-    });
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await runImportBatches({
+        step: "import",
+        rows,
+        lines,
+        call: (batch) =>
+          runClientImport({
+            ...batch,
+            mapping,
+            choices,
+            fileName: fileName ?? "fișier",
+            day: chisinauToday(),
+          }),
+        saved: savedRows,
+        onProgress: (done, total) => setProgress(batchProgress("import", done, total)),
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setOutcome(mergeOutcomes(result.parts));
+      router.refresh();
+    } catch {
+      setError(importFailed(0));
+    } finally {
+      setProgress(null);
+      setPending(false);
     }
-    setOutcome(result.value);
-    router.refresh();
   }
 
   const duplicates = (plan?.entries ?? []).filter(
@@ -548,7 +583,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
               </Button>
             ) : step === 1 ? (
               <Button type="button" disabled={pending} onClick={toVerify} data-testid="import-next">
-                {pending ? "Se verifică..." : "Verifică"}
+                {pending ? (progress ?? "Se verifică...") : "Verifică"}
               </Button>
             ) : step === 2 ? (
               <Button
@@ -563,7 +598,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
               </Button>
             ) : (
               <Button type="button" disabled={pending} onClick={onRun} data-testid="import-run">
-                {pending ? "Se importă..." : "Importă"}
+                {pending ? (progress ?? "Se importă...") : "Importă"}
               </Button>
             )}
           </div>

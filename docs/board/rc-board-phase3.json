@@ -6295,6 +6295,34 @@
       "notes": "Found by the bug check of 2026-10-09. Fix is in applyQueryFilter in lib/data/product-page-read.ts: a value that is not a uuid is replaced by the all-zero uuid, which no row has."
     },
     {
+      "id": "P3-211",
+      "title": "The four import screens (leads, clients, projects, materials) allow a file up to 5 MB but send every row to the server in one call for the check and one for the write. The server refuses a request body over 1 MB, and the calls had no error handling, so the button stayed on the checking or importing label with no message. One call also wrote every row, which can run past the function time limit. The screens now send rows in batches of at most 200 (and at most about 700 KB), one after another, merge the results keeping the original row numbers, show progress, and on any failure show a Romanian message and free the button. The body limit in next.config.ts is not raised.",
+      "plain": "Un fișier de import de până la 5 MB se verifică și se importă fără să rămână blocat; dacă serverul refuză, apare un mesaj clar și butonul se eliberează.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-122",
+        "P3-123",
+        "P3-124",
+        "P3-125"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The tests in tests/import-batches.test.ts whose names start with 'P3-211' are green in this pull request's own quality run: 1001 rows make 6 calls of at most 200, merged errors keep the original row numbers, a failure in call 3 stops and reports the rows done so far, a rejected action returns the Romanian message instead of hanging, and no batch built from a generated 5 MB CSV is near 1 MB. (b) npx tsc --noEmit exits 0. (c) next.config.ts is unchanged by this pull request.",
+      "defaults": "Rows go to the server in batches of at most 200 rows and at most about 700 KB, one batch after another, from one shared helper in lib/data/import-batches.ts. Parsing rules, the duplicate rules, next.config.ts, routes and the schema gate are unchanged. At write time a row that duplicates a row written by an earlier batch is found as already stored and stays on skip unless the operator chose otherwise. At check time a duplicate between two different batches is not shown before the write. No migration.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/import-large-file against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Task 121 died on the cd and git gate before writing code; requeued as 255."
+    },
+    {
       "id": "P3-215",
       "title": "The leads and clients exports took owner names from the list of active team members only, so a lead or client assigned to a deactivated colleague exported an empty Responsabil, and a failed read of the team exported every row with an empty Responsabil and no error. Exports now read every profile, active or not, and a failed read refuses the export with a Romanian message.",
       "plain": "Exports show who is responsible for a lead or client even when that colleague was switched off, and an export that cannot read the team stops with a message instead of leaving the column blank.",
