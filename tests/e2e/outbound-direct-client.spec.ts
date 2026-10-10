@@ -1674,6 +1674,23 @@ test("iesire client direct P3-209: 12,50 tastat cu virgula intra in total, iar u
   await expect(page.getByTestId("issue-price-error-0")).toHaveText("Preț invalid. Exemplu: 12,50");
 });
 
+test("iesire client direct P3-253: 1.200 tastat cu punct de mii intra in total ca 1200, nu ca 1,20", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillFirstLine(page, "2");
+
+  await page.getByTestId("issue-price-0").fill("1.200");
+  await expect(page.getByTestId("issue-price-error-0")).toHaveCount(0);
+  await expect(
+    page.locator("text=" + formatMoneyExact(2400)).first(),
+    "2 x 1.200 = 2400 MDL, nu 2,40",
+  ).toBeVisible();
+});
+
 /* ------------------------------------------------------------------ (f) -- */
 
 test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga in fisierele schimbate", async ({

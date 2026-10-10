@@ -6390,6 +6390,31 @@
         "at": "2026-10-10T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-10. The parser already unwraps the text literal form (unwrapCsvCell), so only the writer changed. The tests/*.test.ts files are not run by CI (playwright testDir is tests/e2e), so the case sits in tests/e2e/import-shared.spec.ts."
+    },
+    {
+      "id": "P3-253",
+      "title": "parsePriceText (P3-209) always read a dot as the decimal separator, so the Romanian thousands notation 1.200 saved as 1,20 MDL with no error, and 1.200,50 was refused. A dot followed by groups of exactly three digits (first group 1 to 3 digits, not starting with 0) is now a thousands separator: 1.200 is 1200, 12.500 is 12500, 1.200.000 is 1200000, 1.200,50 is 1200.5. 12,50, 12.50, 12.5 and 1 200 read as before; 1,200.50, 1.20.0 and 1.2000,50 stay invalid.",
+      "plain": "In the walk-in sale, a price typed as 1.200 now saves as one thousand two hundred lei instead of 1,20, and 1.200,50 is accepted.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-209"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/price-input.spec.ts whose names start with 'P3-253' are green in this pull request own quality run: 1.200 gives 1200, 12.500 gives 12500, 1.200.000 gives 1200000, 1.200,50 gives 1200.5, 12.5 stays 12.5, and 1.20.0, 1.2000,50, 1.200, and 1,200.50 are invalid. (b) The P3-209 cases in the same file stay green. (c) The case in tests/e2e/outbound-direct-client.spec.ts named 'iesire client direct P3-253' is green: 2 lines at 1.200 total 2400 MDL. (d) npx tsc --noEmit exits 0 and the board validator exits 0.",
+      "defaults": "Only parsePriceText in lib/data/price-input.ts changes. The message 'Preț invalid. Exemplu: 12,50', the text input type and the server refusal texts are unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-253 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. The unit cases moved from tests/price-input.test.ts to tests/e2e/price-input.spec.ts because CI runs only tests/e2e."
     }
   ]
 }
