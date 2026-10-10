@@ -63,6 +63,30 @@ export function taskLinkKey(entityType: string, entityId: string): string {
   return `${entityType}:${entityId}`;
 }
 
+/** P3-254. Mesajul din formular cand citirea listei de proiecte a esuat. */
+export const PROJECT_LIST_READ_FAILED =
+  "Lista de proiecte nu a putut fi încărcată. Reîncărcați pagina.";
+
+/** Eticheta unui proiect legat de o sarcina care nu este in lista de alegere.
+ *
+ *  CAND CITIREA LISTEI A ESUAT, lista este goala si orice proiect legat pare lipsa,
+ *  deci "(închis)" sau "(inactiv)" ar fi o afirmatie fara temei: proiectul ramane sub
+ *  numele lui simplu. Cand citirea a reusit, etichetele sunt cele de dinainte. */
+export function closedProjectLabel(
+  p: { name: string; status: string; active: boolean },
+  listReadFailed: boolean,
+): string {
+  if (listReadFailed) return p.name;
+  return p.status === "closed" ? `${p.name} (închis)` : `${p.name} (inactiv)`;
+}
+
+/** Mesajul de eroare al casutei "Înregistrare", sau null cand lista s-a citit. In
+ *  locul lui "Niciun rezultat" apare mesajul, ca o citire picata sa nu arate ca o
+ *  lista goala. Numai felul "proiect" are lista aceasta; clientii arunca la citire. */
+export function linkListError(entityType: string, projectsReadFailed: boolean): string | null {
+  return entityType === "project" && projectsReadFailed ? PROJECT_LIST_READ_FAILED : null;
+}
+
 /** Lista de alegere pentru o sarcina care exista: cea obisnuita, plus inregistrarea
  *  ei curenta daca lipseste din lista. O sarcina noua nu are `current`, deci primeste
  *  lista neschimbata: proiectele inchise si clientii inactivi nu se ofera la legare. */

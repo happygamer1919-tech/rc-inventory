@@ -61,7 +61,7 @@ import {
   type TaskRow,
   type TeamMember,
 } from "./tasks-map";
-import { taskLinkKey, type TaskLinkChoiceLike } from "./tasks-shape";
+import { closedProjectLabel, taskLinkKey, type TaskLinkChoiceLike } from "./tasks-shape";
 import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
 import { readEntityTaskRows, readTaskRows, type TaskReadQuery } from "./tasks-read";
 
@@ -222,6 +222,9 @@ export async function listClosedLinkChoices(
   rows: Task[],
   selectableClientIds: string[],
   selectableProjectIds: string[],
+  // P3-254: lista de proiecte nu s-a putut citi, deci "lipsa din lista" nu inseamna
+  // "inchis": proiectele raman sub numele lor simplu.
+  projectListReadFailed = false,
 ): Promise<Record<string, TaskLinkChoiceLike>> {
   const clientIds = new Set<string>();
   const projectIds = new Set<string>();
@@ -262,7 +265,7 @@ export async function listClosedLinkChoices(
   for (const p of projects) {
     out[taskLinkKey("project", p.id)] = {
       id: p.id,
-      label: p.status === "closed" ? `${p.name} (închis)` : `${p.name} (inactiv)`,
+      label: closedProjectLabel(p, projectListReadFailed),
     };
   }
   return out;

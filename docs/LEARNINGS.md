@@ -9423,3 +9423,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** process
 **ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
 **SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
+
+### A read that fails must not come back as an empty list the next function reads as "closed"
+**Tag:** data
+**ERROR:** `listSelectableProjects` returned `[]` on a failed read. `listClosedLinkChoices` then treated every project linked to a task as missing from the open list and labelled it "(închis)" or "(inactiv)", and the task form showed "Niciun rezultat" with no error.
+**SOLUTION:** card P3-254: `readSelectableProjects` returns the rows plus a `failed` flag (`listSelectableProjects` is unchanged for its other callers); the sarcini page passes the flag to `listClosedLinkChoices` (plain names on a failed read) and to `TaskForm` (Romanian error in place of "Niciun rezultat"). The client list already throws on a failed read, so it needed no change. Covered by `tests/e2e/task-link-list-failed.spec.ts`. RULE: **a function whose empty result is read by another function as "absent" must say whether the read failed.**

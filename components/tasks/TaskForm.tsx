@@ -48,6 +48,7 @@ import {
   cancelTaskPatch,
   changedTaskFields,
   linkChoicesWithCurrent,
+  linkListError,
   type TaskFormValues,
 } from "@/lib/data/tasks-shape";
 import {
@@ -72,6 +73,7 @@ export function TaskForm({
   assignees,
   clients = [],
   projects = [],
+  projectsFailed = false,
   fixedEntity,
   currentLink,
   onClose,
@@ -87,6 +89,9 @@ export function TaskForm({
    *  deschide panoul nu are de ce sa le citeasca. */
   clients?: TaskLinkChoice[];
   projects?: TaskLinkChoice[];
+  /** P3-254: citirea listei de proiecte a esuat. Casuta arata o eroare in loc de
+   *  "Niciun rezultat". */
+  projectsFailed?: boolean;
   /** Cand soseste, inregistrarea legata este ACEASTA si nu se alege. Vezi antetul. */
   fixedEntity?: TaskFixedEntity;
   /** Inregistrarea curenta a sarcinii cand nu este in liste (proiect inchis, client
@@ -161,6 +166,7 @@ export function TaskForm({
   // Numai cat timp felul ales este cel al legaturii salvate: daca operatorul trece pe
   // alt fel, inregistrarea inchisa nu are ce cauta in lista noului fel.
   const currentForType = entityType === task?.entityType ? currentLink : undefined;
+  const linkError = linkListError(entityType, projectsFailed);
   const linkOptions: ComboOption[] = linkChoicesWithCurrent(
     entityType === "project" ? projects : clients,
     currentForType,
@@ -392,8 +398,17 @@ export function TaskForm({
                           ? "Caută proiectul după nume"
                           : "Caută clientul după nume"
                       }
-                      emptyLabel="Niciun rezultat"
+                      emptyLabel={linkError ?? "Niciun rezultat"}
                     />
+                    {linkError ? (
+                      <span
+                        role="alert"
+                        data-testid="task-link-list-error"
+                        className="mt-1.5 block text-[12.5px] text-rc-danger"
+                      >
+                        {linkError}
+                      </span>
+                    ) : null}
                   </span>
                 </Field>
               )}
