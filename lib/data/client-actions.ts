@@ -307,7 +307,9 @@ export async function createWalkInClient(
     // Administratorul il pune prin set_client_stage, cu randul de istoric. Functia
     // este security invoker si clients_update este a administratorului, deci pentru
     // managerul de cont etapa se scrie chiar in insert (raspunsul PURPLE, P3-147).
-    ...(user.role === "owner" ? { stage: "client" } : {}),
+    // P3-250. Administratorul isi inregistreaza cumparatorul ca etapa PRIMA, de la nicio
+    // etapa. Managerul de cont continua sa nu scrie istoric (nu poate apela set_client_stage).
+    ...(user.role === "owner" ? { stage: "client", firstStage: true } : {}),
   }, user.role === "owner" ? undefined : { stageInInsert: "client" });
 }
 
