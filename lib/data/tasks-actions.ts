@@ -55,6 +55,10 @@ const NOT_APPLIED =
 
 const NO_SESSION = "Sesiune expirată. Autentifică-te din nou.";
 
+/** Cardul P3-259. ACEEASI PROPOZITIE ca in declansatorul migratiei 0080, ca refuzul
+ *  sa sune la fel fie ca il da serverul, fie ca il da baza. */
+const INACTIVE_ASSIGNEE = "Colegul ales nu mai este activ. Alegeți alt responsabil.";
+
 /** Ecranul cardului P3-131. Scris o singura data: doua drumuri de scriere care
  *  reimprospateaza doua cai diferite este un ecran care uneori nu se schimba. */
 const TASKS_PATH = "/sarcini";
@@ -104,6 +108,9 @@ function translateWriteError(code: string | undefined, message: string): ActionR
   if (code === "22P02")
     return { ok: false, message: "Una dintre valorile trimise nu este recunoscută." };
 
+  if (code === "P0001" && message.includes(INACTIVE_ASSIGNEE))
+    return { ok: false, message: INACTIVE_ASSIGNEE, field: "assigneeId" };
+
   if (code === "P0001" || code === "P0002") return { ok: false, message };
   return { ok: false, message: `Operațiunea a eșuat. ${message}` };
 }
@@ -123,6 +130,25 @@ function revalidateTaskPaths(entityType: string | null, entityId: string | null)
   if (entityType === null || entityId === null) return;
   if (entityType === "client") revalidatePath(`/clienti/${entityId}`);
   if (entityType === "project") revalidatePath(`/proiecte/${entityId}`);
+}
+
+/**
+ * Cardul P3-259: true numai cand profilul ales EXISTA si este DEZACTIVAT.
+ *
+ * SE CITESTE PRIN list_team_members() (migratia 0072), fiindca un manager de cont nu
+ * vede prin profiles_select decat propriul rand. Cand functia nu raspunde, sau
+ * profilul nu este in lista, raspunsul este false: atunci decide baza, declansatorul
+ * migratiei 0080 pentru un coleg inactiv si cheia straina pentru un profil care nu
+ * exista. Serverul refuza devreme si cu campul numit; baza ramane autoritatea.
+ */
+async function isInactiveProfile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  profileId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("list_team_members");
+  if (error || !Array.isArray(data)) return false;
+  const member = (data as { id: string; active: boolean }[]).find((m) => m.id === profileId);
+  return member !== undefined && member.active === false;
 }
 
 /**
@@ -163,6 +189,9 @@ export async function createTask(
   // pe o coloana cu implicit scrie null si nu implicitul, care este tocmai greseala
   // ce ar face o sarcina sa ajunga fara stare pe o schema ce avea una.
   for (const [key, value] of optional) if (value !== null) row[key] = value;
+
+  if (typeof row.assignee_id === "string" && (await isInactiveProfile(supabase, row.assignee_id)))
+    return { ok: false, message: INACTIVE_ASSIGNEE, field: "assigneeId" };
 
   // PERECHEA SE CITESTE INAPOI DIN RANDUL SCRIS si nu din ce s-a trimis: pagina de
   // reimprospatat se deduce din ce baza a stocat, care este singurul adevar despre
@@ -207,6 +236,20 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
   const row = taskPatchRow(patch);
 
   if (Object.keys(row).length === 0) return { ok: true, value: undefined };
+
+  // CARDUL P3-259: un responsabil NOU trebuie sa fie un coleg activ. Un responsabil
+  // trimis NESCHIMBAT pe o sarcina veche al carei coleg a fost dezactivat intre timp
+  // nu se refuza: modificarea titlului unei sarcini vechi nu are voie sa cada.
+  if (typeof row.assignee_id === "string") {
+    const { data: current } = await supabase
+      .from("tasks")
+      .select("assignee_id")
+      .eq("id", id)
+      .maybeSingle();
+    const unchanged = current !== null && current.assignee_id === row.assignee_id;
+    if (!unchanged && (await isInactiveProfile(supabase, row.assignee_id)))
+      return { ok: false, message: INACTIVE_ASSIGNEE, field: "assigneeId" };
+  }
 
   const { data, error } = await supabase
     .from("tasks")
