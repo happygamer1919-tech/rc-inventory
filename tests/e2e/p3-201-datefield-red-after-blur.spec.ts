@@ -16,7 +16,11 @@ const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 test.describe("Casutele de data nu se rosesc de la prima cifra (P3-201)", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test("(a, c) pe formularul de client, o cifra tastata nu arata rosu si lasa Salvează pornit; rosul apare dupa ce casuta este parasita", async ({
+  // P3-219. Initial acest test cerea ca o cifra tastata sa NU se roseasca pe
+  // formularul de client. Asta lasa Enter sa trimita o data pe jumatate scrisa ca
+  // sir gol si sa stearga data salvata, deci testul codifica eroarea. Acum rosul
+  // apare de la prima cifra si pe formularul de client.
+  test("(a, c) pe formularul de client, o cifra tastata se roseste pe loc si opreste Salvează (P3-219)", async ({
     page,
   }) => {
     await signIn(page, ownerAccount());
@@ -27,13 +31,8 @@ test.describe("Casutele de data nu se rosesc de la prima cifra (P3-201)", () => 
 
     await field.click();
     await field.pressSequentially("1");
-    await expect(error).toHaveCount(0);
-    await expect(field).not.toHaveAttribute("aria-invalid", "true");
-    await expect(page.getByTestId("client-submit")).toBeEnabled();
-
-    // Parasita, o data neterminata se rosește si opreste salvarea (P3-92).
-    await field.blur();
     await expect(error).toBeVisible();
+    await expect(field).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByTestId("client-submit")).toBeDisabled();
   });
 
