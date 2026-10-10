@@ -5993,6 +5993,31 @@
       "notes": "Found by the bug check of 2026-10-08. Root cause: ClientForm defaulted every new record to cold."
     },
     {
+      "id": "P3-199",
+      "title": "Take stock may add lines only for the owner, or for the creator of a slip that has no line yet. Migration 0077 replaces public.outbound_issue_take_stock(uuid, jsonb) in place, same signature, return type, SECURITY DEFINER, search_path and grants: after the existing refusals (no active profile, no such issue, issue not awaiting_shipment) a caller who is not the owner is refused unless outbound_issues.created_by is the caller and the slip has no outbound_lines row. P3-195 made direct line writes owner only but left this definer routine open, so any account manager could add lines to another person's slip awaiting shipment. The locks, summed overdraw check, INSUFFICIENT_STOCK contract, lines insert and history row are unchanged.",
+      "plain": "A staff member can no longer add goods to somebody else's delivery slip through the back door; only the owner, or the person who just created an empty slip, can.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-195"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/take-stock-lines-guard.spec.ts is green in this pull request quality run on its head sha: an account manager calling outbound_issue_take_stock on a slip created by another user is refused and no outbound_lines row is added. (b) The same call on a slip that already has lines is refused for a non-owner, the slip's own creator included. (c) The creator's first take stock on their own empty slip still succeeds, the owner's call still succeeds, and both outbound doors still work for an account manager. (d) scripts/poc-free/local-db/assertions/0075_take_stock_status_and_line_policies.sql passes in the applier run, and tests/e2e/take-stock-guard.spec.ts, tests/e2e/outbound-lines-deactivated.spec.ts and every other existing spec stay green; the steps Refuse a migration that removes rows and both applier proof steps RAN and passed. (e) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: bug check of 2026-10-09. The legitimate flow is the two doors: each inserts the slip with created_by = auth.uid() and calls the routine last, in the same transaction, on a slip with no line. A caller with no identity (auth.uid() is null) is a server role and is not refused, as in 0075. The status check stays first, so a shipped slip keeps its deja expediata message. The 0075 assertion and the witnesses of take-stock-guard.spec and outbound-lines-deactivated.spec used a take stock on a slip that already had a line; they now use an empty slip of the account, or the owner. The outbound_lines policies of 0075 are untouched. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-09T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-199 against main: its quality run on the head sha runs tests/e2e/take-stock-lines-guard.spec.ts and the applier proofs; report in docs/reports/2026-10-09-executor-take-stock-lines-guard.md",
+        "at": "2026-10-09T12:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-09 by EXECUTOR in the same pull request. Migration number 0077 because main holds 0076. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
       "id": "P3-200",
       "title": "The Consum materiale tab of the client page formatted quantities with whole-number formatting, so a walk-in sale of 2,5 m2 showed 3 and 0,4 m3 showed 0. The tab now uses the two-decimal quantity format in each row and in the total. formatNumber itself is unchanged.",
       "plain": "On a client's page, materials bought at the counter now show exact amounts like 2,5 m² instead of being rounded.",
@@ -6243,6 +6268,31 @@
         "at": "2026-10-09T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-09. Rule is decideCommit in lib/data/combobox-commit.ts."
+    },
+    {
+      "id": "P3-208",
+      "title": "A hand-typed category or supplier id in the Inventar address that is not a well-formed uuid went straight into the database filter and made the read fail, so the page fell to the error screen. A malformed id now gives an empty list and a zero count, the same as a real id with no products.",
+      "plain": "If someone edits the Inventar web address by hand and types a nonsense category or supplier, the page now shows an empty list instead of the error screen.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-153"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/list-paging.spec.ts is green in this pull request own quality run: a categorie value of abc gives zero rows and total 0 without throwing and the value abc never reaches the query; the same for a furnizor value of abc; a well-formed uuid still filters as before. (b) npx tsc --noEmit exits 0.",
+      "defaults": "A real read error still throws from listProductsPage and countProducts. A malformed id is not dropped to show everything. The selects, paging, sorting and the error screen are unchanged. No migration, no schema change.",
+      "last_checkpoint": "2026-10-09T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-208 against main; acceptance is the quality run on its head",
+        "at": "2026-10-09T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-09. Fix is in applyQueryFilter in lib/data/product-page-read.ts: a value that is not a uuid is replaced by the all-zero uuid, which no row has."
     }
   ]
 }
