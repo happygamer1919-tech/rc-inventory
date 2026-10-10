@@ -8,6 +8,17 @@
 import type { CountedPage } from "./id-list";
 import { LIST_PAGE_SIZE, readPage, type PageRead } from "./list-paging";
 import type { Visibility } from "./product-filter";
+import { looksLikeUuid } from "./suppliers-types";
+
+/** Un uuid valid pe care nu-l are niciun rand. Un id scris de mana in adresa (`?categorie=abc`)
+ *  nu e uuid, iar baza raspunde "invalid input syntax for type uuid" si pagina cade pe ecranul
+ *  de eroare. Cu acest id cererea ramane valida si lista iese goala, ca la un id real fara produse. */
+const MATCHES_NOTHING = "00000000-0000-0000-0000-000000000000";
+
+function idFilterValue(value: string): string {
+  const id = value.trim();
+  return looksLikeUuid(id) ? id : MATCHES_NOTHING;
+}
 
 /** Filtrele pe care baza le poate aplica singura. Cautarea si nivelul de stoc nu sunt aici:
  *  vezi listProductsPage, in products.ts, pentru ce se intampla cu ele. */
@@ -42,10 +53,10 @@ export function applyQueryFilter<Q extends { eq(column: string, value: string | 
   let q = query;
   if (filter.visibility === "active") q = q.eq("active", true);
   if (filter.visibility === "inactive") q = q.eq("active", false);
-  if (filter.category) q = q.eq("category_id", filter.category);
+  if (filter.category) q = q.eq("category_id", idFilterValue(filter.category));
   // Furnizorul se filtreaza pe id, nu pe nume (P3-05): doua scrieri ale aceluiasi furnizor
   // erau doua optiuni si un filtru gasea doar jumatate.
-  if (filter.supplier) q = q.eq("supplier_id", filter.supplier);
+  if (filter.supplier) q = q.eq("supplier_id", idFilterValue(filter.supplier));
   return q;
 }
 

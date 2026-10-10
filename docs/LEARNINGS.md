@@ -9379,6 +9379,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `listClosedLinkChoices` and the lead import contact lookup sent every id in one `.in(...)` request and read `data ?? []` or returned on error. Past roughly 130 ids the gateway answers 414, the list came back empty, and the task form showed the empty box again with no message.
 **SOLUTION:** card P3-205: both go through `readInBatches` in `lib/data/id-list.ts` (100 ids per request, merged), and a failed batch throws. The import wraps the lookup in `loadOrRefuse`. Covered by `tests/e2e/p3-205-chunk-id-lookups.spec.ts`. RULE: **grep `\.in(` for any list that grows with client data and route it through `readInBatches`; `data ?? []` after a select that can fail is a silent empty list.**
 
+### An id typed into the address must be checked as an id before it reaches a uuid column
+**Tag:** data
+**ERROR:** The Inventar category and supplier filters passed `?categorie=` and `?furnizor=` straight into `.eq` on uuid columns. A hand-typed `abc` made the database answer "invalid input syntax for type uuid", the read threw, and the page fell to the error screen. Before P3-153 the same filter ran in memory and matched nothing.
+**SOLUTION:** card P3-208: `applyQueryFilter` in `lib/data/product-page-read.ts` replaces a value that is not a uuid with the all-zero uuid, so the query stays valid and the list is empty with a zero count. Real read errors still throw. Covered by `tests/e2e/list-paging.spec.ts`. RULE: **when a read moves an address filter from memory into the query, check the value against the column type first; test fakes must use real uuids, not words.**
+
 ### Bytes that are letters in two code pages cannot be evidence for either one
 **Tag:** data
 **ERROR:** The windows-1250 / windows-1251 vote of P3-182 counted the bytes E3, E2, EE, FE (and C3, C2, CE, DE) as Romanian letters, but in windows-1251 they are the Russian letters г, в, о, ю. A mostly Latin Russian file with names like "ООО Строй" tied the vote, was read as 1250 and imported as "ÎÎÎ Ñòðîé", which passes the U+FFFD check.
