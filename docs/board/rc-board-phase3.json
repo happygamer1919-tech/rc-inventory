@@ -6416,6 +6416,31 @@
         "at": "2026-10-10T00:00:00Z"
       },
       "notes": "A movedByArrows flag is set by ArrowUp and ArrowDown and cleared on typing and focus; Enter asks decideCommit before picking the highlighted row."
+    },
+    {
+      "id": "P3-256",
+      "title": "Pressing Enter in a text box of the client form while the next-step date was half typed submitted the form without the date box ever being blurred, so the half typed date reached the server as an empty string and the saved next-step date was erased. DateField now marks a half typed date red while typing (markWhileTyping) on every form that stops its save button on an invalid date, so the submit is refused and the saved date stays.",
+      "plain": "Pressing Enter while a client's next-step date is half typed no longer erases the saved date. The form refuses to save and marks the date red instead.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-201"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/p3-256-client-date-enter-wipe.spec.ts is green in this pull request own quality run: on Modifică of a client with a next-step date, typing one digit into Data următorului pas and pressing Enter leaves the form open with the red date message, and after a reload the original date is still stored; emptying the box deliberately still saves as no date. (b) tests/e2e/date-invalid-blocks-save.spec.ts stays green, and tests/e2e/p3-201-datefield-red-after-blur.spec.ts is green with its client-form case now expecting red from the first digit (the old expectation let Enter erase the date). (c) npx tsc --noEmit exits 0.",
+      "defaults": "A deliberately emptied date box still saves as no date. A full valid date saves as before. The task form behaves as before. Filters that pass completeOnly are unchanged. No migration, no server change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/client-date-enter-wipe against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Fix is the markWhileTyping prop on the DateField of ClientForm, LeaduriForm, ClientNoteForm, ProjectForm, OutboundDirectClientForm, InboundOrderForm, ExtractionReviewPanel and FacturaEditor. FacturaScreen paid-on date has no validity hook and is left alone."
     }
   ]
 }

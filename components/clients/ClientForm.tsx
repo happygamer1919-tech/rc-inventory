@@ -268,6 +268,7 @@ export function ClientForm({
                     value={followUpDate}
                     onChange={setFollowUpDate}
                     onValidityChange={mark("followUpDate")}
+                    markWhileTyping
                     className={fieldClass("followUpDate")}
                     testId="field-client-follow-up"
                   />
@@ -289,6 +290,7 @@ export function ClientForm({
                     value={nextActionAt}
                     onChange={setNextActionAt}
                     onValidityChange={mark("nextActionAt")}
+                    markWhileTyping
                     className={fieldClass("nextActionAt")}
                     testId="field-client-next-action-at"
                   />
