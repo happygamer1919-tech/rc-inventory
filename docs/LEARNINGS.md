@@ -9454,6 +9454,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the first draft of 0081 proved a slip was written in the current call with `xmin = pg_current_xact_id()::xid`. A row inserted inside a savepoint (any plpgsql `begin ... exception` block, which the assertion files use) carries the savepoint's own xid as xmin, so the check would refuse a legitimate sale whenever a caller wrapped it.
 **SOLUTION:** compare the column default instead: `created_at` (default `now()`) equals `now()`, the transaction start time, in every savepoint of the same transaction, and a row from an earlier request carries an earlier time. The assertion proves the refusal by writing an older slip with `created_at = now() - interval '1 minute'`. RULE: **to recognise a row written by the current transaction, compare a `now()` default, not xmin.**
 
+### A separator guess that keeps the first of several equal counts reads a Romanian Excel header the wrong way
+**Tag:** data
+**ERROR:** `sniffDelimiter` counted each separator on the first line and kept the first one with the highest count, so on a tie the comma won. A header like `Nume, prenume;Telefon` (a comma inside a column name, a semicolon as the real separator) was read as comma separated and every row shifted.
+**SOLUTION:** card P3-260: on a tie the next five non-empty lines decide (the separator with the same count on each of them), and if that still ties, semicolon beats comma; tab stays last. A file where one separator clearly wins is read as before. Covered by the P3-260 cases in `tests/e2e/import-shared.spec.ts`. RULE: **a guess that can tie must say what wins the tie, and the default must be the one the operator's own tool (Excel on a Romanian machine) writes.**
+
+### A row count cannot tell that a page window shifted
+**Tag:** data
+**ERROR:** `readAllPages` paged by position and only failed when the total changed. An insert before the cursor plus a delete in the same window keeps the total equal, so one row came back twice, another never, and the list was one short with the right length. Callers that used `dedupeById` hid the duplicate but not the lost row.
+**SOLUTION:** card P3-261: `readAllPages` takes an optional `keyOf`; a repeated key restarts the read like a changed total, then fails with the list-changed message. Azi and the two extraction reads pass the row id. Covered by the P3-261 case in `tests/e2e/review.spec.ts`. RULE: **a positional paged read that must not lose a row needs a unique key check, because the count alone passes a shifted window; give new callers a `keyOf`.**
+
 ### An import that loads existing rows without the active flag matches switched-off records as live ones
 **Tag:** import
 **ERROR:** `loadExisting` in `lib/data/client-import-actions.ts` read clients without the `active` column, so a row matching a deactivated client was reported as a duplicate of a client missing from the list, and the fill action wrote into it silently. The project import (P3-173) already handled inactive clients; the client import never copied it.

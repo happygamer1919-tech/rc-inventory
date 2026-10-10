@@ -6596,6 +6596,52 @@
         "at": "2026-10-10T21:09:37Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-10 by EXECUTOR in the same pull request. Id P3-262 checked free with npm run id:free. Migration number 0081: main holds 0079 and open pull request #502 (P3-259) holds 0080. The P3-196 test that said a lead does not appear was renamed and changed to the owner's new rule, its old name quoted in the spec. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
+      "id": "P3-260",
+      "title": "A CSV header with one comma and one semicolon, such as Nume, prenume;Telefon, is split on the semicolon, not the comma.",
+      "plain": "An Excel file saved with semicolons and a comma inside a column name now imports into the right columns instead of shifting every row.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/import-shared.spec.ts passes in this pull request's quality run, including the two cases named P3-260: sniffDelimiter reads 'Nume, prenume;Telefon' as semicolon separated, and a plain comma file, a plain semicolon file, a tab file and a quoted comma header keep their separator. (b) npx tsc --noEmit exits 0. (c) npm run checks:state <pr> exits 0.",
+      "defaults": "On a tie between comma and semicolon on the first line, the next five non-empty lines decide: the separator with the same count on every one of them wins, and if that does not decide it, semicolon wins. Tab keeps its place after comma and semicolon. A file where one separator clearly wins is read exactly as before. No migration needed.",
+      "last_checkpoint": "2026-10-10T16:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-260 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-10T16:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10. Change is inside sniffDelimiter in lib/data/import-shared.ts only; buildCsv, normaliseKey and the BOM and trailing empty row handling are untouched."
+    },
+    {
+      "id": "P3-261",
+      "title": "A paged read that loses a row to a shifted page fails visibly or retries instead of coming back one row short.",
+      "plain": "A long list that changes while it is being read is never shown with a row missing. The Azi screen and the extraction review and abandoned lists either read it whole or tell the user the list changed.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The case 'P3-261: o pagina mutata cu totalul neschimbat se reia, apoi este un esec vizibil, iar fara cheie nimic nu se schimba' in tests/e2e/review.spec.ts passes in this pull request's quality run: a page that repeats a row and drops one with the count unchanged is read again and returns the true list; the same shift on every attempt rejects with the list-changed message; a caller without a key behaves as before. (b) The existing readAllPages cases in tests/e2e/review.spec.ts and tests/e2e/tasks-list-paging.spec.ts still pass. (c) npx tsc --noEmit exits 0. (d) npm run checks:state <pr> exits 0.",
+      "defaults": "readAllPages gets an optional fourth argument keyOf. A repeated key is treated like a changed total: the read restarts, up to READ_ATTEMPTS times, then fails with the existing list-changed message. The four callers in lib/data/azi.ts and lib/data/extraction.ts pass the row id (order_id for drafts; the note id, now selected, for notes). Callers that already drop duplicates with dedupeById are not touched. ID_LIST_BATCH_SIZE, inBatches, ROW_PAGE_SIZE and the existing error texts do not change. No migration.",
+      "last_checkpoint": "2026-10-10T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-261 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-10T20:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10. An insert before the cursor plus a delete in the same window keeps the count equal, so the count check alone passed a list that was one row short with a duplicate. The task asked for a single restart; the code on main already retries up to READ_ATTEMPTS on a changed total (P3-193), so the repeated key reuses that path and its operator message."
     }
   ]
 }
