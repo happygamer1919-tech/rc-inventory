@@ -40,6 +40,15 @@ import {
 } from "@/lib/data/clients-types";
 import { plural } from "@/lib/data/format";
 import {
+  batchProgress,
+  CHECK_FAILED,
+  importFailed,
+  mergeOutcomes,
+  mergePlans,
+  runImportBatches,
+  savedRows,
+} from "@/lib/data/import-batches";
+import {
   autoMatchColumns,
   leadImportInstructions,
   parseCsvWithLines,
@@ -122,6 +131,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
   const [step, setStep] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [progress, setProgress] = React.useState<string | null>(null);
 
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [headers, setHeaders] = React.useState<string[]>([]);
@@ -237,36 +247,61 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setPending(true);
-    const result = await planLeadImport({ rows, lines, mapping, fallbackSource: "" });
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await runImportBatches({
+        step: "check",
+        rows,
+        lines,
+        call: (batch) => planLeadImport({ ...batch, mapping, fallbackSource: "" }),
+        onProgress: (done, total) => setProgress(batchProgress("check", done, total)),
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setPlan(mergePlans(result.parts));
+      setChoices({});
+      setStep(2);
+    } catch {
+      setError(CHECK_FAILED);
+    } finally {
+      setProgress(null);
+      setPending(false);
     }
-    setPlan(result.value);
-    setChoices({});
-    setStep(2);
   }
 
   async function onRun() {
     setError(null);
     setPending(true);
-    const result = await runLeadImport({
-      rows,
-      lines,
-      mapping,
-      fallbackSource: source,
-      choices,
-      fileName: fileName ?? "fișier",
-      day: chisinauToday(),
-    });
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await runImportBatches({
+        step: "import",
+        rows,
+        lines,
+        call: (batch) =>
+          runLeadImport({
+            ...batch,
+            mapping,
+            fallbackSource: source,
+            choices,
+            fileName: fileName ?? "fișier",
+            day: chisinauToday(),
+          }),
+        saved: savedRows,
+        onProgress: (done, total) => setProgress(batchProgress("import", done, total)),
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setOutcome(mergeOutcomes(result.parts));
+      router.refresh();
+    } catch {
+      setError(importFailed(0));
+    } finally {
+      setProgress(null);
+      setPending(false);
     }
-    setOutcome(result.value);
-    router.refresh();
   }
 
   const duplicates = (plan?.entries ?? []).filter(
@@ -636,7 +671,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 onClick={toVerify}
                 data-testid="import-next"
               >
-                {pending ? "Se verifică..." : "Verifică"}
+                {pending ? (progress ?? "Se verifică...") : "Verifică"}
               </Button>
             ) : step === 2 ? (
               <Button
@@ -656,7 +691,7 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
                 onClick={onRun}
                 data-testid="import-run"
               >
-                {pending ? "Se importă..." : "Importă"}
+                {pending ? (progress ?? "Se importă...") : "Importă"}
               </Button>
             )}
           </div>
