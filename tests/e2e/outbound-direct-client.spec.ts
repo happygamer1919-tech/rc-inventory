@@ -1025,13 +1025,10 @@ test("P3-177: tastarea unui nume comun si parasirea campului nu selecteaza nimic
   await clientInput.fill(clientName);
   await page.waitForTimeout(500);
 
-  // Parasire camp, cu un clic in afara (asa se inchide comboboxul). Cu doua
-  // potriviri exacte nu se alege nimic si lista ramane deschisa.
+  // Parasire camp, cu un clic in afara. P3-210: cu doua potriviri exacte nu se
+  // alege nimic, iar lista se inchide (nu mai ramane deschisa pana la Escape).
   await page.getByTestId("outbound-form").click({ position: { x: 2, y: 2 } });
-  await expect(page.locator("[data-rc-combo-list]")).toBeVisible();
-
-  // Escape inchide lista fara sa aleaga: campul ramane gol.
-  await clientInput.press("Escape");
+  await expect(page.locator("[data-rc-combo-list]")).toHaveCount(0);
   await expect(clientInput).toHaveValue("");
 
   // Formularul cere completarea clientului.
