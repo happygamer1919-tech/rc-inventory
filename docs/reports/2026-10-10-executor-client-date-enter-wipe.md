@@ -1,4 +1,4 @@
-# P3-219 client date Enter wipe
+# P3-256 client date Enter wipe
 
 Plain words: pressing Enter while a client's next-step date is half typed no longer erases the saved date. The form stays open, the date turns red with the usual Romanian message, and nothing is saved.
 
@@ -22,4 +22,4 @@ Left alone: FacturaScreen paid-on date, which has no validity guard (it would ne
 A deliberately emptied box still saves as no date. A full valid date saves as before.
 
 ## Tests
-New `tests/e2e/p3-219-client-date-enter-wipe.spec.ts` (Enter with one digit keeps the stored date; emptied box saves null). `date-invalid-blocks-save.spec.ts` must stay green. E2E runs only in CI (no Docker here).
+New `tests/e2e/p3-256-client-date-enter-wipe.spec.ts` (Enter with one digit keeps the stored date; emptied box saves null). `date-invalid-blocks-save.spec.ts` must stay green. E2E runs only in CI (no Docker here).

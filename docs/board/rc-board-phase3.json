@@ -6369,7 +6369,56 @@
       "notes": "Fix is in decodeCsvFile in lib/data/import-shared.ts: the foreign-greater-than-Romanian vote is dropped, only CYRILLIC_RUN decides for 1251."
     },
     {
+      "id": "P3-252",
+      "title": "The import error file wrote the original cells as plain text, so opened in Excel a 13-digit IDNO became 1,0036E+12, a SKU 00123 became 123 and a phone starting with + showed an apostrophe, and the fixed row re-imported with the damaged value. buildErrorCsv in lib/data/import-shared.ts now wraps every original cell that is a digit string of 10 or more, starts with 0, or starts with + = - or @ in the same text literal form the four exports use (csvText); parseCsv already reads that form back as the inner value.",
+      "plain": "When an import has bad rows, the file of rejected rows can be opened in Excel, fixed and uploaded again without long numbers, codes with leading zeros or phone numbers being changed.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": ["P3-139", "P3-155"],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The case in tests/e2e/import-shared.spec.ts named 'P3-252: fisierul de erori pastreaza IDNO, SKU si telefonul intacte dupa dus-intors' is green in this pull request own quality run: IDNO 1003600012345, SKU 00123 and phone +37369123456 survive buildErrorCsv then parseCsv unchanged. (b) The existing cases of tests/e2e/import-shared.spec.ts stay green. (c) npx tsc --noEmit exits 0 and the board validator exits 0.",
+      "defaults": "The output of the four exports, decodeCsvFile, the import template and the added reason column are unchanged. The reason column stays plain Romanian text. No migration, no RLS change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-252 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. The parser already unwraps the text literal form (unwrapCsvCell), so only the writer changed. The tests/*.test.ts files are not run by CI (playwright testDir is tests/e2e), so the case sits in tests/e2e/import-shared.spec.ts."
+    },
+    {
       "id": "P3-219",
+      "title": "In the buyer picker on the direct-client issue form, typing a name that two clients share and pressing Enter picked the first row without asking, because the Enter key never consulted the same-name rule that P3-177 and P3-210 added for leaving the field. Enter now selects nothing and keeps the list open when the typed text matches more than one client name exactly, unless the operator first moved the highlight with the arrow keys.",
+      "plain": "Pressing Enter on a name that two clients share no longer silently picks the first one; the operator chooses which one.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-177",
+        "P3-210"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The test whose name starts with 'P3-219' in tests/e2e/outbound-direct-client.spec.ts is green in this pull request own quality run: two test clients share a name, Enter after typing it picks nothing and the list stays open with both rows, then ArrowDown and Enter pick a row and close the list. (b) npx tsc --noEmit exits 0.",
+      "defaults": "Only the Enter branch of components/ui/Combobox.tsx changes, and only for pickers that set dontSelectOnMultipleExactMatches. Single matches, creatable lists, Escape, outside click, mouse clicks and pickers without the flag behave as before. No migration.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/combobox-enter-same-name against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "A movedByArrows flag is set by ArrowUp and ArrowDown and cleared on typing and focus; Enter asks decideCommit before picking the highlighted row."
+    },
+    {
+      "id": "P3-256",
       "title": "Pressing Enter in a text box of the client form while the next-step date was half typed submitted the form without the date box ever being blurred, so the half typed date reached the server as an empty string and the saved next-step date was erased. DateField now marks a half typed date red while typing (markWhileTyping) on every form that stops its save button on an invalid date, so the submit is refused and the saved date stays.",
       "plain": "Pressing Enter while a client's next-step date is half typed no longer erases the saved date. The form refuses to save and marks the date red instead.",
       "lane": "shipped",
@@ -6378,10 +6427,12 @@
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
-      "depends_on": ["P3-201"],
+      "depends_on": [
+        "P3-201"
+      ],
       "blocked_on": null,
       "question": null,
-      "acceptance": "(a) tests/e2e/p3-219-client-date-enter-wipe.spec.ts is green in this pull request own quality run: on Modifică of a client with a next-step date, typing one digit into Data următorului pas and pressing Enter leaves the form open with the red date message, and after a reload the original date is still stored; emptying the box deliberately still saves as no date. (b) tests/e2e/date-invalid-blocks-save.spec.ts stays green, and tests/e2e/p3-201-datefield-red-after-blur.spec.ts is green with its client-form case now expecting red from the first digit (the old expectation let Enter erase the date). (c) npx tsc --noEmit exits 0.",
+      "acceptance": "(a) tests/e2e/p3-256-client-date-enter-wipe.spec.ts is green in this pull request own quality run: on Modifică of a client with a next-step date, typing one digit into Data următorului pas and pressing Enter leaves the form open with the red date message, and after a reload the original date is still stored; emptying the box deliberately still saves as no date. (b) tests/e2e/date-invalid-blocks-save.spec.ts stays green, and tests/e2e/p3-201-datefield-red-after-blur.spec.ts is green with its client-form case now expecting red from the first digit (the old expectation let Enter erase the date). (c) npx tsc --noEmit exits 0.",
       "defaults": "A deliberately emptied date box still saves as no date. A full valid date saves as before. The task form behaves as before. Filters that pass completeOnly are unchanged. No migration, no server change.",
       "last_checkpoint": "2026-10-10T00:00:00Z",
       "evidence": {

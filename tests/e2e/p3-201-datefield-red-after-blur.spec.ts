@@ -16,11 +16,11 @@ const RUN = process.env.PLAYWRIGHT_RUN_ID ?? Date.now().toString(36);
 test.describe("Casutele de data nu se rosesc de la prima cifra (P3-201)", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  // P3-219. Initial acest test cerea ca o cifra tastata sa NU se roseasca pe
+  // P3-256. Initial acest test cerea ca o cifra tastata sa NU se roseasca pe
   // formularul de client. Asta lasa Enter sa trimita o data pe jumatate scrisa ca
   // sir gol si sa stearga data salvata, deci testul codifica eroarea. Acum rosul
   // apare de la prima cifra si pe formularul de client.
-  test("(a, c) pe formularul de client, o cifra tastata se roseste pe loc si opreste Salvează (P3-219)", async ({
+  test("(a, c) pe formularul de client, o cifra tastata se roseste pe loc si opreste Salvează (P3-256)", async ({
     page,
   }) => {
     await signIn(page, ownerAccount());

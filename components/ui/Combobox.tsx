@@ -40,6 +40,9 @@ export function Combobox({
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
+  // True dupa ce operatorul a mutat selectia cu ArrowUp/ArrowDown; se reseteaza
+  // la tastare si la focus.
+  const [movedByArrows, setMovedByArrows] = React.useState(false);
   const boxRef = React.useRef<HTMLDivElement>(null);
   // Lista se randeaza intr-un portal cu pozitie fixa, nu in fluxul normal.
   // Altfel o taie orice parinte cu overflow, iar tabelele au overflow-x-auto:
@@ -119,6 +122,19 @@ export function Combobox({
     }
   }
 
+  // Aceeasi regula ca la commitAndClose (decideCommit): mai multe potriviri
+  // exacte, nimic de ales, lista ramane deschisa.
+  function isAmbiguousExact() {
+    const decision = decideCommit({
+      options,
+      typed: query,
+      creatable,
+      dontSelectOnMultipleExactMatches,
+      fromOutsideClick: false,
+    });
+    return decision.select === null && !decision.close;
+  }
+
   function pick(option: ComboOption) {
     onChange(option.value);
     setOpen(false);
@@ -134,22 +150,37 @@ export function Combobox({
           setOpen(true);
           setQuery("");
           setActive(0);
+          setMovedByArrows(false);
         }}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
           setActive(0);
+          setMovedByArrows(false);
         }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();
             setOpen(true);
+            setMovedByArrows(true);
             setActive((a) => Math.min(a + 1, filtered.length - 1));
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
+            setMovedByArrows(true);
             setActive((a) => Math.max(a - 1, 0));
           } else if (e.key === "Enter") {
             e.preventDefault();
+            // P3-219: cu doua potriviri exacte pe numele tastat, Enter nu alege
+            // primul rand pe tacute. Daca operatorul a mutat selectia cu sagetile,
+            // alegerea este a lui si Enter alege randul marcat, ca pana acum.
+            if (
+              open &&
+              dontSelectOnMultipleExactMatches &&
+              !movedByArrows &&
+              isAmbiguousExact()
+            ) {
+              return;
+            }
             if (open && filtered[active]) pick(filtered[active]);
             else commitAndClose();
           } else if (e.key === "Escape") {

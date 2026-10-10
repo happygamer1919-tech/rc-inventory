@@ -2,7 +2,7 @@ import { expect, request, test, type APIRequestContext } from "@playwright/test"
 import { ownerAccount } from "./support/accounts";
 import { signIn } from "./support/auth";
 
-// p3-219-client-date-enter-wipe.spec - linia de acceptanta a cardului P3-219.
+// p3-256-client-date-enter-wipe.spec - linia de acceptanta a cardului P3-256.
 //
 // EROAREA. Enter intr-o casuta de text trimite formularul fara ca vreo casuta sa
 // piarda focusul. Rosul datei aparea numai dupa ce casuta era parasita, deci o
@@ -26,8 +26,8 @@ type OwnerRest = { api: APIRequestContext; headers: Record<string, string> };
 async function ownerRest(): Promise<OwnerRest> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  expect(url, "P3-219 are nevoie de NEXT_PUBLIC_SUPABASE_URL").not.toBe("");
-  expect(anonKey, "P3-219 are nevoie de NEXT_PUBLIC_SUPABASE_ANON_KEY").not.toBe("");
+  expect(url, "P3-256 are nevoie de NEXT_PUBLIC_SUPABASE_URL").not.toBe("");
+  expect(anonKey, "P3-256 are nevoie de NEXT_PUBLIC_SUPABASE_ANON_KEY").not.toBe("");
 
   const api = await request.newContext({ baseURL: url });
   const owner = ownerAccount();
@@ -83,7 +83,7 @@ function onScreen(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-test.describe("Enter cu data pe jumătate tastată nu șterge data salvată (P3-219)", () => {
+test.describe("Enter cu data pe jumătate tastată nu șterge data salvată (P3-256)", () => {
   test.describe.configure({ timeout: 120_000 });
 
   test("o cifră în Data următorului pas și Enter: formularul rămâne deschis cu mesajul roșu, iar data stocată rămâne", async ({
@@ -92,7 +92,7 @@ test.describe("Enter cu data pe jumătate tastată nu șterge data salvată (P3-
     await signIn(page, ownerAccount());
     const rest = await ownerRest();
     const kept = chisinauDay(12);
-    const id = await leadWithNextStep(rest, `TEST P3-219 enter ${RUN}`, kept);
+    const id = await leadWithNextStep(rest, `TEST P3-256 enter ${RUN}`, kept);
 
     await page.goto(`/clienti/${id}`);
     await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
@@ -123,7 +123,7 @@ test.describe("Enter cu data pe jumătate tastată nu șterge data salvată (P3-
   test("o casuta golită anume se salvează tot ca fără dată", async ({ page }) => {
     await signIn(page, ownerAccount());
     const rest = await ownerRest();
-    const id = await leadWithNextStep(rest, `TEST P3-219 gol ${RUN}`, chisinauDay(15));
+    const id = await leadWithNextStep(rest, `TEST P3-256 gol ${RUN}`, chisinauDay(15));
 
     await page.goto(`/clienti/${id}`);
     await expect(page.getByTestId("client-detail")).toBeVisible({ timeout: 25_000 });
