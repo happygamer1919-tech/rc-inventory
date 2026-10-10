@@ -79,7 +79,7 @@ export function OrdersScreen({
    *  legatura din fisa proiectului sa poata fi trimisa cuiva, si ca butonul de
    *  inapoi sa functioneze. */
   filter?: { kind: "proiect" | "client"; id: string; label: string } | null;
-  /** P3-260. Adresa cere un proiect sau un client care nu exista (sters, id gresit). Lista de
+  /** P3-264. Adresa cere un proiect sau un client care nu exista (sters, id gresit). Lista de
    *  iesiri vine goala, iar ecranul spune de ce, cu acelasi buton de golire ca filtrul valid. */
   missingFilter?: "proiect" | "client" | null;
   /** P3-120, DECIZIA B. Exista al doilea fel de iesire pe baza catre care arata

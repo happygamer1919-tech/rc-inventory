@@ -11,6 +11,7 @@ import {
   type CsvCell,
   parseCsv,
   prepareImportRow,
+  sniffDelimiter,
   validateCurrency,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
@@ -343,4 +344,21 @@ test("P3-252: fisierul de erori pastreaza IDNO, SKU si telefonul intacte dupa du
   const back = parseCsv(csv);
   expect(back[0]).toEqual(["Rând", "Motiv", ...headers]);
   expect(back[1]).toEqual(["2", "Motiv de test", ...raw]);
+});
+
+test("P3-260: sniffDelimiter, antetul cu o virgula si un punct si virgula se citeste cu punct si virgula", () => {
+  expect(sniffDelimiter("Nume, prenume;Telefon")).toBe(";");
+  expect(sniffDelimiter("Nume, prenume;Telefon\nIon, Pop;069123456\nAna, Rus;069654321")).toBe(";");
+  // randurile de date hotarasc: virgula nu apare constant, punctul si virgula da
+  expect(sniffDelimiter("Nume, prenume;Telefon\nIon Pop;069123456")).toBe(";");
+  const rows = parseCsv("Nume, prenume;Telefon\nIon Pop;069123456");
+  expect(rows[0]).toEqual(["Nume, prenume", "Telefon"]);
+});
+
+test("P3-260: sniffDelimiter, un singur separator clar nu se schimba", () => {
+  expect(sniffDelimiter("Nume,Telefon,Email\nIon,069,a@b.md")).toBe(",");
+  expect(sniffDelimiter("Nume;Telefon;Email\nIon;069;a@b.md")).toBe(";");
+  expect(sniffDelimiter("Nume\tTelefon\tEmail\nIon\t069\ta@b.md")).toBe("\t");
+  expect(sniffDelimiter('"Nume, prenume",Telefon')).toBe(",");
+  expect(sniffDelimiter("Nume")).toBe(",");
 });

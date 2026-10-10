@@ -25,7 +25,7 @@ export default async function OrdersPage({
   // care nu exista. Se afla INAINTE de citirea listei, fiindca filtrul se pune in
   // cererea ei.
   //
-  // P3-260. UN FILTRU CERUT, DAR FARA INREGISTRARE (id sters, scris gresit sau care nu este uuid),
+  // P3-264. UN FILTRU CERUT, DAR FARA INREGISTRARE (id sters, scris gresit sau care nu este uuid),
   // NU SE TRANSFORMA IN "FARA FILTRU": lista ar arata toate iesirile ca si cum ar fi raspunsul.
   // Ramane `missingFilter`, lista iese goala fara citire, iar ecranul spune ce lipseste.
   let filter: { kind: "proiect" | "client"; id: string; label: string } | null = null;

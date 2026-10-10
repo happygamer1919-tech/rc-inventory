@@ -1626,7 +1626,7 @@ test("lista iesirilor: un proiect sau un client care nu exista arata un mesaj si
 }) => {
   test.setTimeout(120_000);
 
-  // P3-260. Un id necunoscut sau care nu este uuid nu mai da lista intreaga.
+  // P3-264. Un id necunoscut sau care nu este uuid nu mai da lista intreaga.
   const { project } = await seedModePair("M260");
   await signIn(page, ownerAccount());
 
