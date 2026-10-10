@@ -9444,6 +9444,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
 **SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**
 
+### A row count cannot tell that a page window shifted
+**Tag:** data
+**ERROR:** `readAllPages` paged by position and only failed when the total changed. An insert before the cursor plus a delete in the same window keeps the total equal, so one row came back twice, another never, and the list was one short with the right length. Callers that used `dedupeById` hid the duplicate but not the lost row.
+**SOLUTION:** card P3-261: `readAllPages` takes an optional `keyOf`; a repeated key restarts the read like a changed total, then fails with the list-changed message. Azi and the two extraction reads pass the row id. Covered by the P3-261 case in `tests/e2e/review.spec.ts`. RULE: **a positional paged read that must not lose a row needs a unique key check, because the count alone passes a shifted window; give new callers a `keyOf`.**
+
 ### An import that loads existing rows without the active flag matches switched-off records as live ones
 **Tag:** import
 **ERROR:** `loadExisting` in `lib/data/client-import-actions.ts` read clients without the `active` column, so a row matching a deactivated client was reported as a duplicate of a client missing from the list, and the fill action wrote into it silently. The project import (P3-173) already handled inactive clients; the client import never copied it.

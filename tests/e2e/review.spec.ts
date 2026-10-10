@@ -14,7 +14,7 @@ import {
   EXTRACTION_ERROR_LABEL,
   SCAN_LINE_NOTICE,
 } from "@/lib/data/extraction-types";
-import { readAllPages } from "@/lib/data/id-list";
+import { LIST_CHANGED_MESSAGE, readAllPages } from "@/lib/data/id-list";
 
 // review.spec - linia de acceptanta a cardului P2-09.
 //
@@ -1667,6 +1667,62 @@ test.describe("Verificare si confirmare extragere", () => {
     await expect(
       readAllPages(what, async () => ({ data: null, count: null, error: { message: "refuzat" } })),
     ).rejects.toThrow("refuzat");
+  });
+
+  // -------------------------------------------------------------------------
+  // P3-261. O PAGINA MUTATA CU TOTALUL NESCHIMBAT, FARA BAZA DE DATE.
+  //
+  // Un rand adaugat inaintea cursorului si unul sters in aceeasi fereastra lasa
+  // totalul egal, dar pagina a doua repeta ultimul rand al primeia si pierde unul.
+  // Numararea singura nu o vede; cheia o vede.
+  // -------------------------------------------------------------------------
+  test("P3-261: o pagina mutata cu totalul neschimbat se reia, apoi este un esec vizibil, iar fara cheie nimic nu se schimba", async () => {
+    const all = Array.from({ length: 23 }, (_, i) => i);
+    const what = "randurile de proba";
+    const key = (n: number) => String(n);
+
+    // Pagina a doua incepe cu randul 9 (repetat) si pierde randul 10; totalul ramane 23.
+    const shifted = (from: number, to: number) =>
+      from === 10 ? all.slice(from - 1, to).filter((n) => n !== 10) : all.slice(from, to + 1);
+
+    // 1. Prima citire iese mutata, a doua vede lista adevarata: rezultatul este lista adevarata.
+    let attempt = 0;
+    let fetches = 0;
+    const got = await readAllPages<number>(
+      what,
+      async (from, to) => {
+        fetches++;
+        if (from === 0) attempt++;
+        return {
+          data: attempt === 1 ? shifted(from, to) : all.slice(from, to + 1),
+          count: all.length,
+          error: null,
+        };
+      },
+      10,
+      key,
+    );
+    expect(got).toEqual(all);
+    expect(fetches, "o citire mutata, apoi una intreaga de trei pagini").toBe(2 + 3);
+
+    // 2. Mutarea se repeta la fiecare incercare: esec vizibil, in romana, nu o lista scurta.
+    await expect(
+      readAllPages<number>(
+        what,
+        async (from, to) => ({ data: shifted(from, to), count: all.length, error: null }),
+        10,
+        key,
+      ),
+    ).rejects.toThrow(LIST_CHANGED_MESSAGE);
+
+    // 3. Fara cheie se comporta ca pana acum: aceeasi pagina mutata trece, o lista cu o dublura si fara randul 10.
+    const unkeyed = await readAllPages<number>(
+      what,
+      async (from, to) => ({ data: shifted(from, to), count: all.length, error: null }),
+      10,
+    );
+    expect(unkeyed.length).toBe(all.length);
+    expect(unkeyed).not.toEqual(all);
   });
 
   // -------------------------------------------------------------------------
