@@ -217,6 +217,7 @@ export function LeaduriForm({
                 value={followUpDate}
                 onChange={setFollowUpDate}
                 onValidityChange={mark("followUpDate")}
+                markWhileTyping
                 className={fieldClass("followUpDate")}
                 testId="field-leaduri-follow-up"
               />
