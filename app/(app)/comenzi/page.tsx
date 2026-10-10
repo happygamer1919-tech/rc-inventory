@@ -8,6 +8,7 @@ import { parsePage } from "@/lib/data/list-paging";
 import { isOutboundMode } from "@/lib/data/outbound-mode";
 import { getClient } from "@/lib/data/clients";
 import { getProject } from "@/lib/data/projects-list";
+import { looksLikeUuid } from "@/lib/data/suppliers-types";
 import { OrdersScreen } from "@/components/orders/OrdersScreen";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,20 @@ export default async function OrdersPage({
   // scrie in antet ce i s-a dat in bara de adrese ar afisa orice, inclusiv un id
   // care nu exista. Se afla INAINTE de citirea listei, fiindca filtrul se pune in
   // cererea ei.
+  //
+  // P3-260. UN FILTRU CERUT, DAR FARA INREGISTRARE (id sters, scris gresit sau care nu este uuid),
+  // NU SE TRANSFORMA IN "FARA FILTRU": lista ar arata toate iesirile ca si cum ar fi raspunsul.
+  // Ramane `missingFilter`, lista iese goala fara citire, iar ecranul spune ce lipseste.
   let filter: { kind: "proiect" | "client"; id: string; label: string } | null = null;
+  let missingFilter: "proiect" | "client" | null = null;
   if (proiect) {
-    const p = await getProject(proiect);
+    const p = looksLikeUuid(proiect) ? await getProject(proiect) : null;
     if (p) filter = { kind: "proiect", id: p.id, label: p.name };
+    else missingFilter = "proiect";
   } else if (client) {
-    const c = await getClient(client);
+    const c = looksLikeUuid(client) ? await getClient(client) : null;
     if (c) filter = { kind: "client", id: c.id, label: c.name };
+    else missingFilter = "client";
   }
 
   // P3-142. IESIRILE VIN PE PAGINI, cu filtrele (destinatie, fel de eliberare) puse in cerere
@@ -45,14 +53,16 @@ export default async function OrdersPage({
   const mode = isOutboundMode(tip) ? tip : undefined;
   const [inbound, outbound, modeVisible] = await Promise.all([
     listInboundOrders(),
-    listOutboundIssuesPage(
-      {
-        projectId: filter?.kind === "proiect" ? filter.id : undefined,
-        clientId: filter?.kind === "client" ? filter.id : undefined,
-        mode,
-      },
-      parsePage(pagina),
-    ),
+    missingFilter
+      ? Promise.resolve({ issues: [], total: 0, awaiting: 0, page: 1 })
+      : listOutboundIssuesPage(
+          {
+            projectId: filter?.kind === "proiect" ? filter.id : undefined,
+            clientId: filter?.kind === "client" ? filter.id : undefined,
+            mode,
+          },
+          parsePage(pagina),
+        ),
     outboundModeVisible(),
   ]);
 
@@ -65,6 +75,7 @@ export default async function OrdersPage({
       page={outbound.page}
       modeFilter={modeVisible && mode ? mode : "toate"}
       filter={filter}
+      missingFilter={missingFilter}
       modeVisible={modeVisible}
     />
   );

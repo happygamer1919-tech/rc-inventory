@@ -61,6 +61,7 @@ export function OrdersScreen({
   page,
   modeFilter,
   filter,
+  missingFilter = null,
   modeVisible = false,
 }: {
   inbound: InboundOrder[];
@@ -78,6 +79,9 @@ export function OrdersScreen({
    *  legatura din fisa proiectului sa poata fi trimisa cuiva, si ca butonul de
    *  inapoi sa functioneze. */
   filter?: { kind: "proiect" | "client"; id: string; label: string } | null;
+  /** P3-260. Adresa cere un proiect sau un client care nu exista (sters, id gresit). Lista de
+   *  iesiri vine goala, iar ecranul spune de ce, cu acelasi buton de golire ca filtrul valid. */
+  missingFilter?: "proiect" | "client" | null;
   /** P3-120, DECIZIA B. Exista al doilea fel de iesire pe baza catre care arata
    *  aplicatia? Cat timp raspunsul este nu, nimic din acest card nu apare: niciun
    *  cuvant de mod pe randuri, niciun control de filtrare si nicio data de
@@ -123,12 +127,14 @@ export function OrdersScreen({
       <PageHeader
         title="Comenzi"
         lead={
-          filter
+          missingFilter
+            ? "Intrările nu sunt filtrate: ele vin de la furnizori."
+            : filter
             ? `Ieșirile către ${filter.label}. Intrările nu sunt filtrate: ele vin de la furnizori.`
             : "Intrările și ieșirile una lângă alta. Apasă pe o comandă pentru poziții și istoricul stărilor."
         }
         actions={
-          filter ? (
+          filter || missingFilter ? (
             <Link href="/comenzi" className="max-md:inline-flex">
               <Button
                 variant="secondary"
@@ -325,7 +331,7 @@ export function OrdersScreen({
               </li>
             ))}
           </ul>
-          {outboundTotal === 0 && !filter && modeFilter === "toate" ? (
+          {outboundTotal === 0 && !filter && !missingFilter && modeFilter === "toate" ? (
             <p
               className="px-5 py-12 text-center text-[13px] text-rc-muted"
               data-testid="outbound-empty"
@@ -333,7 +339,17 @@ export function OrdersScreen({
               Nicio ieșire încă. Creează un bon de eliberare din ecranul Ieșiri.
             </p>
           ) : null}
-          {outboundTotal === 0 && (filter || modeFilter !== "toate") ? (
+          {missingFilter ? (
+            <p
+              className="px-5 py-12 text-center text-[13px] text-rc-muted"
+              data-testid="outbound-missing-filter"
+            >
+              {missingFilter === "proiect"
+                ? "Proiectul din adresă nu există sau a fost șters."
+                : "Clientul din adresă nu există sau a fost șters."}
+            </p>
+          ) : null}
+          {outboundTotal === 0 && !missingFilter && (filter || modeFilter !== "toate") ? (
             <p
               className="px-5 py-12 text-center text-[13px] text-rc-muted"
               data-testid="outbound-empty-filtered"
