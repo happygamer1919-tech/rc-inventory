@@ -52,10 +52,12 @@ export type ExistingClient = {
   phone?: string;
   /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge. */
   empty: ClientFillField[];
+  /** Fals pentru un client dezactivat. Lipsa inseamna activ. */
+  active?: boolean;
 };
 
 export type DuplicateTarget =
-  | { kind: "stored"; id: string; name: string }
+  | { kind: "stored"; id: string; name: string; inactive?: true }
   | { kind: "file"; line: number; name: string };
 
 export type PlanEntry =
@@ -82,6 +84,10 @@ export type DuplicateChoice = "skip" | "fill";
 export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
+  // Un client dezactivat nu apare in lista de clienti: se spune ca este dezactivat
+  // si ce are de facut operatorul, nu ca "exista deja".
+  if (entry.against.kind === "stored" && entry.against.inactive)
+    return `Există deja ca client dezactivat: ${entry.against.name}. Reactivați-l din fișa clientului înainte de import.`;
   const by = entry.matchedBy === "namePhone" ? "Același nume și telefon" : "Dublat după email";
   return entry.against.kind === "stored"
     ? `${by} cu "${entry.against.name}", care există deja.`
@@ -225,12 +231,20 @@ export function buildClientPlan(input: {
         ? storedByNamePhone.get(npKey)
         : undefined;
     if (storedMatch) {
+      // UN CLIENT DEZACTIVAT NU SE COMPLETEAZA SI NU SE DUBLEAZA: nimic de completat,
+      // randul se sare, iar mesajul spune sa fie reactivat intai (ca la P3-173).
+      const inactive = storedMatch.active === false;
       entries.push({
         kind: "duplicate",
         line: row.line,
         name: client.name,
-        against: { kind: "stored", id: storedMatch.id, name: storedMatch.name },
-        fillable: storedMatch.empty.filter((field) => given.has(field)),
+        against: {
+          kind: "stored",
+          id: storedMatch.id,
+          name: storedMatch.name,
+          ...(inactive ? { inactive: true as const } : {}),
+        },
+        fillable: inactive ? [] : storedMatch.empty.filter((field) => given.has(field)),
         ...matchedBy,
       });
       counts.duplicate += 1;
