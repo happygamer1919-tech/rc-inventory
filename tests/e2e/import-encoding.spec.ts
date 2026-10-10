@@ -88,6 +88,38 @@ test("codare csv P3-207: windows-1250 cu î â ă ș ț ramane romanesc", () => 
   });
 });
 
+// P3-218. O singura litera straina fara nicio litera romaneasca nu face fisierul rusesc.
+test("codare csv P3-218: windows-1250 cu Würth SRL fara diacritice romanesti ramane latin", () => {
+  const bytes = [...ascii("Nume;Telefon\nW"), 0xfc, ...ascii("rth SRL;069123456")];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({ text: "Nume;Telefon\nWürth SRL;069123456", encoding: "windows-1250" });
+});
+
+test("codare csv P3-218: lista de furnizori germani si un antet cu diacritice ramane 1250", () => {
+  const bytes = [
+    ...ascii("Furnizor;Ora"), 0xba, ...ascii("\nW"), 0xfc, ...ascii("rth;Bra"), 0xba, ...ascii("ov\nK"), 0xe4,
+    ...ascii("rcher;Cluj\nH"), 0xf6, ...ascii("rmann;Ia"), 0xba, ...ascii("i\nSch"), 0xfc, ...ascii("co;Bac"),
+    0xe3, ...ascii("u"),
+  ];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({
+    text: "Furnizor;Oraș\nWürth;Brașov\nKärcher;Cluj\nHörmann;Iași\nSchüco;Bacău",
+    encoding: "windows-1250",
+  });
+});
+
+test("codare csv P3-218: windows-1250 cu Café Ionescu ramane latin", () => {
+  const bytes = [...ascii("Caf"), 0xe9, ...ascii(" Ionescu")];
+  const result = decodeCsvFile(buffer(bytes));
+  expect(result).toEqual({ text: "Café Ionescu", encoding: "windows-1250" });
+});
+
+test("codare csv P3-218: un fisier rusesc cu un cuvant latin ramane windows-1251", () => {
+  const text = "Название;Firma\nОтвертка;Wurth";
+  const result = decodeCsvFile(buffer(cp1251(text)));
+  expect(result).toEqual({ text, encoding: "windows-1251" });
+});
+
 test("codare csv P3-207: un fisier numai rusesc ramane windows-1251", () => {
   const text = "Название;Количество\nОтвертка;12\nМолоток;5";
   const result = decodeCsvFile(buffer(cp1251(text)));

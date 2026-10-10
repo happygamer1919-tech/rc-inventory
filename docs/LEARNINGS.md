@@ -9408,3 +9408,23 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** The four import screens (leads, clients, projects, materials) accepted a file of up to 5 MB but sent all rows in one server action call. The framework refuses a body over 1 MB, the call threw, nothing caught it, and `pending` stayed true: the button read "Se verifică..." or "Se importă..." forever with no message. One call also wrote every row, which can pass the function time limit.
 **SOLUTION:** card P3-211: `runImportBatches` in `lib/data/import-batches.ts` sends at most 200 rows (about 700 KB) per call, in order, merges the results with the original row numbers, and turns a throw into a Romanian message; the sheets wrap it in try/catch/finally. The body limit stays at its default (`next.config.ts` carries no experimental flags). Covered by `tests/import-batches.test.ts`. RULE: **a file limit on the screen must be at or below what one request can carry, or the screen must split the request; every server action call from a button needs try/finally that frees the button.**
+
+### A vote that counts "other" letters sends one stray letter to the wrong code page
+**Tag:** data
+**ERROR:** `decodeCsvFile` chose windows-1251 when the file had any Cyrillic letter in the 1251 reading and more foreign letters than Romanian ones. Every byte C0 to FF is a Cyrillic letter in 1251, so one ü, é or ä in a file typed without Romanian diacritics (`Würth SRL`) gave foreign 1 against Romanian 0 and imported as `Wьrth SRL` with no error.
+**SOLUTION:** card P3-218: the foreign-against-Romanian vote is gone; only a word of 3 or more Cyrillic letters in a row (`CYRILLIC_RUN`) selects 1251. Covered by the P3-218 cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector for a code page must rest on a pattern that the wrong code page cannot produce by accident (a run of letters), never on a count of single letters that every code page maps to something.**
+
+### A file the operator fixes in Excel and uploads again must protect its cells the way the exports do
+**Tag:** data
+**ERROR:** `buildErrorCsv` wrote the original cells of a skipped row as plain strings. Opened in Excel, an IDNO of 13 digits became 1,0036E+12, a SKU 00123 became 123 and a phone starting with + showed a leading apostrophe, so the fixed row re-imported with the damaged value. Only the four exports used the text literal form.
+**SOLUTION:** card P3-252: `buildErrorCsv` wraps every original cell that is 10 or more digits, starts with 0, or starts with + = - or @ in `csvText`; `parseCsv` already unwraps it. Covered by the P3-252 case in `tests/e2e/import-shared.spec.ts`. RULE: **every CSV the product writes for the operator to edit and send back goes through the text literal form for codes and phones, and the reader must be tested on the writer's own output.**
+
+### A test file named tests/*.test.ts is not run by CI
+**Tag:** process
+**ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
+**SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
+
+### A fix to a shared rule in the helper misses the key handler that never calls the helper
+**Tag:** ui
+**ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
+**SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**
