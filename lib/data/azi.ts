@@ -30,7 +30,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction, hasClientNotes } from "./schema-capability";
-import { inBatches, readAllPages } from "./id-list";
+import { inBatches, readAllPages, ROW_PAGE_SIZE } from "./id-list";
 import { chisinauDateOf, chisinauToday } from "./format";
 import { isClientStage, type AziRow } from "./clients-types";
 
@@ -59,27 +59,32 @@ export async function getAziList(): Promise<AziList> {
   if (!(await hasClientLeaduri(supabase))) return { rows: [], nextActionAvailable: false };
   const withNextAction = await hasClientNextAction(supabase);
 
-  const all = await readAllPages<ListRow>("clienții pentru Azi", async (from, to) => {
-    const { data, error } = await supabase.rpc(
-      withNextAction ? "search_clients_next_action" : "search_clients_by_stage",
-      {
-        p_q: "",
-        p_type: null,
-        p_status: "active",
-        p_view: null,
-        p_stage: null,
-        p_limit: to - from + 1,
-        p_offset: from,
-      },
-    );
-    const rows = (data ?? []) as ListRow[];
-    // Totalul vine pe fiecare rand, din aceeasi cerere. O pagina goala spune zero.
-    return {
-      data: rows,
-      count: error ? null : rows.length > 0 ? Number(rows[0]!.total_count) : 0,
-      error,
-    };
-  });
+  const all = await readAllPages<ListRow>(
+    "clienții pentru Azi",
+    async (from, to) => {
+      const { data, error } = await supabase.rpc(
+        withNextAction ? "search_clients_next_action" : "search_clients_by_stage",
+        {
+          p_q: "",
+          p_type: null,
+          p_status: "active",
+          p_view: null,
+          p_stage: null,
+          p_limit: to - from + 1,
+          p_offset: from,
+        },
+      );
+      const rows = (data ?? []) as ListRow[];
+      // Totalul vine pe fiecare rand, din aceeasi cerere. O pagina goala spune zero.
+      return {
+        data: rows,
+        count: error ? null : rows.length > 0 ? Number(rows[0]!.total_count) : 0,
+        error,
+      };
+    },
+    ROW_PAGE_SIZE,
+    (r) => r.id,
+  );
 
   const today = chisinauToday();
   const due: AziRow[] = [];
@@ -142,17 +147,21 @@ async function calledSince(supabase: Supabase, rows: AziRow[]): Promise<Set<stri
   const since = new Date(Date.UTC(y!, m! - 1, d! - 1)).toISOString();
 
   for (const batch of inBatches([...dueById.keys()])) {
-    const notes = await readAllPages<{ client_id: string; created_at: string }>(
+    // `id` in select numai ca sa fie cheia unica a randului pentru readAllPages:
+    // client_id si created_at singure se pot repeta pe doua note legitime.
+    const notes = await readAllPages<{ id: string; client_id: string; created_at: string }>(
       "notele pentru Azi",
       (from, to) =>
         supabase
           .from("client_notes")
-          .select("client_id, created_at", { count: "exact" })
+          .select("id, client_id, created_at", { count: "exact" })
           .in("client_id", batch)
           .gte("created_at", since)
           .order("created_at")
           .order("id")
           .range(from, to),
+      ROW_PAGE_SIZE,
+      (n) => n.id,
     );
     for (const n of notes) {
       const dueDate = dueById.get(n.client_id);
