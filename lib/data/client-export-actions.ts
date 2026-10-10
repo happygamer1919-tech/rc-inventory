@@ -21,7 +21,8 @@
 
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
-import { listClientOwnerChoices, listClientRowsForExport } from "./clients";
+import { listClientRowsForExport, ownerDisplayName } from "./clients";
+import { loadOrRefuse, readAllOwnerProfiles } from "./import-clients-read";
 import { hasClientNextAction } from "./schema-capability";
 import { formatDate } from "./format";
 import {
@@ -129,7 +130,9 @@ export async function exportClients(
     for (const d of (data ?? []) as unknown as DetailRow[]) details.set(d.id, d);
   }
 
-  const ownerName = new Map((await listClientOwnerChoices()).map((o) => [o.id, o.fullName]));
+  const owners = await loadOrRefuse(() => readAllOwnerProfiles(supabase));
+  if (!owners.ok) return { ok: false, message: owners.message };
+  const ownerName = new Map(owners.value.map((o) => [o.id, ownerDisplayName(o)]));
 
   const clients: ExportClientRow[] = rows.map((r) => {
     const d = details.get(r.id);

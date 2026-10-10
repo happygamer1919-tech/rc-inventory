@@ -350,8 +350,17 @@ export function buildErrorCsv(
 ): string {
   return buildCsv([
     ["Rând", "Motiv", ...headers],
-    ...rows.map((r) => [String(r.line), r.reason, ...r.raw]),
+    ...rows.map((r) => [String(r.line), r.reason, ...r.raw.map(protectRawCell)]),
   ]);
+}
+
+// Celulele originale pe care Excel le strica la deschidere: un cod lung (IDNO, 1,0036E+12), un cod
+// cu zero in fata (00123 devine 123) sau un text care incepe cu + = - @ (telefonul +373...).
+// Primesc aceeasi forma ="..." ca in exporturi (csvText), pe care parseCsv o desface la incarcare.
+const EXCEL_FRAGILE = /^(\d{10,}|0|[+=\-@])/;
+
+function protectRawCell(cell: string): CsvCell {
+  return EXCEL_FRAGILE.test(cell) ? csvText(cell) : cell;
 }
 
 /**
@@ -560,13 +569,12 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  * Citeste octetii unui CSV. REGULA, simpla:
  *  1. UTF-8 strict (marca BOM taiata). Daca merge, este UTF-8.
  *  2. Altfel, se incearca windows-1250 (Excel pe Windows romanesc) si
- *     windows-1251 (Excel pe Windows rusesc). Se decide prin majoritate, in
- *     citirea 1250: se numara literele romanesti (ă â î ș ț) si literele
- *     straine (ü ä é È à í etc.). Se alege 1251 doar cand literele straine sunt
- *     mai multe decat cele romanesti (un fisier rusesc citit ca 1250 arata ca
- *     "Èâàí" pentru "Иван") SI citirea 1251 are litere chirilice. Un fisier
- *     romanesc cu cateva litere straine (Würth, Kärcher, André) ramane 1250,
- *     cu ş ţ cu sedila (cum scrie Excel) aduse la ș ț cu virgula.
+ *     windows-1251 (Excel pe Windows rusesc). Se alege 1251 doar cand citirea
+ *     1251 are un cuvant cu cel putin 3 litere chirilice la rand (un fisier rusesc
+ *     citit ca 1250 arata ca "Èâàí" pentru "Иван"). O litera straina izolata
+ *     (Würth, Kärcher, André, Café) ramane 1250, cu ş ţ cu sedila (cum scrie
+ *     Excel) aduse la ș ț cu virgula, chiar daca fisierul nu are nicio litera
+ *     romaneasca.
  *  3. Inainte de revenirea la o codare pe un octet, verificare de plauzibilitate
  *     (P3-194): se refuza daca fisierul are octeti 0x00, daca textul are
  *     caractere de control (altele decat tab, CR, LF), sau daca fisierul este
@@ -578,8 +586,6 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  *  marca BOM FF FE / FE FF sau, fara marca, dupa cel putin o treime octeti 0x00,
  *  si se citeste ca UTF-16; ce nu se poate citi curat se refuza.
  */
-const ROMANIAN_LETTERS = "ăâîșțşţĂÂÎȘȚŞŢ";
-
 /** Cel putin 3 litere chirilice la rand (P3-207). */
 const CYRILLIC_RUN = /[Ѐ-ӿ]{3,}/;
 
@@ -647,18 +653,10 @@ export function decodeCsvFile(
     if (seq.valid >= 2 && seq.valid >= 2 * seq.invalid) return { error: BROKEN_LETTERS_FILE_ERROR };
     const t1250 = new TextDecoder("windows-1250").decode(bytes);
     const t1251 = new TextDecoder("windows-1251").decode(bytes);
-    const cyrillic = /[Ѐ-ӿ]/.test(t1251);
-    let ro = 0;
-    let foreign = 0;
-    for (const ch of t1250) {
-      if (ROMANIAN_LETTERS.includes(ch)) ro++;
-      else if (ch.charCodeAt(0) > 127 && /\p{L}/u.test(ch)) foreign++;
-    }
-    // P3-207: octetii ă â î ţ (E3 E2 EE FE) sunt in 1251 г в о ю, deci un fisier rusesc
-    // cu text mai ales latin egaleaza votul. Un cuvant cu cel putin 3 litere chirilice
-    // la rand nu apare in text romanesc citit ca 1251, deci hotaraste pentru 1251.
-    const cyrillicWord = CYRILLIC_RUN.test(t1251);
-    if (cyrillic && (foreign > ro || cyrillicWord)) {
+    // P3-218: o litera straina izolata (ü ä é) este in 1251 o litera chirilica, deci nu poate
+    // decide pentru 1251. Hotaraste numai un cuvant cu cel putin 3 litere chirilice la rand
+    // (P3-207): nu apare in text latin citit ca 1251, nici in Würth, Kärcher, Café.
+    if (CYRILLIC_RUN.test(t1251)) {
       text = t1251;
       encoding = "windows-1251";
     } else {

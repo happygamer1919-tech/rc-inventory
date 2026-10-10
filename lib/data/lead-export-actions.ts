@@ -17,7 +17,8 @@
 
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
-import { listClientOwnerChoices, listClientRowsForExport } from "./clients";
+import { listClientRowsForExport, ownerDisplayName } from "./clients";
+import { loadOrRefuse, readAllOwnerProfiles } from "./import-clients-read";
 import { hasClientNextAction } from "./schema-capability";
 import { formatDate } from "./format";
 import {
@@ -144,7 +145,9 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
     }
   }
 
-  const ownerName = new Map((await listClientOwnerChoices()).map((o) => [o.id, o.fullName]));
+  const owners = await loadOrRefuse(() => readAllOwnerProfiles(supabase));
+  if (!owners.ok) return { ok: false, message: owners.message };
+  const ownerName = new Map(owners.value.map((o) => [o.id, ownerDisplayName(o)]));
 
   const leads: ExportLeadRow[] = rows.map((r) => {
     const d = details.get(r.id);

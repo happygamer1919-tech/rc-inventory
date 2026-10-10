@@ -72,6 +72,15 @@ export async function readOwnerProfiles(supabase: Supabase): Promise<OwnerProfil
   return data as OwnerProfileRow[];
 }
 
+/** P3-215. Numele responsabililor pentru exporturi: TOATE profilurile, active si
+ *  dezactivate, ca un lead atribuit unui coleg dezactivat sa-si pastreze numele in
+ *  fisier. O eroare NU da harta goala: fisierul ar iesi cu coloana Responsabil goala. */
+export async function readAllOwnerProfiles(supabase: Supabase): Promise<OwnerProfileRow[]> {
+  const { data, error } = await supabase.from("profiles").select("id, full_name, email");
+  if (error || !data) throw new ImportReadError(OWNERS_READ_FAILED);
+  return data as OwnerProfileRow[];
+}
+
 /** Ruleaza o citire si intoarce mesajul romanesc cand ea esueaza. */
 export async function loadOrRefuse<T>(
   read: () => Promise<T>,
