@@ -9434,6 +9434,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `playwright.config.ts` sets `testDir: "./tests/e2e"`, so `tests/*.test.ts` files (for example `tests/price-input.test.ts`) are never run by the `quality` job, and a card whose acceptance names one reads green without running it.
 **SOLUTION:** card P3-252 put its case in `tests/e2e/import-shared.spec.ts`. RULE: **put a pure unit case under tests/e2e/ with a .spec.ts name, or check that CI lists it before naming it in an acceptance line.**
 
+### A policy that lets a role insert lets it insert every column
+**Tag:** database
+**ERROR:** migration 0076 widened the policy `clients_insert` to the account manager so a counter buyer could be added from Iesiri materiale. The four-field limit (name, type, IDNO, phone) lived only in `createWalkInClient`, so a POST to `/rest/v1/clients` with the manager token could set the stage, the lead owner, the notes or active = false. A row level security policy decides WHICH rows a role may write, never which columns.
+**SOLUTION:** card P3-255, migration 0079: a BEFORE INSERT trigger `clients_insert_manager_columns` that, for `current_user = authenticated` and `is_owner()` false, refuses with P0001 any column outside what the walk-in path sends. The assertion file pins the column list of `public.clients`, so a later column fails `check:migrations` until somebody decides it in the trigger. Covered by `tests/e2e/clients-insert-manager-columns.spec.ts`. RULE: **when a policy widens a write to a new role, limit that role's columns on the table in the same migration (trigger, or column grants when the role has its own database role); an application-side limit is not a limit.**
+
 ### A price parser must read the dot with three digits as thousands, the way Romanian people write it
 **Tag:** data
 **ERROR:** `parsePriceText` (P3-209) accepted `^\d+([.,]\d+)?$` and turned a comma into a dot, so a dot was always decimal. `1.200` parsed as 1.2 and saved as 1,20 MDL with no error, and `1.200,50` was refused.
@@ -9443,3 +9448,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ui
 **ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
 **SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**
+
+### A separator guess that keeps the first of several equal counts reads a Romanian Excel header the wrong way
+**Tag:** data
+**ERROR:** `sniffDelimiter` counted each separator on the first line and kept the first one with the highest count, so on a tie the comma won. A header like `Nume, prenume;Telefon` (a comma inside a column name, a semicolon as the real separator) was read as comma separated and every row shifted.
+**SOLUTION:** card P3-260: on a tie the next five non-empty lines decide (the separator with the same count on each of them), and if that still ties, semicolon beats comma; tab stays last. A file where one separator clearly wins is read as before. Covered by the P3-260 cases in `tests/e2e/import-shared.spec.ts`. RULE: **a guess that can tie must say what wins the tie, and the default must be the one the operator's own tool (Excel on a Romanian machine) writes.**
+
+### A row count cannot tell that a page window shifted
+**Tag:** data
+**ERROR:** `readAllPages` paged by position and only failed when the total changed. An insert before the cursor plus a delete in the same window keeps the total equal, so one row came back twice, another never, and the list was one short with the right length. Callers that used `dedupeById` hid the duplicate but not the lost row.
+**SOLUTION:** card P3-261: `readAllPages` takes an optional `keyOf`; a repeated key restarts the read like a changed total, then fails with the list-changed message. Azi and the two extraction reads pass the row id. Covered by the P3-261 case in `tests/e2e/review.spec.ts`. RULE: **a positional paged read that must not lose a row needs a unique key check, because the count alone passes a shifted window; give new callers a `keyOf`.**
+
+### An import that loads existing rows without the active flag matches switched-off records as live ones
+**Tag:** import
+**ERROR:** `loadExisting` in `lib/data/client-import-actions.ts` read clients without the `active` column, so a row matching a deactivated client was reported as a duplicate of a client missing from the list, and the fill action wrote into it silently. The project import (P3-173) already handled inactive clients; the client import never copied it.
+**SOLUTION:** card P3-257: `loadExisting` reads `active`, the plan marks the match `inactive` with nothing fillable, `duplicateReason` says it is deactivated and must be reactivated first, and `runClientImport` skips it whatever was chosen. Covered by `tests/e2e/client-import-inactive.spec.ts` and a case in `tests/e2e/clients-import.spec.ts`. RULE: **every import that matches against stored rows reads the active flag and decides explicitly what a deactivated match does; none writes into one.**

@@ -101,6 +101,7 @@ async function loadExisting(
   const columns = [
     "id",
     "name",
+    "active",
     "phone",
     "email",
     "address",
@@ -143,6 +144,7 @@ async function loadExisting(
       emailKey: normaliseEmail(value("email")),
       phone: value("phone"),
       empty,
+      active: (row.active as unknown) !== false,
     };
   });
 }
@@ -296,6 +298,12 @@ export async function runClientImport(
             raw: rawAt(entry.line),
           });
         }
+        continue;
+      }
+      // UN CLIENT DEZACTIVAT NU SE ATINGE, oricare ar fi alegerea: nu se completeaza si
+      // nu se reactiveaza singur.
+      if (entry.against.kind === "stored" && entry.against.inactive) {
+        skippedRows.push({ line: entry.line, reason: duplicateReason(entry), raw: rawAt(entry.line) });
         continue;
       }
       const client = prepared.get(entry.line);
