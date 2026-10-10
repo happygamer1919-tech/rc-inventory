@@ -9444,6 +9444,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
 **SOLUTION:** card P3-219: ArrowUp and ArrowDown set a `movedByArrows` flag (cleared on typing and focus); Enter asks `decideCommit` first and does nothing when it says several exact matches, unless the arrows were used. Covered by the P3-219 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a rule kept in a helper is only enforced on the paths that call it; test each input path (key, click, click-away) through the component, not just the helper.**
 
+### A filter from the address that finds no record must not turn into "no filter"
+**Tag:** data
+**ERROR:** `app/(app)/comenzi/page.tsx` only set `filter` when `getProject` or `getClient` found a record. For a deleted, unknown or malformed id the filter stayed null, the list read got no project or client, and /comenzi showed every outbound issue as if that were the answer.
+**SOLUTION:** card P3-264: a requested filter with no record sets `missingFilter`, the page skips the list read (zero rows, total 0) and the screen shows "Proiectul din adresă nu există sau a fost șters." or the client version, with the existing clear button. A non-uuid is refused with `looksLikeUuid` before the lookup. Covered by the P3-264 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a filter that is present but unresolved is an error state of its own; never let a lookup that returns null widen the query.**
+
 ### A separator guess that keeps the first of several equal counts reads a Romanian Excel header the wrong way
 **Tag:** data
 **ERROR:** `sniffDelimiter` counted each separator on the first line and kept the first one with the highest count, so on a tie the comma won. A header like `Nume, prenume;Telefon` (a comma inside a column name, a semicolon as the real separator) was read as comma separated and every row shifted.

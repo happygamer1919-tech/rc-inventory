@@ -6610,6 +6610,31 @@
         "at": "2026-10-10T20:00:00Z"
       },
       "notes": "Bug found by the bug check of 2026-10-10. An insert before the cursor plus a delete in the same window keeps the count equal, so the count check alone passed a list that was one row short with a duplicate. The task asked for a single restart; the code on main already retries up to READ_ATTEMPTS on a changed total (P3-193), so the repeated key reuses that path and its operator message."
+    },
+    {
+      "id": "P3-264",
+      "title": "Comenzi shows an empty outbound list and a clear message when the project or client in the address does not exist",
+      "plain": "A link to the orders list for a project or client that no longer exists now says so and shows nothing, instead of showing every order.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-188"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The case `lista iesirilor: un proiect sau un client care nu exista arata un mesaj si nicio iesire` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run: on /comenzi?proiect=<unknown uuid>, /comenzi?proiect=abc, /comenzi?client=<unknown uuid> and /comenzi?client=abc the element `outbound-missing-filter` shows the Romanian message, no outbound row is listed, `outbound-empty` is absent and `orders-clear-filter` is visible; a valid client link shows no missing message. (b) The P3-188 case in the same file stays green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: a project or client id in the address that resolves to no record (unknown, deleted or not a uuid) gives zero outbound rows without reading the list, and the message 'Proiectul din adresă nu există sau a fost șters.' or 'Clientul din adresă nu există sau a fost șters.' with the existing clear-filter button. A valid id behaves as before. Inbound orders are unchanged. No migration.",
+      "last_checkpoint": "2026-10-10T16:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/comenzi-unknown-filter-id against main: its quality run on the head sha runs the named acceptance case and the board validator",
+        "at": "2026-10-10T16:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10: getProject and getClient return null for an unknown id, the filter stayed null and the whole outbound list showed."
     }
   ]
 }
