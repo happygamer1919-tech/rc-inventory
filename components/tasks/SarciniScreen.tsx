@@ -100,6 +100,7 @@ export function SarciniScreen({
   clients = [],
   projects = [],
   closedLinks = {},
+  projectsFailed = false,
 }: {
   rows: Task[];
   query: TaskListQuery;
@@ -113,6 +114,9 @@ export function SarciniScreen({
   /** Inregistrarile legate care nu sunt in liste (proiect inchis, client inactiv),
    *  dupa taskLinkKey(fel, id). Se adauga numai la modificarea sarcinii lor. */
   closedLinks?: Record<string, TaskLinkChoice>;
+  /** P3-254: citirea listei de proiecte a esuat; formularul arata o eroare in loc de
+   *  "Niciun rezultat". */
+  projectsFailed?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -339,6 +343,7 @@ export function SarciniScreen({
           assignees={assignees}
           clients={clients}
           projects={projects}
+          projectsFailed={projectsFailed}
           onClose={() => setCreating(false)}
         />
       ) : null}
@@ -348,6 +353,7 @@ export function SarciniScreen({
           assignees={assignees}
           clients={clients}
           projects={projects}
+          projectsFailed={projectsFailed}
           currentLink={
             editing.entityType && editing.entityId
               ? closedLinks[taskLinkKey(editing.entityType, editing.entityId)]
