@@ -6464,6 +6464,33 @@
         "at": "2026-10-10T00:00:00Z"
       },
       "notes": "Added to export buttons in Clienti, Proiecte and Inventar screens as title attributes for hover. Explanation covers both the apostrophe (formula injection guard) and the semicolon/decimal comma (Excel display on English/Mac)."
+    },
+    {
+      "id": "P3-250",
+      "title": "A new client created straight as Client (through the Client nou button or the owner counter buyer) records the entry as the first stage, not a fake move from Lead rece to Client.",
+      "plain": "When creating a new client as Client, the system shows it entered that stage, not as a fake move from a non-existent lead stage.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-45",
+        "P3-172",
+        "P3-198"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/client-detail.spec.ts passes in this pull request's quality run, with the history entry for a new client from the Client nou button showing 'A intrat în listă la etapa Client' and not 'Etapa s-a schimbat din Lead rece în Client'. (b) npx tsc --noEmit exits 0. (c) npm run checks:state <pr> exits 0.",
+      "defaults": "The lead form (P3-45) continues to write the first stage as it does now. The owner counter buyer and the Client nou button both pass firstStage: true to record entry as the chosen stage. Manager counter buyers (P3-147) continue to write the stage in the insert column without a history row. No migration needed.",
+      "last_checkpoint": "2026-10-10T14:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #492 on branch card/p3-250 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-10T14:30:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10. ClientForm passes firstStage: true for Client nou (P3-198), createWalkInClient passes it for owner counter buyer (P3-172). Manager path (P3-147) is unchanged."
     }
   ]
 }
