@@ -6516,6 +6516,29 @@
         "at": "2026-10-10T14:30:00Z"
       },
       "notes": "Bug found by the bug check of 2026-10-10. ClientForm passes firstStage: true for Client nou (P3-198), createWalkInClient passes it for owner counter buyer (P3-172). Manager path (P3-147) is unchanged."
+    },
+    {
+      "id": "P3-260",
+      "title": "A CSV header with one comma and one semicolon, such as Nume, prenume;Telefon, is split on the semicolon, not the comma.",
+      "plain": "An Excel file saved with semicolons and a comma inside a column name now imports into the right columns instead of shifting every row.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/import-shared.spec.ts passes in this pull request's quality run, including the two cases named P3-260: sniffDelimiter reads 'Nume, prenume;Telefon' as semicolon separated, and a plain comma file, a plain semicolon file, a tab file and a quoted comma header keep their separator. (b) npx tsc --noEmit exits 0. (c) npm run checks:state <pr> exits 0.",
+      "defaults": "On a tie between comma and semicolon on the first line, the next five non-empty lines decide: the separator with the same count on every one of them wins, and if that does not decide it, semicolon wins. Tab keeps its place after comma and semicolon. A file where one separator clearly wins is read exactly as before. No migration needed.",
+      "last_checkpoint": "2026-10-10T16:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-260 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-10T16:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10. Change is inside sniffDelimiter in lib/data/import-shared.ts only; buildCsv, normaliseKey and the BOM and trailing empty row handling are untouched."
     }
   ]
 }
