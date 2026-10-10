@@ -6392,6 +6392,31 @@
       "notes": "Found by the bug check of 2026-10-10. The parser already unwraps the text literal form (unwrapCsvCell), so only the writer changed. The tests/*.test.ts files are not run by CI (playwright testDir is tests/e2e), so the case sits in tests/e2e/import-shared.spec.ts."
     },
     {
+      "id": "P3-253",
+      "title": "parsePriceText (P3-209) always read a dot as the decimal separator, so the Romanian thousands notation 1.200 saved as 1,20 MDL with no error, and 1.200,50 was refused. A dot followed by groups of exactly three digits (first group 1 to 3 digits, not starting with 0) is now a thousands separator: 1.200 is 1200, 12.500 is 12500, 1.200.000 is 1200000, 1.200,50 is 1200.5. 12,50, 12.50, 12.5 and 1 200 read as before; 1,200.50, 1.20.0 and 1.2000,50 stay invalid.",
+      "plain": "In the walk-in sale, a price typed as 1.200 now saves as one thousand two hundred lei instead of 1,20, and 1.200,50 is accepted.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-209"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/price-input.spec.ts whose names start with 'P3-253' are green in this pull request own quality run: 1.200 gives 1200, 12.500 gives 12500, 1.200.000 gives 1200000, 1.200,50 gives 1200.5, 12.5 stays 12.5, and 1.20.0, 1.2000,50, 1.200, and 1,200.50 are invalid. (b) The P3-209 cases in the same file stay green. (c) The case in tests/e2e/outbound-direct-client.spec.ts named 'iesire client direct P3-253' is green: 2 lines at 1.200 total 2400 MDL. (d) npx tsc --noEmit exits 0 and the board validator exits 0.",
+      "defaults": "Only parsePriceText in lib/data/price-input.ts changes. The message 'Preț invalid. Exemplu: 12,50', the text input type and the server refusal texts are unchanged. No migration, no schema change, no permission change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-253 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. The unit cases moved from tests/price-input.test.ts to tests/e2e/price-input.spec.ts because CI runs only tests/e2e."
+    },
+    {
       "id": "P3-219",
       "title": "In the buyer picker on the direct-client issue form, typing a name that two clients share and pressing Enter picked the first row without asking, because the Enter key never consulted the same-name rule that P3-177 and P3-210 added for leaving the field. Enter now selects nothing and keeps the list open when the typed text matches more than one client name exactly, unless the operator first moved the highlight with the arrow keys.",
       "plain": "Pressing Enter on a name that two clients share no longer silently picks the first one; the operator chooses which one.",
@@ -6464,6 +6489,33 @@
         "at": "2026-10-10T15:50:03Z"
       },
       "notes": "Found by the bug check of 2026-10-10. The tests/*.test.ts files are not run by CI (playwright testDir is tests/e2e), so the cases sit in tests/e2e/task-link-list-failed.spec.ts and need no database."
+    },
+    {
+      "id": "P3-250",
+      "title": "A new client created straight as Client (through the Client nou button or the owner counter buyer) records the entry as the first stage, not a fake move from Lead rece to Client.",
+      "plain": "When creating a new client as Client, the system shows it entered that stage, not as a fake move from a non-existent lead stage.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-45",
+        "P3-172",
+        "P3-198"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/client-detail.spec.ts passes in this pull request's quality run, with the history entry for a new client from the Client nou button showing 'A intrat în listă la etapa Client' and not 'Etapa s-a schimbat din Lead rece în Client'. (b) npx tsc --noEmit exits 0. (c) npm run checks:state <pr> exits 0.",
+      "defaults": "The lead form (P3-45) continues to write the first stage as it does now. The owner counter buyer and the Client nou button both pass firstStage: true to record entry as the chosen stage. Manager counter buyers (P3-147) continue to write the stage in the insert column without a history row. No migration needed.",
+      "last_checkpoint": "2026-10-10T14:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #492 on branch card/p3-250 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-10T14:30:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-10. ClientForm passes firstStage: true for Client nou (P3-198), createWalkInClient passes it for owner counter buyer (P3-172). Manager path (P3-147) is unchanged."
     }
   ]
 }

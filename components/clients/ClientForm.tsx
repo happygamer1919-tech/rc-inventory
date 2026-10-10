@@ -160,6 +160,10 @@ export function ClientForm({
         ? { nextActionAt }
         : {}),
       ...(nextActionAvailable && nextAction !== (client?.nextAction ?? "") ? { nextAction } : {}),
+      // P3-250. Un client nou pornit de pe butonul Client nou (P3-198) sau de un rol
+      // proprietar de la tejghea (P3-172) isi inregistreaza etapa ca PRIMA, de la nicio
+      // etapa. La editare, nu se trimite firstStage, deci nu rescrie istoric.
+      ...(defaultStage && !editing ? { firstStage: true } : {}),
     };
     const result = editing
       ? await updateClientRecord(client!.id, input)

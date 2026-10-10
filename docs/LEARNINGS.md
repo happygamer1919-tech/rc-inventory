@@ -9429,6 +9429,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `listSelectableProjects` returned `[]` on a failed read. `listClosedLinkChoices` then treated every project linked to a task as missing from the open list and labelled it "(închis)" or "(inactiv)", and the task form showed "Niciun rezultat" with no error.
 **SOLUTION:** card P3-254: `readSelectableProjects` returns the rows plus a `failed` flag (`listSelectableProjects` is unchanged for its other callers); the sarcini page passes the flag to `listClosedLinkChoices` (plain names on a failed read) and to `TaskForm` (Romanian error in place of "Niciun rezultat"). The client list already throws on a failed read, so it needed no change. Covered by `tests/e2e/task-link-list-failed.spec.ts`. RULE: **a function whose empty result is read by another function as "absent" must say whether the read failed.**
 
+### A price parser must read the dot with three digits as thousands, the way Romanian people write it
+**Tag:** data
+**ERROR:** `parsePriceText` (P3-209) accepted `^\d+([.,]\d+)?$` and turned a comma into a dot, so a dot was always decimal. `1.200` parsed as 1.2 and saved as 1,20 MDL with no error, and `1.200,50` was refused.
+**SOLUTION:** card P3-253: a dot followed by groups of exactly three digits (first group 1 to 3 digits, not starting with 0) is a thousands separator; a dot with one or two digits stays decimal. Covered by the P3-253 cases in `tests/e2e/price-input.spec.ts` (moved there from `tests/price-input.test.ts`, which CI never ran). RULE: **a number parser for Romanian operators must handle both notations (1.200,50 and 12.50), and an ambiguous input must be tested in both readings.**
+
 ### A fix to a shared rule in the helper misses the key handler that never calls the helper
 **Tag:** ui
 **ERROR:** P3-177 and P3-210 put the same-name rule in `decideCommit`, but the Enter key in `components/ui/Combobox.tsx` still called `pick(filtered[active])` directly, so typing a name two clients share and pressing Enter silently picked the first row. `tests/combobox-commit.test.ts` only tests the helper, so it stayed green.
