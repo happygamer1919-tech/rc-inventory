@@ -127,6 +127,19 @@ export function SarciniScreen({
   });
   const editing = rows.find((r) => r.id === editingId);
 
+  React.useEffect(() => {
+    // Drop assigneeId if it doesn't match any active profile
+    const assigneeId = params.get("responsabil");
+    if (
+      assigneeId &&
+      !assignees.some((a) => a.id === assigneeId)
+    ) {
+      const next = new URLSearchParams(params.toString());
+      next.delete("responsabil");
+      router.replace(`${pathname}?${next.toString()}`);
+    }
+  }, [assignees, params, pathname, router]);
+
   function push(patch: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(patch)) {
@@ -134,6 +147,12 @@ export function SarciniScreen({
       else next.delete(k);
     }
     router.push(`${pathname}?${next.toString()}`);
+  }
+
+  function closeForm() {
+    const next = new URLSearchParams(params.toString());
+    next.delete("sarcina");
+    router.replace(`${pathname}?${next.toString()}`);
   }
 
   const filtered = taskFilterActive(query);
@@ -339,7 +358,10 @@ export function SarciniScreen({
           assignees={assignees}
           clients={clients}
           projects={projects}
-          onClose={() => setCreating(false)}
+          onClose={() => {
+            setCreating(false);
+            closeForm();
+          }}
         />
       ) : null}
       {editing ? (
@@ -353,7 +375,10 @@ export function SarciniScreen({
               ? closedLinks[taskLinkKey(editing.entityType, editing.entityId)]
               : undefined
           }
-          onClose={() => setEditingId(null)}
+          onClose={() => {
+            setEditingId(null);
+            closeForm();
+          }}
         />
       ) : null}
     </>

@@ -83,8 +83,11 @@ export default async function SarciniPage({
   ]);
 
   // UN RESPONSABIL CARE NU ESTE IN LISTA NU FILTREAZA NIMIC, exact ca pe /azi: o
-  // legatura veche, sau un profil dezactivat de atunci, arata TOT si nu gol.
-  const assigneeId = assignees.some((a) => a.id === query.assigneeId) ? query.assigneeId : "";
+  // legatura veche, sau un profil dezactivat de atunci, arata TOT si nu gol. ID-ul
+  // se pastreaza pentru a arata mesajul "Responsabil inactiv" in UI si a permite
+  // stergerea filtrului, dar daca ID-ul nu corespunde nici unui profil cunoscut, se
+  // scoate din adresa.
+  const assigneeId = query.assigneeId;
   const rows = await listTasks({ ...query, assigneeId });
 
   // O SARCINA LEGATA DE UN PROIECT INCHIS SAU DE UN CLIENT INACTIV isi arata
