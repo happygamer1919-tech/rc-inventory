@@ -1,4 +1,4 @@
--- assertions/0078_clients_insert_manager_columns.sql
+-- assertions/0079_clients_insert_manager_columns.sql
 -- Card P3-255. public.clients refuses an account manager's insert that sets
 -- anything beyond name, type, IDNO and phone, and nothing else changes.
 --

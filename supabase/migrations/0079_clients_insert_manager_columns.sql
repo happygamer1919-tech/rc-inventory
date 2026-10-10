@@ -1,4 +1,4 @@
--- 0078_clients_insert_manager_columns.sql
+-- 0079_clients_insert_manager_columns.sql
 -- RC Inventory phase 3, card P3-255. An account manager creates a client with
 -- the name, the type, the IDNO and the phone, and nothing else, whatever sends
 -- the row: the table itself refuses the rest, not only the application.
@@ -62,7 +62,7 @@
 --
 -- WHAT IT REMOVES: nothing. There is NO DROP TABLE, NO TRUNCATE, NO DELETE and NO
 -- UPDATE or INSERT of a row anywhere in this file. The one
--- `drop trigger if exists` is the re-runnable shape 0063, 0064 and 0078 use,
+-- `drop trigger if exists` is the re-runnable shape 0063, 0064 and 0079 use,
 -- followed immediately by the create.
 --
 -- MERGE IS APPLY. Merging this file applies it to the PRODUCTION database within
@@ -75,7 +75,7 @@
 --
 -- PROVEN BEFORE MERGE by `npm run check:migrations`, which applies it unmodified
 -- to a throwaway postgres and runs
--- scripts/poc-free/local-db/assertions/0078_clients_insert_manager_columns.sql,
+-- scripts/poc-free/local-db/assertions/0079_clients_insert_manager_columns.sql,
 -- and on the local Supabase stack by
 -- tests/e2e/clients-insert-manager-columns.spec.ts.
 

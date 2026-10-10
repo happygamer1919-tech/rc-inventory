@@ -8,7 +8,7 @@ import { signIn } from "./support/auth";
 // createWalkInClient. Cu jetonul managerului, un POST direct pe /rest/v1/clients
 // putea scrie etapa, responsabilul, notele, active = false si orice alta coloana.
 //
-// Migratia 0078 pune limita pe tabela insasi, printr-un trigger BEFORE INSERT.
+// Migratia 0079 pune limita pe tabela insasi, printr-un trigger BEFORE INSERT.
 // Aici se trimit exact cererile construite de mana pe care le descrie defectul, cu
 // jetonul unui cont adevarat, si martorii lor: cele patru campuri, forma exacta pe
 // care o trimite calea de la tejghea, calea de la tejghea prin ecran, si

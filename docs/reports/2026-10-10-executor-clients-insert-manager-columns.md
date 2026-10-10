@@ -10,7 +10,7 @@ exactly as before, and the counter sale path keeps working.
 
 ## What changed
 
-- `supabase/migrations/0078_clients_insert_manager_columns.sql`: trigger function
+- `supabase/migrations/0079_clients_insert_manager_columns.sql`: trigger function
   `public.clients_insert_manager_columns()` (SECURITY INVOKER, execute revoked from
   client roles) and trigger `clients_insert_manager_columns`, BEFORE INSERT on
   `public.clients`. For `current_user = authenticated` and `is_owner()` false it
@@ -18,7 +18,7 @@ exactly as before, and the counter sale path keeps working.
   type, fiscal_code, phone, id, stage cold or client, address/email/notes null,
   active true, created_by null or the caller, created_at/updated_at at default, every
   lead column null. No policy changed. No row read, changed or removed.
-- `scripts/poc-free/local-db/assertions/0078_clients_insert_manager_columns.sql`:
+- `scripts/poc-free/local-db/assertions/0079_clients_insert_manager_columns.sql`:
   manager four fields and walk-in shape written; stage, owner_id, notes, active,
   source, follow_up_date, created_by of somebody else refused with P0001 and no row;
   owner with every column written; column list of `public.clients` pinned.
@@ -36,8 +36,9 @@ owner-only). Nothing else.
 
 ## Migration number
 
-0078. Main holds 0077. Open PR #487 (P3-212) also holds 0078; the applier refuses a
-gap, so whichever of the two merges second renumbers to 0079 first.
+0079. Main holds 0077. Open PR #487 (P3-212) holds 0078 and keeps it; this migration
+was renumbered from 0078 to 0079 on 2026-10-10 so the two do not clash. The applier
+refuses a gap, so #487 must merge before this one.
 
 ## Local checks
 
