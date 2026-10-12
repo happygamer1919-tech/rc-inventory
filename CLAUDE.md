@@ -318,10 +318,25 @@ concluding that nothing changed.
 **WHAT SELF-MERGE REQUIRES IS UNCHANGED AND IS RESTATED HERE SO IT CANNOT BE READ
 LOOSELY:**
 
-1. **`quality` concluded success on the head sha, with the steps the workflow
-   itself decided to run for that diff. This is the only green that authorises a
-   merge, and it is the ONE statement of that rule in this file**: every other
-   sentence here that says what green means points to this item. The typecheck
+1. **`quality` concluded success on the head sha, in a run started while the
+   pull request was NOT a draft, with the steps the workflow decided to run for
+   that diff. This is the only green that authorises a merge, and it is the ONE
+   statement of that rule in this file**: every other sentence here that says
+   what green means points to this item. A run on a draft, and a run on a push
+   to `main`, skip the heavy steps by card P3-265 and never authorise a merge,
+   whatever they conclude; the P3-265 subsection below names that gate.
+
+   **THE FIRST SENTENCE OF THIS ITEM SAID LESS UNTIL CARD P3-265, AND SINCE THAT
+   CARD IT IS FALSE**, corrected under section 9c. It read:
+
+   > *"**`quality` concluded success on the head sha, with the steps the workflow
+   > itself decided to run for that diff. This is the only green that authorises
+   > a merge**"*
+
+   Since P3-265 the workflow decides to skip the heavy steps on a draft, so a
+   draft run is a run of "the steps the workflow itself decided to run" and is
+   green on the head sha, and the sentence would authorise merging on it. The
+   typecheck
    and every `Refuse ...` and `Prove ...` step outside the two filters run on
    every pull request, documentation-only or not. A pull request that is NOT
    documentation-only additionally needs `Build`, the migration apply and the
@@ -497,6 +512,68 @@ WIDER:**
    and such a pull request can never be documentation-only.
 
 **A THIRD FILTER IS AGAIN A CHANGE TO THIS SECTION, NOT AN APPLICATION OF IT.**
+
+###### THE THIRD FILTER: DRAFTS AND PUSHES TO MAIN SKIP THE HEAVY STEPS. Added 2026-10-12 by card P3-265.
+
+The sentence above is why this subsection exists rather than a quiet `if:`.
+
+**THE PROBLEM.** On 2026-10-12 the account had used 90% of its 3,000 GitHub
+Actions minutes. In the week from 2026-10-05, 452 `quality` runs used about
+13,700 minutes, 30.3 minutes a run. Work-in-progress pushes each paid for the
+whole suite, about 100 runs were cancelled part way by the next push, and the 80
+pushes to `main` used about 2,900 minutes re-running the suite on a head that had
+just passed it as a pull request.
+
+**THE FILTER.** Not a new step: two more conditions on every step `docs_scope`
+gates, written the same on each one:
+
+    github.event_name == 'pull_request' && github.event.pull_request.draft != true
+
+So the gated steps run only on a pull request that is not a draft. On a draft,
+and on a push to `main`, they skip. `pull_request` now lists its types
+explicitly, `opened`, `synchronize`, `reopened` and `ready_for_review`, so that
+marking a draft ready starts the full run on the same head sha.
+
+**THE STEPS IT GATES ARE THE `docs_scope` STEPS, AND THAT TABLE WAS SHORT BY ONE
+BEFORE THIS CARD.** The heading of the P3-73 subsection above, which stays as
+written under section 9c, says:
+
+> *"THERE IS NOW A SECOND FILTER, IT IS CALLED `docs_scope`, AND IT GATES TWELVE STEPS."*
+
+**That is false since card P3-117**, which added `Baseline p75 of the section
+transitions` under the same condition and did not add it to the table. It gated
+thirteen. P3-265 adds a fourteenth, `Cache Playwright browsers`, which caches the
+chromium download under `~/.cache/ms-playwright`, keyed on `package-lock.json`;
+`Install Playwright chromium` still runs every time and installs only the system
+packages when the cache hit. All fourteen carry the draft and push conditions.
+
+**WHAT STILL RUNS ON A DRAFT AND ON A PUSH TO MAIN:** `Typecheck` and every
+validator, `Refuse ...` and `Prove ...` step, exactly the set a
+documentation-only pull request runs. There is still **no `paths:` key**, so the
+job always runs and always reports.
+
+**WHAT GREEN MEANS IS ITEM 1 OF THE RESTATED LIST UNDER R-084 ABOVE**, amended by
+this card and not restated here beyond this: **the only green that authorises a
+merge is a run on a non-draft pull request in which every heavy step its diff
+calls for RAN and PASSED on its head sha.** A draft's green and a push-to-main
+green are not that green.
+
+**IT IS ENFORCED, NOT ONLY WRITTEN.** `npm run checks:state <pr>` exits 1 on a
+green while the pull request is a draft, and on a green whose run started before
+the pull request was last marked ready, which is the draft run still attached to
+the same sha in the seconds before the ready run registers. Both are proved in
+`npm run prove:pr-state`, which now runs in `quality`. A rerun of a draft run
+keeps the draft payload and is not caught by the timing test; do not rerun a
+draft run after marking the pull request ready, push or wait for the ready run
+instead.
+
+**A PUSH TO MAIN IS NO LONGER A SECOND PROOF.** The heavy steps ran on the ready
+pull request's head, and branch protection's strict check means that head
+contained main. A merge that lands while the pull request is behind main is not
+re-proved by the push run; that was true of the full suite on push only in the
+sense that the push run reported after the merge had already happened.
+
+**A FOURTH FILTER IS AGAIN A CHANGE TO THIS SECTION, NOT AN APPLICATION OF IT.**
 
 #### THE HISTORY, KEPT SHORT AND KEPT
 

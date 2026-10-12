@@ -1,0 +1,11 @@
+{
+  "number": 900,
+  "headRefOid": "c0ffee0000000000000000000000000000000001",
+  "mergeStateStatus": "CLEAN",
+  "mergeable": "MERGEABLE",
+  "isDraft": false,
+  "readyAt": "2026-10-12T10:20:00Z",
+  "statusCheckRollup": [
+    { "name": "quality", "conclusion": "SUCCESS", "state": "SUCCESS", "startedAt": "2026-10-12T10:20:07Z" }
+  ]
+}
