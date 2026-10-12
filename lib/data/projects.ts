@@ -24,6 +24,18 @@ import { one } from "./row";
  * lista sa citeasca la fel ca orice alta lista din aplicatie.
  */
 export async function listSelectableProjects(): Promise<SelectableProject[]> {
+  return (await readSelectableProjects()).rows;
+}
+
+/**
+ * P3-254. Aceeasi citire, dar spune si daca a esuat: formularul de sarcini nu poate
+ * lasa o lista goala din cauza unei erori sa arate ca "niciun proiect". Ceilalti
+ * apelanti raman la listSelectableProjects(), neschimbata.
+ */
+export async function readSelectableProjects(): Promise<{
+  rows: SelectableProject[];
+  failed: boolean;
+}> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("projects")
@@ -31,7 +43,7 @@ export async function listSelectableProjects(): Promise<SelectableProject[]> {
     .eq("active", true)
     .neq("status", "closed");
 
-  if (error || !data) return [];
+  if (error || !data) return { rows: [], failed: true };
 
   const rows: SelectableProject[] = [];
   for (const row of data) {
@@ -52,8 +64,9 @@ export async function listSelectableProjects(): Promise<SelectableProject[]> {
     });
   }
 
-  return rows.sort(
+  rows.sort(
     (a, b) =>
       a.clientName.localeCompare(b.clientName, "ro") || a.name.localeCompare(b.name, "ro"),
   );
+  return { rows, failed: false };
 }
