@@ -190,6 +190,7 @@ export function ProjectForm({
                 value={startDate}
                 onChange={setStartDate}
                 onValidityChange={mark("startDate")}
+                markWhileTyping
                 testId="field-project-start"
               />
             </Field>
@@ -198,6 +199,7 @@ export function ProjectForm({
                 value={plannedEndDate}
                 onChange={setPlannedEndDate}
                 onValidityChange={mark("plannedEndDate")}
+                markWhileTyping
                 className={fieldClass("plannedEndDate")}
                 testId="field-project-end"
               />
