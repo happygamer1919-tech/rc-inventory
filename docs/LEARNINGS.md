@@ -9454,6 +9454,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the first draft of 0081 proved a slip was written in the current call with `xmin = pg_current_xact_id()::xid`. A row inserted inside a savepoint (any plpgsql `begin ... exception` block, which the assertion files use) carries the savepoint's own xid as xmin, so the check would refuse a legitimate sale whenever a caller wrapped it.
 **SOLUTION:** compare the column default instead: `created_at` (default `now()`) equals `now()`, the transaction start time, in every savepoint of the same transaction, and a row from an earlier request carries an earlier time. The assertion proves the refusal by writing an older slip with `created_at = now() - interval '1 minute'`. RULE: **to recognise a row written by the current transaction, compare a `now()` default, not xmin.**
 
+### A policy on the caller says nothing about the person a row points to
+**Tag:** backend
+**ERROR:** `tasks_insert` and `tasks_update` (0068) asked only that the caller is active, and the foreign key on `tasks.assignee_id` only that the profile exists. A deactivated colleague still exists, so a direct PostgREST call (or a stale form) could assign a task to someone who left, shown afterwards as (inactiv).
+**SOLUTION:** card P3-259: migration 0080 adds a SECURITY DEFINER BEFORE INSERT OR UPDATE OF assignee_id trigger that refuses a NEW inactive assignee and leaves an unchanged one alone, so old tasks stay editable; `lib/data/tasks-actions.ts` refuses the same case early. RULE: **a column that references a profile must be checked for `active` at write time in the database, not only filtered out of the picker, and the check must compare against the old value so history stays editable.**
+
 ### A separator guess that keeps the first of several equal counts reads a Romanian Excel header the wrong way
 **Tag:** data
 **ERROR:** `sniffDelimiter` counted each separator on the first line and kept the first one with the highest count, so on a tie the comma won. A header like `Nume, prenume;Telefon` (a comma inside a column name, a semicolon as the real separator) was read as comma separated and every row shifted.

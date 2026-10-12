@@ -6572,6 +6572,32 @@
       "notes": "Bug found by the bug check of 2026-10-10. ClientForm passes firstStage: true for Client nou (P3-198), createWalkInClient passes it for owner counter buyer (P3-172). Manager path (P3-147) is unchanged."
     },
     {
+      "id": "P3-259",
+      "title": "lib/data/tasks-actions.ts passed assignee_id straight through, and the tasks_insert and tasks_update policies (0068) ask only that the caller is active while the foreign key asks only that the profile exists, so a stale form or a direct PostgREST call could assign a task to a deactivated profile. createTask and updateTask now refuse a new assignee whose profile is inactive (read through list_team_members), and migration 0080 adds the BEFORE INSERT OR UPDATE OF assignee_id trigger tasks_assignee_must_be_active that raises the same Romanian message. An update that leaves the assignee unchanged on a task whose assignee was deactivated later still saves; clearing the assignee is always allowed.",
+      "plain": "A task can now only be given to a colleague who still works here, even if someone bypasses the screen. Old tasks of a former colleague can still be edited.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-130",
+        "P3-170"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The four cases in tests/e2e/task-assignee-must-be-active.spec.ts are green in this pull request own quality run: a direct insert assigning a deactivated profile is refused with 'Colegul ales nu mai este activ. Alegeți alt responsabil.'; a direct reassign to a deactivated profile is refused and the assignee stays as it was; assigning an active colleague works on insert and on update; editing the title of a task whose assignee was deactivated later still saves and keeps the assignee. (b) The steps 'Refuse a migration that removes rows', 'Prove the migration applier against the Docker shim' and 'Prove every applier assertion can fail' ran and passed in the same run. (c) npx tsc --noEmit exits 0 and the board validator exits 0.",
+      "defaults": "Who may write a task is unchanged: any active profile, any field, the 0068 policies untouched. Clearing the assignee stays allowed. A profile id that does not exist still falls to the foreign key message. When list_team_members cannot be read the server check lets the write through and the database trigger decides. Migration 0080 adds one trigger function and one trigger; no DROP, TRUNCATE or DELETE, no row is read or rewritten.",
+      "last_checkpoint": "2026-10-10T19:34:03Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-259 against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T19:34:03Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. Migration number 0080 because 0078 (#487) and 0079 (#498) are held by open pull requests."
+    },
+    {
       "id": "P3-262",
       "title": "Walk-in buyer picker (Iesiri materiale, Client direct) lists active leads as well as clients, each lead marked Lead; a direct_client slip to a lead moves that record to stage client in the same transaction, for owner and account_manager. Migration 0081 adds the SECURITY DEFINER public.walkin_lead_becomes_client(uuid), which refuses a signed-in caller who is not an active owner or account_manager and refuses unless the slip is a direct_client slip written by the caller in the current transaction (created_at = now()), then moves a lead through public.set_client_stage (one status_history row). create_direct_client_issue keeps its signature and calls it after outbound_issue_take_stock. clients_update and set_client_stage are not widened. Reverses the stage filter of P3-196 on the owner's decision.",
       "plain": "At the counter, staff can now pick a buyer who is still a lead. The sale goes to that existing record and the record becomes a client in the same save, so no duplicate client is created.",
