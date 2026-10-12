@@ -150,6 +150,11 @@ export function SarciniScreen({
       if (v) next.set(k, v);
       else next.delete(k);
     }
+    // Un responsabil dezactivat nu se duce mai departe cand se schimba alt filtru.
+    const carried = next.get("responsabil");
+    if (carried && !("responsabil" in patch) && !assignees.some((a) => a.id === carried)) {
+      next.delete("responsabil");
+    }
     router.push(`${pathname}?${next.toString()}`);
   }
 
