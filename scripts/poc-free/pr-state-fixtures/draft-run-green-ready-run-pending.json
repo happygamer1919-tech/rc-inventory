@@ -1,0 +1,12 @@
+{
+  "number": 507,
+  "headRefOid": "e51d647000000000000000000000000000000000",
+  "mergeStateStatus": "UNSTABLE",
+  "mergeable": "MERGEABLE",
+  "isDraft": false,
+  "readyAt": "2026-10-12T12:39:20Z",
+  "statusCheckRollup": [
+    { "name": "quality", "conclusion": "SUCCESS", "status": "COMPLETED", "startedAt": "2026-10-12T12:36:13Z" },
+    { "name": "quality", "conclusion": "", "status": "IN_PROGRESS", "startedAt": "2026-10-12T12:39:27Z" }
+  ]
+}

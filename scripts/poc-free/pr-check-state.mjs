@@ -36,7 +36,8 @@
 // EXIT CODES:
 //   0  the check result can be trusted: it belongs to the current head
 //   1  STALE: a result is reported but the pull request conflicts or is behind,
-//      so no run exists for what would actually be merged
+//      so no run exists for what would actually be merged; or (P3-265) the
+//      green belongs to a draft run, whose heavy steps were skipped
 //   2  usage, or the state could not be read
 
 import { spawnSync } from "node:child_process";
@@ -65,17 +66,44 @@ if (args[0] === "--fixture") {
   const pr = args[0];
   const res = spawnSync(
     "gh",
-    ["pr", "view", pr, "--json", "number,headRefOid,mergeStateStatus,mergeable,statusCheckRollup"],
+    ["pr", "view", pr, "--json", "number,headRefOid,mergeStateStatus,mergeable,statusCheckRollup,isDraft"],
     { encoding: "utf8" },
   );
   if (res.status !== 0) usage(`gh pr view failed: ${(res.stderr || "").trim()}`);
   state = JSON.parse(res.stdout);
+  // P3-265. When the pull request was last marked ready for review. One jq
+  // result per page, so the last non-empty line is the latest event.
+  const tl = spawnSync(
+    "gh",
+    [
+      "api",
+      "--paginate",
+      `repos/{owner}/{repo}/issues/${pr}/timeline`,
+      "--jq",
+      '[.[] | select(.event == "ready_for_review") | .created_at] | last // ""',
+    ],
+    { encoding: "utf8" },
+  );
+  if (tl.status !== 0) usage(`gh api timeline failed: ${(tl.stderr || "").trim()}`);
+  state.readyAt = tl.stdout.split("\n").map((l) => l.trim()).filter(Boolean).pop() || null;
 }
 
 const head = String(state.headRefOid || "").slice(0, 7);
 const mergeState = String(state.mergeStateStatus || "UNKNOWN");
 const rollup = Array.isArray(state.statusCheckRollup) ? state.statusCheckRollup : [];
-const required = rollup.find((c) => (c.name || c.context) === REQUIRED_CHECK);
+// P3-265. THE NEWEST RUN, NOT THE FIRST. Marking a draft ready runs `quality`
+// again on the same head sha, so the rollup then carries two entries for it, the
+// draft run first. Taking the first read the draft run's green and refused a
+// pull request whose ready run had passed (#507). Ties and entries without a
+// start time keep rollup order, last wins.
+const required = rollup
+  .filter((c) => (c.name || c.context) === REQUIRED_CHECK)
+  .reduce((newest, c) => {
+    if (!newest) return c;
+    const a = Date.parse(newest.startedAt || "");
+    const b = Date.parse(c.startedAt || "");
+    return Number.isFinite(a) && Number.isFinite(b) && b < a ? newest : c;
+  }, undefined);
 const verdict = required ? String(required.conclusion || required.state || "").toUpperCase() : "ABSENT";
 
 process.stdout.write(`pull request      #${state.number ?? "?"}\n`);
@@ -84,6 +112,37 @@ process.stdout.write(`mergeStateStatus  ${mergeState}\n`);
 process.stdout.write(`${REQUIRED_CHECK.padEnd(18)}${verdict}\n`);
 
 const green = verdict === "SUCCESS";
+
+// P3-265. A DRAFT GREEN IS NOT A MERGE GREEN. The quality workflow skips Build,
+// the migration apply, the applier proofs and End to end on a draft, so a draft
+// run says nothing about them. Marking the draft ready starts a full run on the
+// SAME head sha, and until GitHub registers it, the draft run's success is still
+// the result attached to that sha: a merge in those seconds would rest on a run
+// whose heavy steps never ran. Both cases below refuse that green.
+//
+// THEY COME BEFORE THE STALENESS CHECK, so a BEHIND pull request still reports
+// them. The factory's auto-merger merges a BEHIND pull request that is green on
+// its head, and it reads "NOT A MERGE GREEN" in this output to refuse a draft
+// green there too.
+if (green && state.isDraft === true) {
+  process.stderr.write(
+    `\nDRAFT, NOT A MERGE GREEN.\n\n` +
+      `This pull request is a draft. Its ${REQUIRED_CHECK} run skipped the heavy steps.\n` +
+      `Run \`gh pr ready ${state.number ?? "<pr>"}\` and wait for the run that starts.\n`,
+  );
+  process.exit(1);
+}
+const startedAt = required ? Date.parse(required.startedAt || "") : NaN;
+const readyAt = Date.parse(state.readyAt || "");
+if (green && Number.isFinite(readyAt) && (!Number.isFinite(startedAt) || startedAt < readyAt)) {
+  process.stderr.write(
+    `\nGREEN FROM BEFORE READY, NOT A MERGE GREEN.\n\n` +
+      `The ${REQUIRED_CHECK} result started ${required.startedAt || "at an unknown time"}, before this pull\n` +
+      `request was marked ready at ${state.readyAt}. It is the draft run, with the heavy\n` +
+      `steps skipped. Wait for the run that marking it ready started.\n`,
+  );
+  process.exit(1);
+}
 
 if (green && NOT_CURRENT.has(mergeState)) {
   process.stderr.write(
