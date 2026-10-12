@@ -1621,6 +1621,46 @@ test("lista iesirilor: un filtru fara rezultate arata un mesaj, nu o lista goala
   await expect(page.getByTestId("outbound-empty")).toHaveCount(0);
 });
 
+test("lista iesirilor: un proiect sau un client care nu exista arata un mesaj si nicio iesire", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // P3-264. Un id necunoscut sau care nu este uuid nu mai da lista intreaga.
+  const { project } = await seedModePair("M260");
+  await signIn(page, ownerAccount());
+
+  await page.goto("/comenzi");
+  await expect(outboundRow(page, project)).toHaveCount(1, { timeout: 25_000 });
+
+  const cases = [
+    {
+      url: "/comenzi?proiect=00000000-0000-0000-0000-000000000000",
+      text: "Proiectul din adresă nu există sau a fost șters.",
+    },
+    { url: "/comenzi?proiect=abc", text: "Proiectul din adresă nu există sau a fost șters." },
+    {
+      url: "/comenzi?client=00000000-0000-0000-0000-000000000000",
+      text: "Clientul din adresă nu există sau a fost șters.",
+    },
+    { url: "/comenzi?client=abc", text: "Clientul din adresă nu există sau a fost șters." },
+  ];
+  for (const c of cases) {
+    await page.goto(c.url);
+    const missing = page.getByTestId("outbound-missing-filter");
+    await expect(missing, c.url).toBeVisible({ timeout: 25_000 });
+    await expect(missing).toHaveText(c.text);
+    await expect(outboundRow(page, project), `${c.url}: nicio iesire`).toHaveCount(0);
+    await expect(page.getByTestId("outbound-empty")).toHaveCount(0);
+    await expect(page.getByTestId("orders-clear-filter")).toBeVisible();
+  }
+
+  // Un filtru valid merge ca pana acum.
+  await page.goto(`/comenzi?client=${clientId}`);
+  await expect(page.getByTestId("outbound-missing-filter")).toHaveCount(0);
+  await expect(page.getByTestId("orders-clear-filter")).toBeVisible({ timeout: 25_000 });
+});
+
 /* =======================================================================
    CARDUL P3-163, ACCEPTANTA (a) SI (b)
    ======================================================================= */
