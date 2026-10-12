@@ -19,7 +19,7 @@
 import { getSessionUser } from "@/lib/supabase/server";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import { listClientOptions } from "@/lib/data/projects-list";
-import { listSelectableProjects } from "@/lib/data/projects";
+import { readSelectableProjects } from "@/lib/data/projects";
 import { chisinauToday } from "@/lib/data/format";
 import {
   listClosedLinkChoices,
@@ -75,12 +75,13 @@ export default async function SarciniPage({
   // acest ecran; cine are nevoie de asta are panoul cardului P3-132 pe fisa
   // proiectului, si aceea este o intrebare pentru un card, nu o a doua interogare
   // scrisa aici.
-  const [user, assignees, clientRows, projectRows] = await Promise.all([
+  const [user, assignees, clientRows, projectRead] = await Promise.all([
     getSessionUser(),
     listTaskAssigneeChoices(),
     listClientOptions(),
-    listSelectableProjects(),
+    readSelectableProjects(),
   ]);
+  const projectRows = projectRead.rows;
 
   // UN RESPONSABIL CARE NU ESTE IN LISTA NU FILTREAZA NIMIC, exact ca pe /azi: o
   // legatura veche, sau un profil dezactivat de atunci, arata TOT si nu gol.
@@ -93,6 +94,7 @@ export default async function SarciniPage({
     rows,
     clientRows.map((c) => c.id),
     projectRows.map((p) => p.id),
+    projectRead.failed,
   );
 
   return (
@@ -111,6 +113,7 @@ export default async function SarciniPage({
       clients={clientRows.map((c) => ({ id: c.id, label: c.name }))}
       projects={projectRows.map((p) => ({ id: p.id, label: p.name, hint: p.clientName }))}
       closedLinks={closedLinks}
+      projectsFailed={projectRead.failed}
     />
   );
 }
