@@ -6673,6 +6673,31 @@
       "notes": "Found by the bug check of 2026-10-10. Migration number 0080 because 0078 (#487) and 0079 (#498) are held by open pull requests."
     },
     {
+      "id": "P3-258",
+      "title": "A walk-in quantity typed with comma decimal (2,5) is accepted and saved as 2.5",
+      "plain": "In the walk-in sale, a quantity typed as 2,5 now saves as 2.5, like prices do.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-253"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Unit tests pass for parseQuantityText. E2e test passes. Build and validator pass.",
+      "defaults": "parseQuantityText added to price-input.ts, quantity input changed to type text with inputMode decimal.",
+      "last_checkpoint": "2026-10-10T19:08:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "card/p3-258",
+        "at": "2026-10-10T19:08:00Z"
+      },
+      "notes": "Follows pattern of P3-209 and P3-253"
+    },
+    {
       "id": "P3-260",
       "title": "A CSV header with one comma and one semicolon, such as Nume, prenume;Telefon, is split on the semicolon, not the comma.",
       "plain": "An Excel file saved with semicolons and a comma inside a column name now imports into the right columns instead of shifting every row.",
