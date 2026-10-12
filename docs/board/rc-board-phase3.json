@@ -6295,6 +6295,31 @@
       "notes": "Found by the bug check of 2026-10-09. Fix is in applyQueryFilter in lib/data/product-page-read.ts: a value that is not a uuid is replaced by the all-zero uuid, which no row has."
     },
     {
+      "id": "P3-216",
+      "title": "A hand-typed client id in the Proiecte address that is not a well-formed uuid went straight into the database filter and made the read fail, so the page fell to the error screen. A malformed id now gives an empty list and the default list count, the same as if no filter had been set.",
+      "plain": "If someone edits the Proiecte web address by hand and types a nonsense client id, the page now shows the full list instead of the error screen.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-208"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/projects.spec.ts is green in this pull request's own quality run: the test named 'un id de client nevalid (non-uuid) in URL arata lista nefiltrata, nu ecranul de eroare' passes. (b) tests/parse-project-query.test.ts is green: a client value of abc becomes empty string, a valid uuid is preserved, and whitespace is trimmed. (c) npx tsc --noEmit exits 0.",
+      "defaults": "A real read error still throws from listProjects. A malformed id is not dropped to show everything when a real client exists; it is treated as no filter. The search, status filter, paging, sorting and the error screen are unchanged. No migration, no schema change.",
+      "last_checkpoint": "2026-10-10T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/proiecte-bad-client-id against main; acceptance is the quality run on its head",
+        "at": "2026-10-10T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-10. Fix is in parseProjectQuery in lib/data/projects-list.ts: a value that is not a uuid is replaced by empty string, which is treated as no client filter."
+    },
+    {
       "id": "P3-211",
       "title": "The four import screens (leads, clients, projects, materials) allow a file up to 5 MB but send every row to the server in one call for the check and one for the write. The server refuses a request body over 1 MB, and the calls had no error handling, so the button stayed on the checking or importing label with no message. One call also wrote every row, which can run past the function time limit. The screens now send rows in batches of at most 200 (and at most about 700 KB), one after another, merge the results keeping the original row numbers, show progress, and on any failure show a Romanian message and free the button. The body limit in next.config.ts is not raised.",
       "plain": "Un fișier de import de până la 5 MB se verifică și se importă fără să rămână blocat; dacă serverul refuză, apare un mesaj clar și butonul se eliberează.",

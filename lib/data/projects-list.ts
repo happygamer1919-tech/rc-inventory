@@ -20,6 +20,7 @@ import {
 } from "./projects-list-types";
 import type { ProjectStatus } from "./projects-types";
 import { one } from "./row";
+import { looksLikeUuid } from "./suppliers-types";
 
 export type ProjectListResult = {
   rows: ProjectRow[];
@@ -55,11 +56,12 @@ export function parseProjectQuery(params: {
     statuses = [raw];
   }
 
+  const client = (params.client ?? "").trim();
   return {
     q: (params.q ?? "").trim(),
     statuses,
     allStatuses,
-    clientId: (params.client ?? "").trim(),
+    clientId: looksLikeUuid(client) ? client : "",
     page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
   };
 }
