@@ -407,6 +407,7 @@ export function OutboundDirectClientForm({
                   value={pickupDate}
                   onChange={setPickupDate}
                   onValidityChange={setPickupInvalid}
+                  markWhileTyping
                   testId="issue-pickup-date"
                 />
               </div>
