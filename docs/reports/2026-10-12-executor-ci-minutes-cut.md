@@ -27,7 +27,11 @@ checks still run every time.
 - `scripts/poc-free/pr-check-state.mjs`: exits 1 on a green while the pull
   request is a draft, and on a green whose run started before the last
   `ready_for_review` event. Both are checked before the staleness check.
-- `scripts/poc-free/prove-pr-state.mjs` and four fixtures: 8 cases, all pass.
+- `scripts/poc-free/prove-pr-state.mjs` and six fixtures: 10 cases, all pass.
+- `checks:state` now reads the NEWEST `quality` entry in the rollup. After
+  `gh pr ready` the rollup holds two entries for the same sha, draft run first;
+  the old `find` read the draft run and refused #507 although its ready run had
+  passed. Found on this pull request, fixed in the second push.
 - `CLAUDE.md` 3.1: item 1 under R-084 now requires a run started while the pull
   request was not a draft; the old sentence is quoted under 9c. New subsection
   for the third filter. The P3-73 heading "GATES TWELVE STEPS" is quoted and

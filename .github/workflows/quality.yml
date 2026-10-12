@@ -898,7 +898,7 @@ jobs:
         run: bash scripts/poc/test-board-set.sh
 
       # P3-265. checks:state is what decides that a green can be merged on, and
-      # since the draft gate it also refuses a draft run's green. Eight fixture
+      # since the draft gate it also refuses a draft run's green. Ten fixture
       # cases, each refusal paired with a trusted control. No network, no gh.
       # NOT PATH FILTERED: it is the gate the draft filter above relies on.
       - name: Prove the check-state reporter refuses a draft green  # P3-265-PR-STATE-PROOF

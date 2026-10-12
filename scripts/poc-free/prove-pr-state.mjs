@@ -80,6 +80,20 @@ check(
   0,
   "can be trusted",
 );
+// #507 as it stood: the draft run and the ready run both on the head sha, the
+// draft run first in the rollup. The newest entry decides.
+check(
+  "a draft run then a green ready run on one sha is trusted, exit 0",
+  "draft-run-then-ready-run-green.json",
+  0,
+  "can be trusted",
+);
+check(
+  "a draft run green and the ready run still running is not green",
+  "draft-run-green-ready-run-pending.json",
+  0,
+  "not green",
+);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed} of ${results.length} passed`);

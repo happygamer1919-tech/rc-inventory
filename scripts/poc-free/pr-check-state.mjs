@@ -91,7 +91,19 @@ if (args[0] === "--fixture") {
 const head = String(state.headRefOid || "").slice(0, 7);
 const mergeState = String(state.mergeStateStatus || "UNKNOWN");
 const rollup = Array.isArray(state.statusCheckRollup) ? state.statusCheckRollup : [];
-const required = rollup.find((c) => (c.name || c.context) === REQUIRED_CHECK);
+// P3-265. THE NEWEST RUN, NOT THE FIRST. Marking a draft ready runs `quality`
+// again on the same head sha, so the rollup then carries two entries for it, the
+// draft run first. Taking the first read the draft run's green and refused a
+// pull request whose ready run had passed (#507). Ties and entries without a
+// start time keep rollup order, last wins.
+const required = rollup
+  .filter((c) => (c.name || c.context) === REQUIRED_CHECK)
+  .reduce((newest, c) => {
+    if (!newest) return c;
+    const a = Date.parse(newest.startedAt || "");
+    const b = Date.parse(c.startedAt || "");
+    return Number.isFinite(a) && Number.isFinite(b) && b < a ? newest : c;
+  }, undefined);
 const verdict = required ? String(required.conclusion || required.state || "").toUpperCase() : "ABSENT";
 
 process.stdout.write(`pull request      #${state.number ?? "?"}\n`);
