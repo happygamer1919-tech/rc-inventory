@@ -1987,3 +1987,42 @@ test("iesire client direct: niciun cuvant englez pe ecran si nicio liniuta lunga
     expect(offenders, `${file} poarta o liniuta em sau en`).toEqual([]);
   }
 });
+
+/* ================================================================ P3-258 */
+
+test("P3-258: iesire client direct: o cantitate tastata cu virgula zecimala se salveaza cu punct", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+
+  // P3-258: pe un browser a carui limba nu este romana, "2,5" lasa cantitatea
+  // goala desi textul ramane vizibil. Acum casuta este text, iar sirul se citeste
+  // hier: "2,5" si "2.5" dau aceeasi 2.5, spatiile se ignora, orice altceva este
+  // refuzat cu glas tare. Iesirea cu cantitatea tastata in virgula zecimala se
+  // salveaza pe baza cu punct zecimal, asa cum o arata quantity in rest din
+  // aplicatie.
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  // CANTITATEA TASTATA CU VIRGULA, dupa modelul romanesc de scriere.
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("05.12.2026");
+  await comboPick(page, "issue-product-0", PRODUCT_NAME);
+  await page.getByTestId("issue-quantity-0").fill("2,5");
+
+  // 1. FARA MESAJ DE EROARE. O cantitate invalida ar arata mesajul issue-quantity-error-0,
+  //    iar "2,5" trebuie sa se accepte.
+  await expect(page.getByTestId("issue-quantity-error-0")).toHaveCount(0);
+
+  // 2. FORMULARUL ACCEPT SA TRIMITA.
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created"), "iesirea s-a creat").toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  // 3. PE BAZA, CANTITATEA ESTE NORMALIZATA LA PUNCT ZECIMAL.
+  const issue = await storedIssue(reference);
+  const lines = await asService(
+    `outbound_lines?select=quantity&outbound_issue_id=eq.${String(issue.id ?? "")}`,
+  );
+  expect(String(lines.rows[0]?.quantity ?? ""), "cantitatea din baza este 2.5").toBe("2.5");
+});
