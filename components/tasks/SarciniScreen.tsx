@@ -131,13 +131,37 @@ export function SarciniScreen({
   });
   const editing = rows.find((r) => r.id === editingId);
 
+  React.useEffect(() => {
+    // Drop assigneeId if it doesn't match any active profile
+    const assigneeId = params.get("responsabil");
+    if (
+      assigneeId &&
+      !assignees.some((a) => a.id === assigneeId)
+    ) {
+      const next = new URLSearchParams(params.toString());
+      next.delete("responsabil");
+      router.replace(`${pathname}?${next.toString()}`);
+    }
+  }, [assignees, params, pathname, router]);
+
   function push(patch: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(patch)) {
       if (v) next.set(k, v);
       else next.delete(k);
     }
+    // Un responsabil dezactivat nu se duce mai departe cand se schimba alt filtru.
+    const carried = next.get("responsabil");
+    if (carried && !("responsabil" in patch) && !assignees.some((a) => a.id === carried)) {
+      next.delete("responsabil");
+    }
     router.push(`${pathname}?${next.toString()}`);
+  }
+
+  function closeForm() {
+    const next = new URLSearchParams(params.toString());
+    next.delete("sarcina");
+    router.replace(`${pathname}?${next.toString()}`);
   }
 
   const filtered = taskFilterActive(query);
@@ -344,7 +368,10 @@ export function SarciniScreen({
           clients={clients}
           projects={projects}
           projectsFailed={projectsFailed}
-          onClose={() => setCreating(false)}
+          onClose={() => {
+            setCreating(false);
+            closeForm();
+          }}
         />
       ) : null}
       {editing ? (
@@ -359,7 +386,10 @@ export function SarciniScreen({
               ? closedLinks[taskLinkKey(editing.entityType, editing.entityId)]
               : undefined
           }
-          onClose={() => setEditingId(null)}
+          onClose={() => {
+            setEditingId(null);
+            closeForm();
+          }}
         />
       ) : null}
     </>
