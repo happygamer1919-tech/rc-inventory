@@ -9464,6 +9464,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the first draft of 0081 proved a slip was written in the current call with `xmin = pg_current_xact_id()::xid`. A row inserted inside a savepoint (any plpgsql `begin ... exception` block, which the assertion files use) carries the savepoint's own xid as xmin, so the check would refuse a legitimate sale whenever a caller wrapped it.
 **SOLUTION:** compare the column default instead: `created_at` (default `now()`) equals `now()`, the transaction start time, in every savepoint of the same transaction, and a row from an earlier request carries an earlier time. The assertion proves the refusal by writing an older slip with `created_at = now() - interval '1 minute'`. RULE: **to recognise a row written by the current transaction, compare a `now()` default, not xmin.**
 
+### A filter from the address that finds no record must not turn into "no filter"
+**Tag:** data
+**ERROR:** `app/(app)/comenzi/page.tsx` only set `filter` when `getProject` or `getClient` found a record. For a deleted, unknown or malformed id the filter stayed null, the list read got no project or client, and /comenzi showed every outbound issue as if that were the answer.
+**SOLUTION:** card P3-264: a requested filter with no record sets `missingFilter`, the page skips the list read (zero rows, total 0) and the screen shows "Proiectul din adresă nu există sau a fost șters." or the client version, with the existing clear button. A non-uuid is refused with `looksLikeUuid` before the lookup. Covered by the P3-264 case in `tests/e2e/outbound-direct-client.spec.ts`. RULE: **a filter that is present but unresolved is an error state of its own; never let a lookup that returns null widen the query.**
+
 ### A policy on the caller says nothing about the person a row points to
 **Tag:** backend
 **ERROR:** `tasks_insert` and `tasks_update` (0068) asked only that the caller is active, and the foreign key on `tasks.assignee_id` only that the profile exists. A deactivated colleague still exists, so a direct PostgREST call (or a stale form) could assign a task to someone who left, shown afterwards as (inactiv).
