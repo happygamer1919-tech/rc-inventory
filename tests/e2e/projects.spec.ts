@@ -265,7 +265,7 @@ test.describe("Proiecte", () => {
     // ID nevalid in URL da lista nefiltrata si mesajul implicit de proiecte.
     await page.goto("/proiecte?client=abc");
     await expect(page.getByTestId("projects-filters")).toBeVisible();
-    await expect(page.getByText("Proiecte")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Proiecte" })).toBeVisible();
     await expect(page.getByText("Șantierele, cu stadiul lor și cu clientul căruia îi aparțin.")).toBeVisible();
 
     // Selectul de client arata "Toți clienții", nu niciun client.
