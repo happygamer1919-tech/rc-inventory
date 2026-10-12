@@ -55,6 +55,45 @@ check(
   0,
   "can be trusted",
 );
+// P3-265. A draft run skips the heavy steps, so its green is not a merge green.
+check(
+  "a green check on a DRAFT pull request is refused, exit 1",
+  "draft-and-green.json",
+  1,
+  "DRAFT, NOT A MERGE GREEN",
+);
+check(
+  "a green that started before the PR was marked ready is refused, exit 1",
+  "ready-but-draft-run-green.json",
+  1,
+  "GREEN FROM BEFORE READY",
+);
+check(
+  "a draft-run green on a BEHIND pull request names the draft, not only staleness",
+  "behind-and-draft-run-green.json",
+  1,
+  "NOT A MERGE GREEN",
+);
+check(
+  "a green that started after the PR was marked ready is trusted, exit 0",
+  "ready-and-ready-run-green.json",
+  0,
+  "can be trusted",
+);
+// #507 as it stood: the draft run and the ready run both on the head sha, the
+// draft run first in the rollup. The newest entry decides.
+check(
+  "a draft run then a green ready run on one sha is trusted, exit 0",
+  "draft-run-then-ready-run-green.json",
+  0,
+  "can be trusted",
+);
+check(
+  "a draft run green and the ready run still running is not green",
+  "draft-run-green-ready-run-pending.json",
+  0,
+  "not green",
+);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed} of ${results.length} passed`);

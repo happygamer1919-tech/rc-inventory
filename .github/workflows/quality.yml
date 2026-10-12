@@ -1,7 +1,23 @@
 name: quality
 
+# P3-265. THE HEAVY STEPS RUN ONLY ON A READY PULL REQUEST.
+#
+# The account hit 90% of its 3,000 Actions minutes on 2026-10-12. In the week
+# before, about 400 runs used about 12,500 minutes: work-in-progress pushes paid
+# for the whole suite, and every push to main paid for it again on a head that
+# had just passed it as a pull request (about 2,450 minutes of the week).
+#
+# So the twelve `docs_scope` steps, plus the Playwright cache below, carry two
+# more conditions: the event is a pull request, and that pull request is not a
+# draft. A draft and a push to main still run Typecheck and every validator,
+# `Refuse ...` and `Prove ...` step. `ready_for_review` is listed so that
+# marking a draft ready starts the full run on the same head sha.
+#
+# STILL NO `paths:` KEY, for the reason docs_scope below gives. CLAUDE.md 3.1
+# names this gate and says what green means under it.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -122,7 +138,7 @@ jobs:
       # a standalone smoke test, and End to end, which is the only thing that
       # could have needed it, is skipped as a block alongside it.
       - name: Build
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         run: npm run build
 
       # All three boards, one step, one check name. The check name stays `quality`
@@ -409,7 +425,7 @@ jobs:
       # container to replay `supabase/migrations/**`, and no file under that
       # directory can appear in a diff this filter calls documentation.
       - name: Apply every migration to a bare postgres, unmodified
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         run: npm run check:migrations
 
       # THE APPLIER PROOF, AND IT IS THE ONE PATH-FILTERED STEP IN THIS JOB.
@@ -462,7 +478,7 @@ jobs:
       # anyway so that a reader adding a path to either filter later sees both
       # gates on the step instead of inferring one from the other.
       - name: Prove the migration applier against the Docker shim
-        if: steps.docs_scope.outputs.docs_only != 'true' && steps.applier_scope.outputs.run == 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true && steps.applier_scope.outputs.run == 'true'
         run: npm run prove:applier
 
       # PROVE-01. EVERY APPLIER ASSERTION, WATCHED TO FAIL.
@@ -480,7 +496,7 @@ jobs:
       # It rides the same path filter as the applier proof above: both build
       # containers and both are about the same file.
       - name: Prove every applier assertion can fail
-        if: steps.docs_scope.outputs.docs_only != 'true' && steps.applier_scope.outputs.run == 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true && steps.applier_scope.outputs.run == 'true'
         run: npm run prove:assertions
 
       # THE 2026-08-31 OUTAGE, MADE UNREPEATABLE.
@@ -881,6 +897,13 @@ jobs:
       - name: Prove the board set is the union of the boards  # AUT-16-BOARD-SET-PROOF
         run: bash scripts/poc/test-board-set.sh
 
+      # P3-265. checks:state is what decides that a green can be merged on, and
+      # since the draft gate it also refuses a draft run's green. Ten fixture
+      # cases, each refusal paired with a trusted control. No network, no gh.
+      # NOT PATH FILTERED: it is the gate the draft filter above relies on.
+      - name: Prove the check-state reporter refuses a draft green  # P3-265-PR-STATE-PROOF
+        run: npm run prove:pr-state
+
       - name: Prove the production guard refuses  # CRIT-15-REFUSAL-PROOF
         run: |
           set -uo pipefail
@@ -917,6 +940,10 @@ jobs:
       # DOCUMENTATION-ONLY CONDITION, and they are skipped as ONE BLOCK or not at
       # all. Skipping half of it would leave Playwright pointed at a stack that
       # was never started, which is a red run rather than a fast one.
+      #
+      # P3-265. THE SAME BLOCK ALSO SKIPS ON A DRAFT PULL REQUEST AND ON A PUSH
+      # TO MAIN, by the two conditions explained at the top of this file. One
+      # condition string on every gated step, so the block still skips whole.
       # ----------------------------------------------------------------------
 
       # CI-01. PINNED, BOTH HALVES: THE ACTION TO A COMMIT SHA AND THE CLI TO AN
@@ -956,27 +983,27 @@ jobs:
       # THE SHA IS THE ONE THE GREEN RUN OF 2026-09-05 RESOLVED `@v1` TO, read
       # from that run's own log rather than from the tag today.
       - name: Start local Supabase
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
         with:
           version: 2.116.0
 
       - name: Launch database, auth and storage
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         # Which services run is decided by supabase/config.toml, not by flags
         # here: one place to change, and no risk of a renamed container name
         # breaking the workflow.
         run: supabase start
 
       - name: Apply migrations to the local stack
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         # db reset replays supabase/migrations from empty, in file order, which
         # is the same order Ivan applies them by hand. If a migration is broken,
         # CI says so here rather than on the day it is applied for real.
         run: supabase db reset
 
       - name: Export local Supabase credentials
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         run: |
           set -euo pipefail
           supabase status -o env > /tmp/supabase.env
@@ -993,7 +1020,7 @@ jobs:
       # the only way to exercise the redirect loop this card removed, because
       # the loop needed a valid session whose profile lookup came back empty.
       - name: Seed the three test accounts
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         env:
           TEST_OWNER_EMAIL: owner@rc-inventory.local
           TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
@@ -1045,14 +1072,27 @@ jobs:
             echo "TEST_NO_PROFILE_PASSWORD=${TEST_NO_PROFILE_PASSWORD}"
           } > .env.local
 
+      # P3-265. The chromium download is cached between runs, keyed on the
+      # lockfile, so a new Playwright version is a new key and a fresh download.
+      # The install step below still runs every time: on a hit it finds the
+      # browser already in place and only installs the system packages
+      # (--with-deps), which are not cached. Pinned to the sha `v4` resolved to on
+      # 2026-10-12, per CI-01.
+      - name: Cache Playwright browsers
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright chromium
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         # Chromium only. Firefox and WebKit would triple the minutes to
         # re-prove the same application logic on a desktop-only internal tool.
         run: npx playwright install --with-deps chromium
 
       - name: End to end
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         run: npx playwright test
 
       # P3-117, Ivan's Item 1a. THE SECTION-TRANSITION BASELINE.
@@ -1084,7 +1124,7 @@ jobs:
       # have. Read, never echoed: the values pass through command substitution
       # into the environment and nothing prints them.
       - name: Baseline p75 of the section transitions  # P3-117-PERF-BASELINE
-        if: steps.docs_scope.outputs.docs_only != 'true'
+        if: steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         env:
           RC_PERF_BASE_URL: http://localhost:3103
           NEXT_DIST_DIR: .next-main
@@ -1139,7 +1179,7 @@ jobs:
       # report directory, so a validator failing under `failure()` would send
       # this step looking for a path that was never written.
       - name: Upload Playwright report on failure
-        if: failure() && steps.docs_scope.outputs.docs_only != 'true'
+        if: failure() && steps.docs_scope.outputs.docs_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft != true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
