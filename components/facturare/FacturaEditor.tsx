@@ -389,6 +389,7 @@ export function FacturaEditor({
                 value={issueDate}
                 onChange={setIssueDate}
                 onValidityChange={mark("issueDate")}
+                markWhileTyping
                 testId="factura-editor-data-emiterii"
               />
               {/* CE SE INTAMPLA CU ACEASTA ZI, spus pe ecran: ea se scrie pe factura in
@@ -408,6 +409,7 @@ export function FacturaEditor({
                 value={dueDate}
                 onChange={setDueDate}
                 onValidityChange={mark("dueDate")}
+                markWhileTyping
                 testId="factura-editor-scadenta"
               />
               <span className="block text-[12px] text-rc-muted mt-1">

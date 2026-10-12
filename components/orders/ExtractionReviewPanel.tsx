@@ -532,6 +532,7 @@ function ReviewForm({
               value={orderedAt}
               onChange={setOrderedAt}
               onValidityChange={mark("orderedAt")}
+              markWhileTyping
               className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
             />
           </span>
@@ -544,6 +545,7 @@ function ReviewForm({
               value={expectedAt}
               onChange={setExpectedAt}
               onValidityChange={mark("expectedAt")}
+              markWhileTyping
               className="rounded-[9px] border-rc-line py-1.5 text-[13px]"
             />
           </span>

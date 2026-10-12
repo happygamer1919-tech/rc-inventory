@@ -280,6 +280,7 @@ export function InboundOrderForm({
               value={orderedAt}
               onChange={setOrderedAt}
               onValidityChange={mark("orderedAt")}
+              markWhileTyping
               testId="order-ordered-at"
             />
             <DateInWords value={orderedAt} testId="order-ordered-at-words" />
@@ -289,6 +290,7 @@ export function InboundOrderForm({
               value={expectedAt}
               onChange={setExpectedAt}
               onValidityChange={mark("expectedAt")}
+              markWhileTyping
               testId="order-expected-at"
             />
             <DateInWords value={expectedAt} testId="order-expected-at-words" />
