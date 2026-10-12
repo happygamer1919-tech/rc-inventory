@@ -75,6 +75,7 @@ The format is machine-read, so keep it exactly:
 - `0077_take_stock_lines_guard.sql`, card de aplicare P3-199
 - `0078_invoices_refuse_walkin_issue.sql`, card de aplicare P3-212
 - `0079_clients_insert_manager_columns.sql`, card de aplicare P3-255
+- `0080_task_assignee_must_be_active.sql`, card de aplicare P3-259
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
