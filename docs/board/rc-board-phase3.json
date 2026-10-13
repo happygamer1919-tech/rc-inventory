@@ -6892,6 +6892,55 @@
         "at": "2026-10-13T15:07:31Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-13 by EXECUTOR in the same pull request. Id P3-266 checked free with npm run id:free. Migration number 0082: main holds 0081 and no open pull request holds a migration. Every writer of outbound_issues was read before the guard was written: create_outbound_issue and create_direct_client_issue insert only, outbound_issue_take_stock and walkin_lead_becomes_client lock the row and never update it, ship_outbound_issue is the one status change and now sets the flag. The assertion was run red first (no trigger) and green with it on a throwaway local postgres from Homebrew, since this machine has no Docker."
+    },
+    {
+      "id": "P3-269",
+      "title": "A windows-1250 CSV with three Romanian diacritics in a row (for example Țâșnitor in a company name) was read as windows-1251 and imported as Cyrillic gibberish without an error. decodeCsvFile in lib/data/import-shared.ts took 1251 on any run of 3 Cyrillic letters, and the ten Romanian diacritic bytes are Cyrillic letters in 1251. It now takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten (hasRussianWord).",
+      "plain": "A Romanian file saved by Excel on Windows now imports with the right letters even when a name has several diacritics in a row. Russian files still import as Russian.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "The five cases whose names start with 'codare csv P3-269' in tests/e2e/import-encoding.spec.ts are green in this pull request own quality run: 'windows-1250 cu Țâșnitor arteziene SRL si Chișinău se citeste romaneste', 'windows-1250 cu trei diacritice la rand intr-o nota ramane romanesc', 'un fisier rusesc windows-1251 cu Иван Петров ramane rusesc', 'un fisier ASCII ramane neschimbat' and 'UTF-8 cu Țâșnitor ramane neschimbat'. The other 'codare csv' cases in that file stay green. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "UTF-8 files, the BOM handling, UTF-16, the plausibility checks, delimiter sniffing and the import plans and their messages are unchanged. A file that is only the letters of ООО or a few short words made of the ten shared letters reads as Romanian. No migration, no schema change.",
+      "last_checkpoint": "2026-10-13T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-269 against main; acceptance is the quality run on its head",
+        "at": "2026-10-13T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13. Checked locally with a script on the decoder; the spec file itself runs in CI."
+    },
+    {
+      "id": "P3-268",
+      "title": "On a walk-in sale line, 1.200 is 1200 as a quantity as well as a price, on the screen and on the server",
+      "plain": "In the walk-in sale, typing 1.200 as a quantity now means one thousand two hundred, the same as in the price box, and the saved slip agrees with what the screen showed.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-253",
+        "P3-258"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/price-input.spec.ts whose names start with 'P3-268' are green in this pull request's own quality run: parseQuantityText reads 1.200 as 1200, 1.200,5 as 1200.5, keeps 0.500 as 0.5, 2,5 as 2.5 and 1.20 as 1.2, refuses abc and 0; the server line reading (processIssueLines) takes quantity 1.200 and price 1.200 as 1200 and refuses invalid text with the two existing Romanian messages. (b) The P3-209, P3-253 and P3-258 cases in the same file stay green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: parseQuantityText and parsePriceText share one reader; a dot followed by exactly three digits is a thousands separator for both, and a first group starting with 0 stays decimal. Quantity still refuses zero. The server in lib/data/outbound-actions.ts reads every line through processIssueLines in lib/data/outbound-lines.ts, which uses those two parsers; an invalid quantity or price is refused with the existing Romanian messages. Inbound and product forms are unchanged. No migration.",
+      "last_checkpoint": "2026-10-13T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-268 against main: its quality run on the head sha runs tests/e2e/price-input.spec.ts and the board validator",
+        "at": "2026-10-13T00:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-13: the server replaced only the comma, so 1.200 became 1.2 on the slip while the screen read 1200. Id P3-268 checked free with npm run id:free."
     }
   ]
 }

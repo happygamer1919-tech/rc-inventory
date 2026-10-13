@@ -126,6 +126,44 @@ test("codare csv P3-207: un fisier numai rusesc ramane windows-1251", () => {
   expect(result).toEqual({ text, encoding: "windows-1251" });
 });
 
+// P3-269. Trei diacritice la rand in 1250 nu fac fisierul rusesc.
+function cp1250(text: string): number[] {
+  const map: Record<string, number> = {
+    Ă: 0xc3, Â: 0xc2, Î: 0xce, Ș: 0xaa, Ț: 0xde, ă: 0xe3, â: 0xe2, î: 0xee, ș: 0xba, ț: 0xfe,
+  };
+  return [...text].map((ch) => map[ch] ?? ch.charCodeAt(0));
+}
+
+test("codare csv P3-269: windows-1250 cu Țâșnitor arteziene SRL si Chișinău se citeste romaneste", () => {
+  const text = "Denumire;Adresă\nȚâșnitor arteziene SRL;Chișinău\nPopescu SRL;Bălți";
+  const result = decodeCsvFile(buffer(cp1250(text)));
+  expect(result).toEqual({ text, encoding: "windows-1250" });
+});
+
+test("codare csv P3-269: windows-1250 cu trei diacritice la rand intr-o nota ramane romanesc", () => {
+  const text = "Nume;Nota\nIonescu;Țâșți și Ăîâ";
+  const result = decodeCsvFile(buffer(cp1250(text)));
+  expect(result).toEqual({ text, encoding: "windows-1250" });
+});
+
+test("codare csv P3-269: un fisier rusesc windows-1251 cu Иван Петров ramane rusesc", () => {
+  const text = "Имя;Фирма\nИван Петров;Строй";
+  const result = decodeCsvFile(buffer(cp1251(text)));
+  expect(result).toEqual({ text, encoding: "windows-1251" });
+});
+
+test("codare csv P3-269: un fisier ASCII ramane neschimbat", () => {
+  const text = "Nume;Telefon\nPopescu SRL;069123456";
+  const result = decodeCsvFile(buffer(ascii(text)));
+  expect(result).toEqual({ text, encoding: "utf-8" });
+});
+
+test("codare csv P3-269: UTF-8 cu Țâșnitor ramane neschimbat", () => {
+  const text = "Denumire\nȚâșnitor arteziene SRL";
+  const result = decodeCsvFile(buffer([...new TextEncoder().encode(text)]));
+  expect(result).toEqual({ text, encoding: "utf-8" });
+});
+
 test("codare csv P3-207: UTF-8 cu chirilica ramane neschimbat", () => {
   const text = "Nume;Firma\nSC Alpha SRL;ООО Строй";
   const result = decodeCsvFile(buffer([...new TextEncoder().encode(text)]));
