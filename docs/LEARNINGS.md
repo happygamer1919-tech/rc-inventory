@@ -9498,3 +9498,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** import
 **ERROR:** `loadExisting` in `lib/data/lead-import-actions.ts` read clients without the `active` column, so a leads row matching a deactivated client was reported as a duplicate of a client missing from every list, the fill option was enabled, and `fillEmpty` wrote into the deactivated record. P3-257 fixed the clients import and the rule it left behind ("every import reads the active flag") was not applied to the leads import.
 **SOLUTION:** card P3-267: `loadExisting` reads `active`, the plan marks the match `inactive` with nothing fillable, `duplicateReason` carries the P3-257 wording, `addContactNameFillable` skips inactive matches, and `runLeadImport` skips them whatever was chosen. Covered by `tests/e2e/lead-import-inactive.spec.ts`. RULE: **when a fix lands in one of two sibling imports, grep the other for the same read before closing the card.**
+
+### A windows-1250 CSV with three Romanian diacritics in a row was imported as Cyrillic
+**Tag:** import
+**ERROR:** `decodeCsvFile` in `lib/data/import-shared.ts` chose windows-1251 whenever the 1251 reading held 3 Cyrillic letters in a row. The ten Romanian diacritic bytes of windows-1250 (Ă Â Î Ș Ț ă â î ș ț) are Cyrillic letters in 1251, so a name like Țâșnitor flipped the whole file to Cyrillic and it imported without an error.
+**SOLUTION:** card P3-269: `hasRussianWord` takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten. Covered by the 'codare csv P3-269' cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector that tests for "looks like script X" must first remove the characters the competing encoding maps into X.**
