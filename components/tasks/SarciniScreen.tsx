@@ -95,6 +95,7 @@ export function SarciniScreen({
   rows,
   query,
   assignees,
+  inactiveAssignee = null,
   today,
   canWrite,
   clients = [],
@@ -105,6 +106,9 @@ export function SarciniScreen({
   rows: Task[];
   query: TaskListQuery;
   assignees: TaskAssignee[];
+  /** P3-270: colegul dezactivat pe care il numeste filtrul din adresa, daca exista. Un
+   *  filtru pe el ramane; un id fara niciun profil se scoate. */
+  inactiveAssignee?: TaskAssignee | null;
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata o singura data de pagina
    *  prin chisinauToday(). Vezi antetul. */
   today: string;
@@ -132,17 +136,19 @@ export function SarciniScreen({
   const editing = rows.find((r) => r.id === editingId);
 
   React.useEffect(() => {
-    // Drop assigneeId if it doesn't match any active profile
+    // Scoate responsabilul numai cand id-ul nu apartine NICIUNUI profil, nici activ,
+    // nici dezactivat (P3-270). Un coleg dezactivat ramane in adresa.
     const assigneeId = params.get("responsabil");
     if (
       assigneeId &&
-      !assignees.some((a) => a.id === assigneeId)
+      !assignees.some((a) => a.id === assigneeId) &&
+      inactiveAssignee?.id !== assigneeId
     ) {
       const next = new URLSearchParams(params.toString());
       next.delete("responsabil");
       router.replace(`${pathname}?${next.toString()}`);
     }
-  }, [assignees, params, pathname, router]);
+  }, [assignees, inactiveAssignee, params, pathname, router]);
 
   function push(patch: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
@@ -150,9 +156,14 @@ export function SarciniScreen({
       if (v) next.set(k, v);
       else next.delete(k);
     }
-    // Un responsabil dezactivat nu se duce mai departe cand se schimba alt filtru.
+    // Un responsabil dezactivat se duce mai departe; unul fara niciun profil, nu.
     const carried = next.get("responsabil");
-    if (carried && !("responsabil" in patch) && !assignees.some((a) => a.id === carried)) {
+    if (
+      carried &&
+      !("responsabil" in patch) &&
+      !assignees.some((a) => a.id === carried) &&
+      inactiveAssignee?.id !== carried
+    ) {
       next.delete("responsabil");
     }
     router.push(`${pathname}?${next.toString()}`);

@@ -199,6 +199,9 @@ export async function getInvoice(id: string): Promise<InvoiceRead> {
         address: settings?.issuerAddress ?? "",
         bank: settings?.issuerBank ?? "",
         iban: settings?.issuerIban ?? "",
+        vatCode: settings?.issuerVatCode ?? "",
+        phone: settings?.issuerPhone ?? "",
+        email: settings?.issuerEmail ?? "",
       },
       client: {
         // Cheia straina refuza stergerea unui client legat de o factura, deci randul

@@ -22,6 +22,7 @@ import { listClientOptions } from "@/lib/data/projects-list";
 import { readSelectableProjects } from "@/lib/data/projects";
 import { chisinauToday } from "@/lib/data/format";
 import {
+  findInactiveAssignee,
   listClosedLinkChoices,
   listTaskAssigneeChoices,
   listTasks,
@@ -89,6 +90,7 @@ export default async function SarciniPage({
   // stergerea filtrului, dar daca ID-ul nu corespunde nici unui profil cunoscut, se
   // scoate din adresa.
   const assigneeId = query.assigneeId;
+  const inactiveAssignee = assigneeId !== "" ? await findInactiveAssignee(assigneeId) : null;
   const rows = await listTasks({ ...query, assigneeId });
 
   // O SARCINA LEGATA DE UN PROIECT INCHIS SAU DE UN CLIENT INACTIV isi arata
@@ -105,6 +107,7 @@ export default async function SarciniPage({
       rows={rows}
       query={{ ...query, assigneeId }}
       assignees={assignees}
+      inactiveAssignee={inactiveAssignee}
       today={chisinauToday()}
       // AMANDOUA ROLURILE SCRIU SARCINI, si asta nu este o presupunere: politicile
       // tasks_insert si tasks_update din migratia 0068 cer public.current_app_role()

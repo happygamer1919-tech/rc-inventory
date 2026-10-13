@@ -121,6 +121,20 @@ export async function listTaskAssigneeChoices(): Promise<AssigneeChoice[]> {
 }
 
 /**
+ * P3-270: colegul DEZACTIVAT cu id-ul cerut, sau null. Ecranul Sarcini il foloseste ca
+ * sa deosebeasca "responsabil dezactivat" (filtrul ramane in adresa) de "nu exista
+ * niciun profil cu acest id" (filtrul se scoate). Lista echipei nu se poate citi: null,
+ * adica necunoscut.
+ */
+export async function findInactiveAssignee(id: string): Promise<AssigneeChoice | null> {
+  const supabase = await createClient();
+  const team = await readTeam(supabase);
+  const member = team?.find((m) => m.id === id && !m.active);
+  if (!member) return null;
+  return { id: member.id, fullName: member.displayName?.trim() || "Fără nume" };
+}
+
+/**
  * Tabela sarcinilor exista pe baza catre care arata aplicatia?
  *
  * ECRANELE O INTREABA PE EA, pe modelul lui outboundModeVisible din

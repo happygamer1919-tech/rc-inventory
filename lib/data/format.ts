@@ -55,6 +55,14 @@ export function formatNumber(value: number): string {
   return NF.format(value);
 }
 
+/** Procentul, scris romanesc: 20 devine "20 %", 20,5 devine "20,5 %".
+ *
+ *  MUTAT AICI DIN FacturaScreen.tsx de cardul P3-272: ecranul facturii si PDF-ul ei
+ *  scriu acelasi procent, deci o singura functie. */
+export function formatRate(rate: number): string {
+  return `${NF2.format(rate)} %`;
+}
+
 /** Pluralul romanesc pentru un substantiv numarat.
  *
  *  Romana are trei forme, nu doua: 1 cere singularul, numerele al caror rest la

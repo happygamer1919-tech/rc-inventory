@@ -9528,3 +9528,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** PR #430 merged P3-148 (half-filled walk-in line refused) as shipped, but the three cases named in its acceptance were never written, so nothing proved the form or the server refusal.
 **SOLUTION:** card P3-271 added them to `tests/e2e/outbound-direct-client.spec.ts`; the server case captures the real server action request in the browser and replays it with a half-filled line. RULE: **before marking a card shipped, grep the spec file for each case name the acceptance quotes.** A second RULE: **`check:board-edit` refuses code under a card that is already shipped; follow-up test work needs its own new card (new id via `npm run id:free`), and neither the branch name nor a commit subject may name the old card.**
+
+### Sarcini stripped the filter on a switched-off colleague on first render
+**Tag:** sarcini
+**ERROR:** the mount effect in `components/tasks/SarciniScreen.tsx` (P3-251) removed `responsabil` from the address whenever the id was not in `assignees`, and `assignees` holds only ACTIVE colleagues, so the filter on a switched-off colleague that the card promised never stayed. `push()` dropped it too. The e2e case written with it asserted the stripped result, so it passed while the promise was broken.
+**SOLUTION:** card P3-270: the page finds the inactive colleague (`findInactiveAssignee` in `lib/data/tasks.ts`) and passes it to the screen; the effect and `push()` drop the id only when it matches no profile at all. Covered by `tests/e2e/sarcini-inactive-assignee-filter.spec.ts`. RULE: **a test that checks the end state of a cleanup must also check that the thing it keeps is still there; "the param is gone" proves nothing about a param that should have stayed.**
+
+### A malformed responsabil in a Sarcini link crashed the page
+**Tag:** sarcini
+**ERROR:** P3-251 replaced the blanking of an unknown `responsabil` with the raw value, and `parseTaskQuery` only trimmed it. `readTaskRows` then sent `.eq('assignee_id', 'abc')`, Postgres refused with "invalid input syntax for type uuid", the read threw and `/sarcini?responsabil=abc` fell to `app/error.tsx`. The screen's cleanup effect never ran because the screen never mounted. Same class as P3-208 (Inventar) and P3-216 (Proiecte).
+**SOLUTION:** card P3-273: `parseTaskQuery` keeps `responsabil` only when `looksLikeUuid` (lib/data/suppliers-types.ts, reused, not copied) accepts it. Covered by `tests/e2e/parse-task-query.spec.ts` and `tests/e2e/sarcini-bad-assignee-id.spec.ts`. RULE: **a URL parameter that reaches a uuid column must pass a uuid check in the parser; a screen-side cleanup cannot catch it because the read runs first.**
+
+### A PDF cannot be looked at on the factory machine, and a standard PDF font has no ș or ț
+**Tag:** tooling
+**ERROR:** the machine has no poppler and `sips` is not allowed, so a generated invoice PDF could not be rendered to an image. A route importing `server-only` also throws when run with plain node, so the renderer could not be called from a script. The default pdfkit font (Helvetica) has no ș or ț, so an invoice would have printed wrong glyphs for Romanian names.
+**SOLUTION:** card P3-272 embeds DejaVu Sans Condensed (`lib/pdf/fonts`, license text beside it) and checked the output by running the renderer with `npx tsx --conditions=react-server`, then reading the page size, the text and the x/y of every text item back with `pdfjs-dist` (installed with `--no-save`). RULE: **check every glyph of the alphabet in the font file with fontkit before shipping a PDF, and read the PDF back through a parser when you cannot see it.**
