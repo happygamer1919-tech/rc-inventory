@@ -168,7 +168,7 @@ test("sarcini: o legatura la un responsabil dezactivat arata butonul Șterge fil
   expect(page.url()).not.toContain("responsabil");
 });
 
-test("sarcini: dupa schimbarea unui filtru, un responsabil mort nu se duce mai departe", async ({
+test("sarcini: dupa schimbarea unui filtru, un responsabil dezactivat se duce mai departe", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -202,10 +202,10 @@ test("sarcini: dupa schimbarea unui filtru, un responsabil mort nu se duce mai d
   // Wait for navigation
   await page.waitForURL(/stare=in_progress/, { timeout: 10_000 });
 
-  // URL should no longer have the responsabil param, but should have the status param
-  const url = page.url();
-  expect(url).not.toContain("responsabil");
-  expect(url).toContain("stare=in_progress");
+  // P3-270: a switched-off colleague is carried along, with the status param added
+  const url = new URL(page.url());
+  expect(url.searchParams.get("responsabil")).toBe(managerProfile);
+  expect(url.searchParams.get("stare")).toBe("in_progress");
 });
 
 test("sarcini: o legatura de pe Azi cu ?sarcina=<id> se sterge din adresa cand se inchide formularul", async ({
