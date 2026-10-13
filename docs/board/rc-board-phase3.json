@@ -6698,6 +6698,32 @@
       "notes": "Found by the bug check of 2026-10-10. Migration number 0080 because 0078 (#487) and 0079 (#498) are held by open pull requests."
     },
     {
+      "id": "P3-262",
+      "title": "Walk-in buyer picker (Iesiri materiale, Client direct) lists active leads as well as clients, each lead marked Lead; a direct_client slip to a lead moves that record to stage client in the same transaction, for owner and account_manager. Migration 0081 adds the SECURITY DEFINER public.walkin_lead_becomes_client(uuid), which refuses a signed-in caller who is not an active owner or account_manager and refuses unless the slip is a direct_client slip written by the caller in the current transaction (created_at = now()), then moves a lead through public.set_client_stage (one status_history row). create_direct_client_issue keeps its signature and calls it after outbound_issue_take_stock. clients_update and set_client_stage are not widened. Reverses the stage filter of P3-196 on the owner's decision.",
+      "plain": "At the counter, staff can now pick a buyer who is still a lead. The sale goes to that existing record and the record becomes a client in the same save, so no duplicate client is created.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-196",
+        "P3-147"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) Every case in tests/e2e/walkin-buyer-lead.spec.ts is green in this pull request quality run on its head sha, against the local Supabase stack: as account_manager a lead appears marked Lead, the walk-in sale to it saves, the record is then stage client with exactly one client status_history row and no new client was created; set_client_stage, a PATCH and walkin_lead_becomes_client on an earlier slip all leave a lead's stage unchanged for the manager; a refused sale leaves the lead's stage; the owner's sale to a lead works and set_client_stage still works for the owner; an inactive lead is not listed. (b) The case 'P3-196 si P3-262: un lead apare marcat Lead, un client inactiv nu apare in lista de cumparatori' in tests/e2e/outbound-direct-client.spec.ts is green in the same run. (c) npm run check:migrations passes with scripts/poc-free/local-db/assertions/0081_walkin_lead_buyer_becomes_client.sql, and the steps Refuse a migration that removes rows and both applier proof steps RAN and passed, not skipped. (d) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: bug check of 2026-10-10 and the owner's answer (Max, 2026-10-10): 'yes do the lead option'. Lead means every stage except client (cold, nurture, follow_up, quoted; the enum has no lost stage). The marker is the word Lead, the word the Clienti list already uses. The stage moves in the database, in the same transaction as the slip, through set_client_stage so the follow-up date rules apply as on the owner's screen. A sale to a record already at stage client changes nothing. Inactive records stay out of the picker. The '+ Client nou' path, clients_update, clients_insert and the 0079 trigger are unchanged. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-10T21:09:37Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-262 against main: its quality run on the head sha runs tests/e2e/walkin-buyer-lead.spec.ts and tests/e2e/outbound-direct-client.spec.ts, npm run check:migrations with scripts/poc-free/local-db/assertions/0081_walkin_lead_buyer_becomes_client.sql, and the destructive-migration and applier proof steps; report in docs/reports/2026-10-10-executor-counter-buyer-lead-pick.md",
+        "at": "2026-10-10T21:09:37Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-10 by EXECUTOR in the same pull request. Id P3-262 checked free with npm run id:free. Migration number 0081: main holds 0079 and open pull request #502 (P3-259) holds 0080. The P3-196 test that said a lead does not appear was renamed and changed to the owner's new rule, its old name quoted in the spec. A migration pull request never self-merges: the owner is told before the live database changes."
+    },
+    {
       "id": "P3-258",
       "title": "A walk-in quantity typed with comma decimal (2,5) is accepted and saved as 2.5",
       "plain": "In the walk-in sale, a quantity typed as 2,5 now saves as 2.5, like prices do.",

@@ -19,27 +19,42 @@ export const CLIENT_OPTIONS_READ_FAILED = "Nu am putut citi clienții. Încerca�
 export async function readActiveClientOptions(
   supabase: Supabase,
   opts: { buyersOnly?: boolean } = {},
-): Promise<{ id: string; name: string; phone?: string | null; fiscal_code?: string | null }[]> {
-  type Row = { id: string; name: string; phone: string | null; fiscal_code: string | null };
+): Promise<
+  { id: string; name: string; phone?: string | null; fiscal_code?: string | null; isLead?: boolean }[]
+> {
+  type Row = {
+    id: string;
+    name: string;
+    phone: string | null;
+    fiscal_code: string | null;
+    stage: string | null;
+  };
   let rows: Row[];
   try {
-    rows = await readAllPages<Row>("clientii activi", (from, to) => {
-      let query = supabase
+    rows = await readAllPages<Row>("clientii activi", (from, to) =>
+      // P3-196 citea aici, pentru cumparatori, doar etapa 'client': "Leadurile stau
+      // in aceeasi tabela si nu se vand (P3-177, acceptanta c)". P3-262, decizia
+      // proprietarului din 2026-10-10: cumparatorul de la tejghea poate fi si un
+      // lead, marcat "Lead", si devine Client la salvarea bonului (migratia 0081).
+      // Etapa se citeste ca lista cumparatorilor sa poata marca leadurile.
+      supabase
         .from("clients")
-        .select("id, name, phone, fiscal_code", { count: "exact" })
-        .eq("active", true);
-      // P3-196: cumparatorul de la iesiri este doar un client la etapa 'client'.
-      // Leadurile stau in aceeasi tabela si nu se vand (P3-177, acceptanta c).
-      if (opts.buyersOnly) query = query.eq("stage", "client");
-      return query
+        .select("id, name, phone, fiscal_code, stage", { count: "exact" })
+        .eq("active", true)
         .order("name")
         .order("id")
-        .range(from, to);
-    });
+        .range(from, to),
+    );
   } catch {
     throw new Error(CLIENT_OPTIONS_READ_FAILED);
   }
   return dedupeById(rows)
-    .map((r) => ({ id: r.id, name: r.name, phone: r.phone, fiscal_code: r.fiscal_code }))
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      fiscal_code: r.fiscal_code,
+      ...(opts.buyersOnly ? { isLead: r.stage !== "client" } : {}),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, "ro"));
 }

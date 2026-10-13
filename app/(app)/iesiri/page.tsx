@@ -21,6 +21,9 @@ export default async function OutboundPage() {
   // citesc si filtrul si selectorul de client de pe celelalte ecrane: clientii
   // activi, o singura definitie a intrebarii "care clienti se pot alege".
   // P3-196: aici doar clientii la etapa 'client'. Leadurile nu sunt cumparatori.
+  // P3-262 a schimbat propozitia de mai sus, la decizia proprietarului din
+  // 2026-10-10: leadurile active apar si ele, marcate "Lead", si devin Client la
+  // salvarea bonului (migratia 0081). Inactivii raman pe dinafara.
   const [products, projects, clients, user] = await Promise.all([
     listActiveProducts(),
     listSelectableProjects(),
