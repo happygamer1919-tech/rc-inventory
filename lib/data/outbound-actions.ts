@@ -9,6 +9,7 @@ import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextOutboundReference } from "./outbound";
 import { unitLabel, isUnitCode } from "./units";
 import { validateNewIssue } from "./outbound-mode";
+import { processIssueLines } from "./outbound-lines";
 import type { ActionResult } from "./inbound-types";
 import type { NewIssueInput, OutboundMode } from "./outbound-types";
 import { one } from "./row";
@@ -117,14 +118,10 @@ export async function createOutboundIssue(
   if (refusal) return { ok: false, message: refusal.message, field: refusal.field };
 
   // P3-148: check for half-filled lines (product without quantity or vice versa) before filtering
-  const processedLines = input.lines.map((l) => ({
-    product_id: l.productId.trim(),
-    quantity: Number(String(l.quantity).replace(",", ".")),
-    sale_price_mdl:
-      String(l.salePriceMdl).trim() === ""
-        ? null
-        : Number(String(l.salePriceMdl).replace(",", ".")),
-  }));
+  // P3-268: aceleasi functii de citire ca ecranul (lib/data/price-input.ts).
+  const read = processIssueLines(input.lines);
+  if (!read.ok) return { ok: false, message: read.message, field: "lines" };
+  const processedLines = read.lines;
 
   // P3-148: O POZITIE UMPLUTA PE JUMATATE NU TRECE. Exact cum ecranul o refuza cu
   // un mesaj pe rand, serverul refuza aceeasi intrare pentru orice alt apelant care
