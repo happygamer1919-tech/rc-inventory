@@ -614,7 +614,28 @@ export function rowHasBrokenLetters(cells: string[]): boolean {
  *  si se citeste ca UTF-16; ce nu se poate citi curat se refuza.
  */
 /** Cel putin 3 litere chirilice la rand (P3-207). */
-const CYRILLIC_RUN = /[Ѐ-ӿ]{3,}/;
+const CYRILLIC_RUN = /[Ѐ-ӿ]{3,}/g;
+
+/**
+ * Cele zece litere chirilice in care windows-1251 citeste octetii diacriticelor romanesti din
+ * windows-1250 (Ă C3, Â C2, Î CE, Ș AA, Ț DE, ă E3, â E2, î EE, ș BA, ț FE). Trei diacritice la rand
+ * ("Țâșnitor") dau un sir chirilic facut numai din aceste litere (P3-269).
+ */
+const ROMANIAN_AS_1251 = new Set([..."ГВОЄЮгвоєю"]);
+
+/**
+ * P3-269: textul citit ca 1251 este rusesc numai daca are un cuvant chirilic de cel putin 3 litere
+ * cu cel putin 2 litere in afara celor zece de mai sus. Un cuvant facut numai din ele, sau cu o
+ * singura litera straina (ü ä é), este romanesc citit gresit.
+ */
+function hasRussianWord(text1251: string): boolean {
+  for (const run of text1251.match(CYRILLIC_RUN) ?? []) {
+    let other = 0;
+    for (const ch of run) if (!ROMANIAN_AS_1251.has(ch)) other++;
+    if (other >= 2) return true;
+  }
+  return false;
+}
 
 /** Control C0 fara tab (09), LF (0A), CR (0D). */
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
@@ -683,7 +704,7 @@ export function decodeCsvFile(
     // P3-218: o litera straina izolata (ü ä é) este in 1251 o litera chirilica, deci nu poate
     // decide pentru 1251. Hotaraste numai un cuvant cu cel putin 3 litere chirilice la rand
     // (P3-207): nu apare in text latin citit ca 1251, nici in Würth, Kärcher, Café.
-    if (CYRILLIC_RUN.test(t1251)) {
+    if (hasRussianWord(t1251)) {
       text = t1251;
       encoding = "windows-1251";
     } else {

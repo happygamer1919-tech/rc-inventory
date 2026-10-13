@@ -9508,3 +9508,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** tests
 **ERROR:** `tests/price-input.test.ts` sits outside `testDir: ./tests/e2e`, so nothing runs it, and 3 of its cases already fail on `text` values.
 **SOLUTION:** card P3-268 put its cases in `tests/e2e/price-input.spec.ts`. RULE: **a parser case belongs under tests/e2e, or CI never sees it.**
+
+### A windows-1250 CSV with three Romanian diacritics in a row was imported as Cyrillic
+**Tag:** import
+**ERROR:** `decodeCsvFile` in `lib/data/import-shared.ts` chose windows-1251 whenever the 1251 reading held 3 Cyrillic letters in a row. The ten Romanian diacritic bytes of windows-1250 (Ă Â Î Ș Ț ă â î ș ț) are Cyrillic letters in 1251, so a name like Țâșnitor flipped the whole file to Cyrillic and it imported without an error.
+**SOLUTION:** card P3-269: `hasRussianWord` takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten. Covered by the 'codare csv P3-269' cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector that tests for "looks like script X" must first remove the characters the competing encoding maps into X.**
