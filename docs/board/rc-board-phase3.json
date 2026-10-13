@@ -6889,6 +6889,31 @@
         "at": "2026-10-13T00:00:00Z"
       },
       "notes": "Found by the bug check of 2026-10-13. Checked locally with a script on the decoder; the spec file itself runs in CI."
+    },
+    {
+      "id": "P3-270",
+      "title": "Sarcini stripped the responsabil filter from the address on first render whenever the id was not an active colleague, so the filter on a switched-off colleague that P3-251 promised never stayed. The mount effect and push() in components/tasks/SarciniScreen.tsx now drop the id only when it matches no profile at all; the page passes the inactive colleague (findInactiveAssignee in lib/data/tasks.ts) to the screen.",
+      "plain": "A task list link for a colleague who has been switched off keeps showing that colleague's tasks, marked Responsabil inactiv, until the filters are cleared. A link with an id nobody owns is still cleaned up.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-251"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Both cases of tests/e2e/sarcini-inactive-assignee-filter.spec.ts are green in this pull request own quality run: (a) /sarcini?responsabil=<inactive profile id> keeps responsabil in the address, lists only that colleague's tasks and shows Responsabil inactiv selected; (b) changing another filter keeps responsabil; (c) Șterge filtrele removes it; (d) /sarcini?responsabil=<uuid of no profile> drops the parameter and lists every task. The middle case of tests/e2e/sarcini-dead-filters.spec.ts now expects the colleague to be carried along, and its other cases stay green. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "Filters on active colleagues, the Azi link ?sarcina=<id> behaviour and the active-only assignee choice in the task form are unchanged. A malformed responsabil value is a separate fix. No migration, no schema change.",
+      "last_checkpoint": "2026-10-13T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-270 against main; acceptance is the quality run on its head",
+        "at": "2026-10-13T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13. The old case (b) of sarcini-dead-filters.spec.ts encoded the bug and was changed with it."
     }
   ]
 }

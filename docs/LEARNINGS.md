@@ -9503,3 +9503,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** import
 **ERROR:** `decodeCsvFile` in `lib/data/import-shared.ts` chose windows-1251 whenever the 1251 reading held 3 Cyrillic letters in a row. The ten Romanian diacritic bytes of windows-1250 (Ă Â Î Ș Ț ă â î ș ț) are Cyrillic letters in 1251, so a name like Țâșnitor flipped the whole file to Cyrillic and it imported without an error.
 **SOLUTION:** card P3-269: `hasRussianWord` takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten. Covered by the 'codare csv P3-269' cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector that tests for "looks like script X" must first remove the characters the competing encoding maps into X.**
+
+### Sarcini stripped the filter on a switched-off colleague on first render
+**Tag:** sarcini
+**ERROR:** the mount effect in `components/tasks/SarciniScreen.tsx` (P3-251) removed `responsabil` from the address whenever the id was not in `assignees`, and `assignees` holds only ACTIVE colleagues, so the filter on a switched-off colleague that the card promised never stayed. `push()` dropped it too. The e2e case written with it asserted the stripped result, so it passed while the promise was broken.
+**SOLUTION:** card P3-270: the page finds the inactive colleague (`findInactiveAssignee` in `lib/data/tasks.ts`) and passes it to the screen; the effect and `push()` drop the id only when it matches no profile at all. Covered by `tests/e2e/sarcini-inactive-assignee-filter.spec.ts`. RULE: **a test that checks the end state of a cleanup must also check that the thing it keeps is still there; "the param is gone" proves nothing about a param that should have stayed.**
