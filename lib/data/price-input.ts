@@ -24,17 +24,12 @@ export type QuantityInput =
 
 export const QUANTITY_INVALID_MESSAGE = "Cantitate invalidă. Exemplu: 2,5";
 
-export function parseQuantityText(raw: string): QuantityInput {
-  const compact = raw.replace(/\s/g, "");
-  if (compact === "") return { kind: "empty" };
-  if (!/^[0-9]+([.,][0-9]+)?$/.test(compact)) return { kind: "invalid" };
-  const text = compact.replace(",", ".");
-  const value = Number(text);
-  if (!Number.isFinite(value) || value <= 0) return { kind: "invalid" };
-  return { kind: "ok", value, text };
-}
-
-export function parsePriceText(raw: string): PriceInput {
+/**
+ * P3-268: cantitatea si pretul se citesc cu aceleasi reguli. Un punct urmat de
+ * exact trei cifre este separator de mii si pentru cantitate: "1.200" este 1200,
+ * nu 1,2. Ecranul si serverul folosesc aceleasi doua functii.
+ */
+function readNumberText(raw: string): PriceInput {
   // \s acopera si spatiul fix (U+00A0), deci un numar lipit din alta aplicatie merge.
   const compact = raw.replace(/\s/g, "");
   if (compact === "") return { kind: "empty" };
@@ -45,4 +40,14 @@ export function parsePriceText(raw: string): PriceInput {
   const value = Number(text);
   if (!Number.isFinite(value)) return { kind: "invalid" };
   return { kind: "ok", value, text };
+}
+
+export function parseQuantityText(raw: string): QuantityInput {
+  const r = readNumberText(raw);
+  if (r.kind === "ok" && r.value <= 0) return { kind: "invalid" };
+  return r;
+}
+
+export function parsePriceText(raw: string): PriceInput {
+  return readNumberText(raw);
 }

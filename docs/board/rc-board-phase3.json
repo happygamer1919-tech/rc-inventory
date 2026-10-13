@@ -6866,6 +6866,32 @@
         "at": "2026-10-12T12:34:00Z"
       },
       "notes": "Owner approved on 2026-10-12 after the account reached 90% of its 3,000 Actions minutes. Baseline 2026-10-05 to 2026-10-12: 452 runs, about 13,700 minutes, 30.3 minutes a run; pushes to main 80 runs, 36.3 minutes a run. CLAUDE.md 3.1 amended under 9c: item 1 now requires a run started while the pull request was not a draft, and the docs_scope table was short by the P3-117 baseline step."
+    },
+    {
+      "id": "P3-268",
+      "title": "On a walk-in sale line, 1.200 is 1200 as a quantity as well as a price, on the screen and on the server",
+      "plain": "In the walk-in sale, typing 1.200 as a quantity now means one thousand two hundred, the same as in the price box, and the saved slip agrees with what the screen showed.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-253",
+        "P3-258"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The cases in tests/e2e/price-input.spec.ts whose names start with 'P3-268' are green in this pull request's own quality run: parseQuantityText reads 1.200 as 1200, 1.200,5 as 1200.5, keeps 0.500 as 0.5, 2,5 as 2.5 and 1.20 as 1.2, refuses abc and 0; the server line reading (processIssueLines) takes quantity 1.200 and price 1.200 as 1200 and refuses invalid text with the two existing Romanian messages. (b) The P3-209, P3-253 and P3-258 cases in the same file stay green. (c) npx tsc --noEmit and npm run build exit 0. (d) The board validator exits 0.",
+      "defaults": "RULES: parseQuantityText and parsePriceText share one reader; a dot followed by exactly three digits is a thousands separator for both, and a first group starting with 0 stays decimal. Quantity still refuses zero. The server in lib/data/outbound-actions.ts reads every line through processIssueLines in lib/data/outbound-lines.ts, which uses those two parsers; an invalid quantity or price is refused with the existing Romanian messages. Inbound and product forms are unchanged. No migration.",
+      "last_checkpoint": "2026-10-13T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-268 against main: its quality run on the head sha runs tests/e2e/price-input.spec.ts and the board validator",
+        "at": "2026-10-13T00:00:00Z"
+      },
+      "notes": "Bug found by the bug check of 2026-10-13: the server replaced only the comma, so 1.200 became 1.2 on the slip while the screen read 1200. Id P3-268 checked free with npm run id:free."
     }
   ]
 }
