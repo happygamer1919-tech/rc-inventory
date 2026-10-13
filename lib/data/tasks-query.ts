@@ -31,6 +31,7 @@
 // acelasi tipar pe care il scrie app/(app)/azi/page.tsx, "un id care nu este in
 // lista de responsabili nu filtreaza nimic".
 
+import { looksLikeUuid } from "./suppliers-types";
 import { isDayString, isTaskEntityType, isTaskPriority, isTaskStatus } from "./tasks-shape";
 import type {
   TaskListFilter,
@@ -93,7 +94,13 @@ export function parseTaskQuery(params: Record<string, string | undefined>): Task
   return {
     status: isTaskStatus(status) ? status : "",
     priority: isTaskPriority(priority) ? priority : "",
-    assigneeId: clean(params[TASK_PARAM.assignee]),
+    // NUMAI UN UUID BINE FORMAT ajunge la baza: `.eq('assignee_id', 'abc')` face
+    // PostgreSQL sa refuze ("invalid input syntax for type uuid"), citirea arunca si
+    // pagina cade pe ecranul de eroare. O legatura veche sau taiata arata lista
+    // nefiltrata, ca pe /inventar (P3-208) si /proiecte (P3-216).
+    assigneeId: looksLikeUuid(clean(params[TASK_PARAM.assignee]))
+      ? clean(params[TASK_PARAM.assignee])
+      : "",
     // NUMAI FORMA ZILEI, nu existenta ei in calendar, care este regula scrisa in
     // antetul lui lib/data/tasks-shape.ts: singura autoritate asupra unei zile este
     // coloana `date` din PostgreSQL. Un capat de interval scris pe jumatate nu

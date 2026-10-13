@@ -6968,6 +6968,32 @@
       "notes": "Found by the bug check of 2026-10-13. The old case (b) of sarcini-dead-filters.spec.ts encoded the bug and was changed with it."
     },
     {
+      "id": "P3-273",
+      "title": "A Sarcini link with a malformed colleague id (responsabil=abc, or a cut-off old link) crashed the page onto the error screen: P3-251 passed the raw value through, and Postgres refuses a non-uuid in .eq(assignee_id, ...). parseTaskQuery in lib/data/tasks-query.ts now keeps responsabil only when looksLikeUuid (the same check P3-208 and P3-216 use) says it is well formed, and drops it otherwise.",
+      "plain": "An old or damaged task list link with a broken colleague code now opens the full task list instead of an error page.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-251",
+        "P3-270"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "tests/parse-task-query.test.ts and both cases of tests/e2e/sarcini-bad-assignee-id.spec.ts are green in this pull request own quality run: /sarcini?responsabil=abc and a truncated uuid show the Sarcini heading and filters, no error screen, and responsabil leaves the address; a valid uuid passes through the parser unchanged. tests/e2e/sarcini-inactive-assignee-filter.spec.ts stays green. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "The inactive-colleague behaviour and the Responsabil inactiv notice of P3-270, the Azi link ?sarcina=<id>, filters on active colleagues and the active-only assignee choice in the task form are unchanged. No migration, no schema change.",
+      "last_checkpoint": "2026-10-13T00:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-273 against main; acceptance is the quality run on its head",
+        "at": "2026-10-13T00:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13, a regression from P3-251 (commit f79ce050). Same class as P3-208 (Inventar) and P3-216 (Proiecte)."
+    },
+    {
       "id": "P3-272",
       "title": "An issued, paid or cancelled invoice has a Descarca PDF button on its screen that downloads a one-page Romanian invoice with the Rapid Construct logo, from the new route /api/facturare/<id>/pdf (pdfkit, DejaVu Sans Condensed embedded for the diacritics). A draft has no button and its route answers 409. A cancelled invoice carries an ANULATA mark and the cancel reason.",
       "plain": "An invoice that has been issued can now be downloaded as a clean one-page PDF in Romanian, with the Rapid Construct logo, the seller and buyer details, the lines and the totals. Drafts cannot be downloaded yet because they have no number.",
