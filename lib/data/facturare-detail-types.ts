@@ -58,6 +58,11 @@ export type InvoiceIssuerParty = {
   address: string;
   bank: string;
   iban: string;
+  /** P3-272: cele trei campuri ale migratiei 0066, citite ca PDF-ul sa le poata scrie.
+   *  Ecranul nu le arata. Goale cand 0066 nu este aplicata sau cand nu sunt completate. */
+  vatCode: string;
+  phone: string;
+  email: string;
 };
 
 /** Catre cine: clientul, cu IDNO-ul si adresa lui, si o legatura catre fisa. */

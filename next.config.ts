@@ -32,6 +32,15 @@ const nextConfig: NextConfig = {
   // Le oprim: nu sunt cerute de board si nu vrem fisiere negenerate de noi in repo.
   agentRules: false,
 
+  // P3-272. PDF-ul facturii. pdfkit ramane in afara pachetului (se incarca din
+  // node_modules), iar cele trei fisiere pe care ruta le citeste de pe disc, fonturile
+  // si sigla, se pun explicit in pachetul ei: o citire cu cale calculata nu o vede
+  // trasarea automata, si pe Vercel fisierul ar lipsi exact la prima descarcare.
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {
+    "/api/facturare/[id]/pdf": ["./lib/pdf/fonts/*.ttf", "./public/brand/rapid-construct-logo.png"],
+  },
+
   async headers() {
     // Copie, fiindca Next cere un tablou mutabil si lista este readonly:
     // o singura definitie nu are voie sa fie modificabila de consumatorii ei.
