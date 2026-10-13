@@ -2077,3 +2077,120 @@ test("P3-258: iesire client direct: o cantitate tastata cu virgula zecimala se s
   );
   expect(String(lines.rows[0]?.quantity ?? ""), "cantitatea din baza este 2.5").toBe("2.5");
 });
+
+/* ===================================================================
+   CARDUL P3-148: O POZITIE UMPLUTA PE JUMATATE SE REFUZA
+   ===================================================================
+
+   Cardul a fost marcat livrat fara cele trei cazuri pe care le promite
+   acceptanta lui; le adauga aceasta schimbare, dupa fapt. Numele sunt cele din
+   card, cuvant cu cuvant. Comportamentul exista de la #430. */
+
+/** Numarul de iesiri scrise pe clientul de test, citit din baza. */
+async function issueCountForTestClient(): Promise<number> {
+  const rows = await asService(`outbound_issues?select=id&client_id=eq.${clientId}`);
+  expect(rows.ok, `iesirile clientului nu s-au putut citi: ${rows.text}`).toBe(true);
+  return rows.rows.length;
+}
+
+/** Umple pozitia `index` cu produsul de test si, daca e data, o cantitate. */
+async function fillLineAt(page: Page, index: number, quantity: string | null): Promise<void> {
+  await comboPick(page, `issue-product-${index}`, PRODUCT_NAME);
+  if (quantity !== null) await page.getByTestId(`issue-quantity-${index}`).fill(quantity);
+}
+
+/** Client, data de ridicare si trei pozitii, a treia fara cantitate. */
+async function fillThreeLinesThirdWithoutQuantity(page: Page): Promise<void> {
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("06.12.2026");
+  await page.getByTestId("issue-add-line").click();
+  await page.getByTestId("issue-add-line").click();
+  await fillLineAt(page, 0, "1");
+  await fillLineAt(page, 1, "1");
+  await fillLineAt(page, 2, null);
+}
+
+test("outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  const before = await issueCountForTestClient();
+
+  await fillThreeLinesThirdWithoutQuantity(page);
+  await page.getByTestId("issue-submit").click();
+
+  await expect(
+    page.getByTestId("issue-problems"),
+    "mesajul spune numarul randului si ce lipseste",
+  ).toContainText("Rândul 3: completați cantitatea sau ștergeți rândul.");
+  await expect(page.getByTestId("issue-created"), "nu apare ecranul de reusita").toHaveCount(0);
+  expect(await issueCountForTestClient(), "nicio iesire noua in baza").toBe(before);
+});
+
+test("outbound walk-in: filling the quantity then saves 3 items", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  await fillThreeLinesThirdWithoutQuantity(page);
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-problems")).toContainText("Rândul 3");
+
+  await page.getByTestId("issue-quantity-2").fill("1");
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created"), "iesirea s-a creat").toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  const issue = await storedIssue(reference);
+  const lines = await asService(
+    `outbound_lines?select=id&outbound_issue_id=eq.${String(issue.id ?? "")}`,
+  );
+  expect(lines.ok, `pozitiile nu s-au putut citi: ${lines.text}`).toBe(true);
+  expect(lines.rows.length, "iesirea are 3 pozitii").toBe(3);
+});
+
+test("outbound walk-in: a payload with a half-filled line is refused by server", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  // O CERERE REALA a formularului, prinsa din browser: o iesire buna cu o pozitie.
+  // Din ea se construiesc cererile stricate, deci serverul este chemat exact ca de
+  // orice alt apelant, fara ecranul care ar opri trimiterea.
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("07.12.2026");
+  await fillLineAt(page, 0, "1");
+  const captured = page.waitForRequest(
+    (r) => r.method() === "POST" && "next-action" in r.headers(),
+    { timeout: 25_000 },
+  );
+  await page.getByTestId("issue-submit").click();
+  const request = await captured;
+  await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+  const afterGood = await issueCountForTestClient();
+
+  const args = JSON.parse(request.postData() ?? "[]") as Record<string, unknown>[];
+  const good = args[0]!;
+  const goodLine = (good.lines as Record<string, unknown>[])[0]!;
+  const headers = { ...request.headers() };
+  delete headers["content-length"];
+  delete headers["host"];
+
+  const halfFilledLines = {
+    "produs fara cantitate": { ...goodLine, quantity: "" },
+    "cantitate fara produs": { ...goodLine, productId: "" },
+  };
+  for (const [label, badLine] of Object.entries(halfFilledLines)) {
+    const body = JSON.stringify([{ ...good, lines: [goodLine, badLine] }]);
+    const response = await page.request.post(request.url(), { headers, data: body });
+    const text = await response.text();
+    expect(text, `${label}: serverul spune de ce refuza`).toContain(
+      "Un rând are produs fără cantitate sau invers.",
+    );
+    expect(await issueCountForTestClient(), `${label}: nicio iesire scrisa`).toBe(afterGood);
+  }
+});

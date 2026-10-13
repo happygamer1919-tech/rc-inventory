@@ -9523,3 +9523,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** import
 **ERROR:** `decodeCsvFile` in `lib/data/import-shared.ts` chose windows-1251 whenever the 1251 reading held 3 Cyrillic letters in a row. The ten Romanian diacritic bytes of windows-1250 (Ă Â Î Ș Ț ă â î ș ț) are Cyrillic letters in 1251, so a name like Țâșnitor flipped the whole file to Cyrillic and it imported without an error.
 **SOLUTION:** card P3-269: `hasRussianWord` takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten. Covered by the 'codare csv P3-269' cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector that tests for "looks like script X" must first remove the characters the competing encoding maps into X.**
+
+### Card P3-148 was shipped with none of its three named test cases
+**Tag:** tests
+**ERROR:** PR #430 merged P3-148 (half-filled walk-in line refused) as shipped, but the three cases named in its acceptance were never written, so nothing proved the form or the server refusal.
+**SOLUTION:** card P3-271 added them to `tests/e2e/outbound-direct-client.spec.ts`; the server case captures the real server action request in the browser and replays it with a half-filled line. RULE: **before marking a card shipped, grep the spec file for each case name the acceptance quotes.** A second RULE: **`check:board-edit` refuses code under a card that is already shipped; follow-up test work needs its own new card (new id via `npm run id:free`), and neither the branch name nor a commit subject may name the old card.**
