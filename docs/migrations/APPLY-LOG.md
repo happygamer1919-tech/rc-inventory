@@ -77,6 +77,7 @@ The format is machine-read, so keep it exactly:
 - `0079_clients_insert_manager_columns.sql`, card de aplicare P3-255
 - `0080_task_assignee_must_be_active.sql`, card de aplicare P3-259
 - `0081_walkin_lead_buyer_becomes_client.sql`, card de aplicare P3-262
+- `0082_outbound_issue_column_lock.sql`, card de aplicare P3-266
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
