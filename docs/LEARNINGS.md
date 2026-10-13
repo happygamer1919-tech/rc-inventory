@@ -9503,3 +9503,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** `npm run check:migrations` needs Docker, which this machine does not have, so a migration's assertion file was only ever run in CI.
 **SOLUTION:** card P3-266: `initdb` a throwaway cluster in a temp dir with the Homebrew `postgres`, then run `scripts/poc-free/local-db/shim.sql`, every migration and every assertion file with `psql -v ON_ERROR_STOP=1`, the same order `apply.mjs` uses. All 82 migrations and 64 assertion files ran green locally, and the new assertion was seen red with its migration set aside. RULE: **run a migration's assertions locally red then green before pushing; CI is the proof, not the first try.**
+
+### The leads import matched switched-off clients as live ones, the same gap P3-257 closed for clients
+**Tag:** import
+**ERROR:** `loadExisting` in `lib/data/lead-import-actions.ts` read clients without the `active` column, so a leads row matching a deactivated client was reported as a duplicate of a client missing from every list, the fill option was enabled, and `fillEmpty` wrote into the deactivated record. P3-257 fixed the clients import and the rule it left behind ("every import reads the active flag") was not applied to the leads import.
+**SOLUTION:** card P3-267: `loadExisting` reads `active`, the plan marks the match `inactive` with nothing fillable, `duplicateReason` carries the P3-257 wording, `addContactNameFillable` skips inactive matches, and `runLeadImport` skips them whatever was chosen. Covered by `tests/e2e/lead-import-inactive.spec.ts`. RULE: **when a fix lands in one of two sibling imports, grep the other for the same read before closing the card.**

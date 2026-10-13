@@ -138,6 +138,7 @@ async function loadExisting(
   const columns = [
     "id",
     "name",
+    "active",
     "phone",
     "email",
     "address",
@@ -213,6 +214,7 @@ async function loadExisting(
       phoneKey: normalisePhone(value("phone")),
       emailKey: normaliseEmail(value("email")),
       empty,
+      active: (row.active as unknown) !== false,
     };
   });
 }
@@ -251,7 +253,7 @@ async function addContactNameFillable(
 ): Promise<void> {
   const matched = plan.entries.filter(
     (entry): entry is Extract<typeof entry, { kind: "duplicate" }> =>
-      entry.kind === "duplicate" && entry.against.kind === "stored",
+      entry.kind === "duplicate" && entry.against.kind === "stored" && !entry.against.inactive,
   );
   if (matched.length === 0) return;
 
@@ -483,6 +485,12 @@ export async function runLeadImport(
 
     if (entry.kind === "duplicate") {
       const choice = request.choices[entry.line] ?? "skip";
+      // UN CLIENT DEZACTIVAT NU SE ATINGE, oricare ar fi alegerea: nu se completeaza si
+      // nu se reactiveaza singur (P3-267).
+      if (entry.against.kind === "stored" && entry.against.inactive) {
+        skippedRows.push({ line: entry.line, reason: duplicateReason(entry), raw: rawAt(entry.line) });
+        continue;
+      }
       if (choice !== "fill" || entry.against.kind === "file") {
         // Un dublat din acelasi fisier a fost deja tratat mai sus, si oricum nu
         // se scrie ca rand propriu: aici este doar contabilizat ca nepreluat.
