@@ -53,6 +53,8 @@ export type ExistingClient = {
   /** Telefonul stocat, trecut prin aceeasi normalizare ca randul din fisier. */
   phoneKey: string | null;
   emailKey: string | null;
+  /** Fals pentru un client dezactivat. Lipsa inseamna activ. */
+  active?: boolean;
   /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge.
    *
    *  `contactName` NU ESTE AICI, si lipsa lui este regula, pusa de cardul P3-115,
@@ -67,7 +69,7 @@ export type ExistingClient = {
 
 /** Cu cine s-a potrivit un rand dublat. */
 export type DuplicateTarget =
-  | { kind: "stored"; id: string; name: string }
+  | { kind: "stored"; id: string; name: string; inactive?: true }
   | { kind: "file"; line: number; name: string };
 
 export type PlanEntry =
@@ -97,6 +99,10 @@ export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 /** Propozitia romaneasca a unui dublat sarit, pentru fisierul randurilor nepreluate. */
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
+  // Un client dezactivat nu apare in lista de clienti: se spune ca este dezactivat
+  // si ce are de facut operatorul, nu ca "exista deja" (P3-267, ca la importul de clienti).
+  if (entry.against.kind === "stored" && entry.against.inactive)
+    return `Există deja ca client dezactivat: ${entry.against.name}. Reactivați-l din fișa clientului înainte de import.`;
   const how = entry.matchedOn === "phone" ? "telefon" : "email";
   return entry.against.kind === "stored"
     ? `Dublat după ${how} cu "${entry.against.name}", care există deja.`
@@ -222,13 +228,21 @@ export function buildPlan(input: {
       row.phoneKey && storedByPhone.has(row.phoneKey) ? ("phone" as const) : ("email" as const);
 
     if (storedMatch) {
+      // UN CLIENT DEZACTIVAT NU SE COMPLETEAZA SI NU SE DUBLEAZA: nimic de completat,
+      // randul se sare, iar mesajul spune sa fie reactivat intai (P3-257, P3-267).
+      const inactive = storedMatch.active === false;
       entries.push({
         kind: "duplicate",
         line,
         name: row.lead.name,
         matchedOn: storedMatchedOn,
-        against: { kind: "stored", id: storedMatch.id, name: storedMatch.name },
-        fillable: storedMatch.empty.filter((field) => given.has(field)),
+        against: {
+          kind: "stored",
+          id: storedMatch.id,
+          name: storedMatch.name,
+          ...(inactive ? { inactive: true as const } : {}),
+        },
+        fillable: inactive ? [] : storedMatch.empty.filter((field) => given.has(field)),
       });
       counts.duplicate += 1;
       // UN DUBLAT NU DEVINE O ANCORA IN FISIER. Randul nu se va crea, deci un al
