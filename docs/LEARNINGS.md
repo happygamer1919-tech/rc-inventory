@@ -9523,3 +9523,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** import
 **ERROR:** `decodeCsvFile` in `lib/data/import-shared.ts` chose windows-1251 whenever the 1251 reading held 3 Cyrillic letters in a row. The ten Romanian diacritic bytes of windows-1250 (Ă Â Î Ș Ț ă â î ș ț) are Cyrillic letters in 1251, so a name like Țâșnitor flipped the whole file to Cyrillic and it imported without an error.
 **SOLUTION:** card P3-269: `hasRussianWord` takes 1251 only when a Cyrillic word of 3 or more letters holds at least 2 letters outside those ten. Covered by the 'codare csv P3-269' cases in `tests/e2e/import-encoding.spec.ts`. RULE: **a detector that tests for "looks like script X" must first remove the characters the competing encoding maps into X.**
+
+### A PDF cannot be looked at on the factory machine, and a standard PDF font has no ș or ț
+**Tag:** tooling
+**ERROR:** the machine has no poppler and `sips` is not allowed, so a generated invoice PDF could not be rendered to an image. A route importing `server-only` also throws when run with plain node, so the renderer could not be called from a script. The default pdfkit font (Helvetica) has no ș or ț, so an invoice would have printed wrong glyphs for Romanian names.
+**SOLUTION:** card P3-272 embeds DejaVu Sans Condensed (`lib/pdf/fonts`, license text beside it) and checked the output by running the renderer with `npx tsx --conditions=react-server`, then reading the page size, the text and the x/y of every text item back with `pdfjs-dist` (installed with `--no-save`). RULE: **check every glyph of the alphabet in the font file with fontkit before shipping a PDF, and read the PDF back through a parser when you cannot see it.**

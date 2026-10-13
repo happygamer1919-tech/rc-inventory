@@ -33,6 +33,18 @@
 // marked cancelled with nobody knowing why is a question somebody has to answer six
 // months later from memory."
 //
+// PDF EXISTA DIN 2026-10-13, cardul P3-272, decizia lui Max: "yes add the PDF button,
+// romanian only, with logo". Butonul "Descarcă PDF" se vede pentru Emisă, Plătită si
+// Anulată, si NU pentru Ciornă (o ciorna nu are numar). Nu este una din actiunile din
+// invoiceActionsFor: nu schimba starea facturii, deci tabelul de mai sus ramane cel de
+// mai sus. TIPARUL, EMAILUL SI e-FACTURA raman neconstruite.
+//
+// PROPOZITIA DE MAI JOS ESTE FALSA DESPRE PDF (P3-272, 2026-10-13) si ramane aici, citata,
+// fiindca a fost scrisa de cardul P3-110 si cineva s-a putut sprijini pe ea (sectiunea 9c
+// din CLAUDE.md):
+//
+//   "NICIUN PDF, NICIUN TIPAR, NICIUN EMAIL SI NICIO e-FACTURA."
+//
 // NICIUN PDF, NICIUN TIPAR, NICIUN EMAIL SI NICIO e-FACTURA. Sectiunea 2 a raportului
 // de proiectare pune trei variante pentru sistemul statului si Max nu a ales una, deci
 // linia pe care partea 2 a pus-o sub lista rămâne adevarata.
@@ -66,7 +78,7 @@ import {
   PHONE_TAP,
   PHONE_WIDE,
 } from "@/components/ui/phone";
-import { formatDate, formatDateTime, formatMoneyExact, formatQty } from "@/lib/data/format";
+import { formatDate, formatDateTime, formatMoneyExact, formatQty, formatRate } from "@/lib/data/format";
 import { invoiceNumberText, invoiceStatusLabel, type InvoiceStatus } from "@/lib/data/facturare-types";
 import {
   invoiceActionsFor,
@@ -181,6 +193,24 @@ export function FacturaScreen({
           </Chip>
         }
       />
+
+      {/* ------------------------------------------------------------- PDF --
+          P3-272. DOAR CAND FACTURA ARE NUMAR: Emisă, Plătită, Anulată. O ciornă nu are,
+          deci butonul nu se deseneaza. Este o legatura de descarcare catre ruta PDF, nu o
+          actiune din invoiceActionsFor: nu schimba nimic pe factura. */}
+      {invoice.status !== "draft" ? (
+        <div className="mb-4" data-testid="factura-pdf-rand">
+          <a
+            href={`/api/facturare/${invoice.id}/pdf`}
+            download
+            className="inline-flex max-md:flex max-md:flex-col"
+          >
+            <Button type="button" variant="secondary" className={PHONE_TAP} data-testid="factura-pdf">
+              Descarcă PDF
+            </Button>
+          </a>
+        </div>
+      ) : null}
 
       {/* ----------------------------------------------------------- actiuni -- */}
       {actions.length > 0 ? (
@@ -683,12 +713,6 @@ export function FacturaScreen({
       </p>
     </>
   );
-}
-
-/** Procentul, scris romanesc: 20 devine "20 %", 20,5 devine "20,5 %". */
-function formatRate(rate: number): string {
-  const shown = new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 2 }).format(rate);
-  return `${shown} %`;
 }
 
 /** Un rand eticheta si valoare. Pe telefon eticheta trece deasupra (P3-65). */
