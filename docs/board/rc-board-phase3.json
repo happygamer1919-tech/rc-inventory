@@ -7301,7 +7301,7 @@
       "question": null,
       "acceptance": "Tests tests/e2e/azi-empty-title.spec.ts all green. SarciniScreen correctly distinguishes inactive colleague (id, fullName), not found (null), and list failed ({ failed: true }). npx tsc --noEmit exits 0, npm run build exits 0, board validator exits 0.",
       "defaults": "No migration. No schema changes. UI only.",
-      "last_checkpoint": "2026-10-14T19:30:00Z",
+      "last_checkpoint": "2026-10-14T19:19:00Z",
       "evidence": {
         "kind": "pr",
         "ref": "Pull request on branch card/p3-303-new against main; acceptance is the quality run on its head sha",
