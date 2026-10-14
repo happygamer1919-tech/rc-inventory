@@ -27,7 +27,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { createContact } from "./contact-actions";
-import { readClientOwnerChoices } from "./clients";
+import { readClientOwnerChoices, readInactiveOwnerNames } from "./clients";
 import {
   ImportReadError,
   loadOrRefuse,
@@ -36,7 +36,7 @@ import {
 } from "./import-clients-read";
 import { readInBatches } from "./id-list";
 import { readAnchors, type FileAnchor } from "./import-file-anchors";
-import { importNextActionAt, rawRowAt } from "./import-shared";
+import { importNextActionAt, ownerLeftEmptyWarning, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
 import {
@@ -293,9 +293,11 @@ async function ownerInputs() {
   const loaded = await loadOrRefuse(readClientOwnerChoices);
   if (!loaded.ok) return loaded;
   const choices = loaded.value;
+  const inactive = await loadOrRefuse(readInactiveOwnerNames);
+  if (!inactive.ok) return inactive;
   return {
     ok: true as const,
-    owners: buildOwnerIndex(choices),
+    owners: buildOwnerIndex(choices, inactive.value),
     ownerNames: new Map(choices.map((o) => [o.id, o.fullName])),
   };
 }
@@ -478,6 +480,7 @@ export async function runLeadImport(
   const warnings: { line: number; reason: string }[] = [];
   const noteBody = importNoteBody(request.fileName, request.day);
   const rawAt = (line: number) => rawRowAt(request.rows, request.lines, 1, line);
+  const ownerColumn = readMapping(request.mapping).indexOf("ownerName");
 
   for (const entry of plan.entries) {
     if (entry.kind === "error") {
@@ -595,6 +598,8 @@ export async function runLeadImport(
       continue;
     }
     created += 1;
+    const ownerWarning = ownerLeftEmptyWarning(ownerInput.owners, rawAt(entry.line), ownerColumn);
+    if (ownerWarning) warnings.push({ line: entry.line, reason: ownerWarning });
 
     // NOTA TRECE PRIN addClientNote, calea care exista deja (G45). O scriere
     // directa in public.client_notes ar fi un al doilea drum catre acelasi tabel.

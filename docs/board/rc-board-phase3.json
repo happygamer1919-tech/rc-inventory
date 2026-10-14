@@ -7262,6 +7262,29 @@
         "at": "2026-10-14T13:03:38Z"
       },
       "notes": "AUTHORED 2026-10-14 by EXECUTOR from the factory bug check of 2026-10-13 (task: An import finds duplicates anywhere in the file and reports a halfway failure honestly). Card branch card/p3-301 from origin/main at 9f041c75. The comment at the top of lib/data/import-batches.ts used to say a duplicate between two batches is not seen before the write; that sentence is replaced, not kept, because it described the design this card changes."
+    },
+    {
+      "id": "P3-302",
+      "title": "Exported lead and client files re-import cleanly when the Responsabil was switched off, and the lead preview says the Sursă is chosen on the next step.",
+      "plain": "A file exported from the platform can be loaded back in even when a person named in it has since been switched off: those rows now land among the duplicates, or are created without a responsible person and flagged, instead of being refused. The lead preview also says the source is chosen on the next step instead of showing an empty cell.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "All cases in tests/e2e/p3-302-import-owner-sursa.spec.ts and the existing import specs are green in this pull request own quality run. A row whose Responsabil is a deactivated colleague or Fără nume is not refused: if it matches a stored or earlier client it is a duplicate, otherwise it is created with no responsible person and a warning in the summary. An unknown name is still refused. The lead preview Sursă cell reads se alege la pasul următor when no source is chosen yet. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "The source choice stays on step 4 (moving it would change the four step flow the import specs drive); the empty preview cell is labelled instead. Inactive owners are indexed with an empty id in buildOwnerIndex, so no inactive colleague is ever assigned. No migration.",
+      "last_checkpoint": "2026-10-14T13:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-302 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T13:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-13 23:51Z. The full end to end step (export with a deactivated owner, re-import, rows in Dublate) needs a database and runs in CI only; locally the same cases run as plan level tests."
     }
   ]
 }

@@ -14,7 +14,7 @@ import "server-only";
 // care, intr-o zi, nu mai sunt de acord asupra unui rand.
 
 import { createClient } from "@/lib/supabase/server";
-import { readOwnerProfiles } from "./import-clients-read";
+import { readInactiveOwnerProfiles, readOwnerProfiles } from "./import-clients-read";
 import { hasClientLeaduri, hasClientNextAction, hasClientStage } from "./schema-capability";
 import {
   CLIENTS_PAGE_SIZE,
@@ -359,6 +359,12 @@ export async function readClientOwnerChoices(): Promise<ClientOwnerChoice[]> {
   return profiles
     .map((p) => ({ id: p.id, fullName: ownerDisplayName(p) }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ro"));
+}
+
+/** P3-302. Numele colegilor dezactivati, pentru indexul de responsabili al importurilor. */
+export async function readInactiveOwnerNames(): Promise<string[]> {
+  const profiles = await readInactiveOwnerProfiles(await createClient());
+  return profiles.map((p) => ownerDisplayName(p));
 }
 
 /** P3-48. Cum se arata un responsabil, o singura data: numele complet, altfel
