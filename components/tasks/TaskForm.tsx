@@ -140,13 +140,21 @@ export function TaskForm({
   // termenul stocat fara niciun mesaj.
   const { anyInvalid: dateInvalid, mark } = useInvalidDates();
 
+  // PANOUL NU SE INCHIDE CAT TIMP SALVAREA ESTE IN CURS (P3-276). Escape, fundalul,
+  // X si Renunță treceau toate prin onClose, deci un refuz al serverului sosea intr-un
+  // panou deja inchis si nimeni nu il vedea. Dupa o salvare reusita se inchide direct
+  // prin onClose, nu prin aceasta cale.
+  const close = React.useCallback(() => {
+    if (!pending) onClose();
+  }, [pending, onClose]);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [close]);
 
   // UN RESPONSABIL DEZACTIVAT RAMANE RESPONSABILUL SARCINII, chiar daca nu mai este
   // in lista: optiunea lui se pastreaza, altfel selectorul ar arata Nealocat pentru o
@@ -228,7 +236,7 @@ export function TaskForm({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/55" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/55" onClick={close} />
       <aside
         className={`relative w-[520px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="task-form"
@@ -244,7 +252,7 @@ export function TaskForm({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Închide"
             className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
@@ -444,7 +452,7 @@ export function TaskForm({
             )}
 
             <div className="flex items-center gap-2.5">
-              <Button type="button" variant="ghost" onClick={onClose} data-testid="task-form-close">
+              <Button type="button" variant="ghost" onClick={close} data-testid="task-form-close">
                 Renunță
               </Button>
               <Button type="submit" disabled={pending || dateInvalid} data-testid="task-save">
