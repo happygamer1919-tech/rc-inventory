@@ -123,7 +123,7 @@ export function AziScreen({
         ) : null}
 
         {rows.length === 0 ? (
-          <EmptyState title={aziEmptyTitle(tasks === null ? null : tasks.length)} />
+          <EmptyState title={aziEmptyTitle(tasksFailed ? "unknown" : tasks === null ? null : tasks.length)} />
         ) : (
           <Table>
             <thead>
