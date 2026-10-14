@@ -97,9 +97,22 @@ export default async function ClientDetailPage({
   // scris-o pentru chiar acest panou; NICIO INTEROGARE NOUA NU ESTE SCRISA AICI,
   // clauza 5. UN LEAD SE INTREABA CU TOKENUL `client`, fiindca fisa leadului citeste
   // un rand de client, iar acesta este randul.
-  const [tasks, taskAssignees] = tasksOn
-    ? await Promise.all([listTasksForEntity("client", id), listTaskAssigneeChoices()])
-    : [null, []];
+  //
+  // P3-276: o citire care arunca nu duce pagina dupa ea, ci lasa un anunt in locul
+  // panoului.
+  let tasks: Awaited<ReturnType<typeof listTasksForEntity>> | null = null;
+  let taskAssignees: Awaited<ReturnType<typeof listTaskAssigneeChoices>> = [];
+  let tasksFailed = false;
+  if (tasksOn) {
+    try {
+      [tasks, taskAssignees] = await Promise.all([
+        listTasksForEntity("client", id),
+        listTaskAssigneeChoices(),
+      ]);
+    } catch {
+      tasksFailed = true;
+    }
+  }
 
   return (
     <ClientDetailScreen
@@ -113,6 +126,7 @@ export default async function ClientDetailPage({
       canWrite={user?.role === "owner"}
       owners={owners}
       tasks={tasks}
+      tasksFailed={tasksFailed}
       taskAssignees={taskAssignees}
       today={chisinauToday()}
       // AMANDOUA ROLURILE SCRIU SARCINI, deci NU `user?.role === "owner"`: politicile

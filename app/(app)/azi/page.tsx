@@ -43,14 +43,24 @@ export default async function AziPage({
   // sa nu fie de acord. Tabela absenta (migratia 0068 neaplicata) inseamna sectiune
   // lipsa, nu sectiune goala, si nu atinge lista de sunat.
   const today = chisinauToday();
-  const tasks = tasksExist
-    ? (await listTasks({ ...parseTaskQuery({}), dueFrom: today, dueTo: today })).filter(
+  //
+  // P3-276: O CITIRE CARE ARUNCA NU DUCE PAGINA DUPA EA. Fara prinderea de mai jos,
+  // eroarea mergea pana la app/error.tsx si lista "De sunat" disparea, desi P3-133 a
+  // promis ca ramane. Sectiunea sarcinilor arata un anunt scurt, restul se vede.
+  let tasks: Awaited<ReturnType<typeof listTasks>> | null = null;
+  let tasksFailed = false;
+  if (tasksExist) {
+    try {
+      tasks = (await listTasks({ ...parseTaskQuery({}), dueFrom: today, dueTo: today })).filter(
         (t) =>
           taskBucket(t, today) === "azi" &&
           isTaskOpen(t) &&
           (ownerId === "" || t.assigneeId === ownerId),
-      )
-    : null;
+      );
+    } catch {
+      tasksFailed = true;
+    }
+  }
 
   return (
     <AziScreen
@@ -62,6 +72,7 @@ export default async function AziPage({
       canWrite={user?.role === "owner"}
       nextActionAvailable={list.nextActionAvailable}
       tasks={tasks}
+      tasksFailed={tasksFailed}
     />
   );
 }

@@ -42,6 +42,7 @@ import { aziEmptyTitle } from "@/lib/data/azi-empty";
 import type { AziRow, ClientOwnerChoice } from "@/lib/data/clients-types";
 import { formatDate, plural } from "@/lib/data/format";
 import type { Task } from "@/lib/data/tasks-types";
+import { TasksLoadError } from "@/components/tasks/TasksLoadError";
 import { AziTasksSection } from "@/components/tasks/AziTasksSection";
 import { ClientNoteForm } from "./ClientNoteForm";
 
@@ -55,6 +56,7 @@ export function AziScreen({
   canWrite,
   nextActionAvailable,
   tasks,
+  tasksFailed = false,
 }: {
   rows: AziRow[];
   owners: ClientOwnerChoice[];
@@ -65,6 +67,8 @@ export function AziScreen({
   /** Sarcinile deschise cu termenul azi (P3-133), sau null cand tabela lor nu exista
    *  inca: atunci sectiunea nu se arata, iar lista de sunat se randeaza ca de obicei. */
   tasks: Task[] | null;
+  /** P3-276: citirea sarcinilor a esuat; sectiunea arata un anunt, restul ramane. */
+  tasksFailed?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState<string | null>(null);
@@ -239,7 +243,13 @@ export function AziScreen({
         )}
       </Card>
 
-      {tasks === null ? null : <AziTasksSection tasks={tasks} />}
+      {tasksFailed ? (
+        <div className="mt-5">
+          <TasksLoadError />
+        </div>
+      ) : tasks === null ? null : (
+        <AziTasksSection tasks={tasks} />
+      )}
     </>
   );
 }

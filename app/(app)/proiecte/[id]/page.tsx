@@ -113,9 +113,22 @@ export default async function ProjectDetailPage({
   // P3-132. Sarcinile acestui proiect si responsabilii, numai cand tabela este
   // vizibila si amandoua odata. Citirea este listTasksForEntity, scrisa de cardul
   // P3-130 pentru chiar acest panou: NICIO INTEROGARE NOUA, clauza 5.
-  const [tasks, taskAssignees] = tasksOn
-    ? await Promise.all([listTasksForEntity("project", id), listTaskAssigneeChoices()])
-    : [null, []];
+  //
+  // P3-276: o citire care arunca nu duce pagina dupa ea, ci lasa un anunt in locul
+  // panoului.
+  let tasks: Awaited<ReturnType<typeof listTasksForEntity>> | null = null;
+  let taskAssignees: Awaited<ReturnType<typeof listTaskAssigneeChoices>> = [];
+  let tasksFailed = false;
+  if (tasksOn) {
+    try {
+      [tasks, taskAssignees] = await Promise.all([
+        listTasksForEntity("project", id),
+        listTaskAssigneeChoices(),
+      ]);
+    } catch {
+      tasksFailed = true;
+    }
+  }
 
   return (
     <ProjectDetailScreen
@@ -131,6 +144,7 @@ export default async function ProjectDetailPage({
       invoices={invoices}
       canWrite={user?.role === "owner"}
       tasks={tasks}
+      tasksFailed={tasksFailed}
       taskAssignees={taskAssignees}
       today={chisinauToday()}
       // AMANDOUA ROLURILE SCRIU SARCINI: acelasi calcul si acelasi motiv ca pe fila

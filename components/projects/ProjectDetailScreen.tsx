@@ -35,6 +35,7 @@ import { ProjectForm } from "./ProjectForm";
 import { ProjectTabs } from "./ProjectTabs";
 import { ProjectBudgetPanel } from "./ProjectBudgetPanel";
 import { TaskPanel } from "@/components/tasks/TaskPanel";
+import { TasksLoadError } from "@/components/tasks/TasksLoadError";
 import type { TaskAssignee } from "@/components/tasks/TaskForm";
 import type { Task } from "@/lib/data/tasks-types";
 import { projectBudgetSummary } from "@/lib/reporting/project-budget";
@@ -77,6 +78,7 @@ export function ProjectDetailScreen({
   invoices,
   canWrite,
   tasks,
+  tasksFailed = false,
   taskAssignees = [],
   today,
   canWriteTasks = false,
@@ -97,6 +99,8 @@ export function ProjectDetailScreen({
   /** P3-132. Sarcinile legate de ACEST proiect, pentru panoul Sarcini. null cand
    *  tabela sarcinilor nu este inca vizibila, si atunci panoul nu se deseneaza. */
   tasks?: Task[] | null;
+  /** P3-276: citirea sarcinilor a esuat; in locul panoului sta un anunt. */
+  tasksFailed?: boolean;
   taskAssignees?: TaskAssignee[];
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata de pagina o singura data
    *  pe randare prin chisinauToday(). Lipsa numai cand `tasks` lipseste. */
@@ -253,6 +257,11 @@ export function ProjectDetailScreen({
           fisa clientului: sarcinile proiectului se vad fara nicio apasare, si nu dupa
           o fila. Nu se deseneaza cand tabela nu este vizibila, acelasi motiv scris pe
           fisa clientului. */}
+      {tasksFailed ? (
+        <div className="mt-5">
+          <TasksLoadError />
+        </div>
+      ) : null}
       {tasks !== null && tasks !== undefined && today !== undefined ? (
         <div className="mt-5">
           <TaskPanel

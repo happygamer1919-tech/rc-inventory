@@ -7095,6 +7095,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-14 by EXECUTOR in the same pull request. Id P3-277 checked free with npm run id:free (P3-276 was taken minutes earlier by another worktree). Migration number 0084: main holds 0082 and pull request #518 holds 0083, so the applier proof step stays red until #518 merges and main is merged in here (KNOWN-FAILURES: a migration numbered above another open branch's migrations). The assertion ran red first with 0084 set aside (walk-in case a accepted; direct history case g accepted) and green with it on a throwaway local postgres from Homebrew, 83 migrations and 65 assertion files, since this machine has no Docker."
     },
     {
+      "id": "P3-276",
+      "title": "When the tasks cannot be read, Azi, the client page and the project page still open and show a short Romanian notice in the tasks section only; the tasks table probe (hasTasks) and the other column and table probes in lib/data/schema-capability.ts remember a no only when the database says the object is missing, never on a timeout or network error; the task form does not close (Escape, backdrop, X, Renunta) while a save is pending.",
+      "plain": "If the tasks fail to load for a moment, the list of people to call and the client and project pages still work, with a short note where the tasks would be. A short network hiccup no longer switches tasks off for a minute. And the task form stays open while it is saving, so a refusal is never lost.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-133"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) tests/e2e/schema-probe.spec.ts is green in this pull request own quality run: a clean probe and a missing table or column are remembered, a timeout or network error answers yes and is not remembered. (b) tests/e2e/task-form-closing-while-saving.spec.ts is green in the same run: Escape, the backdrop, the X and Renunta leave the form open while a save is pending, and the form closes after the save. (c) The existing tasks specs (tasks.spec.ts, task-form-esc-dropdown.spec.ts, task-save-changed-fields.spec.ts) stay green. (d) npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "Decided default of the executor 2026-10-14. The missing-object test is the PostgREST and PostgreSQL codes 42P01, 42703, PGRST205, PGRST204 and 22P02 (enum label probes), or the text does not exist or in the schema cache. Any other probe error answers yes without being remembered, so the real read then fails in the open. hasPhase3Schema is not changed. On a failed task read the page keeps its other sections and shows the notice in the tasks section. No migration.",
+      "last_checkpoint": "2026-10-14T01:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-276 against main; acceptance is the quality run on its head, which runs tests/e2e/schema-probe.spec.ts and tests/e2e/task-form-closing-while-saving.spec.ts",
+        "at": "2026-10-14T01:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13 (Fable, build-20261013T235131947Z). Id P3-276 checked free with npm run id:free. The probe cases are pure and were run locally; the form case runs in CI only (no Docker here)."
+    },
+    {
       "id": "P3-286",
       "title": "Imports read 1,200 as one thousand two hundred and accept Romanian mobiles written with a leading 0.",
       "plain": "A number like 1,200 in an import is no longer read as 1.2. A Romanian phone number like 0721234567 (10 digits starting with 07) is accepted as a mobile.",
