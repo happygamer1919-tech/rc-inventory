@@ -335,7 +335,21 @@ export function ClientsScreen({
               : "Beneficiarii, cu datele lor de contact și proiectele lor."
         }
         actions={
-          !canWrite || inInactivi ? null : inLeaduri ? (
+          !canWrite ? null : inInactivi ? (
+            // P3-306. Inactivi nu are buton de creare sau de import, dar exportul
+            // stie vederea (`view: inactivi` ajunge la server) si fisierul acopera
+            // exact ce se vede: leadurile si clientii dezactivati.
+            <Button
+              variant="secondary"
+              onClick={() => runExport("clients")}
+              disabled={exporting}
+              data-testid="clienti-export"
+              className="max-md:min-h-11"
+              title="Celulele care încep cu -, + sau @ apar în Excel cu un apostrof în față. Este o protecție; la reimport apostroful se scoate singur. Fișierul folosește punct și virgulă și virgulă zecimală. Pe un Excel în engleză sau pe Mac, deschideți-l prin Date, Din text, cu separatorul punct și virgulă."
+            >
+              Exportă CSV
+            </Button>
+          ) : inLeaduri ? (
             // P3-101. Importa leaduri sta LANGA Lead nou, ca buton secundar: a
             // adauga un lead pe rand ramane actiunea principala a vederii, iar
             // importul este drumul pe care il face cineva o data, la inceput.
