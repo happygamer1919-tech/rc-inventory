@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { parsePriceText, parseQuantityText } from "../../lib/data/price-input";
+import { parsePriceText, parseQuantityText, priceAmount } from "../../lib/data/price-input";
 import { processIssueLines } from "../../lib/data/outbound-lines";
 
 test("P3-209: a comma price and a dot price read the same", () => {
@@ -80,4 +80,25 @@ test("P3-268: the server refuses an invalid quantity or price with the Romanian 
 test("P3-209: an empty box keeps meaning no price", () => {
   expect(parsePriceText("")).toEqual({ kind: "empty" });
   expect(parsePriceText("   ")).toEqual({ kind: "empty" });
+});
+
+test("P3-303: project sale price 1.250 reads the same on screen and on the server", () => {
+  // The project form total uses priceAmount, the server uses processIssueLines.
+  const cases: Array<[string, number]> = [
+    ["1.250", 1250],
+    ["1,25", 1.25],
+    ["1250", 1250],
+    ["1 250", 1250],
+  ];
+  for (const [typed, want] of cases) {
+    expect(priceAmount(typed), typed).toBe(want);
+    expect(processIssueLines([{ productId: "p1", quantity: "1", salePriceMdl: typed }]), typed).toEqual({
+      ok: true,
+      lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: want }],
+    });
+  }
+  expect(priceAmount("")).toBe(0);
+  expect(priceAmount("abc")).toBe(0);
+  // Walk-in behaviour is unchanged: 1.250 is still 1250 there.
+  expect(parsePriceText("1.250")).toEqual({ kind: "ok", value: 1250, text: "1250" });
 });

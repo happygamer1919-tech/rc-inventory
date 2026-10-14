@@ -67,3 +67,13 @@ export function parseQuantityText(raw: string): QuantityInput {
 export function parsePriceText(raw: string): PriceInput {
   return readNumberText(raw);
 }
+
+/**
+ * P3-303: pretul unei pozitii ca numar pentru totalul de pe ecran: 0 cand casuta este
+ * goala sau textul nu se citeste. Ecranul si serverul trec prin aceeasi parsePriceText,
+ * deci "1.250" arata 1250 pe ecran si se salveaza 1250.
+ */
+export function priceAmount(raw: string): number {
+  const p = parsePriceText(raw);
+  return p.kind === "ok" ? p.value : 0;
+}
