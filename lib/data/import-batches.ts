@@ -10,15 +10,18 @@
 // DUBLATELE DIN ACELASI FISIER. Serverul recalculeaza planul la fiecare apel, deci
 // la SCRIERE un rand dintr-un lot mai tarziu vede in baza randurile scrise de loturile
 // de dinainte (loturile merg pe rand, nu in paralel) si se recunoaste ca dublat al
-// lor: nu se creeaza niciodata doi clienti din acelasi email. La VERIFICARE nu se
-// scrie nimic, deci un dublat intre doua loturi diferite nu se vede inainte de scriere;
-// se vede la scriere, unde ramane pe "Sari peste" daca operatorul nu a ales altfel.
-// Am ales asta in locul unei chei de dublare trecute intre apeluri: cele patru
-// importuri au patru reguli de dublare, iar a le schimba pe toate ar fi atins regulile
-// de dublare, pe care cardul le opreste.
+// lor: nu se creeaza niciodata doi clienti din acelasi email.
+//
+// LA VERIFICARE NU SE SCRIE NIMIC, asa ca P3-301 trece intre apeluri cheile de dublare
+// ale randurilor noi (lib/data/import-file-anchors.ts): fiecare plan intoarce `anchors`,
+// runImportBatches le aduna si le da lotului urmator ca `earlier`. Un telefon scris la
+// randul 10 si la randul 260 se vede acum ca dublat in previzualizare, nu abia la scriere.
+// Regulile de dublare raman cele din planuri; ce se trece este doar harta pe care fiecare
+// plan o tinea deja pentru randurile de mai sus din lotul lui.
 //
 // Pur, fara React si fara server: se poate proba fara baza de date.
 
+import { addAnchors, type FileAnchor } from "./import-file-anchors";
 import { PREVIEW_ROW_LIMIT, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Cate randuri pleaca intr-un apel. 200 de randuri raman mult sub 1 MB si sub
@@ -26,8 +29,9 @@ import { PREVIEW_ROW_LIMIT, type ImportPreviewTable } from "./import-preview-row
 export const IMPORT_BATCH_SIZE = 200;
 
 /** Cati octeti de randuri (JSON) are un lot, cel mult: sub limita de 1 MB a cadrului,
- *  cu loc pentru potrivirea coloanelor si alegerile operatorului. */
-export const IMPORT_BATCH_BYTES = 700_000;
+ *  cu loc pentru potrivirea coloanelor, alegerile operatorului si ancorele de dublare
+ *  (IMPORT_ANCHOR_BYTES, P3-301). */
+export const IMPORT_BATCH_BYTES = 600_000;
 
 export type ImportBatch = { rows: string[][]; lines: number[] };
 
@@ -45,8 +49,57 @@ export type BatchFailure<T> = {
 
 export const CHECK_FAILED = "Verificarea nu a putut fi finalizată. Încercați din nou.";
 
-export function importFailed(saved: number): string {
-  return `Importul nu a putut fi finalizat. Rândurile importate până acum au fost salvate: ${saved}. Încercați din nou cu restul fișierului.`;
+/** Cate linii fara cheie se numesc in mesaj; restul se numara. */
+const KEYLESS_LISTED = 8;
+
+/**
+ * P3-301. CE SPUNE UN IMPORT OPRIT LA JUMATATE. Serverul scrie rand cu rand, deci un lot
+ * care esueaza (retea, timp depasit) poate fi scris in parte. Mesajul spune asta pe fata,
+ * spune ca acelasi fisier se poate incarca din nou fara risc (un rand care exista deja se
+ * recunoaste si se sare) si numeste singura exceptie: un rand fara cheie de dublare, care
+ * s-ar crea a doua oara (`keylessLines`, goala la importurile care au mereu o cheie).
+ *
+ * `reason` este motivul oprii; `failed` este lotul care a esuat, ca operatorul sa stie de
+ * unde se poate sa lipseasca ceva.
+ */
+export function importStopped(
+  reason: string,
+  saved: number,
+  failed?: { from: number; to: number },
+  keylessLines: number[] = [],
+): string {
+  const trimmed = reason.trim();
+  const parts = [/[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`];
+  if (saved > 0)
+    parts.push(`Rândurile din loturile terminate au fost salvate: ${formatCount(saved)}.`);
+  parts.push(
+    failed
+      ? `Din lotul care a eșuat (rândurile ${failed.from} până la ${failed.to}) se poate să fi fost salvate câteva rânduri.`
+      : "Se poate să fi fost salvate câteva rânduri.",
+  );
+  parts.push(
+    "Puteți încărca din nou același fișier fără risc: rândurile care există deja sunt recunoscute și sărite.",
+  );
+  if (keylessLines.length > 0) {
+    const listed = keylessLines.slice(0, KEYLESS_LISTED).join(", ");
+    const more = keylessLines.length - KEYLESS_LISTED;
+    parts.push(
+      `Atenție: rândurile fără email și fără telefon (${listed}${more > 0 ? ` și încă ${formatCount(more)}` : ""}) ` +
+        "nu pot fi recunoscute la o nouă încărcare și s-ar crea a doua oară. " +
+        "Scoateți-le din fișier înainte să-l încărcați din nou.",
+    );
+  }
+  return parts.join(" ");
+}
+
+export const IMPORT_FAILED = "Importul nu a putut fi finalizat.";
+
+export function importFailed(
+  saved: number,
+  failed?: { from: number; to: number },
+  keylessLines: number[] = [],
+): string {
+  return importStopped(IMPORT_FAILED, saved, failed, keylessLines);
 }
 
 /** 1200 -> "1.200", cum se scrie in romana. */
@@ -107,7 +160,15 @@ export async function runImportBatches<T>(input: {
   step: BatchStep;
   rows: string[][];
   lines?: number[];
-  call: (batch: ImportBatch) => Promise<{ ok: true; value: T } | { ok: false; message: string }>;
+  /** `earlier` poarta ancorele de dublare ale loturilor terminate (P3-301); gol la scriere. */
+  call: (
+    batch: ImportBatch,
+    earlier: FileAnchor[],
+  ) => Promise<{ ok: true; value: T } | { ok: false; message: string }>;
+  /** Cheile de dublare pe care le poarta un rezultat; date numai la verificare. */
+  anchorsOf?: (part: T) => FileAnchor[] | undefined;
+  /** Adevarat pentru un rand care nu se poate recunoaste ca dublat la o a doua incarcare. */
+  keyless?: (row: string[]) => boolean;
   /** Cate randuri a salvat un rezultat; implicit, toate randurile lotului. */
   saved?: (part: T) => number;
   onProgress?: (done: number, total: number) => void;
@@ -116,32 +177,57 @@ export async function runImportBatches<T>(input: {
   const batches = splitIntoBatches(input.rows, input.lines, input.size);
   const total = input.rows.length;
   const parts: T[] = [];
+  const earlier = { anchors: [] as FileAnchor[], bytes: 0 };
+  const keylessLines: number[] = [];
   let rowsDone = 0;
   let savedRows = 0;
+
+  const noteKeyless = (batch: ImportBatch) => {
+    if (!input.keyless) return;
+    batch.rows.forEach((row, i) => {
+      if (input.keyless?.(row)) keylessLines.push(batch.lines[i] ?? 0);
+    });
+  };
+
+  // P3-301. Mesajul unui import oprit: ce s-a salvat, ce s-ar putea sa fi fost scris din
+  // lotul care a esuat si ce nu se recunoaste la o a doua incarcare. Randurile fara cheie
+  // din lotul esuat conteaza si ele: nu se stie care din ele au apucat sa fie scrise.
+  const stopped = (reason: string, batch: ImportBatch): string => {
+    noteKeyless(batch);
+    return importStopped(
+      reason,
+      savedRows,
+      { from: batch.lines[0] ?? 0, to: batch.lines[batch.lines.length - 1] ?? 0 },
+      keylessLines,
+    );
+  };
 
   for (const batch of batches) {
     input.onProgress?.(rowsDone, total);
     let result: { ok: true; value: T } | { ok: false; message: string };
     try {
-      result = await input.call(batch);
+      result = await input.call(batch, [...earlier.anchors]);
     } catch {
       return {
         ok: false,
         parts,
         rowsDone,
-        message: input.step === "check" ? CHECK_FAILED : importFailed(savedRows),
+        message: input.step === "check" ? CHECK_FAILED : stopped(IMPORT_FAILED, batch),
       };
     }
     if (!result.ok) {
-      const suffix =
-        input.step === "import" && savedRows > 0
-          ? ` Rândurile importate până acum au fost salvate: ${savedRows}.`
-          : "";
-      return { ok: false, parts, rowsDone, message: `${result.message}${suffix}` };
+      return {
+        ok: false,
+        parts,
+        rowsDone,
+        message: input.step === "check" ? result.message : stopped(result.message, batch),
+      };
     }
     parts.push(result.value);
     rowsDone += batch.rows.length;
     savedRows += input.saved ? input.saved(result.value) : batch.rows.length;
+    addAnchors(earlier, input.anchorsOf?.(result.value));
+    noteKeyless(batch);
   }
   input.onProgress?.(rowsDone, total);
   return { ok: true, parts };
@@ -151,6 +237,7 @@ type PlanLike = {
   entries: { line: number }[];
   counts: { fresh: number; duplicate: number; error: number };
   preview: ImportPreviewTable;
+  anchors?: FileAnchor[];
 };
 
 /** Uneste planurile loturilor intr-un singur plan, in ordinea fisierului. */
@@ -171,6 +258,8 @@ export function mergePlans<P extends PlanLike>(parts: P[]): P {
   }
   return {
     ...first,
+    // Ancorele au slujit numai la verificare; planul unit nu mai pleaca spre server.
+    anchors: undefined,
     entries,
     counts,
     preview: { columns: first.preview.columns, rows: shown, more: freshRows - shown.length },

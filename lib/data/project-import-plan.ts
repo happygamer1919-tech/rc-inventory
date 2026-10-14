@@ -26,6 +26,7 @@ import {
   type ProjectImportField,
 } from "./project-import-types";
 import { rawRowAt } from "./import-shared";
+import { FileAnchors, type FileAnchor } from "./import-file-anchors";
 import { projectPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Clientul, denumirea si starea nu
@@ -70,9 +71,11 @@ export type ProjectImportPlan = {
   counts: { fresh: number; duplicate: number; error: number };
   /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
   preview: ImportPreviewTable;
+  /** P3-301: cheile de dublare ale randurilor noi din acest lot, pentru lotul urmator. */
+  anchors?: FileAnchor[];
 };
 
-export type DuplicateChoice = "skip" | "fill";
+export type DuplicateChoice= "skip" | "fill";
 export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
@@ -102,6 +105,8 @@ export function buildProjectPlan(input: {
   headerLine?: number;
   /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
   lines?: number[];
+  /** P3-301: ancorele loturilor de dinainte, ca un dublat din alt lot sa se vada. */
+  earlier?: FileAnchor[];
 }): { plan: ProjectImportPlan; prepared: Map<number, Record<ProjectImportField, string>> } {
   const headerLine = input.headerLine ?? 1;
   const preview = buildProjectImportPreview(
@@ -121,7 +126,7 @@ export function buildProjectPlan(input: {
     if (!stored.has(key)) stored.set(key, project);
   }
 
-  const inFile = new Map<string, { line: number; name: string }>();
+  const inFile = new FileAnchors(input.earlier, "project");
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, Record<ProjectImportField, string>>();
@@ -194,5 +199,5 @@ export function buildProjectPlan(input: {
     clientNames,
   );
 
-  return { plan: { entries, counts, preview: newRows }, prepared };
+  return { plan: { entries, counts, preview: newRows, anchors: inFile.newAnchors() }, prepared };
 }

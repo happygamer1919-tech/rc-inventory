@@ -35,6 +35,7 @@ import {
   readFailedMessage,
 } from "./import-clients-read";
 import { readInBatches } from "./id-list";
+import { readAnchors, type FileAnchor } from "./import-file-anchors";
 import { importNextActionAt, ownerLeftEmptyWarning, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
@@ -303,7 +304,7 @@ async function ownerInputs() {
 
 /** Planul, calculat pe server, fara nicio scriere. */
 export async function planLeadImport(
-  request: LeadImportRequest,
+  request: LeadImportRequest & { earlier?: FileAnchor[] },
 ): Promise<ActionResult<LeadImportPlan>> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
@@ -323,6 +324,7 @@ export async function planLeadImport(
     ownerNames: ownerInput.ownerNames,
     fallbackSource: readFallbackSource(request.fallbackSource),
     existing: existing.value,
+    earlier: readAnchors(request.earlier),
   });
   const fillable = await loadOrRefuse(() => addContactNameFillable(supabase, plan, prepared));
   if (!fillable.ok) return fillable;
