@@ -341,3 +341,37 @@ test("P3-193: totalul se schimba la fiecare incercare: mesaj in romana, dupa tre
   // Trei incercari, fiecare oprita la a doua pagina.
   expect(calls).toBe(READ_ATTEMPTS * 2);
 });
+
+test("P3-287: un termen schimbat dupa prima pagina muta un rand deja citit dincolo de cursor, iar sarcina vie nu este sarita", async () => {
+  const table = tasks(25);
+  const client = fakeClient(table, 1000, []);
+  // Randul cu termenul cel mai apropiat primeste termenul cel mai departat intre prima si a
+  // doua cerere: pozitiile se strang cu unu, pagina a doua incepe un rand prea departe.
+  const first = table
+    .filter((r) => r.due_date !== null)
+    .sort((a, b) => (a.due_date! < b.due_date! ? -1 : a.due_date! > b.due_date! ? 1 : a.id < b.id ? -1 : 1))[0];
+  let requests = 0;
+  const start: TaskReadStart<Row> = () => {
+    if (++requests === 2) first.due_date = "2099-12-31";
+    return client.from().select();
+  };
+
+  const got = await readTaskRows(start, EMPTY_QUERY, 10, start);
+  expect(got.map((r) => r.id).sort()).toEqual(table.map((r) => r.id).sort());
+});
+
+test("P3-287: aceeasi mutare pe sarcinile unei inregistrari: fiecare sarcina vie vine o singura data", async () => {
+  const table = tasks(60).filter((r) => r.entity_id === "c1");
+  const client = fakeClient(table, 1000, []);
+  // Lista este cele mai noi intai, deci prima este cea mai noua; primeste o data veche.
+  const [first] = [...table].sort((a, b) =>
+    a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : a.created_at < b.created_at ? 1 : -1,
+  );
+  let requests = 0;
+  const start: TaskReadStart<Row> = () => {
+    if (++requests === 2) first.created_at = "2000-01-01T00:00:00Z";
+    return client.from().select();
+  };
+  const got = await readEntityTaskRows(start, "client", "c1", 3, start);
+  expect(got.map((r) => r.id).sort()).toEqual(table.map((r) => r.id).sort());
+});

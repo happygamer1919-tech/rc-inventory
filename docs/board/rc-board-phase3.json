@@ -7094,6 +7094,29 @@
       "notes": "Found by the bug check of 2026-10-13 (Fable, build-20261013T235131947Z). Id P3-276 checked free with npm run id:free. The probe cases are pure and were run locally; the form case runs in CI only (no Docker here)."
     },
     {
+      "id": "P3-287",
+      "title": "A long list read page by page is checked at the end against an id-only read of the same list, so a row that moved past the cursor between two pages can no longer be skipped without a signal. readAllPages in lib/data/id-list.ts gains an optional fifth argument fetchIds; when the read took more than one page, the ids it collected must equal the ids of a final id-only read, otherwise the read restarts like a changed total (READ_ATTEMPTS, same list-changed message). Wired for the lists sorted on a column a colleague can change: the Sarcini list and the record task panels, the catalog (sku), the active client pickers (name) and the Azi client list (next action date).",
+      "plain": "A long list that someone edits while it is loading no longer shows up one row short. If a row moved while the list was being read, the list is read again, and only if it keeps changing does the screen say so.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The P3-287 cases in tests/e2e/list-read-moving-row.spec.ts are green in this pull request's own quality run on the head sha: a read of 23 rows in pages of 10 where an already read row moves to the end between page one and page two returns every live row exactly once, with and without a caller key; a delete plus an insert that leaves the total and the keys unchanged is caught by the id-only read; the same change on every attempt rejects with the list-changed message after READ_ATTEMPTS reads; a one page read makes no id-only request. (b) The P3-287 cases in tests/e2e/tasks-list-paging.spec.ts and tests/e2e/client-options-read.spec.ts are green. (c) The existing readAllPages cases in tests/e2e/review.spec.ts and tests/e2e/tasks-list-paging.spec.ts still pass. (d) npx tsc --noEmit exits 0. (e) npm run checks:state <pr> exits 0.",
+      "defaults": "Keyset paging was rejected: the callers sort on different columns with nulls and Romanian text, so one cursor shape does not fit them. The check is an id-only read of the same list with the same filters and order, run only when the read took more than one page; a single request cannot move. The id-only read goes through the same counted paging (total required, empty page, repeated id), then its id set must equal the collected id set. A repeated id without a caller key now restarts the read instead of being dropped silently by dedupeById on the wired lists. Callers that sort on an immutable column and never delete rows are not wired: stock and movement history (id or created_at order), inbound and outbound orders, the client import reads, the Azi notes. The extraction drafts reads in lib/data/extraction.ts are Orange's track and are not touched; they already pass a key (P3-261). ROW_PAGE_SIZE, ID_LIST_BATCH_SIZE, READ_ATTEMPTS and the existing error texts do not change. No migration.",
+      "last_checkpoint": "2026-10-14T08:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-287 against main; acceptance is the quality run on its head, which runs tests/e2e/list-read-moving-row.spec.ts",
+        "at": "2026-10-14T08:00:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13 23:51Z. P3-261 restarts on a repeated key and P3-193 on a changed count, but a read row that leaves the list (deleted, or moved past the cursor and then deleted) shifts the positions with no repeated key and an equal total. The unit cases were run locally with a throwaway playwright config; the e2e suite runs in CI only (no Docker here). Id P3-287 checked free with npm run id:free."
+    },
+    {
       "id": "P3-274",
       "title": "Lock the number and the dates of a saved slip in public.outbound_issues against a direct request. Migration 0083 replaces the body of public.outbound_issues_guard() (0082 word for word, same trigger) and adds, on UPDATE for a signed-in caller (owner included), a refusal with errcode 42501 and a Romanian reason for any change of reference, issued_at, pickup_date, created_at or id. No writer of the table changes those columns after insert, so status and shipped_at (through public.ship_outbound_issue) and updated_at (its own trigger) stay the only columns that move. A server role with no identity is not guarded. Policies, ship_outbound_issue and the two doors are unchanged.",
       "plain": "A saved slip keeps its number and its dates; nobody can change them behind the screen's back. That keeps the invoice showing the right slip number and keeps the next slip number from jumping.",
