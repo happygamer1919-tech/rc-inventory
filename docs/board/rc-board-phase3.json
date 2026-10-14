@@ -7310,6 +7310,29 @@
       "notes": "Source: factory bug check of 2026-10-14. outbound-actions.ts runs processIssueLines for both modes, so parsePriceText (dot plus three digits is a thousands separator, P3-253 and P3-268) also read the project form's number box, where the dot is always a decimal point."
     },
     {
+      "id": "P3-304",
+      "title": "An import panel cannot be closed while an import is running, so the import never continues unseen and the summary is never lost.",
+      "plain": "While a file is being imported, pressing Escape, clicking beside the panel or pressing the close button now does nothing, and the close button says the import is running. When the import ends, the panel closes as before and the summary stays on screen until it is closed. This applies to clients, leads, projects and products.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "All cases in tests/import-sheet-close.test.ts whose name starts with P3-304 are green in this pull request own quality run: close is ignored while pending and works after, and each of the four import sheets (client, lead, project, material) sends Escape, backdrop click and the X button through the guard, with the X disabled and titled Importul este în curs. Așteptați să se termine. while pending. The existing import specs stay green. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0. No file under supabase/migrations/ is added or changed.",
+      "defaults": "Blocking close is the whole fix: the server batch loop is not made cancellable in this card. The Done button after the import ends still closes. No migration.",
+      "last_checkpoint": "2026-10-14T14:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-304 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T14:00:00Z"
+      },
+      "notes": "Source: bug check of 2026-10-14. Shared helper lib/import-sheet-close.ts."
+    },
+    {
       "id": "P3-306",
       "title": "Exports cover exactly the view on screen: the Inactivi view has Exportă CSV, a lead exported from Toți keeps its Persoană de contact, and a big lead export never loses a contact name.",
       "plain": "The Inactivi list now has an Exportă CSV button. A file exported from the Toți list keeps the contact person of every lead in it, so loading it back through Leaduri keeps the contact. Contact names are no longer silently dropped when a lead export is large.",
