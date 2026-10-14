@@ -36,6 +36,7 @@ import {
   type MaterialImportField,
 } from "./material-import-types";
 import { rawRowAt } from "./import-shared";
+import { FileAnchors, type FileAnchor } from "./import-file-anchors";
 import { unitLabel, type UnitCode } from "./units";
 import { materialPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
@@ -77,9 +78,11 @@ export type MaterialImportPlan = {
   counts: { fresh: number; duplicate: number; error: number };
   /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
   preview: ImportPreviewTable;
+  /** P3-301: cheile de dublare ale randurilor noi din acest lot, pentru lotul urmator. */
+  anchors?: FileAnchor[];
 };
 
-export type DuplicateChoice = "skip" | "fill";
+export type DuplicateChoice= "skip" | "fill";
 export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
@@ -137,6 +140,8 @@ export function buildMaterialPlan(input: {
   headerLine?: number;
   /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
   lines?: number[];
+  /** P3-301: ancorele loturilor de dinainte, ca un dublat din alt lot sa se vada. */
+  earlier?: FileAnchor[];
 }): {
   plan: MaterialImportPlan;
   prepared: Map<number, Record<MaterialImportField, string>>;
@@ -161,8 +166,8 @@ export function buildMaterialPlan(input: {
     storedByNameUnit.set(key, [...(storedByNameUnit.get(key) ?? []), product]);
   }
 
-  const fileBySku = new Map<string, { line: number; name: string }>();
-  const fileByNameUnit = new Map<string, { line: number; name: string }>();
+  const fileBySku = new FileAnchors(input.earlier, "sku");
+  const fileByNameUnit = new FileAnchors(input.earlier, "nameUnit");
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, Record<MaterialImportField, string>>();
@@ -284,5 +289,10 @@ export function buildMaterialPlan(input: {
     new Map(input.categories.map((c) => [c.id, c.name])),
   );
 
-  return { plan: { entries, counts, preview: newRows }, prepared, unitChecks: [...unitChecks] };
+  const anchors = [...fileBySku.newAnchors(), ...fileByNameUnit.newAnchors()];
+  return {
+    plan: { entries, counts, preview: newRows, anchors },
+    prepared,
+    unitChecks: [...unitChecks],
+  };
 }

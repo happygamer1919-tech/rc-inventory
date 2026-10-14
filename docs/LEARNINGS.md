@@ -9564,6 +9564,21 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `tests/e2e/headers.spec.ts` case 5 (jurnalul de aplicare are o intrare pentru fiecare migratie) failed after about 27 minutes of end to end, 908 passed and 1 failed, because `0083_outbound_issue_reference_lock.sql` had no line in `docs/migrations/APPLY-LOG.md`. The factory KNOWN-FAILURES file already named this signature; it was read only after the red run.
 **SOLUTION:** added the line naming 0083 with "card de aplicare P3-274" to the pending register. RULE: **adding a migration is two files: the .sql and its APPLY-LOG pending line, in the same commit; read KNOWN-FAILURES before the first push of a migration card, not after the first red run.**
 
+### The batched import check hid a duplicate that sat in another batch
+**Tag:** data
+**ERROR:** P3-211 sent the check in batches of 200 and each plan saw only its own batch, so the same phone at data rows 10 and 260 showed as two "Noi" rows in the preview; at write time the second row was found as stored and skipped, so the preview counts did not match what was written. The P3-211 header comment even recorded this as accepted.
+**SOLUTION:** card P3-301: each plan returns the duplicate keys its batch added (`anchors`) and takes those of earlier batches (`earlier`); `runImportBatches` carries them between check calls only (`lib/data/import-file-anchors.ts`). The write step passes none, because an earlier batch's row is already stored. Proven by `tests/e2e/import-batch-anchors.spec.ts`, which builds the same file in batches and at once for leads, clients, projects and materials and compares the plans. RULE: **when a pure function is run over slices of its input, test that slices merged equal the whole; a "known gap" noted in a comment is a test that was not written.**
+
+### A halfway import failure only reported finished batches and said "try again with the rest"
+**Tag:** frontend
+**ERROR:** `runImportBatches` stopped at the first failing batch and the screens showed only the error text. The server writes row by row, so a failed batch may be partly saved, the finished batches' result (and the "Descarcă rândurile nepreluate" file) was dropped, and "încercați din nou cu restul fișierului" would have made the operator re-upload only part of the file. A client row with neither email nor phone has no duplicate key and would be created twice on a full re-upload.
+**SOLUTION:** card P3-301: the screens call `setOutcome(mergeOutcomes(parts))` on failure, the message (`importStopped`) says the failed batch (with its row range) may be partly saved and that the same file can be uploaded again, and the client import names the keyless rows by file line (`clientRowHasNoKey`). RULE: **a failure message for a write that is not atomic must say what may already be written and whether repeating the step is safe, and name the one case where it is not.**
+
+### The pure Playwright specs cannot run locally with the default config
+**Tag:** tooling
+**ERROR:** `npx playwright test tests/import-batches.test.ts` waited five minutes for `config.webServer` and timed out, because the config starts the production build and needs the Supabase variables that this machine does not have.
+**SOLUTION:** a throwaway `pw-unit.local.config.ts` (testDir, testMatch, no webServer) outside the commit runs the pure specs in under a second. RULE: **run pure specs with a config that has no webServer; never wait on the default one without a database.**
+
 ### P3-286: a thousands rule for "1,200" broke the material export round trip and a phone length was off by one
 **Tag:** ci
 **ERROR:** the first full run of P3-286 failed 3 end to end cases. (1) `parseImportNumber("0,125")` returned null: the new single comma rule read "0,125" as a thousands group with a leading 0, which `readThousands` refuses, so the material export of a threshold 0.125 could not be imported back. (2) `readPhone("0721234567")` returned bad: the Romanian branch asked for ten digits after the leading 0, but a mobile has nine (ten in all), so "+40721234567" was refused too. (3) The material export wrote 1.125 as "1,125", which the new rule reads as 1125.

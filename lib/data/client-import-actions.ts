@@ -25,6 +25,7 @@ import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
 import { readClientOwnerChoices } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
+import { readAnchors, type FileAnchor } from "./import-file-anchors";
 import { importNextActionAt, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import {
@@ -151,7 +152,7 @@ async function loadExisting(
 
 /** Planul, calculat pe server, fara nicio scriere. */
 export async function planClientImport(
-  request: ClientImportRequest,
+  request: ClientImportRequest & { earlier?: FileAnchor[] },
 ): Promise<ActionResult<ClientImportPlan>> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
@@ -173,6 +174,7 @@ export async function planClientImport(
     owners,
     ownerNames,
     existing: existing.value,
+    earlier: readAnchors(request.earlier),
   });
 
   return { ok: true, value: plan };

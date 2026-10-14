@@ -16,6 +16,7 @@
 // trebuie sa existe.
 
 import type { ClientSource } from "./clients-types";
+import { FileAnchors, type FileAnchor } from "./import-file-anchors";
 import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 import { dataRowLine } from "./import-shared";
 import {
@@ -91,6 +92,8 @@ export type LeadImportPlan = {
   counts: { fresh: number; duplicate: number; error: number };
   /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
   preview: ImportPreviewTable;
+  /** P3-301: cheile de dublare ale randurilor noi din acest lot, pentru lotul urmator. */
+  anchors?: FileAnchor[];
 };
 
 /** Ce a ales operatorul pentru fiecare rand dublat. Lipsa inseamna "Sari peste". */
@@ -147,6 +150,8 @@ export function buildPlan(input: {
   headerLine?: number;
   /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
   lines?: number[];
+  /** P3-301: ancorele loturilor de dinainte, ca un dublat din alt lot sa se vada. */
+  earlier?: FileAnchor[];
 }): { plan: LeadImportPlan; prepared: Map<number, PreparedLead> } {
   const headerLine = input.headerLine ?? 1;
 
@@ -162,8 +167,8 @@ export function buildPlan(input: {
   // Randurile bune de mai sus, ca un al doilea rand al aceluiasi om sa il
   // gaseasca pe primul. Se umple pe masura ce se citeste, deci un rand nu se
   // poate potrivi cu unul de mai jos: asa "primul castiga" este mereu adevarat.
-  const fileByPhone = new Map<string, { line: number; name: string }>();
-  const fileByEmail = new Map<string, { line: number; name: string }>();
+  const fileByPhone = new FileAnchors(input.earlier, "phone");
+  const fileByEmail = new FileAnchors(input.earlier, "email");
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, PreparedLead>();
@@ -264,7 +269,8 @@ export function buildPlan(input: {
     true,
   );
 
-  return { plan: { entries, counts, preview }, prepared };
+  const anchors = [...fileByPhone.newAnchors(), ...fileByEmail.newAnchors()];
+  return { plan: { entries, counts, preview, anchors }, prepared };
 }
 
 /**
