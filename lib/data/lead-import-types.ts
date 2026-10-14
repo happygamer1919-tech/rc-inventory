@@ -48,16 +48,18 @@ import {
   IMPORT_SAMPLE_COUNT,
   IMPORT_SKIP,
   IMPORT_SKIP_LABEL,
+  readPhone,
   type ColumnMapping as GenericColumnMapping,
   type RowNumber,
+  type PhoneReading,
 } from "./import-shared";
 
 // RE-EXPORTATE SUB ACELASI NUME, CARDUL P3-121 CLAUZA 2 SI 3: fisierul acesta
 // nu mai DEFINESTE cititorul, scriitorul sau limitele, le PRIMESTE de la
 // import-shared.ts, ca sa existe un singur cititor si un singur scriitor de CSV
 // in tot depozitul (acceptanta (g) a cardului P3-121).
-export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
-export type { RowNumber };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL, readPhone };
+export type { RowNumber, PhoneReading };
 
 /** Campurile RC in care poate intra o coloana din fisier, IN ORDINEA din goal G58. */
 export const IMPORT_FIELDS = [
@@ -287,72 +289,17 @@ export function importNoteBody(fileName: string, day: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Telefon: forma canonica +373
+// Telefon: forma canonica +373 sau strain cu prefixul lui
 // ---------------------------------------------------------------------------
 
 /**
  * Numarul in forma cu care se compara doua randuri, sau null cand nu este un
- * numar.
- *
- * Republica Moldova are prefixul +373 si opt cifre dupa el. Operatorul scrie
- * "069123456", "0 69 12 34 56", "+373 69 123 456" si "00373691234 56" pentru
- * acelasi om, deci toate trebuie sa cada pe acelasi sir, altfel dublatul nu se
- * vede. Un numar strain se pastreaza cu prefixul lui: se normalizeaza, nu se
- * moldovenizeaza.
+ * numar. Functia readPhone si tipul PhoneReading sunt definite in import-shared.ts,
+ * ca doua module sa le foloseasca cu acelasi cod.
  */
 export function normalisePhone(raw: string): string | null {
   const reading = readPhone(raw);
   return reading.kind === "ok" ? reading.value : null;
-}
-
-export type PhoneReading =
-  | { kind: "empty" }
-  | { kind: "ok"; value: string }
-  | { kind: "many" }
-  | { kind: "bad" };
-
-/** Cate cifre are un numar intreg: sub sapte nu poate fi un telefon. */
-const WHOLE_NUMBER_DIGITS = 7;
-
-/**
- * Citeste o celula de telefon. O celula completata care nu se citeste ca un
- * singur numar valid NU este goala: este "mai multe" sau "gresit", ca importul
- * sa o arate ca eroare in loc sa o piarda sau sa pastreze un numar inventat.
- */
-export function readPhone(raw: string): PhoneReading {
-  const trimmed = raw.trim();
-  if (trimmed === "") return { kind: "empty" };
-
-  const wholeNumbers = trimmed
-    .split(/[;,/\n]/)
-    .filter((part) => part.replace(/\D/g, "").length >= WHOLE_NUMBER_DIGITS);
-  if (wholeNumbers.length > 1 || /\d{8,}\D+\d{8,}/.test(trimmed)) return { kind: "many" };
-
-  const hasPlus = trimmed.startsWith("+");
-  let digits = trimmed.replace(/\D/g, "");
-  if (digits === "") return { kind: "bad" };
-
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  else if (!hasPlus && digits.startsWith("0")) {
-    // Forma locala: 0 urmat de exact opt cifre, altfel este o greseala de tastare.
-    const local = digits.slice(1);
-    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
-  }
-
-  if (digits.startsWith("373")) {
-    const local = digits.slice(3);
-    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
-  }
-
-  // Opt cifre fara niciun prefix este un numar moldovenesc scris scurt.
-  if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
-
-  // Un numar strain se pastreaza cu prefixul lui, dar nu poate incepe cu 0 si are
-  // cel mult cincisprezece cifre.
-  if (digits.startsWith("0") || digits.length < WHOLE_NUMBER_DIGITS || digits.length > 15) {
-    return { kind: "bad" };
-  }
-  return { kind: "ok", value: `+${digits}` };
 }
 
 export type EmailReading =

@@ -1,4 +1,4 @@
-// P3-137. Numerele scrise romaneste in fisierele de import. Nu atinge nici
+// P3-137 si P3-286. Numerele scrise romaneste in fisierele de import. Nu atinge nici
 // browserul, nici baza: tabelul de cazuri al lui parseImportNumber.
 import { expect, test } from "@playwright/test";
 import { parseImportNumber } from "@/lib/data/import-number";
@@ -23,6 +23,14 @@ const CASES: [string, string | null][] = [
   ["-5", null],
   ["", null],
   ["12,", null],
+  // P3-286: comma as thousands separator when followed by exactly 3 digits
+  ["1,200", "1200"],
+  ["100,000", "100000"],
+  ["1,500", "1500"],
+  // Commas that are decimals (not followed by exactly 3 digits)
+  ["1,5", "1.5"],
+  ["1,25", "1.25"],
+  ["1,2", "1.2"],
 ];
 
 test("numar de import: tabelul de cazuri romanesti si cele neclare", () => {
@@ -39,7 +47,10 @@ test("numar de import: limita de cifre intregi se pastreaza", () => {
 });
 
 test("numar de import: exportul de materiale se citeste inapoi la fel", () => {
-  expect(exportNumber(1.125)).toBe("1,125");
+  // P3-286: "1,125" would now be read as 1125, so the export adds a trailing zero.
+  expect(exportNumber(1.125)).toBe("1,1250");
+  expect(exportNumber(0.125)).toBe("0,125");
+  expect(exportNumber(1234.567)).toBe("1234,567");
 
   const VALUES = [0.001, 1.125, 12.5, 999.999, 1234.567, 1000000, 0];
   for (const v of VALUES) {
