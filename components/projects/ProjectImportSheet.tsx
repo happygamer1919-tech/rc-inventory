@@ -198,7 +198,8 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
         step: "check",
         rows,
         lines,
-        call: (batch) => planProjectImport({ ...batch, mapping }),
+        call: (batch, earlier) => planProjectImport({ ...batch, mapping, earlier }),
+        anchorsOf: (part) => part.anchors,
         onProgress: (done, total) => setProgress(batchProgress("check", done, total)),
       });
       if (!result.ok) {
@@ -230,6 +231,10 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
       });
       if (!result.ok) {
         setError(result.message);
+        // P3-301: loturile terminate sunt scrise. Se arata ce au facut, ca "Descarcă
+        // rândurile nepreluate" sa mearga si pentru ele, iar lista se reincarca.
+        if (result.parts.length > 0) setOutcome(mergeOutcomes(result.parts));
+        router.refresh();
         return;
       }
       setOutcome(mergeOutcomes(result.parts));
@@ -475,7 +480,9 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
             <section className="space-y-4" data-testid="import-step-4">
               {outcome ? (
                 <div className="space-y-3" data-testid="import-summary">
-                  <p className="text-[13px] text-rc-black">Gata. Iată ce s-a întâmplat:</p>
+                  <p className="text-[13px] text-rc-black">
+                    {error ? "Importul s-a oprit. Iată ce s-a întâmplat până atunci:" : "Gata. Iată ce s-a întâmplat:"}
+                  </p>
                   <div className={`grid grid-cols-3 gap-3 ${PHONE_STACK}`}>
                     <Count label="Create" value={outcome.created} testId="import-created" />
                     <Count label="Completate" value={outcome.filled} testId="import-filled" />

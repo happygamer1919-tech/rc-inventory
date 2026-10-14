@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createProjectRecord } from "./project-actions";
 import { loadOrRefuse, readAllRows, readFailedMessage } from "./import-clients-read";
+import { readAnchors, type FileAnchor } from "./import-file-anchors";
 import { rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import {
@@ -136,7 +137,7 @@ async function loadExisting(supabase: Supabase): Promise<ExistingProject[]> {
 
 /** Planul, calculat pe server, fara nicio scriere. */
 export async function planProjectImport(
-  request: ProjectImportRequest,
+  request: ProjectImportRequest & { earlier?: FileAnchor[] },
 ): Promise<ActionResult<ProjectImportPlan>> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
@@ -154,6 +155,7 @@ export async function planProjectImport(
     lines: request.lines,
     mapping: readMapping(request.mapping),
     ...loaded.value,
+    earlier: readAnchors(request.earlier),
   });
 
   return { ok: true, value: plan };

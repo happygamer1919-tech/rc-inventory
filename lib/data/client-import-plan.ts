@@ -23,6 +23,7 @@ import {
   type OwnerIndex,
   type PreparedClient,
 } from "./client-import-types";
+import { FileAnchors, type FileAnchor } from "./import-file-anchors";
 import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Denumirea, etapa si data de
@@ -78,9 +79,11 @@ export type ClientImportPlan = {
   counts: { fresh: number; duplicate: number; error: number };
   /** P3-141: randurile noi, cu valorile cum vor fi salvate. */
   preview: ImportPreviewTable;
+  /** P3-301: cheile de dublare ale randurilor noi din acest lot, pentru lotul urmator. */
+  anchors?: FileAnchor[];
 };
 
-export type DuplicateChoice = "skip" | "fill";
+export type DuplicateChoice= "skip" | "fill";
 export type DuplicateChoices = Record<number, DuplicateChoice>;
 
 export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>): string {
@@ -110,6 +113,22 @@ export function namePhoneKey(name: string, phone: string): string | null {
   const n = nameKey(name);
   const p = phoneKey(phone);
   return n === "" || p === null ? null : `${n}|${p}`;
+}
+
+/**
+ * P3-301. UN RAND FARA EMAIL SI FARA TELEFON NU ARE CHEIE DE DUBLARE: planul il numeste
+ * mereu "nou" (vezi antetul fisierului), deci daca acelasi fisier se incarca a doua oara
+ * dupa un import oprit la jumatate, randul s-ar crea inca o data. Ecranul foloseste
+ * intrebarea asta ca sa spuna asta operatorului, pe randuri. Se uita la celulele din fisier,
+ * deci poate numara si un rand care va fi oricum refuzat: avertismentul este prea larg, niciodata
+ * prea ingust.
+ */
+export function clientRowHasNoKey(row: string[], mapping: ClientImportColumnMapping): boolean {
+  const cell = (field: ClientImportField) => {
+    const at = mapping.indexOf(field);
+    return at < 0 ? "" : (row[at] ?? "");
+  };
+  return cell("name").trim() !== "" && cell("email").trim() === "" && phoneKey(cell("phone")) === null;
 }
 
 const FILL_FIELD_LABEL: Record<ClientFillField, string> = {
@@ -164,6 +183,8 @@ export function buildClientPlan(input: {
   headerLine?: number;
   /** Linia din Excel a fiecarui rand de date, cand fisierul are linii goale. */
   lines?: number[];
+  /** P3-301: ancorele loturilor de dinainte, ca un dublat din alt lot sa se vada. */
+  earlier?: FileAnchor[];
 }): { plan: ClientImportPlan; prepared: Map<number, PreparedWithOwnerId> } {
   const headerLine = input.headerLine ?? 1;
   const preview = buildClientImportPreview(
@@ -185,8 +206,8 @@ export function buildClientPlan(input: {
     if (key && !storedByNamePhone.has(key)) storedByNamePhone.set(key, client);
   }
 
-  const fileByEmail = new Map<string, { line: number; name: string }>();
-  const fileByNamePhone = new Map<string, { line: number; name: string }>();
+  const fileByEmail = new FileAnchors(input.earlier, "email");
+  const fileByNamePhone = new FileAnchors(input.earlier, "namePhone");
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, PreparedWithOwnerId>();
@@ -269,7 +290,8 @@ export function buildClientPlan(input: {
     false,
   );
 
-  return { plan: { entries, counts, preview: newRows }, prepared };
+  const anchors = [...fileByEmail.newAnchors(), ...fileByNamePhone.newAnchors()];
+  return { plan: { entries, counts, preview: newRows, anchors }, prepared };
 }
 
 /**
