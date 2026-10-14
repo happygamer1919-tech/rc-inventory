@@ -100,6 +100,18 @@ export async function readInBatches<T>(
 // dublura, nu aduce randul sarit). O mutare care nu repeta nicio cheie nu se
 // poate produce pe o ordine stabila: ce iese dintr-o parte a ferestrei intra in
 // cealalta, iar cursorul avanseaza numai peste randurile venite.
+//
+// P3-287. NICI CHEIA NU PRINDE UN RAND SARIT FARA DUBLURA. Un rand deja citit se
+// muta dincolo de cursor (sau este sters, iar altul se adauga): pozitiile se
+// strang cu unu, pagina urmatoare incepe un rand prea departe si sare un rand viu.
+// Totalul ramane egal, iar daca randul mutat nu mai vine a doua oara (fiindca a
+// fost sters), nicio cheie nu se repeta. Lista iese scurta cu un rand, fara semnal.
+// Pozitiile nu se pot repara, deci se verifica la capat: cand citirea a luat mai
+// multe pagini si apelantul da `fetchIds`, o citire numai cu id-uri, cu aceleasi
+// filtre si aceeasi ordine, trebuie sa dea EXACT multimea de id-uri adunata. Orice
+// diferenta este semnul unei mutari, si citirea se reia ca la un total schimbat.
+// O citire dintr-o singura pagina nu se verifica: o singura cerere nu se poate muta.
+// Costul este numai pentru listele lungi, si cere id-uri, nu randuri.
 
 /** Cate randuri se cer intr-o pagina. Vezi antetul P3-39: corectitudinea nu
  *  depinde de el, deci nu este un prag de intalnit. */
@@ -112,6 +124,9 @@ export type CountedPage<T> = {
   error: { message: string } | null;
 };
 
+/** P3-287. Citirea numai de id-uri, in forma lui `fetchPage`: `.select("id", { count: "exact" }).range(from, to)`. */
+export type IdsFetcher = (from: number, to: number) => PromiseLike<CountedPage<{ id: string }>>;
+
 /**
  * Citeste pagina dupa pagina pana cand randurile adunate sunt cat totalul.
  *
@@ -122,12 +137,18 @@ export type CountedPage<T> = {
  *
  * `keyOf` (optional) da cheia unica a unui rand. O cheie care se repeta inseamna
  * ca fereastra s-a mutat intre pagini: citirea se reia, ca la un total schimbat.
+ *
+ * P3-287. `fetchIds` (optional) este aceeasi cerere ca `fetchPage`, cu aceleasi
+ * filtre si aceeasi ordine, dar cu `select("id", { count: "exact" })`. Cand citirea
+ * a luat mai multe pagini, id-urile ei se compara la capat cu o citire numai de
+ * id-uri; o diferenta reia citirea. Cheia unui rand este `keyOf`, iar fara el `id`.
  */
 export async function readAllPages<T>(
   what: string,
   fetchPage: (from: number, to: number) => PromiseLike<CountedPage<T>>,
   size: number = ROW_PAGE_SIZE,
   keyOf?: (row: T) => string,
+  fetchIds?: IdsFetcher,
 ): Promise<T[]> {
   if (size < 1) throw new Error(`marimea paginii trebuie sa fie cel putin 1, a fost ${size}`);
   // P3-193. Un coleg care adauga sau scoate un rand intre doua pagini schimba totalul.
@@ -136,7 +157,7 @@ export async function readAllPages<T>(
   // operatorul. Niciodata o lista scurta sau cu dubluri, tacut.
   for (let attempt = 1; ; attempt++) {
     try {
-      return await readPagesOnce(what, fetchPage, size, keyOf);
+      return await readPagesOnce(what, fetchPage, size, keyOf, fetchIds);
     } catch (err) {
       if (!(err instanceof ListChangedError)) throw err;
       if (attempt >= READ_ATTEMPTS) throw new Error(LIST_CHANGED_MESSAGE);
@@ -157,13 +178,16 @@ async function readPagesOnce<T>(
   fetchPage: (from: number, to: number) => PromiseLike<CountedPage<T>>,
   size: number,
   keyOf?: (row: T) => string,
+  fetchIds?: IdsFetcher,
 ): Promise<T[]> {
   const rows: T[] = [];
   const seen = new Set<string>();
   let total: number | null = null;
+  let pages = 0;
 
   for (;;) {
     const page = await fetchPage(rows.length, rows.length + size - 1);
+    pages++;
     if (page.error) {
       throw new Error(`Nu s-au putut citi ${what}: ${page.error.message}`);
     }
@@ -204,7 +228,45 @@ async function readPagesOnce<T>(
   if (rows.length !== total) {
     throw new Error(`${what}: au venit ${rows.length} randuri, mai multe decat totalul de ${total}.`);
   }
+  // P3-287. O singura pagina este o singura cerere: nu are cum sa se mute.
+  if (fetchIds && pages > 1) await verifyIds(what, rows, fetchIds, size, keyOf);
   return rows;
+}
+
+/** Cheia implicita a unui rand este `id`. Un rand fara id text nu se poate verifica fara `keyOf`. */
+function idKey(what: string, row: unknown): string {
+  const id = (row as { id?: unknown } | null)?.id;
+  if (typeof id !== "string") {
+    throw new Error(`${what}: un rand nu are id text, deci citirea nu se poate verifica fara keyOf.`);
+  }
+  return id;
+}
+
+/**
+ * P3-287. Multimea de id-uri a randurilor adunate trebuie sa fie exact cea a unei
+ * citiri numai de id-uri facute dupa ele. O diferenta inseamna ca un rand s-a mutat
+ * sau s-a schimbat intre pagini: ListChangedError, ca la un total schimbat.
+ *
+ * Citirea de id-uri trece prin aceleasi verificari ca cea principala (total cerut,
+ * pagina goala, cheie repetata), fara sa se verifice pe ea insasi.
+ */
+async function verifyIds<T>(
+  what: string,
+  rows: readonly T[],
+  fetchIds: IdsFetcher,
+  size: number,
+  keyOf?: (row: T) => string,
+): Promise<void> {
+  const collected = new Set<string>();
+  for (const row of rows) collected.add(keyOf ? keyOf(row) : idKey(what, row));
+
+  const ids = await readPagesOnce<{ id: string }>(`${what} (id-uri)`, fetchIds, size, (row) => row.id);
+  const same = collected.size === rows.length && ids.length === rows.length && ids.every((row) => collected.has(row.id));
+  if (!same) {
+    throw new ListChangedError(
+      `${what}: id-urile adunate nu sunt cele din citirea de control, deci un rand s-a mutat intre pagini.`,
+    );
+  }
 }
 
 /**
@@ -216,7 +278,8 @@ async function readPagesOnce<T>(
  * rand al paginii trecute revine la inceputul paginii urmatoare. Un total schimbat
  * face din asta o eroare vizibila (readAllPages, mai sus), dar un rand adaugat si
  * unul sters in aceeasi fereastra lasa totalul neschimbat. Dublura se scoate aici;
- * un rand sarit in acel caz nu se poate recupera dintr-o citire pe pozitii.
+ * un rand sarit in acel caz nu se poate recupera dintr-o citire pe pozitii. P3-287:
+ * unde apelantul da `fetchIds`, citirea se reia inainte sa ajunga aici cu o dublura.
  */
 export function dedupeById<T extends { id: string }>(rows: readonly T[]): T[] {
   const seen = new Set<string>();

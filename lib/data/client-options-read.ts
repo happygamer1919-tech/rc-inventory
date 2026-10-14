@@ -10,7 +10,7 @@
 // O CITIRE CARE ESUEAZA ARUNCA, nu da lista goala: eroarea ajunge la ecranul
 // 500 din app/error.tsx, cu butonul de reincercare.
 import type { createClient } from "@/lib/supabase/server";
-import { dedupeById, readAllPages } from "./id-list";
+import { dedupeById, readAllPages, type CountedPage, type IdsFetcher } from "./id-list";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -31,19 +31,32 @@ export async function readActiveClientOptions(
   };
   let rows: Row[];
   try {
-    rows = await readAllPages<Row>("clientii activi", (from, to) =>
-      // P3-196 citea aici, pentru cumparatori, doar etapa 'client': "Leadurile stau
-      // in aceeasi tabela si nu se vand (P3-177, acceptanta c)". P3-262, decizia
-      // proprietarului din 2026-10-10: cumparatorul de la tejghea poate fi si un
-      // lead, marcat "Lead", si devine Client la salvarea bonului (migratia 0081).
-      // Etapa se citeste ca lista cumparatorilor sa poata marca leadurile.
+    // P3-196 citea aici, pentru cumparatori, doar etapa 'client': "Leadurile stau
+    // in aceeasi tabela si nu se vand (P3-177, acceptanta c)". P3-262, decizia
+    // proprietarului din 2026-10-10: cumparatorul de la tejghea poate fi si un
+    // lead, marcat "Lead", si devine Client la salvarea bonului (migratia 0081).
+    // Etapa se citeste ca lista cumparatorilor sa poata marca leadurile.
+    //
+    // P3-287. Ordinea este dupa nume: o redenumire a unui coleg muta un rand deja
+    // citit dupa cursor. Citirea de control (numai id-uri, aceleasi filtre si ordine)
+    // face ca un asemenea rand sa nu fie sarit tacut (readAllPages).
+    const pageOf = (select: string) => (from: number, to: number) =>
       supabase
         .from("clients")
-        .select("id, name, phone, fiscal_code, stage", { count: "exact" })
+        .select(select, { count: "exact" })
         .eq("active", true)
         .order("name")
         .order("id")
-        .range(from, to),
+        .range(from, to);
+    rows = await readAllPages<Row>(
+      "clientii activi",
+      pageOf("id, name, phone, fiscal_code, stage") as unknown as (
+        from: number,
+        to: number,
+      ) => PromiseLike<CountedPage<Row>>,
+      undefined,
+      undefined,
+      pageOf("id") as unknown as IdsFetcher,
     );
   } catch {
     throw new Error(CLIENT_OPTIONS_READ_FAILED);

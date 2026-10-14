@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --loader ts-node/esm tests/format.test.ts",
     "test:e2e": "playwright test",
     "perf:sections": "playwright test --config playwright.perf.config.ts",
     "check:reset-sql": "node scripts/poc-free/parse-reset-sql.mjs",
