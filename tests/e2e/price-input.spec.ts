@@ -35,8 +35,15 @@ test("P3-253: malformed thousands notation is refused", () => {
   }
 });
 
-test("P3-268: a quantity reads a thousands dot like a price does", () => {
-  expect(parseQuantityText("1.200")).toEqual({ kind: "ok", value: 1200, text: "1200" });
+test("P3-275: a quantity with only dot plus three digits is ambiguous, a price is not", () => {
+  for (const text of ["1.200", "2.500", "12.500", "1.200.000", " 2.500 "]) {
+    expect(parseQuantityText(text), text).toEqual({ kind: "ambiguous" });
+  }
+  expect(parsePriceText("1.200")).toEqual({ kind: "ok", value: 1200, text: "1200" });
+  expect(parsePriceText("1.200,50")).toEqual({ kind: "ok", value: 1200.5, text: "1200.50" });
+});
+
+test("P3-268: a quantity with a thousands dot and a comma decimal is read", () => {
   expect(parseQuantityText("1.200,5")).toEqual({ kind: "ok", value: 1200.5, text: "1200.5" });
   expect(parseQuantityText("0.500")).toMatchObject({ kind: "ok", value: 0.5 });
   expect(parseQuantityText("2,5")).toMatchObject({ kind: "ok", value: 2.5 });
@@ -46,9 +53,13 @@ test("P3-268: a quantity reads a thousands dot like a price does", () => {
   expect(parseQuantityText("")).toEqual({ kind: "empty" });
 });
 
-test("P3-268: the server reads quantity 1.200 and price 1.200 as 1200", () => {
-  const read = processIssueLines([{ productId: " p1 ", quantity: "1.200", salePriceMdl: "1.200" }]);
-  expect(read).toEqual({ ok: true, lines: [{ product_id: "p1", quantity: 1200, sale_price_mdl: 1200 }] });
+test("P3-275: the server reads price 1.200 as 1200 and refuses quantity 2.500 as unclear", () => {
+  const read = processIssueLines([{ productId: " p1 ", quantity: "2500", salePriceMdl: "1.200" }]);
+  expect(read).toEqual({ ok: true, lines: [{ product_id: "p1", quantity: 2500, sale_price_mdl: 1200 }] });
+  expect(processIssueLines([{ productId: "p1", quantity: "2.500", salePriceMdl: "1.200" }])).toEqual({
+    ok: false,
+    message: "Cantitate neclară: scrieți 2,5 pentru zecimale sau 2500 fără punct.",
+  });
 });
 
 test("P3-268: the server refuses an invalid quantity or price with the Romanian messages", () => {

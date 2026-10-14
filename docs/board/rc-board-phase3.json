@@ -7042,6 +7042,31 @@
         "at": "2026-10-13T17:40:00Z"
       },
       "notes": "Owner decision of Max on 2026-10-13: yes add the PDF button, romanian only, with logo. Library pdfkit; the font and the license text are committed under lib/pdf/fonts; next.config.ts lists pdfkit as an external package and adds the font and logo files to the route bundle. The PDF text was checked locally by extracting it from generated files; the e2e spec runs in CI. Id P3-272 checked free with npm run id:free (P3-270 is taken by an open pull request)."
+    },
+    {
+      "id": "P3-275",
+      "title": "A walk-in quantity written as dot plus exactly three digits (2.500, 12.500, 1.200, 1.200.000) is refused as unclear, on screen and on the server, with the Romanian message Cantitate neclară: scrieți 2,5 pentru zecimale sau 2500 fără punct. parseQuantityText returns the new kind ambiguous for it; 2,5, 2.5, 0.500, 2500, 1.200,5 and 0,125 are still read. parsePriceText is unchanged: a price 1.200 is still 1200.",
+      "plain": "If someone types 2.500 as a quantity, the screen now asks them to write 2,5 or 2500 instead of silently taking it as 2500 and taking that much stock out. Prices are read as before.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-268"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The P3-275 cases in tests/e2e/price-input.spec.ts are green in this pull request own quality run: 1.200, 2.500, 12.500 and 1.200.000 as a quantity are ambiguous, 2,5, 2.5, 0.500, 2500, 1.200,5 and 0,125 are read, the price 1.200 is still 1200, and processIssueLines refuses 2.500 with the Romanian message. (b) The case P3-275 in tests/e2e/outbound-direct-client.spec.ts is green in the same run: quantity 2.500 shows the message under the box and in the problem list, and no slip is created. (c) The existing P3-258 and P3-268 cases stay green. (d) npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "Decided default of YELLOW 2026-10-13. The parser is shared by price and quantity (readNumberText); only parseQuantityText gains the refusal, so price behaviour and its tests are untouched. The refusal covers a text whose only separators are dots followed by exactly three digits and whose first group does not start with 0; 0.500 stays 0,5. Same function on screen and on the server. No migration. The P3-268 case that read the quantity 1.200 as 1200 encoded the bug and is replaced.",
+      "last_checkpoint": "2026-10-14T00:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-275 against main; acceptance is the quality run on its head, which runs tests/e2e/price-input.spec.ts and tests/e2e/outbound-direct-client.spec.ts",
+        "at": "2026-10-14T00:30:00Z"
+      },
+      "notes": "Found by the bug check of 2026-10-13 (factory task 285). Id P3-275 checked free with npm run id:free; P3-274 is taken by a branch of the reference lock card. The unit cases were run locally with a throwaway playwright config; the screen case runs in CI only (no Docker here)."
     }
   ]
 }
