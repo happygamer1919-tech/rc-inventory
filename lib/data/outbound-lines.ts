@@ -5,6 +5,7 @@
 
 import {
   PRICE_INVALID_MESSAGE,
+  QUANTITY_AMBIGUOUS_MESSAGE,
   QUANTITY_INVALID_MESSAGE,
   parsePriceText,
   parseQuantityText,
@@ -26,6 +27,7 @@ export function processIssueLines(input: NewIssueLine[]): ProcessedIssueLines {
   for (const l of input) {
     const q = parseQuantityText(String(l.quantity));
     if (q.kind === "invalid") return { ok: false, message: QUANTITY_INVALID_MESSAGE };
+    if (q.kind === "ambiguous") return { ok: false, message: QUANTITY_AMBIGUOUS_MESSAGE };
     const p = parsePriceText(String(l.salePriceMdl));
     if (p.kind === "invalid") return { ok: false, message: PRICE_INVALID_MESSAGE };
     lines.push({

@@ -57,7 +57,7 @@ import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
-import { PRICE_INVALID_MESSAGE, parsePriceText, QUANTITY_INVALID_MESSAGE, parseQuantityText } from "@/lib/data/price-input";
+import { PRICE_INVALID_MESSAGE, parsePriceText, parseQuantityText, quantityProblem } from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { createWalkInClient } from "@/lib/data/client-actions";
@@ -272,9 +272,8 @@ export function OutboundDirectClientForm({
   // P3-258: cantitatea se citeste din text ("2,5" sau "2.5"). Un text care nu este
   // cantitate valida opreste salvarea; o casuta goala ramane "fara cantitate".
   lines.forEach((l, index) => {
-    if (l.quantity !== "" && parseQuantityText(l.quantity).kind === "invalid") {
-      problems.push(`Rândul ${index + 1}: ${QUANTITY_INVALID_MESSAGE}`);
-    }
+    const problem = l.quantity !== "" ? quantityProblem(l.quantity) : null;
+    if (problem) problems.push(`Rândul ${index + 1}: ${problem}`);
   });
 
   const pricedTotal = filled.reduce((s, l) => s + linePrice(l) * lineQuantity(l), 0);
@@ -483,7 +482,8 @@ export function OutboundDirectClientForm({
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = linePrice(l) * lineQuantity(l);
                 const priceInvalid = parsePriceText(l.price).kind === "invalid";
-                const quantityInvalid = l.quantity !== "" && parseQuantityText(l.quantity).kind === "invalid";
+                const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
+                const quantityInvalid = quantityError !== null;
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                     <Td data-label="Produs" className={PHONE_WIDE}>
@@ -526,7 +526,7 @@ export function OutboundDirectClientForm({
                           className="mt-1 text-[12px] text-rc-danger"
                           data-testid={`issue-quantity-error-${index}`}
                         >
-                          {QUANTITY_INVALID_MESSAGE}
+                          {quantityError}
                         </p>
                       ) : null}
                     </Td>
