@@ -1124,6 +1124,31 @@ test("P3-196 si P3-262: un lead apare marcat Lead, un client inactiv nu apare in
   expect(items.some((text) => text.includes(`${prefix}-inactiv`)), "clientul inactiv nu apare").toBe(false);
 });
 
+test("P3-277: o vanzare la tejghea catre un client dezactivat este refuzata si printr-o cerere directa", async () => {
+  // Lista nu il ofera (cazul de mai sus); baza il refuza si cand cineva trimite id-ul
+  // lui direct, fara sa scrie bonul si fara sa scada stocul.
+  const off = await asService("clients?select=id", {
+    method: "POST",
+    body: { name: `${TAG}-P3277-dezactivat`, type: "company", stage: "client", active: false },
+  });
+  expect(off.ok, `clientul dezactivat de test nu a putut fi scris: ${off.text}`).toBe(true);
+  const before = await availableStock();
+  const reference = `${TAG}-P3277-OFF`;
+
+  const refused = await createDirectIssue(
+    ownerToken,
+    reference,
+    [{ product_id: productId, quantity: 1 }],
+    String(off.rows[0]!.id),
+    "2026-11-05",
+  );
+  expect(refused.ok, "vanzarea catre un client dezactivat a fost SALVATA").toBe(false);
+  expect(refused.text, "refuzul spune de ce, in romana").toContain("Clientul ales este dezactivat");
+  expect(await availableStock(), "stocul nu s-a miscat").toBe(before);
+  const stored = await asService(`outbound_issues?select=id&reference=eq.${encodeURIComponent(reference)}`);
+  expect(stored.rows, "niciun bon salvat").toEqual([]);
+});
+
 /* ------------------------------------------------------------- P3-147 -- */
 
 test("iesire client direct: managerul de cont creeaza un client nou de la tejghea si iesirea se salveaza", async ({
