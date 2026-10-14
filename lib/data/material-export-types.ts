@@ -40,9 +40,13 @@ export function materialModelHeaders(): string[] {
 export type ExportMaterialRow = Record<Exclude<MaterialImportField, "currency">, string>;
 
 /** Un numar din baza, ca text pe care il citeste `readNumber` din import: cifre si virgula
- *  zecimala (12,5), fara notatie stiintifica. Coloanele sunt numeric(14,3) si numeric(14,2). */
+ *  zecimala (12,5), fara notatie stiintifica. Coloanele sunt numeric(14,3) si numeric(14,2).
+ *  O virgula urmata de exact trei cifre dupa 1 pana la 3 cifre fara 0 in fata ("1,125") se
+ *  citeste la import ca mii (P3-286), deci primeste un zero la coada ("1,1250"): aceeasi
+ *  valoare, dar nu mai poate fi luata drept 1125. */
 export function exportNumber(value: number): string {
-  return formatCsvNumber(value);
+  const text = formatCsvNumber(value);
+  return /^[1-9]\d{0,2},\d{3}$/.test(text) ? `${text}0` : text;
 }
 
 /** Fisierul exportului: antetul modelului, apoi cate un rand pe material, coloanele in
