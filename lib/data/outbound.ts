@@ -14,6 +14,7 @@ import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
 import type { OutboundIssue, OutboundMode, OutboundStatus } from "./outbound-types";
 import { one } from "./row";
+import { chisinauDateOf } from "./format";
 
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
@@ -401,7 +402,8 @@ export async function getOutboundIssue(id: string): Promise<OutboundIssue | null
 /** Urmatoarea referinta de iesire, in formatul din faza 1: IES-AAAA-NNNN. */
 export async function nextOutboundReference(): Promise<string> {
   const supabase = await createClient();
-  const year = new Date().getUTCFullYear();
+  const chisinauDate = chisinauDateOf(new Date());
+  const year = chisinauDate.split("-")[0];
   const prefix = `IES-${year}-`;
 
   const { data } = await supabase
