@@ -27,8 +27,15 @@ working.
   touching updated_at are accepted; ship_outbound_issue still ships with one
   history row; the owner is refused too; a server role can still change the
   reference.
+- `docs/migrations/APPLY-LOG.md`: 0083 in the pending register, card de aplicare P3-274.
 - Board: card P3-274 on `docs/board/rc-board-phase3.json`, depends on P3-266.
-- `docs/LEARNINGS.md`: one entry.
+- `docs/LEARNINGS.md`: two entries.
+
+## CI
+
+- Run 38489999101 (head ce3dc1e): red, one case. `tests/e2e/headers.spec.ts` case 5
+  failed because 0083 had no APPLY-LOG line (908 passed, 1 failed). A known
+  signature in the factory KNOWN-FAILURES. Fixed by adding the pending line.
 
 ## Every writer of outbound_issues, checked
 
