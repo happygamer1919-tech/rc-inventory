@@ -7117,6 +7117,29 @@
         "at": "2026-10-14T01:03:09Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-13 by EXECUTOR in the same pull request. Id P3-274 checked free with npm run id:free. Migration number 0083: main holds 0082 and no pull request is open. The repo has no end to end or API test for P3-266, so the proof lives in the assertion file, run red first (0083 set aside) and green with it on a throwaway local postgres from Homebrew, since this machine has no Docker."
+    },
+    {
+      "id": "P3-300",
+      "title": "Quantities show up to three decimals on screen and on the invoice PDF, so printed numbers match calculations.",
+      "plain": "Materials are bought and stored in fractional units: 0.125 m3, 2.5 kg, 12.75 m2. The quantity formatter capped at two decimals, so 0.125 showed as 0,13, and printouts differed from what the system recorded. Quantities now show up to three decimal places as needed, with trailing zeros trimmed, so 2.5 displays as 2,5 and 0.125 stays 0,125.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: `npm run test:e2e` exits 0 on the full suite in this pull request quality run on its head sha, with no new test added (the formatter change is proven by the existing quantity-bearing specs that already render 0.125, 2.5 and other three-decimal values and assert their screen text). (b) FORMATTER TESTS: tests/format.test.ts runs and reports all cases pass, including: formatQtyNumber(0.125) returns \"0,125\", formatQtyNumber(2.5) returns \"2,5\" with no trailing zero, formatQtyNumber(0.1234) returns \"0,123\" (rounded to three places), and all cases handle the Romanian comma separator. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No migration, no schema change, no file under supabase/migrations/ is added.",
+      "defaults": "SOURCE: Fable bug check 2026-10-13, from the formatter capping quantities at two decimals and the task brief. THE THREE FORMATTER FUNCTIONS IN lib/data/format.ts: formatQty(value, unit) returns the quantity with unit label, formatQtyNumber(value) returns the quantity alone, and formatRate(rate) formats percentage and is NOT changed. Two of the three use NF2 (maximumFractionDigits: 2) and both change to NF3. The third, formatMoneyExact, uses NF_EXACT with exactness constraints for invoice totals and does not change. TRAILING ZEROS: Intl.NumberFormat with maximumFractionDigits: 3 trims them automatically (2.5 stays 2,5, not 2,500), so no post-formatting trimming is needed. ROMANIAN LOCALE: ro-MD is the one the file already uses for all number formatting. TEST DATA ONLY: test runs read and display quantities; none are modified or deleted. RULES: no em or en dashes; do not change behaviour outside the formatters and their callers; the hasPhase3Schema gate and the `lead=` PageHeader prop stay unchanged.",
+      "last_checkpoint": "2026-10-14T11:58:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-300 against main: its quality run on the head sha runs npm run test:e2e and the full check suite",
+        "at": "2026-10-14T11:58:00Z"
+      },
+      "notes": "AUTHORED 2026-10-14 by EXECUTOR from the factory bug check of 2026-10-13. Card branch card/p3-300 from origin/main at 296f8f67. The quantity test cases in tests/format.test.ts cover integers, one two and three decimals, trailing zero trimming, Romanian separators, all unit types, rounding, negative numbers, and large numbers with thousands separators."
     }
   ]
 }
