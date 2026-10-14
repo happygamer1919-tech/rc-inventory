@@ -7285,6 +7285,29 @@
         "at": "2026-10-14T13:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-13 23:51Z. The full end to end step (export with a deactivated owner, re-import, rows in Dublate) needs a database and runs in CI only; locally the same cases run as plan level tests."
+    },
+    {
+      "id": "P3-304",
+      "title": "An import panel cannot be closed while an import is running, so the import never continues unseen and the summary is never lost.",
+      "plain": "While a file is being imported, pressing Escape, clicking beside the panel or pressing the close button now does nothing, and the close button says the import is running. When the import ends, the panel closes as before and the summary stays on screen until it is closed. This applies to clients, leads, projects and products.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "All cases in tests/import-sheet-close.test.ts whose name starts with P3-304 are green in this pull request own quality run: close is ignored while pending and works after, and each of the four import sheets (client, lead, project, material) sends Escape, backdrop click and the X button through the guard, with the X disabled and titled Importul este în curs. Așteptați să se termine. while pending. The existing import specs stay green. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0. No file under supabase/migrations/ is added or changed.",
+      "defaults": "Blocking close is the whole fix: the server batch loop is not made cancellable in this card. The Done button after the import ends still closes. No migration.",
+      "last_checkpoint": "2026-10-14T14:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-304 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T14:00:00Z"
+      },
+      "notes": "Source: bug check of 2026-10-14. Shared helper lib/import-sheet-close.ts."
     }
   ]
 }
