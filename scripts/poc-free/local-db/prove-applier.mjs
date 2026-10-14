@@ -193,6 +193,12 @@ out("\n" + "=".repeat(78) + "\nPROOF 1: clean pass from an 0001-0012 baseline\n"
   writeFileSync(join(ROOT, "docs/reports/p3-27a-proof-1-clean.txt"), (r.stdout || "") + (r.stderr || ""), "utf8");
   const committed = (r.stdout || "").includes("COMMITTED");
   record("clean pass commits, exit 0", r.status === 0 && committed, `exit ${r.status}`);
+  // A clean pass that fails says nothing about WHY in a CI log; the last lines of what the
+  // applier printed (stdout and stderr) are the reason, so they are shown.
+  if (!(r.status === 0 && committed)) {
+    const tail = ((r.stdout || "") + (r.stderr || "")).split("\n").slice(-40).join("\n");
+    out(`      last lines of the applier output:\n${tail}\n`);
+  }
 
   // And the database really is at 0025 with the ledger repaired.
   // DERIVED, NOT HARDCODED. This said 25 and broke the moment a 26th migration

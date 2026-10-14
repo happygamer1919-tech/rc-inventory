@@ -7069,6 +7069,32 @@
       "notes": "Found by the bug check of 2026-10-13 (factory task 285). Id P3-275 checked free with npm run id:free; P3-274 is taken by a branch of the reference lock card. The unit cases were run locally with a throwaway playwright config; the screen case runs in CI only (no Docker here)."
     },
     {
+      "id": "P3-277",
+      "title": "A walk-in sale refuses a switched-off buyer, and public.status_history accepts a row from a signed-in caller only from the function that moved that row. Migration 0084 replaces the body of public.create_direct_client_issue (0081 word for word plus a P0001 refusal when the client row is not active) and adds the BEFORE INSERT trigger status_history_guard, which refuses with 42501 a row from a signed-in caller (owner included) unless the transaction-local flag rc.status_history_write equals its entity_id. Every writer sets that flag right before its own insert and clears it right after: create_inbound_order, confirm_extraction_draft, receive_inbound_order, outbound_issue_take_stock, ship_outbound_issue, set_project_status and the four argument set_client_stage, each the live body word for word plus the set_config pair. A server role with no identity is not guarded. The status_history policies, every signature, grant and comment are unchanged.",
+      "plain": "A counter sale can no longer be saved to a customer who was switched off, and nobody can add a made-up line such as 'shipped' or 'became a client' to a record's history behind the screen's back. The history only shows changes that really happened.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-262",
+        "P3-179"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) npm run check:migrations passes in this pull request quality run on its head sha with scripts/poc-free/local-db/assertions/0084_walkin_buyer_active_history_lock.sql: as an account manager with a real role switch and JWT, a walk-in sale to a switched-off client and to a switched-off lead is refused with P0001 and writes nothing, a direct INSERT of a fake shipped row and of a fake cold to client row is refused with 42501, a direct INSERT right after ship_outbound_issue on the same slip is refused, and the walk-in sale to a client and to a lead, the project slip, shipping, create_inbound_order, receive_inbound_order and confirm_extraction_draft each write exactly their one history row; as the owner a direct INSERT is refused and set_client_stage (a move and a first stage) and set_project_status each write one row; a server role with no identity can still write a row. (b) The steps Refuse a migration that removes rows and both applier proof steps RAN and passed, not skipped. (c) tests/e2e/outbound-lines-deactivated.spec.ts, tests/e2e/walkin-buyer-lead.spec.ts, tests/e2e/outbound-direct-client.spec.ts and tests/e2e/take-stock-guard.spec.ts stay green in the same run. (d) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: the bug check of 2026-10-13 quoted in the factory task walkin-history-lock (create_direct_client_issue checked that the buyer exists, not that it is active; the 0073 status_history_insert policy let any active account insert a fake shipped or cold to client event). The guard is a trigger with a transaction-local flag, the 0082 shape (rc.outbound_ship), because a function SET clause needs ALTER FUNCTION, which check:no-destructive-migration does not know, and because a policy cannot give a Romanian reason. Every writer was read on a local database with all migrations applied: app code only reads the table; seven functions write it and all seven set the flag. The policies stay as 0073 wrote them. The P3-179 end to end cases that asserted an active account CAN post a history row encoded this defect and now assert the refusal; the 0039 assertion writes its other-kind fixture row as a server role. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-14T11:35:41Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request #523 on branch card/p3-277 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0084_walkin_buyer_active_history_lock.sql and the destructive-migration and applier proof steps; report in docs/reports/2026-10-14-executor-walkin-history-lock.md",
+        "at": "2026-10-14T11:35:41Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-14 by EXECUTOR in the same pull request. Id P3-277 checked free with npm run id:free (P3-276 was taken minutes earlier by another worktree). Migration number 0084: main holds 0082 and pull request #518 holds 0083, so the applier proof step stays red until #518 merges and main is merged in here (KNOWN-FAILURES: a migration numbered above another open branch's migrations). The assertion ran red first with 0084 set aside (walk-in case a accepted; direct history case g accepted) and green with it on a throwaway local postgres from Homebrew, 83 migrations and 65 assertion files, since this machine has no Docker."
+    },
+    {
       "id": "P3-276",
       "title": "When the tasks cannot be read, Azi, the client page and the project page still open and show a short Romanian notice in the tasks section only; the tasks table probe (hasTasks) and the other column and table probes in lib/data/schema-capability.ts remember a no only when the database says the object is missing, never on a timeout or network error; the task form does not close (Escape, backdrop, X, Renunta) while a save is pending.",
       "plain": "If the tasks fail to load for a moment, the list of people to call and the client and project pages still work, with a short note where the tasks would be. A short network hiccup no longer switches tasks off for a minute. And the task form stays open while it is saving, so a refusal is never lost.",

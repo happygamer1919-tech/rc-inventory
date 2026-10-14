@@ -415,12 +415,14 @@ test("istoricul starilor: un cont dezactivat nu poate citi si nici adauga un ran
   const { id, token } = await newDeactivatableAccount("istoric");
   const { orderId } = await orderWithLines(`${TAG}-ISTORIC`, 0);
 
-  // MARTORII: activ, contul adauga un rand de istoric si il citeste.
-  const added = await asUser(token, "status_history?select=id", {
+  // MARTORII: activ, contul citeste un rand de istoric. Randul il scrie cheia de
+  // serviciu: din 0084 (cardul P3-277) un cont autentificat, activ sau nu, nu mai
+  // poate scrie istoric direct, ci numai prin functia care schimba starea.
+  const seeded = await asService("status_history?select=id", {
     method: "POST",
     body: { entity_type: "inbound_order", entity_id: orderId, from_status: null, to_status: "received", note: `${TAG} martor` },
   });
-  expect(added.ok, `profil activ: contul nu a putut adauga istoric: ${added.status} ${added.text}`).toBe(true);
+  expect(seeded.ok, `istoricul de test nu a putut fi scris: ${seeded.text}`).toBe(true);
   const witness = await asUser(token, `status_history?select=id&entity_id=eq.${orderId}`);
   expect(witness.rows, "profil activ: contul vede randul de istoric").toHaveLength(1);
 
@@ -445,7 +447,8 @@ test("istoricul starilor: un cont dezactivat nu poate citi si nici adauga un ran
 
 test("loturi si istoric: un operator activ lucreaza ca inainte, si pe randurile altcuiva", async () => {
   // CE NU TREBUIE SA SE SCHIMBE: un cont activ vede loturile si istoricul scrise
-  // de altcineva (aici cheia de serviciu), si adauga ambele.
+  // de altcineva (aici cheia de serviciu), si adauga un lot. Istoric direct nu mai
+  // adauga, din 0084 (P3-277).
   const { token } = await newDeactivatableAccount("lot-activ");
   const { orderId, lineIds } = await orderWithLines(`${TAG}-LOT-ACTIV`, 2);
 
@@ -470,11 +473,14 @@ test("loturi si istoric: un operator activ lucreaza ca inainte, si pe randurile 
     body: { product_id: productId, inbound_order_id: orderId, order_line_id: lineIds[1], quantity: 5 },
   });
   expect(addBatch.ok, `profil activ: lotul a fost refuzat: ${addBatch.text}`).toBe(true);
+  // P3-277 (0084): un rand de istoric scris direct este refuzat si contului activ.
+  // Istoricul il scriu numai functiile care schimba starea, odata cu schimbarea.
   const addHistory = await asUser(token, "status_history?select=id", {
     method: "POST",
     body: { entity_type: "inbound_order", entity_id: orderId, from_status: "received", to_status: "received" },
   });
-  expect(addHistory.ok, `profil activ: istoricul a fost refuzat: ${addHistory.text}`).toBe(true);
+  expect(addHistory.ok, "profil activ: contul a SCRIS DIRECT un rand de istoric").toBe(false);
+  expect(addHistory.text, "refuzul spune de ce, in romana").toContain("Istoricul stărilor se scrie numai");
   expect(await batchesOf(orderId), "doua loturi").toHaveLength(2);
-  expect(await historyOf(orderId), "doua randuri de istoric").toHaveLength(2);
+  expect(await historyOf(orderId), "un singur rand de istoric, cel scris de cheia de serviciu").toHaveLength(1);
 });

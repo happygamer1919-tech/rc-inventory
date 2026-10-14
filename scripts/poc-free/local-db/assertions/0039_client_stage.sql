@@ -222,8 +222,13 @@ begin
     raise exception 'P3-43: the newest history entry is %, expected the last move to follow_up', s;
   end if;
 
+  -- P3-277 (0084): a signed-in caller can no longer write a history row
+  -- directly, so this fixture row of another kind is written as a server role
+  -- with no identity, and the acting user is set back right after.
+  perform set_config('request.jwt.claims', '{}', true);
   insert into public.status_history (entity_type, entity_id, from_status, to_status)
   values ('project', v_client, 'x', 'y');
+  perform set_config('request.jwt.claims', '{"sub":"e4300000-0000-4000-8000-000000000001","role":"authenticated"}', true);
   select count(*) into n from public.client_stage_history(v_client);
   if n <> 6 then
     raise exception 'P3-43: the history reader picked up another entity kind, found % rows', n;
