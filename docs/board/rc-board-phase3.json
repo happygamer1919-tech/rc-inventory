@@ -7285,6 +7285,29 @@
         "at": "2026-10-14T13:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-13 23:51Z. The full end to end step (export with a deactivated owner, re-import, rows in Dublate) needs a database and runs in CI only; locally the same cases run as plan level tests."
+    },
+    {
+      "id": "P3-303",
+      "title": "On a project sale (Iesiri, Proiect) a price typed as 1.250 is saved as the screen showed it.",
+      "plain": "When someone sells material to a project and types a price like 1.250, the total on screen and the price saved now agree. Before, the screen showed about 1 lei while 1250 lei was saved and later invoiced. The price box now reads text the same way as the walk-in sale form.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: tests/e2e/price-input.spec.ts, the case whose title starts with 'P3-303', is green in this pull request own quality run on its head sha: for 1.250, 1,25, 1250 and 1 250 the screen total helper priceAmount and the server processIssueLines give the same number (1250, 1.25, 1250, 1250), and the walk-in reading of 1.250 stays 1250. (b) The existing price-input and outbound specs stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "The price box on the project form becomes a text box read by parsePriceText, the same parser the server uses; the quantity box stays a number box. The walk-in form is not touched. No migration.",
+      "last_checkpoint": "2026-10-14T14:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-303 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T14:00:00Z"
+      },
+      "notes": "Source: factory bug check of 2026-10-14. outbound-actions.ts runs processIssueLines for both modes, so parsePriceText (dot plus three digits is a thousands separator, P3-253 and P3-268) also read the project form's number box, where the dot is always a decimal point."
     }
   ]
 }
