@@ -26,6 +26,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createProduct } from "./product-actions";
 import { productHasMovements } from "./product-movement";
 import { loadOrRefuse, readAllRows, readFailedMessage } from "./import-clients-read";
+import { readAnchors, type FileAnchor } from "./import-file-anchors";
 import { rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import {
@@ -135,7 +136,11 @@ async function loadExisting(supabase: Supabase): Promise<ExistingMaterial[]> {
 /** Planul, cu "s-a miscat" rezolvat NUMAI pentru produsele care conteaza: cele al
  *  caror SKU vine in fisier cu o alta unitate. Doua treceri peste aceeasi functie
  *  pura: prima afla care sunt, a doua le aplica. */
-async function buildPlan(supabase: Supabase, request: MaterialImportRequest) {
+async function buildPlan(
+  supabase: Supabase,
+  request: MaterialImportRequest,
+  earlier?: FileAnchor[],
+) {
   const categories = await loadCategories(supabase);
   const existing = await loadExisting(supabase);
   const base = {
@@ -144,6 +149,7 @@ async function buildPlan(supabase: Supabase, request: MaterialImportRequest) {
     mapping: readMapping(request.mapping),
     categories,
     existing,
+    earlier,
   };
 
   const first = buildMaterialPlan(base);
@@ -158,7 +164,7 @@ async function buildPlan(supabase: Supabase, request: MaterialImportRequest) {
 
 /** Planul, calculat pe server, fara nicio scriere. */
 export async function planMaterialImport(
-  request: MaterialImportRequest,
+  request: MaterialImportRequest & { earlier?: FileAnchor[] },
 ): Promise<ActionResult<MaterialImportPlan>> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
@@ -166,7 +172,8 @@ export async function planMaterialImport(
   if (request.rows.length > IMPORT_MAX_ROWS) return TOO_MANY;
 
   const supabase = await createClient();
-  const built = await loadOrRefuse(() => buildPlan(supabase, request));
+  const earlier = readAnchors(request.earlier);
+  const built = await loadOrRefuse(() => buildPlan(supabase, request, earlier));
   if (!built.ok) return { ok: false, message: built.message };
   return { ok: true, value: built.value.plan };
 }
