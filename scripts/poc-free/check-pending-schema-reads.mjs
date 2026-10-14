@@ -216,8 +216,28 @@ const TOLERATED_WORDS = {
   },
 };
 
-function pendingMigrations() {
-  const log = readFileSync(APPLY_LOG_PATH, 'utf8');
+// P3-277. O FUNCTIE TOLERATA INTR-UN FISIER, NU UN FISIER SCUTIT, pe modelul EXT-34.
+//
+// Regula de mai jos trateaza orice `create or replace function` dintr-o migratie in
+// asteptare ca pe o functie NOUA. 0084 inlocuieste corpul a doua functii care exista
+// pe productie din 0003, cu aceeasi semnatura, ca sa poata scrie istoricul starilor
+// sub garda noua. Fisierul care le cheama nu are nevoie de poarta: functiile exista.
+//
+// O PERECHE, fisier si functie, cu motivul scris; orice alta functie sau coloana in
+// asteptare este cautata in acelasi fisier exact ca pana acum. O pereche care nu mai
+// este adevarata este refuzata: fisierul lipseste, nu mai cheama functia, sau functia
+// nu este creata de nicio migratie din afara registrului de asteptare.
+const TOLERATED_FUNCTIONS = {
+  'lib/data/inbound-actions.ts': {
+    create_inbound_order:
+      'creata de 0003 si aplicata; 0084 ii inlocuieste doar corpul, aceeasi semnatura, ca sa scrie istoricul sub garda P3-277.',
+    receive_inbound_order:
+      'creata de 0003 si aplicata; 0084 ii inlocuieste doar corpul, aceeasi semnatura, ca sa scrie istoricul sub garda P3-277.',
+  },
+};
+
+function pendingMigrations(logPath = APPLY_LOG_PATH) {
+  const log = readFileSync(logPath, 'utf8');
   const files = [];
   for (const line of log.split('\n')) {
     const m = /^-\s+`(\d{4}_[a-z0-9_]+\.sql)`\s*,\s*card de aplicare\s+[A-Za-z0-9-]+\s*$/.exec(
@@ -335,6 +355,7 @@ for (const file of sourceFiles()) {
     if (new RegExp(`\\.from\\(["'\`]${t}["'\`]\\)`).test(src)) hits.push(`tabela ${t}`);
   }
   for (const f of functions) {
+    if (TOLERATED_FUNCTIONS[rel]?.[f]) continue;
     if (new RegExp(`\\.rpc\\(["'\`]${f}["'\`]`).test(src)) hits.push(`functia ${f}`);
   }
   for (const c of columns) {
@@ -408,6 +429,30 @@ for (const [rel, words] of Object.entries(TOLERATED_WORDS)) {
   }
   for (const w of Object.keys(words)) {
     if (src === null || !new RegExp(`\\b${w}\\b`).test(src)) stale.push(`${rel} (cuvantul tolerat ${w})`);
+  }
+}
+// P3-277. O functie tolerata al carei fisier lipseste, nu o mai cheama, sau care nu
+// exista pe productie, adica nu o creeaza nicio migratie din afara registrului.
+// Migratiile se citesc din depozit, ca in perechile EXT-34 de mai sus.
+{
+  const realDir = join(ROOT, 'supabase/migrations');
+  const realPending = new Set(pendingMigrations(join(ROOT, 'docs/migrations/APPLY-LOG.md')));
+  const appliedCode = readdirSync(realDir)
+    .filter((f) => /^\d{4}_.*\.sql$/.test(f) && !realPending.has(f))
+    .map((f) => readFileSync(join(realDir, f), 'utf8'))
+    .join('\n');
+  for (const [rel, fns] of Object.entries(TOLERATED_FUNCTIONS)) {
+    let src = null;
+    try {
+      src = readFileSync(join(ROOT, rel), 'utf8');
+    } catch {
+      src = null;
+    }
+    for (const f of Object.keys(fns)) {
+      const called = src !== null && new RegExp(`\\.rpc\\(["'\`]${f}["'\`]`).test(src);
+      const applied = new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+public\\.${f}\\s*\\(`, 'i').test(appliedCode);
+      if (!called || !applied) stale.push(`${rel} (functia tolerata ${f})`);
+    }
   }
 }
 if (stale.length > 0) {
