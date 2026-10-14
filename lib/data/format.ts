@@ -11,6 +11,7 @@ export const DISPLAY_CURRENCY = "MDL";
 
 const NF = new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 0 });
 const NF2 = new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 2 });
+const NF3 = new Intl.NumberFormat("ro-MD", { maximumFractionDigits: 3 });
 
 export function formatMoney(value: number): string {
   return `${NF.format(Math.round(value))} ${DISPLAY_CURRENCY}`;
@@ -43,12 +44,12 @@ export function formatNumberExact(value: number): string {
 }
 
 export function formatQty(value: number, unit: UnitCode): string {
-  return `${NF2.format(value)} ${unitLabel(unit)}`;
+  return `${NF3.format(value)} ${unitLabel(unit)}`;
 }
 
 /** Cantitatea cu zecimalele ei, fara unitate: `2,5`. Pentru un rand fara unitate si pentru un total. */
 export function formatQtyNumber(value: number): string {
-  return NF2.format(value);
+  return NF3.format(value);
 }
 
 export function formatNumber(value: number): string {
