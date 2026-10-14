@@ -7099,7 +7099,7 @@
       "plain": "Materials are bought and stored in fractional units: 0.125 m3, 2.5 kg, 12.75 m2. The quantity formatter capped at two decimals, so 0.125 showed as 0,13, and printouts differed from what the system recorded. Quantities now show up to three decimal places as needed, with trailing zeros trimmed, so 2.5 displays as 2,5 and 0.125 stays 0,125.",
       "lane": "in_flight",
       "home_lane": "in_flight",
-      "status": "todo",
+      "status": "in_flight",
       "priority": "medium",
       "owner_terminal": "executor",
       "gate": "green_self_merge",
