@@ -5305,13 +5305,38 @@
       "question": null,
       "acceptance": "(a) The named case `outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The named case `outbound walk-in: filling the quantity then saves 3 items` in the same file is green. (c) The named case `outbound walk-in: a payload with a half-filled line is refused by server` in the same file is green. (d) All existing outbound and walk-in specs stay green. (e) `npx tsc --noEmit` and `npm run build` exit 0.",
       "defaults": "RULE (half-filled line). A line with product but no/zero/invalid quantity, or quantity but no product, is \"half-filled\": operationally distinct from an empty line that the user may have added and not used. Form: show the line number and a message per line, exactly as InboundOrderForm does, so the operator can delete it or fill it. Server: refuse the same case for any caller. Empty lines (no product, no quantity) are ignored as today. Use Romanian messages with proper diacritics, matching the style of InboundOrderForm.",
-      "last_checkpoint": "2026-10-05T19:51:48Z",
+      "last_checkpoint": "2026-10-13T20:55:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "Pull request #430 on branch card/walkin-line-without-quantity against main: its quality run on the head sha runs tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-05-executor-walkin-line-without-quantity.md",
-        "at": "2026-10-05T19:51:48Z"
+        "ref": "The three named cases were added by the pull request of card P3-271 on branch card/p3-271-tests to tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-13-executor-p3-148-tests.md. The behaviour itself shipped in pull request #430.",
+        "at": "2026-10-13T20:55:00Z"
       },
-      "notes": ""
+      "notes": "The three named cases of the acceptance were missing when #430 merged; they were added after the fact by the pull request of card P3-271, with no change to the behaviour."
+    },
+    {
+      "id": "P3-271",
+      "title": "Add the three named test cases that card P3-148 promised and never got: a half-filled walk-in line is refused on screen and by the server, and filling it then saves 3 items",
+      "plain": "Vânzarea la ghișeu cu un rând pe jumătate completat era deja refuzată; acum are și testele care o dovedesc.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-148"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) The named case `outbound walk-in: three lines, third without quantity, create button shows the message and no slip is created` in tests/e2e/outbound-direct-client.spec.ts is green in this pull request's own `quality` run. (b) The named case `outbound walk-in: filling the quantity then saves 3 items` in the same file is green. (c) The named case `outbound walk-in: a payload with a half-filled line is refused by server` in the same file is green. (d) All existing outbound and walk-in specs stay green. (e) `npx tsc --noEmit` and `npm run build` exit 0.",
+      "defaults": "Tests only: no change to the form, the server or any quantity or price reading. The server case replays the real server action request captured from a good save, with a second line that has a product and an empty quantity, and one with a quantity and no product. This card exists because the board edit check needs a card whose status moves, and P3-148 was already shipped. No migration.",
+      "last_checkpoint": "2026-10-13T20:55:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-271-tests against main; its quality run on the head sha runs the three cases in tests/e2e/outbound-direct-client.spec.ts; report in docs/reports/2026-10-13-executor-p3-148-tests.md",
+        "at": "2026-10-13T20:55:00Z"
+      },
+      "notes": "Follow-up of the bug check: P3-148 was marked shipped by #430 without these cases."
     },
     {
       "id": "P3-158",
