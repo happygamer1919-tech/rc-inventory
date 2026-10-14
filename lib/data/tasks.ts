@@ -158,6 +158,13 @@ function startRead(supabase: Awaited<ReturnType<typeof createClient>>): TaskRead
     .select(SELECT_TASK, { count: "exact" }) as unknown as TaskReadQuery<TaskRow>;
 }
 
+/** P3-287. Aceeasi cerere numai cu id-uri, pentru citirea de control a citirilor pe pagini. */
+function startIdsRead(supabase: Awaited<ReturnType<typeof createClient>>): TaskReadQuery<{ id: string }> {
+  return supabase
+    .from("tasks")
+    .select("id", { count: "exact" }) as unknown as TaskReadQuery<{ id: string }>;
+}
+
 /** Toate sarcinile, cele anulate incluse, cele mai noi intai.
  *
  *  CELE ANULATE SUNT AICI SI NU SE ASCUND, clauza 4: o sarcina anulata rămâne pe
@@ -175,7 +182,7 @@ export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
   // Filtrele, sortarea si paginarea stau in tasks-read.ts, fara server-only, ca un
   // test sa le poata rula impotriva unui client fals.
   const [rows, names] = await Promise.all([
-    readTaskRows<TaskRow>(() => startRead(supabase), query),
+    readTaskRows<TaskRow>(() => startRead(supabase), query, undefined, () => startIdsRead(supabase)),
     readNames(supabase),
   ]);
   return rows.map((row) => toTask(row, names));
@@ -216,7 +223,9 @@ export async function listTasksForEntity(
   if (!(await hasTasks(supabase))) return [];
 
   const [rows, names] = await Promise.all([
-    readEntityTaskRows<TaskRow>(() => startRead(supabase), entityType, entityId),
+    readEntityTaskRows<TaskRow>(() => startRead(supabase), entityType, entityId, undefined, () =>
+      startIdsRead(supabase),
+    ),
     readNames(supabase),
   ]);
   return rows.map((row) => toTask(row, names));
