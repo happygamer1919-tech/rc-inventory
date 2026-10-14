@@ -49,6 +49,7 @@ import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { PRICE_INVALID_MESSAGE, parsePriceText, priceAmount } from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
@@ -200,10 +201,15 @@ export function OutboundProjectForm({
     }
   }
 
-  const pricedTotal = filled.reduce(
-    (s, l) => s + (l.price ? Number(l.quantity) * Number(l.price) : 0),
-    0,
-  );
+  // P3-303: pretul se citeste din text, ca pe iesirea pentru client direct: un text care
+  // nu este pret opreste salvarea, o casuta goala ramane "fara pret".
+  lines.forEach((l, index) => {
+    if (parsePriceText(l.price).kind === "invalid") {
+      problems.push(`Rândul ${index + 1}: ${PRICE_INVALID_MESSAGE}`);
+    }
+  });
+
+  const pricedTotal = filled.reduce((s, l) => s + Number(l.quantity) * priceAmount(l.price), 0);
 
   async function submit() {
     setTouched(true);
@@ -422,7 +428,8 @@ export function OutboundProjectForm({
               {lines.map((l, index) => {
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
-                const total = l.price ? Number(l.quantity) * Number(l.price) : 0;
+                const total = Number(l.quantity) * priceAmount(l.price);
+                const priceInvalid = parsePriceText(l.price).kind === "invalid";
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                     <Td data-label="Produs" className={PHONE_WIDE}>
@@ -466,15 +473,25 @@ export function OutboundProjectForm({
                     </Td>
                     <Td align="right" data-label={`Preț unitar (${DISPLAY_CURRENCY})`} className={PHONE_CELL}>
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={priceInvalid}
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.price}
                         onChange={(e) => setLine(l.key, { price: e.target.value })}
                         placeholder="lasă gol"
                         data-testid={`issue-price-${index}`}
                       />
+                      {priceInvalid ? (
+                        <p
+                          role="alert"
+                          className="mt-1 text-[12px] text-rc-danger"
+                          data-testid={`issue-price-error-${index}`}
+                        >
+                          {PRICE_INVALID_MESSAGE}
+                        </p>
+                      ) : null}
                     </Td>
                     <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                       <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold max-md:pt-0">
