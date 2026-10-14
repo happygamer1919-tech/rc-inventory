@@ -7322,8 +7322,8 @@
       "depends_on": [],
       "blocked_on": null,
       "question": null,
-      "acceptance": "All cases in tests/e2e/export-contacts-paging.spec.ts and tests/e2e/clients-export.spec.ts and tests/e2e/leads-export.spec.ts are green in this pull request own quality run. The Inactivi view shows Exportă CSV and the file holds exactly the deactivated rows. An export from Toți that contains a lead is written with the lead header including Persoană de contact and the contact name is filled; a file with only clients keeps the client header. 2500 contacts for 100 clients are all read when the server caps a response at 1000 rows. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
-      "defaults": "A file with at least one lead is written in the lead model (the client model plus one column) instead of adding a column to the client model, so the client import template and its header test stay as they are. The contact read reuses readAllPages from lib/data/id-list.ts. No migration.",
+      "acceptance": "All cases in tests/e2e/export-contacts-paging.spec.ts and tests/e2e/clients-export.spec.ts and tests/e2e/leads-export.spec.ts are green in this pull request own quality run. The Inactivi view shows Exportă CSV and the file holds exactly the deactivated rows. An export from Toți that contains a lead has a last column Persoană de contact with the contact name filled and the client columns unchanged in place; a file with only clients keeps the client header exactly. 2500 contacts for 100 clients are all read when the server caps a response at 1000 rows. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "A file with at least one lead gets one extra column, Persoană de contact, at the END of the client model, so the client columns keep their positions, the client import template and its header test stay as they are, and a re-import through Leaduri matches the column by its header. The contact read reuses readAllPages from lib/data/id-list.ts. No migration.",
       "last_checkpoint": "2026-10-14T19:00:00Z",
       "evidence": {
         "kind": "pr",

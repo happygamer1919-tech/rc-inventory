@@ -23,7 +23,6 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
 import { listClientRowsForExport, ownerDisplayName } from "./clients";
 import { readContactNames } from "./export-contacts";
-import { leadExportCsv } from "./lead-import-types";
 import { loadOrRefuse, readAllOwnerProfiles } from "./import-clients-read";
 import { hasClientNextAction } from "./schema-capability";
 import { formatDate } from "./format";
@@ -162,8 +161,9 @@ export async function exportClients(
   // P3-306. UN FISIER CU LEADURI PASTREAZA PERSOANA DE CONTACT. Pe Toți si pe Inactivi
   // lista amesteca clienti si leaduri, iar modelul clientilor nu are coloana
   // „Persoană de contact”: un lead exportat de aici si reimportat prin Leaduri ar fi
-  // pierdut-o. Cand fisierul are cel putin un lead, se scrie modelul leadurilor (aceleasi
-  // coloane si inca una); un fisier numai cu clienti ramane in modelul clientilor, neschimbat.
+  // pierdut-o. Cand fisierul are cel putin un lead, modelul clientilor primeste o coloana
+  // „Persoană de contact" la sfarsit (coloanele lui raman pe loc, deci un reimport ca
+  // clienti merge ca pana acum); un fisier numai cu clienti ramane neschimbat.
   const hasLead = withLeaduri && rows.some((r) => isClientStage(r.stage) && r.stage !== "client");
   let csv: string;
   if (hasLead) {
@@ -173,8 +173,9 @@ export async function exportClients(
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Exportul a eșuat." };
     }
-    csv = leadExportCsv(
-      clients.map((c, i) => ({ ...c, contactName: contactOf.get(rows[i]!.id) ?? "" })),
+    csv = clientExportCsv(
+      clients,
+      rows.map((r) => contactOf.get(r.id) ?? ""),
     );
   } else {
     csv = clientExportCsv(clients);

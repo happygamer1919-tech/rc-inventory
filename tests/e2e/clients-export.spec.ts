@@ -397,7 +397,7 @@ test("P3-306: export clienti: vederea Inactivi se exporta, iar leadul din Toți 
     return index;
   };
 
-  // Toți: leadul iese in modelul leadurilor, cu persoana de contact.
+  // Toți: leadul iese cu persoana de contact, coloana de la sfarsit.
   const all = await exportView(page, { q: tag });
   const contactAt = columnOf(all.text, "Persoană de contact");
   const leadRow = dataRows(all.text).find((r) => r[0] === `${tag} lead`);
