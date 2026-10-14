@@ -7069,6 +7069,29 @@
       "notes": "Found by the bug check of 2026-10-13 (factory task 285). Id P3-275 checked free with npm run id:free; P3-274 is taken by a branch of the reference lock card. The unit cases were run locally with a throwaway playwright config; the screen case runs in CI only (no Docker here)."
     },
     {
+      "id": "P3-286",
+      "title": "Imports read 1,200 as one thousand two hundred and accept Romanian mobiles written with a leading 0.",
+      "plain": "A number like 1,200 in an import is no longer read as 1.2. A Romanian phone number like 0721234567 (10 digits starting with 07) is accepted as a mobile.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "All test cases in tests/e2e/import-number.spec.ts and tests/e2e/import-phone.spec.ts are green in this pull request own quality run. Comma-separated numbers like 1,200 parse as thousands separators (→ 1200) when followed by exactly three digits, otherwise as decimals (1,5 → 1.5). Romanian phones 0721234567 (10 digits starting with 07) parse as +40721234567. Moldovan phones 069123456 (0 + 8 digits) parse as +37369123456. All other formats unchanged. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "readPhone moved from lead-import-types.ts and client-import-types.ts to import-shared.ts and imported by both; no behaviour change outside P3-286 scope. No migration.",
+      "last_checkpoint": "2026-10-14T11:25:44Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-286 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T11:25:44Z"
+      },
+      "notes": null
+    },
+    {
       "id": "P3-288",
       "title": "Slip numbers created just after midnight UTC on January 1 get the local year from Chișinău timezone instead of UTC",
       "plain": "If someone makes a slip number when it's 2026-12-31T22:30Z UTC but already 2027-01-01 in Chișinău, the slip number now correctly gets the prefix IES-2027, not IES-2026. The year comes from the local Chișinău date, not from UTC.",

@@ -721,3 +721,75 @@ export function decodeCsvFile(
   if (hasReplacementChar(text)) return { error: BROKEN_LETTERS_FILE_ERROR };
   return { text, encoding };
 }
+
+// ---------------------------------------------------------------------------
+// Telefon: forma canonica +373 sau strain cu prefixul lui
+// ---------------------------------------------------------------------------
+
+export type PhoneReading =
+  | { kind: "empty" }
+  | { kind: "ok"; value: string }
+  | { kind: "many" }
+  | { kind: "bad" };
+
+/** Cate cifre are un numar intreg: sub sapte nu poate fi un telefon. */
+const WHOLE_NUMBER_DIGITS = 7;
+
+/**
+ * Citeste o celula de telefon. O celula completata care nu se citeste ca un
+ * singur numar valid NU este goala: este "mai multe" sau "gresit", ca importul
+ * sa o arate ca eroare in loc sa o piarda sau sa pastreze un numar inventat.
+ *
+ * Republica Moldova are prefixul +373 si opt cifre dupa el. Operatorul scrie
+ * "069123456", "0 69 12 34 56", "+373 69 123 456" si "00373691234 56" pentru
+ * acelasi om, deci toate trebuie sa cada pe acelasi sir, altfel dublatul nu se
+ * vede. Un numar strain se pastreaza cu prefixul lui: se normalizeaza, nu se
+ * moldovenizeaza.
+ *
+ * Romania are prefixul +40 si noua cifre dupa el. Un numar local scris
+ * "0721234567" (zece cifre, incepe cu 07) este +40721234567.
+ */
+export function readPhone(raw: string): PhoneReading {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { kind: "empty" };
+
+  const wholeNumbers = trimmed
+    .split(/[;,/\n]/)
+    .filter((part) => part.replace(/\D/g, "").length >= WHOLE_NUMBER_DIGITS);
+  if (wholeNumbers.length > 1 || /\d{8,}\D+\d{8,}/.test(trimmed)) return { kind: "many" };
+
+  const hasPlus = trimmed.startsWith("+");
+  let digits = trimmed.replace(/\D/g, "");
+  if (digits === "") return { kind: "bad" };
+
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  else if (!hasPlus && digits.startsWith("0")) {
+    const local = digits.slice(1);
+    // Moldovan: 0 followed by exactly 8 digits
+    if (local.length === 8) return { kind: "ok", value: `+373${local}` };
+    // Romanian mobile: 07 followed by eight digits, ten digits in all
+    if (local.length === 9 && local.startsWith("7")) return { kind: "ok", value: `+40${local}` };
+    return { kind: "bad" };
+  }
+
+  if (digits.startsWith("373")) {
+    const local = digits.slice(3);
+    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
+  }
+
+  if (digits.startsWith("40")) {
+    const local = digits.slice(2);
+    // Romanian: +40 followed by exactly nine digits
+    return local.length === 9 ? { kind: "ok", value: `+40${local}` } : { kind: "bad" };
+  }
+
+  // Opt cifre fara niciun prefix este un numar moldovenesc scris scurt.
+  if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
+
+  // Un numar strain se pastreaza cu prefixul lui, dar nu poate incepe cu 0 si are
+  // cel mult cincisprezece cifre.
+  if (digits.startsWith("0") || digits.length < WHOLE_NUMBER_DIGITS || digits.length > 15) {
+    return { kind: "bad" };
+  }
+  return { kind: "ok", value: `+${digits}` };
+}
