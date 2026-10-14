@@ -13,7 +13,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage } from "./id-list";
+import { ID_LIST_BATCH_SIZE, readAllPages, type CountedPage, type IdsFetcher } from "./id-list";
 import { readQuantityRows, type StockClient, type StockScope } from "./stock-read";
 import { readCatalogWithStock } from "./catalog-read";
 import {
@@ -258,15 +258,21 @@ export async function listProducts(options: { activeOnly?: boolean } = {}): Prom
   // Alegerile din formulare cer doar produsele active, deci si stocul se citeste
   // numai pentru ele, nu pentru tot istoricul: prin acelasi filtru pus in cererea de
   // stoc, nu prin lista de id-uri a catalogului, care ar face stocul sa astepte.
+  //
+  // P3-287. Ordinea este dupa sku, pe care un coleg il poate schimba intre doua pagini:
+  // randul se muta dincolo de cursor. Citirea de control (aceleasi filtre si aceeasi
+  // ordine, numai id-uri) face ca un rand sarit sa reia citirea (readAllPages).
+  const pageOf = (select: string) => (from: number, to: number) => {
+    const query = supabase.from("products").select(select, { count: "exact" });
+    return (activeOnly ? query.eq("active", true) : query)
+      .order("sku", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+  };
   const { rows, stock } = await readCatalogWithStock<ProductRow>(
     {
-      catalogPage: (from, to) => {
-        const query = supabase.from("products").select(columns, { count: "exact" });
-        return (activeOnly ? query.eq("active", true) : query)
-          .order("sku", { ascending: true })
-          .order("id", { ascending: true })
-          .range(from, to) as unknown as PromiseLike<CountedPage<ProductRow>>;
-      },
+      catalogPage: pageOf(columns) as unknown as (from: number, to: number) => PromiseLike<CountedPage<ProductRow>>,
+      catalogIds: pageOf("id") as unknown as IdsFetcher,
       stock: (scope) => stockByProduct(scope),
     },
     activeOnly,

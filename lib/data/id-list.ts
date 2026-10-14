@@ -278,7 +278,8 @@ async function verifyIds<T>(
  * rand al paginii trecute revine la inceputul paginii urmatoare. Un total schimbat
  * face din asta o eroare vizibila (readAllPages, mai sus), dar un rand adaugat si
  * unul sters in aceeasi fereastra lasa totalul neschimbat. Dublura se scoate aici;
- * un rand sarit in acel caz nu se poate recupera dintr-o citire pe pozitii.
+ * un rand sarit in acel caz nu se poate recupera dintr-o citire pe pozitii. P3-287:
+ * unde apelantul da `fetchIds`, citirea se reia inainte sa ajunga aici cu o dublura.
  */
 export function dedupeById<T extends { id: string }>(rows: readonly T[]): T[] {
   const seen = new Set<string>();

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readCatalogWithStock } from "@/lib/data/catalog-read";
 import { LIST_CHANGED_MESSAGE, READ_ATTEMPTS, readAllPages, type CountedPage } from "@/lib/data/id-list";
 
 // P3-287. Un rand deja citit se muta dupa cursor intre doua pagini: un rand viu este
@@ -129,6 +130,19 @@ test("P3-287: o lista stabila pe mai multe pagini se citeste o data si se contro
   expect(got.map((r) => r.id)).toEqual(NAMES);
   expect(state.pageRequests).toBe(3);
   expect(state.idRequests).toBe(3);
+});
+
+test("P3-287: catalogul citit pe pagini nu sare un produs cand un coleg ii schimba sku-ul unui produs deja citit", async () => {
+  const { state, fetchPage, fetchIds } = server(NAMES);
+  state.onPage = (n) => {
+    if (n === 1) moveR03ToEnd(state);
+  };
+  const { rows } = await readCatalogWithStock<Row>(
+    { catalogPage: fetchPage, catalogIds: fetchIds, stock: async () => new Map() },
+    false,
+    PAGE,
+  );
+  expect(rows.map((r) => r.id)).toEqual(state.ids);
 });
 
 test("P3-287: o eroare la citirea de control este un esec cu numele listei, nu o lista fara control", async () => {
