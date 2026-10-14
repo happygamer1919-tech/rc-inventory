@@ -9,11 +9,13 @@
 // la baza in plus, una dupa alta, pe Inventar, pe ecranul principal si in fiecare
 // formular care alege un produs. Cifrele erau corecte, doar mai incet.
 
-import { dedupeById, readAllPages, type CountedPage } from "./id-list";
+import { dedupeById, readAllPages, type CountedPage, type IdsFetcher } from "./id-list";
 
 export type CatalogReads<R> = {
   /** O pagina din catalog, cu totalul, in ordinea stabila (sku, apoi id). */
   catalogPage: (from: number, to: number) => PromiseLike<CountedPage<R>>;
+  /** P3-287. Aceeasi cerere, numai cu id-uri, pentru citirea de control (readAllPages). */
+  catalogIds?: IdsFetcher;
   /** Stocul: al produselor active ("active") sau al tuturor (undefined). */
   stock: (scope: "active" | undefined) => Promise<Map<string, number>>;
 };
@@ -29,7 +31,7 @@ export async function readCatalogWithStock<R extends { id: string }>(
   pageSize: number,
 ): Promise<{ rows: R[]; stock: Map<string, number> }> {
   const [rows, stock] = await Promise.all([
-    readAllPages<R>("catalogul", reads.catalogPage, pageSize),
+    readAllPages<R>("catalogul", reads.catalogPage, pageSize, undefined, reads.catalogIds),
     reads.stock(activeOnly ? "active" : undefined),
   ]);
   // Un rand mutat intre pagini de o salvare a unui coleg vine de doua ori.

@@ -59,32 +59,32 @@ export async function getAziList(): Promise<AziList> {
   if (!(await hasClientLeaduri(supabase))) return { rows: [], nextActionAvailable: false };
   const withNextAction = await hasClientNextAction(supabase);
 
-  const all = await readAllPages<ListRow>(
-    "clienții pentru Azi",
-    async (from, to) => {
-      const { data, error } = await supabase.rpc(
-        withNextAction ? "search_clients_next_action" : "search_clients_by_stage",
-        {
-          p_q: "",
-          p_type: null,
-          p_status: "active",
-          p_view: null,
-          p_stage: null,
-          p_limit: to - from + 1,
-          p_offset: from,
-        },
-      );
-      const rows = (data ?? []) as ListRow[];
-      // Totalul vine pe fiecare rand, din aceeasi cerere. O pagina goala spune zero.
-      return {
-        data: rows,
-        count: error ? null : rows.length > 0 ? Number(rows[0]!.total_count) : 0,
-        error,
-      };
-    },
-    ROW_PAGE_SIZE,
-    (r) => r.id,
-  );
+  const page = async (from: number, to: number) => {
+    const { data, error } = await supabase.rpc(
+      withNextAction ? "search_clients_next_action" : "search_clients_by_stage",
+      {
+        p_q: "",
+        p_type: null,
+        p_status: "active",
+        p_view: null,
+        p_stage: null,
+        p_limit: to - from + 1,
+        p_offset: from,
+      },
+    );
+    const rows = (data ?? []) as ListRow[];
+    // Totalul vine pe fiecare rand, din aceeasi cerere. O pagina goala spune zero.
+    return {
+      data: rows,
+      count: error ? null : rows.length > 0 ? Number(rows[0]!.total_count) : 0,
+      error,
+    };
+  };
+  // P3-287. Lista este ordonata dupa data urmatoarei actiuni, pe care "Am sunat" o
+  // schimba: un rand deja citit trece dincolo de cursor si unul viu ar fi sarit. Functia
+  // are o singura forma de raspuns, deci citirea de control o cere a doua oara, aceeasi,
+  // si compara id-urile (readAllPages). Se intampla numai peste o pagina de randuri.
+  const all = await readAllPages<ListRow>("clienții pentru Azi", page, ROW_PAGE_SIZE, (r) => r.id, page);
 
   const today = chisinauToday();
   const due: AziRow[] = [];

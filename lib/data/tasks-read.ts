@@ -69,18 +69,23 @@ export function orderBy(query?: TaskListQuery): { column: string; ascending: boo
   ];
 }
 
-/** Toate sarcinile care se potrivesc filtrelor, pe pagini, in ordinea ceruta. */
+/**
+ * Toate sarcinile care se potrivesc filtrelor, pe pagini, in ordinea ceruta.
+ *
+ * P3-287. `startIds` porneste aceeasi cerere cu `select("id", { count: "exact" })`:
+ * dupa o citire pe mai multe pagini, id-urile ei se compara cu o citire numai de
+ * id-uri (readAllPages), ca un rand deja citit si mutat dupa cursor sa nu fie sarit.
+ */
 export async function readTaskRows<T extends { id: string }>(
   start: TaskReadStart<T>,
   query?: TaskListQuery,
   pageSize?: number,
+  startIds?: TaskReadStart<{ id: string }>,
 ): Promise<T[]> {
-  // O schimbare de termen a unui coleg muta un rand peste marginea paginii: il arata
-  // de doua ori sau deloc, fara eroare. Dublura se scoate, ordinea ramane.
-  const rows = await readAllPages<T>(
-    "sarcinile",
-    (from, to) => {
-      let request = start();
+  const pageOf =
+    <R>(begin: TaskReadStart<R>) =>
+    (from: number, to: number) => {
+      let request = begin();
 
       // CELE CINCI FILTRE SE APLICA PE SERVER, nu in memorie, ca pe fiecare alta lista
       // a acestei aplicatii: antetul lui components/clients/ClientsScreen.tsx scrie
@@ -112,8 +117,15 @@ export async function readTaskRows<T extends { id: string }>(
       }
 
       return request.range(from, to);
-    },
+    };
+  // O schimbare de termen a unui coleg muta un rand peste marginea paginii: citirea
+  // pe mai multe pagini se reia (readAllPages). Dublura ramasa se scoate, ordinea ramane.
+  const rows = await readAllPages<T>(
+    "sarcinile",
+    pageOf(start),
     pageSize,
+    undefined,
+    startIds && pageOf(startIds),
   );
   return dedupeById(rows);
 }
@@ -124,17 +136,23 @@ export async function readEntityTaskRows<T extends { id: string }>(
   entityType: string,
   entityId: string,
   pageSize?: number,
+  startIds?: TaskReadStart<{ id: string }>,
 ): Promise<T[]> {
-  const rows = await readAllPages<T>(
-    "sarcinile înregistrării",
-    (from, to) =>
-      start()
+  const pageOf =
+    <R>(begin: TaskReadStart<R>) =>
+    (from: number, to: number) =>
+      begin()
         .eq("entity_type", entityType)
         .eq("entity_id", entityId)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .range(from, to),
+        .range(from, to);
+  const rows = await readAllPages<T>(
+    "sarcinile înregistrării",
+    pageOf(start),
     pageSize,
+    undefined,
+    startIds && pageOf(startIds),
   );
   return dedupeById(rows);
 }
