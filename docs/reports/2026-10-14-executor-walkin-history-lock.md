@@ -42,9 +42,19 @@ No Docker here, so `npm run check:migrations`, `prove:applier` and `prove:assert
 - GREEN with 0084: `83 migrations applied, 65/65 assertion files passed` (after the 0039 fixture fix; before it, 64/65 with 0039 refused by the new guard).
 - Gates, each exit read alone: `npx tsc --noEmit` 0, `npm run build` 0, `check:card-ids` 0, `check:board-edit` 0, `check:unique-ids` 0, `check:open-branch-ids` 0, `check:no-destructive-migration` 0, `check:conflict-residue` 0, `check:categories` 0, `check:ledger-rows` 0, `check:no-prod-target` 0, `check:pending-schema-reads` 0 (after the tolerated pair; 1 before), `check:removal-safety` 0, `check:assertion-register` 0, `check:board-clock` 0, `check:card-order` 0, `check:board-app` 0, `check:reset-sql` 0, `check:action-pins` 0, `check:executor-env` 0, `check:grant-revocation` 0, `check:live-fixtures` 0, `prove:no-destructive-migration` 0, `prove:board-edit` 0, `prove:unique-ids` 0, `prove:open-branch-ids` 0, `prove:schema-direction` 0. `prove:assertions` exit 2 here (needs Docker), left to CI.
 
-## Known wait
+## CI on head 06b302d (run 38557856812)
 
-Migration 0083 sits on the owner's pull request #518 (P3-274). The CI applier proof refuses a gap in the numbers (0082 then 0084), so "Prove the migration applier against the Docker shim" stays red on this branch until #518 merges and main is merged in (factory KNOWN-FAILURES: a migration numbered above another open branch's migrations). Order for the owner: #518 first, then this one.
+Every step up to and including "Apply every migration to a bare postgres, unmodified" PASSED: that step applies 0084 and runs the 0084 assertion file, so the refusals and the normal paths are proven in CI. "Refuse a migration that removes rows" and "Prove the destructive-migration check refuses" PASSED. "Prove the migration applier against the Docker shim" FAILED with `9 of 16 proofs passed`; End to end did not run.
+
+## Known wait, and why it is only the number
+
+Migration 0083 sits on the owner's pull request #518 (P3-274). The applier proof refuses a gap in the numbers (0082 then 0084). Reproduced here with a small stand-in for the four docker verbs the proof uses, over the Homebrew postgres, in a scratch copy of the repository:
+
+- this branch as pushed: `9 of 16 proofs passed`, the same failures as CI, and the applier's own reason is `ASSERTION FAILED [ledger-no-gaps-ends-at-highest]: ledger holds 83 rows, expected 84 with no gaps`.
+- the same copy plus #518's 0083: `14 of 16`, ledger 84 rows, every mutation proof refuses as it should.
+- control, main's own migrations (no 0083, no 0084) on the same stand-in: `14 of 16`, the same two cases, which only miss a printed "COMMITTED" line while exiting 0 with the batch committed. Those two are an artefact of the stand-in, not of the SQL.
+
+So with 0083 in, this branch behaves exactly like main in the applier proof. Order for the owner: #518 first; this branch then takes main (`gh pr update-branch 523`) and runs the full suite, End to end included.
 
 ## Learnings
 
