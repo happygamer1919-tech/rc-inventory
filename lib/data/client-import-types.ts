@@ -452,7 +452,9 @@ export function clientImportInstructions(): string[] {
       `${CLIENT_IMPORT_FIELD_LABEL.followUpDate} este AAAA-LL-ZZ sau ZZ.LL.AAAA.`,
     `Un rând se consideră dublat după ${CLIENT_IMPORT_FIELD_LABEL.email}, iar când rândul nu are ` +
       `${CLIENT_IMPORT_FIELD_LABEL.email}, după ${CLIENT_IMPORT_FIELD_LABEL.name} împreună cu ` +
-      `${CLIENT_IMPORT_FIELD_LABEL.phone}. Un dublat nu se șterge și nu se suprascrie niciodată: ` +
+      `${CLIENT_IMPORT_FIELD_LABEL.phone}; la fel și când rândul are ${CLIENT_IMPORT_FIELD_LABEL.email}, ` +
+      `dar clientul deja salvat nu are. Dacă există un client activ și unul dezactivat potrivit, ` +
+      "se alege cel activ. Un dublat nu se șterge și nu se suprascrie niciodată: " +
       "ori se sare peste el, ori i se completează numai câmpurile goale.",
     `Fișierul poate avea cel mult ${IMPORT_MAX_ROWS} de rânduri și ${limitMb} MB.`,
   ];

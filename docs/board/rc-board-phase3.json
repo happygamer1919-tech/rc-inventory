@@ -7331,6 +7331,29 @@
         "at": "2026-10-14T14:00:00Z"
       },
       "notes": "Source: bug check of 2026-10-14. Shared helper lib/import-sheet-close.ts."
+    },
+    {
+      "id": "P3-307",
+      "title": "Imports match the right existing client every time: active clients win, an email does not hide a name plus phone match, and big files are honest.",
+      "plain": "When a file row matches two saved clients, the active one is now always chosen, and the message about a deactivated client only shows when no active client matches. A client list loaded again with a new email column no longer creates every client a second time: a row with an email is also matched on name plus phone against a client saved without an email, and the email can be filled in. A repeated row whose first copy sits in an earlier part of a big file now offers the real fill choice instead of saying there is nothing to fill. The duplicate check now covers a file of 10 000 rows, and above its limit the check step says so in Romanian. The Importă button is disabled, with the reason, while another import of the same kind is running in this browser.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/p3-307-import-matching.spec.ts whose title starts with 'P3-307' is green in this pull request own quality run on its head sha: an active client beats a deactivated one in both read orders (lead plan by phone and by email, client plan by email and by name plus phone); a row with an email matches a stored client without an email on name plus phone and offers to fill the email, and does not match one with a different email; a duplicate whose first row is in an earlier batch has a non-empty fillable list; a 10 000 row file keeps cross-batch duplicate detection and its anchors plus one batch stay under 1 MB; above the anchor cap runImportBatches reports anchorsCapped; the import lock refuses a second import of the same kind and expires when stale. (b) NAMED E2E STEP: the case in the same file whose title starts with 'import leaduri: un client activ si unul dezactivat' creates a deactivated and an active client with the same phone, the check step names the active one with Completează câmpurile goale enabled, and the import fills only the active client. (c) The existing import specs stay green. (d) `npx tsc --noEmit` and `npm run build` exit 0. (e) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (f) No file under supabase/migrations/ is added or changed.",
+      "defaults": "Rule for two matches: the first active client wins, else the first found. A row with an email matches on name plus phone only a stored client with no email; a stored client with another email is a different person. In the file itself the name plus phone key still applies only to rows without an email. For a repeated row whose first copy is in an earlier batch the screen offers what the row carries (minus the field it matched on) and says it fills only if empty at that row; the write step fills only what is really empty. Anchor budget 800 KB and batch budget 150 KB per call, together under the 1 MB frame. The lock is a localStorage entry per kind with a 5 second heartbeat, ignored after 30 seconds. Applies to clients, leads, projects and products. No migration.",
+      "last_checkpoint": "2026-10-14T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-307 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T20:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-14 18:46Z, findings 8, 11 and 24 (zero based). The finding file sits outside the executor folders and could not be read; the card was built from the task text and the code. New files: lib/data/import-stored-index.ts, lib/import-lock.ts, lib/use-import-lock.ts."
     }
   ]
 }

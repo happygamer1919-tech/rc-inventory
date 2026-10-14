@@ -59,6 +59,9 @@ import {
   runImportBatches,
   savedRows,
 } from "@/lib/data/import-batches";
+import { IMPORT_ANCHORS_CAPPED } from "@/lib/data/import-file-anchors";
+import { importLockMessage } from "@/lib/import-lock";
+import { useImportLock } from "@/lib/use-import-lock";
 
 const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Importă"] as const;
 
@@ -103,6 +106,8 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = React.useState<MaterialImportPlan | null>(null);
   const [choices, setChoices] = React.useState<DuplicateChoices>({});
   const [outcome, setOutcome] = React.useState<MaterialImportOutcome | null>(null);
+  const [anchorsCapped, setAnchorsCapped] = React.useState(false);
+  const importLock = useImportLock("materials");
 
   const close = guardedClose(pending, onClose);
 
@@ -211,6 +216,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
         return;
       }
       setPlan(mergePlans(result.parts));
+      setAnchorsCapped(result.anchorsCapped);
       setChoices({});
       setStep(2);
     } catch {
@@ -223,6 +229,11 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
 
   async function onRun() {
     setError(null);
+    // P3-307: un singur import de acelasi fel o data, in acest browser.
+    if (!importLock.acquire()) {
+      setError(importLockMessage("materials"));
+      return;
+    }
     setPending(true);
     try {
       const result = await runImportBatches({
@@ -246,6 +257,7 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
     } catch {
       setError(importFailed(0));
     } finally {
+      importLock.release();
       setProgress(null);
       setPending(false);
     }
@@ -416,6 +428,16 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
                 <Count label="Dublate" value={plan.counts.duplicate} testId="import-count-duplicate" />
                 <Count label="Cu erori" value={plan.counts.error} testId="import-count-error" />
               </div>
+
+              {anchorsCapped ? (
+                <p
+                  role="status"
+                  data-testid="import-anchors-capped"
+                  className="rounded-[10px] border border-rc-warn/25 bg-rc-warn-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+                >
+                  {IMPORT_ANCHORS_CAPPED}
+                </p>
+              ) : null}
 
               <ImportPreviewRows preview={plan.preview} />
 
@@ -598,11 +620,22 @@ export function MaterialImportSheet({ onClose }: { onClose: () => void }) {
                 Continuă
               </Button>
             ) : (
-              <Button type="button" disabled={pending} onClick={onRun} data-testid="import-run">
+              <Button
+                type="button"
+                disabled={pending || importLock.blocked}
+                title={importLock.blocked ? importLockMessage("materials") : undefined}
+                onClick={onRun}
+                data-testid="import-run"
+              >
                 {pending ? (progress ?? "Se importă...") : "Importă"}
               </Button>
             )}
           </div>
+          {step === 3 && !outcome && importLock.blocked ? (
+            <p role="status" data-testid="import-locked" className="text-[12.5px] text-rc-muted text-right">
+              {importLockMessage("materials")}
+            </p>
+          ) : null}
         </div>
       </aside>
     </div>
