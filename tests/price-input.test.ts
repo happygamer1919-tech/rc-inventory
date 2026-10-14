@@ -104,3 +104,21 @@ test("P3-258: parseQuantityText ignores whitespace", () => {
     expect(result.value).toBe(2.5);
   }
 });
+
+test("P3-275: parseQuantityText refuses dot plus exactly three digits as ambiguous", () => {
+  for (const text of ["1.200", "2.500", "12.500", "1.200.000"]) {
+    expect(parseQuantityText(text).kind, text).toBe("ambiguous");
+  }
+});
+
+test("P3-275: parseQuantityText still accepts the unambiguous spellings", () => {
+  const cases: [string, number][] = [["2,5", 2.5], ["2.5", 2.5], ["0.500", 0.5], ["2500", 2500], ["1.200,5", 1200.5], ["0,125", 0.125]];
+  for (const [text, value] of cases) {
+    expect(parseQuantityText(text), text).toMatchObject({ kind: "ok", value });
+  }
+});
+
+test("P3-275: parsePriceText still reads 1.200 as 1200", () => {
+  expect(parsePriceText("1.200")).toMatchObject({ kind: "ok", value: 1200 });
+  expect(parsePriceText("1.200,50")).toMatchObject({ kind: "ok", value: 1200.5 });
+});

@@ -2078,6 +2078,31 @@ test("P3-258: iesire client direct: o cantitate tastata cu virgula zecimala se s
   expect(String(lines.rows[0]?.quantity ?? ""), "cantitatea din baza este 2.5").toBe("2.5");
 });
 
+/* ================================================================ P3-275 */
+
+test("P3-275: iesire client direct: cantitatea 2.500 este refuzata ca neclara si nu se creeaza nicio iesire", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+  const before = await issueCountForTestClient();
+
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("07.12.2026");
+  await comboPick(page, "issue-product-0", PRODUCT_NAME);
+  await page.getByTestId("issue-quantity-0").fill("2.500");
+
+  const message = "Cantitate neclară: scrieți 2,5 pentru zecimale sau 2500 fără punct.";
+  await expect(page.getByTestId("issue-quantity-error-0")).toHaveText(message);
+
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-problems")).toContainText(`Rândul 1: ${message}`);
+  await expect(page.getByTestId("issue-created"), "nu apare ecranul de reusita").toHaveCount(0);
+  expect(await issueCountForTestClient(), "nicio iesire noua in baza").toBe(before);
+});
+
 /* ===================================================================
    CARDUL P3-148: O POZITIE UMPLUTA PE JUMATATE SE REFUZA
    ===================================================================

@@ -20,14 +20,29 @@ export const PRICE_INVALID_MESSAGE = "Preț invalid. Exemplu: 12,50";
 export type QuantityInput =
   | { kind: "empty" }
   | { kind: "ok"; value: number; text: string }
-  | { kind: "invalid" };
+  | { kind: "invalid" }
+  | { kind: "ambiguous" };
 
 export const QUANTITY_INVALID_MESSAGE = "Cantitate invalidă. Exemplu: 2,5";
 
+// P3-275: "2.500" poate fi 2,5 sau 2500; cantitatea nu ghicește, operatorul scrie clar.
+export const QUANTITY_AMBIGUOUS_MESSAGE =
+  "Cantitate neclară: scrieți 2,5 pentru zecimale sau 2500 fără punct.";
+
+/** Mesajul de afisat pentru o cantitate refuzata, sau null cand textul se citeste. */
+export function quantityProblem(raw: string): string | null {
+  const q = parseQuantityText(raw);
+  if (q.kind === "invalid") return QUANTITY_INVALID_MESSAGE;
+  if (q.kind === "ambiguous") return QUANTITY_AMBIGUOUS_MESSAGE;
+  return null;
+}
+
 /**
- * P3-268: cantitatea si pretul se citesc cu aceleasi reguli. Un punct urmat de
- * exact trei cifre este separator de mii si pentru cantitate: "1.200" este 1200,
- * nu 1,2. Ecranul si serverul folosesc aceleasi doua functii.
+ * P3-268: cantitatea si pretul se citesc cu aceleasi reguli de baza. Ecranul si
+ * serverul folosesc aceleasi doua functii.
+ * P3-275: pretul are doua zecimale, deci "1.200" este 1200. Cantitatea are trei
+ * zecimale, deci "2.500" ar putea fi 2,5: un text cu doar puncte urmate de exact
+ * trei cifre este refuzat ca neclar (vezi parseQuantityText). "1.200,5" ramane 1200,5.
  */
 function readNumberText(raw: string): PriceInput {
   // \s acopera si spatiul fix (U+00A0), deci un numar lipit din alta aplicatie merge.
@@ -43,6 +58,7 @@ function readNumberText(raw: string): PriceInput {
 }
 
 export function parseQuantityText(raw: string): QuantityInput {
+  if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(raw.replace(/\s/g, ""))) return { kind: "ambiguous" };
   const r = readNumberText(raw);
   if (r.kind === "ok" && r.value <= 0) return { kind: "invalid" };
   return r;
