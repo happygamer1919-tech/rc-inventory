@@ -96,6 +96,92 @@ test("P3-211: a failure in call 3 stops, keeps the rows done so far and says so"
   expect(result.rowsDone).toBe(400);
   expect(result.message).toContain("Sesiune expirată");
   expect(result.message).toContain("salvate: 400");
+  // P3-301: si un esec intors de server spune ca lotul esuat poate fi salvat in parte.
+  expect(result.message).toContain("rândurile 402 până la 601");
+  expect(result.message).toContain("Puteți încărca din nou același fișier fără risc");
+});
+
+test("P3-301: a failure in the first batch of an import still says part of it may be saved", async () => {
+  const result = await runImportBatches<{ created: number; filled: number }>({
+    step: "import",
+    rows: makeRows(50),
+    saved: (p) => p.created + p.filled,
+    call: async () => {
+      throw new Error("timeout");
+    },
+  });
+  expect(result.ok).toBe(false);
+  if (result.ok) return;
+  expect(result.parts).toHaveLength(0);
+  expect(result.message).not.toContain("loturile terminate");
+  expect(result.message).toContain("rândurile 2 până la 51");
+  expect(result.message).toContain("se poate să fi fost salvate câteva rânduri");
+});
+
+test("P3-301: a failed import names the rows without email and phone that a second upload would create twice", async () => {
+  // 450 de randuri: loturile 1 si 2 se termina, al treilea esueaza. Randurile 5, 230 si 410
+  // nu au nici email, nici telefon.
+  const rows = makeRows(450).map((row) => [...row]);
+  for (const at of [4, 229, 409]) rows[at] = [`Client ${at + 1}`, ""];
+  let calls = 0;
+  const result = await runImportBatches<{ created: number; filled: number }>({
+    step: "import",
+    rows,
+    saved: (p) => p.created + p.filled,
+    keyless: (row) => (row[1] ?? "") === "",
+    call: async (batch) => {
+      calls += 1;
+      if (calls === 3) throw new Error("timeout");
+      return { ok: true, value: { created: batch.rows.length, filled: 0 } };
+    },
+  });
+  expect(result.ok).toBe(false);
+  if (result.ok) return;
+  expect(result.parts).toHaveLength(2);
+  expect(result.message).toContain("Atenție: rândurile fără email și fără telefon (6, 231, 411)");
+  expect(result.message).toContain("s-ar crea a doua oară");
+
+  // Fara functia `keyless` (leaduri, proiecte, materiale) mesajul nu pomeneste nimic de felul asta.
+  const plain = await runImportBatches<{ created: number; filled: number }>({
+    step: "import",
+    rows,
+    call: async () => {
+      throw new Error("timeout");
+    },
+  });
+  if (plain.ok) throw new Error("expected failure");
+  expect(plain.message).not.toContain("Atenție");
+
+  // O lista lunga se scurteaza si se numara.
+  const many = importFailed(0, undefined, Array.from({ length: 12 }, (_, i) => i + 2));
+  expect(many).toContain("(2, 3, 4, 5, 6, 7, 8, 9 și încă 4)");
+});
+
+test("P3-301: the anchors of finished batches go to the next batch, the first one gets none", async () => {
+  const seen: number[] = [];
+  const result = await runImportBatches<{ anchors: [string, number][] }>({
+    step: "check",
+    rows: makeRows(450),
+    call: async (batch, earlier) => {
+      seen.push(earlier.length);
+      return { ok: true, value: { anchors: batch.lines.map((line) => [`phone:${line}`, line]) } };
+    },
+    anchorsOf: (part) => part.anchors,
+  });
+  expect(result.ok).toBe(true);
+  expect(seen).toEqual([0, 200, 400]);
+
+  // La scriere nu se dau `anchorsOf`, deci nu pleaca nicio ancora.
+  const seenWrite: number[] = [];
+  await runImportBatches<{ anchors: [string, number][] }>({
+    step: "import",
+    rows: makeRows(450),
+    call: async (batch, earlier) => {
+      seenWrite.push(earlier.length);
+      return { ok: true, value: { anchors: [] } };
+    },
+  });
+  expect(seenWrite).toEqual([0, 0, 0]);
 });
 
 test("P3-211: a rejected action returns the Romanian message, never hangs", async () => {
@@ -112,9 +198,13 @@ test("P3-211: a rejected action returns the Romanian message, never hangs", asyn
   });
   expect(importing.ok).toBe(false);
   if (importing.ok) return;
-  expect(importing.message).toBe(importFailed(400));
+  expect(importing.message).toBe(importFailed(400, { from: 402, to: 601 }));
+  // P3-301: spune ca din lotul esuat se poate sa fi fost salvat ceva si ca fisierul se poate
+  // incarca din nou fara risc.
   expect(importing.message).toBe(
-    "Importul nu a putut fi finalizat. Rândurile importate până acum au fost salvate: 400. Încercați din nou cu restul fișierului.",
+    "Importul nu a putut fi finalizat. Rândurile din loturile terminate au fost salvate: 400. " +
+      "Din lotul care a eșuat (rândurile 402 până la 601) se poate să fi fost salvate câteva rânduri. " +
+      "Puteți încărca din nou același fișier fără risc: rândurile care există deja sunt recunoscute și sărite.",
   );
 
   const checking = await runImportBatches<Part>({
