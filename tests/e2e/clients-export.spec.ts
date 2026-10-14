@@ -25,7 +25,7 @@ const RUN4 = String(Math.floor(Math.random() * 9000) + 1000);
 
 /** Cifra fiecarui caz si a seriei de reimport. Telefoanele si IDNO-urile a doua serii nu se
  *  ating niciodata. */
-const SERIES = { a: 1, b: 2, filter: 3, bom: 5, headers: 6, inactive: 7 } as const;
+const SERIES = { a: 1, b: 2, filter: 3, bom: 5, headers: 6, inactive: 7, coverage: 8 } as const;
 
 const phone = (series: number, n: number): string => `+37368${RUN4}${series}${n}`;
 const fiscal = (series: number, n: number): string => `1003${RUN4}${series}${n}`;
@@ -368,6 +368,44 @@ test("export clienti: un client dezactivat apare in fisier numai cand filtrul il
   // Filtrul Toate: amandoi.
   const all = await exportView(page, { q: tag, stare: "toate" });
   expect(names(all.text)).toEqual([`${tag} activ`, `${tag} dezactivat`]);
+});
+
+// P3-306. Exportul acopera ce se vede: vederea Inactivi are buton, iar un lead din Toți
+// iese cu persoana lui de contact.
+test("P3-306: export clienti: vederea Inactivi se exporta, iar leadul din Toți pastreaza persoana de contact", async ({
+  page,
+}) => {
+  const rest = await ownerRest();
+  const tag = tagOf("cov");
+  const c = SERIES.coverage;
+
+  const [leadId] = await seedClients(rest, [
+    { name: `${tag} lead`, type: "company", phone: phone(c, 1), stage: "cold", active: true },
+  ]);
+  await seedClients(rest, [
+    { name: `${tag} dezactivat`, type: "company", phone: phone(c, 2), stage: "client", active: false },
+  ]);
+  const contact = await rest.api.post("/rest/v1/contacts", {
+    headers: rest.headers,
+    data: [{ client_id: leadId, name: `${tag} Persoană`, is_primary: true, active: true }],
+  });
+  expect(contact.status(), await contact.text()).toBe(201);
+
+  const columnOf = (text: string, label: string): number => {
+    const index = parseCsv(text)[0]!.indexOf(label);
+    expect(index, `coloana ${label}`).toBeGreaterThanOrEqual(0);
+    return index;
+  };
+
+  // Toți: leadul iese in modelul leadurilor, cu persoana de contact.
+  const all = await exportView(page, { q: tag });
+  const contactAt = columnOf(all.text, "Persoană de contact");
+  const leadRow = dataRows(all.text).find((r) => r[0] === `${tag} lead`);
+  expect(leadRow?.[contactAt]).toBe(`${tag} Persoană`);
+
+  // Inactivi: butonul exista si fisierul are exact ce arata vederea.
+  const inactive = await exportView(page, { q: tag, vedere: "inactivi" });
+  expect(dataRows(inactive.text).map((r) => r[0]!)).toEqual([`${tag} dezactivat`]);
 });
 
 test("export clienti: fisierul incepe cu marca de ordine a octetilor si diacriticele supravietuiesc", async ({
