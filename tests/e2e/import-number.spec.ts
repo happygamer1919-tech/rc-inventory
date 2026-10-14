@@ -1,4 +1,4 @@
-// P3-137. Numerele scrise romaneste in fisierele de import. Nu atinge nici
+// P3-137 si P3-286. Numerele scrise romaneste in fisierele de import. Nu atinge nici
 // browserul, nici baza: tabelul de cazuri al lui parseImportNumber.
 import { expect, test } from "@playwright/test";
 import { parseImportNumber } from "@/lib/data/import-number";
@@ -23,6 +23,14 @@ const CASES: [string, string | null][] = [
   ["-5", null],
   ["", null],
   ["12,", null],
+  // P3-286: comma as thousands separator when followed by exactly 3 digits
+  ["1,200", "1200"],
+  ["100,000", "100000"],
+  ["1,500", "1500"],
+  // Commas that are decimals (not followed by exactly 3 digits)
+  ["1,5", "1.5"],
+  ["1,25", "1.25"],
+  ["1,2", "1.2"],
 ];
 
 test("numar de import: tabelul de cazuri romanesti si cele neclare", () => {

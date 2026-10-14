@@ -58,6 +58,7 @@ import {
   parseCsv,
   parseCsvWithLines,
   sniffDelimiter,
+  readPhone,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
   IMPORT_SAMPLE_COUNT,
@@ -67,10 +68,11 @@ import {
   type ImportFieldDescriptor,
   type ImportPreview,
   type RowNumber,
+  type PhoneReading,
 } from "./import-shared";
 
-export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
-export type { RowNumber };
+export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL, readPhone };
+export type { RowNumber, PhoneReading };
 
 /** Campurile RC in care poate intra o coloana din fisierul de clienti. Aceleasi
  *  campuri ca pe formularul de client (ClientForm.tsx), fara persoana de
@@ -178,48 +180,6 @@ export const CLIENT_IMPORT_REASON = {
 export function normalisePhone(raw: string): string | null {
   const reading = readPhone(raw);
   return reading.kind === "ok" ? reading.value : null;
-}
-
-export type PhoneReading =
-  | { kind: "empty" }
-  | { kind: "ok"; value: string }
-  | { kind: "many" }
-  | { kind: "bad" };
-
-const WHOLE_NUMBER_DIGITS = 7;
-
-/** O celula completata care nu se citeste ca un singur numar valid este "mai
- *  multe" sau "gresit", niciodata goala (aceeasi regula ca in lead-import-types.ts). */
-export function readPhone(raw: string): PhoneReading {
-  const trimmed = raw.trim();
-  if (trimmed === "") return { kind: "empty" };
-
-  const wholeNumbers = trimmed
-    .split(/[;,/\n]/)
-    .filter((part) => part.replace(/\D/g, "").length >= WHOLE_NUMBER_DIGITS);
-  if (wholeNumbers.length > 1 || /\d{8,}\D+\d{8,}/.test(trimmed)) return { kind: "many" };
-
-  const hasPlus = trimmed.startsWith("+");
-  let digits = trimmed.replace(/\D/g, "");
-  if (digits === "") return { kind: "bad" };
-
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  else if (!hasPlus && digits.startsWith("0")) {
-    const local = digits.slice(1);
-    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
-  }
-
-  if (digits.startsWith("373")) {
-    const local = digits.slice(3);
-    return local.length === 8 ? { kind: "ok", value: `+373${local}` } : { kind: "bad" };
-  }
-
-  if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
-
-  if (digits.startsWith("0") || digits.length < WHOLE_NUMBER_DIGITS || digits.length > 15) {
-    return { kind: "bad" };
-  }
-  return { kind: "ok", value: `+${digits}` };
 }
 
 export type EmailReading =
