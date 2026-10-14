@@ -27,6 +27,7 @@ import "server-only";
 // tocmai cand intrebarea conteaza.
 
 import { createClient } from "@/lib/supabase/server";
+import { settleProbe } from "./schema-probe";
 
 /** Cat timp se tine minte raspunsul, in milisecunde.
  *
@@ -139,9 +140,9 @@ export async function hasExtractionDocumentSource(client: ColumnProbe): Promise<
 
   try {
     const { error } = await client.from("extraction_drafts").select("document_source").limit(1);
-    cachedDocumentSource = { value: !error, at: now };
-  } catch {
-    cachedDocumentSource = { value: false, at: now };
+    cachedDocumentSource = settleProbe(now, error);
+  } catch (thrown) {
+    cachedDocumentSource = settleProbe(now, thrown);
   }
   return cachedDocumentSource.value;
 }
@@ -168,11 +169,11 @@ export async function hasExtractionPageCount(client: ColumnProbe): Promise<boole
 
   try {
     const { error } = await client.from("extraction_drafts").select("page_count").limit(1);
-    cachedPageCount = { value: !error, at: now };
-  } catch {
-    // O sonda care arunca inseamna ca nu se stie, si "nu se stie" se trateaza ca
-    // "nu": se scrie fara coloana, in loc sa se incerce si sa se cada.
-    cachedPageCount = { value: false, at: now };
+    cachedPageCount = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedPageCount = settleProbe(now, thrown);
   }
   return cachedPageCount.value;
 }
@@ -210,10 +211,11 @@ export async function hasExtractionUploadPageCount(client: ColumnProbe): Promise
   }
   try {
     const { error } = await client.from("extraction_drafts").select("upload_page_count").limit(1);
-    cachedUploadPageCount = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": se lucreaza fara coloana, in loc sa se cada.
-    cachedUploadPageCount = { value: false, at: now };
+    cachedUploadPageCount = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedUploadPageCount = settleProbe(now, thrown);
   }
   return cachedUploadPageCount.value;
 }
@@ -265,9 +267,9 @@ export async function hasReconciliationFailedCode(probe: LabelProbe): Promise<bo
   }
   try {
     const { error } = await probe();
-    cachedReconciliationCode = { value: !error, at: now };
-  } catch {
-    cachedReconciliationCode = { value: false, at: now };
+    cachedReconciliationCode = settleProbe(now, error);
+  } catch (thrown) {
+    cachedReconciliationCode = settleProbe(now, thrown);
   }
   return cachedReconciliationCode.value;
 }
@@ -294,9 +296,9 @@ export async function hasDocumentTooLargeCode(probe: LabelProbe): Promise<boolea
   }
   try {
     const { error } = await probe();
-    cachedDocumentTooLargeCode = { value: !error, at: now };
-  } catch {
-    cachedDocumentTooLargeCode = { value: false, at: now };
+    cachedDocumentTooLargeCode = settleProbe(now, error);
+  } catch (thrown) {
+    cachedDocumentTooLargeCode = settleProbe(now, thrown);
   }
   return cachedDocumentTooLargeCode.value;
 }
@@ -329,9 +331,9 @@ export async function hasConfigErrorCode(probe: LabelProbe): Promise<boolean> {
   }
   try {
     const { error } = await probe();
-    cachedConfigErrorCode = { value: !error, at: now };
-  } catch {
-    cachedConfigErrorCode = { value: false, at: now };
+    cachedConfigErrorCode = settleProbe(now, error);
+  } catch (thrown) {
+    cachedConfigErrorCode = settleProbe(now, thrown);
   }
   return cachedConfigErrorCode.value;
 }
@@ -371,10 +373,11 @@ export async function hasProductPackaging(client: ColumnProbe): Promise<boolean>
   }
   try {
     const { error } = await client.from("products").select("package_unit").limit(1);
-    cachedProductPackaging = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul citeste ce exista, in loc sa cada.
-    cachedProductPackaging = { value: false, at: now };
+    cachedProductPackaging = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedProductPackaging = settleProbe(now, thrown);
   }
   return cachedProductPackaging.value;
 }
@@ -423,11 +426,11 @@ export async function hasSupplierDocumentRef(client: ColumnProbe): Promise<boole
   }
   try {
     const { error } = await client.from("extraction_drafts").select("order_ref_series").limit(1);
-    cachedSupplierDocumentRef = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
-    // incerce si sa se cada.
-    cachedSupplierDocumentRef = { value: false, at: now };
+    cachedSupplierDocumentRef = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedSupplierDocumentRef = settleProbe(now, thrown);
   }
   return cachedSupplierDocumentRef.value;
 }
@@ -465,11 +468,11 @@ export async function hasExtractionPlatformVerdict(client: ColumnProbe): Promise
       .from("extraction_drafts")
       .select("platform_error_code, platform_arm")
       .limit(1);
-    cachedPlatformVerdict = { value: !error, at: now };
-  } catch {
-    // O sonda care arunca inseamna ca nu se stie, si "nu se stie" se trateaza ca
-    // "nu": se scrie fara coloane, in loc sa se incerce si sa se cada.
-    cachedPlatformVerdict = { value: false, at: now };
+    cachedPlatformVerdict = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedPlatformVerdict = settleProbe(now, thrown);
   }
   return cachedPlatformVerdict.value;
 }
@@ -509,11 +512,11 @@ export async function hasExtractionLineMath(client: ColumnProbe): Promise<boolea
       .from("extraction_drafts")
       .select("platform_line_math_failed")
       .limit(1);
-    cachedLineMath = { value: !lines.error && !drafts.error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
-    // incerce si sa se cada.
-    cachedLineMath = { value: false, at: now };
+    cachedLineMath = settleProbe(now, lines.error, drafts.error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedLineMath = settleProbe(now, thrown);
   }
   return cachedLineMath.value;
 }
@@ -560,11 +563,11 @@ export async function hasExtractionInboundFields(client: ColumnProbe): Promise<b
       .from("extraction_draft_lines")
       .select("supplier_code, description, line_total_source")
       .limit(1);
-    cachedInboundFields = { value: !drafts.error && !lines.error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": se scrie fara coloane, in loc sa se
-    // incerce si sa se cada.
-    cachedInboundFields = { value: false, at: now };
+    cachedInboundFields = settleProbe(now, drafts.error, lines.error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedInboundFields = settleProbe(now, thrown);
   }
   return cachedInboundFields.value;
 }
@@ -598,11 +601,11 @@ export async function hasExtractionDerivedPartial(client: ColumnProbe): Promise<
       .from("extraction_drafts")
       .select("platform_derived_partial")
       .limit(1);
-    cachedDerivedPartial = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": se scrie fara coloana, in loc sa se
-    // incerce si sa se cada.
-    cachedDerivedPartial = { value: false, at: now };
+    cachedDerivedPartial = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedDerivedPartial = settleProbe(now, thrown);
   }
   return cachedDerivedPartial.value;
 }
@@ -637,10 +640,11 @@ export async function hasExtractionCancel(client: ColumnProbe): Promise<boolean>
 
   try {
     const { error } = await client.from("extraction_drafts").select("cancelled_at").limit(1);
-    cachedExtractionCancel = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedExtractionCancel = { value: false, at: now };
+    cachedExtractionCancel = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedExtractionCancel = settleProbe(now, thrown);
   }
   return cachedExtractionCancel.value;
 }
@@ -681,10 +685,11 @@ export async function hasExtractionSupersede(client: ColumnProbe): Promise<boole
 
   try {
     const { error } = await client.from("extraction_drafts").select("superseded_at").limit(1);
-    cachedExtractionSupersede = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedExtractionSupersede = { value: false, at: now };
+    cachedExtractionSupersede = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedExtractionSupersede = settleProbe(now, thrown);
   }
   return cachedExtractionSupersede.value;
 }
@@ -727,10 +732,11 @@ export async function hasClientStage(client: ColumnProbe): Promise<boolean> {
   }
   try {
     const { error } = await client.from("clients").select("stage, follow_up_date").limit(1);
-    cachedClientStage = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedClientStage = { value: false, at: now };
+    cachedClientStage = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedClientStage = settleProbe(now, thrown);
   }
   return cachedClientStage.value;
 }
@@ -774,10 +780,11 @@ export async function hasClientLeaduri(client: ColumnProbe): Promise<boolean> {
   }
   try {
     const { error } = await client.from("clients").select("source, interest, owner_id").limit(1);
-    cachedClientLeaduri = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": lista merge pe calea de azi, in loc sa cada.
-    cachedClientLeaduri = { value: false, at: now };
+    cachedClientLeaduri = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedClientLeaduri = settleProbe(now, thrown);
   }
   return cachedClientLeaduri.value;
 }
@@ -807,9 +814,9 @@ export async function hasDocuments(client: ColumnProbe): Promise<boolean> {
   if (cachedDocuments && now - cachedDocuments.at < TTL_MS) return cachedDocuments.value;
   try {
     const { error } = await client.from("documents").select("id").limit(1);
-    cachedDocuments = { value: !error, at: now };
-  } catch {
-    cachedDocuments = { value: false, at: now };
+    cachedDocuments = settleProbe(now, error);
+  } catch (thrown) {
+    cachedDocuments = settleProbe(now, thrown);
   }
   return cachedDocuments.value;
 }
@@ -843,10 +850,11 @@ export async function hasProductImage(client: ColumnProbe): Promise<boolean> {
   if (cachedProductImage && now - cachedProductImage.at < TTL_MS) return cachedProductImage.value;
   try {
     const { error } = await client.from("products").select("image_path").limit(1);
-    cachedProductImage = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedProductImage = { value: false, at: now };
+    cachedProductImage = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedProductImage = settleProbe(now, thrown);
   }
   return cachedProductImage.value;
 }
@@ -884,10 +892,11 @@ export async function hasSheetOptions(client: ColumnProbe): Promise<boolean> {
       .from("products")
       .select("sheet_model, sheet_series, sheet_thickness_mm, sheet_finish")
       .limit(1);
-    cachedSheetOptions = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": formularul arata ce exista azi, in loc sa cada.
-    cachedSheetOptions = { value: false, at: now };
+    cachedSheetOptions = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedSheetOptions = settleProbe(now, thrown);
   }
   return cachedSheetOptions.value;
 }
@@ -924,10 +933,11 @@ export async function hasSheetPrices(client: ColumnProbe): Promise<boolean> {
   if (cachedSheetPrices && now - cachedSheetPrices.at < TTL_MS) return cachedSheetPrices.value;
   try {
     const { error } = await client.from("sheet_prices").select("price_lei").limit(1);
-    cachedSheetPrices = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": pretul nu se sugereaza, in loc sa cada ecranul.
-    cachedSheetPrices = { value: false, at: now };
+    cachedSheetPrices = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedSheetPrices = settleProbe(now, thrown);
   }
   return cachedSheetPrices.value;
 }
@@ -965,10 +975,11 @@ export async function hasSheetOptionRetirement(client: ColumnProbe): Promise<boo
   }
   try {
     const { error } = await client.from("sheet_options").select("retired_at").limit(1);
-    cachedSheetOptionRetirement = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": formularul ofera tot, ca azi, in loc sa cada.
-    cachedSheetOptionRetirement = { value: false, at: now };
+    cachedSheetOptionRetirement = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedSheetOptionRetirement = settleProbe(now, thrown);
   }
   return cachedSheetOptionRetirement.value;
 }
@@ -1004,10 +1015,11 @@ export async function hasProductSourceNote(client: ColumnProbe): Promise<boolean
   }
   try {
     const { error } = await client.from("products").select("source_note").limit(1);
-    cachedProductSourceNote = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": panoul arata ce exista azi, in loc sa cada.
-    cachedProductSourceNote = { value: false, at: now };
+    cachedProductSourceNote = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedProductSourceNote = settleProbe(now, thrown);
   }
   return cachedProductSourceNote.value;
 }
@@ -1044,10 +1056,11 @@ export async function hasClientNextAction(client: ColumnProbe): Promise<boolean>
   }
   try {
     const { error } = await client.from("clients").select("next_action_at, next_action").limit(1);
-    cachedClientNextAction = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranele arata ce exista azi, in loc sa cada.
-    cachedClientNextAction = { value: false, at: now };
+    cachedClientNextAction = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedClientNextAction = settleProbe(now, thrown);
   }
   return cachedClientNextAction.value;
 }
@@ -1078,10 +1091,11 @@ export async function hasClientNotes(client: ColumnProbe): Promise<boolean> {
   if (cachedClientNotes && now - cachedClientNotes.at < TTL_MS) return cachedClientNotes.value;
   try {
     const { error } = await client.from("client_notes").select("id").limit(1);
-    cachedClientNotes = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": fila arata ce exista azi, in loc sa cada.
-    cachedClientNotes = { value: false, at: now };
+    cachedClientNotes = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedClientNotes = settleProbe(now, thrown);
   }
   return cachedClientNotes.value;
 }
@@ -1119,10 +1133,11 @@ export async function hasSupplierUnitAliases(client: ColumnProbe): Promise<boole
   }
   try {
     const { error } = await client.from("supplier_unit_aliases").select("id").limit(1);
-    cachedSupplierUnitAliases = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedSupplierUnitAliases = { value: false, at: now };
+    cachedSupplierUnitAliases = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedSupplierUnitAliases = settleProbe(now, thrown);
   }
   return cachedSupplierUnitAliases.value;
 }
@@ -1171,10 +1186,11 @@ export async function hasFacturareSettings(client: ColumnProbe): Promise<boolean
   }
   try {
     const { error } = await client.from("invoice_settings").select("series_prefix").limit(1);
-    cachedFacturareSettings = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedFacturareSettings = { value: false, at: now };
+    cachedFacturareSettings = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedFacturareSettings = settleProbe(now, thrown);
   }
   return cachedFacturareSettings.value;
 }
@@ -1221,10 +1237,11 @@ export async function hasCompanyContactFields(client: ColumnProbe): Promise<bool
   }
   try {
     const { error } = await client.from("invoice_settings").select("issuer_vat_code").limit(1);
-    cachedCompanyContactFields = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa cada.
-    cachedCompanyContactFields = { value: false, at: now };
+    cachedCompanyContactFields = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedCompanyContactFields = settleProbe(now, thrown);
   }
   return cachedCompanyContactFields.value;
 }
@@ -1268,10 +1285,11 @@ export async function hasOutboundIssueMode(client: ColumnProbe): Promise<boolean
   }
   try {
     const { error } = await client.from("outbound_issues").select("issue_mode").limit(1);
-    cachedOutboundIssueMode = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": ecranul arata ce exista azi, in loc sa mintă.
-    cachedOutboundIssueMode = { value: false, at: now };
+    cachedOutboundIssueMode = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedOutboundIssueMode = settleProbe(now, thrown);
   }
   return cachedOutboundIssueMode.value;
 }
@@ -1315,10 +1333,11 @@ export async function hasTasks(client: ColumnProbe): Promise<boolean> {
   if (cachedTasks && now - cachedTasks.at < TTL_MS) return cachedTasks.value;
   try {
     const { error } = await client.from("tasks").select("id").limit(1);
-    cachedTasks = { value: !error, at: now };
-  } catch {
-    // "Nu se stie" se trateaza ca "nu": lista raspunde goala, in loc sa cada.
-    cachedTasks = { value: false, at: now };
+    cachedTasks = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-276: o eroare care nu spune ca obiectul lipseste nu se tine minte, vezi
+    // schema-probe.ts.
+    cachedTasks = settleProbe(now, thrown);
   }
   return cachedTasks.value;
 }

@@ -45,6 +45,7 @@ import { ClientTabs } from "./ClientTabs";
 import { StageMark } from "./StageMark";
 import { PHONE_ROW_LABEL, PHONE_ROW_PAIR, PHONE_ROW_VALUE } from "@/components/ui/phone";
 import { TaskPanel } from "@/components/tasks/TaskPanel";
+import { TasksLoadError } from "@/components/tasks/TasksLoadError";
 import type { TaskAssignee } from "@/components/tasks/TaskForm";
 import type { Task } from "@/lib/data/tasks-types";
 import type { ClientContact, ClientMaterials, ClientProject } from "@/lib/data/client-detail";
@@ -86,6 +87,7 @@ export function ClientDetailScreen({
   canWrite,
   owners,
   tasks,
+  tasksFailed = false,
   taskAssignees = [],
   today,
   canWriteTasks = false,
@@ -109,6 +111,8 @@ export function ClientDetailScreen({
    *  deseneaza deloc: ce nu se poate folosi nu apare pe ecran, obiceiul acestei
    *  aplicatii, si "nu exista inca tabela" nu se arata ca "nicio sarcina". */
   tasks?: Task[] | null;
+  /** P3-276: citirea sarcinilor a esuat; in locul panoului sta un anunt. */
+  tasksFailed?: boolean;
   taskAssignees?: TaskAssignee[];
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata de pagina o singura data
    *  pe randare prin chisinauToday(). Lipsa numai cand `tasks` lipseste. */
@@ -324,6 +328,11 @@ export function ClientDetailScreen({
           atunci, iar ce nu se poate folosi nu apare pe ecran: altfel fisa ar arata
           "Nicio sarcină" despre o tabela care nu exista, care sunt doua lucruri
           diferite spuse cu aceleasi cuvinte. */}
+      {tasksFailed ? (
+        <div className="mt-5">
+          <TasksLoadError />
+        </div>
+      ) : null}
       {tasks !== null && tasks !== undefined && today !== undefined ? (
         <div className="mt-5">
           <TaskPanel
