@@ -7095,6 +7095,31 @@
       "notes": "AUTHORED AND BUILT 2026-10-14 by EXECUTOR in the same pull request. Id P3-277 checked free with npm run id:free (P3-276 was taken minutes earlier by another worktree). Migration number 0084: main holds 0082 and pull request #518 holds 0083, so the applier proof step stays red until #518 merges and main is merged in here (KNOWN-FAILURES: a migration numbered above another open branch's migrations). The assertion ran red first with 0084 set aside (walk-in case a accepted; direct history case g accepted) and green with it on a throwaway local postgres from Homebrew, 83 migrations and 65 assertion files, since this machine has no Docker."
     },
     {
+      "id": "P3-288",
+      "title": "Slip numbers created just after midnight UTC on January 1 get the local year from Chișinău timezone instead of UTC",
+      "plain": "If someone makes a slip number when it's 2026-12-31T22:30Z UTC but already 2027-01-01 in Chișinău, the slip number now correctly gets the prefix IES-2027, not IES-2026. The year comes from the local Chișinău date, not from UTC.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "low",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-115"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "NAMED TEST: `npx playwright test tests/outbound-slip-year.test.ts` is green in this pull request's quality run on the head sha, covering the case 2026-12-31T22:30Z UTC giving year 2027 in Chișinău. PLUS COMMAND: `npx tsc --noEmit` and `npm run build` exit 0, and the board validator exits 0.",
+      "defaults": "The year is extracted from chisinauDateOf(new Date()).split('-')[0]. No database change, no migration. nextOutboundReference() is the single place that generates slip number prefixes.",
+      "last_checkpoint": "2026-10-14T07:45:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-288 against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-14T07:45:00Z"
+      },
+      "notes": "Bug found by Fable check 2026-10-13T23:51Z. Uses the Chișinău-day helper from P3-115. nextOutboundReference() already reads from Supabase to find the highest number; it now reads the year from local time instead of UTC to fix the date boundary case."
+    },
+    {
       "id": "P3-287",
       "title": "A long list read page by page is checked at the end against an id-only read of the same list, so a row that moved past the cursor between two pages can no longer be skipped without a signal. readAllPages in lib/data/id-list.ts gains an optional fifth argument fetchIds; when the read took more than one page, the ids it collected must equal the ids of a final id-only read, otherwise the read restarts like a changed total (READ_ATTEMPTS, same list-changed message). Wired for the lists sorted on a column a colleague can change: the Sarcini list and the record task panels, the catalog (sku), the active client pickers (name) and the Azi client list (next action date).",
       "plain": "A long list that someone edits while it is loading no longer shows up one row short. If a row moved while the list was being read, the list is read again, and only if it keeps changing does the screen say so.",
