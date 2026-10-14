@@ -84,6 +84,10 @@ type PersonRecord = {
   fiscalCode: string;
 };
 
+/** P3-302. Sursa de rezerva a unui import de leaduri se alege la ultimul pas, dupa
+ *  previzualizare: o celula Sursă goala se spune asa, in loc sa para o lipsa. */
+export const SOURCE_CHOSEN_NEXT_STEP = "se alege la pasul următor";
+
 const PERSON_COLUMNS: [string, (r: PersonRecord, owners: ReadonlyMap<string, string>) => string][] = [
   ["Denumire", (r) => r.name],
   ["Tip", (r) => CLIENT_TYPE_LABEL[r.type as ClientType] ?? r.type],
@@ -111,13 +115,19 @@ export function personPreviewTable(
   prepared: ReadonlyMap<number, PersonRecord>,
   ownerNames: ReadonlyMap<string, string>,
   withContact: boolean,
+  emptySourceLabel = "",
 ): ImportPreviewTable {
   const columns = PERSON_COLUMNS.filter(([label]) => withContact || label !== "Persoană de contact");
   const rows: ImportPreviewRow[] = [];
   for (const line of newLines) {
     const record = prepared.get(line);
     if (!record) continue;
-    rows.push({ line, cells: columns.map(([, cell]) => cell(record, ownerNames)) });
+    rows.push({
+      line,
+      cells: columns.map(([label, cell]) =>
+        label === "Sursă" && record.source === "" ? emptySourceLabel : cell(record, ownerNames),
+      ),
+    });
   }
   return build(
     columns.map(([label]) => label),

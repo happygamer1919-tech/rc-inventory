@@ -55,6 +55,7 @@ import {
   buildModelCsv,
   buildSynonymIndex,
   normaliseKey,
+  buildOwnerIndexWithInactive,
   parseCsv,
   parseCsvWithLines,
   sniffDelimiter,
@@ -265,13 +266,13 @@ function readType(raw: string): ClientType | null {
 /** Numele complet al fiecarui responsabil, normalizat, catre id-ul lui. */
 export type OwnerIndex = Map<string, string>;
 
-export function buildOwnerIndex(owners: { id: string; fullName: string }[]): OwnerIndex {
-  const index: OwnerIndex = new Map();
-  for (const owner of owners) {
-    const key = normaliseKey(owner.fullName);
-    if (key !== "" && !index.has(key)) index.set(key, owner.id);
-  }
-  return index;
+/** `inactiveNames`: colegii dezactivati, pe care exportul ii tipareste (P3-215). Intra in
+ *  index cu id gol: randul se pastreaza, fara responsabil, in loc sa fie refuzat (P3-302). */
+export function buildOwnerIndex(
+  owners: { id: string; fullName: string }[],
+  inactiveNames: string[] = [],
+): OwnerIndex {
+  return buildOwnerIndexWithInactive(owners, inactiveNames);
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +333,8 @@ function clientImportFields(owners: OwnerIndex): ImportFieldDescriptor<ClientImp
     field("ownerName", false, "", (raw) => {
       if (raw === "") return { ok: true, value: "" };
       const found = owners.get(normaliseKey(raw));
-      return found ? { ok: true, value: found } : { ok: false, reason: CLIENT_IMPORT_REASON.unknownOwner(raw) };
+      // Id gol = coleg dezactivat sau "Fără nume": randul ramane, fara responsabil.
+      return found !== undefined ? { ok: true, value: found } : { ok: false, reason: CLIENT_IMPORT_REASON.unknownOwner(raw) };
     }),
     // ETAPA GOALA DEVINE "Client" (decizia E a cardului), nu "Lead rece" ca la
     // leaduri: acest ecran scrie clienti, iar un client fara etapa in fisier este

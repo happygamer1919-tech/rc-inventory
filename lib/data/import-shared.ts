@@ -88,6 +88,45 @@ export function normaliseKey(raw: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** Un responsabil din fisier care nu se poate atribui: dezactivat azi, sau exportat ca
+ *  "Fără nume" (P3-302). Indexul il tine cu valoarea goala, ca sa se deosebeasca de un
+ *  nume necunoscut, care ramane o eroare. Randul se pastreaza, fara responsabil. */
+export function ownerCannotBeAssigned(owners: ReadonlyMap<string, string>, raw: string): boolean {
+  const key = normaliseKey(raw);
+  return key !== "" && owners.get(key) === "";
+}
+
+/** Avertismentul pentru un rand creat cu responsabilul lasat gol, sau null. */
+export function ownerLeftEmptyWarning(
+  owners: ReadonlyMap<string, string>,
+  rawRow: string[],
+  ownerColumn: number,
+): string | null {
+  if (ownerColumn < 0) return null;
+  const raw = (rawRow[ownerColumn] ?? "").trim();
+  if (raw === "" || !ownerCannotBeAssigned(owners, raw)) return null;
+  return `Responsabilul "${raw}" nu mai este activ în echipă; rândul s-a creat fără responsabil.`;
+}
+
+/** Indexul responsabililor: numele normalizat catre id. Colegii dezactivati si
+ *  "Fără nume" intra cu id gol, vezi ownerCannotBeAssigned. Un coleg activ are
+ *  intaietate pe acelasi nume. */
+export function buildOwnerIndexWithInactive(
+  active: { id: string; fullName: string }[],
+  inactiveNames: string[],
+): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const owner of active) {
+    const key = normaliseKey(owner.fullName);
+    if (key !== "" && !index.has(key)) index.set(key, owner.id);
+  }
+  for (const name of [...inactiveNames, "Fără nume"]) {
+    const key = normaliseKey(name);
+    if (key !== "" && !index.has(key)) index.set(key, "");
+  }
+  return index;
+}
+
 /** Un camp al oricarei entitati: eticheta lui romaneasca si sinonimele pe care
  *  potrivirea automata le recunoaste. Eticheta se adauga automat la sinonime, deci
  *  nu se repeta in lista. */

@@ -23,9 +23,9 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
 import { addClientNote, createClientRecord } from "./client-actions";
-import { readClientOwnerChoices } from "./clients";
+import { readClientOwnerChoices, readInactiveOwnerNames } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
-import { importNextActionAt, rawRowAt } from "./import-shared";
+import { importNextActionAt, ownerLeftEmptyWarning, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import {
   buildOwnerIndex,
@@ -162,7 +162,9 @@ export async function planClientImport(
   const loadedOwners = await loadOrRefuse(readClientOwnerChoices);
   if (!loadedOwners.ok) return loadedOwners;
   const ownerChoices = loadedOwners.value;
-  const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
+  const loadedInactive = await loadOrRefuse(readInactiveOwnerNames);
+  if (!loadedInactive.ok) return loadedInactive;
+  const owners: OwnerIndex = buildOwnerIndex(ownerChoices, loadedInactive.value);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
@@ -258,7 +260,9 @@ export async function runClientImport(
   const loadedOwners = await loadOrRefuse(readClientOwnerChoices);
   if (!loadedOwners.ok) return loadedOwners;
   const ownerChoices = loadedOwners.value;
-  const owners: OwnerIndex = buildOwnerIndex(ownerChoices);
+  const loadedInactive = await loadOrRefuse(readInactiveOwnerNames);
+  if (!loadedInactive.ok) return loadedInactive;
+  const owners: OwnerIndex = buildOwnerIndex(ownerChoices, loadedInactive.value);
   const ownerNames = new Map(ownerChoices.map((o) => [o.id, o.fullName]));
   const existing = await loadOrRefuse(() => loadExisting(supabase));
   if (!existing.ok) return existing;
@@ -279,6 +283,7 @@ export async function runClientImport(
   const warnings: { line: number; reason: string }[] = [];
   const noteBody = importNoteBody(request.fileName, request.day);
   const rawAt = (line: number) => rawRowAt(request.rows, request.lines, 1, line);
+  const ownerColumn = readMapping(request.mapping).indexOf("ownerName");
 
   for (const entry of plan.entries) {
     if (entry.kind === "error") {
@@ -379,6 +384,8 @@ export async function runClientImport(
       continue;
     }
     created += 1;
+    const ownerWarning = ownerLeftEmptyWarning(owners, rawAt(entry.line), ownerColumn);
+    if (ownerWarning) warnings.push({ line: entry.line, reason: ownerWarning });
 
     const note = await addClientNote(result.value.id, noteBody);
     if (!note.ok)

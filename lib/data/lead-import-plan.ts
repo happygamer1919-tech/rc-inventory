@@ -16,7 +16,7 @@
 // trebuie sa existe.
 
 import type { ClientSource } from "./clients-types";
-import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
+import { personPreviewTable, SOURCE_CHOSEN_NEXT_STEP, type ImportPreviewTable } from "./import-preview-rows";
 import { dataRowLine } from "./import-shared";
 import {
   IMPORT_FIELD_LABEL,
@@ -262,6 +262,7 @@ export function buildPlan(input: {
     prepared,
     input.ownerNames ?? new Map(),
     true,
+    input.fallbackSource === "" ? SOURCE_CHOSEN_NEXT_STEP : "",
   );
 
   return { plan: { entries, counts, preview }, prepared };
