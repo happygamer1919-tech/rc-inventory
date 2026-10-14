@@ -15,6 +15,7 @@
 
 import * as React from "react";
 import { decodeCsvFile } from "@/lib/data/import-shared";
+import { IMPORT_RUNNING_TITLE, guardedClose } from "@/lib/import-sheet-close";
 import { useRouter } from "next/navigation";
 import { Button, Field, Select } from "@/components/ui/primitives";
 import { FilePicker } from "@/components/ui/FilePicker";
@@ -113,13 +114,15 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
   const [choices, setChoices] = React.useState<DuplicateChoices>({});
   const [outcome, setOutcome] = React.useState<ClientImportOutcome | null>(null);
 
+  const close = guardedClose(pending, onClose);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [close]);
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -282,7 +285,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/55" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/55" onClick={close} />
       <aside
         className={`relative w-[640px] h-full bg-rc-white text-rc-black overflow-y-auto shadow-2xl ${PHONE_SHEET}`}
         data-testid="client-import"
@@ -296,7 +299,9 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={pending}
+            title={pending ? IMPORT_RUNNING_TITLE : undefined}
             aria-label="Închide"
             className={`shrink-0 w-8 h-8 rounded-[9px] text-rc-muted hover:bg-rc-paper hover:text-rc-black transition-colors ${PHONE_CLOSE}`}
           >
