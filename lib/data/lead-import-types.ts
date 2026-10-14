@@ -38,6 +38,7 @@ import {
   buildModelCsv,
   buildSynonymIndex,
   normaliseKey,
+  buildOwnerIndexWithInactive,
   parseCsv,
   parseCsvWithLines,
   sniffDelimiter,
@@ -485,13 +486,13 @@ export const IMPORT_REASON = {
 /** Numele complet al fiecarui responsabil, normalizat, catre id-ul lui. */
 export type OwnerIndex = Map<string, string>;
 
-export function buildOwnerIndex(owners: { id: string; fullName: string }[]): OwnerIndex {
-  const index: OwnerIndex = new Map();
-  for (const owner of owners) {
-    const key = normaliseKey(owner.fullName);
-    if (key !== "" && !index.has(key)) index.set(key, owner.id);
-  }
-  return index;
+/** `inactiveNames`: colegii dezactivati, pe care exportul ii tipareste (P3-215). Intra in
+ *  index cu id gol: randul se pastreaza, fara responsabil, in loc sa fie refuzat (P3-302). */
+export function buildOwnerIndex(
+  owners: { id: string; fullName: string }[],
+  inactiveNames: string[] = [],
+): OwnerIndex {
+  return buildOwnerIndexWithInactive(owners, inactiveNames);
 }
 
 /**
@@ -548,7 +549,8 @@ export function prepareRow(
   let ownerId = "";
   if (rawOwner !== "") {
     const found = owners.get(normaliseKey(rawOwner));
-    if (!found) return refuse(IMPORT_REASON.unknownOwner(rawOwner));
+    // Id gol = coleg dezactivat sau "Fără nume": randul ramane, fara responsabil.
+    if (found === undefined) return refuse(IMPORT_REASON.unknownOwner(rawOwner));
     ownerId = found;
   }
 
