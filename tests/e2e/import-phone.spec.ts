@@ -20,17 +20,17 @@ const CASES: [string, { kind: "ok"; value: string } | { kind: "empty" | "many" |
   // Short form: 8 digits without prefix
   ["69123456", { kind: "ok", value: "+37369123456" }],
 
-  // Romanian numbers: +40 with 10 digits total (starting with 07 for mobile)
-  // Local form: 0 + 10 digits starting with 7 (07xxxxxxxx)
+  // Romanian numbers: +40 with nine digits after it (a mobile starts with 07 locally)
+  // Local form: 0 + nine digits starting with 7 (ten digits in all)
   ["0721234567", { kind: "ok", value: "+40721234567" }],
   ["07 21 234 567", { kind: "ok", value: "+40721234567" }],
-  // International form: +40 + 10 digits
+  // International form: +40 + nine digits
   ["+407 21 234 567", { kind: "ok", value: "+40721234567" }],
   ["+40721234567", { kind: "ok", value: "+40721234567" }],
-  // With 00 prefix: 0040 + 10 digits
+  // With 00 prefix: 0040 + nine digits
   ["00407 21 234 567", { kind: "ok", value: "+40721234567" }],
 
-  // Romanian invalid: 0 + 10 digits NOT starting with 7
+  // Romanian invalid: 0 + nine digits NOT starting with 7
   ["0821234567", { kind: "bad" }],
   ["0921234567", { kind: "bad" }],
 

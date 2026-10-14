@@ -6,9 +6,9 @@
  * cuprinde si \s din JavaScript).
  * - Si punct, si virgula: ULTIMUL semn este cel zecimal, celalalt separa miile
  *   ("1.234,56" si "1,234.56" dau 1234.56); grupele de mii au exact 3 cifre.
- * - Numai virgule: una singura URMATE DE EXACT TREI CIFRE separa miile ("1,200" este 1200, "100,000" este 100000),
- *   altfel (o singura, urmate de mai putin de 3 sau mai mult) este zecimala sau greseala ("1,5" si "12,25" sunt zecimale).
- *   Mai multe virgule separa miile.
+ * - Numai virgule: una singura este zecimala ("12,5", "0,125"); UNA SINGURA urmata de
+ *   exact trei cifre, dupa 1 pana la 3 cifre fara 0 in fata, separa miile ("1,200" este
+ *   1200, "100,000" este 100000). Mai multe separa miile.
  * - Numai puncte: mai multe separa miile ("1.250.000"); UNUL singur urmat de
  *   exact 3 cifre separa tot miile ("250.000" este 250000, asa se scrie in
  *   romana), altfel este zecimal ("12.5", "99.99").
@@ -38,16 +38,15 @@ export function parseImportNumber(raw: string, maxIntDigits: number): string | n
     integerPart = grouped;
   } else if (commas > 0) {
     if (commas === 1) {
-      const parts = value.split(",") as [string, string];
-      const after = parts[1];
-      // A single comma followed by exactly 3 digits is a thousands separator, not a decimal
-      if (/^\d{3}$/.test(after)) {
-        const grouped = readThousands(value, ",");
-        if (grouped === null) return null;
-        integerPart = grouped;
+      const [before, after] = value.split(",") as [string, string];
+      // O virgula urmata de exact trei cifre, dupa 1 pana la 3 cifre fara 0 in fata, separa
+      // miile ("1,200"); "0,125" si "1234,567" raman zecimale, ca punctul de mai jos.
+      if (/^[1-9]\d{0,2}$/.test(before) && /^\d{3}$/.test(after)) {
+        integerPart = before + after;
       } else {
-        [integerPart, fraction] = parts;
-        if (!/^\d+$/.test(integerPart) || !/^\d+$/.test(fraction)) return null;
+        if (!/^\d+$/.test(before) || !/^\d+$/.test(after)) return null;
+        integerPart = before;
+        fraction = after;
       }
     } else {
       const grouped = readThousands(value, ",");

@@ -746,8 +746,8 @@ const WHOLE_NUMBER_DIGITS = 7;
  * vede. Un numar strain se pastreaza cu prefixul lui: se normalizeaza, nu se
  * moldovenizeaza.
  *
- * Romania are prefixul +40 si zece cifre totale (inclusiv 07 local). Un numar
- * local scris "0721234567" (10 cifre, incepe cu 07) este +407xxxxxxxx.
+ * Romania are prefixul +40 si noua cifre dupa el. Un numar local scris
+ * "0721234567" (zece cifre, incepe cu 07) este +40721234567.
  */
 export function readPhone(raw: string): PhoneReading {
   const trimmed = raw.trim();
@@ -767,8 +767,8 @@ export function readPhone(raw: string): PhoneReading {
     const local = digits.slice(1);
     // Moldovan: 0 followed by exactly 8 digits
     if (local.length === 8) return { kind: "ok", value: `+373${local}` };
-    // Romanian: 0 followed by exactly 10 digits, starting with 7
-    if (local.length === 10 && local.startsWith("7")) return { kind: "ok", value: `+40${local}` };
+    // Romanian mobile: 07 followed by eight digits, ten digits in all
+    if (local.length === 9 && local.startsWith("7")) return { kind: "ok", value: `+40${local}` };
     return { kind: "bad" };
   }
 
@@ -779,8 +779,8 @@ export function readPhone(raw: string): PhoneReading {
 
   if (digits.startsWith("40")) {
     const local = digits.slice(2);
-    // Romanian: +40 followed by exactly 10 digits total
-    return local.length === 10 ? { kind: "ok", value: `+40${local}` } : { kind: "bad" };
+    // Romanian: +40 followed by exactly nine digits
+    return local.length === 9 ? { kind: "ok", value: `+40${local}` } : { kind: "bad" };
   }
 
   // Opt cifre fara niciun prefix este un numar moldovenesc scris scurt.

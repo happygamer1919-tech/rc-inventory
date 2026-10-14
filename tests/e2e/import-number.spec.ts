@@ -47,7 +47,10 @@ test("numar de import: limita de cifre intregi se pastreaza", () => {
 });
 
 test("numar de import: exportul de materiale se citeste inapoi la fel", () => {
-  expect(exportNumber(1.125)).toBe("1,125");
+  // P3-286: "1,125" would now be read as 1125, so the export adds a trailing zero.
+  expect(exportNumber(1.125)).toBe("1,1250");
+  expect(exportNumber(0.125)).toBe("0,125");
+  expect(exportNumber(1234.567)).toBe("1234,567");
 
   const VALUES = [0.001, 1.125, 12.5, 999.999, 1234.567, 1000000, 0];
   for (const v of VALUES) {
