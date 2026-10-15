@@ -18,6 +18,7 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
 import { listClientRowsForExport, ownerDisplayName } from "./clients";
+import { readContactNames } from "./export-contacts";
 import { loadOrRefuse, readAllOwnerProfiles } from "./import-clients-read";
 import { hasClientNextAction } from "./schema-capability";
 import { formatDate } from "./format";
@@ -119,30 +120,19 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
   ].join(",");
 
   const details = new Map<string, DetailRow>();
-  const contactOf = new Map<string, { name: string; primary: boolean }>();
 
   for (const part of chunks(ids, ID_CHUNK)) {
     const { data, error } = await supabase.from("clients").select(columns).in("id", part);
     if (error) return { ok: false, message: `Nu s-au putut citi leadurile: ${error.message}` };
     for (const d of (data ?? []) as unknown as DetailRow[]) details.set(d.id, d);
+  }
 
-    // PERSOANA DE CONTACT: cea principala, altfel prima adaugata. Importul creeaza
-    // persoana principala, deci asta este ce se intoarce la reimport.
-    const { data: contacts, error: contactError } = await supabase
-      .from("contacts")
-      .select("client_id, name, is_primary, created_at")
-      .in("client_id", part)
-      .eq("active", true)
-      .order("created_at", { ascending: true });
-    if (contactError) {
-      return { ok: false, message: `Nu s-au putut citi persoanele de contact: ${contactError.message}` };
-    }
-    for (const c of (contacts ?? []) as { client_id: string; name: string; is_primary: boolean }[]) {
-      const had = contactOf.get(c.client_id);
-      if (!had || (c.is_primary && !had.primary)) {
-        contactOf.set(c.client_id, { name: c.name, primary: c.is_primary });
-      }
-    }
+  // PERSOANA DE CONTACT, citita pe pagini (P3-306): fara pagini, PostgREST taie tacut la 1000.
+  let contactOf: Map<string, string>;
+  try {
+    contactOf = await readContactNames(supabase, ids);
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Exportul a eșuat." };
   }
 
   const owners = await loadOrRefuse(() => readAllOwnerProfiles(supabase));
@@ -159,7 +149,7 @@ export async function exportLeads(request: LeadExportRequest): Promise<ActionRes
       type: CLIENT_TYPE_LABEL[type],
       phone: r.phone ?? "",
       email: d?.email ?? "",
-      contactName: contactOf.get(r.id)?.name ?? "",
+      contactName: contactOf.get(r.id) ?? "",
       interest: d?.interest ?? "",
       source: isClientSource(source) ? CLIENT_SOURCE_LABEL[source] : "",
       ownerName: d?.owner_id ? (ownerName.get(d.owner_id) ?? "") : "",

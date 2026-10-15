@@ -17,6 +17,7 @@ import {
   type ClientImportField,
 } from "./client-import-types";
 import { csvText } from "./import-shared";
+import { IMPORT_FIELD_LABEL } from "./lead-import-types";
 
 export const CLIENT_EXPORT_FILE_NAME = "clienti.csv";
 
@@ -32,14 +33,18 @@ export type ExportClientRow = Record<ClientImportField, string>;
 
 /** Fisierul exportului: antetul modelului, apoi cate un rand pe client, coloanele in
  *  ordinea `CLIENT_IMPORT_FIELDS`. */
-export function clientExportCsv(clients: ExportClientRow[]): string {
+export function clientExportCsv(clients: ExportClientRow[], contactNames?: string[]): string {
+  // P3-306. Cu `contactNames` (un nume pe client, in aceeasi ordine) fisierul are o coloana in
+  // plus, LA SFARSIT: coloanele modelului ramân pe loc, iar un reimport prin Leaduri
+  // potriveste „Persoană de contact" dupa antet.
   return buildCsv([
-    clientModelHeaders(),
-    ...clients.map((client) =>
-      CLIENT_IMPORT_FIELDS.map((field) =>
+    contactNames ? [...clientModelHeaders(), IMPORT_FIELD_LABEL.contactName] : clientModelHeaders(),
+    ...clients.map((client, i) => {
+      const cells = CLIENT_IMPORT_FIELDS.map((field) =>
         field === "phone" || field === "fiscalCode" ? csvText(client[field]) : client[field],
-      ),
-    ),
+      );
+      return contactNames ? [...cells, contactNames[i] ?? ""] : cells;
+    }),
   ]);
 }
 
