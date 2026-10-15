@@ -31,13 +31,15 @@ export const IMPORT_BATCH_SIZE = 200;
 /** Cati octeti de randuri (JSON) are un lot, cel mult: sub limita de 1 MB a cadrului,
  *  cu loc pentru potrivirea coloanelor, alegerile operatorului si ancorele de dublare
  *  (IMPORT_ANCHOR_BYTES, P3-301). */
-export const IMPORT_BATCH_BYTES = 600_000;
+export const IMPORT_BATCH_BYTES = 150_000;
 
 export type ImportBatch = { rows: string[][]; lines: number[] };
 
 export type BatchStep = "check" | "import";
 
-export type BatchSuccess<T> = { ok: true; parts: T[] };
+/** `anchorsCapped` (P3-307): ancorele de dublare au depasit pragul, deci verificarea nu a
+ *  comparat toate loturile intre ele; ecranul spune asta pe pasul "Verifică". */
+export type BatchSuccess<T> = { ok: true; parts: T[]; anchorsCapped: boolean };
 export type BatchFailure<T> = {
   ok: false;
   /** Rezultatele loturilor terminate inainte de cea care a esuat. */
@@ -181,6 +183,7 @@ export async function runImportBatches<T>(input: {
   const keylessLines: number[] = [];
   let rowsDone = 0;
   let savedRows = 0;
+  let anchorsCapped = false;
 
   const noteKeyless = (batch: ImportBatch) => {
     if (!input.keyless) return;
@@ -226,11 +229,13 @@ export async function runImportBatches<T>(input: {
     parts.push(result.value);
     rowsDone += batch.rows.length;
     savedRows += input.saved ? input.saved(result.value) : batch.rows.length;
-    addAnchors(earlier, input.anchorsOf?.(result.value));
+    // Dupa prima depasire nu se mai adauga nimic: ancorele trebuie sa fie un prefix al fisierului,
+    // nu o alegere cu goluri.
+    if (!anchorsCapped) anchorsCapped = addAnchors(earlier, input.anchorsOf?.(result.value));
     noteKeyless(batch);
   }
   input.onProgress?.(rowsDone, total);
-  return { ok: true, parts };
+  return { ok: true, parts, anchorsCapped };
 }
 
 type PlanLike = {

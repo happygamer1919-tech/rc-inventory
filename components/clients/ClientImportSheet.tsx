@@ -62,6 +62,9 @@ import {
   runImportBatches,
   savedRows,
 } from "@/lib/data/import-batches";
+import { IMPORT_ANCHORS_CAPPED } from "@/lib/data/import-file-anchors";
+import { importLockMessage } from "@/lib/import-lock";
+import { useImportLock } from "@/lib/use-import-lock";
 
 const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Importă"] as const;
 
@@ -113,6 +116,8 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = React.useState<ClientImportPlan | null>(null);
   const [choices, setChoices] = React.useState<DuplicateChoices>({});
   const [outcome, setOutcome] = React.useState<ClientImportOutcome | null>(null);
+  const [anchorsCapped, setAnchorsCapped] = React.useState(false);
+  const importLock = useImportLock("clients");
 
   const close = guardedClose(pending, onClose);
 
@@ -226,6 +231,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
         return;
       }
       setPlan(mergePlans(result.parts));
+      setAnchorsCapped(result.anchorsCapped);
       setChoices({});
       setStep(2);
     } catch {
@@ -238,6 +244,11 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
 
   async function onRun() {
     setError(null);
+    // P3-307: un singur import de acelasi fel o data, in acest browser.
+    if (!importLock.acquire()) {
+      setError(importLockMessage("clients"));
+      return;
+    }
     setPending(true);
     try {
       const result = await runImportBatches({
@@ -270,6 +281,7 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
     } catch {
       setError(importFailed(0));
     } finally {
+      importLock.release();
       setProgress(null);
       setPending(false);
     }
@@ -439,6 +451,16 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
                 <Count label="Cu erori" value={plan.counts.error} testId="import-count-error" />
               </div>
 
+              {anchorsCapped ? (
+                <p
+                  role="status"
+                  data-testid="import-anchors-capped"
+                  className="rounded-[10px] border border-rc-warn/25 bg-rc-warn-soft px-3.5 py-2.5 text-[12.5px] text-rc-black"
+                >
+                  {IMPORT_ANCHORS_CAPPED}
+                </p>
+              ) : null}
+
               <ImportPreviewRows preview={plan.preview} />
 
               {duplicates.length > 0 ? (
@@ -477,7 +499,9 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
                       <p className="text-[12px] text-rc-muted" data-testid="import-duplicate-fillable">
                         {entry.fillable.length === 0
                           ? "Nu are niciun câmp gol de completat."
-                          : `Se pot completa: ${entry.fillable.map(fillFieldLabel).join(", ")}.`}
+                          : entry.against.kind === "file" && entry.against.otherBatch
+                            ? `Se pot completa, dacă sunt goale la rândul ${entry.against.line}: ${entry.fillable.map(fillFieldLabel).join(", ")}.`
+                            : `Se pot completa: ${entry.fillable.map(fillFieldLabel).join(", ")}.`}
                       </p>
                     </div>
                   ))}
@@ -612,11 +636,22 @@ export function ClientImportSheet({ onClose }: { onClose: () => void }) {
                 Continuă
               </Button>
             ) : (
-              <Button type="button" disabled={pending} onClick={onRun} data-testid="import-run">
+              <Button
+                type="button"
+                disabled={pending || importLock.blocked}
+                title={importLock.blocked ? importLockMessage("clients") : undefined}
+                onClick={onRun}
+                data-testid="import-run"
+              >
                 {pending ? (progress ?? "Se importă...") : "Importă"}
               </Button>
             )}
           </div>
+          {step === 3 && !outcome && importLock.blocked ? (
+            <p role="status" data-testid="import-locked" className="text-[12.5px] text-rc-muted text-right">
+              {importLockMessage("clients")}
+            </p>
+          ) : null}
         </div>
       </aside>
     </div>
