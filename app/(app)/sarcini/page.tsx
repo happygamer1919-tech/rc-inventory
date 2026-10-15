@@ -90,7 +90,11 @@ export default async function SarciniPage({
   // stergerea filtrului, dar daca ID-ul nu corespunde nici unui profil cunoscut, se
   // scoate din adresa.
   const assigneeId = query.assigneeId;
-  const inactiveAssignee = assigneeId !== "" ? await findInactiveAssignee(assigneeId) : null;
+  const inactiveAssigneeResult = assigneeId !== "" ? await findInactiveAssignee(assigneeId) : null;
+  // Convert the result to what SarciniScreen expects
+  const inactiveAssignee = inactiveAssigneeResult && typeof inactiveAssigneeResult === "object" && "failed" in inactiveAssigneeResult
+    ? { failed: true as const }
+    : inactiveAssigneeResult;
   const rows = await listTasks({ ...query, assigneeId });
 
   // O SARCINA LEGATA DE UN PROIECT INCHIS SAU DE UN CLIENT INACTIV isi arata

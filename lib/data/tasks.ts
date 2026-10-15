@@ -123,13 +123,16 @@ export async function listTaskAssigneeChoices(): Promise<AssigneeChoice[]> {
 /**
  * P3-270: colegul DEZACTIVAT cu id-ul cerut, sau null. Ecranul Sarcini il foloseste ca
  * sa deosebeasca "responsabil dezactivat" (filtrul ramane in adresa) de "nu exista
- * niciun profil cu acest id" (filtrul se scoate). Lista echipei nu se poate citi: null,
- * adica necunoscut.
+ * niciun profil cu acest id" (filtrul se scoate). Lista echipei nu se poate citi:
+ * { failed: true } (P3-309), nu null, ca sa se deosebeasca de "nu exista profilul".
  */
-export async function findInactiveAssignee(id: string): Promise<AssigneeChoice | null> {
+export async function findInactiveAssignee(
+  id: string,
+): Promise<AssigneeChoice | null | { failed: true }> {
   const supabase = await createClient();
   const team = await readTeam(supabase);
-  const member = team?.find((m) => m.id === id && !m.active);
+  if (team === null) return { failed: true };
+  const member = team.find((m) => m.id === id && !m.active);
   if (!member) return null;
   return { id: member.id, fullName: member.displayName?.trim() || "Fără nume" };
 }

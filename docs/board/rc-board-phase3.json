@@ -7073,6 +7073,31 @@
       "notes": "Found by the bug check of 2026-10-13 (factory task 285). Id P3-275 checked free with npm run id:free; P3-274 is taken by a branch of the reference lock card. The unit cases were run locally with a throwaway playwright config; the screen case runs in CI only (no Docker here)."
     },
     {
+      "id": "P3-305",
+      "title": "A walk-in slip for a switched-off buyer is refused by the database itself on every door, not only inside create_direct_client_issue. Migration 0085 replaces the body of public.outbound_issues_guard (0083 word for word plus a P0001 refusal on INSERT of a direct_client row whose client is not active) and of public.outbound_issue_take_stock (0084 word for word plus the issue_mode and client_id read and a P0001 refusal, owner included, when the slip is direct_client and its client is not active). Same Romanian sentence as 0084. A server role with no identity is not guarded. Every policy, signature, grant and trigger, and the body of create_direct_client_issue, are unchanged.",
+      "plain": "A counter sale to a customer who was switched off is now refused by the database whichever way it is attempted, so no stock can leave for that customer, not even through a request that bypasses the screen. Sales to active customers and project sales work as before.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-277"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) npm run check:migrations passes in this pull request quality run on its head sha with scripts/poc-free/local-db/assertions/0085_walkin_direct_insert_inactive_buyer.sql: as an account manager with a real role switch and JWT, a direct INSERT of a direct_client slip to a switched-off client is refused with P0001 and the sentence Clientul ales este dezactivat, outbound_issue_take_stock on an empty walk-in slip of a switched-off client created by that manager is refused with P0001 and writes no line and no history row, a direct INSERT to an active client saves and take stock on it writes one line and one history row, create_direct_client_issue to an active client saves and to a switched-off client is still refused with P0001, a project slip still saves; as the owner take stock on the switched-off client's slip is refused with P0001; take stock keeps its signature, SECURITY DEFINER and its grant to authenticated and not anon. (b) The steps Refuse a migration that removes rows and both applier proof steps RAN and passed, not skipped. (c) scripts/poc-free/local-db/assertions/0082_outbound_issue_column_lock.sql, 0083_outbound_issue_reference_lock.sql and 0084_walkin_buyer_active_history_lock.sql stay green in the same run. (d) npx tsc --noEmit and npm run build exit 0; the board validator exits 0.",
+      "defaults": "SOURCE: the bug check of 2026-10-14 quoted in the factory task walkin-direct-insert-inactive-buyer (the 0067 outbound_issues_insert policy lets any active account insert a slip, the 0082 guard checked only the row shape, and outbound_issue_take_stock accepts the creator of an empty slip, so stock could leave for a switched-off buyer). The check sits in the existing guard trigger and in take stock, not in the policy, because a policy cannot give a Romanian reason and the guard already speaks for this table. P0001 and the 0084 sentence, so the screen shows the same words whichever door was tried. Take stock refuses the owner too: a switched-off buyer is switched off for everyone. A server role with no identity is not guarded, the convention of 0075, 0077, 0082 and 0084. No existing slip is read or changed. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
+      "last_checkpoint": "2026-10-14T19:33:10Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-305 against main (gh pr list --head card/p3-305 --state all): its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0085_walkin_direct_insert_inactive_buyer.sql and the destructive-migration and applier proof steps; report in docs/reports/2026-10-14-executor-walkin-direct-insert-inactive-buyer.md",
+        "at": "2026-10-14T19:33:10Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-14 by EXECUTOR in the same pull request. Id P3-305 from npm run id:free (P3-303 and P3-304 were taken). Migration number 0085: main holds 0084 as the last file. This machine has no Docker, so the migration and its assertion run in CI only."
+    },
+    {
       "id": "P3-277",
       "title": "A walk-in sale refuses a switched-off buyer, and public.status_history accepts a row from a signed-in caller only from the function that moved that row. Migration 0084 replaces the body of public.create_direct_client_issue (0081 word for word plus a P0001 refusal when the client row is not active) and adds the BEFORE INSERT trigger status_history_guard, which refuses with 42501 a row from a signed-in caller (owner included) unless the transaction-local flag rc.status_history_write equals its entity_id. Every writer sets that flag right before its own insert and clears it right after: create_inbound_order, confirm_extraction_draft, receive_inbound_order, outbound_issue_take_stock, ship_outbound_issue, set_project_status and the four argument set_client_stage, each the live body word for word plus the set_config pair. A server role with no identity is not guarded. The status_history policies, every signature, grant and comment are unchanged.",
       "plain": "A counter sale can no longer be saved to a customer who was switched off, and nobody can add a made-up line such as 'shipped' or 'became a client' to a record's history behind the screen's back. The history only shows changes that really happened.",
@@ -7381,6 +7406,29 @@
         "at": "2026-10-14T19:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-14 18:46Z, findings 14 and 17 (zero based)."
+    },
+    {
+      "id": "P3-309",
+      "title": "Azi and Sarcini show the truth when tasks list or team list fails",
+      "plain": "When the system cannot read the task list, Azi now says only that there are no calls to make, instead of suggesting the day is empty. When the team list fails, Sarcini keeps the responsible person filter and shows an error message instead of silently dropping the filter.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Tests tests/e2e/azi-empty-title.spec.ts all green. SarciniScreen correctly distinguishes inactive colleague (id, fullName), not found (null), and list failed ({ failed: true }). npx tsc --noEmit exits 0, npm run build exits 0, board validator exits 0.",
+      "defaults": "No migration. No schema changes. UI only.",
+      "last_checkpoint": "2026-10-14T19:19:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-303-new against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-14T19:19:24.974Z"
+      },
+      "notes": "Source: Fable bug check 2026-10-14 18:46Z, findings 12 and 13. AUTHORED 2026-10-14 BY EXECUTOR. Renumbered from P3-303 on 2026-10-15: main took P3-303 for the project sale price card."
     }
   ]
 }
