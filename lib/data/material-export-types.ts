@@ -41,9 +41,11 @@ export type ExportMaterialRow = Record<Exclude<MaterialImportField, "currency">,
 
 /** Un numar din baza, ca text pe care il citeste `readNumber` din import: cifre si virgula
  *  zecimala (12,5), fara notatie stiintifica. Coloanele sunt numeric(14,3) si numeric(14,2).
- *  O virgula urmata de exact trei cifre dupa 1 pana la 3 cifre fara 0 in fata ("1,125") se
- *  citeste la import ca mii (P3-286), deci primeste un zero la coada ("1,1250"): aceeasi
- *  valoare, dar nu mai poate fi luata drept 1125. */
+ *  Fara separator de mii (1000, nu 1.000). O virgula urmata de exact trei cifre dupa 1 pana
+ *  la 3 cifre fara 0 in fata ("1,125") este neclara la import: la cantitati (Prag recomandă)
+ *  se refuza (P3-310), la bani se citeste ca mii (P3-286). De aceea primeste un zero la coada
+ *  ("1,1250"): aceeasi valoare, citita la fel de ambele reguli. Excel poate rescrie "1,1250" ca
+ *  "1,125" la o salvare; atunci importul de cantitati il refuza cu glas tare, nu il citeste 1125. */
 export function exportNumber(value: number): string {
   const text = formatCsvNumber(value);
   return /^[1-9]\d{0,2},\d{3}$/.test(text) ? `${text}0` : text;

@@ -233,6 +233,12 @@ test("export proiecte: export apoi import produce inregistrari identice", async 
   const rows = dataRows(exported.text);
   expect(rows).toHaveLength(4);
 
+  // P3-310: datele se scriu ZZ.LL.AAAA, ca la leaduri si clienti, nu AAAA-LL-ZZ.
+  const blocA = rows.find((row) => row[col("name")]!.includes("Bloc A"))!;
+  expect(blocA[col("startDate")]).toBe("01.11.2026");
+  expect(blocA[col("plannedEndDate")]).toBe("31.03.2027");
+  expect(rows.map((row) => row[col("startDate")]!).join("|")).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+
   // 2. FISIERUL NEATINS, REIMPORTAT: fiecare rand este un dublat al celui din baza, nu se
   //    creeaza nimic si niciun client nu este necunoscut.
   await importFile(page, "proiecte-export.csv", exported.text);
