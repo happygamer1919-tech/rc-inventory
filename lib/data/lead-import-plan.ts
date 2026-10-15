@@ -19,6 +19,7 @@ import type { ClientSource } from "./clients-types";
 import { FileAnchors, type FileAnchor } from "./import-file-anchors";
 import { personPreviewTable, SOURCE_CHOSEN_NEXT_STEP, type ImportPreviewTable } from "./import-preview-rows";
 import { dataRowLine } from "./import-shared";
+import { pickActiveMatch, setActiveFirst } from "./import-stored-index";
 import {
   IMPORT_FIELD_LABEL,
   type ColumnMapping,
@@ -71,7 +72,7 @@ export type ExistingClient = {
 /** Cu cine s-a potrivit un rand dublat. */
 export type DuplicateTarget =
   | { kind: "stored"; id: string; name: string; inactive?: true }
-  | { kind: "file"; line: number; name: string };
+  | { kind: "file"; line: number; name: string; otherBatch?: true };
 
 export type PlanEntry =
   | { kind: "new"; line: number; name: string }
@@ -157,11 +158,10 @@ export function buildPlan(input: {
 
   const storedByPhone = new Map<string, ExistingClient>();
   const storedByEmail = new Map<string, ExistingClient>();
+  // P3-307: un client activ castiga mereu in fata unuia dezactivat cu aceeasi cheie.
   for (const client of input.existing) {
-    if (client.phoneKey && !storedByPhone.has(client.phoneKey))
-      storedByPhone.set(client.phoneKey, client);
-    if (client.emailKey && !storedByEmail.has(client.emailKey))
-      storedByEmail.set(client.emailKey, client);
+    if (client.phoneKey) setActiveFirst(storedByPhone, client.phoneKey, client);
+    if (client.emailKey) setActiveFirst(storedByEmail, client.emailKey, client);
   }
 
   // Randurile bune de mai sus, ca un al doilea rand al aceluiasi om sa il
@@ -210,27 +210,40 @@ export function buildPlan(input: {
       row.phoneKey && fileByPhone.has(row.phoneKey) ? ("phone" as const) : ("email" as const);
 
     if (fileMatch) {
+      // P3-307: primul rand este intr-un lot de dinainte, deci nu se stie ce are gol. Se ofera
+      // ce a adus acest rand, iar scrierea (unde primul rand este deja in baza) completeaza
+      // numai ce este chiar gol. Inainte lista era goala si ecranul spunea, fals, ca nu are
+      // niciun camp gol de completat.
       const earlier = prepared.get(fileMatch.line);
+      // Campul dupa care s-au potrivit nu este gol la primul rand, deci nu se ofera.
+      const keyField: FillField = fileMatchedOn === "phone" ? "phone" : "email";
       const fillable = earlier
         ? emptyFields(earlier).filter((field) => given.has(field))
-        : [];
+        : FILL_FIELDS.filter((field) => given.has(field) && field !== keyField);
       entries.push({
         kind: "duplicate",
         line,
         name: row.lead.name,
         matchedOn: fileMatchedOn,
-        against: { kind: "file", line: fileMatch.line, name: fileMatch.name },
+        against: {
+          kind: "file",
+          line: fileMatch.line,
+          name: fileMatch.name,
+          ...(earlier ? {} : { otherBatch: true as const }),
+        },
         fillable,
       });
       counts.duplicate += 1;
       continue;
     }
 
-    const storedMatch =
-      (row.phoneKey ? storedByPhone.get(row.phoneKey) : undefined) ??
-      (row.emailKey ? storedByEmail.get(row.emailKey) : undefined);
+    // P3-307: daca telefonul si emailul duc la clienti diferiti, cel activ castiga; mesajul
+    // "dezactivat" apare numai cand nu exista niciun client activ potrivit.
+    const byPhone = row.phoneKey ? storedByPhone.get(row.phoneKey) : undefined;
+    const byEmail = row.emailKey ? storedByEmail.get(row.emailKey) : undefined;
+    const storedMatch = pickActiveMatch([byPhone, byEmail]);
     const storedMatchedOn =
-      row.phoneKey && storedByPhone.has(row.phoneKey) ? ("phone" as const) : ("email" as const);
+      storedMatch !== undefined && storedMatch === byPhone ? ("phone" as const) : ("email" as const);
 
     if (storedMatch) {
       // UN CLIENT DEZACTIVAT NU SE COMPLETEAZA SI NU SE DUBLEAZA: nimic de completat,
