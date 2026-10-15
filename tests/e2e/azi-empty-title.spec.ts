@@ -15,3 +15,7 @@ test("azi: fara apeluri dar cu sarcini scadente, cardul spune 'Niciun apel de f�
 test("azi: sarcini necitite (tabela lipseste), cardul spune 'Nimic de făcut azi.'", () => {
   expect(aziEmptyTitle(null)).toBe("Nimic de făcut azi.");
 });
+
+test("azi: fara apeluri si sarcini necunoscute (citire esuat), cardul spune 'Niciun telefon de dat azi.'", () => {
+  expect(aziEmptyTitle("unknown")).toBe("Niciun telefon de dat azi.");
+});

@@ -9622,6 +9622,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** outbound
 **ERROR:** `createOutboundIssue` runs `processIssueLines` for both the walk-in and the project form, so `parsePriceText` (dot plus exactly three digits is a thousands separator, P3-253 and P3-268) also read the project form's `type="number"` box, where the dot is always a decimal point. Typing 1.250 showed a total of about 1 lei on screen and saved 1250, which an invoice then charged.
 **SOLUTION:** the project form price box is now a text box read by `parsePriceText`, and the on screen total uses the new `priceAmount` helper built on the same parser, so screen and server agree for 1.250, 1,25, 1250 and 1 250. The quantity box is unchanged. RULE: **when the server reads a field as text, every form that sends it must show and total it with the same parser; a number box and a text parser disagree silently on the dot.**
+### P3-309: a "tell the truth" change relabelled an option that an older spec already pinned
+**Tag:** sarcini
+**ERROR:** the first version of this card changed the Sarcini assignee option from "Responsabil inactiv" to "<name> (inactiv)" and only added it when the team read had named the colleague. `sarcini-inactive-assignee-filter.spec.ts` (P3-270) pins the "Responsabil inactiv" text and failed in CI (run 38623069413); with a failed team read the select would also have fallen back to "Toți responsabilii" on a filtered list. The card also took id P3-303, which main gave to the project sale price card meanwhile.
+**SOLUTION:** the option rule is back to the P3-270 one (any filter id missing from the active list gets "Responsabil inactiv"); the card keeps only the failed-read handling (filter kept, warning shown). Renumbered to P3-309 via `npm run id:free`. RULE: **before changing a label or option rule, grep the specs for the old text; and run `npm run id:free` again after every merge of main, because ids are claimed while a PR waits.**
+
 
 ### P3-305: a rule put inside one function left two other doors to the same table open
 **Tag:** database
