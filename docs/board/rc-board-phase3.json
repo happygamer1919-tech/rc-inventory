@@ -7354,6 +7354,29 @@
         "at": "2026-10-14T19:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-14 18:46Z, findings 14 and 17 (zero based)."
+    },
+    {
+      "id": "P3-309",
+      "title": "Azi and Sarcini show the truth when tasks list or team list fails",
+      "plain": "When the system cannot read the task list, Azi now says only that there are no calls to make, instead of suggesting the day is empty. When the team list fails, Sarcini keeps the responsible person filter and shows an error message instead of silently dropping the filter.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "Tests tests/e2e/azi-empty-title.spec.ts all green. SarciniScreen correctly distinguishes inactive colleague (id, fullName), not found (null), and list failed ({ failed: true }). npx tsc --noEmit exits 0, npm run build exits 0, board validator exits 0.",
+      "defaults": "No migration. No schema changes. UI only.",
+      "last_checkpoint": "2026-10-14T19:19:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-303-new against main; acceptance is the quality run on its head sha",
+        "at": "2026-10-14T19:19:24.974Z"
+      },
+      "notes": "Source: Fable bug check 2026-10-14 18:46Z, findings 12 and 13. AUTHORED 2026-10-14 BY EXECUTOR. Renumbered from P3-303 on 2026-10-15: main took P3-303 for the project sale price card."
     }
   ]
 }

@@ -107,8 +107,9 @@ export function SarciniScreen({
   query: TaskListQuery;
   assignees: TaskAssignee[];
   /** P3-270: colegul dezactivat pe care il numeste filtrul din adresa, daca exista. Un
-   *  filtru pe el ramane; un id fara niciun profil se scoate. */
-  inactiveAssignee?: TaskAssignee | null;
+   *  filtru pe el ramane; un id fara niciun profil se scoate. P3-309: diferentiaza
+   *  "dezactivat" de "lista echipei nu s-a putut incarca" cu { failed: true }. */
+  inactiveAssignee?: TaskAssignee | null | { failed: true };
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata o singura data de pagina
    *  prin chisinauToday(). Vezi antetul. */
   today: string;
@@ -137,12 +138,16 @@ export function SarciniScreen({
 
   React.useEffect(() => {
     // Scoate responsabilul numai cand id-ul nu apartine NICIUNUI profil, nici activ,
-    // nici dezactivat (P3-270). Un coleg dezactivat ramane in adresa.
+    // nici dezactivat (P3-270). Un coleg dezactivat ramane in adresa. Daca lista echipei
+    // nu se putea citi, se pastreaza filtrul (P3-309).
     const assigneeId = params.get("responsabil");
+    const hasInactive = inactiveAssignee && "id" in inactiveAssignee && inactiveAssignee.id === assigneeId;
+    const listFailed = inactiveAssignee && "failed" in inactiveAssignee;
     if (
       assigneeId &&
       !assignees.some((a) => a.id === assigneeId) &&
-      inactiveAssignee?.id !== assigneeId
+      !hasInactive &&
+      !listFailed
     ) {
       const next = new URLSearchParams(params.toString());
       next.delete("responsabil");
@@ -157,12 +162,16 @@ export function SarciniScreen({
       else next.delete(k);
     }
     // Un responsabil dezactivat se duce mai departe; unul fara niciun profil, nu.
+    // Daca lista echipei nu se putea citi, se pastreaza filtrul.
     const carried = next.get("responsabil");
+    const hasInactiveCarried = inactiveAssignee && "id" in inactiveAssignee && inactiveAssignee.id === carried;
+    const listFailed = inactiveAssignee && "failed" in inactiveAssignee;
     if (
       carried &&
       !("responsabil" in patch) &&
       !assignees.some((a) => a.id === carried) &&
-      inactiveAssignee?.id !== carried
+      !hasInactiveCarried &&
+      !listFailed
     ) {
       next.delete("responsabil");
     }
@@ -306,6 +315,12 @@ export function SarciniScreen({
             </Button>
           ) : null}
         </div>
+
+        {inactiveAssignee && "failed" in inactiveAssignee ? (
+          <div className="px-5 py-3 bg-rc-warning text-rc-on-warning rounded">
+            Lista echipei nu s-a putut încărca.
+          </div>
+        ) : null}
 
         {/* CELE TREI SORTARI ALE CLAUZEI 4 SI INCOTRO, pe un rand al lor si nu intre
             filtre: o sortare nu ascunde niciun rand, deci nu intra nici in socoteala
