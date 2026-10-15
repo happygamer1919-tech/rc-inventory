@@ -15,3 +15,7 @@ Money columns (2 decimals): one separator plus three digits is thousands. Quanti
 
 ## Verified locally
 `npx tsc --noEmit` exit 0; the pure parser cases were run with node and match the spec tables. The Playwright specs need the CI database and server and were not run here.
+
+## CI history, 2026-10-15
+- Run 38735987442 passed on an earlier head. The latest head then failed End to end on specs this card does not touch: run 38748758966 attempt 2 on the import-batch-duplicates phone collision, attempt 3 on `reminders.spec.ts:153` with `socket hang up` on the Resend mock (`support/resend.ts:39`), 980 passed and 1 failed.
+- Two reruns with `--failed` were already used on that run, which is the cap in KNOWN-FAILURES.md. No third rerun was made; this commit gives the branch a new head and so a fresh run. No test was changed, skipped or loosened.
