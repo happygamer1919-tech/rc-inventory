@@ -27,9 +27,21 @@
 export type FileAnchor = [key: string, line: number];
 
 /** Cat pot cantari, cel mult, ancorele trimise la un lot. Impreuna cu IMPORT_BATCH_BYTES
- *  raman sub limita de 1 MB a cadrului. Peste prag se trimit doar primele: restul se
- *  recunosc la scriere, ca inainte de P3-301. */
-export const IMPORT_ANCHOR_BYTES = 300_000;
+ *  (150 KB) raman sub limita de 1 MB a cadrului. Peste prag se trimit doar primele, iar
+ *  ecranul spune asta pe pasul "Verifică" (IMPORT_ANCHORS_CAPPED): restul se recunosc la
+ *  scriere, ca inainte de P3-301.
+ *
+ *  P3-307: era 300 KB si se umplea la cateva mii de randuri, deci detectarea dublatelor
+ *  dintre loturi se oprea fara niciun semn. 800 KB incap pentru un fisier de 10 000 de
+ *  randuri cu telefon si email (cam 62 de octeti pe rand). */
+export const IMPORT_ANCHOR_BYTES = 800_000;
+
+/** P3-307. Spus pe pasul "Verifică" cand ancorele au depasit pragul. Numerele de pe ecran
+ *  nu includ atunci dublatele dintre loturi de dupa prag; la scriere ele se recunosc oricum. */
+export const IMPORT_ANCHORS_CAPPED =
+  "Fișierul este foarte mare, așa că verificarea nu a putut compara toate rândurile între ele. " +
+  "Numărul de rânduri dublate de mai jos poate fi mai mic decât cel real. La import, un rând " +
+  "care există deja în fișier sau în listă este oricum recunoscut și sărit.";
 
 /** O harta "cheie -> primul rand bun", pornita din ancorele loturilor de dinainte. */
 export class FileAnchors {
@@ -81,20 +93,22 @@ export function readAnchors(raw: unknown): FileAnchor[] {
 }
 
 /** Fiecare rand poate lasa cel mult doua ancore (telefon si email, SKU si denumire). */
-const IMPORT_ANCHOR_ROWS = 5000;
+const IMPORT_ANCHOR_ROWS = 10_000;
 
-/** Aduna ancorele loturilor terminate, in ordinea fisierului, fara sa treaca de prag. */
+/** Aduna ancorele loturilor terminate, in ordinea fisierului, fara sa treaca de prag.
+ *  Intoarce adevarat cand cel putin o ancora a ramas pe dinafara (P3-307). */
 export function addAnchors(
   into: { anchors: FileAnchor[]; bytes: number },
   more: readonly FileAnchor[] | undefined,
-): void {
-  if (!more) return;
+): boolean {
+  if (!more) return false;
   const encoder = new TextEncoder();
   for (const anchor of more) {
     // Cheia, linia si ghilimelele cu virgulele din JSON.
     const size = encoder.encode(anchor[0]).length + String(anchor[1]).length + 8;
-    if (into.bytes + size > IMPORT_ANCHOR_BYTES) return;
+    if (into.bytes + size > IMPORT_ANCHOR_BYTES) return true;
     into.anchors.push(anchor);
     into.bytes += size;
   }
+  return false;
 }

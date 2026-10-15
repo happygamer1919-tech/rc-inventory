@@ -24,6 +24,7 @@ import {
   type PreparedClient,
 } from "./client-import-types";
 import { FileAnchors, type FileAnchor } from "./import-file-anchors";
+import { pickActiveMatch, setActiveFirst } from "./import-stored-index";
 import { personPreviewTable, type ImportPreviewTable } from "./import-preview-rows";
 
 /** Campurile pe care completarea le poate scrie. Denumirea, etapa si data de
@@ -59,7 +60,7 @@ export type ExistingClient = {
 
 export type DuplicateTarget =
   | { kind: "stored"; id: string; name: string; inactive?: true }
-  | { kind: "file"; line: number; name: string };
+  | { kind: "file"; line: number; name: string; otherBatch?: true };
 
 export type PlanEntry =
   | { kind: "new"; line: number; name: string }
@@ -195,15 +196,23 @@ export function buildClientPlan(input: {
     input.lines,
   );
 
+  // P3-307: un client activ castiga mereu in fata unuia dezactivat cu aceeasi cheie.
   const storedByEmail = new Map<string, ExistingClient>();
   for (const client of input.existing) {
-    if (client.emailKey && !storedByEmail.has(client.emailKey)) storedByEmail.set(client.emailKey, client);
+    if (client.emailKey) setActiveFirst(storedByEmail, client.emailKey, client);
   }
 
+  // Un rand FARA email se potriveste dupa nume si telefon cu orice client stocat.
   const storedByNamePhone = new Map<string, ExistingClient>();
+  // P3-307: un rand CU email se potriveste dupa nume si telefon numai cu un client stocat
+  // care NU are email. Altfel o lista incarcata din nou, cu o coloana de email adaugata intre
+  // timp, ar crea din nou fiecare client care fusese salvat fara email.
+  const storedNoEmailByNamePhone = new Map<string, ExistingClient>();
   for (const client of input.existing) {
     const key = namePhoneKey(client.name, client.phone ?? "");
-    if (key && !storedByNamePhone.has(key)) storedByNamePhone.set(key, client);
+    if (!key) continue;
+    setActiveFirst(storedByNamePhone, key, client);
+    if (!client.emailKey) setActiveFirst(storedNoEmailByNamePhone, key, client);
   }
 
   const fileByEmail = new FileAnchors(input.earlier, "email");
@@ -223,8 +232,10 @@ export function buildClientPlan(input: {
     prepared.set(row.line, client);
     const given = filledFields(client);
     const emailKey = client.email || null;
-    const npKey = emailKey ? null : namePhoneKey(client.name, client.phone);
-    const matchedBy = npKey ? ({ matchedBy: "namePhone" } as const) : {};
+    const anyNpKey = namePhoneKey(client.name, client.phone);
+    // In fisier, cheia nume + telefon se foloseste numai pentru randurile fara email.
+    const npKey = emailKey ? null : anyNpKey;
+    const fileNamePhoneMatch = { matchedBy: "namePhone" } as const;
 
     const fileMatch = emailKey
       ? fileByEmail.get(emailKey)
@@ -232,25 +243,44 @@ export function buildClientPlan(input: {
         ? fileByNamePhone.get(npKey)
         : undefined;
     if (fileMatch) {
+      // P3-307: primul rand este intr-un lot de dinainte, deci nu se stie ce are gol. Se ofera
+      // ce a adus acest rand, iar scrierea (unde primul rand este deja in baza) completeaza
+      // numai ce este chiar gol. Inainte lista era goala si ecranul spunea, fals, ca nu are
+      // niciun camp gol de completat.
       const earlier = prepared.get(fileMatch.line);
-      const fillable = earlier ? emptyFields(earlier).filter((field) => given.has(field)) : [];
+      // Campul dupa care s-au potrivit nu este gol la primul rand, deci nu se ofera.
+      const keyField: ClientFillField = emailKey ? "email" : "phone";
+      const fillable = earlier
+        ? emptyFields(earlier).filter((field) => given.has(field))
+        : CLIENT_FILL_FIELDS.filter((field) => given.has(field) && field !== keyField);
       entries.push({
         kind: "duplicate",
         line: row.line,
         name: client.name,
-        against: { kind: "file", line: fileMatch.line, name: fileMatch.name },
+        against: {
+          kind: "file",
+          line: fileMatch.line,
+          name: fileMatch.name,
+          ...(earlier ? {} : { otherBatch: true as const }),
+        },
         fillable,
-        ...matchedBy,
+        ...(npKey ? fileNamePhoneMatch : {}),
       });
       counts.duplicate += 1;
       continue;
     }
 
-    const storedMatch = emailKey
-      ? storedByEmail.get(emailKey)
-      : npKey
-        ? storedByNamePhone.get(npKey)
-        : undefined;
+    // Un rand cu email se potriveste dupa email, apoi (P3-307) dupa nume si telefon cu un client
+    // stocat fara email; un rand fara email, dupa nume si telefon cu orice client stocat. Intre
+    // doua potriviri, clientul activ castiga.
+    const byEmail = emailKey ? storedByEmail.get(emailKey) : undefined;
+    const byNamePhone = anyNpKey
+      ? (emailKey ? storedNoEmailByNamePhone : storedByNamePhone).get(anyNpKey)
+      : undefined;
+    const storedMatch = pickActiveMatch([byEmail, byNamePhone]);
+    const matchedBy = storedMatch !== undefined && storedMatch === byNamePhone && storedMatch !== byEmail
+      ? fileNamePhoneMatch
+      : {};
     if (storedMatch) {
       // UN CLIENT DEZACTIVAT NU SE COMPLETEAZA SI NU SE DUBLEAZA: nimic de completat,
       // randul se sare, iar mesajul spune sa fie reactivat intai (ca la P3-173).
