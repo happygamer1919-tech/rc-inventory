@@ -24,6 +24,7 @@ import type { ActionResult } from "./inbound-types";
 import { listProjectRowsForExport, parseProjectQuery } from "./projects-list";
 import { IMPORT_MAX_ROWS } from "./project-import-types";
 import { formatCsvNumber } from "./import-shared";
+import { formatDate } from "./format";
 import { PROJECT_STATUS_LABEL } from "./projects-types";
 import {
   projectExportCsv,
@@ -102,8 +103,9 @@ export async function exportProjects(
       name: r.name,
       address: r.address ?? "",
       status: PROJECT_STATUS_LABEL[r.status],
-      startDate: d?.start_date ?? "",
-      plannedEndDate: r.plannedEndDate ?? "",
+      // P3-310: ZZ.LL.AAAA ca exportul de leaduri si de clienti; readImportDate citeste ambele forme.
+      startDate: d?.start_date ? formatDate(d.start_date) : "",
+      plannedEndDate: r.plannedEndDate ? formatDate(r.plannedEndDate) : "",
       // MDL, cu virgula zecimala: forma pe care o citeste readBudget din import si Excel romanesc.
       budgetMdl: r.budgetMdl === null ? "" : formatCsvNumber(r.budgetMdl),
       notes: d?.notes ?? "",

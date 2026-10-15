@@ -58,7 +58,7 @@ test("previzualizare leaduri: are coloana Persoană de contact", () => {
 
 test("previzualizare materiale: pretul 1.250 apare ca 1250", () => {
   const { plan } = buildMaterialPlan({
-    rows: [["SKU-1", "Dibluri", "Fixare", "buc", "1.000", "1.250"]],
+    rows: [["SKU-1", "Dibluri", "Fixare", "buc", "1000", "1.250"]],
     mapping: [...MATERIAL_IMPORT_FIELDS.slice(0, 6)],
     categories: [{ id: "k1", name: "Fixare" }],
     existing: [],
@@ -67,6 +67,18 @@ test("previzualizare materiale: pretul 1.250 apare ca 1250", () => {
   expect(rows).toHaveLength(1);
   expect(rows[0]!.cells[columns.indexOf("Valoare unitară (MDL)") - 1]).toBe(formatMoney(1250));
   expect(rows[0]!.cells[columns.indexOf("Categorie") - 1]).toBe("Fixare");
+});
+
+// P3-310: Prag recomandă are 3 zecimale, deci "2,500" este neclar si randul se refuza.
+test("previzualizare materiale: pragul 2,500 este neclar si randul este refuzat", () => {
+  const { plan } = buildMaterialPlan({
+    rows: [["SKU-1", "Dibluri", "Fixare", "buc", "2,500", "1,200"]],
+    mapping: [...MATERIAL_IMPORT_FIELDS.slice(0, 6)],
+    categories: [{ id: "k1", name: "Fixare" }],
+    existing: [],
+  });
+  expect(plan.preview.rows).toHaveLength(0);
+  expect(JSON.stringify(plan)).toContain("Scrie 2,5 sau 2500, nu 2,500.");
 });
 
 test("previzualizare: 60 de randuri noi arata 50 si 'și încă 10 rânduri'", () => {

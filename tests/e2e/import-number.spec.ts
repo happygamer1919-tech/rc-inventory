@@ -1,7 +1,7 @@
 // P3-137 si P3-286. Numerele scrise romaneste in fisierele de import. Nu atinge nici
 // browserul, nici baza: tabelul de cazuri al lui parseImportNumber.
 import { expect, test } from "@playwright/test";
-import { parseImportNumber } from "@/lib/data/import-number";
+import { isUnclearQuantity, parseImportNumber, unclearQuantityHint } from "@/lib/data/import-number";
 import { exportNumber } from "@/lib/data/material-export-types";
 
 const CASES: [string, string | null][] = [
@@ -44,6 +44,73 @@ test("numar de import: limita de cifre intregi se pastreaza", () => {
   expect(parseImportNumber("1234567890123", 12)).toBeNull();
   expect(parseImportNumber("12345678901", 11)).toBe("12345678901");
   expect(parseImportNumber("123456789012", 11)).toBeNull();
+});
+
+// P3-310: coloanele cu 3 zecimale (cantitati) nu ghicesc, ca ecranul de iesire (P3-275).
+const QUANTITY_CASES: [string, string | null][] = [
+  ["2,5", "2.5"],
+  ["2.5", "2.5"],
+  ["1000", "1000"],
+  ["0,005", "0.005"],
+  ["0,125", "0.125"],
+  ["0.500", "0.500"],
+  ["1234,567", "1234.567"],
+  ["1,1250", "1.1250"],
+  ["1.250.000", "1250000"],
+  ["1.234,567", "1234.567"],
+  ["12 500,5", "12500.5"],
+  // un separator plus exact trei cifre, si nimic altceva: neclar
+  ["2,500", null],
+  ["2.500", null],
+  ["1,125", null],
+  ["1.125", null],
+  ["1,200", null],
+  ["100,000", null],
+  ["2 500", "2500"],
+  ["2 ,500", null],
+  ["abc", null],
+  ["", null],
+];
+
+test("numar de import: cantitatea cu trei zecimale refuza ce este neclar", () => {
+  for (const [input, expected] of QUANTITY_CASES) {
+    expect(parseImportNumber(input, 11, "quantity"), `"${input}"`).toBe(expected);
+  }
+});
+
+test("numar de import: banii pastreaza regula mii, chiar daca cantitatea o refuza", () => {
+  expect(parseImportNumber("1,200", 11, "money")).toBe("1200");
+  expect(parseImportNumber("250.000", 11, "money")).toBe("250000");
+  expect(parseImportNumber("1,200", 11)).toBe("1200");
+  expect(parseImportNumber("1,200", 11, "quantity")).toBeNull();
+});
+
+test("numar de import: cantitatea neclara se recunoaste si are propozitia ei", () => {
+  expect(isUnclearQuantity("2,500")).toBe(true);
+  expect(isUnclearQuantity("2.500")).toBe(true);
+  expect(isUnclearQuantity("1.250.000")).toBe(false);
+  expect(isUnclearQuantity("0,500")).toBe(false);
+  expect(isUnclearQuantity("2,5")).toBe(false);
+  expect(unclearQuantityHint("2,500")).toBe("Scrie 2,5 sau 2500, nu 2,500.");
+  expect(unclearQuantityHint("2.500")).toBe("Scrie 2,5 sau 2500, nu 2.500.");
+  expect(unclearQuantityHint("2,050")).toBe("Scrie 2,05 sau 2050, nu 2,050.");
+  expect(unclearQuantityHint("1,125")).toBe("Scrie 1,1250 sau 1125, nu 1,125.");
+  expect(unclearQuantityHint("100,000")).toBe("Scrie 100 sau 100000, nu 100,000.");
+});
+
+test("numar de import: cantitatile exportate se citesc inapoi la aceeasi valoare", () => {
+  for (const v of [2.5, 1.125, 1000, 0.005, 0.125, 12.5, 999.999, 1234.567, 1000000, 0.35]) {
+    const exported = exportNumber(v);
+    const parsed = parseImportNumber(exported, 11, "quantity");
+    expect(parsed, `${v} scris ca "${exported}"`).not.toBeNull();
+    expect(Number(parsed), `${v}`).toBe(v);
+  }
+  // Fara separator de mii, fara zero in plus acolo unde nu trebuie.
+  expect(exportNumber(2.5)).toBe("2,5");
+  expect(exportNumber(1000)).toBe("1000");
+  expect(exportNumber(0.005)).toBe("0,005");
+  expect(exportNumber(1.125)).toBe("1,1250");
+  expect(exportNumber(2)).toBe("2");
 });
 
 test("numar de import: exportul de materiale se citeste inapoi la fel", () => {

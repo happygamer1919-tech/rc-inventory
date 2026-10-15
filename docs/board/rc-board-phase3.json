@@ -7425,6 +7425,29 @@
         "at": "2026-10-14T19:19:24.974Z"
       },
       "notes": "Source: Fable bug check 2026-10-14 18:46Z, findings 12 and 13. AUTHORED 2026-10-14 BY EXECUTOR. Renumbered from P3-303 on 2026-10-15: main took P3-303 for the project sale price card."
+    },
+    {
+      "id": "P3-310",
+      "title": "Imports read quantities like the walk-in screen does, money keeps its thousands rule, and exported project dates use the same day-first form as the other exports.",
+      "plain": "In a product file, the Prag recomandă column no longer guesses: a value like 2,500 or 2.500 could mean two and a half or two thousand five hundred, so the row goes to the rows with errors with the sentence Scrie 2,5 sau 2500, nu 2,500. The Valoare unitară column is money and keeps reading 1,200 as 1200. The exported product file writes quantities in a form that reads back to the same number. The exported project file now writes the start and end dates as zi.lună.an, like the lead and client exports; both forms still import.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/import-number.spec.ts is green in this pull request own quality run on its head sha, including: quantity mode returns null for 2,500 2.500 1,125 1,200 and 100,000, reads 2,5 1000 0,005 0,125 1,1250 and 1.250.000, money mode still reads 1,200 as 1200; unclearQuantityHint gives 'Scrie 2,5 sau 2500, nu 2,500.' for 2,500; exportNumber values 2.5 1.125 1000 0.005 read back to the same number in quantity mode. (b) NAMED E2E STEP: the first case in tests/e2e/projects-export.spec.ts asserts the exported start and end dates are 01.11.2026 and 31.03.2027 and that the file holds no AAAA-LL-ZZ date, and its re-import still produces identical records. (c) The existing import and export specs stay green. (d) `npx tsc --noEmit` and `npm run build` exit 0. (e) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (f) No file under supabase/migrations/ is added or changed.",
+      "defaults": "Owner level rule: MONEY columns (2 decimals) read one separator plus exactly three digits as thousands (1,200 is 1200; 250.000 is 250000). QUANTITY columns (3 decimals: Prag recomandă and any quantity) treat a single separator plus exactly three digits, after one to three digits without a leading 0, as unclear and refuse the row, like the walk-in screen (P3-275). Several separators (1.250.000) and every other form read as before. The product export keeps writing a trailing zero for exactly three decimals (1,1250), which reads back to the same value under both rules; if Excel rewrites it as 1,125 the quantity import refuses it out loud instead of reading 1125. readImportDate keeps accepting both date forms. No migration.",
+      "last_checkpoint": "2026-10-15T09:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-310 against main; acceptance is the quality run on its head",
+        "at": "2026-10-15T09:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-14 18:46Z, findings 9 and 15 (zero based). The finding file sits outside the executor folders and could not be read; the card was built from the task text and the code. Files: lib/data/import-number.ts, material-import-types.ts, material-export-types.ts, project-export-actions.ts."
     }
   ]
 }
