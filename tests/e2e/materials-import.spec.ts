@@ -231,8 +231,9 @@ test("import materiale: un fisier valid creeaza fiecare rand", async ({ page }) 
     HEADERS,
     [skuFor("valid-1"), nameFor("valid unu"), category.name, "buc", "10", "12,50"],
     [skuFor("valid-2"), nameFor("valid doi"), category.name, "kg", "", ""],
-    // P3-137: punctul la mii, asa cum se scrie romaneste.
-    [skuFor("valid-3"), nameFor("valid trei"), category.name, "buc", "1.000", "1.250"],
+    // P3-137: punctul la mii la bani, asa cum se scrie romaneste. P3-310: pragul este
+    // cantitate, deci "1.000" ar fi neclar; se scrie 1000.
+    [skuFor("valid-3"), nameFor("valid trei"), category.name, "buc", "1000", "1.250"],
   ]);
 
   await openImport(page);
