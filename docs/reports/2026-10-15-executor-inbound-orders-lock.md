@@ -42,3 +42,9 @@ A direct INSERT of an already arrived order, and a direct change of an order lin
 - `npx tsc --noEmit` exit 0; `npm run build` exit 0.
 - `check:card-ids`, `check:unique-ids`, `check:open-branch-ids`, `check:no-destructive-migration` (1 file, 31 statements), `check:conflict-residue`, `check:categories`, `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`, `check:removal-safety`, `check:assertion-register`: all exit 0. `check:board-edit` exit 0 once the card is shipped on the branch.
 - `npm run check:migrations` and both applier proofs need Docker and run in CI only.
+
+## CI
+
+Pull request #536. Run 38738692468 (first ready run): every step up to and including "Refuse a migration that removes rows", "Prove the destructive-migration check refuses" and "Apply every migration to a bare postgres, unmodified" (which runs the new assertion file) PASSED. "Prove the migration applier against the Docker shim" FAILED with `ASSERTION FAILED [ledger-no-gaps-ends-at-highest]: ledger holds 85 rows, expected 86 with no gaps`, 9 of 16 proofs: the known failure "a migration numbered above another open branch's migrations". 0085 exists only on pull request #531 (P3-305), which is green and waits for the owner's OK. The cause is the number, not the SQL, and taking 0085 here would be the 0032 incident. That step stops the run, so the end to end suite (the new spec included) has not run yet.
+
+What is left: #531 merges, main is merged into this branch (`gh pr update-branch 536`), a fresh `quality` run must pass every step including both applier proofs and the end to end suite, then the owner's OK for #536.
