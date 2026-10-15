@@ -7356,6 +7356,29 @@
         "at": "2026-10-14T14:00:00Z"
       },
       "notes": "Source: bug check of 2026-10-14. Shared helper lib/import-sheet-close.ts."
+    },
+    {
+      "id": "P3-306",
+      "title": "Exports cover exactly the view on screen: the Inactivi view has Exportă CSV, a lead exported from Toți keeps its Persoană de contact, and a big lead export never loses a contact name.",
+      "plain": "The Inactivi list now has an Exportă CSV button. A file exported from the Toți list keeps the contact person of every lead in it, so loading it back through Leaduri keeps the contact. Contact names are no longer silently dropped when a lead export is large.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "All cases in tests/e2e/export-contacts-paging.spec.ts and tests/e2e/clients-export.spec.ts and tests/e2e/leads-export.spec.ts are green in this pull request own quality run. The Inactivi view shows Exportă CSV and the file holds exactly the deactivated rows. An export from Toți that contains a lead has a last column Persoană de contact with the contact name filled and the client columns unchanged in place; a file with only clients keeps the client header exactly. 2500 contacts for 100 clients are all read when the server caps a response at 1000 rows. npx tsc --noEmit and npm run build exit 0 and the board validator exits 0.",
+      "defaults": "A file with at least one lead gets one extra column, Persoană de contact, at the END of the client model, so the client columns keep their positions, the client import template and its header test stay as they are, and a re-import through Leaduri matches the column by its header. The contact read reuses readAllPages from lib/data/id-list.ts. No migration.",
+      "last_checkpoint": "2026-10-14T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-306 against main; acceptance is the quality run on its head",
+        "at": "2026-10-14T19:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-14 18:46Z, findings 14 and 17 (zero based)."
     }
   ]
 }
