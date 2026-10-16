@@ -7477,6 +7477,31 @@
         "at": "2026-10-16T17:40:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-16 17:33Z, findings 3 and 4 (zero based). The finding file sits outside the executor folders and could not be read; the card was built from the task text and the code. Files: lib/data/price-input.ts, components/outbound/OutboundProjectForm.tsx. Old tests that encoded the split (1,200.50 refused at the counter, 1.200.000 unclear as a quantity) were changed to the shared rule."
+    },
+    {
+      "id": "P3-313",
+      "title": "A client imported twice in one file (with and without an email) is caught, and leaving the import page mid-run cannot start a second import or hide the result.",
+      "plain": "If the same client sits twice in one import file, once with an email and once without, the import now sees it as one client instead of creating two. If someone leaves the page while an import is still saving, the browser asks first, and a second import cannot start on top of the first. When they come back, a message says an import ran and what was saved so far.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-307"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/p3-313-import-dup-and-leave.spec.ts is green in this pull request own quality run on its head sha, including: rows [Name, Phone, empty email] and [Name, Phone, email] in one file give 1 new and 1 duplicate in both orders, also when the two rows sit in different batches (anchors); two different emails with the same name and phone stay 2 new; the same email stays a duplicate by email; the lock stays held for a second sheet while a left run is still writing, and the notice 'Un import a rulat; rândurile scrise până la plecare sunt salvate.' with the counts appears only after the lock is gone. (b) The existing import specs (tests/e2e/p3-307-import-matching.spec.ts, tests/import-sheet-close.test.ts) stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "In-file rule mirrors the stored-side rule of P3-307: every new row is anchored under its email key (when it has one) and under its name+phone key; a row without email looks up name+phone among all earlier rows, a row with email looks up its email, then name+phone among earlier rows WITHOUT an email (a second prefix, namePhoneNoEmail, keeps two different addresses apart). Each new row still leaves at most two anchors. Leave guard: beforeunload prompt, a click on an in-app link or the Back button opens a Romanian confirm built into the page while an import runs; the sheet unmounting mid-run keeps the lock and its heartbeat until the batch loop ends or the tab dies (the stale window then expires it); progress is kept in localStorage and shown once on return. Next.js has no router hook to veto a programmatic router.push, so only link clicks and Back are intercepted. No migration.",
+      "last_checkpoint": "2026-10-16T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-313 against main; acceptance is the quality run on its head",
+        "at": "2026-10-16T19:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-16 17:33Z, findings 5 and 6 (zero based). The finding file sits outside the executor folders and could not be read; the card was built from the task text and the code. Files: lib/data/client-import-plan.ts, lib/import-lock.ts, lib/use-import-lock.ts, components/ui/ImportLeaveGuard.tsx and the four import sheets. The e2e through the browser was not added: the leave guard needs a real file upload and a running import, which only CI with a database can do; the lock and notice rules are covered as pure functions."
     }
   ]
 }

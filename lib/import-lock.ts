@@ -68,6 +68,71 @@ export function acquireImportLock(
   return true;
 }
 
+// P3-313: leaving the page while an import runs. The run keeps writing (the batch loop lives
+// in the browser tab, not in the sheet), so the sheet remembers how far it got. The next sheet
+// of the same kind shows it once the lock is gone, and the operator dismisses it.
+
+export const IMPORT_LEFT_MESSAGE = "Un import a rulat; rândurile scrise până la plecare sunt salvate.";
+export const IMPORT_LEAVE_PROMPT =
+  "Importul este în curs. Dacă plecați acum, rândurile scrise până atunci rămân salvate, dar restul nu se mai importă.";
+
+export type ImportProgressNote = { owner: string; done: number; total: number };
+
+const noteKeyOf = (kind: ImportKind) => `rc-import-progress:${kind}`;
+
+/** Remembers how many rows the running import has processed. */
+export function writeImportProgress(
+  storage: LockStorage,
+  kind: ImportKind,
+  note: ImportProgressNote,
+): void {
+  try {
+    storage.setItem(noteKeyOf(kind), JSON.stringify(note));
+  } catch {
+    // Storage refused: the notice on return is lost, nothing else.
+  }
+}
+
+export function readImportProgress(storage: LockStorage, kind: ImportKind): ImportProgressNote | null {
+  try {
+    const raw = storage.getItem(noteKeyOf(kind));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ImportProgressNote>;
+    if (
+      typeof parsed.owner !== "string" ||
+      typeof parsed.done !== "number" ||
+      typeof parsed.total !== "number"
+    )
+      return null;
+    return { owner: parsed.owner, done: parsed.done, total: parsed.total };
+  } catch {
+    return null;
+  }
+}
+
+export function clearImportProgress(storage: LockStorage, kind: ImportKind): void {
+  try {
+    storage.removeItem(noteKeyOf(kind));
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+/** The notice a fresh sheet shows after a run was left, or null when there is none to show.
+ *  Nothing is shown while another import of this kind still holds the lock. */
+export function importLeftNotice(
+  storage: LockStorage,
+  kind: ImportKind,
+  owner: string,
+  now: number,
+): string | null {
+  if (otherImportRunning(storage, kind, owner, now)) return null;
+  const note = readImportProgress(storage, kind);
+  if (!note) return null;
+  const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${IMPORT_LEFT_MESSAGE} Rânduri prelucrate până la plecare: ${count(note.done)} din ${count(note.total)}.`;
+}
+
 /** Lets go of the lock, only when `owner` is the one holding it. */
 export function releaseImportLock(storage: LockStorage, kind: ImportKind, owner: string): void {
   try {

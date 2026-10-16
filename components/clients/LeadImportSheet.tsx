@@ -52,6 +52,7 @@ import {
 import { IMPORT_ANCHORS_CAPPED } from "@/lib/data/import-file-anchors";
 import { importLockMessage } from "@/lib/import-lock";
 import { useImportLock } from "@/lib/use-import-lock";
+import { ImportLeaveGuard } from "@/components/ui/ImportLeaveGuard";
 import {
   autoMatchColumns,
   leadImportInstructions,
@@ -303,7 +304,10 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
             day: chisinauToday(),
           }),
         saved: savedRows,
-        onProgress: (done, total) => setProgress(batchProgress("import", done, total)),
+        onProgress: (done, total) => {
+          importLock.noteProgress(done, total);
+          setProgress(batchProgress("import", done, total));
+        },
       });
       if (!result.ok) {
         setError(result.message);
@@ -357,6 +361,8 @@ export function LeadImportSheet({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
+
+        <ImportLeaveGuard lock={importLock} />
 
         <ol
           className="px-6 pt-4 flex flex-wrap gap-2 text-[12px] font-semibold"

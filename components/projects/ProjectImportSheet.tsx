@@ -62,6 +62,7 @@ import {
 import { IMPORT_ANCHORS_CAPPED } from "@/lib/data/import-file-anchors";
 import { importLockMessage } from "@/lib/import-lock";
 import { useImportLock } from "@/lib/use-import-lock";
+import { ImportLeaveGuard } from "@/components/ui/ImportLeaveGuard";
 
 const STEPS = ["Încarcă fișierul", "Potrivește coloanele", "Verifică", "Importă"] as const;
 
@@ -241,7 +242,10 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
         lines,
         call: (batch) => runProjectImport({ ...batch, mapping, choices }),
         saved: savedRows,
-        onProgress: (done, total) => setProgress(batchProgress("import", done, total)),
+        onProgress: (done, total) => {
+          importLock.noteProgress(done, total);
+          setProgress(batchProgress("import", done, total));
+        },
       });
       if (!result.ok) {
         setError(result.message);
@@ -295,6 +299,8 @@ export function ProjectImportSheet({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
+
+        <ImportLeaveGuard lock={importLock} />
 
         <ol className="px-6 pt-4 flex flex-wrap gap-2 text-[12px] font-semibold" data-testid="import-steps">
           {STEPS.map((title, i) => (
