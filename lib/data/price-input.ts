@@ -15,7 +15,16 @@
  * lib/data/import-number.ts, cel din import (P3-310). Un numar scris la tejghea se citeste
  * deci exact ca acelasi numar scris intr-un fisier. Aici raman doar limitele coloanelor si
  * felul in care se spune rezultatul.
+ *
+ * P3-314: pretul pe ecran nu se mai citeste ca in fisier pentru o virgula singura. Regula
+ * veche (P3-286, P3-310, P3-311), inlocuita, pastrata conform CLAUDE.md 9c: "un singur
+ * separator urmat de exact trei cifre separa miile la bani ("1.200" si "1,200" sunt 1200)".
+ * ESTE FALSA pentru virgula: virgula este mereu separatorul zecimal romanesc, deci "2,500"
+ * tastat la tejghea este 2,50 si "1,250" este 1,25; "1.250", "1 250" sunt 1250 si "1.250,50"
+ * este 1250,50. Casuta arata valoarea citita ("Citit: 2,50 lei"), vezi priceReadLabel.
+ * Cantitatea ramane neclara pentru un separator plus trei cifre (P3-275).
  */
+import { formatNumberExact, formatQtyNumber } from "./format";
 import { isUnclearQuantity, parseImportNumber } from "./import-number";
 import type { ImportNumberMode } from "./import-number";
 
@@ -49,8 +58,9 @@ export function quantityProblem(raw: string): string | null {
 /**
  * Limitele coloanelor din baza: pretul este numeric(14,2) (12 cifre intregi), cantitatea
  * numeric(14,3) (11 cifre intregi).
- * - Pret (mod "money"): un singur separator urmat de exact trei cifre separa miile
- *   ("1.200" si "1,200" sunt 1200); "1.200,50" si "1,200.50" sunt 1200,5.
+ * - Pret (mod "screenMoney", P3-314): virgula este mereu zecimala ("1,250" este 1,25), un
+ *   punct urmat de exact trei cifre separa miile ("1.250" este 1250); "1.200,50" si
+ *   "1,200.50" sunt 1200,5.
  * - Cantitate (mod "quantity"): un singur separator urmat de exact trei cifre este neclar
  *   ("2,500" poate fi 2,5 sau 2500) si e refuzat; "1.200.000" este 1200000.
  */
@@ -76,7 +86,20 @@ export function parseQuantityText(raw: string): QuantityInput {
 }
 
 export function parsePriceText(raw: string): PriceInput {
-  return readNumberText(raw, "money");
+  return readNumberText(raw, "screenMoney");
+}
+
+/**
+ * P3-314: ce a citit ecranul din casuta de pret, scris romaneste ("Citit: 2,50 lei"), ca o
+ * greseala de virgula sa se vada inainte de salvare. null cand casuta e goala sau nu se
+ * citeste. Cu mai mult de 2 zecimale ("1,255") le arata pe toate, nu rotunjeste in tacere.
+ */
+export function priceReadLabel(raw: string): string | null {
+  const p = parsePriceText(raw);
+  if (p.kind !== "ok") return null;
+  const decimals = (p.text.split(".")[1] ?? "").replace(/0+$/, "").length;
+  const shown = decimals > 2 ? formatQtyNumber(p.value) : formatNumberExact(p.value);
+  return `Citit: ${shown} lei`;
 }
 
 /**
