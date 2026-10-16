@@ -52,7 +52,12 @@ import {
   type ImportPreview,
   type RowNumber,
 } from "./import-shared";
-import { parseImportNumber } from "./import-number";
+import {
+  isUnclearQuantity,
+  parseImportNumber,
+  unclearQuantityHint,
+  type ImportNumberMode,
+} from "./import-number";
 import { ALL_UNITS, unitLabel, type UnitCode } from "./units";
 
 export { buildCsv, normaliseKey, parseCsv, parseCsvWithLines, sniffDelimiter, IMPORT_MAX_BYTES, IMPORT_MAX_ROWS, IMPORT_SAMPLE_COUNT, IMPORT_SKIP, IMPORT_SKIP_LABEL };
@@ -171,6 +176,8 @@ export const MATERIAL_IMPORT_REASON = {
   ambiguousCategory: (value: string) =>
     `Există mai multe categorii cu denumirea "${value}". Redenumește una dintre ele, apoi încearcă din nou.`,
   badNumber: (label: string, value: string) => `${label} "${value}" nu este un număr pozitiv.`,
+  unclearNumber: (label: string, value: string) =>
+    `${label} "${value}" este neclar. ${unclearQuantityHint(value)}`,
   noSkuNoMatch:
     "Codul SKU lipsește și niciun produs existent nu are aceeași denumire și aceeași unitate. " +
     "Scrie codul SKU: importul nu inventează coduri.",
@@ -206,8 +213,8 @@ export function buildCategoryLookup(categories: CategoryChoice[]): CategoryLooku
 /** Numarul ca text pentru scriere, sau null. Se citesc spatiile din mijloc
  *  ("12 500,50"), virgula zecimala si punctul la mii ("1.250"), vezi
  *  parseImportNumber; numeric(14,x) tine 11 cifre intregi. */
-function readNumber(raw: string): string | null {
-  return parseImportNumber(raw, 11);
+function readNumber(raw: string, mode: ImportNumberMode): string | null {
+  return parseImportNumber(raw, 11, mode);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,11 +239,18 @@ function materialImportFields(categories: CategoryLookup): ImportFieldDescriptor
     validate,
   });
 
+  // P3-310: Prag recomandă are 3 zecimale (cantitate), deci "2,500" este neclar si se refuza;
+  // Valoare unitară este bani (2 zecimale), deci "1,200" ramane 1200.
   const amount = (f: "threshold" | "unitValueMdl") => (raw: string) => {
     if (raw === "") return { ok: true as const, value: "" };
-    const read = readNumber(raw);
+    const label = MATERIAL_IMPORT_FIELD_LABEL[f];
+    const mode: ImportNumberMode = f === "threshold" ? "quantity" : "money";
+    if (mode === "quantity" && isUnclearQuantity(raw)) {
+      return { ok: false as const, reason: MATERIAL_IMPORT_REASON.unclearNumber(label, raw) };
+    }
+    const read = readNumber(raw, mode);
     return read === null
-      ? { ok: false as const, reason: MATERIAL_IMPORT_REASON.badNumber(MATERIAL_IMPORT_FIELD_LABEL[f], raw) }
+      ? { ok: false as const, reason: MATERIAL_IMPORT_REASON.badNumber(label, raw) }
       : { ok: true as const, value: read };
   };
 

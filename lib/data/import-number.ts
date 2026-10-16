@@ -14,11 +14,46 @@
  *   romana), altfel este zecimal ("12.5", "99.99").
  * - Orice altceva (litere, minus, grupe de mii gresite) este null.
  *
+ * Doua moduri (P3-310):
+ * - "money" (implicit, coloane cu 2 zecimale): regulile de mai sus.
+ * - "quantity" (coloane cu 3 zecimale: pragul, orice cantitate): UN singur separator urmat
+ *   de exact trei cifre, dupa 1 pana la 3 cifre fara 0 in fata, este NECLAR ("2,500" poate fi
+ *   2,5 sau 2500) si da null, ca pe ecranul de iesire pentru client direct (P3-275). Randul
+ *   merge la "Rânduri cu erori" cu `unclearQuantityHint`. Mai multe separatoare
+ *   ("1.250.000") si orice alta forma se citesc ca mai sus.
+ *
  * `maxIntDigits` este limita coloanei numeric din baza de date.
  */
-export function parseImportNumber(raw: string, maxIntDigits: number): string | null {
+export type ImportNumberMode = "money" | "quantity";
+
+/** Un singur separator urmat de exact trei cifre, dupa 1 pana la 3 cifre fara 0 in fata. */
+const SINGLE_SEPARATOR_THREE = /^([1-9]\d{0,2})[.,](\d{3})$/;
+
+/** Adevarat cand `raw` este o cantitate neclara in modul "quantity" ("2,500", "1.125"). */
+export function isUnclearQuantity(raw: string): boolean {
+  return SINGLE_SEPARATOR_THREE.test(raw.replace(/\s+/g, ""));
+}
+
+/** "Scrie 2,5 sau 2500, nu 2,500." pentru o cantitate neclara, cu valoarea din fisier. */
+export function unclearQuantityHint(raw: string): string {
+  const match = SINGLE_SEPARATOR_THREE.exec(raw.replace(/\s+/g, ""));
+  if (!match) return `Scrie o cantitate clară, nu ${raw.trim()}.`;
+  const before = match[1] as string;
+  const after = match[2] as string;
+  const trimmed = after.replace(/0+$/, "");
+  // "1,125" nu are un zero de taiat: se scrie "1,1250", care se citeste la fel.
+  const decimal = trimmed === after ? `${before},${after}0` : trimmed === "" ? before : `${before},${trimmed}`;
+  return `Scrie ${decimal} sau ${before}${after}, nu ${raw.trim()}.`;
+}
+
+export function parseImportNumber(
+  raw: string,
+  maxIntDigits: number,
+  mode: ImportNumberMode = "money",
+): string | null {
   const value = raw.replace(/\s+/g, "");
   if (!/^[\d.,]+$/.test(value)) return null;
+  if (mode === "quantity" && isUnclearQuantity(value)) return null;
 
   const dots = value.split(".").length - 1;
   const commas = value.split(",").length - 1;
