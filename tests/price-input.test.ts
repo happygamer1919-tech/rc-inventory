@@ -106,7 +106,7 @@ test("P3-258: parseQuantityText ignores whitespace", () => {
 });
 
 test("P3-275: parseQuantityText refuses dot plus exactly three digits as ambiguous", () => {
-  for (const text of ["1.200", "2.500", "12.500", "1.200.000"]) {
+  for (const text of ["1.200", "2.500", "12.500", "1,200"]) {
     expect(parseQuantityText(text).kind, text).toBe("ambiguous");
   }
 });
