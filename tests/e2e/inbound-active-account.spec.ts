@@ -250,19 +250,14 @@ test("comenzi intrare: un cont dezactivat nu poate adauga si nici schimba o coma
   const productId = await newProduct("SCRIERE");
   const otherProductId = await newProduct("SCRIERE-ALT");
 
-  // MARTORII: activ, contul adauga direct o comanda, o pozitie si un memento, si le schimba.
-  const added = await asUser(token, "inbound_orders?select=id", {
-    method: "POST",
-    body: { reference: `${TAG}-SCRIERE`, supplier_name: `${TAG} furnizor` },
-  });
+  // MARTORII: activ, contul adauga o comanda cu pozitia ei si un memento, si le schimba.
+  // P3-312 (0087): o comanda si o pozitie se adauga numai prin functia ecranului
+  // Comanda noua, iar o pozitie nu se mai schimba deloc, nici de un cont activ
+  // (stock-only-through-reception.spec). Martorul comenzii este deci functia.
+  const added = await createOrder(token, `${TAG}-SCRIERE`, productId);
   expect(added.ok, `profil activ: contul nu a putut adauga o comanda: ${added.status} ${added.text}`).toBe(true);
-  const orderId = String(added.rows[0]!.id);
-  const addedLine = await asUser(token, "order_lines?select=id", {
-    method: "POST",
-    body: { inbound_order_id: orderId, product_id: productId, quantity: 5, unit_price: 10 },
-  });
-  expect(addedLine.ok, `profil activ: contul nu a putut adauga o pozitie: ${addedLine.text}`).toBe(true);
-  const lineId = String(addedLine.rows[0]!.id);
+  const orderId = String(added.rows[0]);
+  const lineId = String((await linesTruth(orderId))[0]!.id);
   const addedReminder = await asUser(token, "reminders?select=id", {
     method: "POST",
     body: { product_id: productId },
@@ -274,11 +269,6 @@ test("comenzi intrare: un cont dezactivat nu poate adauga si nici schimba o coma
     body: { supplier_name: `${TAG} furnizor martor` },
   });
   expect(changedOrder.rows, "profil activ: comanda schimbata se intoarce").toHaveLength(1);
-  const changedLine = await asUser(token, `order_lines?id=eq.${lineId}&select=id`, {
-    method: "PATCH",
-    body: { unit_price: 11 },
-  });
-  expect(changedLine.rows, "profil activ: pozitia schimbata se intoarce").toHaveLength(1);
   const changedReminder = await asUser(token, `reminders?product_id=eq.${productId}&select=id`, {
     method: "PATCH",
     body: { is_armed: false },

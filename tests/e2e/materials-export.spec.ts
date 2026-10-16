@@ -114,25 +114,27 @@ async function seedProduct(
   return restInsert(rest, "products", { category_id: categoryId, ...fields });
 }
 
-/** UN LOT DE STOC: comanda de intrare, linia ei si lotul, exact ca la receptia din aplicatie. */
+/** Un apel de functie al aplicatiei, cu jetonul proprietarului. */
+async function restRpc(rest: OwnerRest, fn: string, args: Record<string, unknown>): Promise<unknown> {
+  const response = await rest.api.post(`/rest/v1/rpc/${fn}`, { headers: rest.headers, data: args });
+  expect(response.status(), `${fn}: ${await response.text()}`).toBe(200);
+  return response.json();
+}
+
+/** UN LOT DE STOC: comanda de intrare cu linia ei, apoi receptia, prin functiile
+ *  aplicatiei. Din 0087 (cardul P3-312) un lot, o linie sau o comanda deja sosita
+ *  nu se mai scriu direct pe tabele, nici de proprietar. */
 async function seedStock(rest: OwnerRest, productId: string, label: string, quantity: number): Promise<void> {
-  const orderId = await restInsert(rest, "inbound_orders", {
-    reference: `T129-${RUN}-IN-${label}`,
-    supplier_name: `TEST ${RUN} furnizor`,
-    status: "arrived",
-    arrived_at: new Date().toISOString(),
+  const orderId = await restRpc(rest, "create_inbound_order", {
+    p_reference: `T129-${RUN}-IN-${label}`,
+    p_supplier_name: `TEST ${RUN} furnizor`,
+    p_currency: "MDL",
+    p_ordered_at: null,
+    p_expected_at: "2026-10-20",
+    p_total_mdl: 0,
+    p_lines: [{ product_id: productId, quantity }],
   });
-  const lineId = await restInsert(rest, "order_lines", {
-    inbound_order_id: orderId,
-    product_id: productId,
-    quantity,
-  });
-  await restInsert(rest, "batches", {
-    product_id: productId,
-    inbound_order_id: orderId,
-    order_line_id: lineId,
-    quantity,
-  });
+  await restRpc(rest, "receive_inbound_order", { p_order_id: orderId });
 }
 
 type StoredProduct = {
