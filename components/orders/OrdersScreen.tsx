@@ -22,7 +22,7 @@ import { PHONE_WRAP } from "@/components/ui/phone";
 import { Button, Card, CardHeader, Chip, PageHeader, Select } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
 import { PHONE_CONTROL } from "@/components/ui/phone";
-import { formatDate, formatMoney } from "@/lib/data/format";
+import { formatDate, formatMoney, formatTimestampDate } from "@/lib/data/format";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
 import type { InboundOrder } from "@/lib/data/inbound-types";
 import { ALL_OUTBOUND_MODES } from "@/lib/data/outbound-mode";
@@ -193,7 +193,7 @@ export function OrdersScreen({
                   <p className="text-[11.5px] text-rc-muted-2 mt-1">
                     {o.lines.length} {o.lines.length === 1 ? "poziție" : "poziții"} ·{" "}
                     {o.arrivedAt
-                      ? `recepționată ${formatDate(o.arrivedAt)}`
+                      ? `recepționată ${formatTimestampDate(o.arrivedAt)}`
                       : `estimat ${formatDate(o.expectedAt)}`}
                     {o.documentPath ? " · document atașat" : ""}
                   </p>
@@ -324,8 +324,8 @@ export function OrdersScreen({
                       : o.clientName}{" "}
                     · {o.lines.length} {o.lines.length === 1 ? "poziție" : "poziții"} ·{" "}
                     {o.shippedAt
-                      ? `expediată ${formatDate(o.shippedAt)}`
-                      : `emis ${formatDate(o.issuedAt)}`}
+                      ? `expediată ${formatTimestampDate(o.shippedAt)}`
+                      : `emis ${formatTimestampDate(o.issuedAt)}`}
                   </p>
                 </button>
               </li>

@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/primitives";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import {
   PRICE_INVALID_MESSAGE,
@@ -284,7 +284,7 @@ export function OutboundProjectForm({
             <p className="text-[13.5px] text-rc-muted mt-1.5">
               {created.projectName} · {created.clientName} · {created.lineCount}{" "}
               {created.lineCount === 1 ? "poziție" : "poziții"} · emis{" "}
-              {formatDate(new Date().toISOString())}
+              {formatTimestampDate(new Date().toISOString())}
             </p>
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare expediere</Chip>

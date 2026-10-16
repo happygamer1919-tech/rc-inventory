@@ -16,7 +16,7 @@ import {
   PHONE_TABLE,
   PHONE_WIDE,
 } from "@/components/ui/phone";
-import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -234,7 +234,7 @@ export function ProductPanel({
                     </Td>
                     <Td align="right" data-label="Recepționat" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] text-rc-muted">
-                        {formatDate(b.arrivedAt)}
+                        {formatTimestampDate(b.arrivedAt)}
                       </span>
                     </Td>
                   </tr>
@@ -276,7 +276,7 @@ export function ProductPanel({
                   <tr key={m.id} className={PHONE_ROW}>
                     <Td data-label="Dată" className={PHONE_CELL}>
                       <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
-                        {formatDate(m.at)}
+                        {formatTimestampDate(m.at)}
                       </span>
                     </Td>
                     <Td data-label="Sens" className={PHONE_CELL}>

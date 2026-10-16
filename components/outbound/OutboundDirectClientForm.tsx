@@ -55,7 +55,7 @@ import {
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatTimestampDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import {
   PRICE_INVALID_MESSAGE,
@@ -341,7 +341,7 @@ export function OutboundDirectClientForm({
               {created.clientName} · client direct · ridicare{" "}
               {formatDate(created.pickupDate)} · {created.lineCount}{" "}
               {created.lineCount === 1 ? "poziție" : "poziții"} · emis{" "}
-              {formatDate(new Date().toISOString())}
+              {formatTimestampDate(new Date().toISOString())}
             </p>
             <div className="mt-4 flex justify-center">
               <Chip tone="warn">În așteptare expediere</Chip>
