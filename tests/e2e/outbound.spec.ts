@@ -322,4 +322,47 @@ test.describe("Ieșiri materiale", () => {
     await page.locator(`[data-testid="outbound-item"][data-reference="${reference}"]`).click();
     await expect(page.getByTestId("outbound-lines")).toContainText("2,5 m²");
   });
+
+  // P3-311. Pe iesirea pe proiect cantitatea era <input type="number">: pe un browser fara
+  // locala romaneasca "1,25" nu se putea tasta, iar "1.250" era refuzat la salvare desi
+  // totalul de pe ecran il citise ca 1,25. Acum casuta este text, citita cu acelasi cititor
+  // ca pe server.
+  test("P3-311: o cantitate scrisă 1,25 pe iesirea pe proiect se salvează 1,25", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { productName } = await productWithStock(page, "p311ok", "5", undefined, "m2");
+
+    await page.goto("/iesiri");
+    await comboPick(page, "field-project", TEST_PROJECT);
+    await comboPick(page, "issue-product-0", productName);
+    const quantity = page.getByTestId("issue-quantity-0");
+    await expect(quantity).toHaveAttribute("type", "text");
+    await quantity.fill("1,25");
+    await expect(page.getByTestId("issue-quantity-error-0")).toHaveCount(0);
+    await page.getByTestId("issue-submit").click();
+
+    await expect(page.getByTestId("issue-created")).toBeVisible({ timeout: 25_000 });
+    const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+    await page.goto("/comenzi");
+    await page.locator(`[data-testid="outbound-item"][data-reference="${reference}"]`).click();
+    await expect(page.getByTestId("outbound-lines")).toContainText("1,25 m²");
+  });
+
+  test("P3-311: o cantitate neclară 2,500 se oprește pe ecran cu mesajul ei, nu se citește altfel pe server", async ({
+    page,
+  }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { productName } = await productWithStock(page, "p311amb", "5", undefined, "m2");
+
+    await page.goto("/iesiri");
+    await comboPick(page, "field-project", TEST_PROJECT);
+    await comboPick(page, "issue-product-0", productName);
+    await page.getByTestId("issue-quantity-0").fill("2,500");
+    await expect(page.getByTestId("issue-quantity-error-0")).toContainText("Cantitate neclară");
+    await page.getByTestId("issue-submit").click();
+    await expect(page.getByTestId("issue-problems")).toContainText("Cantitate neclară");
+    await expect(page.getByTestId("issue-created")).toHaveCount(0);
+  });
 });

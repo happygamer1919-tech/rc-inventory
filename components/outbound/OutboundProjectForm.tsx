@@ -49,7 +49,13 @@ import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
-import { PRICE_INVALID_MESSAGE, parsePriceText, priceAmount } from "@/lib/data/price-input";
+import {
+  PRICE_INVALID_MESSAGE,
+  parsePriceText,
+  priceAmount,
+  quantityAmount,
+  quantityProblem,
+} from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
@@ -150,13 +156,15 @@ export function OutboundProjectForm({
   const setLine = (key: string, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
-  const filled = lines.filter((l) => l.productId && Number(l.quantity) > 0);
+  // P3-311: cantitatea se citeste din text cu acelasi cititor ca pe server si ca pe iesirea
+  // pentru client direct ("2,5" si "1,25" merg, "2,500" este neclar), nu cu Number().
+  const filled = lines.filter((l) => l.productId && quantityAmount(l.quantity) > 0);
 
   // Cantitatile aceluiasi produs se aduna INAINTE de verificare: 100 impartit in
   // doua linii de 50 nu are voie sa treaca o verificare pe care 50 ar pica-o.
   const wantedByProduct = React.useMemo(() => {
     const m = new Map<string, number>();
-    for (const l of filled) m.set(l.productId, (m.get(l.productId) ?? 0) + Number(l.quantity));
+    for (const l of filled) m.set(l.productId, (m.get(l.productId) ?? 0) + quantityAmount(l.quantity));
     return m;
   }, [filled]);
 
@@ -175,7 +183,7 @@ export function OutboundProjectForm({
   const halfFilledProblems = lines
     .map((l, index) => {
       const hasProduct = Boolean(l.productId);
-      const hasQuantity = Number(l.quantity) > 0;
+      const hasQuantity = quantityAmount(l.quantity) > 0;
       if (hasProduct === hasQuantity) return null;
       return hasProduct
         ? `Rândul ${index + 1}: completați cantitatea sau ștergeți rândul.`
@@ -209,7 +217,14 @@ export function OutboundProjectForm({
     }
   });
 
-  const pricedTotal = filled.reduce((s, l) => s + Number(l.quantity) * priceAmount(l.price), 0);
+  // P3-311: o cantitate pe care cititorul o refuza ("2,500", "abc") opreste salvarea cu
+  // mesajul ei, ca pe iesirea pentru client direct, in loc sa fie citita altfel pe server.
+  lines.forEach((l, index) => {
+    const problem = l.quantity !== "" ? quantityProblem(l.quantity) : null;
+    if (problem) problems.push(`Rândul ${index + 1}: ${problem}`);
+  });
+
+  const pricedTotal = filled.reduce((s, l) => s + quantityAmount(l.quantity) * priceAmount(l.price), 0);
 
   async function submit() {
     setTouched(true);
@@ -428,8 +443,9 @@ export function OutboundProjectForm({
               {lines.map((l, index) => {
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
-                const total = Number(l.quantity) * priceAmount(l.price);
+                const total = quantityAmount(l.quantity) * priceAmount(l.price);
                 const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                     <Td data-label="Produs" className={PHONE_WIDE}>
@@ -456,15 +472,25 @@ export function OutboundProjectForm({
                     </Td>
                     <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={quantityError !== null}
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         value={l.quantity}
                         onChange={(e) => setLine(l.key, { quantity: e.target.value })}
                         placeholder="0"
                         data-testid={`issue-quantity-${index}`}
                       />
+                      {quantityError !== null ? (
+                        <p
+                          role="alert"
+                          className="mt-1 text-[12px] text-rc-danger"
+                          data-testid={`issue-quantity-error-${index}`}
+                        >
+                          {quantityError}
+                        </p>
+                      ) : null}
                     </Td>
                     <Td data-label="Unitate" className={PHONE_CELL}>
                       <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted max-md:h-11">
