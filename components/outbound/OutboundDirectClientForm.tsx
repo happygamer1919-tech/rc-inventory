@@ -57,7 +57,13 @@ import type { ComboOption } from "@/components/ui/Combobox";
 import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
-import { PRICE_INVALID_MESSAGE, parsePriceText, parseQuantityText, quantityProblem } from "@/lib/data/price-input";
+import {
+  PRICE_INVALID_MESSAGE,
+  parsePriceText,
+  parseQuantityText,
+  priceReadLabel,
+  quantityProblem,
+} from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createOutboundIssue } from "@/lib/data/outbound-actions";
 import { createWalkInClient } from "@/lib/data/client-actions";
@@ -482,6 +488,7 @@ export function OutboundDirectClientForm({
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = linePrice(l) * lineQuantity(l);
                 const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const priceRead = priceReadLabel(l.price);
                 const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
                 const quantityInvalid = quantityError !== null;
                 return (
@@ -567,6 +574,12 @@ export function OutboundDirectClientForm({
                           data-testid={`issue-price-error-${index}`}
                         >
                           {PRICE_INVALID_MESSAGE}
+                        </p>
+                      ) : null}
+                      {/* P3-314: valoarea citita din casuta, ca o virgula gresita sa se vada. */}
+                      {priceRead !== null ? (
+                        <p className="mt-1 text-[12px] text-rc-muted-2" data-testid={`issue-price-read-${index}`}>
+                          {priceRead}
                         </p>
                       ) : null}
                     </Td>

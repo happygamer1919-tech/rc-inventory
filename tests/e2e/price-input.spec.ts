@@ -102,3 +102,21 @@ test("P3-303: project sale price 1.250 reads the same on screen and on the serve
   // Walk-in behaviour is unchanged: 1.250 is still 1250 there.
   expect(parsePriceText("1.250")).toEqual({ kind: "ok", value: 1250, text: "1250" });
 });
+
+test("P3-314: a price with a comma and three digits is a decimal on screen and on the server", () => {
+  // P3-286/P3-311 read "1,250" as 1250, a price a thousand times too large. The comma is the decimal mark.
+  const cases: Array<[string, number]> = [
+    ["2,500", 2.5],
+    ["1,250", 1.25],
+    ["1.250", 1250],
+    ["1 250", 1250],
+    ["1.250,50", 1250.5],
+  ];
+  for (const [typed, want] of cases) {
+    expect(priceAmount(typed), typed).toBe(want);
+    expect(processIssueLines([{ productId: "p1", quantity: "1", salePriceMdl: typed }]), typed).toEqual({
+      ok: true,
+      lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: want }],
+    });
+  }
+});

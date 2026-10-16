@@ -53,6 +53,7 @@ import {
   PRICE_INVALID_MESSAGE,
   parsePriceText,
   priceAmount,
+  priceReadLabel,
   quantityAmount,
   quantityProblem,
 } from "@/lib/data/price-input";
@@ -445,6 +446,7 @@ export function OutboundProjectForm({
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = quantityAmount(l.quantity) * priceAmount(l.price);
                 const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const priceRead = priceReadLabel(l.price);
                 const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
                 return (
                   <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
@@ -516,6 +518,12 @@ export function OutboundProjectForm({
                           data-testid={`issue-price-error-${index}`}
                         >
                           {PRICE_INVALID_MESSAGE}
+                        </p>
+                      ) : null}
+                      {/* P3-314: valoarea citita din casuta, ca o virgula gresita sa se vada. */}
+                      {priceRead !== null ? (
+                        <p className="mt-1 text-[12px] text-rc-muted-2" data-testid={`issue-price-read-${index}`}>
+                          {priceRead}
                         </p>
                       ) : null}
                     </Td>

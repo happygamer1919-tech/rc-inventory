@@ -1,42 +1,69 @@
 import { test, expect } from "@playwright/test";
 import { parseImportNumber } from "../../lib/data/import-number";
-import { parsePriceText, parseQuantityText, priceAmount, quantityAmount } from "../../lib/data/price-input";
+import { parsePriceText, parseQuantityText, priceAmount, priceReadLabel, quantityAmount } from "../../lib/data/price-input";
 import { processIssueLines } from "../../lib/data/outbound-lines";
 
 // P3-311. Un singur cititor de numere: ce se tasteaza la tejghea si pe iesirea pe proiect
-// (price-input.ts, ecran si server) se citeste exact ca in fisierul de import
-// (import-number.ts). Fiecare caz trece prin ambele intrari si trebuie sa dea acelasi raspuns.
+// (price-input.ts, ecran si server) se citeste cu acelasi cod ca in fisierul de import
+// (import-number.ts). Fiecare caz trece prin ambele intrari.
+//
+// P3-314 a schimbat o singura regula: o virgula singura urmata de exact trei cifre. Pe ecran
+// virgula este mereu zecimala ("2,500" este 2,50); in fisier forma este neclara si se
+// refuza. Regula veche (P3-286/P3-310/P3-311), care citea "1,200" ca 1200 in ambele locuri,
+// codifica defectul si a fost corectata mai jos, nu stearsa.
 
-// [text, pret ca in import (null = refuzat), cantitate ca in import (null = refuzat sau neclar)]
-const CASES: Array<[string, string | null, string | null]> = [
-  ["1,200", "1200", null],
-  ["2,500", "2500", null],
-  ["1.200", "1200", null],
-  ["2.500", "2500", null],
-  ["1.200.000", "1200000", "1200000"],
-  ["1,200,000", "1200000", "1200000"],
-  ["1.200,50", "1200.50", "1200.50"],
-  ["1,200.50", "1200.50", "1200.50"],
-  ["1 200,5", "1200.5", "1200.5"],
-  ["1,25", "1.25", "1.25"],
-  ["1.25", "1.25", "1.25"],
-  ["12,50", "12.50", "12.50"],
-  ["0,125", "0.125", "0.125"],
-  ["0.500", "0.500", "0.500"],
-  ["2500", "2500", "2500"],
-  ["abc", null, null],
-  ["-3", null, null],
-  ["12,", null, null],
-  ["1.20.0", null, null],
-  ["12,5,0", null, null],
+// [text, pret pe ecran (null = refuzat), pret in fisier (null = refuzat sau neclar),
+//  cantitate (null = refuzat sau neclar, ecran si fisier)]
+const CASES: Array<[string, string | null, string | null, string | null]> = [
+  ["1,200", "1.200", null, null],
+  ["2,500", "2.500", null, null],
+  ["1,250", "1.250", null, null],
+  ["1.200", "1200", "1200", null],
+  ["2.500", "2500", "2500", null],
+  ["1.250", "1250", "1250", null],
+  ["1 250", "1250", "1250", "1250"],
+  ["1.200.000", "1200000", "1200000", "1200000"],
+  ["1,200,000", "1200000", "1200000", "1200000"],
+  ["1.200,50", "1200.50", "1200.50", "1200.50"],
+  ["1.250,50", "1250.50", "1250.50", "1250.50"],
+  ["1,200.50", "1200.50", "1200.50", "1200.50"],
+  ["1 200,5", "1200.5", "1200.5", "1200.5"],
+  ["1,25", "1.25", "1.25", "1.25"],
+  ["1.25", "1.25", "1.25", "1.25"],
+  ["12,50", "12.50", "12.50", "12.50"],
+  ["0,125", "0.125", "0.125", "0.125"],
+  ["0.500", "0.500", "0.500", "0.500"],
+  ["2500", "2500", "2500", "2500"],
+  ["abc", null, null, null],
+  ["-3", null, null, null],
+  ["12,", null, null, null],
+  ["1.20.0", null, null, null],
+  ["12,5,0", null, null, null],
 ];
 
-// Cazurile numite in constatarea 3: aceeasi valoare la tejghea si in fisier.
-test("P3-311: 1,200 is 1200 as a price at the counter, as in a file; 2,500 is read the same", () => {
-  expect(parsePriceText("1,200")).toEqual({ kind: "ok", value: 1200, text: "1200" });
-  expect(parseImportNumber("1,200", 12, "money")).toBe("1200");
-  expect(parsePriceText("2,500")).toEqual({ kind: "ok", value: 2500, text: "2500" });
-  expect(parseImportNumber("2,500", 12, "money")).toBe("2500");
+// P3-314, constatarea 5. Pe ecran virgula este mereu zecimala, valoarea citita se vede.
+test("P3-314: on screen the comma is always the decimal mark", () => {
+  expect(parsePriceText("2,500")).toEqual({ kind: "ok", value: 2.5, text: "2.500" });
+  expect(parsePriceText("1,250")).toEqual({ kind: "ok", value: 1.25, text: "1.250" });
+  expect(parsePriceText("1,200")).toEqual({ kind: "ok", value: 1.2, text: "1.200" });
+  expect(parsePriceText("1.250")).toEqual({ kind: "ok", value: 1250, text: "1250" });
+  expect(parsePriceText("1 250")).toEqual({ kind: "ok", value: 1250, text: "1250" });
+  expect(parsePriceText("1.250,50")).toEqual({ kind: "ok", value: 1250.5, text: "1250.50" });
+  expect(priceAmount("1,250")).toBe(1.25);
+  expect(priceReadLabel("2,500")).toBe("Citit: 2,50 lei");
+  expect(priceReadLabel("1,250")).toBe("Citit: 1,25 lei");
+  expect(priceReadLabel("1.250")).toBe("Citit: 1.250,00 lei");
+  expect(priceReadLabel("12,5")).toBe("Citit: 12,50 lei");
+  // Mai mult de 2 zecimale nu se rotunjesc in tacere in ce se arata.
+  expect(priceReadLabel("1,255")).toBe("Citit: 1,255 lei");
+  expect(priceReadLabel("")).toBeNull();
+  expect(priceReadLabel("abc")).toBeNull();
+});
+
+test("P3-314: in a file, a lone comma plus three digits is unclear, with the value as written", () => {
+  expect(parseImportNumber("1,200", 12, "money")).toBeNull();
+  expect(parseImportNumber("2,500", 12, "money")).toBeNull();
+  expect(parseImportNumber("1.200", 12, "money")).toBe("1200");
 });
 
 test("P3-311: a single separator plus three digits is unclear as a quantity, at the counter and in a file", () => {
@@ -53,14 +80,15 @@ test("P3-311: 1.200.000 is 1200000 as a quantity at the counter, as in a file", 
 });
 
 test("P3-311: every case reads the same through both entry points", () => {
-  for (const [raw, money, quantity] of CASES) {
+  for (const [raw, screen, money, quantity] of CASES) {
+    expect(parseImportNumber(raw, 12, "screenMoney"), `import screenMoney ${raw}`).toBe(screen);
     expect(parseImportNumber(raw, 12, "money"), `import money ${raw}`).toBe(money);
     expect(parseImportNumber(raw, 11, "quantity"), `import quantity ${raw}`).toBe(quantity);
 
     const price = parsePriceText(raw);
-    if (money === null) expect(price, `price ${raw}`).toEqual({ kind: "invalid" });
-    else expect(price, `price ${raw}`).toEqual({ kind: "ok", value: Number(money), text: money });
-    expect(priceAmount(raw), `priceAmount ${raw}`).toBe(money === null ? 0 : Number(money));
+    if (screen === null) expect(price, `price ${raw}`).toEqual({ kind: "invalid" });
+    else expect(price, `price ${raw}`).toEqual({ kind: "ok", value: Number(screen), text: screen });
+    expect(priceAmount(raw), `priceAmount ${raw}`).toBe(screen === null ? 0 : Number(screen));
 
     const qty = parseQuantityText(raw);
     if (quantity !== null) {

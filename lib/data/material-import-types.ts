@@ -53,8 +53,10 @@ import {
   type RowNumber,
 } from "./import-shared";
 import {
+  isUnclearMoney,
   isUnclearQuantity,
   parseImportNumber,
+  unclearMoneyHint,
   unclearQuantityHint,
   type ImportNumberMode,
 } from "./import-number";
@@ -178,6 +180,9 @@ export const MATERIAL_IMPORT_REASON = {
   badNumber: (label: string, value: string) => `${label} "${value}" nu este un număr pozitiv.`,
   unclearNumber: (label: string, value: string) =>
     `${label} "${value}" este neclar. ${unclearQuantityHint(value)}`,
+  /** P3-314: o suma cu o virgula singura si trei cifre dupa ea ("1,200") nu se ghiceste. */
+  unclearMoney: (label: string, value: string) =>
+    `${label} "${value}" este neclar. ${unclearMoneyHint(value)}`,
   noSkuNoMatch:
     "Codul SKU lipsește și niciun produs existent nu are aceeași denumire și aceeași unitate. " +
     "Scrie codul SKU: importul nu inventează coduri.",
@@ -239,14 +244,19 @@ function materialImportFields(categories: CategoryLookup): ImportFieldDescriptor
     validate,
   });
 
-  // P3-310: Prag recomandă are 3 zecimale (cantitate), deci "2,500" este neclar si se refuza;
-  // Valoare unitară este bani (2 zecimale), deci "1,200" ramane 1200.
+  // P3-310: Prag recomandă are 3 zecimale (cantitate), deci "2,500" este neclar si se refuza.
+  // P3-314: Valoare unitară este bani (2 zecimale) si "1,200" este neclar si aici: se refuza cu
+  // "Scrie 1200 sau 1,20, nu 1,200.". Regula veche (P3-310), inlocuita, pastrata conform
+  // CLAUDE.md 9c: "Valoare unitară este bani (2 zecimale), deci "1,200" ramane 1200." - FALSA.
   const amount = (f: "threshold" | "unitValueMdl") => (raw: string) => {
     if (raw === "") return { ok: true as const, value: "" };
     const label = MATERIAL_IMPORT_FIELD_LABEL[f];
     const mode: ImportNumberMode = f === "threshold" ? "quantity" : "money";
     if (mode === "quantity" && isUnclearQuantity(raw)) {
       return { ok: false as const, reason: MATERIAL_IMPORT_REASON.unclearNumber(label, raw) };
+    }
+    if (mode === "money" && isUnclearMoney(raw)) {
+      return { ok: false as const, reason: MATERIAL_IMPORT_REASON.unclearMoney(label, raw) };
     }
     const read = readNumber(raw, mode);
     return read === null

@@ -365,4 +365,25 @@ test.describe("Ieșiri materiale", () => {
     await expect(page.getByTestId("issue-problems")).toContainText("Cantitate neclară");
     await expect(page.getByTestId("issue-created")).toHaveCount(0);
   });
+
+  // P3-314. Pe ecran virgula este mereu zecimala: "2,500" este 2,50, nu 2500. Valoarea citita se
+  // vede langa casuta, ca o greseala sa se vada inainte de salvare.
+  test("P3-314: pretul 2,500 se citește 2,50 și ecranul arată valoarea citită", async ({ page }) => {
+    await signIn(page, ownerAccount());
+    await ensureTestCategory(page);
+    const { productName } = await productWithStock(page, "p314read", "5", undefined, "m2");
+
+    await page.goto("/iesiri");
+    await comboPick(page, "field-project", TEST_PROJECT);
+    await comboPick(page, "issue-product-0", productName);
+    await page.getByTestId("issue-quantity-0").fill("1");
+    const price = page.getByTestId("issue-price-0");
+    await price.fill("2,500");
+    await expect(page.getByTestId("issue-price-read-0")).toHaveText("Citit: 2,50 lei");
+    await price.fill("1.250");
+    await expect(page.getByTestId("issue-price-read-0")).toHaveText("Citit: 1.250,00 lei");
+    await price.fill("abc");
+    await expect(page.getByTestId("issue-price-read-0")).toHaveCount(0);
+    await expect(page.getByTestId("issue-price-error-0")).toBeVisible();
+  });
 });

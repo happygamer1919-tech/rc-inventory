@@ -81,6 +81,31 @@ test("previzualizare materiale: pragul 2,500 este neclar si randul este refuzat"
   expect(JSON.stringify(plan)).toContain("Scrie 2,5 sau 2500, nu 2,500.");
 });
 
+// P3-314: Valoare unitară "1,200" este neclară si ea (P3-310 o citea 1200). Un rând are un
+// singur motiv, deci pragul de aici este clar.
+test("previzualizare materiale: valoarea unitara 1,200 este neclara si randul este refuzat", () => {
+  const { plan } = buildMaterialPlan({
+    rows: [["SKU-1", "Dibluri", "Fixare", "buc", "1000", "1,200"]],
+    mapping: [...MATERIAL_IMPORT_FIELDS.slice(0, 6)],
+    categories: [{ id: "k1", name: "Fixare" }],
+    existing: [],
+  });
+  expect(plan.preview.rows).toHaveLength(0);
+  expect(JSON.stringify(plan)).toContain("Scrie 1200 sau 1,20, nu 1,200.");
+});
+
+// P3-314: la fel pentru bugetul unui proiect.
+test("previzualizare proiecte: bugetul 1,200 este neclar si randul este refuzat", () => {
+  const { plan } = buildProjectPlan({
+    rows: [["Popescu Construct SRL", "Proiect buget", "1,200"]],
+    mapping: ["client", "name", "budgetMdl"],
+    clients: CLIENTS,
+    existing: [],
+  });
+  expect(plan.preview.rows).toHaveLength(0);
+  expect(JSON.stringify(plan)).toContain("Scrie 1200 sau 1,20, nu 1,200.");
+});
+
 test("previzualizare: 60 de randuri noi arata 50 si 'și încă 10 rânduri'", () => {
   const rows = Array.from({ length: 60 }, (_, i) => ["Popescu Construct SRL", `Proiect ${i + 1}`]);
   const { plan } = buildProjectPlan({
