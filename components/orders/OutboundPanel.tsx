@@ -136,14 +136,14 @@ export function OutboundPanel({
               · {OUTBOUND_MODE_LABEL[issue.mode]}
             </span>
           ) : null}
-          <span className="text-rc-muted-2">· emis {formatDate(chisinauDateOf(issue.issuedAt))}</span>
+          <span className="text-rc-muted-2">· emis {formatDate(issue.issuedAt ? chisinauDateOf(issue.issuedAt) : null)}</span>
           {/* CLAUZA 2: ZIUA RIDICARII, NUMAI PE MODUL DIRECT, fiindca numai el are una:
               outbound_issues_project_mode_shape cere ca o iesire pe proiect sa NU aiba.
               Prin acelasi formatDate cu care este scrisa ziua emiterii, si NUMAI afisata:
               nicio casuta de data pe aceasta fisa, care nu editeaza nimic. */}
           {directClient ? (
             <span className="text-rc-muted-2" data-testid="issue-pickup-date-shown">
-              · ridicare {formatDate(chisinauDateOf(issue.pickupDate))}
+              · ridicare {formatDate(issue.pickupDate ? chisinauDateOf(issue.pickupDate) : null)}
             </span>
           ) : null}
         </span>
@@ -160,7 +160,7 @@ export function OutboundPanel({
             </p>
             <p className="text-[12px] text-rc-muted mt-0.5">
               {shipped
-                ? `Expediată pe ${formatDate(chisinauDateOf(issue.shippedAt))}.`
+                ? `Expediată pe ${formatDate(issue.shippedAt ? chisinauDateOf(issue.shippedAt) : null)}.`
                 : "Stocul a scăzut deja la crearea bonului. Expedierea înregistrează plecarea fizică."}
             </p>
           </div>
@@ -332,7 +332,7 @@ export function OutboundPanel({
               <p className="text-[13px] font-semibold">
                 {OUTBOUND_STATUS_LABEL[e.toStatus as "awaiting_shipment" | "shipped"] ?? e.toStatus}
               </p>
-              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatDate(chisinauDateOf(e.at))}</p>
+              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatDate(e.at ? chisinauDateOf(e.at) : null)}</p>
               {e.note ? (
                 <p className="text-[12.5px] text-rc-muted mt-1 leading-relaxed">{e.note}</p>
               ) : null}

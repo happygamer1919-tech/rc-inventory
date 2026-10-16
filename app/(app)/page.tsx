@@ -174,7 +174,7 @@ export default async function Dashboard() {
                   <p className="text-[12.5px] text-rc-muted mt-0.5">{a.detail}</p>
                 </div>
                 <div className="text-right shrink-0 max-md:max-w-[45%] max-md:[overflow-wrap:anywhere]">
-                  <p className="text-[12px] text-rc-muted rc-num">{formatDate(chisinauDateOf(a.at))}</p>
+                  <p className="text-[12px] text-rc-muted rc-num">{formatDate(a.at ? chisinauDateOf(a.at) : null)}</p>
                   <p className="text-[11.5px] text-rc-muted-2 mt-0.5">{a.reference}</p>
                 </div>
               </li>
