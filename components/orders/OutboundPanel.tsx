@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
-import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
+import { formatDate, formatMoney, formatNumber, chisinauDateOf } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { OUTBOUND_MODE_LABEL, OUTBOUND_STATUS_LABEL } from "@/lib/data/outbound-types";
 import type { OutboundIssue } from "@/lib/data/outbound-types";
@@ -136,14 +136,14 @@ export function OutboundPanel({
               · {OUTBOUND_MODE_LABEL[issue.mode]}
             </span>
           ) : null}
-          <span className="text-rc-muted-2">· emis {formatDate(issue.issuedAt)}</span>
+          <span className="text-rc-muted-2">· emis {formatDate(chisinauDateOf(issue.issuedAt))}</span>
           {/* CLAUZA 2: ZIUA RIDICARII, NUMAI PE MODUL DIRECT, fiindca numai el are una:
               outbound_issues_project_mode_shape cere ca o iesire pe proiect sa NU aiba.
               Prin acelasi formatDate cu care este scrisa ziua emiterii, si NUMAI afisata:
               nicio casuta de data pe aceasta fisa, care nu editeaza nimic. */}
           {directClient ? (
             <span className="text-rc-muted-2" data-testid="issue-pickup-date-shown">
-              · ridicare {formatDate(issue.pickupDate)}
+              · ridicare {formatDate(chisinauDateOf(issue.pickupDate))}
             </span>
           ) : null}
         </span>
@@ -160,7 +160,7 @@ export function OutboundPanel({
             </p>
             <p className="text-[12px] text-rc-muted mt-0.5">
               {shipped
-                ? `Expediată pe ${formatDate(issue.shippedAt)}.`
+                ? `Expediată pe ${formatDate(chisinauDateOf(issue.shippedAt))}.`
                 : "Stocul a scăzut deja la crearea bonului. Expedierea înregistrează plecarea fizică."}
             </p>
           </div>
@@ -332,7 +332,7 @@ export function OutboundPanel({
               <p className="text-[13px] font-semibold">
                 {OUTBOUND_STATUS_LABEL[e.toStatus as "awaiting_shipment" | "shipped"] ?? e.toStatus}
               </p>
-              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatDate(e.at)}</p>
+              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatDate(chisinauDateOf(e.at))}</p>
               {e.note ? (
                 <p className="text-[12.5px] text-rc-muted mt-1 leading-relaxed">{e.note}</p>
               ) : null}
