@@ -70,6 +70,8 @@ test("sarcini mici: cu data rosie, Anulează sarcina nu ramane un clic mut", asy
   await expect(page.getByTestId("task-cancel-task")).toBeEnabled();
   await page.getByTestId("task-cancel-task").click();
   await expect(page.getByTestId("task-form")).toHaveCount(0, { timeout: 30_000 });
+  // P3-315: lista implicita arata numai sarcinile deschise, deci anulata se cauta cu "Toate stările".
+  await page.goto(`${SARCINI}?de_la=2036-06-01&pana_la=2036-06-30&stare=toate`);
   await expect(row.getByTestId("task-status")).toHaveText("Anulată", { timeout: 30_000 });
 });
 

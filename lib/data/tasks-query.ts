@@ -61,6 +61,19 @@ export const TASK_PARAM = {
 export const TASK_SORT_DEFAULT: TaskSortField = "termen";
 export const TASK_DIRECTION_DEFAULT: TaskSortDirection = "crescator";
 
+/** P3-315. Starea implicita a ecranului Sarcini: cele deschise (de facut si in lucru).
+ *  Valoarea interna a lui `query.status` cand adresa nu poarta `stare`; sirul gol ramane
+ *  "nicio conditie pe stare", adica `?stare=toate`. */
+export const TASK_STATUS_OPEN = "open";
+/** Valoarea din adresa care cere toate starile, ca pe /proiecte si /clienti. */
+export const TASK_STATUS_ALL_PARAM = "toate";
+
+/** Finalizatele si anulatele se aduc pe pagini de 50; cele deschise raman o lista intreaga,
+ *  fiindca ecranul le grupeaza pe termen (restante, azi, saptamana asta). */
+export function taskListIsPaged(status: string): boolean {
+  return status === "done" || status === "cancelled";
+}
+
 const SORT_FIELDS: TaskSortField[] = ["termen", "urgenta", "creare"];
 const DIRECTIONS: TaskSortDirection[] = ["crescator", "descrescator"];
 
@@ -92,7 +105,10 @@ export function parseTaskQuery(params: Record<string, string | undefined>): Task
   const direction = clean(params[TASK_PARAM.direction]) as TaskSortDirection;
 
   return {
-    status: isTaskStatus(status) ? status : "",
+    // P3-315. Fara `stare` (sau cu o valoare nerecunoscuta) lista arata sarcinile deschise,
+    // nu tot ce s-a scris vreodata; `stare=toate` le cere pe toate.
+    status:
+      status === TASK_STATUS_ALL_PARAM ? "" : isTaskStatus(status) ? status : TASK_STATUS_OPEN,
     priority: isTaskPriority(priority) ? priority : "",
     // NUMAI UN UUID BINE FORMAT ajunge la baza: `.eq('assignee_id', 'abc')` face
     // PostgreSQL sa refuze ("invalid input syntax for type uuid"), citirea arunca si
@@ -127,7 +143,7 @@ export function parseTaskQuery(params: Record<string, string | undefined>): Task
  */
 export function taskFilterActive(filter: TaskListFilter): boolean {
   return (
-    filter.status !== "" ||
+    filter.status !== TASK_STATUS_OPEN ||
     filter.priority !== "" ||
     filter.assigneeId !== "" ||
     filter.dueFrom !== "" ||

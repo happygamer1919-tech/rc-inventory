@@ -958,7 +958,8 @@ test("sarcini: galetile Azi, Aceasta saptamana si Restante folosesc aceeasi defi
   const noDate = await seed({ title: `${P131} acord fara termen`, status: "todo" });
 
   await signIn(page, ownerAccount());
-  await openSarcini(page);
+  // P3-315: lista implicita arata numai sarcinile deschise; testul cere si finalizata si anulata.
+  await openSarcini(page, { stare: "toate" });
 
   const rows = await screenRows(page);
   expect(rows.length, "ecranul are randuri").toBeGreaterThan(0);
@@ -1108,7 +1109,9 @@ test("sarcini: se poate crea, modifica si anula o sarcina din ecran", async ({ p
 
   // SARCINA ESTE TOT ACOLO, si asta este jumatatea care conteaza: propozitia
   // proprietarului este "a job that is called off is marked cancelled and stays on the
-  // record".
+  // record". P3-315: lista implicita arata numai sarcinile deschise, deci anulata se
+  // cauta cu "Toate stările".
+  await openSarcini(page, { ...fereastra, stare: "toate" });
   await expect(edited, "sarcina anulata este TOT pe lista").toHaveCount(1, { timeout: 30_000 });
   await expect(edited.getByTestId("task-status")).toHaveText(TASK_STATUS_LABEL.cancelled, {
     timeout: 30_000,
@@ -1206,9 +1209,11 @@ test("sarcini: nu exista niciun control de stergere pe ecran", async ({ page }) 
 
   // SI NICIO CONFIRMARE NU ASCUNDE UNA: apasarea celui mai apropiat de stergere,
   // "Anulează sarcina", nu deschide nicio a doua intrebare cu un buton de stergere.
-  // Dupa ea randul este TOT ACOLO si poarta starea anulata.
+  // Dupa ea randul este TOT ACOLO si poarta starea anulata (P3-315: cu "Toate stările",
+  // fiindca lista implicita arata numai sarcinile deschise).
   await page.getByTestId("task-cancel-task").click();
   await expect(page.getByTestId("task-form")).toHaveCount(0, { timeout: 30_000 });
+  await openSarcini(page, { ...fereastra, stare: "toate" });
   await expect(row, "sarcina anulata de pe ecran este TOT pe lista").toHaveCount(1, {
     timeout: 30_000,
   });
@@ -2436,7 +2441,8 @@ test("sarcini pe fisa: aceeasi sarcina este marcata intarziat la fel pe fisa si 
 
   /* ---- ce spune FILA ---- */
 
-  await openSarcini(page);
+  // P3-315: cele finalizate si anulate se vad numai cu "Toate stările".
+  await openSarcini(page, { stare: "toate" });
   const onTab = new Map((await screenRows(page)).map((r) => [r.id, r]));
   for (const id of mine) {
     expect(onTab.get(id), `sarcina ${id} este in fila Sarcini`).toBeDefined();
@@ -2903,7 +2909,7 @@ test("azi: sectiunea de sarcini si galeata Azi din fila Sarcini contin exact ace
   const onAzi = (await aziTaskIds(page)).sort();
   expect(onAzi.length, "sectiunea are randuri, deci egalitatea spune ceva").toBeGreaterThan(0);
 
-  await openSarcini(page);
+  await openSarcini(page, { stare: "toate" });
   const bucket = await page
     .locator('[data-testid="task-row"][data-group="azi"]')
     .evaluateAll((els) =>

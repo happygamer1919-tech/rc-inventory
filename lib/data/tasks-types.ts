@@ -72,6 +72,15 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: "Anulată",
 };
 
+/** P3-315. Starile asa cum le numeste selectorul de filtru: la plural, ca "Deschise" si
+ *  "Toate stările" de langa ele. Eticheta unei sarcini ramane TASK_STATUS_LABEL. */
+export const TASK_STATUS_FILTER_LABEL: Record<TaskStatus, string> = {
+  todo: "De făcut",
+  in_progress: "În lucru",
+  done: "Finalizate",
+  cancelled: "Anulate",
+};
+
 /** Cele trei cuvinte romanesti ale urgentelor, cu diacriticele lor. */
 export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Scăzută",

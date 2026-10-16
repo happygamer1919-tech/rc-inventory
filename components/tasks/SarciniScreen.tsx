@@ -77,14 +77,17 @@ import {
   ALL_TASK_SORT_FIELDS,
   TASK_FILTER_CLEARED,
   TASK_PARAM,
+  TASK_STATUS_ALL_PARAM,
+  TASK_STATUS_OPEN,
   taskFilterActive,
 } from "@/lib/data/tasks-query";
+import { Pager, useListUrl } from "@/components/ui/Pager";
 import {
   TASK_ENTITY_TYPE_LABEL,
   TASK_PRIORITY_LABEL,
   TASK_SORT_DIRECTION_LABEL,
   TASK_SORT_LABEL,
-  TASK_STATUS_LABEL,
+  TASK_STATUS_FILTER_LABEL,
   type Task,
   type TaskListQuery,
 } from "@/lib/data/tasks-types";
@@ -93,6 +96,7 @@ import { TaskTable } from "./TaskTable";
 
 export function SarciniScreen({
   rows,
+  paging = null,
   query,
   assignees,
   inactiveAssignee = null,
@@ -104,6 +108,9 @@ export function SarciniScreen({
   projectsFailed = false,
 }: {
   rows: Task[];
+  /** P3-315. Pagina deschisa si totalul listei, cand lista e pe pagini (Finalizate si
+   *  Anulate); null pentru listele intregi. */
+  paging?: { page: number; total: number } | null;
   query: TaskListQuery;
   assignees: TaskAssignee[];
   /** P3-270: colegul dezactivat pe care il numeste filtrul din adresa, daca exista. Un
@@ -126,6 +133,7 @@ export function SarciniScreen({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const { setPage } = useListUrl();
 
   const [creating, setCreating] = React.useState(false);
   // P3-133: o legatura de pe Azi (`?sarcina=<id>`) deschide direct sarcina, in acelasi
@@ -161,6 +169,8 @@ export function SarciniScreen({
       if (v) next.set(k, v);
       else next.delete(k);
     }
+    // P3-315. Orice filtru sau sortare noua intoarce lista la pagina 1.
+    next.delete("pagina");
     // Un responsabil dezactivat se duce mai departe; unul fara niciun profil, nu.
     // Daca lista echipei nu se putea citi, se pastreaza filtrul.
     const carried = next.get("responsabil");
@@ -208,7 +218,7 @@ export function SarciniScreen({
       />
 
       <Card className={PHONE_TABLE}>
-        <CardHeader title="Listă" hint={plural(rows.length, "sarcină", "sarcini")} />
+        <CardHeader title="Listă" hint={plural(paging ? paging.total : rows.length, "sarcină", "sarcini")} />
 
         {/* P3-52. Grila explicita, ca pe Clienți si pe Facturi: Input, Select si
             DateField poarta toate w-full, deci intr-un rand flex-wrap fiecare cerea
@@ -223,17 +233,22 @@ export function SarciniScreen({
           className="p-5 grid items-center gap-3 max-md:grid-cols-1 grid-cols-[1fr_1fr_1.2fr_1fr_1fr_1fr_auto]"
           data-testid="tasks-filters"
         >
+          {/* P3-315. Fara `stare` in adresa lista arata sarcinile Deschise (de facut si in
+              lucru); "Finalizate" si "Anulate" se aduc cate 50 pe pagina; "Toate stările"
+              (`?stare=toate`) le aduce pe toate, ca inainte. Optiunea fara valoare este
+              Deschise, deci "Șterge filtrele" se intoarce la ea. */}
           <Select
-            value={query.status}
+            value={query.status === TASK_STATUS_OPEN ? "" : query.status === "" ? TASK_STATUS_ALL_PARAM : query.status}
             onChange={(e) => push({ [TASK_PARAM.status]: e.target.value })}
             aria-label="Stare"
             data-testid="tasks-status"
             className={PHONE_CONTROL}
           >
-            <option value="">Toate stările</option>
+            <option value="">Deschise</option>
+            <option value={TASK_STATUS_ALL_PARAM}>Toate stările</option>
             {ALL_TASK_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {TASK_STATUS_LABEL[s]}
+                {TASK_STATUS_FILTER_LABEL[s]}
               </option>
             ))}
           </Select>
@@ -365,7 +380,11 @@ export function SarciniScreen({
           // GOLUL ESTE O PROPOZITIE SI NU O ZONA ALBA, ca peste tot in aceasta
           // aplicatie: o zona goala se citeste ca ceva stricat, nu ca ceva terminat.
           <EmptyState
-            title={filtered ? "Nicio sarcină pentru filtrele alese" : "Nicio sarcină încă"}
+            title={
+              filtered
+                ? "Nicio sarcină pentru filtrele alese"
+                : "Nicio sarcină deschisă"
+            }
             hint={
               filtered
                 ? "Schimbă filtrele sau șterge-le."
@@ -386,6 +405,7 @@ export function SarciniScreen({
             onEdit={setEditingId}
           />
         )}
+        {paging ? <Pager page={paging.page} total={paging.total} onPage={setPage} /> : null}
       </Card>
 
       {creating ? (

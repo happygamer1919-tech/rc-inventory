@@ -26,9 +26,11 @@ import {
   listClosedLinkChoices,
   listTaskAssigneeChoices,
   listTasks,
+  listTasksPage,
   tasksVisible,
 } from "@/lib/data/tasks";
-import { parseTaskQuery } from "@/lib/data/tasks-query";
+import { parsePage } from "@/lib/data/list-paging";
+import { parseTaskQuery, taskListIsPaged } from "@/lib/data/tasks-query";
 import { SarciniScreen } from "@/components/tasks/SarciniScreen";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +97,15 @@ export default async function SarciniPage({
   const inactiveAssignee = inactiveAssigneeResult && typeof inactiveAssigneeResult === "object" && "failed" in inactiveAssigneeResult
     ? { failed: true as const }
     : inactiveAssigneeResult;
-  const rows = await listTasks({ ...query, assigneeId });
+  // P3-315. LISTA IMPLICITA ARATA SARCINILE DESCHISE, iar Finalizatele si Anulatele vin
+  // cate 50 pe pagina (?pagina=2), ca pe Inventar si Comenzi (P3-153): ele se aduna si nu se
+  // sterg niciodata, deci a le citi pe toate la fiecare deschidere a ecranului crestea fara
+  // capat. Filtrarea pe stare ramane pe server.
+  const effective = { ...query, assigneeId };
+  const pageRead = taskListIsPaged(query.status)
+    ? await listTasksPage(effective, parsePage(single.pagina))
+    : null;
+  const rows = pageRead ? pageRead.rows : await listTasks(effective);
 
   // O SARCINA LEGATA DE UN PROIECT INCHIS SAU DE UN CLIENT INACTIV isi arata
   // inregistrarea la modificare: ea nu este in cele doua liste, deci se citeste aparte.
@@ -109,6 +119,7 @@ export default async function SarciniPage({
   return (
     <SarciniScreen
       rows={rows}
+      paging={pageRead ? { page: pageRead.page, total: pageRead.total } : null}
       query={{ ...query, assigneeId }}
       assignees={assignees}
       inactiveAssignee={inactiveAssignee}
