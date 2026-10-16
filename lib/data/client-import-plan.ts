@@ -5,8 +5,8 @@
 // ESTE EMAILUL (clauza 5 a cardului P3-123). Un rand FARA email se potriveste
 // dupa nume si telefon impreuna, cu orice client stocat, cu email sau fara
 // (P3-197); un rand fara email si fara telefon nu se poate dubla cu nimic si
-// intra mereu ca nou. Un rand cu email nu se potriveste niciodata dupa nume si
-// telefon.
+// intra mereu ca nou. Un rand cu email se potriveste dupa nume si telefon numai
+// cu un client (stocat sau din fisier) fara email (P3-307, P3-313).
 //
 // DUBLATUL SE CAUTA IN DOUA LOCURI SI AMANDOUA CONTEAZA: printre clientii deja
 // stocati, si printre randurile de mai sus DIN ACELASI FISIER, cu fisierul
@@ -216,7 +216,12 @@ export function buildClientPlan(input: {
   }
 
   const fileByEmail = new FileAnchors(input.earlier, "email");
+  // P3-313: aceeasi regula ca la clientii stocati, in interiorul fisierului. Fiecare rand nou
+  // se ancoreaza sub email SI sub nume + telefon. `fileByNamePhone` are toate randurile (il
+  // cauta un rand fara email); `fileNoEmailByNamePhone` numai pe cele fara email (il cauta un
+  // rand cu email, ca doua adrese diferite cu acelasi nume si telefon sa ramana clienti diferiti).
   const fileByNamePhone = new FileAnchors(input.earlier, "namePhone");
+  const fileNoEmailByNamePhone = new FileAnchors(input.earlier, "namePhoneNoEmail");
 
   const entries: PlanEntry[] = [];
   const prepared = new Map<number, PreparedWithOwnerId>();
@@ -233,15 +238,16 @@ export function buildClientPlan(input: {
     const given = filledFields(client);
     const emailKey = client.email || null;
     const anyNpKey = namePhoneKey(client.name, client.phone);
-    // In fisier, cheia nume + telefon se foloseste numai pentru randurile fara email.
-    const npKey = emailKey ? null : anyNpKey;
     const fileNamePhoneMatch = { matchedBy: "namePhone" } as const;
 
-    const fileMatch = emailKey
-      ? fileByEmail.get(emailKey)
-      : npKey
-        ? fileByNamePhone.get(npKey)
-        : undefined;
+    // Un rand cu email se potriveste intai dupa email, apoi dupa nume si telefon cu un rand
+    // dinainte FARA email; un rand fara email, dupa nume si telefon cu orice rand dinainte.
+    const fileByEmailMatch = emailKey ? fileByEmail.get(emailKey) : undefined;
+    const fileByNpMatch =
+      fileByEmailMatch || !anyNpKey
+        ? undefined
+        : (emailKey ? fileNoEmailByNamePhone : fileByNamePhone).get(anyNpKey);
+    const fileMatch = fileByEmailMatch ?? fileByNpMatch;
     if (fileMatch) {
       // P3-307: primul rand este intr-un lot de dinainte, deci nu se stie ce are gol. Se ofera
       // ce a adus acest rand, iar scrierea (unde primul rand este deja in baza) completeaza
@@ -249,7 +255,7 @@ export function buildClientPlan(input: {
       // niciun camp gol de completat.
       const earlier = prepared.get(fileMatch.line);
       // Campul dupa care s-au potrivit nu este gol la primul rand, deci nu se ofera.
-      const keyField: ClientFillField = emailKey ? "email" : "phone";
+      const keyField: ClientFillField = fileByEmailMatch ? "email" : "phone";
       const fillable = earlier
         ? emptyFields(earlier).filter((field) => given.has(field))
         : CLIENT_FILL_FIELDS.filter((field) => given.has(field) && field !== keyField);
@@ -264,7 +270,7 @@ export function buildClientPlan(input: {
           ...(earlier ? {} : { otherBatch: true as const }),
         },
         fillable,
-        ...(npKey ? fileNamePhoneMatch : {}),
+        ...(fileByNpMatch ? fileNamePhoneMatch : {}),
       });
       counts.duplicate += 1;
       continue;
@@ -302,8 +308,12 @@ export function buildClientPlan(input: {
       continue;
     }
 
-    if (emailKey) fileByEmail.set(emailKey, { line: row.line, name: client.name });
-    else if (npKey) fileByNamePhone.set(npKey, { line: row.line, name: client.name });
+    const anchor = { line: row.line, name: client.name };
+    if (emailKey) fileByEmail.set(emailKey, anchor);
+    if (anyNpKey) {
+      fileByNamePhone.set(anyNpKey, anchor);
+      if (!emailKey) fileNoEmailByNamePhone.set(anyNpKey, anchor);
+    }
     entries.push({ kind: "new", line: row.line, name: client.name });
     counts.fresh += 1;
   }
@@ -320,7 +330,11 @@ export function buildClientPlan(input: {
     false,
   );
 
-  const anchors = [...fileByEmail.newAnchors(), ...fileByNamePhone.newAnchors()];
+  const anchors = [
+    ...fileByEmail.newAnchors(),
+    ...fileByNamePhone.newAnchors(),
+    ...fileNoEmailByNamePhone.newAnchors(),
+  ];
   return { plan: { entries, counts, preview: newRows, anchors }, prepared };
 }
 
