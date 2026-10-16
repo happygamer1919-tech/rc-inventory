@@ -81,6 +81,7 @@ The format is machine-read, so keep it exactly:
 - `0083_outbound_issue_reference_lock.sql`, card de aplicare P3-274
 - `0084_walkin_buyer_active_history_lock.sql`, card de aplicare P3-277
 - `0085_walkin_direct_insert_inactive_buyer.sql`, card de aplicare P3-305
+- `0086_inbound_orders_active_account.sql`, card de aplicare P3-180
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
