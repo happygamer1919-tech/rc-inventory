@@ -7470,11 +7470,11 @@
       "question": null,
       "acceptance": "(a) NAMED TEST: every case in tests/e2e/number-reader.spec.ts is green in this pull request own quality run on its head sha: each of 20 typed texts gives the same answer through parsePriceText and parseQuantityText as through parseImportNumber in money and quantity mode; 1,200 and 2,500 are 1200 and 2500 as prices and unclear as quantities; 1.200.000 is 1200000 as a quantity; a project sale line with quantity 1,25 and price 1.250 reads as 1.25 and 1250 on the server and totals 1562.5 on screen. (b) NAMED E2E STEP: in tests/e2e/outbound.spec.ts the case P3-311 project sale with quantity 1,25 saves 1,25 m2, and the case with 2,500 stops on screen with the unclear-quantity sentence. (c) The existing price-input, outbound and import specs stay green. (d) `npx tsc --noEmit` and `npm run build` exit 0. (e) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (f) No file under supabase/migrations/ is added or changed.",
       "defaults": "The import rules of P3-310 are the reference: MONEY reads one separator plus exactly three digits as thousands (1,200 is 1200); QUANTITY refuses a single separator plus exactly three digits, after one to three digits without a leading 0, as unclear, and reads several separators (1.200.000) and every other form as before. Both modes also accept 1,200.50 and 1.200,50 (the last mark is the decimal one). The screen limits follow the database columns: 12 whole digits for a price (numeric 14,2) and 11 for a quantity (numeric 14,3). lib/data/price-input.ts keeps its public names and delegates to lib/data/import-number.ts; its own separator regexes are deleted. No migration.",
-      "last_checkpoint": "2026-10-16T18:00:00Z",
+      "last_checkpoint": "2026-10-16T17:40:00Z",
       "evidence": {
         "kind": "pr",
         "ref": "Pull request on branch card/p3-311 against main; acceptance is the quality run on its head",
-        "at": "2026-10-16T18:00:00Z"
+        "at": "2026-10-16T17:40:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-16 17:33Z, findings 3 and 4 (zero based). The finding file sits outside the executor folders and could not be read; the card was built from the task text and the code. Files: lib/data/price-input.ts, components/outbound/OutboundProjectForm.tsx. Old tests that encoded the split (1,200.50 refused at the counter, 1.200.000 unclear as a quantity) were changed to the shared rule."
     }
