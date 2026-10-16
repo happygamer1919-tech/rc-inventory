@@ -49,6 +49,10 @@ function fakeClient(table: Row[], cap: number, calls: Call[]): TaskReadClient<Ro
               filters.push((r) => r[column as keyof Row] === value);
               return query;
             },
+            neq(column, value) {
+              filters.push((r) => r[column as keyof Row] !== value);
+              return query;
+            },
             gte(column, value) {
               filters.push((r) => {
                 const v = r[column as keyof Row];
@@ -220,6 +224,7 @@ test("P3-162: o lista scurta fata de total este esec vizibil, nu o lista mai scu
           let from = 0;
           const query: TaskReadQuery<Row> = {
             eq: () => query,
+            neq: () => query,
             gte: () => query,
             lte: () => query,
             order: () => query,
@@ -248,6 +253,7 @@ test("P3-162: o lista scurta fata de total este esec vizibil, nu o lista mai scu
         select() {
           const query: TaskReadQuery<Row> = {
             eq: () => query,
+            neq: () => query,
             gte: () => query,
             lte: () => query,
             order: () => query,
@@ -278,6 +284,7 @@ test("P3-193: un rand mutat peste marginea paginii de un coleg vine o singura da
           let from = 0;
           const query: TaskReadQuery<Row> = {
             eq: () => query,
+            neq: () => query,
             gte: () => query,
             lte: () => query,
             order: () => query,

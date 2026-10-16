@@ -51,7 +51,7 @@ export default async function AziPage({
   let tasksFailed = false;
   if (tasksExist) {
     try {
-      tasks = (await listTasks({ ...parseTaskQuery({}), dueFrom: today, dueTo: today })).filter(
+      tasks = (await listTasks({ ...parseTaskQuery({}), status: "", dueFrom: today, dueTo: today })).filter(
         (t) =>
           taskBucket(t, today) === "azi" &&
           isTaskOpen(t) &&

@@ -12,12 +12,15 @@
 // Ordinea se termina mereu cu `id`, ca paginile sa nu sara si sa nu repete un rand.
 
 import { dedupeById, readAllPages, type CountedPage } from "./id-list";
+import { LIST_PAGE_SIZE, readPage, type PageRead } from "./list-paging";
+import { TASK_STATUS_OPEN } from "./tasks-query";
 import type { TaskListQuery } from "./tasks-types";
 
 /** Forma minima a interogarii pe care o folosesc citirile de mai jos. Clientul
  *  supabase-js o satisface; un test o satisface cu un obiect scris de mana. */
 export type TaskReadQuery<T> = PromiseLike<CountedPage<T>> & {
   eq(column: string, value: string): TaskReadQuery<T>;
+  neq(column: string, value: string): TaskReadQuery<T>;
   gte(column: string, value: string): TaskReadQuery<T>;
   lte(column: string, value: string): TaskReadQuery<T>;
   order(column: string, options: { ascending: boolean; nullsFirst?: boolean }): TaskReadQuery<T>;
@@ -70,6 +73,52 @@ export function orderBy(query?: TaskListQuery): { column: string; ascending: boo
 }
 
 /**
+ * Filtrele si ordinea ceruta, puse pe o cerere noua. O SINGURA COPIE pentru citirea
+ * intreaga (readTaskRows) si pentru o pagina (readTaskPage), ca cele doua sa nu ajunga sa
+ * filtreze diferit.
+ */
+function narrowAndOrder<R>(start: TaskReadQuery<R>, query?: TaskListQuery): TaskReadQuery<R> {
+  let request = start;
+
+  // CELE CINCI FILTRE SE APLICA PE SERVER, nu in memorie, ca pe fiecare alta lista
+  // a acestei aplicatii: antetul lui components/clients/ClientsScreen.tsx scrie
+  // regula ("FILTRAREA SE FACE PE SERVER... Componentul acesta nu filtreaza nimic in
+  // memorie"), iar indexul tasks_status_due_date_idx din migratia 0068 este scris de
+  // P3-130 chiar pentru ele.
+  //
+  // UN CAMP GOL NU SE TRIMITE, deci nu exista "filtrat pe sirul gol": aceea ar fi o
+  // lista mereu goala pe o adresa scrisa de mana.
+  if (query) {
+    // P3-315. "open" (starea implicita a ecranului) este "nici finalizata, nici anulata";
+    // sirul gol ramane "nicio conditie pe stare".
+    if (query.status === TASK_STATUS_OPEN) {
+      request = request.neq("status", "done").neq("status", "cancelled");
+    } else if (query.status !== "") {
+      request = request.eq("status", query.status);
+    }
+    if (query.priority !== "") request = request.eq("priority", query.priority);
+    if (query.assigneeId !== "") request = request.eq("assignee_id", query.assigneeId);
+    if (query.entityType !== "") request = request.eq("entity_type", query.entityType);
+    // INTERVALUL DE TERMEN SE COMPARA CA ZI DE CALENDAR, nu ca moment: `due_date`
+    // este o coloana `date`, iar capetele sunt siruri `yyyy-mm-dd` curatate de
+    // parseTaskQuery. Amandoua capetele sunt INCLUSE, fiindca un operator care scrie
+    // acelasi termen in amandoua casutele cere ziua aceea si nu o lista goala.
+    if (query.dueFrom !== "") request = request.gte("due_date", query.dueFrom);
+    if (query.dueTo !== "") request = request.lte("due_date", query.dueTo);
+  }
+
+  for (const { column, ascending } of orderBy(query)) {
+    // TERMENUL FARA VALOARE STA LA SFARSIT IN AMANDOUA DIRECTIILE, prin nullsFirst
+    // false. O sarcina fara termen nu este nici cea mai apropiata, nici cea mai
+    // indepartata: nu are zi, deci nu are loc in ordinea zilelor, iar lista o aseaza
+    // sub capul ei de grup "Fără termen" oricum.
+    request = request.order(column, { ascending, nullsFirst: false });
+  }
+
+  return request;
+}
+
+/**
  * Toate sarcinile care se potrivesc filtrelor, pe pagini, in ordinea ceruta.
  *
  * P3-287. `startIds` porneste aceeasi cerere cu `select("id", { count: "exact" })`:
@@ -84,40 +133,8 @@ export async function readTaskRows<T extends { id: string }>(
 ): Promise<T[]> {
   const pageOf =
     <R>(begin: TaskReadStart<R>) =>
-    (from: number, to: number) => {
-      let request = begin();
-
-      // CELE CINCI FILTRE SE APLICA PE SERVER, nu in memorie, ca pe fiecare alta lista
-      // a acestei aplicatii: antetul lui components/clients/ClientsScreen.tsx scrie
-      // regula ("FILTRAREA SE FACE PE SERVER... Componentul acesta nu filtreaza nimic in
-      // memorie"), iar indexul tasks_status_due_date_idx din migratia 0068 este scris de
-      // P3-130 chiar pentru ele.
-      //
-      // UN CAMP GOL NU SE TRIMITE, deci nu exista "filtrat pe sirul gol": aceea ar fi o
-      // lista mereu goala pe o adresa scrisa de mana.
-      if (query) {
-        if (query.status !== "") request = request.eq("status", query.status);
-        if (query.priority !== "") request = request.eq("priority", query.priority);
-        if (query.assigneeId !== "") request = request.eq("assignee_id", query.assigneeId);
-        if (query.entityType !== "") request = request.eq("entity_type", query.entityType);
-        // INTERVALUL DE TERMEN SE COMPARA CA ZI DE CALENDAR, nu ca moment: `due_date`
-        // este o coloana `date`, iar capetele sunt siruri `yyyy-mm-dd` curatate de
-        // parseTaskQuery. Amandoua capetele sunt INCLUSE, fiindca un operator care scrie
-        // acelasi termen in amandoua casutele cere ziua aceea si nu o lista goala.
-        if (query.dueFrom !== "") request = request.gte("due_date", query.dueFrom);
-        if (query.dueTo !== "") request = request.lte("due_date", query.dueTo);
-      }
-
-      for (const { column, ascending } of orderBy(query)) {
-        // TERMENUL FARA VALOARE STA LA SFARSIT IN AMANDOUA DIRECTIILE, prin nullsFirst
-        // false. O sarcina fara termen nu este nici cea mai apropiata, nici cea mai
-        // indepartata: nu are zi, deci nu are loc in ordinea zilelor, iar lista o aseaza
-        // sub capul ei de grup "Fără termen" oricum.
-        request = request.order(column, { ascending, nullsFirst: false });
-      }
-
-      return request.range(from, to);
-    };
+    (from: number, to: number) =>
+      narrowAndOrder(begin(), query).range(from, to);
   // O schimbare de termen a unui coleg muta un rand peste marginea paginii: citirea
   // pe mai multe pagini se reia (readAllPages). Dublura ramasa se scoate, ordinea ramane.
   const rows = await readAllPages<T>(
@@ -128,6 +145,27 @@ export async function readTaskRows<T extends { id: string }>(
     startIds && pageOf(startIds),
   );
   return dedupeById(rows);
+}
+
+/**
+ * P3-315. O SINGURA pagina de sarcini (50), cu totalul in aceeasi cerere, pentru lista
+ * Finalizate si Anulate: acestea se aduna si nu se sterg, deci nu se citesc intregi. Aceleasi
+ * filtre si aceeasi ordine ca readTaskRows, prin narrowAndOrder. O pagina dincolo de capat
+ * aduce ultima (readPage).
+ */
+export async function readTaskPage<T extends { id: string }>(
+  start: TaskReadStart<T>,
+  query: TaskListQuery,
+  page: number,
+  size: number = LIST_PAGE_SIZE,
+): Promise<PageRead<T>> {
+  const read = await readPage<T>(
+    "sarcinile",
+    (from, to) => narrowAndOrder(start(), query).range(from, to),
+    page,
+    size,
+  );
+  return { ...read, rows: dedupeById(read.rows) };
 }
 
 /** Toate sarcinile unei inregistrari, pe pagini, cele mai noi intai. */

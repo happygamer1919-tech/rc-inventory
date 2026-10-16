@@ -63,7 +63,7 @@ import {
 } from "./tasks-map";
 import { closedProjectLabel, taskLinkKey, type TaskLinkChoiceLike } from "./tasks-shape";
 import type { Task, TaskEntityType, TaskListQuery } from "./tasks-types";
-import { readEntityTaskRows, readTaskRows, type TaskReadQuery } from "./tasks-read";
+import { readEntityTaskRows, readTaskPage, readTaskRows, type TaskReadQuery } from "./tasks-read";
 
 // NUMELE COLOANELOR SE SCRIU AICI, intr-un fisier care trece pe langa poarta, si
 // nu in lib/data/tasks-types.ts, care nu are ce sa apere cu una.
@@ -189,6 +189,24 @@ export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
     readNames(supabase),
   ]);
   return rows.map((row) => toTask(row, names));
+}
+
+/**
+ * P3-315. O pagina de 50 de sarcini, pentru listele Finalizate si Anulate (taskListIsPaged),
+ * cu totalul listei. Pagina ceruta dincolo de capat aduce ultima.
+ */
+export async function listTasksPage(
+  query: TaskListQuery,
+  page: number,
+): Promise<{ rows: Task[]; total: number; page: number }> {
+  const supabase = await createClient();
+  if (!(await hasTasks(supabase))) return { rows: [], total: 0, page: 1 };
+
+  const [read, names] = await Promise.all([
+    readTaskPage<TaskRow>(() => startRead(supabase), query, page),
+    readNames(supabase),
+  ]);
+  return { rows: read.rows.map((row) => toTask(row, names)), total: read.total, page: read.page };
 }
 
 /** O sarcina, dupa id, sau null cand nu exista. */
