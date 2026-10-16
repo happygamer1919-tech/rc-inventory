@@ -106,13 +106,23 @@ async function seedProduct(
 }
 
 /** UN PRODUS CARE S-A MISCAT: o comanda de intrare cu o linie pe produs. Aceeasi
- *  definitie ca lib/data/product-movement.ts (lot, linie de comanda sau de iesire). */
+ *  definitie ca lib/data/product-movement.ts (lot, linie de comanda sau de iesire).
+ *  Din 0087 (cardul P3-312) comanda si linia ei se scriu numai prin functia
+ *  ecranului Comanda noua, nu direct pe tabele. */
 async function moveProduct(rest: OwnerRest, productId: string, label: string): Promise<void> {
-  const orderId = await restInsert(rest, "inbound_orders", {
-    reference: `${SKU_PREFIX}-IN-${label}`,
-    supplier_name: `TEST ${RUN} furnizor`,
+  const created = await rest.api.post("/rest/v1/rpc/create_inbound_order", {
+    headers: rest.headers,
+    data: {
+      p_reference: `${SKU_PREFIX}-IN-${label}`,
+      p_supplier_name: `TEST ${RUN} furnizor`,
+      p_currency: "MDL",
+      p_ordered_at: null,
+      p_expected_at: "2026-10-20",
+      p_total_mdl: 0,
+      p_lines: [{ product_id: productId, quantity: 5 }],
+    },
   });
-  await restInsert(rest, "order_lines", { inbound_order_id: orderId, product_id: productId, quantity: 5 });
+  expect(created.status(), await created.text()).toBe(200);
 }
 
 type StoredProduct = {

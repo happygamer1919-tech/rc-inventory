@@ -383,30 +383,38 @@ async function historyOf(entityId: string): Promise<Record<string, unknown>[]> {
 
 test("loturi: un cont dezactivat nu poate adauga un lot si nu mai vede niciunul", async () => {
   const { id, token } = await newDeactivatableAccount("lot");
-  const { orderId, lineIds } = await orderWithLines(`${TAG}-LOT`, 2);
+  const witnessOrder = await orderWithLines(`${TAG}-LOT-MARTOR`, 1);
+  const { orderId, lineIds } = await orderWithLines(`${TAG}-LOT`, 1);
 
-  // MARTORII: activ, contul adauga un lot direct pe tabela si il citeste.
-  const added = await asUser(token, "batches?select=id", {
+  // MARTORII: activ, contul adauga un lot prin receptie si il citeste. Din 0087
+  // (cardul P3-312) un lot nu se mai scrie direct pe tabela, nici de un cont
+  // activ: numai receptia il creeaza (stock-only-through-reception.spec).
+  const received = await asUser(token, "rpc/receive_inbound_order", {
     method: "POST",
-    body: { product_id: productId, inbound_order_id: orderId, order_line_id: lineIds[0], quantity: 5 },
+    body: { p_order_id: witnessOrder.orderId },
   });
-  expect(added.ok, `profil activ: contul nu a putut adauga un lot: ${added.status} ${added.text}`).toBe(true);
-  const witness = await asUser(token, `batches?select=id&inbound_order_id=eq.${orderId}`);
+  expect(received.ok, `profil activ: receptia a fost refuzata: ${received.status} ${received.text}`).toBe(true);
+  const witness = await asUser(token, `batches?select=id&inbound_order_id=eq.${witnessOrder.orderId}`);
   expect(witness.rows, "profil activ: contul vede lotul").toHaveLength(1);
 
   await deactivate(id);
   const before = await batchesOf(orderId);
-  expect(before, "un lot inainte de refuz").toHaveLength(1);
+  expect(before, "niciun lot inainte de refuz").toEqual([]);
 
   // Un lot nou ar ridica stocul: stocul este loturi minus pozitii de iesire.
   const refused = await asUser(token, "batches?select=id", {
     method: "POST",
-    body: { product_id: productId, inbound_order_id: orderId, order_line_id: lineIds[1], quantity: 5 },
+    body: { product_id: productId, inbound_order_id: orderId, order_line_id: lineIds[0], quantity: 5 },
   });
   expect(refused.ok, "profil dezactivat: contul a ADAUGAT un lot").toBe(false);
+  const refusedReceive = await asUser(token, "rpc/receive_inbound_order", {
+    method: "POST",
+    body: { p_order_id: orderId },
+  });
+  expect(refusedReceive.ok, "profil dezactivat: contul a RECEPTIONAT o comanda").toBe(false);
   expect(await batchesOf(orderId), "loturile sunt exact cele de dinainte").toEqual(before);
 
-  const blind = await asUser(token, `batches?select=id&inbound_order_id=eq.${orderId}`);
+  const blind = await asUser(token, `batches?select=id&inbound_order_id=eq.${witnessOrder.orderId}`);
   expect(blind.status, "profil dezactivat: citirea raspunde tot 200").toBe(200);
   expect(blind.rows, "profil dezactivat: niciun lot").toEqual([]);
 });
@@ -447,8 +455,9 @@ test("istoricul starilor: un cont dezactivat nu poate citi si nici adauga un ran
 
 test("loturi si istoric: un operator activ lucreaza ca inainte, si pe randurile altcuiva", async () => {
   // CE NU TREBUIE SA SE SCHIMBE: un cont activ vede loturile si istoricul scrise
-  // de altcineva (aici cheia de serviciu), si adauga un lot. Istoric direct nu mai
-  // adauga, din 0084 (P3-277).
+  // de altcineva (aici cheia de serviciu), si adauga un lot prin receptie. Istoric
+  // direct nu mai adauga, din 0084 (P3-277); lot direct nu mai adauga, din 0087
+  // (P3-312).
   const { token } = await newDeactivatableAccount("lot-activ");
   const { orderId, lineIds } = await orderWithLines(`${TAG}-LOT-ACTIV`, 2);
 
@@ -472,7 +481,9 @@ test("loturi si istoric: un operator activ lucreaza ca inainte, si pe randurile 
     method: "POST",
     body: { product_id: productId, inbound_order_id: orderId, order_line_id: lineIds[1], quantity: 5 },
   });
-  expect(addBatch.ok, `profil activ: lotul a fost refuzat: ${addBatch.text}`).toBe(true);
+  // P3-312 (0087): un lot scris direct este refuzat si contului activ. Numai
+  // receptia creeaza loturi, din pozitiile comenzii.
+  expect(addBatch.ok, "profil activ: contul a SCRIS DIRECT un lot").toBe(false);
   // P3-277 (0084): un rand de istoric scris direct este refuzat si contului activ.
   // Istoricul il scriu numai functiile care schimba starea, odata cu schimbarea.
   const addHistory = await asUser(token, "status_history?select=id", {
@@ -481,6 +492,12 @@ test("loturi si istoric: un operator activ lucreaza ca inainte, si pe randurile 
   });
   expect(addHistory.ok, "profil activ: contul a SCRIS DIRECT un rand de istoric").toBe(false);
   expect(addHistory.text, "refuzul spune de ce, in romana").toContain("Istoricul stărilor se scrie numai");
-  expect(await batchesOf(orderId), "doua loturi").toHaveLength(2);
+  expect(await batchesOf(orderId), "un singur lot, cel scris de cheia de serviciu").toHaveLength(1);
   expect(await historyOf(orderId), "un singur rand de istoric, cel scris de cheia de serviciu").toHaveLength(1);
+
+  // Receptia adauga lotul pozitiei care nu il avea, ca inainte.
+  const received = await asUser(token, "rpc/receive_inbound_order", { method: "POST", body: { p_order_id: orderId } });
+  expect(received.ok, `profil activ: receptia a fost refuzata: ${received.text}`).toBe(true);
+  expect(received.rows[0], "receptia a creat lotul lipsa").toEqual({ created_batches: 1, already_arrived: false });
+  expect(await batchesOf(orderId), "doua loturi dupa receptie").toHaveLength(2);
 });

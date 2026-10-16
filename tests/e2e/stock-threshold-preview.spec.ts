@@ -101,6 +101,13 @@ async function insertRows(
   return (await response.json()) as Record<string, unknown>[];
 }
 
+/** Un apel de functie al aplicatiei, cu jetonul proprietarului. */
+async function callRpc(rest: OwnerRest, fn: string, args: Record<string, unknown>): Promise<unknown> {
+  const response = await rest.api.post(`/rest/v1/rpc/${fn}`, { headers: rest.headers, data: args });
+  expect(response.status(), `${fn}: ${await response.text()}`).toBe(200);
+  return response.json();
+}
+
 async function patchRows(rest: OwnerRest, path: string, data: unknown): Promise<void> {
   const response = await rest.api.patch(`/rest/v1/${path}`, {
     headers: { ...rest.headers, Prefer: "return=minimal" },
@@ -188,8 +195,8 @@ test.beforeAll(async () => {
   );
 
   // Al saptelea: prag zero si stoc zece, deci NU este sub prag. Stocul este suma
-  // loturilor, iar un lot cere o comanda si o linie de comanda, exact ca la
-  // receptia din aplicatie.
+  // loturilor, iar un lot cere o comanda si o linie de comanda. Din 0087 (cardul
+  // P3-312) le scriu numai functiile aplicatiei, ca la receptia din ecran.
   const [stocked] = await insertRows(rest, "products", {
     sku: STOCKED_SKU,
     name: `TEST Prag ${RUN} cu stoc`,
@@ -200,26 +207,16 @@ test.beforeAll(async () => {
   });
   const productId = stocked!.id as string;
 
-  const [order] = await insertRows(rest, "inbound_orders", {
-    reference: `${TAG}-IN`,
-    supplier_name: `TEST Furnizor ${RUN}`,
-    status: "arrived",
-    arrived_at: new Date().toISOString(),
+  const orderId = await callRpc(rest, "create_inbound_order", {
+    p_reference: `${TAG}-IN`,
+    p_supplier_name: `TEST Furnizor ${RUN}`,
+    p_currency: "MDL",
+    p_ordered_at: null,
+    p_expected_at: "2026-10-20",
+    p_total_mdl: 0,
+    p_lines: [{ product_id: productId, quantity: 10 }],
   });
-  const orderId = order!.id as string;
-
-  const [line] = await insertRows(rest, "order_lines", {
-    inbound_order_id: orderId,
-    product_id: productId,
-    quantity: 10,
-  });
-
-  await insertRows(rest, "batches", {
-    product_id: productId,
-    inbound_order_id: orderId,
-    order_line_id: line!.id as string,
-    quantity: 10,
-  });
+  await callRpc(rest, "receive_inbound_order", { p_order_id: orderId });
 
   // Tot ce este activ si nu este al nostru se stinge, si se noteaza dupa id.
   const others = await getRows(rest, `products?select=id&active=eq.true&sku=not.like.${TAG}-*`);

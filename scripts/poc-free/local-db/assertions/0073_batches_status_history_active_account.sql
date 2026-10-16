@@ -9,6 +9,11 @@
 --      delete policy: the table stays append-only.
 --   3. public.outbound_lines keeps the four policies of 0070: this card does not
 --      touch it.
+--   Since 0087 (card P3-312) batches_update is gone, so public.batches has
+--   THREE policies, and batches_insert also requires the rc.inbound_receive
+--   flag; it still tests current_app_role() is not null, which is what this
+--   file checks. A batches_update that comes back must still be owner only.
+--   assertions/0087 checks the new shape in detail.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
 -- proves the policies EXIST with the right predicate and cannot prove what they
@@ -33,8 +38,8 @@ begin
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'batches';
-  if n <> 4 then
-    raise exception 'P3-179: expected exactly 4 policies on public.batches, found %', n;
+  if n <> 3 then
+    raise exception 'P3-179: expected exactly 3 policies on public.batches (4 until 0087 dropped batches_update), found %', n;
   end if;
 
   select count(*) into n
@@ -64,18 +69,22 @@ begin
     if txt not ilike '%current_app_role()%is not null%' then
       raise exception 'P3-179: policy % must test current_app_role() is not null, found %', pol, txt;
     end if;
-    if txt ~* '(^|[ (|])true($|[ )|])' then
+    -- A bare true is `true` on its own or in parentheses. Since 0087 (P3-312)
+    -- batches_insert reads current_setting('rc.inbound_receive', true), and that
+    -- argument, after a comma, is not a bare true.
+    if txt ~* '(^|[(|] ?)true( ?[)|]|$)' then
       raise exception 'P3-179: policy % still carries a bare true, found %', pol, txt;
     end if;
   end loop;
 
-  -- --- 1. owner-only update and delete on batches unchanged ------------------
+  -- --- 1. no update wider than the owner, delete owner only ----------------
+  -- 0087 (P3-312) dropped batches_update: nobody signed in changes a batch.
   select coalesce(qual, '') || ' | ' || coalesce(with_check, '') into txt
   from pg_policies
   where schemaname = 'public' and tablename = 'batches'
     and policyname = 'batches_update' and cmd = 'UPDATE';
-  if txt is null or txt not ilike '%is_owner()%|%is_owner()%' then
-    raise exception 'P3-179: batches_update must stay on is_owner() on both sides, found %', coalesce(txt, 'nothing');
+  if txt is not null and txt not ilike '%is_owner()%|%is_owner()%' then
+    raise exception 'P3-179: batches_update, if present, must stay on is_owner() on both sides, found %', txt;
   end if;
 
   select qual into txt

@@ -35,6 +35,13 @@
 --   4. THE OWNER is guarded too: an UPDATE of total_mdl and an UPDATE of status
 --      are refused.
 --
+-- SINCE 0087 (card P3-312), three things here changed on purpose and the file
+-- follows them: order_lines has THREE policies (order_lines_update is gone, and
+-- order_lines_insert also needs the rc.inbound_lines flag and a pending order),
+-- so an active account no longer inserts an order or a line directly (42501) and
+-- its direct UPDATE of a line touches no row. Both used to be witnesses here.
+-- assertions/0087 checks the new rules in detail.
+--
 -- Refusals are read by SQLSTATE. Everything runs inside a transaction that is
 -- rolled back.
 
@@ -54,11 +61,22 @@ declare
 begin
   foreach tbl in array array['inbound_orders', 'order_lines', 'reminders'] loop
     select count(*) into n from pg_policies where schemaname = 'public' and tablename = tbl;
-    if n <> 4 then
-      raise exception 'P3-180: expected exactly 4 policies on public.%, found %', tbl, n;
+    if n <> (case when tbl = 'order_lines' then 3 else 4 end) then
+      raise exception 'P3-180: expected exactly % policies on public.%, found %',
+        case when tbl = 'order_lines' then 3 else 4 end, tbl, n;
     end if;
 
-    foreach v_cmd in array array['SELECT', 'INSERT', 'UPDATE'] loop
+    -- 0087 (P3-312): nobody signed in updates an order line.
+    if tbl = 'order_lines' then
+      select count(*) into n from pg_policies
+      where schemaname = 'public' and tablename = tbl and cmd in ('UPDATE', 'ALL');
+      if n <> 0 then
+        raise exception 'P3-312: public.order_lines gained an update policy again';
+      end if;
+    end if;
+
+    foreach v_cmd in array case when tbl = 'order_lines' then array['SELECT', 'INSERT']
+                                else array['SELECT', 'INSERT', 'UPDATE'] end loop
       select coalesce(p.qual, '') || ' | ' || coalesce(p.with_check, '') into txt
       from pg_policies p
       where p.schemaname = 'public' and p.tablename = tbl
@@ -72,7 +90,10 @@ begin
       if txt not ilike '%current_app_role()%is not null%' then
         raise exception 'P3-180: %_% must test current_app_role() is not null, found %', tbl, lower(v_cmd), txt;
       end if;
-      if txt ~* '(^|[ (|])true($|[ )|])' then
+      -- A bare true is `true` on its own or in parentheses. Since 0087 (P3-312)
+      -- order_lines_insert reads current_setting('rc.inbound_lines', true), and
+      -- that argument, after a comma, is not a bare true.
+      if txt ~* '(^|[(|] ?)true( ?[)|]|$)' then
         raise exception 'P3-180: %_% still carries a bare true, found %', tbl, lower(v_cmd), txt;
       end if;
     end loop;
@@ -443,16 +464,24 @@ declare
 begin
   -- 2. the witnesses: while active the account did all of it
   foreach k in array array['w_read_order', 'w_read_line', 'w_read_reminder',
-                           'w_update_order', 'w_update_line', 'w_update_reminder'] loop
+                           'w_update_order', 'w_update_reminder'] loop
     if current_setting('p3_180.' || k) <> '1' then
       raise exception 'P3-180: witness % saw %, expected 1 row while active', k, current_setting('p3_180.' || k);
     end if;
   end loop;
-  foreach k in array array['w_create', 'w_insert', 'w_insert_reminder'] loop
+  foreach k in array array['w_create', 'w_insert_reminder'] loop
     if current_setting('p3_180.' || k) <> 'accepted' then
       raise exception 'P3-180: witness % was refused while active: %', k, current_setting('p3_180.' || k);
     end if;
   end loop;
+  -- 0087 (P3-312): a direct order or line insert and a direct line update are
+  -- refused even while active. Only the two order functions add them.
+  if current_setting('p3_180.w_insert') not like '42501%' then
+    raise exception 'P3-312: an active account inserted an order and a line directly: %', current_setting('p3_180.w_insert');
+  end if;
+  if current_setting('p3_180.w_update_line') <> '0' then
+    raise exception 'P3-312: an active account updated % order line(s) directly', current_setting('p3_180.w_update_line');
+  end if;
 
   -- 2. switched off: nothing read, nothing written
   foreach k in array array['d_read_order', 'd_read_line', 'd_read_reminder',
@@ -474,7 +503,8 @@ begin
   select o.supplier_name, o.status::text, l.unit_price::text into row_
   from public.inbound_orders o join public.order_lines l on l.inbound_order_id = o.id
   where o.reference = 'TEST-P3180-SEED';
-  if row_.supplier_name <> 'TEST furnizor martor' or row_.unit_price <> '11.00' or row_.status <> 'pending_arrival' then
+  -- unit_price stays 10.00: since 0087 the active witness could not change it either.
+  if row_.supplier_name <> 'TEST furnizor martor' or row_.unit_price <> '10.00' or row_.status <> 'pending_arrival' then
     raise exception 'P3-180: the switched off account changed the seed order: % % %',
       row_.supplier_name, row_.unit_price, row_.status;
   end if;
