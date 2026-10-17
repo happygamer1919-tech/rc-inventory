@@ -11,7 +11,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
-import { formatDate, formatMoney, formatNumber } from "@/lib/data/format";
+import { formatTimestampDate, formatMoney, formatNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
 import type { InboundBatch, InboundOrder } from "@/lib/data/inbound-types";
@@ -223,7 +223,7 @@ export function InboundPanel({
                   </Td>
                   <Td align="right" data-label="Recepționat" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] text-rc-muted">
-                      {formatDate(b.arrivedAt)}
+                      {formatTimestampDate(b.arrivedAt)}
                     </span>
                   </Td>
                 </tr>
@@ -255,7 +255,7 @@ export function InboundPanel({
               <p className="text-[13px] font-semibold">
                 {INBOUND_STATUS_LABEL[e.toStatus as "pending_arrival" | "arrived"] ?? e.toStatus}
               </p>
-              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatDate(e.at)}</p>
+              <p className="rc-num text-[11.5px] text-rc-muted-2 mt-0.5">{formatTimestampDate(e.at)}</p>
               {e.note ? (
                 <p className="text-[12.5px] text-rc-muted mt-1 leading-relaxed">{e.note}</p>
               ) : null}

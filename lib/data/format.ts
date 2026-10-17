@@ -136,6 +136,16 @@ export function chisinauDateOf(at: Date | string): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
+/** P3-316. Un `timestamptz` ca zi.luna.an, ziua din Chisinau. `formatDate` taie
+ *  sirul la `T`, deci pentru un moment in UTC arata ziua UTC (2026-12-31T22:30Z
+ *  ar iesi 31.12.2026, iar in Chisinau este deja 01.01.2027). Coloanele `date`,
+ *  fara ora, raman la `formatDate`. */
+export function formatTimestampDate(iso: string | null): string {
+  if (!iso) return "-";
+  if (Number.isNaN(new Date(iso).getTime())) return formatDate(iso);
+  return formatDate(chisinauDateOf(iso));
+}
+
 /** Azi in Chisinau, `YYYY-MM-DD`.
  *
  *  SE COMPARA CA SIR CU COLOANE `date`, SI ASA TREBUIE SA RAMANA. Data de reluare

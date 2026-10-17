@@ -9692,3 +9692,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** performance
 **ERROR:** `app/(app)/sarcini/page.tsx` called `listTasks` with no status condition. Finished and cancelled tasks stay in the table for good, so the read (and the list on screen) grew with every task ever closed. P3-153 had paged Inventar and Comenzi but not this screen.
 **SOLUTION:** no `stare` in the address now means open (status not done, not cancelled, filtered in the query); `?stare=done` and `?stare=cancelled` read one page of 50 with the exact count (`readTaskPage`, the P3-153 `readPage` and `Pager`); `?stare=toate` keeps the old whole list. Filter and ordering moved into one function (`narrowAndOrder`) shared by the whole read and the page read. Specs that cancelled a task on screen and expected it to stay on the default list now open `?stare=toate`. RULE: **a list over rows that are only ever closed, never deleted, must default to the open ones and page the closed ones; and when a default changes, every spec that relied on the old default is found with a grep on the screen's test ids, then fixed, not skipped.**
+
+### P3-316: formatDate showed the UTC day for a timestamptz
+**Tag:** frontend
+**ERROR:** `formatDate` cuts the string at `T`, so `issued_at` (UTC) of 2026-12-31T22:30Z showed 31.12.2026 although it is already 01.01.2027 in Chisinau. Slips, the orders list and the home feed all used it on timestamps.
+**SOLUTION:** new `formatTimestampDate` (`formatDate` of `chisinauDateOf`) for every `timestamptz` on screen; `date` columns keep `formatDate`. RULE: **`formatDate` is for columns of type date only; a timestamp goes through the Chisinau day first.**
