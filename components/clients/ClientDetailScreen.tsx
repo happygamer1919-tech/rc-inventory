@@ -37,7 +37,7 @@ import {
   type ClientOwnerChoice,
   type ClientTimelineEntry,
 } from "@/lib/data/clients-types";
-import { formatDate } from "@/lib/data/format";
+import { formatDate, formatTimestampDate } from "@/lib/data/format";
 import { setClientActive } from "@/lib/data/client-actions";
 import { ClientForm } from "./ClientForm";
 import { ClientNotesPanel } from "./ClientNotesPanel";
@@ -283,7 +283,7 @@ export function ClientDetailScreen({
           <Row label="Email" value={client.email} />
           <Row label="Adresă" value={client.address} />
           <Row label="Note" value={client.notes} />
-          <Row label="Adăugat" value={formatDate(client.createdAt)} />
+          <Row label="Adăugat" value={formatTimestampDate(client.createdAt)} />
           <div className={`flex gap-4 py-2.5 ${PHONE_ROW_PAIR}`}>
             <span className={`w-[160px] shrink-0 text-[12.5px] font-semibold text-rc-muted ${PHONE_ROW_LABEL}`}>
               Stare

@@ -9702,3 +9702,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** P3-316 named `tests/format-timestamp-date.test.ts` as green in the quality run. `playwright.config.ts` scans only `./tests/e2e`, package.json `test` runs only `tests/format.test.ts`, and quality.yml has no `npm test` step, so the file never ran in CI; the four cases had only been run by hand with tsx.
 **SOLUTION:** the file became `tests/e2e/format-timestamp-date.spec.ts` (same four cases and values, pure function checks with `test` and `expect` from `@playwright/test`), and the old file was deleted. RULE: **an acceptance that names a test file is checked with `npx playwright test --list <file>` before the card is called done; a file outside `tests/e2e` is not a CI test.**
+
+### P3-318: three screens and two columns still used formatDate on a timestamp
+**Tag:** frontend
+**ERROR:** P3-316 moved slips, orders, inbound and the home feed to `formatTimestampDate` but missed `created_at` on the client page, the project page and the documents panel, plus `created_at` (history) and `issued_at` in `ProjectTabs`. A client added at 01:30 Chisinau time on the 1st showed the 31st. The task text also named P3-317 as the card id, which was taken on main before the push.
+**SOLUTION:** the five spots moved to `formatTimestampDate`; `tests/e2e/format-timestamp-date.spec.ts` asserts them. `npm run id:free` gave P3-318. RULE: **after adding a helper that replaces another, grep for every caller of the old one on a timestamp field (`createdAt|updatedAt|uploadedAt|issuedAt`), not only the screens named in the card; and an id in a task file is a hint, `id:free` decides.**

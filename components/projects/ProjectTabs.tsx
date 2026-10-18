@@ -15,7 +15,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardHeader, Chip, EmptyState, Table, Td, Th } from "@/components/ui/primitives";
-import { formatDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { OUTBOUND_STATUS_LABEL, type OutboundStatus } from "@/lib/data/outbound-types";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
@@ -169,7 +169,7 @@ export function ProjectTabs({
                           <span className="font-semibold text-rc-black">{r.reference}</span>
                         </Td>
                         <Td data-label="Data" className={PHONE_CELL}>
-                          {r.issuedAt ? formatDate(r.issuedAt) : "-"}
+                          {r.issuedAt ? formatTimestampDate(r.issuedAt) : "-"}
                         </Td>
                         <Td data-label="Stare" className={PHONE_CELL}>
                           <Chip tone={r.status === "shipped" ? "ok" : "neutral"}>
@@ -458,7 +458,7 @@ export function ProjectTabs({
                         </span>
                       </Td>
                       <Td data-label="Notă" className={PHONE_WIDE}>{h.note ?? "-"}</Td>
-                      <Td data-label="Când" className={PHONE_WIDE}>{formatDate(h.createdAt)}</Td>
+                      <Td data-label="Când" className={PHONE_WIDE}>{formatTimestampDate(h.createdAt)}</Td>
                     </tr>
                   ))}
                 </tbody>
