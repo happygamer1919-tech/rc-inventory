@@ -8,6 +8,6 @@ Changed (all `formatDate` to `formatTimestampDate`):
 
 Pure date columns (start, planned end, follow-up, next action) stay on `formatDate`.
 
-Test: `tests/format-timestamp-date.test.ts` (2026-10-31T23:30Z gives 01.11.2026; source check of the five spots).
+Test: `tests/e2e/format-timestamp-date.spec.ts` (2026-10-31T23:30Z gives 01.11.2026; source check of the five spots).
 Card id: the task said P3-317; `npm run id:free` reported it taken and gave P3-318.
 No migration.
