@@ -7602,6 +7602,31 @@
         "at": "2026-10-16T23:37:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-16 by EXECUTOR in the same pull request. Source: Fable bug check of 2026-10-16 20:57Z; the finding file sits outside the executor folders, so the card was built from the task text and the code."
+    },
+    {
+      "id": "P3-317",
+      "title": "The Chisinau day test of P3-316 runs in the pull request quality run. tests/format-timestamp-date.test.ts sat outside the folder Playwright scans (tests/e2e) and no npm script or workflow step ran it, so P3-316 acceptance (a) could not have been met. It is now tests/e2e/format-timestamp-date.spec.ts, four pure function checks with no page or browser.",
+      "plain": "Verificarea că datele arată ziua din Chișinău rulează acum la fiecare modificare, nu doar manual.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-316"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED E2E: tests/e2e/format-timestamp-date.spec.ts is green in this pull request's quality run on the head sha, four tests run and none skipped; tests/format-timestamp-date.test.ts no longer exists. (b) `npx tsc --noEmit` and `npm run build` exit 0. (c) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (d) No file under supabase/migrations/ is added or changed.",
+      "defaults": "The four cases and their expected values are unchanged, only the file moves and imports test and expect from @playwright/test. formatTimestampDate, quality.yml and playwright.config.ts are untouched. The other eight parked test files outside tests/e2e stay parked, including the red tests/price-input.test.ts. The hasPhase3Schema gate and the lead PageHeader prop stay as they are. No migration.",
+      "last_checkpoint": "2026-10-18T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-317 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-18-executor-timestamp-test-ci.md",
+        "at": "2026-10-18T12:00:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-18 by EXECUTOR in the same pull request. Source: bug check of 2026-10-18, which found P3-316 acceptance (a) named a test no CI step ran. The spec cannot run locally here: playwright.config.ts globalSetup and webServer need the database, so the first real run is the quality run."
     }
   ]
 }

@@ -9697,3 +9697,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** frontend
 **ERROR:** `formatDate` cuts the string at `T`, so `issued_at` (UTC) of 2026-12-31T22:30Z showed 31.12.2026 although it is already 01.01.2027 in Chisinau. Slips, the orders list and the home feed all used it on timestamps.
 **SOLUTION:** new `formatTimestampDate` (`formatDate` of `chisinauDateOf`) for every `timestamptz` on screen; `date` columns keep `formatDate`. RULE: **`formatDate` is for columns of type date only; a timestamp goes through the Chisinau day first.**
+
+### P3-317: the P3-316 test sat where no CI step runs it
+**Tag:** testing
+**ERROR:** P3-316 named `tests/format-timestamp-date.test.ts` as green in the quality run. `playwright.config.ts` scans only `./tests/e2e`, package.json `test` runs only `tests/format.test.ts`, and quality.yml has no `npm test` step, so the file never ran in CI; the four cases had only been run by hand with tsx.
+**SOLUTION:** the file became `tests/e2e/format-timestamp-date.spec.ts` (same four cases and values, pure function checks with `test` and `expect` from `@playwright/test`), and the old file was deleted. RULE: **an acceptance that names a test file is checked with `npx playwright test --list <file>` before the card is called done; a file outside `tests/e2e` is not a CI test.**

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { formatTimestampDate } from "../lib/data/format";
+import { formatTimestampDate } from "../../lib/data/format";
 
 test("P3-316: 2026-12-31T22:30Z shows 01.01.2027 (Chisinau day, not UTC day)", () => {
   expect(formatTimestampDate("2026-12-31T22:30:00Z")).toBe("01.01.2027");
