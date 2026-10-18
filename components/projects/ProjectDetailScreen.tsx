@@ -22,7 +22,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, CardHeader, Chip, PageHeader, Select } from "@/components/ui/primitives";
-import { formatDate, formatMoney } from "@/lib/data/format";
+import { formatDate, formatMoney, formatTimestampDate } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from "@/lib/data/projects-types";
 import {
   ALL_STATUSES,
@@ -188,7 +188,7 @@ export function ProjectDetailScreen({
               }
             />
             <Row label="Note" value={project.notes?.trim() || "-"} />
-            <Row label="Adăugat" value={formatDate(project.createdAt)} />
+            <Row label="Adăugat" value={formatTimestampDate(project.createdAt)} />
           </div>
         </Card>
 

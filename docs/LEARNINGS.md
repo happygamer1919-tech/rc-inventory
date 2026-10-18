@@ -9697,3 +9697,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** frontend
 **ERROR:** `formatDate` cuts the string at `T`, so `issued_at` (UTC) of 2026-12-31T22:30Z showed 31.12.2026 although it is already 01.01.2027 in Chisinau. Slips, the orders list and the home feed all used it on timestamps.
 **SOLUTION:** new `formatTimestampDate` (`formatDate` of `chisinauDateOf`) for every `timestamptz` on screen; `date` columns keep `formatDate`. RULE: **`formatDate` is for columns of type date only; a timestamp goes through the Chisinau day first.**
+
+### P3-318: three screens and two columns still used formatDate on a timestamp
+**Tag:** frontend
+**ERROR:** P3-316 moved slips, orders, inbound and the home feed to `formatTimestampDate` but missed `created_at` on the client page, the project page and the documents panel, plus `created_at` (history) and `issued_at` in `ProjectTabs`. A client added at 01:30 Chisinau time on the 1st showed the 31st. The task text also named P3-317 as the card id, which was already taken.
+**SOLUTION:** the five spots moved to `formatTimestampDate`; `tests/format-timestamp-date.test.ts` asserts them. `npm run id:free` gave P3-318. RULE: **after adding a helper that replaces another, grep for every caller of the old one on a timestamp field (`createdAt|updatedAt|uploadedAt|issuedAt`), not only the screens named in the card; and an id in a task file is a hint, `id:free` decides.**

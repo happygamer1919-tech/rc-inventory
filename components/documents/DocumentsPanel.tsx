@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/phone";
 import { createClient } from "@/lib/supabase/client";
 import { DOCS_BUCKET } from "@/lib/data/inbound-types";
-import { formatDate, plural } from "@/lib/data/format";
+import { formatTimestampDate, plural } from "@/lib/data/format";
 import {
   confirmDocumentUpload,
   deleteDocument,
@@ -358,7 +358,7 @@ function DocumentList({ documents, canWrite }: { documents: DocumentsView; canWr
               </Td>
               <Td data-label="Tip" className={PHONE_CELL}>{DOCUMENT_KIND_LABEL[d.kind]}</Td>
               <Td align="right" data-label="Mărime" className={PHONE_CELL}>{formatBytes(d.sizeBytes)}</Td>
-              <Td data-label="Încărcat la" className={PHONE_WIDE}>{formatDate(d.createdAt)}</Td>
+              <Td data-label="Încărcat la" className={PHONE_WIDE}>{formatTimestampDate(d.createdAt)}</Td>
               <Td align="right" className={PHONE_ACTIONS_CELL}>
                 {confirming === d.id ? (
                   <span className="inline-flex items-center gap-2 max-md:flex-wrap">
