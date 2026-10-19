@@ -9777,3 +9777,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** `npx playwright test tests/e2e/guide-pdf.spec.ts` hit the 120 s limit: `playwright.config.ts` starts a production build and servers that need the local database stack.
 **SOLUTION:** a throwaway config with only `testDir` and `testMatch` ran the file-reading spec (7 passed), then was deleted. RULE: **a spec that reads files only can be run locally with a minimal config; never commit that config.**
+
+### P3-325: adding a screen to NAV changes its top bar title
+**Tag:** navigation
+**ERROR:** `labelForPath` walks NAV first, so once `/ajutor` joined NAV its top bar title would have turned from "Suport și Ghid" into the menu label "Ajutor", and ajutor.spec case 1 would have failed.
+**SOLUTION:** the `/ajutor` check now runs before the walk. RULE: **when a menu label differs from the page title, the special case in `labelForPath` must come before the NAV walk, not after it.**
