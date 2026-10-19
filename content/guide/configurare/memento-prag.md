@@ -12,6 +12,16 @@ steps:
   - "Apasă **Salvează modificările**."
 screenshots: [memento-prag]
 see_also: [memento-vezi, produs-modifica]
+screen: /memento
+account: owner
+before:
+  - "click [data-testid='threshold-edit-link']"
+  - "wait [data-testid='product-form']"
+  - "fill [data-testid='field-threshold'] => 10"
+marks:
+  - "3 role=heading[name='Modifică produsul']"
+  - "4 [data-testid='field-threshold']"
+  - "5 [data-testid='form-submit']"
 ---
 
 Pragul decide când pleacă emailul de stoc scăzut.

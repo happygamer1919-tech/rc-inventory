@@ -13,6 +13,21 @@ steps:
   - "Mai jos, **Sarcini scadente azi** arată sarcinile cu termenul azi."
 screenshots: [azi-lista]
 see_also: [crm-sectiuni, sarcina-noua]
+screen: /azi
+account: owner
+before:
+  - "click [data-testid='azi-called']"
+  - "fill [data-testid='note-body'] => Am sunat. Vrea oferta pentru țiglă metalică, revine luni."
+marks:
+  - "1 #rc-sidebar a[href='/azi']"
+  - "2 [data-testid='azi-next-action']"
+  - "2 [data-testid='azi-overdue']"
+  - "3 [data-testid='azi-name']"
+  - "3 [data-testid='azi-call']"
+  - "4 [data-testid='azi-called']"
+  - "5 [data-testid='note-body']"
+  - "5 [data-testid='note-save']"
+  - "6 [data-testid='azi-tasks']"
 ---
 
 Lista Azi arată leadurile și clienții de sunat azi, cei întârziați primii, în roșu.

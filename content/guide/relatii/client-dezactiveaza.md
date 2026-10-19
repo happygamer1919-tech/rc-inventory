@@ -12,6 +12,10 @@ steps:
   - "Apasă **Reactivează** pe rândul lui ca să-l aduci înapoi."
 screenshots: [client-dezactiveaza]
 see_also: [clienti-filtre, client-etapa]
+screen: /clienti/{client}
+account: owner
+marks:
+  - "2 [data-testid='client-active-toggle']"
 ---
 
 Nu se șterge nimic. Cel dezactivat dispare din liste și din selectoare, dar rămâne în sistem.

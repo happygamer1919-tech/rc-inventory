@@ -9717,3 +9717,23 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** The guide rules assumed every chapter is a main menu group in menu order, titles start with "Cum", and a chapter order is at least 1. Max asked for "Primii pași" (no menu group, first) and a lesson named "Ce înseamnă Acces interzis", so all three rules refused the real guide. The spec also capped the guide at 40 lessons, below the 45 now approved.
 **SOLUTION:** a chapter with `menu: null` is allowed, must sit before every menu chapter, and may have order 0; a title may start with "Ce " as well as "Cum "; the lesson cap is 45. Each change has a failing case in `tests/e2e/guide-source.spec.ts`. RULE: **when the owner adds a case the structure did not plan for, change the rule and add the case that proves the new rule can still fail; do not move the new content into an existing group to dodge the check.**
+
+### P3-320: a file path alone on a YAML line reads as conflict residue
+**Tag:** ci
+**ERROR:** `npm run check:conflict-residue` failed on `.github/workflows/guide-screenshots.yml`: the `upload-artifact` path list had `docs/guide/screenshots.json` alone on a line, which is exactly what a stripped `<<<<<<< some/ref` marker leaves behind.
+**SOLUTION:** the line became the glob `docs/guide/*.json` (same single file today). RULE: **a multi-line `path:` list in a workflow uses globs or names without a slash; run `npm run check:conflict-residue` after adding any workflow.**
+
+### P3-320: the roofing catalogue from migration 0049 floods every stock screen of an empty test stack
+**Tag:** testing
+**ERROR:** the first guide picture run (39294223800) showed "82 produse sub prag" on the dashboard and a Memento stoc picture 2400 px tall with the lesson's markers still off the bottom: migration 0049 inserts about 80 catalogue products with zero stock and threshold 0, all "Epuizat", sorted before the invented ones.
+**SOLUTION:** `scripts/guide/seed.mjs` deactivates every product whose SKU does not start with `TEST-`, on the local stack only (PATCH `active=false`, never a delete), and `scripts/guide/screenshots.mjs` caps a picture at 1600 px (desktop) and 2000 px (phone), listing a mark below that as missing. RULE: **a seed for screenshots looks at what the migrations already put in the tables before it adds its own rows.**
+
+### P3-320: a marker placed beside a button covered the button next to it
+**Tag:** frontend
+**ERROR:** the numbered circle for "Salvează" was drawn to its left, on top of "Renunță", on every form picture.
+**SOLUTION:** `layoutMarks` takes the rectangles of every visible button, link and field as obstacles and prefers a place free of them; the old order is the fallback. A case in `tests/e2e/guide-screenshots.spec.ts` shows the circle on the neighbour without obstacles and off it with them.
+
+### P3-320: a Playwright testMatch matched the worktree folder name
+**Tag:** testing
+**ERROR:** a local config with `testMatch: /guide-.*\.spec\.ts/` ran all 1061 specs, because the worktree folder is `guide-screenshot-script` and testMatch is tested against the full path.
+**SOLUTION:** `testMatch: /\/guide-[a-z-]+\.spec\.ts$/`. RULE: **anchor a testMatch to the file name (a slash before it, `$` after), never to a bare word.**

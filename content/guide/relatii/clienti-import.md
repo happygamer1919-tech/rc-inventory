@@ -13,6 +13,15 @@ steps:
   - "Citește **Gata. Iată ce s-a întâmplat:**. Dacă au rămas rânduri, apasă **Descarcă rândurile nepreluate**."
 screenshots: [clienti-import]
 see_also: [clienti-filtre, lead-nou]
+screen: /clienti?vedere=clienti
+account: owner
+before:
+  - "click [data-testid='clienti-import']"
+  - "wait [data-testid='import-step-1']"
+marks:
+  - "2 [data-testid='import-template']"
+  - "2 [data-testid='import-choose']"
+  - "2 [data-testid='import-next']"
 ---
 
 Importul are patru pași. Nimic nu se scrie până la ultimul.

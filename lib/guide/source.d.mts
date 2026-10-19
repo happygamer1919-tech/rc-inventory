@@ -19,3 +19,24 @@ export function visibleText(lesson: GuideRecord, titleOf: (id: string) => string
 export function validateGuide(guide: Guide, ctx: { navGroups: string[]; sourceText?: string }): string[];
 export function navGroupTitles(repoRoot: string): string[];
 export function readAppSourceText(repoRoot: string): string;
+
+// P3-320. Cheile pentru poze.
+export const SHOT_ACCOUNTS: string[];
+export const SHOT_SIZES: string[];
+export const SHOT_PLACEHOLDERS: string[];
+export type ShotMark = { step: number; selector: string };
+export type ShotAction = { verb: "click" | "wait" | "fill" | "select"; selector: string; value: string | null };
+export type ShotSpec = {
+  id: string;
+  lesson: string;
+  screen: string;
+  account: string;
+  before: Array<ShotAction | null>;
+  beforeMobile: Array<ShotAction | null>;
+  sizes: string[];
+  marks: Array<ShotMark | null>;
+};
+export function parseMark(raw: unknown): ShotMark | null;
+export function parseAction(raw: unknown): ShotAction | null;
+export function shotSpec(lesson: GuideRecord): ShotSpec | null;
+export function shotProblems(lesson: GuideRecord): string[];

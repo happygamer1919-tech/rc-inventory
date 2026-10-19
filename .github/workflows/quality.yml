@@ -402,6 +402,14 @@ jobs:
       - name: Check CI targets no production project
         run: npm run check:no-prod-target
 
+      # P3-320. The pictures of the in-platform guide are made from invented data
+      # only. This fails when a line of docs/guide/real-names.txt appears in the
+      # guide fixtures, the seed scripts, the lessons or the text captured with a
+      # picture (docs/guide/screenshots.json). It reads files and nothing else,
+      # so it has no `if:` guard and runs on drafts too.
+      - name: Refuse a real name in the guide pictures
+        run: npm run check:guide-privacy
+
       # AUT-14. Every migration applied to a throwaway postgres:16 container,
       # unmodified, with no credentials and no network.
       #

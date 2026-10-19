@@ -13,6 +13,17 @@ steps:
   - "Apasă **Descarcă PDF** ca s-o trimiți clientului."
 screenshots: [factura-emite]
 see_also: [factura-plata, factura-anuleaza]
+screen: /facturare/{invoice_draft}
+account: owner
+before:
+  - "click [data-testid='factura-emite']"
+  - "wait [data-testid='factura-emite-confirmare']"
+sizes: [desktop, mobile]
+marks:
+  - "1 aside nav a[href='/facturare']"
+  - "2 [data-testid='factura-modifica']"
+  - "3 [data-testid='factura-emite']"
+  - "4 [data-testid='factura-emite-da']"
 ---
 
 După emitere factura primește numărul și nu se mai modifică.

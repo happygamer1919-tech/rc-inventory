@@ -13,6 +13,18 @@ steps:
   - "Un prag 0 nu trimite email."
 screenshots: [memento-vezi]
 see_also: [inventar-cauta, tablou-de-bord]
+screen: /memento
+account: owner
+marks:
+  - "1 #rc-sidebar >> role=link[name='Memento stoc']"
+  - "2 role=columnheader[name='Stoc curent']"
+  - "2 role=columnheader[name='Prag']"
+  - "2 role=columnheader[name='Stare']"
+  - "3 [data-testid='threshold-rows'] >> text='Epuizat'"
+  - "3 [data-testid='threshold-rows'] >> text='Sub prag'"
+  - "3 [data-testid='threshold-rows'] >> text='Suficient'"
+  - "4 [data-testid='alert-rows'] >> text='Trimis'"
+  - "4 [data-testid='alert-rows'] >> text='Netrimis'"
 ---
 
 Memento stoc arată pragul fiecărui produs și alertele trimise pe email.

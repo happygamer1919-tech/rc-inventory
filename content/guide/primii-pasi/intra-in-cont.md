@@ -12,6 +12,15 @@ steps:
   - "Dacă apare mesajul **Contul nu are acces**, cere administratorului să-ți activeze contul."
 screenshots: [intra-in-cont]
 see_also: [iesi-din-cont, meniu-telefon]
+screen: /autentificare
+account: none
+before:
+  - "fill #email => operator@exemplu.test"
+  - "fill #password => parola-exemplu"
+marks:
+  - "2 #email"
+  - "3 #password"
+  - "4 [data-testid='login-submit']"
 ---
 
 Conturile le creează administratorul. Nu există înregistrare de la sine și nici resetare de parolă.

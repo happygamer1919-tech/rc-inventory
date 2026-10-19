@@ -10,6 +10,11 @@ steps:
   - "Revii la ecranul **Intră în cont**."
 screenshots: [iesi-din-cont]
 see_also: [intra-in-cont, meniu-telefon]
+screen: /
+account: owner
+marks:
+  - "1 [data-testid='topbar-avatar']"
+  - "2 [data-testid='sign-out']"
 ---
 
 Ieși din cont de fiecare dată când lași calculatorul sau telefonul altcuiva.

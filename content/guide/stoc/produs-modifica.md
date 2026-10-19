@@ -13,6 +13,16 @@ steps:
   - "Îl aduci înapoi cu **Reactivează**."
 screenshots: [produs-modifica]
 see_also: [produs-nou, inventar-cauta]
+screen: /inventar
+account: owner
+before:
+  - "click [data-testid='product-row']:has-text('Țiglă metalică Model')"
+  - "wait [data-testid='product-panel']"
+  - "wait [data-testid='product-movements'] tr"
+sizes: [desktop, mobile]
+marks:
+  - "2 [data-testid='panel-edit']"
+  - "5 [data-testid='panel-toggle-active']"
 ---
 
 Un produs nu se șterge. Se dezactivează.

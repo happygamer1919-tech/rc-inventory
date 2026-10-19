@@ -10,6 +10,16 @@ steps:
   - "Dacă apare mesajul **Data nu este validă**, verifică ziua și luna și scrie din nou."
 screenshots: [scrie-o-data]
 see_also: [sarcina-noua, intra-in-cont]
+screen: /sarcini
+account: owner
+before:
+  - "click [data-testid='task-new']"
+  - "wait [data-testid='task-form']"
+  - "fill [data-testid='field-task-due-date'] => 31.02.2026"
+  - "wait [data-testid='field-task-due-date-error']"
+marks:
+  - "1 [data-testid='field-task-due-date']"
+  - "3 [data-testid='field-task-due-date-error']"
 ---
 
 Toate câmpurile de dată din platformă se scriu la fel.

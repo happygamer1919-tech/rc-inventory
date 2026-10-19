@@ -13,6 +13,17 @@ steps:
   - "Un deviz emis nu se mai modifică. Pentru schimbări apasă din nou **+ Deviz nou**."
 screenshots: [proiect-deviz]
 see_also: [proiect-buget, proiect-nou]
+screen: /proiecte/{project_offer}?fila=deviz
+account: owner
+before:
+  - "fill [data-testid='deviz-add-quantity'] => 12"
+marks:
+  - "1 [data-testid='tab-deviz']"
+  - "2 [data-testid='deviz-new']"
+  - "3 [data-testid='deviz-add-product']"
+  - "3 [data-testid='deviz-add-quantity']"
+  - "3 [data-testid='deviz-add-submit']"
+  - "4 [data-testid='deviz-status-sent']"
 ---
 
 Un deviz este o estimare de materiale. Fiecare estimare este o versiune.

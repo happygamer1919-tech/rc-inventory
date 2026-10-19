@@ -1,0 +1,11 @@
+export const INVENTED_PHONE: RegExp;
+export const INVENTED_EMAIL: RegExp;
+export function fold(text: string): string;
+export function parseDenyList(text: string): string[];
+export function nameRegExp(name: string): RegExp;
+export function findNames(text: string, names: string[]): Array<{ name: string; line: number }>;
+export function stripJsComments(src: string): string;
+export function stringLiterals(code: string): string[];
+export function contactShapeProblems(code: string): string[];
+export function privacyTargets(root: string): Array<{ file: string; kind: "code" | "text" | "fixtures" }>;
+export function checkPrivacy(root: string, names: string[]): { problems: string[]; scanned: string[] };

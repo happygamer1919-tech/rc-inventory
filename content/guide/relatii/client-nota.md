@@ -13,6 +13,18 @@ steps:
   - "Dacă lași câmpul gol, vezi **Scrie ce s-a discutat.**"
 screenshots: [client-nota]
 see_also: [client-etapa, azi-lista]
+screen: /clienti/{client}
+account: owner
+before:
+  - "fill [data-testid='note-body'] => Clientul confirmă comanda de țiglă pentru luna viitoare."
+  - "fill [data-testid='note-next-action-at'] => 05.11.2026"
+  - "fill [data-testid='note-next-action'] => Trimit factura"
+marks:
+  - "2 [data-testid='note-body']"
+  - "3 [data-testid='note-next-action-at']"
+  - "3 [data-testid='note-next-action']"
+  - "4 [data-testid='note-save']"
+  - "5 [data-testid='timeline-note']"
 ---
 
 Notele rămân pe fișă, cele mai noi primele, împreună cu mutările de etapă.

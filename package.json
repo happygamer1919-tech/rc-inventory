@@ -26,6 +26,8 @@
     "prove:pr-state": "node scripts/poc-free/prove-pr-state.mjs",
     "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
     "check:guide-source": "node scripts/poc-free/check-guide-source.mjs",
+    "check:guide-privacy": "node scripts/poc-free/check-guide-privacy.mjs",
+    "guide:screenshots": "node scripts/guide/screenshots.mjs",
     "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs",
     "check:page-count": "node scripts/poc-free/check-page-count.mjs",
     "check:reconciliation": "node scripts/poc-free/check-reconciliation.mjs",
