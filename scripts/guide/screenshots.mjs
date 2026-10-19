@@ -188,6 +188,14 @@ async function shoot(context, spec, size, accent) {
       await page.setViewportSize({ width: base.width, height: Math.min(Math.ceil(bottom + 90), MAX_HEIGHT[size]) });
       await settle(page);
       for (const m of found) m.rect = await rectOf(m.loc);
+      // Tot nu incape: pagina coboara exact cat sa intre ultimul marcaj. Marcajele
+      // de sus care ies astfel din poza sunt trecute ca lipsa, mai jos.
+      const stillBelow = Math.max(...found.map((m) => m.rect.y + m.rect.height)) + 60 - MAX_HEIGHT[size];
+      if (stillBelow > 0) {
+        await page.evaluate((dy) => window.scrollBy(0, dy), Math.ceil(stillBelow));
+        await settle(page);
+        for (const m of found) m.rect = await rectOf(m.loc);
+      }
     }
     const viewport = page.viewportSize();
     for (const m of found) {
