@@ -165,7 +165,13 @@ async function shoot(context, spec, size, accent) {
       }
     }
     await page.addStyleTag({ content: STILL_CSS }).catch(() => {});
-    await page.evaluate(() => window.scrollTo(0, 0));
+    // Inapoi sus: fereastra si orice panou cu defilare proprie (aplicatia defileaza
+    // in panoul ei, iar pasii pregatitori il pot lasa la jumatate).
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      for (const el of document.querySelectorAll("*")) if (el.scrollTop > 0) el.scrollTop = 0;
+    });
+    await settle(page);
 
     const marks = [];
     for (const m of spec.marks) {
