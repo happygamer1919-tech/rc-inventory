@@ -70,6 +70,19 @@ test("P3-320: markers stay inside the picture and never sit on top of each other
   }
 });
 
+test("P3-320: a marker does not cover the button next to the marked one when it has another place", () => {
+  const save = { x: 400, y: 200, width: 120, height: 40 };
+  const cancel = { x: 300, y: 200, width: 90, height: 40 };
+  const hits = (m: { cx: number; cy: number }, r: typeof cancel) =>
+    m.cx + MARKER_RADIUS > r.x && m.cx - MARKER_RADIUS < r.x + r.width && m.cy + MARKER_RADIUS > r.y && m.cy - MARKER_RADIUS < r.y + r.height;
+  // Fara obstacole cercul sta in stanga, peste butonul vecin: acesta este cazul reparat.
+  const [plain] = layoutMarks([{ step: 1, rect: save }], VIEWPORT);
+  expect(hits(plain.marker, cancel)).toBe(true);
+  const [placed] = layoutMarks([{ step: 1, rect: save }], VIEWPORT, [cancel, save]);
+  expect(hits(placed.marker, cancel)).toBe(false);
+  expect(placed.arrow).not.toBeNull();
+});
+
 test("P3-320: a box as large as the screen gets its marker in its corner and no arrow", () => {
   const [m] = layoutMarks([{ step: 1, rect: { x: 0, y: 0, width: 1440, height: 900 } }], VIEWPORT);
   expect(m.arrow).toBeNull();

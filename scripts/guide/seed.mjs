@@ -153,6 +153,15 @@ async function main() {
     "produse",
   );
 
+  // Catalogul de acoperisuri pus de migratia 0049 are aproape 80 de produse fara
+  // stoc. Pe copia de test ele ar umple Memento stoc si tabloul de bord si ar
+  // impinge marcajele lectiilor afara din poza. Se DEZACTIVEAZA, pe stiva locala si
+  // numai aici, nu se sterg: raman vizibile cu filtrul "Active și inactive".
+  await rest("PATCH", "products?sku=not.like.TEST-*&active=is.true", { active: false }, "return=minimal").catch((err) =>
+    fail(3, `catalogul din migratii: ${err.message}`),
+  );
+  console.log("seed-guide: produsele din migratii dezactivate pe stiva locala");
+
   const client = byKey(CLIENTS);
   await upsert(
     "clients",

@@ -45,8 +45,9 @@ export const SIZES = {
   desktop: { width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
   mobile: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
-// O poza nu creste peste atat, ca un ecran lung sa nu dea o poza cat un sul.
-const MAX_HEIGHT = 2400;
+// O poza nu creste peste atat, ca un ecran lung sa nu dea o poza cat un sul. Un
+// marcaj de mai jos ramane in afara pozei si este trecut ca lipsa.
+const MAX_HEIGHT = { desktop: 1600, mobile: 2000 };
 const OUT_DIR = join(ROOT, "public/guide");
 const MANIFEST = join(ROOT, "docs/guide/screenshots.json");
 const BASE_URL = (process.env.GUIDE_BASE_URL ?? "http://localhost:3104").replace(/\/$/, "");
@@ -184,7 +185,7 @@ async function shoot(context, spec, size, accent) {
     for (const m of found) m.rect = await rectOf(m.loc);
     const bottom = Math.max(...found.map((m) => m.rect.y + m.rect.height));
     if (bottom + 60 > base.height) {
-      await page.setViewportSize({ width: base.width, height: Math.min(Math.ceil(bottom + 90), MAX_HEIGHT) });
+      await page.setViewportSize({ width: base.width, height: Math.min(Math.ceil(bottom + 90), MAX_HEIGHT[size]) });
       await settle(page);
       for (const m of found) m.rect = await rectOf(m.loc);
     }
@@ -201,7 +202,14 @@ async function shoot(context, spec, size, accent) {
     if (found.length === 0) return { ...result, skipped: "niciun marcaj in cadrul pozei", marks: marks.map(publicMark) };
 
     const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, " ").trim());
-    const layout = layoutMarks(found.map((m) => ({ step: m.step, rect: m.rect })), viewport);
+    // Butoanele si campurile vizibile: cercul nu se pune peste ele daca are alt loc.
+    const obstacles = await page.evaluate(() =>
+      [...document.querySelectorAll("button, a, input, select, textarea, [role='button']")]
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map((r) => ({ x: r.x, y: r.y, width: r.width, height: r.height })),
+    );
+    const layout = layoutMarks(found.map((m) => ({ step: m.step, rect: m.rect })), viewport, obstacles);
     const svg = overlaySvg(layout, accent, viewport);
     await page.evaluate((markup) => {
       const layer = document.createElement("div");

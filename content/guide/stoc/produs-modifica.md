@@ -16,7 +16,7 @@ see_also: [produs-nou, inventar-cauta]
 screen: /inventar
 account: owner
 before:
-  - "click [data-testid='product-row']"
+  - "click [data-testid='product-row']:has-text('Țiglă metalică Model')"
   - "wait [data-testid='product-panel']"
   - "wait [data-testid='product-movements'] tr"
 sizes: [desktop, mobile]

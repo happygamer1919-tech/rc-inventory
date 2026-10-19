@@ -8,5 +8,5 @@ export type Placed = {
   arrow: { x1: number; y1: number; x2: number; y2: number } | null;
 };
 export function readAccent(cssText: string): string;
-export function layoutMarks(items: Array<{ step: number; rect: Rect }>, viewport: { width: number; height: number }): Placed[];
+export function layoutMarks(items: Array<{ step: number; rect: Rect }>, viewport: { width: number; height: number }, obstacles?: Rect[]): Placed[];
 export function overlaySvg(layout: Placed[], accent: string, viewport: { width: number; height: number }): string;
