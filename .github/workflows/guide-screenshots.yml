@@ -154,7 +154,7 @@ jobs:
           name: guide-screenshots
           path: |
             public/guide/*.png
-            docs/guide/screenshots.json
+            docs/guide/*.json
             guide-server.log
           if-no-files-found: warn
           retention-days: 14
