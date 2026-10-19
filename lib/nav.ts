@@ -230,5 +230,9 @@ export function labelForPath(pathname: string): string {
   for (const i of SCREENS) {
     if (pathMatches(pathname, i.href)) return i.label;
   }
+  // P3-321. Ghidul (/ajutor si lectiile de sub el) are titlu in bara de sus, dar NU sta in
+  // NAV si nici in SCREENS: intrarea din meniu vine cu ultimul pull request al ghidului
+  // (task 325), iar ALL_ROUTES, pe care o parcurge headers.spec, nu trebuie sa-l afle inainte.
+  if (pathMatches(pathname, "/ajutor")) return "Suport și Ghid";
   return "Rapid Construct";
 }

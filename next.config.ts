@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfkit"],
   outputFileTracingIncludes: {
     "/api/facturare/[id]/pdf": ["./lib/pdf/fonts/*.ttf", "./public/brand/rapid-construct-logo.png"],
+    // P3-321. Paginile /ajutor citesc lectiile si pozele de pe disc la fiecare cerere
+    // (lib/guide/read.ts). Fara randul acesta fisierele nu ajung in functia serverless,
+    // iar ghidul ar fi gol in productie desi local arata bine.
+    "/ajutor": ["./content/guide/**/*.md", "./public/guide/*.png"],
+    "/ajutor/[lectie]": ["./content/guide/**/*.md", "./public/guide/*.png"],
   },
 
   async headers() {
