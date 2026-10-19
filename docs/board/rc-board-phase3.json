@@ -7725,6 +7725,31 @@
         "at": "2026-10-19T19:24:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-19 by EXECUTOR in the same pull request, PR 3 of the six-PR guide series (brief of 2026-10-19). id:free gave P3-321. Still to come: the FAQ (PR 4), the PDF (PR 5), the menu entry (PR 6, which also removes the case of ajutor.spec.ts that says nothing links to /ajutor)."
+    },
+    {
+      "id": "P3-323",
+      "title": "In-platform guide, PR 4 of 6: the Intrebari frecvente part of /ajutor. content/guide/faq.md (front matter, nine entries, each 'lesson id | question | answer') is the one source; lib/guide/faq.mjs reads it and keeps, per role, the entries whose lesson that role can open; validateFaq in lib/guide/source.mjs enforces 7 to 10 entries, a lesson that exists, a short answer, every ** label exact in the app and in the steps of the lesson it links to. /ajutor shows the section below Ghidul platformei, each entry a question, a few lines of answer and a link 'Vezi lectia' to its lesson. tests/e2e/ajutor.spec.ts gains the FAQ divergence test (page against faq.md, per role, with cases that make it fail) and tests/e2e/guide-source.spec.ts the FAQ rules (each with a failing case). No menu link, no database change, no cookie, no read tracking.",
+      "plain": "The help page now has a Frequently asked questions part: nine of the tasks people ask about most, each answered in a few lines with a link to the lesson that shows it step by step. An operator sees only the questions whose lessons they can open. Nobody can reach the page yet, because the menu link comes last.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-321"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: `npx playwright test tests/e2e/ajutor.spec.ts tests/e2e/guide-source.spec.ts` is green in this pull request's quality run on the head sha: /ajutor shows exactly the questions of content/guide/faq.md that the role can open, in file order, with the same question, answer and lesson link (the divergence test, which has cases that make it fail), the Administrator sees 7 to 10 questions and the Operator fewer, every link opens its lesson, and each FAQ rule has a case that makes it fail. (b) `npm run check:guide-source` and `npm run check:guide-privacy` exit 0. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed, lib/nav.ts is unchanged, no menu entry or screen links to /ajutor, no cookie and no table is added.",
+      "defaults": "The FAQ is one file, not a folder: content/guide/faq.md, found by loadFaq and ignored by loadGuide (which reads chapter folders only). Nine entries chosen from the lesson list: walk-in release, release to a project, receiving an order, issuing an invoice, importing clients, adding a task, uploading a document for automatic reading, finding a product, adding a client. An entry whose lesson the role cannot open is not shown to that role, so no link ends in a 404. Anything the structure does not cover goes in the PR body under Intrebare pentru Max.",
+      "last_checkpoint": "2026-10-19T20:20:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-323 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-19-executor-guide-faq.md",
+        "at": "2026-10-19T20:20:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-19 by EXECUTOR in the same pull request, PR 4 of the six-PR guide series (brief of 2026-10-19). id:free gave P3-323 as free (task 322 was not a guide card). Still to come: the PDF (PR 5) and the menu entry (PR 6, which also removes the case of ajutor.spec.ts that says nothing links to /ajutor)."
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { join } from "node:path";
 import { NAV } from "../../lib/nav";
+import { loadFaq, parseFaqEntry } from "../../lib/guide/faq.mjs";
 import {
   GUIDE_ROLES,
   countWords,
@@ -9,6 +10,7 @@ import {
   navGroupTitles,
   parseFrontMatter,
   readAppSourceText,
+  validateFaq,
   validateGuide,
   type Guide,
   type GuideRecord,
@@ -219,6 +221,95 @@ test("P3-319: the front matter reader accepts the three forms and refuses a file
   expect(() => parseFrontMatter("fără antet", "y.md")).toThrow("nu incepe cu un antet");
   expect(() => parseFrontMatter("---\nid: x\n", "z.md")).toThrow("nu este inchis");
   expect(() => parseFrontMatter("---\nid: x\nid: y\n---\n", "w.md")).toThrow("apare de doua ori");
+});
+
+// ---------------------------------------------------------------------------
+// P3-323. Intrebarile frecvente (content/guide/faq.md).
+// ---------------------------------------------------------------------------
+
+test("P3-323: the real FAQ has no problem and has 7 to 10 questions", () => {
+  const guide = loadGuide(GUIDE_DIR);
+  const faq = loadFaq(join(GUIDE_DIR, "faq.md"));
+  expect(faq.problems).toEqual([]);
+  expect(validateFaq(faq, guide, { sourceText: readAppSourceText(REPO) })).toEqual([]);
+  expect(faq.entries.length).toBeGreaterThanOrEqual(7);
+  expect(faq.entries.length).toBeLessThanOrEqual(10);
+});
+
+const FAQ_GUIDE: Guide = {
+  chapters: [],
+  lessons: [lesson(), second(), ...["c", "d", "e", "f", "g", "h", "i", "j"].map((id) => lesson({ id: `lectia-${id}`, order: 3, steps: ["Apasă **Salvează**."] }))],
+  problems: [],
+};
+
+function faqEntry(n: number, overrides: Partial<{ lesson: string; question: string; answer: string }> = {}) {
+  return {
+    lesson: n === 0 ? "prima-lectie" : n === 1 ? "a-doua-lectie" : `lectia-${"cdefghij"[n - 2]}`,
+    question: `Întrebarea ${n}?`,
+    answer: "Apasă **Salvează**.",
+    ...overrides,
+  };
+}
+
+function faqOf(entries: Array<{ lesson: string; question: string; answer: string }>, overrides: Record<string, unknown> = {}) {
+  return { id: "intrebari-frecvente", title: "Întrebări frecvente", entries, problems: [], ...overrides } as Parameters<typeof validateFaq>[0];
+}
+
+const TEN = Array.from({ length: 10 }, (_, n) => faqEntry(n));
+
+test("P3-323 control: the synthetic FAQ used by the failing cases is valid", () => {
+  expect(validateFaq(faqOf(TEN), FAQ_GUIDE, { sourceText: SOURCE_TEXT })).toEqual([]);
+  expect(validateFaq(faqOf(TEN.slice(0, 7)), FAQ_GUIDE, { sourceText: SOURCE_TEXT })).toEqual([]);
+});
+
+test("P3-323: fewer than 7 or more than 10 questions fail", () => {
+  expect(validateFaq(faqOf(TEN.slice(0, 6)), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("6 intrari");
+  const eleven = [...TEN, faqEntry(0, { lesson: "prima-lectie", question: "Încă una?" })];
+  expect(validateFaq(faqOf(eleven), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("11 intrari");
+});
+
+test("P3-323: a question about a lesson that does not exist, a repeated lesson and a repeated question fail", () => {
+  const missing = TEN.map((e, i) => (i === 0 ? { ...e, lesson: "nu-exista" } : e));
+  expect(validateFaq(faqOf(missing), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain('lectia "nu-exista" nu exista');
+  const twice = TEN.map((e, i) => (i === 1 ? { ...e, lesson: "prima-lectie" } : e));
+  expect(validateFaq(faqOf(twice), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("lectia apare de doua ori");
+  const sameQuestion = TEN.map((e, i) => (i === 1 ? { ...e, question: TEN[0].question } : e));
+  expect(validateFaq(faqOf(sameQuestion), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("intrebare repetata");
+});
+
+test("P3-323: answer rules are enforced", () => {
+  const filler = Array.from({ length: 46 }, () => "cuvânt").join(" ");
+  const cases: Array<[Partial<{ question: string; answer: string }>, string]> = [
+    [{ question: "Fără semn" }, "se termine cu ?"],
+    [{ answer: filler }, "limita este 45"],
+    [{ answer: "Apasă **Buton inventat**." }, 'eticheta "Buton inventat" nu apare exact nicaieri'],
+    // O eticheta care exista in aplicatie, dar nu in pasii lectiei la care trimite intrarea.
+    [{ answer: "Apasă **Adaugă produsul**." }, 'eticheta "Adaugă produsul" nu apare in pasii lectiei'],
+    [{ answer: "Apasă **Salvează." }, "ramas deschis"],
+    // Caracterele interzise se scriu cu escape: fisierul acesta nu are voie sa le contina.
+    [{ answer: `Apasă **Salvează** ${String.fromCharCode(0x2014)} acum.` }, "linie lunga"],
+    [{ answer: `Apasă **Salvează** ${String.fromCharCode(0x2013)} acum.` }, "linie lunga"],
+    [{ answer: `Apasă **Salvează** la ${String.fromCharCode(0x15f)}antier.` }, "sedila"],
+  ];
+  for (const [override, expected] of cases) {
+    // Intrarea 3 trimite la o lectie care are in pasi numai "Salvează".
+    const entries = TEN.map((e, i) => (i === 2 ? { ...e, ...override } : e));
+    expect(validateFaq(faqOf(entries), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n"), JSON.stringify(override)).toContain(expected);
+  }
+});
+
+test("P3-323: the file header and the entry shape are enforced", () => {
+  expect(validateFaq(faqOf(TEN, { id: "altceva" }), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("id trebuie sa fie");
+  expect(validateFaq(faqOf(TEN, { title: "FAQ" }), FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("title trebuie sa fie");
+  expect(parseFaqEntry("lectie | intrebare? | raspuns")).toEqual({ lesson: "lectie", question: "intrebare?", answer: "raspuns" });
+  expect(parseFaqEntry("lectie | doar doua")).toBeNull();
+  expect(parseFaqEntry("lectie |  | raspuns")).toBeNull();
+});
+
+test("P3-323: a missing faq.md is reported, not ignored", () => {
+  const faq = loadFaq(join(GUIDE_DIR, "nu-exista.md"));
+  expect(faq.entries).toEqual([]);
+  expect(validateFaq(faq, FAQ_GUIDE, { sourceText: SOURCE_TEXT }).join("\n")).toContain("fisierul nu exista");
 });
 
 test("P3-319: the label reader and the word counter", () => {
