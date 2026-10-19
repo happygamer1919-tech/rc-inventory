@@ -188,11 +188,12 @@ async function shoot(context, spec, size, accent) {
       await page.setViewportSize({ width: base.width, height: Math.min(Math.ceil(bottom + 90), MAX_HEIGHT[size]) });
       await settle(page);
       for (const m of found) m.rect = await rectOf(m.loc);
-      // Tot nu incape: pagina coboara exact cat sa intre ultimul marcaj. Marcajele
-      // de sus care ies astfel din poza sunt trecute ca lipsa, mai jos.
-      const stillBelow = Math.max(...found.map((m) => m.rect.y + m.rect.height)) + 60 - MAX_HEIGHT[size];
-      if (stillBelow > 0) {
-        await page.evaluate((dy) => window.scrollBy(0, dy), Math.ceil(stillBelow));
+      // Tot nu incape: pagina coboara pana intra ultimul marcaj. Aplicatia defileaza
+      // in panoul ei, nu in fereastra, deci se cere elementului sa intre in vedere.
+      // Marcajele de sus care ies astfel din poza sunt trecute ca lipsa, mai jos.
+      const lowest = found.reduce((a, b) => (b.rect.y + b.rect.height > a.rect.y + a.rect.height ? b : a));
+      if (lowest.rect.y + lowest.rect.height + 60 > MAX_HEIGHT[size]) {
+        await lowest.loc.evaluate((el) => el.scrollIntoView({ block: "end" }));
         await settle(page);
         for (const m of found) m.rect = await rectOf(m.loc);
       }
