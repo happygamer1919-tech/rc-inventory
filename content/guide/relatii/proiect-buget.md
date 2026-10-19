@@ -13,6 +13,16 @@ steps:
   - "Fila **Comparație** pune devizul lângă ce s-a eliberat."
 screenshots: [proiect-buget]
 see_also: [iesire-proiect, crm-sectiuni]
+screen: /proiecte/{project}?fila=consum
+account: owner
+marks:
+  - "2 [data-testid='project-budget']"
+  - "2 [data-testid='project-deviz-total']"
+  - "2 [data-testid='project-actual-cost']"
+  - "3 [data-testid='project-variance']"
+  - "4 [data-testid='tab-consum']"
+  - "5 [data-testid='tab-cost']"
+  - "6 [data-testid='tab-comparatie']"
 ---
 
 Pagina proiectului arată cât s-a planificat și cât s-a consumat.

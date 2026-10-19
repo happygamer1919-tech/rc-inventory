@@ -12,6 +12,15 @@ steps:
   - "Dacă sunt mai mult de patru produse, **Vezi toate** deschide Memento stoc."
 screenshots: [tablou-de-bord]
 see_also: [memento-vezi, comanda-receptie]
+screen: /
+account: owner
+marks:
+  - "1 #rc-sidebar >> role=link[name='Tablou de bord']"
+  - "2 [data-testid='dashboard-stats']"
+  - "3 [data-testid='dashboard-activity']"
+  - "3 role=link[name='Vezi comenzile']"
+  - "4 [data-testid='dashboard-low-stock'] a"
+  - "5 [data-testid='dashboard-low-stock-all']"
 ---
 
 Tabloul de bord arată situația depozitului la zi. Aici nu se completează nimic, doar se citește.

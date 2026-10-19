@@ -1,0 +1,160 @@
+name: guide-screenshots
+
+# P3-320. THE PICTURES OF THE IN-PLATFORM GUIDE, MADE BY A SCRIPT.
+#
+# It starts the same local Supabase stack the End to end block of quality.yml
+# starts, fills it with INVENTED data only (scripts/guide/seed.mjs, from
+# scripts/guide/fixtures.mjs), builds and serves the app on localhost, and runs
+# scripts/guide/screenshots.mjs. The pictures and docs/guide/screenshots.json are
+# uploaded as the artifact `guide-screenshots`; the executor downloads them and
+# commits them to the pull request, so every committed picture went through a
+# normal push and a normal quality run.
+#
+# THIS IS NOT A GATE AND IT IS NOT A SECOND quality. Branch protection names
+# exactly one check, `quality`, and the privacy check that guards the pictures is
+# a step there (`npm run check:guide-privacy`). This workflow only MAKES pictures.
+# A lesson whose screen cannot be reached gets no picture and is listed in the
+# manifest; that is not a failure. Login failing, or no picture at all, is.
+#
+# WHY A SEPARATE WORKFLOW AND NOT A STEP IN quality: quality skips its heavy steps
+# on a draft (P3-265) and runs about 500 tests that leave their own TEST rows in
+# the database. The pictures need a clean stack holding only invented data, and
+# they are needed while the pull request is still a draft.
+#
+# NEVER PRODUCTION. The stack is local to the runner and its keys are the fixed,
+# published demo keys. No secret is read here. The script and the seed refuse any
+# address that is not localhost and run scripts/assert-not-prod.mjs first.
+#
+# RUN BY HAND after a screen changes: Actions, guide-screenshots, Run workflow,
+# then commit the artifact. Re-running regenerates every picture.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'content/guide/**'
+      - 'scripts/guide/**'
+      - 'lib/guide/**'
+      - '.github/workflows/guide-screenshots.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: guide-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  screenshots:
+    name: guide-screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Before any picture: the invented data and the lessons hold no real name.
+      - name: Refuse a real name in the guide fixtures
+        run: npm run check:guide-privacy
+
+      - name: Check the guide source
+        run: npm run check:guide-source
+
+      # Pinned exactly as in quality.yml (CI-01): the action to a commit sha and the
+      # CLI to the version that is green there.
+      - name: Start local Supabase
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.116.0
+
+      - name: Launch database, auth and storage
+        run: supabase start
+
+      - name: Apply migrations to the local stack
+        run: supabase db reset
+
+      - name: Export local Supabase credentials
+        run: |
+          set -euo pipefail
+          supabase status -o env > /tmp/supabase.env
+          # shellcheck disable=SC1091
+          source /tmp/supabase.env
+          {
+            echo "SUPABASE_URL=${API_URL}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+          } >> "$GITHUB_ENV"
+
+      # The same two development accounts the End to end block seeds, then the
+      # invented companies, people, products and documents of the guide. No TEST
+      # rows from the other seed scripts: the pictures show only the guide's data.
+      - name: Seed the test accounts and the invented guide data
+        env:
+          TEST_OWNER_EMAIL: owner@rc-inventory.local
+          TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
+          TEST_MANAGER_EMAIL: manager@rc-inventory.local
+          TEST_MANAGER_PASSWORD: ci-manager-pass-4Zw9BnLp
+          TEST_NO_PROFILE_EMAIL: fara-profil@rc-inventory.local
+          TEST_NO_PROFILE_PASSWORD: ci-noprofile-pass-6Hs3JmQe
+        run: |
+          set -euo pipefail
+          node scripts/seed-test-accounts.mjs
+          node scripts/guide/seed.mjs
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      # Built here, after the stack exists, so NEXT_PUBLIC_SUPABASE_URL is baked in.
+      - name: Build the app
+        env:
+          NEXT_DIST_DIR: .next-guide
+          NEXT_PUBLIC_SITE_URL: http://localhost:3104
+        run: npm run build
+
+      - name: Take the guide pictures
+        env:
+          NEXT_DIST_DIR: .next-guide
+          NEXT_PUBLIC_SITE_URL: http://localhost:3104
+          GUIDE_BASE_URL: http://localhost:3104
+          TEST_OWNER_EMAIL: owner@rc-inventory.local
+          TEST_OWNER_PASSWORD: ci-owner-pass-8Kq2VxRt
+          TEST_MANAGER_EMAIL: manager@rc-inventory.local
+          TEST_MANAGER_PASSWORD: ci-manager-pass-4Zw9BnLp
+        run: |
+          set -euo pipefail
+          npx next start --port 3104 > guide-server.log 2>&1 &
+          echo $! > guide-server.pid
+          timeout 120 bash -c 'until curl -sf -o /dev/null http://localhost:3104/autentificare; do sleep 2; done'
+          node scripts/guide/screenshots.mjs
+          kill "$(cat guide-server.pid)"
+
+      - name: Upload the pictures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guide-screenshots
+          path: |
+            public/guide/*.png
+            docs/guide/screenshots.json
+            guide-server.log
+          if-no-files-found: warn
+          retention-days: 14

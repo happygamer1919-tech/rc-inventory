@@ -12,6 +12,12 @@ steps:
   - "Ca să te întorci, apasă din nou **CRM**."
 screenshots: [crm-sectiuni]
 see_also: [clienti-filtre, proiect-buget, sarcina-noua]
+screen: /crm
+account: owner
+marks:
+  - "1 #rc-sidebar a[href='/crm']"
+  - "2 [data-testid='crm-cards']"
+  - "3 [data-testid='crm-card'] >> text=Deschide"
 ---
 
 Aceste patru ecrane nu au intrare proprie în meniu. Se deschid din CRM.

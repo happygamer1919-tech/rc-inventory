@@ -13,6 +13,15 @@ steps:
   - "Starea devine **Recepționată**. O recepție parțială nu se poate înregistra: se confirmă toată comanda."
 screenshots: [comanda-receptie]
 see_also: [comanda-expediere, inventar-cauta]
+screen: /comenzi
+account: owner
+before:
+  - "click [data-testid='inbound-item']:has-text('În așteptare')"
+  - "wait [data-testid='inbound-panel']"
+sizes: [desktop, mobile]
+marks:
+  - "3 [data-testid='inbound-lines']"
+  - "4 [data-testid='receive-order']"
 ---
 
 Recepția creează loturile și crește stocul.

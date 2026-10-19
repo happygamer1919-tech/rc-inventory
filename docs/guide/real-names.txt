@@ -1,0 +1,23 @@
+# Names that must never appear in a guide picture or in the invented data behind it.
+#
+# Card P3-320. One name per line. Lines starting with # are notes. Upper and lower case
+# and diacritics are ignored ("Ștefan" matches "stefan"), and a name only matches as
+# whole words. `npm run check:guide-privacy` (a step of the quality check) fails when a
+# line of this file appears in scripts/guide/, in the scripts/seed-test-*.mjs fixtures,
+# in content/guide/ or in docs/guide/screenshots.json (the text that was on screen when
+# each picture was taken).
+#
+# HOW TO EXTEND IT: add a line and open a pull request. Add real client names, real
+# company names, real staff names and real project or street names that must never be
+# shown. Do NOT paste a whole client list here: this file is in git for good, so it
+# holds only what must be blocked, a few names at a time.
+#
+# Started on 2026-10-19 from the names of real people already written in this
+# repository's docs. The real client list lives only in production and is not copied.
+
+# Rapid Construct staff
+Mihai
+
+# People who build and run the platform (they are real people, not demo data)
+Ivan
+Andre

@@ -13,6 +13,17 @@ steps:
   - "Pentru produsele scoase din uz alege **Active și inactive**."
 screenshots: [inventar-cauta]
 see_also: [comanda-receptie, memento-vezi]
+screen: /inventar
+account: owner
+sizes: [desktop, mobile]
+marks:
+  - "1 aside nav a[href='/inventar']"
+  - "2 [data-testid='product-search']"
+  - "3 [data-testid='filter-category']"
+  - "3 [data-testid='filter-supplier']"
+  - "3 [data-testid='filter-level']"
+  - "4 [data-testid='product-row']"
+  - "6 [data-testid='filter-visibility']"
 ---
 
 Inventarul arată toate produsele din depozitul central.

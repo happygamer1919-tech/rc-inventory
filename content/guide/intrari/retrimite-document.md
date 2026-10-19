@@ -12,6 +12,10 @@ steps:
   - "Dacă nu merge din nou, încarcă o scanare mai clară sau adaugă comanda de mână."
 screenshots: [retrimite-document]
 see_also: [verifica-document, comanda-manuala]
+screen: /incarca-comanda
+account: owner
+marks:
+  - "1 #rc-sidebar >> role=link[name='Încarcă comandă']"
 ---
 
 Dacă citirea a dat Eșuat sau Parțial, mai poți încerca o dată.

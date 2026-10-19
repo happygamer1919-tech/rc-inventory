@@ -12,6 +12,11 @@ steps:
   - "Mergi mai departe cu lecția despre verificare."
 screenshots: [incarca-document]
 see_also: [verifica-document, retrimite-document]
+screen: /incarca-comanda
+account: owner
+marks:
+  - "1 #rc-sidebar >> role=link[name='Încarcă comandă']"
+  - "2 [data-testid='extraction-choose']"
 ---
 
 Sistemul citește documentul furnizorului și propune comanda. Tu doar verifici.

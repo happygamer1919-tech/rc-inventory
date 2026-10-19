@@ -13,6 +13,10 @@ steps:
   - "Apasă **Vezi comanda în listă**. Comanda are starea **În așteptare**."
 screenshots: [verifica-document]
 see_also: [incarca-document, comanda-receptie]
+screen: /incarca-comanda
+account: owner
+marks:
+  - "1 #rc-sidebar >> role=link[name='Încarcă comandă']"
 ---
 
 Valorile citite sunt o sugestie. Ce salvezi este ce vezi pe ecran.

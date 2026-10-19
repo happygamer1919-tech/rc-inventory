@@ -14,6 +14,19 @@ steps:
   - "Cota se poate schimba pe fiecare factură."
 screenshots: [setari-facturare]
 see_also: [setari-date-firma, factura-emite]
+screen: /setari?sectiune=facturare
+account: owner
+before:
+  - "fill [data-testid='facturare-series-prefix'] => RC-"
+  - "fill [data-testid='facturare-vat-rate'] => 20"
+marks:
+  - "1 #rc-sidebar >> role=link[name='Setări']"
+  - "1 [data-testid='settings-section-facturare']"
+  - "2 [data-testid='facturare-series-prefix']"
+  - "3 [data-testid='facturare-number-example']"
+  - "4 [data-testid='facturare-vat-rate']"
+  - "5 label:has([data-testid='facturare-year'])"
+  - "6 [data-testid='facturare-save']"
 ---
 
 Seria dă numerele facturilor, fără goluri și fără repetări.
