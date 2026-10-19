@@ -29,14 +29,20 @@ test("P3-319: the real guide source has no problem", () => {
   expect(problems).toEqual([]);
   // Un test care citeste zero lectii gaseste zero greseli: numarul se afirma.
   expect(guide.lessons.length).toBeGreaterThanOrEqual(20);
-  expect(guide.lessons.length).toBeLessThanOrEqual(40);
-  expect(guide.chapters.length).toBe(NAV.length);
+  // 40 lectii din meniu plus 5 din "Primii pasi" (Max, 2026-10-19).
+  expect(guide.lessons.length).toBeLessThanOrEqual(45);
+  // Un capitol pe grup de meniu, plus "Primii pasi", care nu are grup.
+  expect(guide.chapters.length).toBe(NAV.length + 1);
 });
 
 test("P3-319: chapters follow the main menu order and the reader finds the groups in lib/nav.ts", () => {
   expect(navGroupTitles(REPO)).toEqual(NAV.map((g) => g.title));
   const guide = loadGuide(GUIDE_DIR);
-  const menus = [...guide.chapters].sort((a, b) => a.order - b.order).map((c) => c.menu);
+  const sorted = [...guide.chapters].sort((a, b) => a.order - b.order);
+  // "Primii pasi" nu are grup de meniu si vine primul.
+  expect(sorted[0].id).toBe("primii-pasi");
+  expect(sorted[0].menu).toBeNull();
+  const menus = sorted.filter((c) => c.menu !== null).map((c) => c.menu);
   expect(menus).toEqual(NAV.map((g) => g.title));
 });
 
@@ -187,6 +193,20 @@ test("P3-319: chapters out of menu order, unknown menu groups and uncovered grou
   expect(unknown.join("\n")).toContain("nu este un grup din meniul principal");
   const uncovered = problemsOf([lesson(), second()], [chapter()]);
   expect(uncovered.join("\n")).toContain('grupul de meniu "Stoc" nu are capitol');
+});
+
+test("P3-319: a chapter without a menu group is allowed first and refused after the menu chapters", () => {
+  const intro = chapter({ dir: "primii-pasi", file: "primii-pasi/_chapter.md", id: "primii-pasi", order: 0, title: "Primii pași", menu: null });
+  const introLesson = lesson({ id: "intra", dir: "primii-pasi", file: "primii-pasi/intra.md", chapter: "primii-pasi", see_also: ["prima-lectie"], screenshots: ["intra"] });
+  const first = problemsOf([lesson(), second(), introLesson], [intro, chapter(), stocChapter()]);
+  expect(first).toEqual([]);
+  const last = problemsOf([lesson(), second(), introLesson], [{ ...intro, order: 3 }, chapter(), stocChapter()]);
+  expect(last.join("\n")).toContain("fara grup de meniu trebuie sa vina inaintea");
+});
+
+test("P3-319: a lesson title may start with Ce, but not with another word", () => {
+  expect(problemsOf([lesson({ title: "Ce înseamnă Acces interzis" }), second()])).toEqual([]);
+  expect(problemsOf([lesson({ title: "Despre accesul interzis" }), second()]).join("\n")).toContain('title trebuie sa inceapa cu "Cum "');
 });
 
 test("P3-319: the front matter reader accepts the three forms and refuses a file without a header", () => {

@@ -38,8 +38,13 @@ action is not shown to an Operator.
 
 ## 2. Chapters (same order as the main menu, `lib/nav.ts` NAV)
 
+Chapter 0, "Primii pași", has no menu group (`menu: null` in its `_chapter.md`). It comes first and
+is the only chapter that does not follow the menu. Max approved it on 2026-10-19 ("ok + Primii
+pași"). Its five lessons: intra-in-cont, iesi-din-cont, meniu-telefon, acces-interzis, scrie-o-data.
+
 | Order | Chapter = menu group | Menu entries |
 |---|---|---|
+| 0 | Primii pași | none (no menu group) |
 | 1 | Principal | Tablou de bord |
 | 2 | Intrări | Încarcă comandă, Adăugare manuală |
 | 3 | Relații | Azi, CRM (and, through CRM: Clienți, Leaduri, Proiecte, Sarcini) |
@@ -143,16 +148,17 @@ change price, "Retrage", "Reactivează"), the read-only "Utilizatori" list.
 
 ## 4. Things the menu-section structure does not cover
 
-The brief says not to bend the structure for these. They are not lessons yet; they are asked in
-the PR body under "Întrebare pentru Max".
+The brief says not to bend the structure for these. Max answered on 2026-10-19: they become the
+chapter "Primii pași" (chapter 0). Covered by a lesson:
 
-- Signing in ("Intră în cont") and out ("Ieșire"); there is no sign-up and no password reset.
-- The phone menu button "Deschide meniul" / "Închide meniul" (under 768 px).
-- The refusal and error pages: "Acces interzis", "Contul nu are acces", 404, 500.
-- Shared behaviour a beginner meets everywhere: typing a date as zz.ll.aaaa, the search list
-  (arrows, Enter, Escape, diacritics ignored), paging ("Înapoi", "Înainte"), the side panel
-  (✕ or Esc).
-- What an Operator will and will not see.
+- Signing in ("Intră în cont", lesson intra-in-cont) and out ("Ieșire", iesi-din-cont); there is
+  no sign-up and no password reset.
+- The phone menu button "Deschide meniul" / "Închide meniul" (meniu-telefon).
+- "Acces interzis" and "Contul nu are acces" (acces-interzis, intra-in-cont).
+- Typing a date as zz.ll.aaaa (scrie-o-data).
+
+Still **no lesson**: 404 and 500 pages, the search list (arrows, Enter, Escape, diacritics
+ignored), paging ("Înapoi", "Înainte"), the side panel (✕ or Esc).
 
 ## 5. Design tokens (for the screenshot and page PRs)
 

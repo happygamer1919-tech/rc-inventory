@@ -15,7 +15,7 @@ SOURCE", delivery step 1):
 | List the roles and which screens each role sees | `docs/guide/MEASURE.md` section 1 |
 | Read the design tokens | `docs/guide/MEASURE.md` section 5 |
 | Show the lesson list and chapter order before anything else | the factory question file; the PR body |
-| One structured source with front matter (id, chapter, order, roles, title, steps, screenshot ids) | `content/guide/<chapter>/<lesson>.md`, 6 chapters, 40 lessons; reader and rules in `lib/guide/source.mjs` |
+| One structured source with front matter (id, chapter, order, roles, title, steps, screenshot ids) | `content/guide/<chapter>/<lesson>.md`, 7 chapters, 45 lessons; reader and rules in `lib/guide/source.mjs` |
 | Title as a Romanian verb phrase, under 200 words, numbered steps with exact labels, a "Vezi și" line | enforced by the check (title starts with "Cum ", under 200 words counted with the title, the steps and the Vezi și line, every bold label found in `app/`, `components/` or `lib/`, every Vezi și link resolves) |
 | Screenshot ids only | one id per lesson, no image |
 | A test for the front matter, the word limit and the Vezi și links | `tests/e2e/guide-source.spec.ts`, plus `npm run check:guide-source` |
@@ -27,10 +27,14 @@ on images (PR 2). Nothing is visible to users: no route, no menu link, no link f
 
 ## What was built
 
-- 6 chapters, one per main menu group, in menu order: Principal, Intrări, Relații, Stoc,
-  Facturare, Configurare.
-- 40 lessons (the longest is 113 words, the average 80). 23 are visible to both roles; the other 17
-  are Administrator only (owner).
+- 7 chapters: "Primii pași" first (chapter 0, no menu group; added after Max's OK of 2026-10-19,
+  "ok + Primii pași"), then one per main menu group, in menu order: Principal, Intrări, Relații,
+  Stoc, Facturare, Configurare.
+- 45 lessons: 40 from the menu groups (the longest is 113 words, the average 80; 23 visible to both
+  roles, 17 Administrator only) and 5 in Primii pași (all visible to both roles): Cum intri în
+  cont, Cum ieși din cont, Cum folosești meniul pe telefon, Ce înseamnă „Acces interzis”, Cum scrii
+  o dată. The rules now allow a chapter with `menu: null` only before the menu chapters, and a
+  title starting with "Ce " as well as "Cum ".
 - `lib/guide/source.mjs` reads the files with a small front matter reader (no new dependency)
   and validates them. `lib/guide/source.d.mts` types it for the spec.
 - `npm run check:guide-source` runs the same rules from node.
@@ -56,7 +60,7 @@ Run from `/Users/sm33xy/Projects/rc-inventory-worktrees/guide-lessons-source`:
   it did not know `content/` (46 UNKNOWN paths). `scripts/poc-free/check-board-edit.mjs` now
   classes `content/` as product code, with the reason beside the rule, and
   `npm run prove:board-edit` still passes 45 of 45.
-- `npm run check:guide-source`: exit 0, 6 chapters, 40 lessons.
+- `npm run check:guide-source`: exit 0, 7 chapters, 45 lessons (after the Primii pași round; 16 spec cases pass).
 - `npx playwright test --config scratchpad/pw-guide.config.mjs` (a local, uncommitted config with
   no app servers): 14 passed. `npx playwright test --list tests/e2e/guide-source.spec.ts` with
   the real config lists the same 14, so CI runs them.
