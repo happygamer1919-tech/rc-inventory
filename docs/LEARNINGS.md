@@ -9752,3 +9752,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ci
 **ERROR:** `check:board-clock` failed because I wrote `last_checkpoint` and `evidence.at` as 19:20:00Z while the commit was made at 19:15:39Z.
 **SOLUTION:** the timestamps were set from `date -u` before the commit. RULE: **read the clock (`date -u`) before writing a board timestamp; never round up or guess it.**
+
+### P3-323: a failing case for "label not in the lesson's steps" passed for the wrong reason
+**Tag:** testing
+**ERROR:** the first draft of the FAQ rule cases put the bad answer on the first entry, whose lesson (`prima-lectie`) has both labels used in the case in its steps, so the rule under test could not fire and the case would have been red for the wrong reason.
+**SOLUTION:** the cases run on the third entry, whose lesson has only **Salvează** in its steps. RULE: **before trusting a failing case, read the fixture it runs on and confirm it lacks exactly the thing the rule looks for.**
+
+### P3-323: `npm ci` run from the wrong folder installed the wrong project
+**Tag:** infra
+**ERROR:** the headless shell started in the factory folder, so `npm ci` read the factory's package files and failed on a lockfile mismatch that has nothing to do with this repo.
+**SOLUTION:** `cd <worktree> && npm ci` in one command. RULE: **start every npm command with the worktree path; a shell does not begin in the worktree you just created.**

@@ -11,10 +11,12 @@
 import path from "node:path";
 // De la parse.mjs si NU de la source.mjs: acela mai are un cititor care umbla prin tot codul
 // (readAppSourceText), iar Turbopack ar pune tot proiectul in functia serverless.
+import { faqForRole, loadFaq } from "./faq.mjs";
 import { loadGuide } from "./parse.mjs";
 import { guideForRole } from "./view.mjs";
 
 const GUIDE_DIR = path.join(process.cwd(), "content", "guide");
+const FAQ_FILE = path.join(GUIDE_DIR, "faq.md");
 
 /** Dosarul cu pozele lectiilor, cel pe care il citeste lessonPictures. */
 export const PUBLIC_GUIDE_DIR = path.join(process.cwd(), "public", "guide");
@@ -22,4 +24,9 @@ export const PUBLIC_GUIDE_DIR = path.join(process.cwd(), "public", "guide");
 /** Ghidul asa cum il vede `role`. Un rol necunoscut (sau lipsa) primeste un ghid gol. */
 export function readGuideFor(role: string | null | undefined) {
   return guideForRole(loadGuide(GUIDE_DIR), role ?? "");
+}
+
+/** Intrebarile frecvente ale unui rol: numai cele a caror lectie o vede si el. */
+export function readFaqFor(role: string | null | undefined) {
+  return faqForRole(loadFaq(FAQ_FILE), readGuideFor(role).flat);
 }

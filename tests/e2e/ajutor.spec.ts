@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { existsSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ALL_ROUTES } from "@/lib/nav";
-import { labelsOf, loadGuide } from "../../lib/guide/source.mjs";
+import { faqForRole, loadFaq } from "../../lib/guide/faq.mjs";
+import { labelsOf, loadGuide, parseFrontMatter } from "../../lib/guide/source.mjs";
 import { findInFlat, guideForRole, lessonPictures, pictureView, readPngSize, splitBold } from "../../lib/guide/view.mjs";
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { LOGIN_PATH, signIn } from "./support/auth";
@@ -92,6 +93,57 @@ function divergence(shown: Shown, expected: Shown): string[] {
   return problems;
 }
 
+// P3-323. Intrebarile frecvente. Asteptarea se citeste aici direct din content/guide/faq.md
+// (nu cu functia din lib/guide/faq.mjs, pe care o probeaza testul): un rand pe intrare,
+// "lectie | intrebare | raspuns", pastrate numai cele pe care rolul le poate deschide.
+type ShownFaq = Array<{ lesson: string; question: string; answer: string; href: string | null; linkText: string }>;
+
+function expectedFaqFor(role: Role): ShownFaq {
+  const { data } = parseFrontMatter(readFileSync(join(GUIDE_DIR, "faq.md"), "utf8"), "faq.md");
+  return (data.entries as string[])
+    .map((raw) => raw.split(" | ").map((p) => p.trim()))
+    .filter(([lesson]) => (lessonById.get(lesson)?.roles as string[] | undefined)?.includes(role))
+    .map(([lesson, question, answer]) => ({
+      lesson,
+      question,
+      answer: answer.replaceAll("**", ""),
+      href: `/ajutor/${lesson}`,
+      linkText: `Vezi lecția: ${lessonById.get(lesson)!.title}`,
+    }));
+}
+
+/** Testul de divergenta al FAQ-ului: ce arata pagina fata de faq.md. Goala inseamna ca se potrivesc. */
+function faqDivergence(shown: ShownFaq, expected: ShownFaq): string[] {
+  const problems: string[] = [];
+  if (shown.length !== expected.length) problems.push(`numar de intrebari: pagina ${shown.length}, sursa ${expected.length}`);
+  const ids = (s: ShownFaq) => s.map((e) => e.lesson).join(",");
+  if (ids(shown) !== ids(expected)) problems.push(`lectiile intrebarilor: pagina ${ids(shown)}, sursa ${ids(expected)}`);
+  for (const want of expected) {
+    const got = shown.find((e) => e.lesson === want.lesson);
+    if (!got) continue;
+    if (got.question !== want.question) problems.push(`intrebarea ${want.lesson}: pagina "${got.question}", sursa "${want.question}"`);
+    if (got.answer !== want.answer) problems.push(`raspunsul ${want.lesson}: pagina "${got.answer}", sursa "${want.answer}"`);
+    if (got.href !== want.href) problems.push(`legatura ${want.lesson}: pagina ${got.href}, sursa ${want.href}`);
+    if (got.linkText !== want.linkText) problems.push(`textul legaturii ${want.lesson}: pagina "${got.linkText}", sursa "${want.linkText}"`);
+  }
+  return problems;
+}
+
+async function shownFaq(page: Page): Promise<ShownFaq> {
+  return page.getByTestId("faq-item").evaluateAll((items) =>
+    items.map((li) => {
+      const link = li.querySelector('[data-testid="faq-lesson-link"]');
+      return {
+        lesson: li.getAttribute("data-lesson") ?? "",
+        question: (li.querySelector('[data-testid="faq-question"]')?.textContent ?? "").trim(),
+        answer: (li.querySelector('[data-testid="faq-answer"]')?.textContent ?? "").trim(),
+        href: link?.getAttribute("href") ?? null,
+        linkText: (link?.textContent ?? "").trim(),
+      };
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 1. Fara browser.
 // ---------------------------------------------------------------------------
@@ -144,6 +196,66 @@ test("P3-321: the divergence test fails when a page and the source disagree", ()
 
   // Operatorul care ar vedea toate lectiile administratorului.
   expect(divergence(source, expectedFor("account_manager")).join("\n")).toContain("numar de lectii");
+});
+
+test("P3-323: the FAQ has 7 to 10 questions for the administrator, fewer for the operator, and every link opens for its role", () => {
+  const owner = expectedFaqFor("owner");
+  const operator = expectedFaqFor("account_manager");
+  expect(owner.length).toBeGreaterThanOrEqual(7);
+  expect(owner.length).toBeLessThanOrEqual(10);
+  expect(operator.length).toBeGreaterThanOrEqual(5);
+  expect(operator.length).toBeLessThan(owner.length);
+  for (const role of ["owner", "account_manager"] as const) {
+    const flat = flatIds(expectedFor(role));
+    for (const e of expectedFaqFor(role)) expect(flat, `${role}: ${e.lesson}`).toContain(e.lesson);
+  }
+});
+
+test("P3-323: faqForRole returns the questions of faq.md that the role can open, in file order", () => {
+  const faq = loadFaq(join(GUIDE_DIR, "faq.md"));
+  expect(faq.problems).toEqual([]);
+  for (const role of ["owner", "account_manager"] as const) {
+    const view = faqForRole(faq, guideForRole(guide, role).flat);
+    const shown: ShownFaq = view.map((e) => ({
+      lesson: e.lesson,
+      question: e.question,
+      answer: e.answer.replaceAll("**", ""),
+      href: `/ajutor/${e.lesson}`,
+      linkText: `Vezi lecția: ${e.lessonTitle}`,
+    }));
+    expect(faqDivergence(shown, expectedFaqFor(role)), role).toEqual([]);
+    expect(shown.length, role).toBeGreaterThan(0);
+  }
+  // Un rol necunoscut nu vede nicio intrebare.
+  expect(faqForRole(faq, guideForRole(guide, "client").flat)).toEqual([]);
+});
+
+test("P3-323: the FAQ divergence test fails when the page and faq.md disagree", () => {
+  const source = expectedFaqFor("owner");
+  expect(faqDivergence(structuredClone(source), source)).toEqual([]);
+
+  const dropped = structuredClone(source);
+  dropped.pop();
+  expect(faqDivergence(dropped, source).join("\n")).toContain("numar de intrebari");
+
+  const reordered = structuredClone(source);
+  reordered.reverse();
+  expect(faqDivergence(reordered, source).join("\n")).toContain("lectiile intrebarilor");
+
+  const reworded = structuredClone(source);
+  reworded[0].answer += " Altfel.";
+  expect(faqDivergence(reworded, source).join("\n")).toContain(`raspunsul ${reworded[0].lesson}`);
+
+  const asked = structuredClone(source);
+  asked[1].question = "Altă întrebare?";
+  expect(faqDivergence(asked, source).join("\n")).toContain(`intrebarea ${asked[1].lesson}`);
+
+  const relinked = structuredClone(source);
+  relinked[2].href = "/ajutor/alta-lectie";
+  expect(faqDivergence(relinked, source).join("\n")).toContain(`legatura ${relinked[2].lesson}`);
+
+  // Operatorul care ar vedea intrebarile administratorului.
+  expect(faqDivergence(source, expectedFaqFor("account_manager")).join("\n")).toContain("numar de intrebari");
 });
 
 test("P3-321: next lesson crosses chapters, the last lesson has none, and a hidden lesson is not found", () => {
@@ -371,6 +483,28 @@ test.describe("Administratorul vede tot ghidul", () => {
     );
   });
 
+  test("1b. P3-323: Întrebări frecvente arata exact intrebarile din faq.md, cu legatura spre lectia fiecareia", async ({ page }) => {
+    await page.goto("/ajutor");
+    await expect(page.getByRole("heading", { level: 2, name: "Întrebări frecvente" })).toBeVisible();
+    const shown = await shownFaq(page);
+    const expected = expectedFaqFor("owner");
+    // Un test care citeste zero intrebari gaseste zero diferente: numarul se afirma.
+    expect(shown.length).toBeGreaterThanOrEqual(7);
+    expect(shown.length).toBeLessThanOrEqual(10);
+    expect(faqDivergence(shown, expected)).toEqual([]);
+    // Etichetele din raspuns sunt scrise ingrosat, exact cum sunt in faq.md.
+    const bold = await page.getByTestId("faq-answer").locator("strong").allTextContents();
+    const boldExpected = (parseFrontMatter(readFileSync(join(GUIDE_DIR, "faq.md"), "utf8"), "faq.md").data.entries as string[]).flatMap((raw) =>
+      labelsOf(raw.split(" | ")[2]),
+    );
+    expect(bold).toEqual(boldExpected);
+    // Legatura duce la lectia ei, care se deschide.
+    const first = shown[0];
+    await page.getByTestId("faq-lesson-link").first().click();
+    await expect(page).toHaveURL(new RegExp(`/ajutor/${first.lesson}$`));
+    await expect(page.getByTestId("lesson-page")).toHaveAttribute("data-lesson", first.lesson);
+  });
+
   test("2. lectiile numai ale administratorului au eticheta Administrator, celelalte nu", async ({ page }) => {
     await page.goto("/ajutor");
     const tagged = await page
@@ -462,6 +596,18 @@ test.describe("Operatorul vede numai lectiile lui", () => {
       await expect(page.locator(`[data-lesson="${l.id}"]`)).toHaveCount(0);
     }
     await expect(page.getByTestId("guide-lesson-link").filter({ hasText: /Administrator$/ })).toHaveCount(0);
+  });
+
+  test("1b. P3-323: Întrebări frecvente arata numai intrebarile ale caror lectii le vede operatorul", async ({ page }) => {
+    await page.goto("/ajutor");
+    const shown = await shownFaq(page);
+    const expected = expectedFaqFor("account_manager");
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.length).toBeLessThan(expectedFaqFor("owner").length);
+    expect(faqDivergence(shown, expected)).toEqual([]);
+    // Nicio intrebare nu trimite la o lectie pe care operatorul nu o poate deschide.
+    const visible = new Set(flatIds(expectedFor("account_manager")));
+    for (const e of shown) expect(visible.has(e.lesson), e.lesson).toBe(true);
   });
 
   test("2. fiecare lectie a operatorului are pasii, poza, Vezi si si urmatoarea lectie din sursa", async ({ page }) => {

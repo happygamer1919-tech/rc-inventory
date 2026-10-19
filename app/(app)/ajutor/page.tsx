@@ -10,9 +10,11 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RichText } from "@/components/guide/LessonParts";
+import { PHONE_LINK } from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { plural } from "@/lib/data/format";
-import { readGuideFor } from "@/lib/guide/read";
+import { readFaqFor, readGuideFor } from "@/lib/guide/read";
 import { lessonHref } from "@/lib/guide/view.mjs";
 import { getSessionUser } from "@/lib/supabase/server";
 import { ROLE_LABEL } from "@/lib/supabase/types";
@@ -27,6 +29,7 @@ export default async function AjutorPage() {
   const user = await getSessionUser();
   const { chapters, flat } = readGuideFor(user?.role);
   const first = flat[0] ?? null;
+  const faq = readFaqFor(user?.role);
 
   return (
     <div data-testid="ajutor">
@@ -101,6 +104,40 @@ export default async function AjutorPage() {
           </ol>
         )}
       </section>
+
+      {/* P3-323. Cele mai cerute sarcini, din content/guide/faq.md, fiecare cu legatura spre lectia ei. */}
+      {faq.length > 0 ? (
+        <section aria-labelledby="intrebari-frecvente" className="mt-8" data-testid="faq">
+          <h2 id="intrebari-frecvente" className="text-[18px] font-bold tracking-tight text-white">
+            Întrebări frecvente
+          </h2>
+          <p className="mt-1 text-[13.5px] text-rc-muted-2">Cele mai cerute sarcini, pe scurt, cu lecția la care te poți uita.</p>
+          <ul className="mt-4 grid gap-4 md:grid-cols-2">
+            {faq.map((item) => (
+              <li key={item.lesson} data-testid="faq-item" data-lesson={item.lesson} className="min-w-0">
+                <Card className="h-full">
+                  <div className="space-y-2 px-5 py-4 max-md:px-4">
+                    <h3 data-testid="faq-question" className="text-[15px] font-semibold text-rc-black [overflow-wrap:anywhere]">
+                      {item.question}
+                    </h3>
+                    <p data-testid="faq-answer" className="text-[14px] leading-6 text-rc-black [overflow-wrap:anywhere]">
+                      <RichText text={item.answer} />
+                    </p>
+                    <Link
+                      href={lessonHref(item.lesson)}
+                      data-testid="faq-lesson-link"
+                      data-lesson={item.lesson}
+                      className={`text-[13.5px] font-medium text-rc-info underline underline-offset-2 hover:text-rc-black ${PHONE_LINK}`}
+                    >
+                      Vezi lecția: {item.lessonTitle}
+                    </Link>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

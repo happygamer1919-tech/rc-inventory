@@ -17,6 +17,14 @@ export function labelsOf(step: string): string[];
 export function loadGuide(root: string): Guide;
 export function visibleText(lesson: GuideRecord, titleOf: (id: string) => string | undefined): string;
 export function validateGuide(guide: Guide, ctx: { navGroups: string[]; sourceText?: string }): string[];
+export const FAQ_MIN: number;
+export const FAQ_MAX: number;
+export const FAQ_MAX_ANSWER_WORDS: number;
+export function validateFaq(
+  faq: { id: string | null; title: string | null; entries: Array<{ lesson: string; question: string; answer: string }>; problems: string[] },
+  guide: Guide,
+  ctx: { sourceText?: string },
+): string[];
 export function navGroupTitles(repoRoot: string): string[];
 export function readAppSourceText(repoRoot: string): string;
 

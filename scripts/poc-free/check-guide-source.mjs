@@ -9,18 +9,22 @@
 
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadGuide, navGroupTitles, readAppSourceText, validateGuide } from "../../lib/guide/source.mjs";
+import { loadFaq } from "../../lib/guide/faq.mjs";
+import { loadGuide, navGroupTitles, readAppSourceText, validateFaq, validateGuide } from "../../lib/guide/source.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const guide = loadGuide(join(ROOT, "content/guide"));
+const faq = loadFaq(join(ROOT, "content/guide/faq.md"));
 const navGroups = navGroupTitles(ROOT);
 const sourceText = readAppSourceText(ROOT);
 
 console.log("check-guide-source");
-console.log(`  capitole ${guide.chapters.length}, lectii ${guide.lessons.length}, grupuri de meniu ${navGroups.length}`);
+console.log(
+  `  capitole ${guide.chapters.length}, lectii ${guide.lessons.length}, intrebari frecvente ${faq.entries.length}, grupuri de meniu ${navGroups.length}`,
+);
 
 // Un check care citeste zero lectii gaseste zero greseli. Numarul de intrare este afirmat.
-const problems = validateGuide(guide, { navGroups, sourceText });
+const problems = [...validateGuide(guide, { navGroups, sourceText }), ...validateFaq(faq, guide, { sourceText })];
 if (guide.lessons.length === 0) problems.push("nicio lectie citita din content/guide");
 
 if (problems.length > 0) {
