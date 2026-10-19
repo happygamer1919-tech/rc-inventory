@@ -9762,3 +9762,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** the headless shell started in the factory folder, so `npm ci` read the factory's package files and failed on a lockfile mismatch that has nothing to do with this repo.
 **SOLUTION:** `cd <worktree> && npm ci` in one command. RULE: **start every npm command with the worktree path; a shell does not begin in the worktree you just created.**
+
+### P3-324: a Playwright spec cannot load a .mjs that uses import.meta
+**Tag:** testing
+**ERROR:** `lib/guide/pdf.mjs` located the repo with `import.meta.url`; the spec importing it failed with "Cannot use 'import.meta' outside a module" because Playwright transpiles .mjs to CommonJS.
+**SOLUTION:** the module takes the repo root from `process.cwd()` like `lib/guide/read.ts`. RULE: **a .mjs that a Playwright spec imports must not use import.meta; npm scripts and CI both run from the repo root.**
+
+### P3-324: a file date cannot tell a PDF is stale
+**Tag:** testing
+**ERROR:** the brief asks for a test that fails when the PDF is older than the newest content file, but git checkout gives every file the same time in CI, so a date comparison would never fail there.
+**SOLUTION:** the PDF carries a SHA-256 of everything printed into it (lessons, desktop pictures, fonts, the generator) in its Keywords field and the test recomputes it. RULE: **freshness of a committed generated file is a content fingerprint, never a modification time.** After `guide-screenshots` regenerates pictures, run `npm run guide:pdf` and commit the PDF with them.
+
+### P3-324: a Playwright run on this Mac starts the whole app
+**Tag:** infra
+**ERROR:** `npx playwright test tests/e2e/guide-pdf.spec.ts` hit the 120 s limit: `playwright.config.ts` starts a production build and servers that need the local database stack.
+**SOLUTION:** a throwaway config with only `testDir` and `testMatch` ran the file-reading spec (7 passed), then was deleted. RULE: **a spec that reads files only can be run locally with a minimal config; never commit that config.**
