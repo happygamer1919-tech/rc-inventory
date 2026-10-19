@@ -23,7 +23,13 @@ export function splitBold(step: string): Array<{ text: string; bold: boolean }>;
 export function readPngSize(file: string): { width: number; height: number } | null;
 
 export type GuidePicture = { src: string; width: number; height: number };
+export type PictureView =
+  | { kind: "none" }
+  | { kind: "phone"; mobile: GuidePicture }
+  | { kind: "desktop"; desktop: GuidePicture }
+  | { kind: "both"; desktop: GuidePicture; mobile: GuidePicture };
+export function pictureView(pictures: { desktop: GuidePicture | null; mobile: GuidePicture | null }): PictureView;
 export function lessonPictures(
-  lesson: GuideRecord,
+  lesson: Record<string, any>,
   publicGuideDir: string,
 ): { desktop: GuidePicture | null; mobile: GuidePicture | null };

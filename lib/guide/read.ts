@@ -9,7 +9,9 @@
 // lectie schimbata se vede imediat. Nu se scrie nimic si nu se retine cine ce a citit.
 
 import path from "node:path";
-import { loadGuide } from "./source.mjs";
+// De la parse.mjs si NU de la source.mjs: acela mai are un cititor care umbla prin tot codul
+// (readAppSourceText), iar Turbopack ar pune tot proiectul in functia serverless.
+import { loadGuide } from "./parse.mjs";
 import { guideForRole } from "./view.mjs";
 
 const GUIDE_DIR = path.join(process.cwd(), "content", "guide");

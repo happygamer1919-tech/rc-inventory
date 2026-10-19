@@ -1,13 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { LessonPicture } from "@/components/guide/LessonParts";
 import { ALL_ROUTES } from "@/lib/nav";
 import { labelsOf, loadGuide } from "../../lib/guide/source.mjs";
-import { findInFlat, guideForRole, lessonPictures, readPngSize, splitBold } from "../../lib/guide/view.mjs";
+import { findInFlat, guideForRole, lessonPictures, pictureView, readPngSize, splitBold } from "../../lib/guide/view.mjs";
 import { managerAccount, ownerAccount } from "./support/accounts";
 import { LOGIN_PATH, signIn } from "./support/auth";
 
@@ -252,33 +249,21 @@ test("P3-321: every committed picture is a real PNG, so no lesson can show a bro
   }
 });
 
-test("P3-321: the picture component shows the 'fără imagine' card, and no <img>, when there is no picture", () => {
-  const none = renderToStaticMarkup(createElement(LessonPicture, { title: "Cum faci ceva", desktop: null, mobile: null }));
-  expect(none).toContain('data-testid="lesson-no-picture"');
-  expect(none).toContain("fără imagine");
-  expect(none).not.toContain("<img");
-  expect(none).not.toContain("<picture");
-
+test("P3-321: what goes in the place of the picture follows the pictures that exist: none, phone only, desktop only, both", () => {
   const desktop = { src: "/guide/a-desktop.png", width: 1440, height: 900 };
   const mobile = { src: "/guide/a-mobile.png", width: 780, height: 1688 };
-
-  const both = renderToStaticMarkup(createElement(LessonPicture, { title: "Cum faci ceva", desktop, mobile }));
-  expect(both).not.toContain("fără imagine");
-  expect(both).toContain('<source media="(max-width: 767px)" srcSet="/guide/a-mobile.png"');
-  expect(both).toContain('src="/guide/a-desktop.png"');
-  expect(both).toContain('width="1440"');
-  expect(both).toContain('alt="Captură de ecran cu pașii lecției: Cum faci ceva"');
-
-  const desktopOnly = renderToStaticMarkup(createElement(LessonPicture, { title: "T", desktop, mobile: null }));
-  expect(desktopOnly).not.toContain("<source");
-  expect(desktopOnly).toContain('src="/guide/a-desktop.png"');
-
-  const mobileOnly = renderToStaticMarkup(createElement(LessonPicture, { title: "T", desktop: null, mobile }));
-  expect(mobileOnly).toContain('src="/guide/a-mobile.png"');
-  expect(mobileOnly).not.toContain("fără imagine");
-
-  // Niciodata o adresa goala.
-  for (const html of [both, desktopOnly, mobileOnly]) expect(html).not.toMatch(/src=""/);
+  expect(pictureView({ desktop: null, mobile: null })).toEqual({ kind: "none" });
+  expect(pictureView({ desktop: null, mobile })).toEqual({ kind: "phone", mobile });
+  expect(pictureView({ desktop, mobile: null })).toEqual({ kind: "desktop", desktop });
+  expect(pictureView({ desktop, mobile })).toEqual({ kind: "both", desktop, mobile });
+  // Fiecare lectie reala da una din cele patru stari si niciodata o poza fara adresa.
+  for (const l of guide.lessons) {
+    const view = pictureView(lessonPictures(l, PUBLIC_GUIDE));
+    expect(["none", "phone", "desktop", "both"], l.id).toContain(view.kind);
+    for (const pic of [(view as any).desktop, (view as any).mobile]) {
+      if (pic) expect(pic.src, l.id).toMatch(/^\/guide\/[a-z0-9-]+-(desktop|mobile)\.png$/);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -409,7 +394,30 @@ test.describe("Administratorul vede tot ghidul", () => {
     await expect(page.getByTestId("not-found")).toHaveText("Pagina nu există");
   });
 
-  test("5. ghidul nu pune cookie, nu scrie in stocarea browserului si nu retine ce s-a citit", async ({ page }) => {
+  test("5. o lectie fara poze arata cardul 'fără imagine' si niciun <img>, apoi poza revine cand fisierele revin", async ({ page }) => {
+    // Citirea de pe disc se face la fiecare cerere, deci mutarea fisierelor se vede imediat.
+    // Fisierele se pun inapoi in `finally`, orice s-ar intampla in test.
+    const lesson = guide.lessons.find((l) => existsSync(join(PUBLIC_GUIDE, `${l.screenshots[0]}-desktop.png`)) && existsSync(join(PUBLIC_GUIDE, `${l.screenshots[0]}-mobile.png`)))!;
+    const id = lesson.id as string;
+    const files = ["desktop", "mobile"].map((s) => join(PUBLIC_GUIDE, `${lesson.screenshots[0]}-${s}.png`));
+    try {
+      for (const f of files) renameSync(f, `${f}.hidden`);
+      await page.goto(`/ajutor/${id}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(lesson.title as string);
+      await expect(page.getByTestId("lesson-no-picture")).toHaveText("fără imagine");
+      await expect(page.getByTestId("lesson-picture")).toHaveCount(0);
+      await expect(page.locator("main img")).toHaveCount(0);
+      // Pasii, Vezi si si urmatoarea lectie raman la locul lor.
+      await expect(page.getByTestId("lesson-step")).toHaveCount((lesson.steps as string[]).length);
+    } finally {
+      for (const f of files) if (existsSync(`${f}.hidden`)) renameSync(`${f}.hidden`, f);
+    }
+    await page.goto(`/ajutor/${id}`);
+    await expect(page.getByTestId("lesson-no-picture")).toHaveCount(0);
+    await expect(page.getByTestId("lesson-picture").locator("img")).toHaveCount(1);
+  });
+
+  test("6. ghidul nu pune cookie, nu scrie in stocarea browserului si nu retine ce s-a citit", async ({ page }) => {
     await page.goto("/ajutor");
     const names = async () => (await page.context().cookies()).map((c) => c.name).sort();
     const storage = () =>
@@ -425,7 +433,7 @@ test.describe("Administratorul vede tot ghidul", () => {
     expect(await storage()).toEqual(storageBefore);
   });
 
-  test("6. nicio legatura spre /ajutor nu exista inca pe niciun ecran (intrarea din meniu vine cu task 325)", async ({ page }) => {
+  test("7. nicio legatura spre /ajutor nu exista inca pe niciun ecran (intrarea din meniu vine cu task 325)", async ({ page }) => {
     // Task 325 adauga intrarea "Ajutor" in meniu si STERGE acest caz.
     expect(ALL_ROUTES.length).toBeGreaterThan(0);
     for (const route of ALL_ROUTES) {

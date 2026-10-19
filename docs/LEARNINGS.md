@@ -9737,3 +9737,13 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** a local config with `testMatch: /guide-.*\.spec\.ts/` ran all 1061 specs, because the worktree folder is `guide-screenshot-script` and testMatch is tested against the full path.
 **SOLUTION:** `testMatch: /\/guide-[a-z-]+\.spec\.ts$/`. RULE: **anchor a testMatch to the file name (a slash before it, `$` after), never to a bare word.**
+
+### P3-321: importing the guide source from a page traced the whole project into the serverless function
+**Tag:** infra
+**ERROR:** `npm run build` warned "Dynamic filesystem access causes tracing of the whole project" for `lib/guide/source.mjs`, imported by the /ajutor pages: the file also holds `readAppSourceText`, which walks `app/`, `components/` and `lib/` with a computed path, so Turbopack would have shipped every source file and the public folder with the page.
+**SOLUTION:** the front matter reader and `loadGuide` moved to `lib/guide/parse.mjs` (source.mjs re-exports the same names, so the checks and specs are unchanged) and the pages import only from there. RULE: **a module a page imports must not contain a directory walk; keep the walk in a separate file and read the build output for the tracing warning.**
+
+### P3-321: a Playwright spec cannot render a .tsx component to a string
+**Tag:** testing
+**ERROR:** `renderToStaticMarkup(createElement(LessonPicture, ...))` in a spec failed with "Objects are not valid as a React child (found: object with keys {__pw_type, ...})": Playwright compiles every .tsx it loads with its own JSX runtime.
+**SOLUTION:** the choice of what to show (none, phone only, desktop only, both) moved into the pure function `pictureView` in `lib/guide/view.mjs`, which the spec tests, and the real page is checked in the browser, including a case that hides a lesson's pictures for the length of the test.

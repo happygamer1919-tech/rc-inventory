@@ -1,4 +1,4 @@
-import { splitBold } from "@/lib/guide/view.mjs";
+import { pictureView, splitBold } from "@/lib/guide/view.mjs";
 import type { GuidePicture } from "@/lib/guide/view.mjs";
 
 // P3-321. Bucatile paginii unei lectii. Fara stare si fara cod de browser: tot ce se vede
@@ -45,7 +45,8 @@ export function LessonSteps({ steps }: { steps: string[] }) {
 /**
  * Poza lectiei: cea de telefon sub 768px, cea de desktop de la 768px in sus. Daca poza nu
  * exista pe disc, in locul ei sta cardul "fără imagine" si nu se scrie niciun <img>:
- * niciodata o imagine stricata.
+ * niciodata o imagine stricata. Ce se alege, in functie de ce poze exista, decide
+ * pictureView (lib/guide/view.mjs).
  */
 export function LessonPicture({
   title,
@@ -56,7 +57,8 @@ export function LessonPicture({
   desktop: GuidePicture | null;
   mobile: GuidePicture | null;
 }) {
-  if (!desktop && !mobile) {
+  const view = pictureView({ desktop, mobile });
+  if (view.kind === "none") {
     return (
       <div
         data-testid="lesson-no-picture"
@@ -70,14 +72,14 @@ export function LessonPicture({
   // Un <img> simplu si nu next/image, ca in ProductPanel: pozele sunt fisiere statice
   // gata taiate la marimea lor, iar optimizatorul ar scrie a doua copie a fiecareia.
   // Latimea si inaltimea sunt cele din fisier, ca pagina sa nu sara cand se incarca poza.
-  if (!desktop && mobile) {
+  if (view.kind === "phone") {
     // Lectie numai pentru telefon: poza ei are 390px latime, deci nu se intinde pe desktop.
     return (
       <figure data-testid="lesson-picture" className="mx-auto max-w-[390px]">
         <img
-          src={mobile.src}
-          width={mobile.width}
-          height={mobile.height}
+          src={view.mobile.src}
+          width={view.mobile.width}
+          height={view.mobile.height}
           alt={alt}
           loading="lazy"
           className="block h-auto w-full rounded-[10px] border border-rc-line"
@@ -88,11 +90,11 @@ export function LessonPicture({
   return (
     <figure data-testid="lesson-picture">
       <picture>
-        {mobile ? <source media="(max-width: 767px)" srcSet={mobile.src} /> : null}
+        {view.kind === "both" ? <source media="(max-width: 767px)" srcSet={view.mobile.src} /> : null}
         <img
-          src={desktop!.src}
-          width={desktop!.width}
-          height={desktop!.height}
+          src={view.desktop.src}
+          width={view.desktop.width}
+          height={view.desktop.height}
           alt={alt}
           loading="lazy"
           className="block h-auto w-full rounded-[10px] border border-rc-line max-md:mx-auto max-md:max-w-[390px]"
