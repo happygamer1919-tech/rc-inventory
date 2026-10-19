@@ -9747,3 +9747,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** testing
 **ERROR:** `renderToStaticMarkup(createElement(LessonPicture, ...))` in a spec failed with "Objects are not valid as a React child (found: object with keys {__pw_type, ...})": Playwright compiles every .tsx it loads with its own JSX runtime.
 **SOLUTION:** the choice of what to show (none, phone only, desktop only, both) moved into the pure function `pictureView` in `lib/guide/view.mjs`, which the spec tests, and the real page is checked in the browser, including a case that hides a lesson's pictures for the length of the test.
+
+### P3-321: a board timestamp typed ahead of the clock fails quality
+**Tag:** ci
+**ERROR:** `check:board-clock` failed because I wrote `last_checkpoint` and `evidence.at` as 19:20:00Z while the commit was made at 19:15:39Z.
+**SOLUTION:** the timestamps were set from `date -u` before the commit. RULE: **read the clock (`date -u`) before writing a board timestamp; never round up or guess it.**
