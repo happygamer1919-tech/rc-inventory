@@ -219,10 +219,11 @@ const CLASSES = [
   {
     name: "code",
     code: true,
-    why: "the product, its libraries, its tests, its schema, its scripts and its workflows.",
+    why: "the product, its libraries, its tests, its schema, its scripts and its workflows, and content/, the text the product renders (the in-platform guide lessons, read by lib/guide/source.mjs).",
     test: (p) =>
       p.startsWith("app/") ||
       p.startsWith("components/") ||
+      p.startsWith("content/") ||
       p.startsWith("lib/") ||
       p.startsWith("scripts/") ||
       p.startsWith("tests/") ||

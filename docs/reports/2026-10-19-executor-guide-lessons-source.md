@@ -52,8 +52,10 @@ Run from `/Users/sm33xy/Projects/rc-inventory-worktrees/guide-lessons-source`:
   `check:no-destructive-migration`, `check:conflict-residue`, `check:categories`,
   `check:ledger-rows`, `check:no-prod-target`, `check:pending-schema-reads`,
   `check:removal-safety`, `check:assertion-register`: each exit 0.
-- `npm run check:board-edit`: exit 0 (re-run after the commit; before it, it reports "not a pull
-  request").
+- `npm run check:board-edit`: exit 0 after one change to the check itself. The first run REFUSED:
+  it did not know `content/` (46 UNKNOWN paths). `scripts/poc-free/check-board-edit.mjs` now
+  classes `content/` as product code, with the reason beside the rule, and
+  `npm run prove:board-edit` still passes 45 of 45.
 - `npm run check:guide-source`: exit 0, 6 chapters, 40 lessons.
 - `npx playwright test --config scratchpad/pw-guide.config.mjs` (a local, uncommitted config with
   no app servers): 14 passed. `npx playwright test --list tests/e2e/guide-source.spec.ts` with
