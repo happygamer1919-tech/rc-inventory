@@ -7775,6 +7775,31 @@
         "at": "2026-10-19T21:00:00Z"
       },
       "notes": "AUTHORED AND BUILT 2026-10-19 by EXECUTOR in the same pull request, PR 5 of the six-PR guide series (brief of 2026-10-19). id:free gave P3-324 as free. Still to come: the menu entry (PR 6, which also removes the case of ajutor.spec.ts that says nothing links to /ajutor). After PR 6, any change to a lesson, a picture or the generator needs `npm run guide:pdf` and the new PDF committed."
+    },
+    {
+      "id": "P3-325",
+      "title": "In-platform guide, PR 6 of 6: the Ajutor menu entry. lib/nav.ts gets a last menu group Suport with one entry, Ajutor, to /ajutor, using the existing orders icon; the side menu and the phone drawer both read NAV, so both show it. labelForPath keeps the top bar title Suport si Ghid for /ajutor and the lessons under it. The case of tests/e2e/ajutor.spec.ts that said nothing links to /ajutor is replaced by two cases: the entry is the last menu link and opens /ajutor at desktop width, and the same entry is in the phone drawer at 390 px. Opened as a DRAFT: it makes the guide visible to all staff, so it waits for Max's go-ahead (mailbox question qNNN-guide-go-live). No database change, no cookie, no read tracking.",
+      "plain": "The help guide gets its entry in the main menu, at the bottom, named Ajutor. Once this is switched on every staff member can open the guide, on a computer or on a phone. It stays unpublished until Max says yes.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-324"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: `npx playwright test tests/e2e/ajutor.spec.ts` is green in this pull request's quality run on the head sha, including the case that the Ajutor entry is the last link of the side menu, points to /ajutor and opens it with the top bar title Suport si Ghid, and the case that the same entry is in the phone drawer at 390 px. (b) headers.spec.ts and crm-landing.spec.ts stay green with /ajutor in ALL_ROUTES. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed, no new icon name is added, no cookie and no table is added, and the committed guide PDF still matches (guide-pdf.spec.ts green).",
+      "defaults": "A new last group Suport rather than a place inside Configurare: the guide is not a working screen and not a setting. The existing orders icon (two pages side by side) is reused because the task allows no new icon. The label is Ajutor, as the brief says; the page title stays Suport si Ghid. The PR is a draft until Max gives the go-ahead.",
+      "last_checkpoint": "2026-10-19T21:40:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-325 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-19-executor-guide-menu-entry.md",
+        "at": "2026-10-19T21:40:00Z"
+      },
+      "notes": "AUTHORED AND BUILT 2026-10-19 by EXECUTOR in the same pull request, PR 6 of the six-PR guide series (brief of 2026-10-19). id:free gave P3-325 as free. Opened as a draft; Max's go-ahead is asked in the factory mailbox. After it merges the guide is visible to all roles."
     }
   ]
 }

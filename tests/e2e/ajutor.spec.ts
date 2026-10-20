@@ -567,14 +567,33 @@ test.describe("Administratorul vede tot ghidul", () => {
     expect(await storage()).toEqual(storageBefore);
   });
 
-  test("7. nicio legatura spre /ajutor nu exista inca pe niciun ecran (intrarea din meniu vine cu task 325)", async ({ page }) => {
-    // Task 325 adauga intrarea "Ajutor" in meniu si STERGE acest caz.
-    expect(ALL_ROUTES.length).toBeGreaterThan(0);
-    for (const route of ALL_ROUTES) {
-      await page.goto(route);
-      await expect(page.locator("aside nav a").first()).toBeVisible();
-      await expect(page.locator('a[href^="/ajutor"]'), route).toHaveCount(0);
-    }
+  test("7. meniul are intrarea Ajutor, ultima, spre /ajutor, si titlul din bara de sus ramane Suport și Ghid (task 325)", async ({ page }) => {
+    expect(ALL_ROUTES).toContain("/ajutor");
+    await page.goto("/");
+    const links = page.locator("aside nav a");
+    await expect(links.first()).toBeVisible();
+    const entry = links.filter({ hasText: /^Ajutor$/ });
+    await expect(entry).toHaveCount(1);
+    await expect(entry).toHaveAttribute("href", "/ajutor");
+    // Ultima intrare din meniu.
+    await expect(links.last()).toHaveText("Ajutor");
+    await entry.click();
+    await expect(page).toHaveURL(/\/ajutor$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Suport și Ghid");
+    await expect(page.locator("header span").first()).toHaveText("Suport și Ghid");
+    await expect(page.locator("aside nav a[href='/ajutor']")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("8. la 390 px intrarea Ajutor este in sertarul meniului si il duce la /ajutor", async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto("/");
+    await page.getByTestId("sidebar-open").click();
+    const entry = page.locator("aside nav a[href='/ajutor']");
+    await expect(entry).toBeVisible();
+    await expect(entry).toHaveText("Ajutor");
+    await entry.click();
+    await expect(page).toHaveURL(/\/ajutor$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Suport și Ghid");
   });
 });
 

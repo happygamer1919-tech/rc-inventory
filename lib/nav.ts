@@ -212,6 +212,20 @@ export const NAV: NavGroup[] = [
       },
     ],
   },
+  {
+    // P3-325, ultimul pull request al ghidului. GRUP PROPRIU, ULTIMUL: ghidul nu este
+    // un ecran de lucru si nu apartine de Configurare. Pictograma `orders` exista deja
+    // (doua pagini alaturate) si nu se adauga niciun nume nou in IconName.
+    title: "Suport",
+    items: [
+      {
+        href: "/ajutor",
+        label: "Ajutor",
+        icon: "orders",
+        description: "Ghidul platformei și întrebările frecvente",
+      },
+    ],
+  },
 ];
 
 /** Fiecare ecran cu nume: intrarile din meniu, apoi cele deschise prin CRM. */
@@ -227,12 +241,12 @@ export function pathMatches(pathname: string, href: string): boolean {
 
 /** Eticheta ecranului curent, pentru titlul din bara de sus. */
 export function labelForPath(pathname: string): string {
+  // P3-321 si P3-325. Ghidul (/ajutor si lectiile de sub el) are in bara de sus titlul
+  // paginii, "Suport și Ghid", nu eticheta scurta din meniu, "Ajutor". Verificarea sta
+  // INAINTEA parcurgerii, fiindca /ajutor este acum in NAV si ar fi fost gasit primul.
+  if (pathMatches(pathname, "/ajutor")) return "Suport și Ghid";
   for (const i of SCREENS) {
     if (pathMatches(pathname, i.href)) return i.label;
   }
-  // P3-321. Ghidul (/ajutor si lectiile de sub el) are titlu in bara de sus, dar NU sta in
-  // NAV si nici in SCREENS: intrarea din meniu vine cu ultimul pull request al ghidului
-  // (task 325), iar ALL_ROUTES, pe care o parcurge headers.spec, nu trebuie sa-l afle inainte.
-  if (pathMatches(pathname, "/ajutor")) return "Suport și Ghid";
   return "Rapid Construct";
 }
