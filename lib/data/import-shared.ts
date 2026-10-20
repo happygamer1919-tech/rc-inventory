@@ -822,6 +822,10 @@ export function readPhone(raw: string): PhoneReading {
     return local.length === 9 ? { kind: "ok", value: `+40${local}` } : { kind: "bad" };
   }
 
+  // Nouă cifre fără prefix, începând cu 7: Excel a tăiat zeroul din 07xxxxxxxx.
+  // Este un mobil românesc, salvat ca +40, ca la cele opt cifre moldovenești de mai jos.
+  if (!hasPlus && digits.length === 9 && digits.startsWith("7")) return { kind: "ok", value: `+40${digits}` };
+
   // Opt cifre fara niciun prefix este un numar moldovenesc scris scurt.
   if (!hasPlus && digits.length === 8) return { kind: "ok", value: `+373${digits}` };
 

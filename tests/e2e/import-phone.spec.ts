@@ -30,6 +30,13 @@ const CASES: [string, { kind: "ok"; value: string } | { kind: "empty" | "many" |
   // With 00 prefix: 0040 + nine digits
   ["00407 21 234 567", { kind: "ok", value: "+40721234567" }],
 
+  // Excel cut the leading zero of 07xxxxxxxx: nine digits starting with 7, no prefix
+  ["721234567", { kind: "ok", value: "+40721234567" }],
+  ["721 234 567", { kind: "ok", value: "+40721234567" }],
+  // Nine digits not starting with 7, or with a plus sign, are not rescued: foreign form as before
+  ["821234567", { kind: "ok", value: "+821234567" }],
+  ["+721234567", { kind: "ok", value: "+721234567" }],
+
   // Romanian invalid: 0 + nine digits NOT starting with 7
   ["0821234567", { kind: "bad" }],
   ["0921234567", { kind: "bad" }],
