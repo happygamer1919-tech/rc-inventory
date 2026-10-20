@@ -7850,6 +7850,31 @@
         "at": "2026-10-20T17:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-20 14:57Z, finding 4 (zero based). The finding file sits outside the executor folders and was not read; the card was built from the task text and the code. Files: lib/guide/view.mjs, lib/guide/read.ts, lib/guide/pdf.mjs, app/api/guide/poza/[nume]/route.ts, app/api/guide/pdf/route.ts, next.config.ts, .github/workflows/guide-screenshots.yml, scripts/guide/screenshots.mjs."
+    },
+    {
+      "id": "P3-329",
+      "title": "Imports rescue Romanian mobiles that Excel cut the zero from, and match clients by IDNO with a Romanian message.",
+      "plain": "A Romanian mobile number that Excel saved without its first zero (for example 721234567) is now read as the number it was, +40 721 234 567, instead of being kept as a wrong foreign number. The client import also treats the IDNO as a way to recognise a client: a row with the IDNO of a client who already exists, or of an earlier row in the same file, is shown as a duplicate. Filling empty fields never writes an IDNO that belongs to another client, and when the database refuses one, the screen says which client has it.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-313"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/import-phone.spec.ts and tests/e2e/p3-329-import-idno-plan.spec.ts is green in this pull request own quality run on its head sha, including: 721234567 and 721 234 567 read as +40721234567; 821234567 and +721234567 keep their old reading; a row with the IDNO of a stored client is a duplicate matched by idno with a different name and email; two rows with the same IDNO in one file give 1 new and 1 duplicate, also across batches (anchors idno:...); filling never offers an IDNO held by another client; the message reads 'IDNO-ul 1003600123456 aparține deja clientului Popescu SRL.' (b) tests/e2e/p3-329-import-idno.spec.ts is green: a row with the IDNO of another client is skipped as a duplicate and the stored IDNO is unchanged, and a fill on a row that carries that IDNO fills the address but leaves the IDNO empty. (c) The existing import specs (client-import-namephone, p3-307-import-matching, p3-313-import-dup-and-leave, clients-import, lead-import) stay green. (d) `npx tsc --noEmit` and `npm run build` exit 0. (e) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (f) No file under supabase/migrations/ is added or changed.",
+      "defaults": "Phone: nine digits starting with 7, no plus sign and no leading zero, become +40 followed by the nine digits, like the existing eight digit Moldovan rescue; nine digits starting with anything else keep the foreign reading. IDNO key: spaces removed and letters upper cased. A row matches by email first, then IDNO, then name and phone; between stored matches the active client wins. Fill: the IDNO is dropped from the offer when another stored client or another file row holds it, and checked again at write time; the other fields are still filled and the operator gets a warning line. A 23505 on fiscal_code (create or fill) becomes 'IDNO-ul X aparține deja clientului Y.' The lead import keeps its keys and gets the same write-time guard and message. No migration.",
+      "last_checkpoint": "2026-10-20T18:40:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-329 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-20-executor-import-phone-idno.md",
+        "at": "2026-10-20T18:40:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-20 14:57Z, findings 5 and 6 (zero based). The finding file sits outside the executor folders and was not read; the card was built from the task text and the code. Files: lib/data/import-shared.ts, lib/data/client-import-plan.ts, lib/data/client-import-actions.ts, lib/data/lead-import-actions.ts, lib/data/import-idno.ts."
     }
   ]
 }

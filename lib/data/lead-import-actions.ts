@@ -36,6 +36,7 @@ import {
 } from "./import-clients-read";
 import { readInBatches } from "./id-list";
 import { readAnchors, type FileAnchor } from "./import-file-anchors";
+import { createFailureMessage, dropHeldIdno, fillWriteMessage } from "./import-idno";
 import { importNextActionAt, ownerLeftEmptyWarning, rawRowAt } from "./import-shared";
 import type { ActionResult } from "./inbound-types";
 import { isClientSource, type ClientSource } from "./clients-types";
@@ -363,7 +364,7 @@ async function fillEmpty(
   clientId: string,
   lead: PreparedLead,
   wanted: FillField[],
-): Promise<{ filled: boolean; message?: string }> {
+): Promise<{ filled: boolean; message?: string; warning?: string }> {
   const leaduri = await hasClientLeaduri(supabase);
   const next = await hasClientNextAction(supabase);
 
@@ -391,10 +392,14 @@ async function fillEmpty(
     patch[FILL_COLUMN[field]] = value;
   }
 
+  // P3-329: un IDNO pe care il tine alt client nu se scrie; restul campurilor se completeaza.
+  const idnoNote = await dropHeldIdno(supabase, patch, clientId);
+
   let filled = false;
   if (Object.keys(patch).length > 0) {
     const { error: writeError } = await supabase.from("clients").update(patch).eq("id", clientId);
-    if (writeError) return { filled: false, message: writeError.message };
+    if (writeError)
+      return { filled: false, message: await fillWriteMessage(supabase, writeError, patch, clientId) };
     filled = true;
   }
 
@@ -422,6 +427,7 @@ async function fillEmpty(
     }
   }
 
+  if (idnoNote) return filled ? { filled, warning: idnoNote } : { filled, message: idnoNote };
   return { filled };
 }
 
@@ -533,8 +539,10 @@ export async function runLeadImport(
         continue;
       }
       const result = await fillEmpty(supabase, entry.against.id, lead, entry.fillable);
-      if (result.filled) filled += 1;
-      else
+      if (result.filled) {
+        filled += 1;
+        if (result.warning) warnings.push({ line: entry.line, reason: result.warning });
+      } else
         skippedRows.push({
           line: entry.line,
           reason:
@@ -594,7 +602,11 @@ export async function runLeadImport(
           });
         continue;
       }
-      skippedRows.push({ line: entry.line, reason: result.message, raw: rawAt(entry.line) });
+      skippedRows.push({
+        line: entry.line,
+        reason: await createFailureMessage(supabase, result, lead.fiscalCode),
+        raw: rawAt(entry.line),
+      });
       continue;
     }
     created += 1;
