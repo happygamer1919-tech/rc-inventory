@@ -1,6 +1,6 @@
 # 2026-10-20 EXECUTOR report: no direct deletes on stock tables (P3-326)
 
-Role: EXECUTOR. Card: P3-326 (phase 3 board, authored in this pull request, id from `npm run id:free`). Branch `card/p3-326`.
+Role: EXECUTOR. Card: P3-326 (phase 3 board, authored in this pull request, id from `npm run id:free`). Branch `card/p3-326`, pull request #553.
 
 ## In plain words
 
@@ -51,4 +51,4 @@ So there is no screen path to keep, and no SECURITY DEFINER delete function is a
 
 ## Left for the owner
 
-Merging this pull request applies 0088 to the production database within about two minutes. It takes the delete right on four tables away from the owner account; it changes and removes no row.
+Merging #553 applies 0088 to the production database within about two minutes. It takes the delete right on four tables away from the owner account; it changes and removes no row.

@@ -7821,10 +7821,10 @@
       "last_checkpoint": "2026-10-20T16:00:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "Branch card/p3-326 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0088_no_direct_stock_deletes.sql, the destructive-migration and applier proof steps, and the outbound and inbound specs; report in docs/reports/2026-10-20-executor-owner-delete-trace.md",
+        "ref": "Pull request #553 on branch card/p3-326 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0088_no_direct_stock_deletes.sql, the destructive-migration and applier proof steps, and the outbound and inbound specs; report in docs/reports/2026-10-20-executor-owner-delete-trace.md",
         "at": "2026-10-20T16:00:00Z"
       },
-      "notes": "AUTHORED and STARTED 2026-10-20 by EXECUTOR from the Fable bug check of 2026-10-20 14:57Z, finding 3. Id allocated with npm run id:free (P3-326 free, no pull request open). Migration number 0088: main holds 0087 and no pull request is open. The assertion ran red without 0088 (the owner deleted the shipped sale line, 1 row) and green with it on a throwaway local postgres from Homebrew, 88 migrations and 70 assertion files, since this machine has no Docker. Older assertions 0070, 0073, 0075, 0086 and 0087 expected the delete policies; they were changed to the new rule. Merging applies 0088 to production, so it waits for the owner OK."
+      "notes": "AUTHORED and STARTED 2026-10-20 by EXECUTOR from the Fable bug check of 2026-10-20 14:57Z, finding 3. Id allocated with npm run id:free (P3-326 free, no pull request open). Migration number 0088: main holds 0087 and no pull request is open. The assertion ran red without 0088 (the owner deleted the shipped sale line, 1 row) and green with it on a throwaway local postgres from Homebrew, 88 migrations and 70 assertion files, since this machine has no Docker. Older assertions 0070, 0073, 0075, 0086 and 0087 expected the delete policies; they were changed to the new rule. Merging applies 0088 to production, so it waits for the owner OK. Pull request #553."
     }
   ]
 }
