@@ -11,7 +11,7 @@ import { LOGIN_PATH, signIn } from "./support/auth";
 
 // ajutor.spec - linia de acceptanta a cardului P3-321 (PR 3 din 6 al ghidului din platforma).
 //
-// Paginile /ajutor se randeaza din content/guide si din public/guide, filtrate pe rolul
+// Paginile /ajutor se randeaza din content/guide si din content/guide-images, filtrate pe rolul
 // contului. Spec-ul are trei feluri de cazuri:
 //   1. fara browser: functiile care aleg ce se vede (guideForRole, findInFlat, lessonPictures),
 //      componenta poza, si testul de DIVERGENTA, care are cazuri care il strica;
@@ -27,7 +27,7 @@ import { LOGIN_PATH, signIn } from "./support/auth";
 
 const REPO = join(__dirname, "..", "..");
 const GUIDE_DIR = join(REPO, "content/guide");
-const PUBLIC_GUIDE = join(REPO, "public/guide");
+const PUBLIC_GUIDE = join(REPO, "content/guide-images");
 
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1440, height: 900 };
@@ -329,14 +329,14 @@ test("P3-321: a picture that is missing, empty or not a PNG is reported as missi
     writeFileSync(join(dir, "lectie-desktop.png"), fakePng(1440, 900));
     writeFileSync(join(dir, "lectie-mobile.png"), "<html>not a picture</html>");
     const both = lessonPictures(lesson, dir);
-    expect(both.desktop).toEqual({ src: "/guide/lectie-desktop.png", width: 1440, height: 900 });
+    expect(both.desktop).toEqual({ src: "/api/guide/poza/lectie-desktop", width: 1440, height: 900 });
     expect(both.mobile).toBeNull();
 
     writeFileSync(join(dir, "lectie-mobile.png"), "");
     expect(lessonPictures(lesson, dir).mobile).toBeNull();
 
     writeFileSync(join(dir, "lectie-mobile.png"), fakePng(780, 1688));
-    expect(lessonPictures(lesson, dir).mobile).toEqual({ src: "/guide/lectie-mobile.png", width: 780, height: 1688 });
+    expect(lessonPictures(lesson, dir).mobile).toEqual({ src: "/api/guide/poza/lectie-mobile", width: 780, height: 1688 });
 
     // O lectie fara id de poza nu are poza.
     expect(lessonPictures({ id: "x" }, dir)).toEqual({ desktop: null, mobile: null });
@@ -362,8 +362,8 @@ test("P3-321: every committed picture is a real PNG, so no lesson can show a bro
 });
 
 test("P3-321: what goes in the place of the picture follows the pictures that exist: none, phone only, desktop only, both", () => {
-  const desktop = { src: "/guide/a-desktop.png", width: 1440, height: 900 };
-  const mobile = { src: "/guide/a-mobile.png", width: 780, height: 1688 };
+  const desktop = { src: "/api/guide/poza/a-desktop", width: 1440, height: 900 };
+  const mobile = { src: "/api/guide/poza/a-mobile", width: 780, height: 1688 };
   expect(pictureView({ desktop: null, mobile: null })).toEqual({ kind: "none" });
   expect(pictureView({ desktop: null, mobile })).toEqual({ kind: "phone", mobile });
   expect(pictureView({ desktop, mobile: null })).toEqual({ kind: "desktop", desktop });
@@ -373,7 +373,7 @@ test("P3-321: what goes in the place of the picture follows the pictures that ex
     const view = pictureView(lessonPictures(l, PUBLIC_GUIDE));
     expect(["none", "phone", "desktop", "both"], l.id).toContain(view.kind);
     for (const pic of [(view as any).desktop, (view as any).mobile]) {
-      if (pic) expect(pic.src, l.id).toMatch(/^\/guide\/[a-z0-9-]+-(desktop|mobile)\.png$/);
+      if (pic) expect(pic.src, l.id).toMatch(/^\/api\/guide\/poza\/[a-z0-9-]+-(desktop|mobile)$/);
     }
   }
 });
@@ -432,7 +432,7 @@ async function expectLessonPage(page: Page, id: string, role: Role, phone: boole
       .toBe(true);
     const shown = await img.evaluate((el: HTMLImageElement) => el.currentSrc);
     const wanted = phone ? (hasMobile ? "mobile" : "desktop") : hasDesktop ? "desktop" : "mobile";
-    expect(shown, id).toContain(`${lesson.screenshots[0]}-${wanted}.png`);
+    expect(shown, id).toContain(`/api/guide/poza/${lesson.screenshots[0]}-${wanted}`);
     await expect(img, id).toHaveAttribute("alt", /.+/);
   }
 

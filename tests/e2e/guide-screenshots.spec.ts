@@ -157,7 +157,7 @@ test("P3-320: a picture that exists is listed in the manifest, and the manifest 
   for (const img of manifest.images) {
     expect(lessonIds.has(img.lesson), img.lesson).toBe(true);
     expect(existsSync(join(REPO, img.file)), img.file).toBe(true);
-    expect(img.file).toMatch(/^public\/guide\/[a-z0-9-]+-(desktop|mobile)\.png$/);
+    expect(img.file).toMatch(/^content\/guide-images\/[a-z0-9-]+-(desktop|mobile)\.png$/);
   }
   // Fiecare lectie cu screen apare o data pe fiecare marime: cu poza sau ca "fara poza".
   for (const l of guide.lessons) {

@@ -9797,3 +9797,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** infra
 **ERROR:** running `npm run check:migrations` through the P3-277 docker stand-in needs that stand-in first on PATH; `PATH=... npm run ...` and `env PATH=... npm run ...` were refused by the permission gate, and so was any line followed by `; echo "exit $?"`.
 **SOLUTION:** a small node runner outside the repo does what `apply.mjs` does on a throwaway Homebrew postgres (initdb, `pg_ctl -w -l` with `stdio: "ignore"`, shim, every migration, every assertion with `ON_ERROR_STOP=1`), with `--skip <migration>` for the red run. Run it as a single plain `node <file>` command and read the exit status the tool reports. RULE: **on this machine, one command per call; put anything that needs an environment change inside a node script.**
+
+### P3-328: a file under public/ is public, and the login proxy skips image and PDF paths
+**Tag:** access
+**ERROR:** the guide pictures and the guide PDF sat in `public/guide`. `proxy.ts` excludes every path ending in `.png` or `.pdf` from its matcher, so anyone without an account could open them, and the committed PDF held the lessons that are only for the owner.
+**SOLUTION:** the files moved to `content/guide-images`, served by `/api/guide/poza/<name>` and `/api/guide/pdf`. The addresses do not end in an extension, each route checks the session itself, a picture is given only if the role sees the lesson, and the PDF is printed on request with `guideForRole`. RULE: **anything that depends on who is asking never goes in `public/` and never gets an address ending in .png or .pdf; put it behind a route that reads the session, and let the route use the same role function as the pages.**

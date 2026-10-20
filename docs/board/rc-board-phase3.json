@@ -7850,6 +7850,31 @@
         "at": "2026-10-20T16:00:00Z"
       },
       "notes": "AUTHORED and STARTED 2026-10-20 by EXECUTOR from the Fable bug check of 2026-10-20 14:57Z, finding 3. Id allocated with npm run id:free (P3-326 free, no pull request open). Migration number 0088: main holds 0087 and no pull request is open. The assertion ran red without 0088 (the owner deleted the shipped sale line, 1 row) and green with it on a throwaway local postgres from Homebrew, 88 migrations and 70 assertion files, since this machine has no Docker. Older assertions 0070, 0073, 0075, 0086 and 0087 expected the delete policies; they were changed to the new rule. Merging applies 0088 to production, so it waits for the owner OK. Pull request #553."
+      },
+      {
+      "id": "P3-328",
+      "title": "The guide's pictures and PDF can only be opened by a signed-in user, and each role gets only its own lessons in the PDF: the files moved out of public/ (public/guide, which proxy.ts let through without login) to content/guide-images, served by /api/guide/poza/<name> and /api/guide/pdf, which check the session and the role like /ajutor. The PDF is printed on request for the role of the person asking.",
+      "plain": "The step-by-step guide's screenshots and PDF could be opened by anyone who knew the address, without an account, and the PDF held every lesson, including the ones only for the owner. Now both need a login. An account manager's PDF has only the lessons an account manager sees; the owner's has all of them.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "high",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-324"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: tests/e2e/guide-files.spec.ts is green in this pull request's quality run on its head sha: logged out, /guide/<id>-desktop.png, /guide/ghid-rapid-construct.pdf, /api/guide/poza/<name> and /api/guide/pdf never answer 200 with an image or a PDF; the owner gets the picture of an owner-only lesson, the account manager gets 404 for it and 200 for a shared lesson's picture; names that are not <id>-desktop or <id>-mobile give 404; an account manager's PDF has at least as many fewer pages as there are owner-only lessons and differs from the owner's. (b) NAMED TEST: tests/e2e/guide-pdf.spec.ts is green: the PDF for a role holds exactly that role's lessons (lessonIdsForRole), the same source prints the same bytes, and a role with no lessons gets no PDF. (c) The existing ajutor, guide-source, guide-screenshots and guide-privacy specs stay green with the pictures at /api/guide/poza/<id>-<size>. (d) `npx tsc --noEmit` and `npm run build` exit 0. (e) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (f) No file under supabase/migrations/ is added or changed.",
+      "defaults": "The addresses do not end in .png or .pdf, because the matcher in proxy.ts skips such paths and would skip the login check with them; each route also checks the session itself and answers 401 without one. A picture of a lesson the role does not see is 404, the same as a wrong address. The PDF is no longer a committed file: it is printed on request, so there is no stale copy to keep fresh, and `npm run guide:pdf [role]` writes a local copy to out/ (git-ignored). A small 'Descarcă ghidul (PDF)' link was added on /ajutor so the route can be found. The screenshot workflow now commits to content/guide-images. No migration.",
+      "last_checkpoint": "2026-10-20T17:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-328 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-20-executor-guide-files-behind-login.md",
+        "at": "2026-10-20T17:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-20 14:57Z, finding 4 (zero based). The finding file sits outside the executor folders and was not read; the card was built from the task text and the code. Files: lib/guide/view.mjs, lib/guide/read.ts, lib/guide/pdf.mjs, app/api/guide/poza/[nume]/route.ts, app/api/guide/pdf/route.ts, next.config.ts, .github/workflows/guide-screenshots.yml, scripts/guide/screenshots.mjs."
     }
   ]
 }
