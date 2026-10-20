@@ -21,6 +21,8 @@ import {
 
 const REPO = join(__dirname, "..", "..");
 const GUIDE_DIR = join(REPO, "content/guide");
+// Grupurile de meniu care au capitol in ghid: toate, mai putin cel care duce la ghidul insusi.
+const MENU_GROUPS = NAV.filter((g) => !g.items.some((i) => i.href === "/ajutor"));
 
 test("P3-319: the real guide source has no problem", () => {
   const guide = loadGuide(GUIDE_DIR);
@@ -34,18 +36,23 @@ test("P3-319: the real guide source has no problem", () => {
   // 40 lectii din meniu plus 5 din "Primii pasi" (Max, 2026-10-19).
   expect(guide.lessons.length).toBeLessThanOrEqual(45);
   // Un capitol pe grup de meniu, plus "Primii pasi", care nu are grup.
-  expect(guide.chapters.length).toBe(NAV.length + 1);
+  // Grupul "Suport" nu are capitol: intrarea "Ajutor" este chiar linkul spre ghid (P3-325).
+  expect(guide.chapters.length).toBe(MENU_GROUPS.length + 1);
 });
 
 test("P3-319: chapters follow the main menu order and the reader finds the groups in lib/nav.ts", () => {
-  expect(navGroupTitles(REPO)).toEqual(NAV.map((g) => g.title));
+  expect(navGroupTitles(REPO)).toEqual(MENU_GROUPS.map((g) => g.title));
+  // Singurul grup fara capitol este cel al ghidului: ultimul, cu o singura intrare, /ajutor.
+  const guideGroups = NAV.filter((g) => !MENU_GROUPS.includes(g));
+  expect(guideGroups.map((g) => g.items.map((i) => i.href))).toEqual([["/ajutor"]]);
+  expect(NAV[NAV.length - 1]).toBe(guideGroups[0]);
   const guide = loadGuide(GUIDE_DIR);
   const sorted = [...guide.chapters].sort((a, b) => a.order - b.order);
   // "Primii pasi" nu are grup de meniu si vine primul.
   expect(sorted[0].id).toBe("primii-pasi");
   expect(sorted[0].menu).toBeNull();
   const menus = sorted.filter((c) => c.menu !== null).map((c) => c.menu);
-  expect(menus).toEqual(NAV.map((g) => g.title));
+  expect(menus).toEqual(MENU_GROUPS.map((g) => g.title));
 });
 
 test("P3-319: every Vezi și link points at a lesson that exists and that the same roles can see", () => {
