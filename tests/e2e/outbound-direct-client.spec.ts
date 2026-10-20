@@ -2103,6 +2103,45 @@ test("P3-258: iesire client direct: o cantitate tastata cu virgula zecimala se s
   expect(String(lines.rows[0]?.quantity ?? ""), "cantitatea din baza este 2.5").toBe("2.5");
 });
 
+/* ================================================================ P3-327 */
+
+test("P3-327: iesire client direct: pretul se salveaza exact cum il arata ecranul, 2,500 este 2,50 si 1.250 este 1250", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  // Ecranul citeste virgula ca zecimala (P3-314): "2,500" este 2,50 lei, "1,250" este
+  // 1,25 lei, "1.250" este 1250. Inainte, formularul trimitea la server textul
+  // renormalizat ("2.500"), pe care serverul il citea ca 2500.
+  await signIn(page, ownerAccount());
+  await chooseDirectClient(page);
+
+  await comboPick(page, "field-client", CLIENT_NAME);
+  await page.getByTestId("issue-pickup-date").fill("08.12.2026");
+  await page.getByTestId("issue-add-line").click();
+  await page.getByTestId("issue-add-line").click();
+  const typed = ["2,500", "1,250", "1.250"];
+  for (const [index, price] of typed.entries()) {
+    await fillLineAt(page, index, "1");
+    await page.getByTestId(`issue-price-${index}`).fill(price);
+  }
+
+  await expect(page.getByTestId("issue-price-read-0")).toContainText("2,50 lei");
+  await expect(page.getByTestId("issue-price-read-1")).toContainText("1,25 lei");
+
+  await page.getByTestId("issue-submit").click();
+  await expect(page.getByTestId("issue-created"), "iesirea s-a creat").toBeVisible({ timeout: 25_000 });
+  const reference = (await page.getByTestId("issue-reference").innerText()).trim();
+
+  const issue = await storedIssue(reference);
+  const lines = await asService(
+    `outbound_lines?select=sale_price_mdl&outbound_issue_id=eq.${String(issue.id ?? "")}`,
+  );
+  expect(lines.ok, `pozitiile nu s-au putut citi: ${lines.text}`).toBe(true);
+  const stored = lines.rows.map((r) => Number(r.sale_price_mdl)).sort((a, b) => a - b);
+  expect(stored, "preturile din baza sunt cele citite de ecran: 1,25 / 2,50 / 1250").toEqual([1.25, 2.5, 1250]);
+});
+
 /* ================================================================ P3-275 */
 
 test("P3-275: iesire client direct: cantitatea 2.500 este refuzata ca neclara si nu se creeaza nicio iesire", async ({

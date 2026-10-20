@@ -9782,3 +9782,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** navigation
 **ERROR:** `labelForPath` walks NAV first, so once `/ajutor` joined NAV its top bar title would have turned from "Suport și Ghid" into the menu label "Ajutor", and ajutor.spec case 1 would have failed.
 **SOLUTION:** the `/ajutor` check now runs before the walk. RULE: **when a menu label differs from the page title, the special case in `labelForPath` must come before the NAV walk, not after it.**
+
+### P3-327: a normalised number sent as text is read again by the server with other eyes
+**Tag:** money
+**ERROR:** the walk-in form sent `parsePriceText(raw).text` to the server. For a typed `2,500` that text is `2.500`, and the server reads text with the same screen rule, where a dot plus exactly three digits is thousands, so 2,50 lei on screen was saved as 2500.
+**SOLUTION:** the form sends the typed text (`priceTextForServer`) and the server reads it with the same function as the screen. A number turned into text would hit the same trap for 999,123 (999.123 read as 999123). RULE: **never send a parser's normalised output to a reader that guesses; send the typed text and let one reader read it on both sides, and test the round trip over the values where the two readings differ (a separator plus exactly three digits).**
