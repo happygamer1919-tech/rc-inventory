@@ -62,6 +62,7 @@ import {
   parsePriceText,
   parseQuantityText,
   priceReadLabel,
+  priceTextForServer,
   quantityProblem,
 } from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -97,14 +98,11 @@ export const BUYER_LEAD_MARK = "Lead";
 type Line = { key: string; productId: string; quantity: string; price: string };
 
 // P3-209: pretul unei pozitii ca numar (0 cand casuta e goala sau nu se citeste) si
-// ca text pentru server ("" cand nu exista pret).
+// ca text pentru server ("" cand nu exista pret). P3-327: textul pentru server este cel
+// TASTAT (priceTextForServer), nu cel renormalizat de parsePriceText.
 function linePrice(l: Line): number {
   const p = parsePriceText(l.price);
   return p.kind === "ok" ? p.value : 0;
-}
-function priceText(raw: string): string {
-  const p = parsePriceText(raw);
-  return p.kind === "ok" ? p.text : "";
 }
 
 // P3-258: cantitatea unei pozitii ca numar (0 cand casuta e goala sau nu se citeste) si
@@ -301,7 +299,7 @@ export function OutboundDirectClientForm({
       lines: filled.map((l) => ({
         productId: l.productId,
         quantity: quantityText(l.quantity),
-        salePriceMdl: priceText(l.price),
+        salePriceMdl: priceTextForServer(l.price),
       })),
     });
 
