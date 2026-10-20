@@ -2,7 +2,10 @@
 // INAINTE SA SE SCRIE CEVA.
 //
 // ACELASI TIPAR CA lib/data/lead-import-plan.ts, cardul P3-101. CHEIA DE DUBLARE
-// ESTE EMAILUL (clauza 5 a cardului P3-123). Un rand FARA email se potriveste
+// ESTE EMAILUL (clauza 5 a cardului P3-123); IDNO-ul este a doua cheie (P3-329), fiindca
+// indexul unic din migratia 0013 il face unic in baza: un rand cu IDNO-ul unui client
+// stocat, sau al unui rand de mai sus din fisier, este dublat chiar daca numele,
+// emailul si telefonul difera. Un rand FARA email se potriveste
 // dupa nume si telefon impreuna, cu orice client stocat, cu email sau fara
 // (P3-197); un rand fara email si fara telefon nu se poate dubla cu nimic si
 // intra mereu ca nou. Un rand cu email se potriveste dupa nume si telefon numai
@@ -52,6 +55,8 @@ export type ExistingClient = {
   emailKey: string | null;
   /** Telefonul stocat, pentru potrivirea dupa nume si telefon a randurilor fara email. */
   phone?: string;
+  /** P3-329: IDNO-ul stocat trecut prin `idnoKey`; lipsa sau null inseamna fara IDNO. */
+  idnoKey?: string | null;
   /** Campurile care sunt GOALE azi, deci singurele pe care completarea le atinge. */
   empty: ClientFillField[];
   /** Fals pentru un client dezactivat. Lipsa inseamna activ. */
@@ -71,7 +76,7 @@ export type PlanEntry =
       against: DuplicateTarget;
       fillable: ClientFillField[];
       /** Absent inseamna email. */
-      matchedBy?: "namePhone";
+      matchedBy?: "namePhone" | "idno";
     }
   | { kind: "error"; line: number; reason: string; raw: string[] };
 
@@ -92,7 +97,12 @@ export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>
   // si ce are de facut operatorul, nu ca "exista deja".
   if (entry.against.kind === "stored" && entry.against.inactive)
     return `Există deja ca client dezactivat: ${entry.against.name}. Reactivați-l din fișa clientului înainte de import.`;
-  const by = entry.matchedBy === "namePhone" ? "Același nume și telefon" : "Dublat după email";
+  const by =
+    entry.matchedBy === "namePhone"
+      ? "Același nume și telefon"
+      : entry.matchedBy === "idno"
+        ? "Același IDNO"
+        : "Dublat după email";
   return entry.against.kind === "stored"
     ? `${by} cu "${entry.against.name}", care există deja.`
     : `${by} cu rândul ${entry.against.line} din același fișier.`;
@@ -101,6 +111,13 @@ export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>
 /** Numele fara diferente de spatii sau de litere mari, cu diacriticele pastrate. */
 function nameKey(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("ro");
+}
+
+/** P3-329. IDNO-ul fara spatii si cu litere mari; gol nu are cheie. Spatiile de pe margini si
+ *  dintre cifre nu fac doua coduri diferite. */
+export function idnoKey(code: string | null | undefined): string | null {
+  const key = (code ?? "").replace(/\s+/g, "").toUpperCase();
+  return key === "" ? null : key;
 }
 
 /** Ultimele 8 cifre: 069123456 si +373 69 123 456 sunt acelasi numar. */
@@ -215,7 +232,14 @@ export function buildClientPlan(input: {
     if (!client.emailKey) setActiveFirst(storedNoEmailByNamePhone, key, client);
   }
 
+  // P3-329: IDNO-ul este unic in baza (0013), deci este cheie de dublare ca emailul.
+  const storedByIdno = new Map<string, ExistingClient>();
+  for (const client of input.existing) {
+    if (client.idnoKey) setActiveFirst(storedByIdno, client.idnoKey, client);
+  }
+
   const fileByEmail = new FileAnchors(input.earlier, "email");
+  const fileByIdno = new FileAnchors(input.earlier, "idno");
   // P3-313: aceeasi regula ca la clientii stocati, in interiorul fisierului. Fiecare rand nou
   // se ancoreaza sub email SI sub nume + telefon. `fileByNamePhone` are toate randurile (il
   // cauta un rand fara email); `fileNoEmailByNamePhone` numai pe cele fara email (il cauta un
@@ -238,16 +262,35 @@ export function buildClientPlan(input: {
     const given = filledFields(client);
     const emailKey = client.email || null;
     const anyNpKey = namePhoneKey(client.name, client.phone);
+    const rowIdno = idnoKey(client.fiscalCode);
     const fileNamePhoneMatch = { matchedBy: "namePhone" } as const;
+    const idnoMatch = { matchedBy: "idno" } as const;
+
+    // P3-329. Completarea nu scrie niciodata un IDNO pe care il tine alt client: nici unul
+    // stocat (altul decat cel completat), nici unul dintr-un rand de mai sus din fisier (altul
+    // decat randul cu care acesta s-a potrivit). Restul campurilor se completeaza ca inainte.
+    const withoutHeldIdno = (
+      fields: ClientFillField[],
+      target: { storedId?: string; fileLine?: number },
+    ): ClientFillField[] => {
+      if (!rowIdno) return fields;
+      const storedHolder = storedByIdno.get(rowIdno);
+      const fileHolder = fileByIdno.get(rowIdno);
+      const heldByOther =
+        (storedHolder !== undefined && storedHolder.id !== target.storedId) ||
+        (fileHolder !== undefined && fileHolder.line !== target.fileLine);
+      return heldByOther ? fields.filter((field) => field !== "fiscalCode") : fields;
+    };
 
     // Un rand cu email se potriveste intai dupa email, apoi dupa nume si telefon cu un rand
     // dinainte FARA email; un rand fara email, dupa nume si telefon cu orice rand dinainte.
     const fileByEmailMatch = emailKey ? fileByEmail.get(emailKey) : undefined;
+    const fileByIdnoMatch = fileByEmailMatch || !rowIdno ? undefined : fileByIdno.get(rowIdno);
     const fileByNpMatch =
-      fileByEmailMatch || !anyNpKey
+      fileByEmailMatch || fileByIdnoMatch || !anyNpKey
         ? undefined
         : (emailKey ? fileNoEmailByNamePhone : fileByNamePhone).get(anyNpKey);
-    const fileMatch = fileByEmailMatch ?? fileByNpMatch;
+    const fileMatch = fileByEmailMatch ?? fileByIdnoMatch ?? fileByNpMatch;
     if (fileMatch) {
       // P3-307: primul rand este intr-un lot de dinainte, deci nu se stie ce are gol. Se ofera
       // ce a adus acest rand, iar scrierea (unde primul rand este deja in baza) completeaza
@@ -255,10 +298,17 @@ export function buildClientPlan(input: {
       // niciun camp gol de completat.
       const earlier = prepared.get(fileMatch.line);
       // Campul dupa care s-au potrivit nu este gol la primul rand, deci nu se ofera.
-      const keyField: ClientFillField = fileByEmailMatch ? "email" : "phone";
-      const fillable = earlier
-        ? emptyFields(earlier).filter((field) => given.has(field))
-        : CLIENT_FILL_FIELDS.filter((field) => given.has(field) && field !== keyField);
+      const keyField: ClientFillField = fileByEmailMatch
+        ? "email"
+        : fileByIdnoMatch
+          ? "fiscalCode"
+          : "phone";
+      const fillable = withoutHeldIdno(
+        earlier
+          ? emptyFields(earlier).filter((field) => given.has(field))
+          : CLIENT_FILL_FIELDS.filter((field) => given.has(field) && field !== keyField),
+        { fileLine: fileMatch.line },
+      );
       entries.push({
         kind: "duplicate",
         line: row.line,
@@ -270,7 +320,7 @@ export function buildClientPlan(input: {
           ...(earlier ? {} : { otherBatch: true as const }),
         },
         fillable,
-        ...(fileByNpMatch ? fileNamePhoneMatch : {}),
+        ...(fileByIdnoMatch ? idnoMatch : fileByNpMatch ? fileNamePhoneMatch : {}),
       });
       counts.duplicate += 1;
       continue;
@@ -280,13 +330,17 @@ export function buildClientPlan(input: {
     // stocat fara email; un rand fara email, dupa nume si telefon cu orice client stocat. Intre
     // doua potriviri, clientul activ castiga.
     const byEmail = emailKey ? storedByEmail.get(emailKey) : undefined;
+    const byIdno = rowIdno ? storedByIdno.get(rowIdno) : undefined;
     const byNamePhone = anyNpKey
       ? (emailKey ? storedNoEmailByNamePhone : storedByNamePhone).get(anyNpKey)
       : undefined;
-    const storedMatch = pickActiveMatch([byEmail, byNamePhone]);
-    const matchedBy = storedMatch !== undefined && storedMatch === byNamePhone && storedMatch !== byEmail
-      ? fileNamePhoneMatch
-      : {};
+    const storedMatch = pickActiveMatch([byEmail, byIdno, byNamePhone]);
+    const matchedBy =
+      storedMatch !== undefined && storedMatch !== byEmail
+        ? storedMatch === byIdno
+          ? idnoMatch
+          : fileNamePhoneMatch
+        : {};
     if (storedMatch) {
       // UN CLIENT DEZACTIVAT NU SE COMPLETEAZA SI NU SE DUBLEAZA: nimic de completat,
       // randul se sare, iar mesajul spune sa fie reactivat intai (ca la P3-173).
@@ -301,7 +355,12 @@ export function buildClientPlan(input: {
           name: storedMatch.name,
           ...(inactive ? { inactive: true as const } : {}),
         },
-        fillable: inactive ? [] : storedMatch.empty.filter((field) => given.has(field)),
+        fillable: inactive
+          ? []
+          : withoutHeldIdno(
+              storedMatch.empty.filter((field) => given.has(field)),
+              { storedId: storedMatch.id },
+            ),
         ...matchedBy,
       });
       counts.duplicate += 1;
@@ -310,6 +369,7 @@ export function buildClientPlan(input: {
 
     const anchor = { line: row.line, name: client.name };
     if (emailKey) fileByEmail.set(emailKey, anchor);
+    if (rowIdno) fileByIdno.set(rowIdno, anchor);
     if (anyNpKey) {
       fileByNamePhone.set(anyNpKey, anchor);
       if (!emailKey) fileNoEmailByNamePhone.set(anyNpKey, anchor);
@@ -332,6 +392,7 @@ export function buildClientPlan(input: {
 
   const anchors = [
     ...fileByEmail.newAnchors(),
+    ...fileByIdno.newAnchors(),
     ...fileByNamePhone.newAnchors(),
     ...fileNoEmailByNamePhone.newAnchors(),
   ];
