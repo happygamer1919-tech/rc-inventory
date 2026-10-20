@@ -15,7 +15,7 @@ import { PHONE_LINK } from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { plural } from "@/lib/data/format";
 import { readFaqFor, readGuideFor } from "@/lib/guide/read";
-import { lessonHref } from "@/lib/guide/view.mjs";
+import { GUIDE_PDF_HREF, lessonHref } from "@/lib/guide/view.mjs";
 import { getSessionUser } from "@/lib/supabase/server";
 import { ROLE_LABEL } from "@/lib/supabase/types";
 
@@ -47,13 +47,23 @@ export default async function AjutorPage() {
             </p>
           </div>
           {first ? (
-            <Link
-              href={lessonHref(first.lesson.id)}
-              data-testid="guide-start"
-              className="inline-flex items-center justify-center rounded-[10px] bg-rc-orange-button px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-rc-orange-button-hover max-md:min-h-11"
-            >
-              Începe cu prima lecție
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* P3-328. PDF-ul se tipareste la cerere, numai cu lectiile rolului, numai pentru cine e conectat. */}
+              <a
+                href={GUIDE_PDF_HREF}
+                data-testid="guide-pdf"
+                className="inline-flex items-center justify-center rounded-[10px] bg-rc-white px-4 py-2.5 text-[14px] font-semibold text-rc-black transition-colors hover:bg-rc-paper max-md:min-h-11"
+              >
+                Descarcă ghidul (PDF)
+              </a>
+              <Link
+                href={lessonHref(first.lesson.id)}
+                data-testid="guide-start"
+                className="inline-flex items-center justify-center rounded-[10px] bg-rc-orange-button px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-rc-orange-button-hover max-md:min-h-11"
+              >
+                Începe cu prima lecție
+              </Link>
+            </div>
           ) : null}
         </div>
 

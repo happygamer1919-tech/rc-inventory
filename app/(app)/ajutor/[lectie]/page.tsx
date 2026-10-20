@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import { LessonPicture, LessonSteps, RichText } from "@/components/guide/LessonParts";
 import { PHONE_LINK } from "@/components/ui/phone";
 import { Card, PageHeader } from "@/components/ui/primitives";
-import { PUBLIC_GUIDE_DIR, readGuideFor } from "@/lib/guide/read";
+import { GUIDE_IMAGES_DIR, readGuideFor } from "@/lib/guide/read";
 import { GUIDE_BASE, findInFlat, lessonHref, lessonPictures } from "@/lib/guide/view.mjs";
 import { getSessionUser } from "@/lib/supabase/server";
 
@@ -35,7 +35,7 @@ export default async function LessonPage({ params }: { params: Promise<Params> }
 
   const { entry, next } = found;
   const { lesson } = entry;
-  const pictures = lessonPictures(lesson, PUBLIC_GUIDE_DIR);
+  const pictures = lessonPictures(lesson, GUIDE_IMAGES_DIR);
   const notes = String(lesson.body ?? "")
     .split(/\n{2,}/)
     .map((p) => p.trim())

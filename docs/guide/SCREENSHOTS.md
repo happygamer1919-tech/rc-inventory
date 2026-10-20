@@ -19,7 +19,7 @@ never goes stale after a screen changes.
    in, opens each lesson's screen, runs the lesson's `before` actions (they open and fill forms,
    they never press save), finds each `marks` element, draws a box around it, an arrow to it and
    a circle with the step number, all in `--color-rc-orange` from `app/globals.css`, and saves
-   `public/guide/<id>-desktop.png` and `public/guide/<id>-mobile.png`.
+   `content/guide-images/<id>-desktop.png` and `content/guide-images/<id>-mobile.png`.
 4. `docs/guide/screenshots.json` records, for every picture: the address, which marks were found,
    the text that was on the screen, and the sha256 of the file. A lesson whose screen could not be
    opened, or on which no mark was found, gets no picture and is listed under `skipped`: its page
@@ -29,7 +29,7 @@ never goes stale after a screen changes.
 
 To make them again after a screen changes: Actions, `guide-screenshots`, Run workflow (or push a
 change under `content/guide/`, `scripts/guide/` or `lib/guide/` on a pull request), download the
-artifact, commit `public/guide/` and `docs/guide/screenshots.json`.
+artifact, commit `content/guide-images/` and `docs/guide/screenshots.json`.
 
 ## The keys in a lesson's front matter
 
