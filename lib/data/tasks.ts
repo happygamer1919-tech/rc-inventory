@@ -101,12 +101,18 @@ async function readTeam(
   }));
 }
 
-/** Numele responsabililor pentru o citire de sarcini; gol cand lista nu se poate citi. */
+/** Numele responsabililor pentru o citire de sarcini; null cand lista nu se poate citi
+ *  (P3-330), ca o citire picata sa nu semene cu o echipa fara nume. */
 async function readNames(
   supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<ReadonlyMap<string, string>> {
-  return teamNameLookup((await readTeam(supabase)) ?? []);
+): Promise<ReadonlyMap<string, string> | null> {
+  const team = await readTeam(supabase);
+  return team === null ? null : teamNameLookup(team);
 }
+
+// Fara lista echipei, numele raman cele din imbinarea cu profilul (toTask le citeste
+// cand harta nu le stie).
+const NO_NAMES: ReadonlyMap<string, string> = new Map();
 
 /**
  * Optiunile selectorului Responsabil: colegii ACTIVI, vazuti de orice cont activ, nu
@@ -114,10 +120,19 @@ async function readNames(
  * citirea de pana acum, listClientOwnerChoices.
  */
 export async function listTaskAssigneeChoices(): Promise<AssigneeChoice[]> {
+  return (await readTaskAssigneeChoices()).choices;
+}
+
+/** Ca listTaskAssigneeChoices, plus `failed` cand lista echipei nu s-a putut citi (P3-330):
+ *  optiunile sunt atunci rezerva, care poate arata o singura persoana. */
+export async function readTaskAssigneeChoices(): Promise<{
+  choices: AssigneeChoice[];
+  failed: boolean;
+}> {
   const supabase = await createClient();
   const team = await readTeam(supabase);
-  if (team === null) return listClientOwnerChoices();
-  return assigneeChoices(team);
+  if (team === null) return { choices: await listClientOwnerChoices(), failed: true };
+  return { choices: assigneeChoices(team), failed: false };
 }
 
 /**
@@ -188,7 +203,7 @@ export async function listTasks(query?: TaskListQuery): Promise<Task[]> {
     readTaskRows<TaskRow>(() => startRead(supabase), query, undefined, () => startIdsRead(supabase)),
     readNames(supabase),
   ]);
-  return rows.map((row) => toTask(row, names));
+  return rows.map((row) => toTask(row, names ?? NO_NAMES));
 }
 
 /**
@@ -206,7 +221,7 @@ export async function listTasksPage(
     readTaskPage<TaskRow>(() => startRead(supabase), query, page),
     readNames(supabase),
   ]);
-  return { rows: read.rows.map((row) => toTask(row, names)), total: read.total, page: read.page };
+  return { rows: read.rows.map((row) => toTask(row, names ?? NO_NAMES)), total: read.total, page: read.page };
 }
 
 /** O sarcina, dupa id, sau null cand nu exista. */
@@ -221,7 +236,7 @@ export async function getTask(id: string): Promise<Task | null> {
 
   if (error) throw new Error(`Nu s-a putut citi sarcina: ${error.message}`);
   if (!data) return null;
-  return toTask(data as unknown as TaskRow, names);
+  return toTask(data as unknown as TaskRow, names ?? NO_NAMES);
 }
 
 /**
@@ -249,7 +264,7 @@ export async function listTasksForEntity(
     ),
     readNames(supabase),
   ]);
-  return rows.map((row) => toTask(row, names));
+  return rows.map((row) => toTask(row, names ?? NO_NAMES));
 }
 
 /**

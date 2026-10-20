@@ -7875,6 +7875,31 @@
         "at": "2026-10-20T18:30:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-20 14:57Z, findings 5 and 6 (zero based). The finding file sits outside the executor folders and was not read; the card was built from the task text and the code. Files: lib/data/import-shared.ts, lib/data/client-import-plan.ts, lib/data/client-import-actions.ts, lib/data/lead-import-actions.ts, lib/data/import-idno.ts."
+    },
+    {
+      "id": "P3-330",
+      "title": "When the team list cannot be read, Sarcini says so instead of showing 'Fără nume' on every task.",
+      "plain": "If the list of colleagues fails to load, the Tasks page now says 'Lista echipei nu s-a putut încărca.' on the plain page too, not only when a Responsabil filter is set. The Responsabil choice in the task form is switched off with the same message, so it no longer looks as if the team had one person. Names the profile record already knows are kept.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-309"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/sarcini-team-list-failed.spec.ts is green in this pull request own quality run on its head sha: the message reads 'Lista echipei nu s-a putut încărca.' only when the team read failed; a failed team read keeps the name from the profile join (full name, then email); a successful team read wins over the join. (b) The existing tasks specs (tasks, task-assignee-names, task-assignee-email-fallback, sarcini-inactive-assignee-filter) stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "readNames returns null when list_team_members fails and the task names fall back to the profile join. The Sarcini page reads the assignee choices once and passes teamFailed to the screen; the warning shows when teamFailed is set or the inactive-assignee lookup failed. In the task form the Responsabil select is disabled and the field hint carries the same message; a saved assignee is kept. The client and project detail pages are unchanged. No migration.",
+      "last_checkpoint": "2026-10-20T19:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-330 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-20-executor-sarcini-team-list-failed.md",
+        "at": "2026-10-20T19:30:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-20 14:57Z, finding 7 (zero based). Files: lib/data/tasks.ts, lib/data/tasks-shape.ts, app/(app)/sarcini/page.tsx, components/tasks/SarciniScreen.tsx, components/tasks/TaskForm.tsx."
     }
   ]
 }
