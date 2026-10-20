@@ -103,6 +103,18 @@ export function priceReadLabel(raw: string): string | null {
 }
 
 /**
+ * P3-327: textul de pret care pleaca la server. Este textul TASTAT (fara spatii la capete),
+ * numai daca ecranul il citeste ("" cand casuta e goala sau nu se citeste), NU `text` din
+ * parsePriceText. Acela este un numar normalizat cu punct zecimal ("2,500" da "2.500"), iar
+ * serverul il citeste cu aceleasi reguli de ecran, unde un punct urmat de exact trei cifre
+ * separa miile: "2.500" ajungea 2500 in loc de 2,50. Serverul (processIssueLines) citeste
+ * ce a tastat operatorul cu aceeasi parsePriceText, deci ecranul si baza spun acelasi numar.
+ */
+export function priceTextForServer(raw: string): string {
+  return parsePriceText(raw).kind === "ok" ? raw.trim() : "";
+}
+
+/**
  * P3-303: pretul unei pozitii ca numar pentru totalul de pe ecran: 0 cand casuta este
  * goala sau textul nu se citeste. Ecranul si serverul trec prin aceeasi parsePriceText,
  * deci "1.250" arata 1250 pe ecran si se salveaza 1250.

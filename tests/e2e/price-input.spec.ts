@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { parsePriceText, parseQuantityText, priceAmount } from "../../lib/data/price-input";
+import { parsePriceText, parseQuantityText, priceAmount, priceTextForServer } from "../../lib/data/price-input";
 import { processIssueLines } from "../../lib/data/outbound-lines";
 
 test("P3-209: a comma price and a dot price read the same", () => {
@@ -118,5 +118,53 @@ test("P3-314: a price with a comma and three digits is a decimal on screen and o
       ok: true,
       lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: want }],
     });
+  }
+});
+
+test("P3-327: the text the walk-in form sends reads on the server as the number the screen read", () => {
+  // The form used to send parsePriceText(...).text ("2.500" for typed "2,500"), which the
+  // server reads with the screen rule, where a dot plus three digits is thousands: 2500.
+  const reread = processIssueLines([{ productId: "p1", quantity: "1", salePriceMdl: "2.500" }]);
+  expect(reread, "the re-formatted text is the trap this card closes").toEqual({
+    ok: true,
+    lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: 2500 }],
+  });
+
+  const typedValues = [
+    "2,500", "1,250", "1.250", "1 250", "1.250,50", "12,50", "12.50", "0,125", "0,40",
+    "999,123", "1,2", " 7,500 ", "1.200", "1.200.000", "12.5", "0.500", "100,000", "12345,678",
+  ];
+  for (const typed of typedValues) {
+    const screen = parsePriceText(typed);
+    expect(screen.kind, typed).toBe("ok");
+    if (screen.kind !== "ok") continue;
+    expect(
+      processIssueLines([{ productId: "p1", quantity: "1", salePriceMdl: priceTextForServer(typed) }]),
+      typed,
+    ).toEqual({ ok: true, lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: screen.value }] });
+  }
+});
+
+test("P3-327: an empty or unreadable price box sends no price", () => {
+  for (const typed of ["", "   ", "abc", "12,5,0"]) {
+    expect(priceTextForServer(typed), typed).toBe("");
+  }
+  expect(processIssueLines([{ productId: "p1", quantity: "1", salePriceMdl: priceTextForServer("") }])).toEqual({
+    ok: true,
+    lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: null }],
+  });
+});
+
+test("P3-327: the quantity text the walk-in form sends reads the same on the server", () => {
+  // The form sends the normalised quantity text. An unclear separator is refused before it
+  // gets there, so the round trip is safe; this test keeps it that way.
+  for (const typed of ["2,5", "2.5", "0,125", "1,2500", "1.200,5", "10", "1 200", "0.500", "1.20"]) {
+    const screen = parseQuantityText(typed);
+    expect(screen.kind, typed).toBe("ok");
+    if (screen.kind !== "ok") continue;
+    expect(
+      processIssueLines([{ productId: "p1", quantity: screen.text, salePriceMdl: "" }]),
+      typed,
+    ).toEqual({ ok: true, lines: [{ product_id: "p1", quantity: screen.value, sale_price_mdl: null }] });
   }
 });
