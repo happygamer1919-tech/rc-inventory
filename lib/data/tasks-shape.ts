@@ -87,6 +87,15 @@ export function linkListError(entityType: string, projectsReadFailed: boolean): 
   return entityType === "project" && projectsReadFailed ? PROJECT_LIST_READ_FAILED : null;
 }
 
+/** P3-330. Mesajul cand lista echipei (list_team_members) nu s-a putut citi. */
+export const TEAM_LIST_READ_FAILED = "Lista echipei nu s-a putut încărca.";
+
+/** Mesajul de sub selectorul Responsabil, sau null cand lista echipei s-a citit. Cu lista
+ *  picata, selectorul ar arata o singura persoana ca si cum echipa ar avea doar una. */
+export function assigneeListError(teamReadFailed: boolean): string | null {
+  return teamReadFailed ? TEAM_LIST_READ_FAILED : null;
+}
+
 /** Lista de alegere pentru o sarcina care exista: cea obisnuita, plus inregistrarea
  *  ei curenta daca lipseste din lista. O sarcina noua nu are `current`, deci primeste
  *  lista neschimbata: proiectele inchise si clientii inactivi nu se ofera la legare. */

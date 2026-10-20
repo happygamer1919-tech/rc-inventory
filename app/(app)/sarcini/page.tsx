@@ -24,9 +24,9 @@ import { chisinauToday } from "@/lib/data/format";
 import {
   findInactiveAssignee,
   listClosedLinkChoices,
-  listTaskAssigneeChoices,
   listTasks,
   listTasksPage,
+  readTaskAssigneeChoices,
   tasksVisible,
 } from "@/lib/data/tasks";
 import { parsePage } from "@/lib/data/list-paging";
@@ -78,13 +78,14 @@ export default async function SarciniPage({
   // acest ecran; cine are nevoie de asta are panoul cardului P3-132 pe fisa
   // proiectului, si aceea este o intrebare pentru un card, nu o a doua interogare
   // scrisa aici.
-  const [user, assignees, clientRows, projectRead] = await Promise.all([
+  const [user, assigneeRead, clientRows, projectRead] = await Promise.all([
     getSessionUser(),
-    listTaskAssigneeChoices(),
+    readTaskAssigneeChoices(),
     listClientOptions(),
     readSelectableProjects(),
   ]);
   const projectRows = projectRead.rows;
+  const assignees = assigneeRead.choices;
 
   // UN RESPONSABIL CARE NU ESTE IN LISTA NU FILTREAZA NIMIC, exact ca pe /azi: o
   // legatura veche, sau un profil dezactivat de atunci, arata TOT si nu gol. ID-ul
@@ -123,6 +124,8 @@ export default async function SarciniPage({
       query={{ ...query, assigneeId }}
       assignees={assignees}
       inactiveAssignee={inactiveAssignee}
+      // P3-330: lista echipei picata se spune si pe /sarcini fara filtru de responsabil.
+      teamFailed={assigneeRead.failed}
       today={chisinauToday()}
       // AMANDOUA ROLURILE SCRIU SARCINI, si asta nu este o presupunere: politicile
       // tasks_insert si tasks_update din migratia 0068 cer public.current_app_role()
