@@ -12,6 +12,10 @@
 --      DEFINER with its own current_app_role() refusal (the shape 0075 left).
 --   Since 0075 the insert and update predicates also carry is_owner(); they
 --   still test current_app_role() is not null, which is what this file checks.
+--   Since 0088 (card P3-326) outbound_lines_delete is gone, so public.outbound_lines
+--   has THREE policies and no delete policy: nobody signed in, the owner included,
+--   deletes a sale line. A delete policy that comes back must still be owner only.
+--   assertions/0088 checks the new shape in detail.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
 -- proves the policies EXIST with the right predicate and cannot prove what they
@@ -35,8 +39,8 @@ begin
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 4 then
-    raise exception 'P3-138: expected exactly 4 policies on public.outbound_lines, found %', n;
+  if n <> 3 then
+    raise exception 'P3-138: expected exactly 3 policies on public.outbound_lines (4 until 0088 dropped outbound_lines_delete), found %', n;
   end if;
 
   for i in 1 .. array_length(cmds, 1) loop
@@ -65,12 +69,13 @@ begin
     raise exception 'P3-138: outbound_lines_update must have both using and with check';
   end if;
 
+  -- 0088 (P3-326) dropped outbound_lines_delete: nobody signed in deletes a line.
   select qual into txt
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines'
     and policyname = 'outbound_lines_delete' and cmd = 'DELETE';
-  if txt is null or txt not ilike '%is_owner()%' then
-    raise exception 'P3-138: outbound_lines_delete must stay on is_owner(), found %', coalesce(txt, 'nothing');
+  if txt is not null and txt not ilike '%is_owner()%' then
+    raise exception 'P3-138: outbound_lines_delete, if present, must stay on is_owner(), found %', txt;
   end if;
 
   -- --- 2. outbound_issues untouched ----------------------------------------

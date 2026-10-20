@@ -42,6 +42,13 @@
 -- its direct UPDATE of a line touches no row. Both used to be witnesses here.
 -- assertions/0087 checks the new rules in detail.
 --
+-- SINCE 0088 (card P3-326), inbound_orders_delete and order_lines_delete are
+-- gone: nobody signed in, the owner included, deletes an order or an order line.
+-- So inbound_orders has THREE policies and order_lines TWO; reminders keeps its
+-- four, its delete still on is_owner(). A delete policy that comes back on an
+-- order or a line must still be owner only. assertions/0088 checks that no
+-- direct delete removes a row.
+--
 -- Refusals are read by SQLSTATE. Everything runs inside a transaction that is
 -- rolled back.
 
@@ -61,9 +68,9 @@ declare
 begin
   foreach tbl in array array['inbound_orders', 'order_lines', 'reminders'] loop
     select count(*) into n from pg_policies where schemaname = 'public' and tablename = tbl;
-    if n <> (case when tbl = 'order_lines' then 3 else 4 end) then
+    if n <> (case tbl when 'order_lines' then 2 when 'inbound_orders' then 3 else 4 end) then
       raise exception 'P3-180: expected exactly % policies on public.%, found %',
-        case when tbl = 'order_lines' then 3 else 4 end, tbl, n;
+        case tbl when 'order_lines' then 2 when 'inbound_orders' then 3 else 4 end, tbl, n;
     end if;
 
     -- 0087 (P3-312): nobody signed in updates an order line.
@@ -102,8 +109,9 @@ begin
     from pg_policies p
     where p.schemaname = 'public' and p.tablename = tbl
       and p.policyname = tbl || '_delete' and p.cmd = 'DELETE';
-    if txt is null or txt not ilike '%is_owner()%' then
-      raise exception 'P3-180: %_delete must stay on is_owner(), found %', tbl, coalesce(txt, 'nothing');
+    -- 0088 (P3-326) dropped inbound_orders_delete and order_lines_delete.
+    if (txt is null and tbl = 'reminders') or (txt is not null and txt not ilike '%is_owner()%') then
+      raise exception 'P3-180: %_delete must stay on is_owner() (absent since 0088 on orders and lines), found %', tbl, coalesce(txt, 'nothing');
     end if;
   end loop;
 
