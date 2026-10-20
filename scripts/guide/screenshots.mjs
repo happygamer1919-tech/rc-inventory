@@ -7,8 +7,8 @@
 // face pasii din `before`, gaseste elementele din `marks` dupa selector, deseneaza
 // peste ecran chenarul, sageata si cercul cu numarul pasului in culoarea de accent
 // (--color-rc-orange din app/globals.css) si salveaza doua poze:
-//   public/guide/<id>-desktop.png   1440 lat
-//   public/guide/<id>-mobile.png    390 lat (telefon)
+//   content/guide-images/<id>-desktop.png   1440 lat
+//   content/guide-images/<id>-mobile.png    390 lat (telefon)
 // docs/guide/screenshots.json spune ce arata fiecare poza: adresa, marcajele gasite si
 // lipsa, textul care era pe ecran (il citeste verificarea de confidentialitate) si
 // amprenta sha256 a fisierului. O lectie al carei ecran nu se poate deschide, sau pe
@@ -48,7 +48,7 @@ export const SIZES = {
 // O poza nu creste peste atat, ca un ecran lung sa nu dea o poza cat un sul. Un
 // marcaj de mai jos ramane in afara pozei si este trecut ca lipsa.
 const MAX_HEIGHT = { desktop: 1600, mobile: 2000 };
-const OUT_DIR = join(ROOT, "public/guide");
+const OUT_DIR = join(ROOT, "content/guide-images");
 const MANIFEST = join(ROOT, "docs/guide/screenshots.json");
 const BASE_URL = (process.env.GUIDE_BASE_URL ?? "http://localhost:3104").replace(/\/$/, "");
 
@@ -238,7 +238,7 @@ async function shoot(context, spec, size, accent) {
     const sha256 = createHash("sha256").update(readFileSync(file)).digest("hex");
     return {
       ...result,
-      file: `public/guide/${spec.id}-${size}.png`,
+      file: `content/guide-images/${spec.id}-${size}.png`,
       width: viewport.width,
       height: viewport.height,
       sha256,

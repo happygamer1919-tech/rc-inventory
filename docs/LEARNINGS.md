@@ -9787,3 +9787,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** money
 **ERROR:** the walk-in form sent `parsePriceText(raw).text` to the server. For a typed `2,500` that text is `2.500`, and the server reads text with the same screen rule, where a dot plus exactly three digits is thousands, so 2,50 lei on screen was saved as 2500.
 **SOLUTION:** the form sends the typed text (`priceTextForServer`) and the server reads it with the same function as the screen. A number turned into text would hit the same trap for 999,123 (999.123 read as 999123). RULE: **never send a parser's normalised output to a reader that guesses; send the typed text and let one reader read it on both sides, and test the round trip over the values where the two readings differ (a separator plus exactly three digits).**
+
+### P3-328: a file under public/ is public, and the login proxy skips image and PDF paths
+**Tag:** access
+**ERROR:** the guide pictures and the guide PDF sat in `public/guide`. `proxy.ts` excludes every path ending in `.png` or `.pdf` from its matcher, so anyone without an account could open them, and the committed PDF held the lessons that are only for the owner.
+**SOLUTION:** the files moved to `content/guide-images`, served by `/api/guide/poza/<name>` and `/api/guide/pdf`. The addresses do not end in an extension, each route checks the session itself, a picture is given only if the role sees the lesson, and the PDF is printed on request with `guideForRole`. RULE: **anything that depends on who is asking never goes in `public/` and never gets an address ending in .png or .pdf; put it behind a route that reads the session, and let the route use the same role function as the pages.**

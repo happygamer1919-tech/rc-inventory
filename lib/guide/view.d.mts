@@ -2,6 +2,9 @@ import type { Guide, GuideRecord } from "./source.mjs";
 
 export const GUIDE_BASE: string;
 export function lessonHref(id: string): string;
+export const GUIDE_IMAGE_BASE: string;
+export const GUIDE_PDF_HREF: string;
+export const GUIDE_IMAGE_NAME: RegExp;
 
 export type GuideChapterView = { id: string; title: string; summary: string; lessons: GuideRecord[] };
 export type GuideFlatEntry = {

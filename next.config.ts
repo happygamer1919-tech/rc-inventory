@@ -42,8 +42,12 @@ const nextConfig: NextConfig = {
     // P3-321. Paginile /ajutor citesc lectiile si pozele de pe disc la fiecare cerere
     // (lib/guide/read.ts). Fara randul acesta fisierele nu ajung in functia serverless,
     // iar ghidul ar fi gol in productie desi local arata bine.
-    "/ajutor": ["./content/guide/**/*.md", "./public/guide/*.png"],
-    "/ajutor/[lectie]": ["./content/guide/**/*.md", "./public/guide/*.png"],
+    // P3-328. Pozele nu mai sunt in public/: ruta lor si ruta PDF-ului le citesc din
+    // content/guide-images, iar PDF-ul mai citeste fonturile.
+    "/ajutor": ["./content/guide/**/*.md", "./content/guide-images/*.png"],
+    "/ajutor/[lectie]": ["./content/guide/**/*.md", "./content/guide-images/*.png"],
+    "/api/guide/poza/[nume]": ["./content/guide/**/*.md", "./content/guide-images/*.png"],
+    "/api/guide/pdf": ["./content/guide/**/*.md", "./content/guide-images/*.png", "./lib/pdf/fonts/*.ttf", "./lib/guide/pdf.mjs"],
   },
 
   async headers() {

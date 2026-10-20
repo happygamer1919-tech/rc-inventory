@@ -153,7 +153,7 @@ jobs:
         with:
           name: guide-screenshots
           path: |
-            public/guide/*.png
+            content/guide-images/*.png
             docs/guide/*.json
             guide-server.log
           if-no-files-found: warn
