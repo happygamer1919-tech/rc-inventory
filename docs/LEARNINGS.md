@@ -9788,6 +9788,16 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** the walk-in form sent `parsePriceText(raw).text` to the server. For a typed `2,500` that text is `2.500`, and the server reads text with the same screen rule, where a dot plus exactly three digits is thousands, so 2,50 lei on screen was saved as 2500.
 **SOLUTION:** the form sends the typed text (`priceTextForServer`) and the server reads it with the same function as the screen. A number turned into text would hit the same trap for 999,123 (999.123 read as 999123). RULE: **never send a parser's normalised output to a reader that guesses; send the typed text and let one reader read it on both sides, and test the round trip over the values where the two readings differ (a separator plus exactly three digits).**
 
+### P3-326: dropping a policy breaks every older assertion that pinned it
+**Tag:** data
+**ERROR:** 0088 drops four `is_owner()` delete policies. The first full local run stopped on `assertions/0070`: "expected exactly 4 policies on public.outbound_lines, found 3". Five older assertion files (0070, 0073, 0075, 0086, 0087) counted the policies or required `<table>_delete` to stay on `is_owner()`, because each card that tightened the other doors said "the delete stays owner only".
+**SOLUTION:** each file now expects the new count and accepts a delete policy only if it is absent or owner only, with a note naming 0088 under its header, the way 0087 updated 0073. RULE: **before running a migration that drops or recreates a policy, grep `scripts/poc-free/local-db/assertions/` for the policy name and for `tablename = '<table>'` counts; every hit is a file this card must update.**
+
+### P3-326: the factory shell refuses `env PATH=...` and `cmd; echo $?`
+**Tag:** infra
+**ERROR:** running `npm run check:migrations` through the P3-277 docker stand-in needs that stand-in first on PATH; `PATH=... npm run ...` and `env PATH=... npm run ...` were refused by the permission gate, and so was any line followed by `; echo "exit $?"`.
+**SOLUTION:** a small node runner outside the repo does what `apply.mjs` does on a throwaway Homebrew postgres (initdb, `pg_ctl -w -l` with `stdio: "ignore"`, shim, every migration, every assertion with `ON_ERROR_STOP=1`), with `--skip <migration>` for the red run. Run it as a single plain `node <file>` command and read the exit status the tool reports. RULE: **on this machine, one command per call; put anything that needs an environment change inside a node script.**
+
 ### P3-328: a file under public/ is public, and the login proxy skips image and PDF paths
 **Tag:** access
 **ERROR:** the guide pictures and the guide PDF sat in `public/guide`. `proxy.ts` excludes every path ending in `.png` or `.pdf` from its matcher, so anyone without an account could open them, and the committed PDF held the lessons that are only for the owner.

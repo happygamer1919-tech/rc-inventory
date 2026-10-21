@@ -11,6 +11,9 @@
 --      touches no row.
 --   3. A DEACTIVATED ACCOUNT MANAGER is refused by the routine itself.
 --   4. AN OWNER can still insert a line and change a price directly.
+--   Since 0088 (card P3-326) outbound_lines_delete is gone, so outbound_lines has
+--   THREE policies: insert and update on is_owner(), select as before, and no
+--   delete. assertions/0088 checks that nobody signed in deletes a line.
 --
 -- Values cross each role switch in transaction-local settings, the pattern of
 -- assertions/0072. Refusals are written without diacritics, the convention 0063
@@ -46,8 +49,8 @@ begin
 
   select count(*) into n
   from pg_policies where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 4 then
-    raise exception 'P3-195: expected exactly 4 policies on public.outbound_lines, found %', n;
+  if n <> 3 then
+    raise exception 'P3-195: expected exactly 3 policies on public.outbound_lines (4 until 0088 dropped outbound_lines_delete), found %', n;
   end if;
 
   select coalesce(with_check, '') into txt

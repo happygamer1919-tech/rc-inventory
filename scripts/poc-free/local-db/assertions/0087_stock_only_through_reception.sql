@@ -40,6 +40,12 @@
 --   5. THE VERDICT, as the superuser: stock of the product is exactly what the
 --      one reception brought in, quantities unchanged, no stray order.
 --
+-- SINCE 0088 (card P3-326), batches_delete and order_lines_delete are gone:
+-- nobody signed in, the owner included, deletes a batch or a line. So each of
+-- the two tables now carries TWO policies, select and insert, and still no
+-- update. A delete policy that comes back must still be owner only.
+-- assertions/0088 checks that no direct delete removes a row.
+--
 -- Refusals are read by SQLSTATE. Everything runs inside a transaction that is
 -- rolled back.
 
@@ -58,8 +64,8 @@ declare
 begin
   foreach tbl in array array['batches', 'order_lines'] loop
     select count(*) into n from pg_policies where schemaname = 'public' and tablename = tbl;
-    if n <> 3 then
-      raise exception 'P3-312: expected exactly 3 policies on public.%, found %', tbl, n;
+    if n <> 2 then
+      raise exception 'P3-312: expected exactly 2 policies on public.% (3 until 0088 dropped the delete), found %', tbl, n;
     end if;
 
     select count(*) into n from pg_policies
@@ -70,8 +76,9 @@ begin
 
     select qual into txt from pg_policies
     where schemaname = 'public' and tablename = tbl and policyname = tbl || '_delete' and cmd = 'DELETE';
-    if txt is null or txt not ilike '%is_owner()%' then
-      raise exception 'P3-312: %_delete must stay on is_owner(), found %', tbl, coalesce(txt, 'nothing');
+    -- 0088 (P3-326) dropped both delete policies.
+    if txt is not null and txt not ilike '%is_owner()%' then
+      raise exception 'P3-312: %_delete, if present, must stay on is_owner(), found %', tbl, txt;
     end if;
 
     select qual into txt from pg_policies

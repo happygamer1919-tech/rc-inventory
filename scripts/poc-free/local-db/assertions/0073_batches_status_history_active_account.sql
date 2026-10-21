@@ -14,6 +14,10 @@
 --   flag; it still tests current_app_role() is not null, which is what this
 --   file checks. A batches_update that comes back must still be owner only.
 --   assertions/0087 checks the new shape in detail.
+--   Since 0088 (card P3-326) batches_delete is gone too, so public.batches has
+--   TWO policies, select and insert, and public.outbound_lines has three (its
+--   delete went in the same file). A batches_delete that comes back must still be
+--   owner only. assertions/0088 checks that nobody signed in deletes a batch.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
 -- proves the policies EXIST with the right predicate and cannot prove what they
@@ -38,8 +42,8 @@ begin
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'batches';
-  if n <> 3 then
-    raise exception 'P3-179: expected exactly 3 policies on public.batches (4 until 0087 dropped batches_update), found %', n;
+  if n <> 2 then
+    raise exception 'P3-179: expected exactly 2 policies on public.batches (4 until 0087 dropped batches_update, 3 until 0088 dropped batches_delete), found %', n;
   end if;
 
   select count(*) into n
@@ -77,8 +81,9 @@ begin
     end if;
   end loop;
 
-  -- --- 1. no update wider than the owner, delete owner only ----------------
+  -- --- 1. no update or delete wider than the owner -------------------------
   -- 0087 (P3-312) dropped batches_update: nobody signed in changes a batch.
+  -- 0088 (P3-326) dropped batches_delete: nobody signed in deletes a batch.
   select coalesce(qual, '') || ' | ' || coalesce(with_check, '') into txt
   from pg_policies
   where schemaname = 'public' and tablename = 'batches'
@@ -91,16 +96,16 @@ begin
   from pg_policies
   where schemaname = 'public' and tablename = 'batches'
     and policyname = 'batches_delete' and cmd = 'DELETE';
-  if txt is null or txt not ilike '%is_owner()%' then
-    raise exception 'P3-179: batches_delete must stay on is_owner(), found %', coalesce(txt, 'nothing');
+  if txt is not null and txt not ilike '%is_owner()%' then
+    raise exception 'P3-179: batches_delete, if present, must stay on is_owner(), found %', txt;
   end if;
 
   -- --- 3. outbound_lines untouched -------------------------------------------
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 4 then
-    raise exception 'P3-179: public.outbound_lines must keep the four policies of 0070, found %', n;
+  if n <> 3 then
+    raise exception 'P3-179: public.outbound_lines must keep the three policies 0070 left after 0088 dropped its delete, found %', n;
   end if;
 end $$;
 

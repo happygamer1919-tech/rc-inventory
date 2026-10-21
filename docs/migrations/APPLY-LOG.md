@@ -83,6 +83,7 @@ The format is machine-read, so keep it exactly:
 - `0085_walkin_direct_insert_inactive_buyer.sql`, card de aplicare P3-305
 - `0086_inbound_orders_active_account.sql`, card de aplicare P3-180
 - `0087_stock_only_through_reception.sql`, card de aplicare P3-312
+- `0088_no_direct_stock_deletes.sql`, card de aplicare P3-326
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 
