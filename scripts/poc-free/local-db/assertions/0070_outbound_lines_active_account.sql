@@ -16,6 +16,12 @@
 --   has THREE policies and no delete policy: nobody signed in, the owner included,
 --   deletes a sale line. A delete policy that comes back must still be owner only.
 --   assertions/0088 checks the new shape in detail.
+--   Since 0089 (card P3-331) outbound_lines_insert and outbound_lines_update are
+--   gone too, so public.outbound_lines has ONE policy, select: nobody signed in,
+--   the owner included, adds or changes a sale line except through
+--   public.outbound_issue_take_stock. An insert or update policy that comes back
+--   must still test current_app_role() is not null. assertions/0089 checks the new
+--   shape and the refusals in detail.
 --
 -- A BARE POSTGRES RUNS AS SUPERUSER AND BYPASSES ROW LEVEL SECURITY, so this file
 -- proves the policies EXIST with the right predicate and cannot prove what they
@@ -39,8 +45,8 @@ begin
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 3 then
-    raise exception 'P3-138: expected exactly 3 policies on public.outbound_lines (4 until 0088 dropped outbound_lines_delete), found %', n;
+  if n <> 1 then
+    raise exception 'P3-138: expected exactly 1 policy on public.outbound_lines (4 until 0088 dropped outbound_lines_delete, 3 until 0089 dropped outbound_lines_insert and outbound_lines_update), found %', n;
   end if;
 
   for i in 1 .. array_length(cmds, 1) loop
@@ -49,6 +55,10 @@ begin
     from pg_policies
     where schemaname = 'public' and tablename = 'outbound_lines'
       and policyname = pol and cmd = cmds[i];
+    -- 0089 (P3-331) dropped the insert and update policies; only select must exist.
+    if txt is null and cmds[i] <> 'SELECT' then
+      continue;
+    end if;
     if txt is null then
       raise exception 'P3-138: policy % for % is missing on public.outbound_lines', pol, cmds[i];
     end if;
@@ -65,8 +75,8 @@ begin
   select qual, with_check into pol, txt
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines' and policyname = 'outbound_lines_update';
-  if pol is null or txt is null then
-    raise exception 'P3-138: outbound_lines_update must have both using and with check';
+  if found and (pol is null or txt is null) then
+    raise exception 'P3-138: outbound_lines_update, if present, must have both using and with check';
   end if;
 
   -- 0088 (P3-326) dropped outbound_lines_delete: nobody signed in deletes a line.

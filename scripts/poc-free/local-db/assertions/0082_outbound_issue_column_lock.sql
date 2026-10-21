@@ -127,19 +127,22 @@ declare
   v_proj    uuid;
   v_n       integer;
 begin
-  -- a.
+  -- a. Since 0089 (P3-331) a signed-in slip takes the next number in the series,
+  -- so the door calls and the accepted direct insert (n) send it, as the screen
+  -- does. The refused inserts j to m are refused on their shape before the number
+  -- is read, so they keep their own references.
   v_walkin := public.create_direct_client_issue(
-    'TEST-P3266-WALKIN', v_lines, current_setting('p3_266.client')::uuid, date '2026-10-13');
+    public.outbound_next_reference(), v_lines, current_setting('p3_266.client')::uuid, date '2026-10-13');
   perform set_config('p3_266.walkin', coalesce(v_walkin::text, ''), true);
 
   -- b.
   v_lead := public.create_direct_client_issue(
-    'TEST-P3266-LEAD', v_lines, current_setting('p3_266.lead')::uuid, date '2026-10-13');
+    public.outbound_next_reference(), v_lines, current_setting('p3_266.lead')::uuid, date '2026-10-13');
   perform set_config('p3_266.lead_slip', coalesce(v_lead::text, ''), true);
 
   -- c.
   v_proj := public.create_outbound_issue(
-    'TEST-P3266-PROJ', null, null, v_lines, current_setting('p3_266.project')::uuid);
+    public.outbound_next_reference(), null, null, v_lines, current_setting('p3_266.project')::uuid);
   perform set_config('p3_266.proj', coalesce(v_proj::text, ''), true);
 
   -- d. the defect itself: retype the walk-in slip as a project sale
@@ -246,7 +249,7 @@ begin
   -- n.
   begin
     insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date, status, created_by)
-    values ('TEST-P3266-N', 'direct_client', current_setting('p3_266.client')::uuid,
+    values (public.outbound_next_reference(), 'direct_client', current_setting('p3_266.client')::uuid,
             date '2026-10-13', 'awaiting_shipment', 'e3266000-0000-4000-8000-000000000002');
     perform set_config('p3_266.n', 'accepted', true);
   exception when others then

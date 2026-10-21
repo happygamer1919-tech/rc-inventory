@@ -110,12 +110,16 @@ declare
   v_proj    uuid;
   v_n       integer;
 begin
+  -- Since 0089 (P3-331) a signed-in slip takes the next number in the series, so
+  -- both door calls send it, as the screen does; the walk-in number is kept for the
+  -- verdict.
+  perform set_config('p3_274.walkin_ref', public.outbound_next_reference(), true);
   v_walkin := public.create_direct_client_issue(
-    'TEST-P3274-WALKIN', v_lines, current_setting('p3_274.client')::uuid, date '2026-10-13');
+    current_setting('p3_274.walkin_ref'), v_lines, current_setting('p3_274.client')::uuid, date '2026-10-13');
   perform set_config('p3_274.walkin', coalesce(v_walkin::text, ''), true);
 
   v_proj := public.create_outbound_issue(
-    'TEST-P3274-PROJ', null, null, v_lines, current_setting('p3_274.project')::uuid);
+    public.outbound_next_reference(), null, null, v_lines, current_setting('p3_274.project')::uuid);
   perform set_config('p3_274.proj', coalesce(v_proj::text, ''), true);
 
   -- the project slip is shipped first, so c and d hit a shipped slip
@@ -287,7 +291,7 @@ begin
   -- the walk-in slip kept its number and dates, and was shipped by j
   select reference, status::text into rf, st
   from public.outbound_issues where id = current_setting('p3_274.walkin')::uuid;
-  if rf <> 'TEST-P3274-WALKIN' then
+  if rf <> current_setting('p3_274.walkin_ref') then
     raise exception 'P3-274: the walk-in slip now reads reference %', rf;
   end if;
   select count(*) into n from public.outbound_issues
