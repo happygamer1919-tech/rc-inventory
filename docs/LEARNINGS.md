@@ -9832,3 +9832,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** ci
 **ERROR:** `npm run id:free -- P3-331` printed FREE while `origin/card/p3-331` held another worker's commits (no PR yet), and the local branch name already existed.
 **SOLUTION:** before taking an id, run `git ls-remote --heads origin 'card/<id>*'` as well; this card took P3-332.
+
+### P3-333: a privacy check that skips a missing input proves nothing
+**Tag:** guide
+**ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
+**SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**

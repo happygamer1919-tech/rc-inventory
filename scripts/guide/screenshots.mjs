@@ -216,7 +216,17 @@ async function shoot(context, spec, size, accent) {
     found = marks.filter((m) => m.found);
     if (found.length === 0) return { ...result, skipped: "niciun marcaj in cadrul pozei", marks: marks.map(publicMark) };
 
-    const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, " ").trim());
+    // Tot ce se vede: textul de pe ecran, plus valorile, indiciile si etichetele din campuri si imagini.
+    const text = await page.evaluate(() => {
+      const parts = [document.body.innerText];
+      for (const el of document.querySelectorAll("input, textarea, select, [title], [aria-label], img[alt]")) {
+        for (const attr of ["value", "placeholder", "title", "aria-label", "alt"]) {
+          const v = attr === "value" ? el.value : el.getAttribute(attr);
+          if (typeof v === "string" && v.trim() !== "") parts.push(v);
+        }
+      }
+      return parts.join(" ").replace(/\s+/g, " ").trim();
+    });
     // Butoanele si campurile vizibile: cercul nu se pune peste ele daca are alt loc.
     const obstacles = await page.evaluate(() =>
       [...document.querySelectorAll("button, a, input, select, textarea, [role='button']")]
@@ -254,6 +264,19 @@ async function shoot(context, spec, size, accent) {
 
 function publicMark(m) {
   return m.found ? { step: m.step, selector: m.selector, found: true } : { step: m.step, selector: m.selector, found: false, reason: m.reason };
+}
+
+/** Intrarile vechi ale lectiilor care NU ruleaza acum (la o rulare completa nu ramane nimic). */
+function readPreviousManifest(only) {
+  const none = { images: [], skipped: [] };
+  if (only.length === 0 || !existsSync(MANIFEST)) return none;
+  try {
+    const old = JSON.parse(readFileSync(MANIFEST, "utf8"));
+    const keep = (e) => !only.includes(e.lesson);
+    return { images: (old.images ?? []).filter(keep), skipped: (old.skipped ?? []).filter(keep) };
+  } catch {
+    return none;
+  }
 }
 
 async function main() {
@@ -329,6 +352,9 @@ async function main() {
   }
   await browser.close();
 
+  // Manifestul se scrie MEREU: verificarea de confidentialitate pica fara el. O rulare
+  // partiala (GUIDE_ONLY) pastreaza intrarile lectiilor care nu au rulat.
+  const kept = readPreviousManifest(only);
   const manifest = {
     card: "P3-320",
     note: "Scris de scripts/guide/screenshots.mjs. Nu se editeaza de mana. Textul fiecarei poze il citeste npm run check:guide-privacy.",
@@ -336,13 +362,11 @@ async function main() {
     commit: process.env.GITHUB_SHA ?? null,
     accent,
     sizes: Object.fromEntries(Object.entries(SIZES).map(([k, v]) => [k, { width: v.width, height: v.height, device_scale_factor: v.deviceScaleFactor }])),
-    images,
-    skipped,
+    images: [...kept.images, ...images],
+    skipped: [...kept.skipped, ...skipped],
   };
-  if (only.length === 0) {
-    mkdirSync(dirname(MANIFEST), { recursive: true });
-    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
-  }
+  mkdirSync(dirname(MANIFEST), { recursive: true });
+  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
 
   const summary = [
     `Poze ghid: ${images.length} facute, ${skipped.length} fara poza.`,
