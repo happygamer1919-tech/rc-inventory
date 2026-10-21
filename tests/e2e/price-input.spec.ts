@@ -130,9 +130,12 @@ test("P3-327: the text the walk-in form sends reads on the server as the number 
     lines: [{ product_id: "p1", quantity: 1, sale_price_mdl: 2500 }],
   });
 
+  // P3-332: "0,125", "999,123" and "12345,678" used to be here. They have three real decimals,
+  // which numeric(14,2) rounds in the database, so the screen now refuses them (see the test
+  // "a price with more than two decimals is refused" in tests/e2e/one-number-reader.spec.ts).
   const typedValues = [
-    "2,500", "1,250", "1.250", "1 250", "1.250,50", "12,50", "12.50", "0,125", "0,40",
-    "999,123", "1,2", " 7,500 ", "1.200", "1.200.000", "12.5", "0.500", "100,000", "12345,678",
+    "2,500", "1,250", "1.250", "1 250", "1.250,50", "12,50", "12.50", "0,40",
+    "1,2", " 7,500 ", "1.200", "1.200.000", "12.5", "0.500", "100,000", "0,100",
   ];
   for (const typed of typedValues) {
     const screen = parsePriceText(typed);

@@ -16,6 +16,7 @@ import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { fireExtraction } from "./extraction-fire";
 import { EXTRACTION_NOT_STARTED } from "./extraction-types";
 import { nextInboundReference } from "./inbound";
+import { readOrderQuantity, readOrderUnitPrice } from "./form-numbers";
 import { countPages } from "./page-count.mjs";
 import { one, safeFileName } from "./row";
 // Un fisier "use server" are voie sa exporte NUMAI functii async, deci
@@ -64,14 +65,21 @@ export async function createInboundOrder(
   if (input.expectedAt.trim().length === 0)
     return { ok: false, message: "Completează data estimată de livrare.", field: "expectedAt" };
 
-  const lines = input.lines
-    .map((l) => ({
-      product_id: l.productId.trim(),
-      quantity: Number(String(l.quantity).replace(",", ".")),
-      unit_price:
-        String(l.unitPrice).trim() === "" ? null : Number(String(l.unitPrice).replace(",", ".")),
-    }))
-    .filter((l) => l.product_id.length > 0 && Number.isFinite(l.quantity) && l.quantity > 0);
+  // P3-332: cantitatea (numeric(14,3)) si pretul (numeric(14,2)) se citesc cu cititorul comun
+  // al ecranelor (form-numbers.ts), ca la tejghea: "1.250" este 1250, "1 250" se citeste,
+  // mai multe zecimale decat tine coloana se refuza. Inainte, Number(text.replace(",", "."))
+  // citea "1.250" ca 1,25, iar un text care nu era numar disparea fara un cuvant.
+  const lines: { product_id: string; quantity: number; unit_price: number | null }[] = [];
+  for (const l of input.lines) {
+    const quantity = readOrderQuantity(String(l.quantity));
+    if (!quantity.ok) return { ok: false, message: quantity.message, field: "lines" };
+    const productId = l.productId.trim();
+    // Fara produs sau fara cantitate peste zero, pozitia se omite, ca inainte.
+    if (productId.length === 0 || quantity.value === null || quantity.value <= 0) continue;
+    const unitPrice = readOrderUnitPrice(String(l.unitPrice));
+    if (!unitPrice.ok) return { ok: false, message: unitPrice.message, field: "lines" };
+    lines.push({ product_id: productId, quantity: quantity.value, unit_price: unitPrice.value });
+  }
 
   if (lines.length === 0)
     return {
@@ -79,9 +87,6 @@ export async function createInboundOrder(
       message: "Adaugă cel puțin o poziție cu produs și cantitate.",
       field: "lines",
     };
-
-  if (lines.some((l) => l.unit_price !== null && (!Number.isFinite(l.unit_price) || l.unit_price < 0)))
-    return { ok: false, message: "Prețul unitar trebuie să fie un număr pozitiv.", field: "lines" };
 
   const supabase = await createClient();
 

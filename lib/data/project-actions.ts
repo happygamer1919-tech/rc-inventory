@@ -12,6 +12,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { ALL_STATUSES } from "./projects-list-types";
 import type { ProjectStatus } from "./projects-types";
 import type { ActionResult } from "./inbound-types";
+import { readBudget } from "./form-numbers";
 import { one } from "./row";
 
 export type ProjectInput = {
@@ -63,10 +64,10 @@ function validate(
       field: "plannedEndDate",
     };
 
-  const budgetRaw = input.budgetMdl.trim().replace(",", ".");
-  const budget = budgetRaw === "" ? null : Number(budgetRaw);
-  if (budget !== null && (!Number.isFinite(budget) || budget < 0))
-    return { ok: false, message: "Bugetul trebuie să fie un număr pozitiv.", field: "budgetMdl" };
+  // P3-332: bugetul (numeric(14,2)) se citeste cu cititorul comun al ecranelor, ca la tejghea.
+  const budgetRead = readBudget(input.budgetMdl);
+  if (!budgetRead.ok) return { ok: false, message: budgetRead.message, field: "budgetMdl" };
+  const budget = budgetRead.value;
 
   return {
     ok: true,
