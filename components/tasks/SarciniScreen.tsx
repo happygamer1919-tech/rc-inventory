@@ -70,6 +70,7 @@ import {
   ALL_TASK_ENTITY_TYPES,
   ALL_TASK_PRIORITIES,
   ALL_TASK_STATUSES,
+  TEAM_LIST_READ_FAILED,
   taskLinkKey,
 } from "@/lib/data/tasks-shape";
 import {
@@ -100,6 +101,7 @@ export function SarciniScreen({
   query,
   assignees,
   inactiveAssignee = null,
+  teamFailed = false,
   today,
   canWrite,
   clients = [],
@@ -117,6 +119,9 @@ export function SarciniScreen({
    *  filtru pe el ramane; un id fara niciun profil se scoate. P3-309: diferentiaza
    *  "dezactivat" de "lista echipei nu s-a putut incarca" cu { failed: true }. */
   inactiveAssignee?: TaskAssignee | null | { failed: true };
+  /** P3-330: lista echipei nu s-a putut citi. Mesajul apare si fara filtru de responsabil,
+   *  iar selectorul Responsabil din formular se opreste. */
+  teamFailed?: boolean;
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata o singura data de pagina
    *  prin chisinauToday(). Vezi antetul. */
   today: string;
@@ -331,9 +336,9 @@ export function SarciniScreen({
           ) : null}
         </div>
 
-        {inactiveAssignee && "failed" in inactiveAssignee ? (
+        {teamFailed || (inactiveAssignee && "failed" in inactiveAssignee) ? (
           <div className="px-5 py-3 bg-rc-warning text-rc-on-warning rounded">
-            Lista echipei nu s-a putut încărca.
+            {TEAM_LIST_READ_FAILED}
           </div>
         ) : null}
 
@@ -411,6 +416,7 @@ export function SarciniScreen({
       {creating ? (
         <TaskForm
           assignees={assignees}
+          teamFailed={teamFailed}
           clients={clients}
           projects={projects}
           projectsFailed={projectsFailed}
@@ -424,6 +430,7 @@ export function SarciniScreen({
         <TaskForm
           task={editing}
           assignees={assignees}
+          teamFailed={teamFailed}
           clients={clients}
           projects={projects}
           projectsFailed={projectsFailed}

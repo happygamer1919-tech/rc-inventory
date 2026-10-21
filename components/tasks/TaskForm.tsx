@@ -45,6 +45,7 @@ import {
   ALL_TASK_ENTITY_TYPES,
   ALL_TASK_PRIORITIES,
   ALL_TASK_STATUSES,
+  assigneeListError,
   cancelTaskPatch,
   changedTaskFields,
   linkChoicesWithCurrent,
@@ -71,6 +72,7 @@ export type TaskFixedEntity = { type: TaskEntityType; id: string; label: string 
 export function TaskForm({
   task,
   assignees,
+  teamFailed = false,
   clients = [],
   projects = [],
   projectsFailed = false,
@@ -81,6 +83,8 @@ export function TaskForm({
   /** Lipsa inseamna o sarcina nouă. */
   task?: Task;
   assignees: TaskAssignee[];
+  /** P3-330: lista echipei nu s-a putut citi; selectorul Responsabil se opreste. */
+  teamFailed?: boolean;
   /** Clientii activi, LEADURILE INCLUSE: un lead este un rand din public.clients
    *  care poarta o etapa, deci se leaga pe tokenul `client`.
    *
@@ -334,8 +338,9 @@ export function TaskForm({
               />
             </Field>
 
-            <Field label="Responsabil">
+            <Field label="Responsabil" hint={assigneeListError(teamFailed) ?? undefined}>
               <Select
+                disabled={teamFailed}
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className={fieldClass("assigneeId")}
