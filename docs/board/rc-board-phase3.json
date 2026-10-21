@@ -7850,8 +7850,8 @@
         "at": "2026-10-20T16:00:00Z"
       },
       "notes": "AUTHORED and STARTED 2026-10-20 by EXECUTOR from the Fable bug check of 2026-10-20 14:57Z, finding 3. Id allocated with npm run id:free (P3-326 free, no pull request open). Migration number 0088: main holds 0087 and no pull request is open. The assertion ran red without 0088 (the owner deleted the shipped sale line, 1 row) and green with it on a throwaway local postgres from Homebrew, 88 migrations and 70 assertion files, since this machine has no Docker. Older assertions 0070, 0073, 0075, 0086 and 0087 expected the delete policies; they were changed to the new rule. Merging applies 0088 to production, so it waits for the owner OK. Pull request #553."
-      },
-      {
+    },
+    {
       "id": "P3-328",
       "title": "The guide's pictures and PDF can only be opened by a signed-in user, and each role gets only its own lessons in the PDF: the files moved out of public/ (public/guide, which proxy.ts let through without login) to content/guide-images, served by /api/guide/poza/<name> and /api/guide/pdf, which check the session and the role like /ajutor. The PDF is printed on request for the role of the person asking.",
       "plain": "The step-by-step guide's screenshots and PDF could be opened by anyone who knew the address, without an account, and the PDF held every lesson, including the ones only for the owner. Now both need a login. An account manager's PDF has only the lessons an account manager sees; the owner's has all of them.",
@@ -7951,6 +7951,31 @@
         "at": "2026-10-21T20:15:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, findings 2 and 3 (zero based). Id allocated with npm run id:free; P3-331 was taken by another worktree (branch card/p3-331 on origin). Files: lib/data/form-numbers.ts (new), lib/data/price-input.ts, lib/data/import-number.ts, lib/data/outbound-lines.ts, lib/data/product-actions.ts, lib/data/project-actions.ts, lib/data/inbound-actions.ts, lib/data/deviz-actions.ts, lib/data/facturare-actions.ts, lib/data/facturare-create.ts, lib/data/sheet-options-types.ts, lib/data/material-import-types.ts, lib/data/project-import-types.ts, components/ui/NumberNote.tsx (new), components/inventory/ProductForm.tsx, components/projects/ProjectForm.tsx, components/projects/DevizPanel.tsx, components/orders/InboundOrderForm.tsx, components/facturare/FacturaEditor.tsx, components/outbound/OutboundProjectForm.tsx, components/outbound/OutboundDirectClientForm.tsx."
+    },
+    {
+      "id": "P3-333",
+      "title": "The guide picture check cannot be skipped: the manifest docs/guide/screenshots.json is always written by the screenshot script, and npm run check:guide-privacy fails when the manifest is missing, when a picture under content/guide-images/ has no entry, when a picture changed after its entry was written (sha256 differs), or when an entry has no text; every entry is scanned against docs/guide/real-names.txt, and the script now also records field values, placeholders, titles and labels on screen.",
+      "plain": "The guide pictures are checked for real names before they ship. Until now that check quietly did nothing if the list of what each picture shows was missing. Now a missing list, a picture nobody read, or a picture changed after it was read stops the build.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-320"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/guide-privacy.spec.ts is green in this pull request own quality run on its head sha, including the P3-333 cases: a missing manifest, a manifest that is not valid JSON, a picture with no entry, a picture whose sha256 differs from its entry, an entry with no text and an entry with no file each fail, and a real name in an entry text still fails. (b) `npm run check:guide-privacy` exits 0 on the committed 87 pictures and docs/guide/screenshots.json. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "A picture counts as newer than its entry when its sha256 differs from the entry, not by file date, because git sets the file date at checkout. The committed manifest already holds all 87 pictures with matching sha256, so it is not regenerated on this machine (no Docker); the next guide-screenshots run writes the richer text (field values, placeholders, titles, labels). A partial run (GUIDE_ONLY) now updates only its lessons and keeps the other entries.",
+      "last_checkpoint": "2026-10-21T21:08:26Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-333 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-21-executor-guide-privacy-pictures.md",
+        "at": "2026-10-21T21:08:26Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
     }
   ]
 }
