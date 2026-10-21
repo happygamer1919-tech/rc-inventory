@@ -168,12 +168,22 @@ async function deactivate(id: string): Promise<void> {
   expect(off.ok, `profilul nu a putut fi dezactivat: ${off.text}`).toBe(true);
 }
 
-/** O iesire catre client direct, scrisa de cont prin functia aplicatiei. */
-async function createIssue(token: string, reference: string): Promise<string> {
+/** P3-331: urmatorul numar din serie, cerut serverului cu jetonul contului. De la
+ *  0089 o iesire noua primeste numai numarul pe care il da numerotarea aplicatiei,
+ *  exact ca ecranul (lib/data/outbound.ts nextOutboundReference). */
+async function nextReference(token: string): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+/** O iesire catre client direct, scrisa de cont prin functia aplicatiei. Eticheta
+ *  numeste cazul; numarul vine de la server (P3-331). */
+async function createIssue(token: string, _label: string): Promise<string> {
   const created = await asUser(token, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
-      p_reference: reference,
+      p_reference: await nextReference(token),
       p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: 20 }],
       p_client_id: clientId,
       p_pickup_date: "2026-10-04",
@@ -260,27 +270,34 @@ test("pozitii iesire: un cont dezactivat nu poate adauga si nici schimba o pozit
   // CONTUL ESTE UN PROPRIETAR. Din 0075 (cardul P3-195) numai proprietarul scrie
   // direct pe outbound_lines; un operator activ este refuzat deja, deci nu ar mai
   // fi un martor. Refuzul operatorului activ este in take-stock-guard.spec.ts.
+  //
+  // P3-331 (0089) A SCOS SI DREPTUL PROPRIETARULUI. Martorii de mai jos erau o
+  // pozitie adaugata si un pret schimbat direct de proprietarul activ; acum nici el
+  // nu scrie direct pe outbound_lines, deci martorul este ca isi vede pozitia, iar
+  // scrierea directa este refuzata inainte si dupa dezactivare.
   const { id, token } = await newDeactivatableAccount("scriere", "owner");
   const issueId = await createIssue(token, `${TAG}-SCRIERE`);
 
-  // MARTORII: activ, contul adauga o pozitie direct pe tabela si schimba un pret.
+  // MARTORUL: activ, contul isi vede pozitia, scrisa prin usa ecranului.
+  const visible = await asUser(token, `outbound_lines?select=id&outbound_issue_id=eq.${issueId}`);
+  expect(visible.rows, "profil activ: contul isi vede pozitia").toHaveLength(1);
+  const lineId = String(visible.rows[0]!.id);
+
   const added = await asUser(token, "outbound_lines?select=id", {
     method: "POST",
     body: { outbound_issue_id: issueId, product_id: productId, quantity: 1, sale_price_mdl: 20 },
   });
-  expect(added.ok, `profil activ: contul nu a putut adauga o pozitie: ${added.status} ${added.text}`).toBe(true);
-  const lineId = String(added.rows[0]!.id);
+  expect(added.ok, "profil activ: proprietarul a ADAUGAT direct o pozitie (P3-331)").toBe(false);
 
   const changed = await asUser(token, `outbound_lines?id=eq.${lineId}&select=id,sale_price_mdl`, {
     method: "PATCH",
     body: { sale_price_mdl: 21 },
   });
-  expect(changed.ok, `profil activ: contul nu a putut schimba pozitia: ${changed.text}`).toBe(true);
-  expect(changed.rows, "profil activ: pozitia schimbata se intoarce").toHaveLength(1);
+  expect(changed.rows, "profil activ: proprietarul a schimbat direct un pret (P3-331)").toEqual([]);
 
   await deactivate(id);
   const before = await linesOf(issueId);
-  expect(before, "doua pozitii inainte de refuz").toHaveLength(2);
+  expect(before, "o pozitie inainte de refuz").toHaveLength(1);
 
   const refusedInsert = await asUser(token, "outbound_lines?select=id", {
     method: "POST",

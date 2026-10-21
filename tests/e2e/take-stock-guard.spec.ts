@@ -10,6 +10,9 @@ import { expect, test } from "@playwright/test";
 //      si nici schimba direct sale_price_mdl pe outbound_lines.
 //   3. Proprietarul poate inca, iar fluxul ecranelor (ambele usi, apoi expedierea)
 //      merge pentru operator exact ca inainte.
+//      P3-331 (0089) a intors prima jumatate: nici proprietarul nu mai scrie direct
+//      pe outbound_lines. Fluxul ecranelor merge ca inainte, cu numarul urmator din
+//      serie pe care il da serverul.
 //
 // FIECARE REFUZ ARE UN MARTOR: acelasi cont face intai lucrul permis cel mai
 // apropiat, ca un refuz sa nu treaca si pe o cale pe care nu o poate folosi nimeni.
@@ -157,12 +160,22 @@ async function newAccount(label: string, role: "account_manager" | "owner"): Pro
   return accessToken(email, password);
 }
 
-/** O iesire catre client direct, scrisa prin usa pe care o foloseste ecranul. */
-async function createDirectIssue(token: string, reference: string, price = 20): Promise<string> {
+/** P3-331: urmatorul numar din serie, cerut serverului cu jetonul contului. De la
+ *  0089 o iesire noua primeste numai numarul pe care il da numerotarea aplicatiei,
+ *  exact ca ecranul (lib/data/outbound.ts nextOutboundReference). */
+async function nextReference(token: string): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+/** O iesire catre client direct, scrisa prin usa pe care o foloseste ecranul. Eticheta
+ *  numeste cazul; numarul vine de la server (P3-331). */
+async function createDirectIssue(token: string, _label: string, price = 20): Promise<string> {
   const created = await asUser(token, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
-      p_reference: reference,
+      p_reference: await nextReference(token),
       p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: price }],
       p_client_id: clientId,
       p_pickup_date: "2026-10-06",
@@ -275,27 +288,40 @@ test("P3-195: un operator activ nu poate adauga direct o pozitie si nici schimba
    3. PROPRIETARUL SI FLUXUL ECRANELOR MERG CA INAINTE
    ======================================================================= */
 
-test("P3-195: proprietarul poate inca adauga o pozitie si schimba pretul direct", async () => {
+// P3-331 (0089) A INTORS ACEST CAZ. Pana atunci proprietarul putea adauga direct o
+// pozitie si schimba pretul; un PATCH pe cantitate dadea stocul inapoi fara nicio
+// urma. Acum nici proprietarul nu scrie direct pe outbound_lines: o pozitie se scrie
+// numai prin outbound_issue_take_stock, adica prin ecran.
+test("P3-331: nici proprietarul nu mai adauga direct o pozitie si nu schimba pretul sau cantitatea", async () => {
   const owner = await newAccount("proprietar", "owner");
   const issueId = await createDirectIssue(owner, `${TAG}-PROPRIETAR`);
-  const [first] = await linesOf(issueId);
+  const before = await linesOf(issueId);
+  const [first] = before;
+
+  // MARTORUL: proprietarul isi vede pozitia, deci refuzurile vin din regula de scriere.
+  const visible = await asUser(owner, `outbound_lines?select=id&outbound_issue_id=eq.${issueId}`);
+  expect(visible.rows, "proprietar: isi vede pozitia").toHaveLength(1);
 
   const inserted = await asUser(owner, "outbound_lines?select=id", {
     method: "POST",
     body: { outbound_issue_id: issueId, product_id: productId, quantity: 1, sale_price_mdl: 30 },
   });
-  expect(inserted.ok, `proprietar: pozitia nu a putut fi adaugata: ${inserted.status} ${inserted.text}`).toBe(true);
+  expect(inserted.ok, "proprietar: a ADAUGAT direct o pozitie").toBe(false);
 
-  const patched = await asUser(owner, `outbound_lines?id=eq.${String(first!.id)}&select=id,sale_price_mdl`, {
+  // O actualizare fara politica atinge zero randuri si nu este o eroare.
+  const priced = await asUser(owner, `outbound_lines?id=eq.${String(first!.id)}&select=id,sale_price_mdl`, {
     method: "PATCH",
     body: { sale_price_mdl: 21 },
   });
-  expect(patched.ok, `proprietar: pretul nu a putut fi schimbat: ${patched.text}`).toBe(true);
-  expect(patched.rows, "proprietar: pozitia schimbata se intoarce").toHaveLength(1);
+  expect(priced.rows, "proprietar: niciun pret schimbat").toEqual([]);
 
-  const after = await linesOf(issueId);
-  expect(after, "proprietar: doua pozitii").toHaveLength(2);
-  expect(Number(after.find((l) => l.id === first!.id)?.sale_price_mdl), "pretul nou este scris").toBe(21);
+  const quantity = await asUser(owner, `outbound_lines?id=eq.${String(first!.id)}&select=id,quantity`, {
+    method: "PATCH",
+    body: { quantity: 0.01 },
+  });
+  expect(quantity.rows, "proprietar: nicio cantitate schimbata, stocul nu se intoarce").toEqual([]);
+
+  expect(await linesOf(issueId), "pozitiile sunt exact cele de dinainte").toEqual(before);
 });
 
 test("P3-195: un operator creeaza ambele feluri de iesire si o expediaza, ca inainte", async () => {
@@ -304,7 +330,7 @@ test("P3-195: un operator creeaza ambele feluri de iesire si o expediaza, ca ina
   const project = await asUser(manager, "rpc/create_outbound_issue", {
     method: "POST",
     body: {
-      p_reference: `${TAG}-FLUX-PROIECT`,
+      p_reference: await nextReference(manager),
       p_client_name: "",
       p_project_name: "",
       p_lines: [{ product_id: productId, quantity: 2, sale_price_mdl: 25 }],
@@ -333,7 +359,7 @@ test("P3-195: un operator creeaza ambele feluri de iesire si o expediaza, ca ina
   const tooMuch = await asUser(manager, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
-      p_reference: `${TAG}-FLUX-PREA-MULT`,
+      p_reference: await nextReference(manager),
       p_lines: [{ product_id: productId, quantity: 100000, sale_price_mdl: 1 }],
       p_client_id: clientId,
       p_pickup_date: "2026-10-06",

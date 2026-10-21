@@ -167,12 +167,22 @@ async function emptyIssueOf(accountId: string, reference: string): Promise<strin
   return String(created.rows[0]!.id);
 }
 
-/** O iesire catre client direct, scrisa prin usa pe care o foloseste ecranul. */
-async function createDirectIssue(token: string, reference: string): Promise<string> {
+/** P3-331: urmatorul numar din serie, cerut serverului cu jetonul contului. De la
+ *  0089 o iesire noua primeste numai numarul pe care il da numerotarea aplicatiei,
+ *  exact ca ecranul (lib/data/outbound.ts nextOutboundReference). */
+async function nextReference(token: string): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+/** O iesire catre client direct, scrisa prin usa pe care o foloseste ecranul. Eticheta
+ *  numeste cazul; numarul vine de la server (P3-331). */
+async function createDirectIssue(token: string, _label: string): Promise<string> {
   const created = await asUser(token, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
-      p_reference: reference,
+      p_reference: await nextReference(token),
       p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: 20 }],
       p_client_id: clientId,
       p_pickup_date: "2026-10-09",
@@ -284,7 +294,7 @@ test("P3-199: autorul pe iesirea lui goala si proprietarul sunt lasati, iar cele
   const viaProject = await asUser(author.token, "rpc/create_outbound_issue", {
     method: "POST",
     body: {
-      p_reference: `${TAG}-USA-PROIECT`,
+      p_reference: await nextReference(author.token),
       p_client_name: "",
       p_project_name: "",
       p_lines: [{ product_id: productId, quantity: 1, sale_price_mdl: 25 }],
