@@ -140,6 +140,15 @@ export function parseImportNumber(
   return fraction === "" ? integerPart : `${integerPart}.${fraction}`;
 }
 
+/**
+ * P3-332: cate zecimale reale are un numar citit ("1250.50" are 1, "1.255" are 3). Zerourile de
+ * la coada nu se numara: "2.500" este tot 2,5. Banii sunt numeric(14,2) si cantitatile
+ * numeric(14,3), deci o valoare cu mai multe zecimale se refuza, nu se lasa rotunjita de baza.
+ */
+export function realDecimals(text: string): number {
+  return (text.split(".")[1] ?? "").replace(/0+$/, "").length;
+}
+
 /** "1.250.000" cu `mark` ".": cifrele lipite, sau null cand grupele nu sunt 1 pana la 3 cifre
  *  la inceput (fara 0 in fata) si exact 3 dupa aceea. */
 function readThousands(text: string, mark: string): string | null {

@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { isUnitCode } from "./units";
+import { readPackageFactor, readThreshold, readUnitValue } from "./form-numbers";
 import { productHasMovements } from "./product-movement";
 import { looksLikeUuid } from "./suppliers-types";
 import { resolveSupplier } from "./suppliers";
@@ -114,16 +115,11 @@ function validatePackage(input: ProductInput):
     };
   }
 
-  const factor = Number(rawFactor.replace(",", "."));
-  if (!Number.isFinite(factor) || factor <= 0) {
-    return {
-      ok: false,
-      field: "packageFactor",
-      message: "Factorul de ambalaj trebuie să fie un număr mai mare decât zero.",
-    };
-  }
+  // P3-332: cititorul comun al ecranelor (form-numbers.ts); package_factor este numeric(14,3).
+  const factor = readPackageFactor(rawFactor);
+  if (!factor.ok) return { ok: false, field: "packageFactor", message: factor.message };
 
-  return { ok: true, value: { package_unit: unit, package_factor: factor } };
+  return { ok: true, value: { package_unit: unit, package_factor: factor.value } };
 }
 
 /** P3-57. Coloanele combinatiei, cu numele din migratia 0046. */
@@ -303,14 +299,16 @@ function validate(input: ProductInput):
   if (!isUnitCode(input.unit))
     return { ok: false, message: "Alege o unitate de măsură.", field: "unit" };
 
-  const threshold = input.threshold.trim() === "" ? 0 : Number(input.threshold.replace(",", "."));
-  if (!Number.isFinite(threshold) || threshold < 0)
-    return { ok: false, message: "Pragul trebuie să fie un număr pozitiv.", field: "threshold" };
+  // P3-332: pragul (numeric(14,3)) si valoarea unitara (numeric(14,2)) se citesc cu cititorul
+  // comun al ecranelor, ca la tejghea: "1.250" este 1250, "1 250" se citeste, mai multe zecimale
+  // decat tine coloana se refuza. Gol ramane 0, ca inainte.
+  const thresholdRead = readThreshold(input.threshold);
+  if (!thresholdRead.ok) return { ok: false, message: thresholdRead.message, field: "threshold" };
+  const threshold = thresholdRead.value;
 
-  const value =
-    input.unitValueMdl.trim() === "" ? 0 : Number(input.unitValueMdl.replace(",", "."));
-  if (!Number.isFinite(value) || value < 0)
-    return { ok: false, message: "Valoarea unitară trebuie să fie un număr pozitiv.", field: "unitValueMdl" };
+  const valueRead = readUnitValue(input.unitValueMdl);
+  if (!valueRead.ok) return { ok: false, message: valueRead.message, field: "unitValueMdl" };
+  const value = valueRead.value;
 
   return {
     ok: true,

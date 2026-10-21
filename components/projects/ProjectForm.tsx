@@ -12,6 +12,9 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { DateField, useInvalidDates } from "@/components/ui/DateField";
+import { NumberNote } from "@/components/ui/NumberNote";
+import { readBudget } from "@/lib/data/form-numbers";
+import { priceReadLabel } from "@/lib/data/price-input";
 import { PHONE_CHECK, PHONE_CLOSE, PHONE_SHEET, PHONE_STACK } from "@/components/ui/phone";
 import { createProjectRecord, updateProjectRecord } from "@/lib/data/project-actions";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
@@ -40,6 +43,7 @@ export function ProjectForm({
   const [budgetMdl, setBudgetMdl] = React.useState(
     project?.budgetMdl === null || project?.budgetMdl === undefined ? "" : String(project.budgetMdl),
   );
+  const budgetRead = readBudget(budgetMdl);
   const [notes, setNotes] = React.useState(project?.notes ?? "");
   const [active, setActive] = React.useState(project?.active ?? true);
 
@@ -213,6 +217,11 @@ export function ProjectForm({
               inputMode="decimal"
               className={fieldClass("budgetMdl")}
               data-testid="field-project-budget"
+            />
+            <NumberNote
+              problem={budgetRead.ok ? null : budgetRead.message}
+              read={priceReadLabel(budgetMdl, "MDL")}
+              testId="field-project-budget"
             />
           </Field>
 

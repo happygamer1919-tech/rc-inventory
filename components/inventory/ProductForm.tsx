@@ -51,6 +51,9 @@ import {
 } from "@/lib/data/sheet-options-types";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ComboOption } from "@/components/ui/Combobox";
+import { NumberNote } from "@/components/ui/NumberNote";
+import { readPackageFactor, readThreshold, readUnitValue } from "@/lib/data/form-numbers";
+import { priceReadLabel, quantityToField } from "@/lib/data/price-input";
 import type { SupplierOption } from "@/lib/data/suppliers-types";
 
 export function ProductForm({
@@ -95,7 +98,7 @@ export function ProductForm({
     product?.categoryId ?? categories[0]?.id ?? "",
   );
   const [unit, setUnit] = React.useState<string>(product?.unit ?? units[0] ?? "pcs");
-  const [threshold, setThreshold] = React.useState(String(product?.threshold ?? 0));
+  const [threshold, setThreshold] = React.useState(quantityToField(product?.threshold ?? 0));
   const [unitValue, setUnitValue] = React.useState(String(product?.unitValueMdl ?? 0));
   // P3-05: furnizorul este o inregistrare, nu text liber.
   //
@@ -118,8 +121,12 @@ export function ProductForm({
   const [packageFactor, setPackageFactor] = React.useState(
     product?.packageFactor === null || product?.packageFactor === undefined
       ? ""
-      : String(product.packageFactor),
+      : quantityToField(product.packageFactor),
   );
+  // P3-332: ce citeste ecranul din casutele de numar, cu aceleasi reguli ca serverul.
+  const thresholdRead = readThreshold(threshold);
+  const unitValueRead = readUnitValue(unitValue);
+  const packageFactorRead = packageFactor.trim() === "" ? null : readPackageFactor(packageFactor);
 
   // P3-57. MODEL, SERIE SI GROSIME. Listele se deriva din combinatiile primite: seria
   // numai dintre cele ale modelului, grosimea numai dintre cele ale seriei, deci o
@@ -512,6 +519,10 @@ export function ProductForm({
                 className={fieldClass("threshold")}
                 data-testid="field-threshold"
               />
+              <NumberNote
+                problem={thresholdRead.ok ? null : thresholdRead.message}
+                testId="field-threshold"
+              />
             </Field>
             <Field label="Valoare unitară (MDL)">
               <Input
@@ -520,6 +531,11 @@ export function ProductForm({
                 inputMode="decimal"
                 className={fieldClass("unitValueMdl")}
                 data-testid="field-unit-value"
+              />
+              <NumberNote
+                problem={unitValueRead.ok ? null : unitValueRead.message}
+                read={priceReadLabel(unitValue, "MDL")}
+                testId="field-unit-value"
               />
               {/* P3-58: se vede numai cat timp campul poarta exact pretul sugerat. */}
               {sheetPicked !== null && suggestedPrice !== null && unitValue === suggestedPrice ? (
@@ -577,6 +593,10 @@ export function ProductForm({
                   placeholder="48"
                   className={fieldClass("packageFactor")}
                   data-testid="field-package-factor"
+                />
+                <NumberNote
+                  problem={packageFactorRead === null || packageFactorRead.ok ? null : packageFactorRead.message}
+                  testId="field-package-factor"
                 />
               </Field>
             </div>

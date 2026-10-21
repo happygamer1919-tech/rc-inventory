@@ -58,9 +58,9 @@ import { DateField, DATE_INVALID_MESSAGE } from "@/components/ui/DateField";
 import { DISPLAY_CURRENCY, formatDate, formatTimestampDate, formatMoney, formatMoneyExact, formatNumberExact, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import {
-  PRICE_INVALID_MESSAGE,
   parsePriceText,
   parseQuantityText,
+  priceProblem,
   priceReadLabel,
   priceTextForServer,
   quantityProblem,
@@ -268,9 +268,8 @@ export function OutboundDirectClientForm({
   // P3-209: pretul se citeste din text ("12,50" sau "12.50"). Un text care nu este
   // pret opreste salvarea; o casuta goala ramane "fara pret".
   lines.forEach((l, index) => {
-    if (parsePriceText(l.price).kind === "invalid") {
-      problems.push(`Rândul ${index + 1}: ${PRICE_INVALID_MESSAGE}`);
-    }
+    const problem = priceProblem(l.price);
+    if (problem) problems.push(`Rândul ${index + 1}: ${problem}`);
   });
 
   // P3-258: cantitatea se citeste din text ("2,5" sau "2.5"). Un text care nu este
@@ -485,7 +484,8 @@ export function OutboundDirectClientForm({
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = linePrice(l) * lineQuantity(l);
-                const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const priceError = priceProblem(l.price);
+                const priceInvalid = priceError !== null;
                 const priceRead = priceReadLabel(l.price);
                 const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
                 const quantityInvalid = quantityError !== null;
@@ -571,7 +571,7 @@ export function OutboundDirectClientForm({
                           className="mt-1 text-[12px] text-rc-danger"
                           data-testid={`issue-price-error-${index}`}
                         >
-                          {PRICE_INVALID_MESSAGE}
+                          {priceError}
                         </p>
                       ) : null}
                       {/* P3-314: valoarea citita din casuta, ca o virgula gresita sa se vada. */}
