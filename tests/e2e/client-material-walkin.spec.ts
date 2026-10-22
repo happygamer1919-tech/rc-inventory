@@ -88,11 +88,21 @@ async function newClient(label: string): Promise<string> {
   return String(created.rows[0]!.id);
 }
 
-async function walkinSale(reference: string, clientId: string, quantity: number): Promise<void> {
+/** P3-331: urmatorul numar din serie, cerut serverului cu jetonul contului. De la
+ *  0089 o iesire noua primeste numai numarul pe care il da numerotarea aplicatiei,
+ *  exact ca ecranul (lib/data/outbound.ts nextOutboundReference). */
+async function nextReference(): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+/** Eticheta numeste vanzarea; numarul bonului vine de la server (P3-331). */
+async function walkinSale(_label: string, clientId: string, quantity: number): Promise<void> {
   const created = await asUser(token, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
-      p_reference: reference,
+      p_reference: await nextReference(),
       p_lines: [{ product_id: productId, quantity, sale_price_mdl: 20 }],
       p_client_id: clientId,
       p_pickup_date: "2026-10-04",
@@ -163,7 +173,7 @@ test.beforeAll(async () => {
   const projectIssue = await asUser(token, "rpc/create_outbound_issue", {
     method: "POST",
     body: {
-      p_reference: `${TAG}-P`,
+      p_reference: await nextReference(),
       p_client_name: "",
       p_project_name: "",
       p_lines: [{ product_id: productId, quantity: 30 }],

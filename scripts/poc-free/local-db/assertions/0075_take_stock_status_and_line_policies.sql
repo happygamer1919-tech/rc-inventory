@@ -14,6 +14,11 @@
 --   Since 0088 (card P3-326) outbound_lines_delete is gone, so outbound_lines has
 --   THREE policies: insert and update on is_owner(), select as before, and no
 --   delete. assertions/0088 checks that nobody signed in deletes a line.
+--   Since 0089 (card P3-331) outbound_lines_insert and outbound_lines_update are
+--   gone too, so outbound_lines has ONE policy, select, and case 4 is turned
+--   round: THE OWNER can no longer insert a line or change a price directly
+--   either. A line is written only by outbound_issue_take_stock.
+--   assertions/0089 checks the new rule in detail.
 --
 -- Values cross each role switch in transaction-local settings, the pattern of
 -- assertions/0072. Refusals are written without diacritics, the convention 0063
@@ -49,24 +54,26 @@ begin
 
   select count(*) into n
   from pg_policies where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 3 then
-    raise exception 'P3-195: expected exactly 3 policies on public.outbound_lines (4 until 0088 dropped outbound_lines_delete), found %', n;
+  if n <> 1 then
+    raise exception 'P3-195: expected exactly 1 policy on public.outbound_lines (4 until 0088 dropped outbound_lines_delete, 3 until 0089 dropped outbound_lines_insert and outbound_lines_update), found %', n;
   end if;
 
+  -- 0089 (P3-331): no insert and no update policy at all. One that comes back
+  -- must at least stay owner only.
   select coalesce(with_check, '') into txt
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines'
     and policyname = 'outbound_lines_insert' and cmd = 'INSERT';
-  if txt is null or txt not ilike '%is_owner()%' then
-    raise exception 'P3-195: outbound_lines_insert must be owner only, found %', coalesce(txt, 'nothing');
+  if txt is not null and txt not ilike '%is_owner()%' then
+    raise exception 'P3-195: outbound_lines_insert, if present, must be owner only, found %', txt;
   end if;
 
   select coalesce(qual, '') || ' | ' || coalesce(with_check, '') into txt
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines'
     and policyname = 'outbound_lines_update' and cmd = 'UPDATE';
-  if txt is null or txt not ilike '%is_owner()% | %is_owner()%' then
-    raise exception 'P3-195: outbound_lines_update must be owner only on both sides, found %', coalesce(txt, 'nothing');
+  if txt is not null and txt not ilike '%is_owner()% | %is_owner()%' then
+    raise exception 'P3-195: outbound_lines_update, if present, must be owner only on both sides, found %', txt;
   end if;
 
   select qual into txt
@@ -225,8 +232,14 @@ declare
   v_line    uuid := current_setting('p3_185.line')::uuid;
   n         integer;
 begin
-  insert into public.outbound_lines (outbound_issue_id, product_id, quantity, sale_price_mdl)
-  values (v_open, v_product, 1, 30);
+  -- 0089 (P3-331): the owner is refused too.
+  begin
+    insert into public.outbound_lines (outbound_issue_id, product_id, quantity, sale_price_mdl)
+    values (v_open, v_product, 1, 30);
+    perform set_config('p3_185.owner_insert', 'accepted', true);
+  exception when insufficient_privilege then
+    perform set_config('p3_185.owner_insert', 'refused', true);
+  end;
 
   update public.outbound_lines set sale_price_mdl = 21 where id = v_line;
   get diagnostics n = row_count;
@@ -277,25 +290,29 @@ begin
     raise exception 'P3-195: a deactivated account was not refused by take stock, got %', txt;
   end if;
 
-  if current_setting('p3_185.owner_update') <> '1' then
-    raise exception 'P3-195: the owner could not change a line price, % row(s)', current_setting('p3_185.owner_update');
+  -- 0089 (P3-331): the owner no longer writes a line directly.
+  if current_setting('p3_185.owner_insert') <> 'refused' then
+    raise exception 'P3-331: the owner inserted an outbound line directly';
+  end if;
+  if current_setting('p3_185.owner_update') <> '0' then
+    raise exception 'P3-331: the owner changed % outbound line(s) directly', current_setting('p3_185.owner_update');
   end if;
 
-  -- Fixture line and the owner's insert: two. The manager's take stock went to the
-  -- fresh slip (P3-199).
+  -- The fixture line only. The manager's take stock went to the fresh slip
+  -- (P3-199) and the owner's insert was refused (P3-331).
   select count(*) into n from public.outbound_lines where outbound_issue_id = v_open;
-  if n <> 2 then
-    raise exception 'P3-195: expected 2 lines on the awaiting slip (fixture, owner insert), found %', n;
+  if n <> 1 then
+    raise exception 'P3-195: expected 1 line on the awaiting slip (the fixture), found %', n;
   end if;
   select count(*) into n from public.outbound_lines where outbound_issue_id = v_fresh;
   if n <> 1 then
     raise exception 'P3-195: expected 1 line on the fresh slip (manager take stock), found %', n;
   end if;
 
-  select count(*) into n from public.outbound_lines where id = v_line and sale_price_mdl = 21;
+  select count(*) into n from public.outbound_lines where id = v_line and sale_price_mdl = 20;
   if n <> 1 then
     select coalesce(sale_price_mdl::text, 'null') into txt from public.outbound_lines where id = v_line;
-    raise exception 'P3-195: the line price is %, expected the owner''s 21', txt;
+    raise exception 'P3-331: the line price is %, expected the fixture''s 20 unchanged', txt;
   end if;
 
   -- Only the manager's take stock wrote history, on the fresh slip.

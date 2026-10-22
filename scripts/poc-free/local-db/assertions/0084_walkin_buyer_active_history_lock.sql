@@ -171,19 +171,21 @@ begin
     perform set_config('p3_277.b', sqlstate || ' ' || sqlerrm, true);
   end;
 
-  -- c.
+  -- c. Since 0089 (P3-331) a signed-in slip takes the next number in the series,
+  -- so the accepted door calls c, d and e send it, as the screen does. a and b are
+  -- refused by the door before its insert, so their references never reach it.
   v_id := public.create_direct_client_issue(
-    'TEST-P3277-WALKIN', v_lines, current_setting('p3_277.client')::uuid, date '2026-10-14');
+    public.outbound_next_reference(), v_lines, current_setting('p3_277.client')::uuid, date '2026-10-14');
   perform set_config('p3_277.walkin', coalesce(v_id::text, ''), true);
 
   -- d.
   v_id := public.create_direct_client_issue(
-    'TEST-P3277-LEAD', v_lines, current_setting('p3_277.lead')::uuid, date '2026-10-14');
+    public.outbound_next_reference(), v_lines, current_setting('p3_277.lead')::uuid, date '2026-10-14');
   perform set_config('p3_277.lead_slip', coalesce(v_id::text, ''), true);
 
   -- e.
   v_id := public.create_outbound_issue(
-    'TEST-P3277-PROJ', null, null, v_lines, current_setting('p3_277.project')::uuid);
+    public.outbound_next_reference(), null, null, v_lines, current_setting('p3_277.project')::uuid);
   perform set_config('p3_277.proj', coalesce(v_id::text, ''), true);
 
   -- f.

@@ -158,9 +158,19 @@ async function clientsNamed(name: string): Promise<Record<string, unknown>[]> {
   return rows.rows;
 }
 
-function directIssue(token: string, reference: string, clientId: string, quantity = 1) {
+/** P3-331: urmatorul numar din serie, cerut serverului cu jetonul contului. De la
+ *  0089 o iesire noua primeste numai numarul pe care il da numerotarea aplicatiei,
+ *  exact ca ecranul (lib/data/outbound.ts nextOutboundReference). */
+async function nextReference(token: string): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", "POST", {});
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+/** Eticheta numeste cazul; numarul bonului vine de la server (P3-331). */
+async function directIssue(token: string, _label: string, clientId: string, quantity = 1) {
   return asUser(token, "rpc/create_direct_client_issue", "POST", {
-    p_reference: reference,
+    p_reference: await nextReference(token),
     p_lines: [{ product_id: productId, quantity }],
     p_client_id: clientId,
     p_pickup_date: "2026-12-04",
@@ -278,8 +288,9 @@ test.describe("P3-262, cumparatorul de la tejghea poate fi un lead", () => {
 
     // Functia noua, chemata singura pe un bon scris de manager intr-o cerere
     // anterioara, catre acest lead: refuzata, fiindca bonul nu e scris acum.
+    // P3-331: si un bon scris direct primeste numai urmatorul numar din serie.
     const old = await asUser(token, "outbound_issues?select=id", "POST", {
-      reference: `${TAG}-VECHI`,
+      reference: await nextReference(token),
       issue_mode: "direct_client",
       client_id: leadId,
       pickup_date: "2026-12-04",
@@ -307,7 +318,8 @@ test.describe("P3-262, cumparatorul de la tejghea poate fi un lead", () => {
     const after = await clientRow(leadId);
     expect(after.stage).toBe("nurture");
     expect(await clientHistory(leadId)).toHaveLength(0);
-    const slips = await asService(`outbound_issues?select=id&reference=eq.${encodeURIComponent(`${TAG}-STOC`)}`);
+    // P3-331: bonul nu mai poarta eticheta cazului, deci se cauta dupa client.
+    const slips = await asService(`outbound_issues?select=id&client_id=eq.${leadId}`);
     expect(slips.rows, "niciun bon ramas").toHaveLength(0);
   });
 

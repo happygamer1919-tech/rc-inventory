@@ -135,14 +135,15 @@ declare
 begin
   v_lines := jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1));
 
-  -- a. the sale to a lead
+  -- a. the sale to a lead. Since 0089 (P3-331) a signed-in slip takes the next
+  -- number in the series, so every door call below sends it, as the screen does.
   v_id := public.create_direct_client_issue(
-    'TEST-P3262-M-LEAD', v_lines, current_setting('p3_262.lead_m')::uuid, date '2026-10-10');
+    public.outbound_next_reference(), v_lines, current_setting('p3_262.lead_m')::uuid, date '2026-10-10');
   perform set_config('p3_262.slip_m', coalesce(v_id::text, ''), true);
 
   -- b. the witness: the sale to a client
   v_id := public.create_direct_client_issue(
-    'TEST-P3262-M-CLIENT', v_lines, current_setting('p3_262.client')::uuid, date '2026-10-10');
+    public.outbound_next_reference(), v_lines, current_setting('p3_262.client')::uuid, date '2026-10-10');
   perform set_config('p3_262.slip_c', coalesce(v_id::text, ''), true);
 
   -- c. set_client_stage, without a sale
@@ -165,7 +166,7 @@ begin
   -- e. a sale that overdraws stock
   begin
     perform public.create_direct_client_issue(
-      'TEST-P3262-M-STOCK',
+      public.outbound_next_reference(),
       jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 100000)),
       current_setting('p3_262.lead_stock')::uuid, date '2026-10-10');
     perform set_config('p3_262.m_stock', 'accepted', true);
@@ -188,7 +189,7 @@ declare
   v_id      uuid;
 begin
   v_id := public.create_direct_client_issue(
-    'TEST-P3262-O-LEAD',
+    public.outbound_next_reference(),
     jsonb_build_array(jsonb_build_object('product_id', v_product, 'quantity', 1)),
     current_setting('p3_262.lead_o')::uuid, date '2026-10-10');
   perform set_config('p3_262.slip_o', coalesce(v_id::text, ''), true);
@@ -270,7 +271,8 @@ begin
   if st <> 'nurture' or n <> 0 then
     raise exception 'P3-262: a refused sale moved the lead to % with % history rows', st, n;
   end if;
-  select count(*) into n from public.outbound_issues where reference = 'TEST-P3262-M-STOCK';
+  select count(*) into n from public.outbound_issues
+  where client_id = current_setting('p3_262.lead_stock')::uuid;
   if n <> 0 then
     raise exception 'P3-262: a refused sale left its slip';
   end if;

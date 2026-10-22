@@ -125,10 +125,14 @@ test.describe("fila Consum materiale cu zecimale", () => {
     expect(client.ok, `clientul de test nu a putut fi scris: ${client.text}`).toBe(true);
     clientId = String(client.rows[0]!.id);
 
+    // P3-331: o iesire noua primeste numai urmatorul numar din serie, cerut
+    // serverului exact ca de pe ecran.
+    const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+    expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
     const sale = await asUser(token, "rpc/create_direct_client_issue", {
       method: "POST",
       body: {
-        p_reference: `${TAG}-W`,
+        p_reference: String(next.rows[0]),
         p_lines: [{ product_id: productId, quantity: 2.5, sale_price_mdl: 20 }],
         p_client_id: clientId,
         p_pickup_date: "2026-10-09",

@@ -179,15 +179,36 @@ async function availableStock(): Promise<number> {
   return Number(asked.rows[0] ?? 0);
 }
 
+/** P3-331 (0089): O IESIRE NOUA PRIMESTE NUMAI URMATORUL NUMAR DIN SERIE, cel pe
+ *  care il da numerotarea aplicatiei (lib/data/outbound.ts nextOutboundReference),
+ *  deci cazurile nu mai pot scrie o referinta cu eticheta lor. Eticheta ramane
+ *  cheia cazului: `issued` tine minte ce numar a primit fiecare eticheta, iar `ref`
+ *  il da inapoi oriunde cazul cauta iesirea dupa referinta. */
+const issued = new Map<string, string>();
+
+async function nextReference(token: string): Promise<string> {
+  const next = await asUser(token, "rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit: ${next.status} ${next.text}`).toBe(true);
+  return String(next.rows[0]);
+}
+
+function ref(label: string): string {
+  const reference = issued.get(label);
+  if (!reference) throw new Error(`nicio iesire scrisa cu eticheta ${label}`);
+  return reference;
+}
+
 /** O iesire PE PROIECT, prin usa netinsa. Semnatura cu cinci argumente este exact
  *  cea pe care 0018 a declarat-o si 0026 a inlocuit-o, si migratia 0067 nu o
  *  atinge: R-215 promite ca modul "proiect" nu se schimba in nicio privinta. */
 async function createProjectIssue(
   token: string,
-  reference: string,
+  label: string,
   lines: Record<string, unknown>[],
   projectId: string | null,
 ): Promise<Rest> {
+  const reference = await nextReference(token);
+  issued.set(label, reference);
   return asUser(token, "rpc/create_outbound_issue", {
     method: "POST",
     body: {
@@ -205,11 +226,13 @@ async function createProjectIssue(
  *  cheama si usa de mai sus, deci scaderea de stoc nu se ramifica. */
 async function createDirectIssue(
   token: string,
-  reference: string,
+  label: string,
   lines: Record<string, unknown>[],
   clientIdArg: string | null,
   pickupDate: string | null,
 ): Promise<Rest> {
+  const reference = await nextReference(token);
+  issued.set(label, reference);
   return asUser(token, "rpc/create_direct_client_issue", {
     method: "POST",
     body: {
@@ -321,7 +344,7 @@ test("iesire client direct: stocul scade din loturi exact ca la o iesire pe proi
   // SI NIMENI NU A SCRIS UN TOTAL NICAIERI: fiecare iesire are exact poziția ei.
   const stored = await asService(
     `outbound_issues?select=id,issue_mode,project_id,client_id,pickup_date,outbound_lines(product_id,quantity)` +
-      `&reference=in.("${TAG}-PROJ","${TAG}-DIRECT")&order=reference.asc`,
+      `&reference=in.("${ref(`${TAG}-PROJ`)}","${ref(`${TAG}-DIRECT`)}")&order=reference.asc`,
   );
   expect(stored.ok, `iesirile nu s-au putut citi: ${stored.text}`).toBe(true);
   expect(stored.rows.length, "doua iesiri scrise").toBe(2);
@@ -411,7 +434,7 @@ test("acces: un cont dezactivat nu vede nicio iesire", async () => {
 
   // MARTORUL: cat timp este activ, citeste iesirile. Fara el, cazul ar trece si
   // pe o tabela pe care nimeni nu o citeste.
-  const witness = await asUser(token, `outbound_issues?select=id&reference=eq.${TAG}-SEED`);
+  const witness = await asUser(token, `outbound_issues?select=id&reference=eq.${ref(`${TAG}-SEED`)}`);
   expect(witness.rows, "profil activ: contul citeste iesirea").toHaveLength(1);
 
   const off = await asService(`profiles?id=eq.${id}`, { method: "PATCH", body: { active: false } });
@@ -419,7 +442,7 @@ test("acces: un cont dezactivat nu vede nicio iesire", async () => {
 
   // UN REFUZ DE CITIRE ESTE UN SET GOL SI NU O EROARE: securitatea pe rand
   // filtreaza randuri. Aceeasi distinctie pe care o scrie migratia 0055.
-  const blind = await asUser(token, `outbound_issues?select=id&reference=eq.${TAG}-SEED`);
+  const blind = await asUser(token, `outbound_issues?select=id&reference=eq.${ref(`${TAG}-SEED`)}`);
   expect(blind.status, "profil dezactivat: citirea raspunde tot 200").toBe(200);
   expect(blind.rows, "profil dezactivat: nicio iesire").toEqual([]);
 });
@@ -530,7 +553,7 @@ test("iesire client direct: nu este niciodata facturabila si spune de ce in roma
   expect(Number(stored.rows[0]?.sale_price_mdl ?? 0), "poziția are pret, deci refuzul nu vine de acolo").toBe(25);
 
   await signIn(page, managerAccount());
-  await openIssuePanel(page, `${TAG}-FACT`);
+  await openIssuePanel(page, ref(`${TAG}-FACT`));
 
   await expect(
     page.getByTestId("issue-invoice-reason"),
@@ -560,7 +583,7 @@ test("iesire client direct: nu este niciodata facturabila si spune de ce in roma
   );
   expect(onProject.ok, `iesirea pe proiect nu a putut fi scrisa: ${onProject.text}`).toBe(true);
 
-  await openIssuePanel(page, `${TAG}-FACT-PROJ`);
+  await openIssuePanel(page, ref(`${TAG}-FACT-PROJ`));
   await expect(page.getByTestId("issue-create-invoice"), "o iesire pe proiect cu pret se factureaza").toBeEnabled();
 });
 
@@ -1133,11 +1156,11 @@ test("P3-277: o vanzare la tejghea catre un client dezactivat este refuzata si p
   });
   expect(off.ok, `clientul dezactivat de test nu a putut fi scris: ${off.text}`).toBe(true);
   const before = await availableStock();
-  const reference = `${TAG}-P3277-OFF`;
+  const label = `${TAG}-P3277-OFF`;
 
   const refused = await createDirectIssue(
     ownerToken,
-    reference,
+    label,
     [{ product_id: productId, quantity: 1 }],
     String(off.rows[0]!.id),
     "2026-11-05",
@@ -1145,7 +1168,7 @@ test("P3-277: o vanzare la tejghea catre un client dezactivat este refuzata si p
   expect(refused.ok, "vanzarea catre un client dezactivat a fost SALVATA").toBe(false);
   expect(refused.text, "refuzul spune de ce, in romana").toContain("Clientul ales este dezactivat");
   expect(await availableStock(), "stocul nu s-a miscat").toBe(before);
-  const stored = await asService(`outbound_issues?select=id&reference=eq.${encodeURIComponent(reference)}`);
+  const stored = await asService(`outbound_issues?select=id&reference=eq.${encodeURIComponent(ref(label))}`);
   expect(stored.rows, "niciun bon salvat").toEqual([]);
 });
 
@@ -1395,7 +1418,8 @@ async function seedModePair(label: string): Promise<{ project: string; direct: s
     true,
   );
 
-  return { project, direct };
+  // P3-331: referintele sunt numerele pe care serverul le-a dat celor doua etichete.
+  return { project: ref(project), direct: ref(direct) };
 }
 
 /** Randul unei iesiri de pe lista de pe /comenzi, cautat pe referinta. Pe

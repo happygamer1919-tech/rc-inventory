@@ -231,17 +231,22 @@ type IssueLine = { product: Product; quantity: number; price: number | null };
 /**
  * O iesire cu liniile ei, prin chiar functia pe care o cheama aplicatia.
  *
- * REFERINTA ARE UN PREFIX PROPRIU, `IES-TEST-...`, si nu formatul aplicatiei
- * `IES-AAAA-NNNN`: nextOutboundReference citeste cea mai mare referinta care se
- * potriveste cu `IES-<anul>-%`, deci o referinta de test in formatul acela ar muta
- * numaratorul aplicatiei si ar rupe specificatiile care il verifica.
+ * REFERINTA AVEA UN PREFIX PROPRIU, `IES-TEST-...`, si nu formatul aplicatiei
+ * `IES-AAAA-NNNN`, ca sa nu mute numaratorul aplicatiei. P3-331 (0089) a schimbat
+ * asta: o iesire noua primeste numai urmatorul numar din serie, exact ca de pe
+ * ecran, deci referinta se cere serverului (outbound_next_reference). Un numar
+ * luat asa este chiar cel pe care l-ar fi dat ecranul, deci numaratorul merge
+ * mai departe ca dupa o iesire obisnuita si nu se rupe nimic. Eticheta numeste
+ * cazul in mesajele de mai jos.
  */
 async function createIssue(
   projectId: string,
   label: string,
   lines: IssueLine[],
 ): Promise<{ id: string; reference: string }> {
-  const reference = `IES-TEST-FC-${RUN}-${label}`;
+  const next = await asOwner("rpc/outbound_next_reference", { method: "POST", body: {} });
+  expect(next.ok, `numarul urmator nu a putut fi citit (${label}): ${next.status} ${next.text}`).toBe(true);
+  const reference = String(next.rows[0]);
   const created = await asOwner("rpc/create_outbound_issue", {
     method: "POST",
     body: {

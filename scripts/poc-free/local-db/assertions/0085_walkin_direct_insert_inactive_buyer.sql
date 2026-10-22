@@ -144,9 +144,11 @@ begin
     perform set_config('p3_305.b', sqlstate || ' ' || sqlerrm, true);
   end;
 
-  -- c.
+  -- c. Since 0089 (P3-331) a signed-in slip takes the next number in the series,
+  -- so the accepted insert c and the accepted door calls e and g send it, as the
+  -- screen does. a and f are refused on the buyer before the number is read.
   insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date)
-  values ('TEST-P3305-C', 'direct_client', current_setting('p3_305.client')::uuid, date '2026-10-14')
+  values (public.outbound_next_reference(), 'direct_client', current_setting('p3_305.client')::uuid, date '2026-10-14')
   returning id into v_id;
   perform set_config('p3_305.c', coalesce(v_id::text, ''), true);
 
@@ -155,7 +157,7 @@ begin
 
   -- e.
   v_id := public.create_direct_client_issue(
-    'TEST-P3305-E', v_lines, current_setting('p3_305.client')::uuid, date '2026-10-14');
+    public.outbound_next_reference(), v_lines, current_setting('p3_305.client')::uuid, date '2026-10-14');
   perform set_config('p3_305.e', coalesce(v_id::text, ''), true);
 
   -- f.
@@ -169,7 +171,7 @@ begin
 
   -- g.
   v_id := public.create_outbound_issue(
-    'TEST-P3305-G', null, null, v_lines, current_setting('p3_305.project')::uuid);
+    public.outbound_next_reference(), null, null, v_lines, current_setting('p3_305.project')::uuid);
   perform set_config('p3_305.g', coalesce(v_id::text, ''), true);
 end
 $$;

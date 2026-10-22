@@ -100,12 +100,14 @@ begin
     raise exception 'P3-179: batches_delete, if present, must stay on is_owner(), found %', txt;
   end if;
 
-  -- --- 3. outbound_lines untouched -------------------------------------------
+  -- --- 3. outbound_lines untouched by this card --------------------------------
+  -- 0088 (P3-326) dropped its delete and 0089 (P3-331) its insert and update, so
+  -- only the select policy of 0070 is left.
   select count(*) into n
   from pg_policies
   where schemaname = 'public' and tablename = 'outbound_lines';
-  if n <> 3 then
-    raise exception 'P3-179: public.outbound_lines must keep the three policies 0070 left after 0088 dropped its delete, found %', n;
+  if n <> 1 then
+    raise exception 'P3-179: public.outbound_lines must keep the one select policy 0070 left after 0088 dropped its delete and 0089 its insert and update, found %', n;
   end if;
 end $$;
 
