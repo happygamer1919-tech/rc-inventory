@@ -13,7 +13,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 import { hasPhase3Schema } from "@/lib/data/schema-capability";
 import { SchemaPending } from "@/components/ui/SchemaPending";
 import { chisinauToday } from "@/lib/data/format";
-import { listTaskAssigneeChoices, listTasksForEntity, tasksVisible } from "@/lib/data/tasks";
+import { listTasksForEntity, readTaskAssigneeChoices, tasksVisible } from "@/lib/data/tasks";
 import {
   getProject,
   getProjectHistory,
@@ -117,14 +117,19 @@ export default async function ProjectDetailPage({
   // P3-276: o citire care arunca nu duce pagina dupa ea, ci lasa un anunt in locul
   // panoului.
   let tasks: Awaited<ReturnType<typeof listTasksForEntity>> | null = null;
-  let taskAssignees: Awaited<ReturnType<typeof listTaskAssigneeChoices>> = [];
+  let taskAssignees: Awaited<ReturnType<typeof readTaskAssigneeChoices>>["choices"] = [];
+  let teamFailed = false;
   let tasksFailed = false;
   if (tasksOn) {
     try {
-      [tasks, taskAssignees] = await Promise.all([
+      const [read, assigneeRead] = await Promise.all([
         listTasksForEntity("project", id),
-        listTaskAssigneeChoices(),
+        readTaskAssigneeChoices(),
       ]);
+      // P3-337: lista echipei picata se spune si pe pagina inregistrarii (ca P3-330 pe /sarcini).
+      tasks = read;
+      taskAssignees = assigneeRead.choices;
+      teamFailed = assigneeRead.failed;
     } catch {
       tasksFailed = true;
     }
@@ -146,6 +151,7 @@ export default async function ProjectDetailPage({
       tasks={tasks}
       tasksFailed={tasksFailed}
       taskAssignees={taskAssignees}
+      teamFailed={teamFailed}
       today={chisinauToday()}
       // AMANDOUA ROLURILE SCRIU SARCINI: acelasi calcul si acelasi motiv ca pe fila
       // /sarcini si pe fisa clientului. Doua ecrane care arata aceeasi tabela nu au
