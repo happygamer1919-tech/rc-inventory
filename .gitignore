@@ -61,3 +61,5 @@ perf-count.txt
 # 2026-09-01 printr-un `git add -A` din cardul P3-04b si sunt scoase de P3-05b.
 supabase/.branches/
 supabase/.temp/
+
+.cache/

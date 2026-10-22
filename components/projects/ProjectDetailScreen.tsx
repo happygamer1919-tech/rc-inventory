@@ -80,6 +80,7 @@ export function ProjectDetailScreen({
   tasks,
   tasksFailed = false,
   taskAssignees = [],
+  teamFailed = false,
   today,
   canWriteTasks = false,
 }: {
@@ -102,6 +103,7 @@ export function ProjectDetailScreen({
   /** P3-276: citirea sarcinilor a esuat; in locul panoului sta un anunt. */
   tasksFailed?: boolean;
   taskAssignees?: TaskAssignee[];
+  teamFailed?: boolean;
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata de pagina o singura data
    *  pe randare prin chisinauToday(). Lipsa numai cand `tasks` lipseste. */
   today?: string;
@@ -270,6 +272,7 @@ export function ProjectDetailScreen({
             entityLabel={project.name}
             rows={tasks}
             assignees={taskAssignees}
+            teamFailed={teamFailed}
             today={today}
             canWrite={canWriteTasks}
           />
