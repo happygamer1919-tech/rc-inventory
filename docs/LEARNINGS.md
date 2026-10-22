@@ -9847,3 +9847,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** guide
 **ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
 **SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**
+
+### P3-337: a fix to one probe gate leaves its sibling gate with the old shape
+**Tag:** probe
+**ERROR:** P3-276 moved the tasks probe and the column gates to `settleProbe`, but `hasPhase3Schema` still cached `false` for 60 s on any error or throw, so one network hiccup switched Azi and the CRM screens off for every user. Likewise P3-330 passed `teamFailed` on /sarcini only; the client and project pages called the helper that drops the flag.
+**SOLUTION:** `hasPhase3Schema` uses `settleProbe`; the record pages call `readTaskAssigneeChoices` and pass `teamFailed` down to `TaskPanel`. RULE: **when a fix changes how one gate or one page handles a failure, grep for every sibling that does the same read and fix them in the same card.**
