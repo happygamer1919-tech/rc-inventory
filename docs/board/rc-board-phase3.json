@@ -8001,6 +8001,31 @@
         "at": "2026-10-21T21:08:26Z"
       },
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
+    },
+    {
+      "id": "P3-334",
+      "title": "Slip numbers keep counting past 9999 in the same year. public.outbound_next_reference() (0089) and lib/data/outbound.ts nextOutboundReference took the highest IES-<year>- reference in TEXT order, where IES-2026-9999 sorts above IES-2026-10000, so once slip 10000 existed both computed 10000 again and every insert died on outbound_issues_reference_unique for the rest of the year (bug check 2026-10-22, severity medium). One migration replaces the function body to take the highest NUMERIC tail among all-digit tails, plus one, at least four digits; the app calls that function by rpc so the screen and the guard share one rule.",
+      "plain": "Numerele avizelor de ieșire continuă corect după 9999 în același an. Until now, once a year reached slip number 10000, every new slip after it would have failed to save until January. After this the numbers go on 10000, 10001 and so on, and the screen and the database always agree on the next number. No existing slip is renumbered.",
+      "lane": "in_flight",
+      "home_lane": "in_flight",
+      "status": "in_flight",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-331"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) a new migration supabase/migrations/0090_slip_number_past_9999.sql replaces only the body of public.outbound_next_reference() (same signature, SECURITY DEFINER, search_path and grants) so it returns the highest numeric all-digit tail of this year plus one, at least four digits; scripts/poc-free/local-db/assertions/0090_slip_number_past_9999.sql passes in npm run check:migrations, proving 9999 and 10000 give 10001, 0009 and 0010 give 0011, a tail that is not all digits is ignored, an empty year gives 0001, last year is not counted, and with a real role switch and JWT a signed-in insert carrying 10001 is accepted, an empty number is set to 10002 and 10000 again is refused by the guard. (b) lib/data/outbound.ts nextOutboundReference calls supabase.rpc(\"outbound_next_reference\") and throws a Romanian error when it fails; npx tsc --noEmit and npm run build exit 0. (c) the outbound, outbound-direct-client, take-stock-guard, take-stock-lines-guard, walkin-buyer-lead, client-material-walkin and facturare-create specs green in the pull request quality run on its head sha. (d) Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check 2026-10-22, verified on origin/main at 657d0119. ONE RULE: the app reads the number from the database function instead of computing it, so they cannot drift again; on an rpc error the app throws instead of falling back to the old text-order read. NON-NUMERIC TAILS (for example IES-2026-0001-X, refused for new slips since 0089 but possible in old rows) are ignored rather than restarting the series at 0001; the one 0089 assertion edge that expected the old restart was moved to the new rule, no case deleted. The guard, take stock, the two slip doors and every policy are untouched; no row is written or renumbered.",
+      "last_checkpoint": "2026-10-22T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-334 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0090_slip_number_past_9999.sql and the destructive-migration and applier proof steps; report in docs/reports/2026-10-22-executor-slip-number-past-9999.md",
+        "at": "2026-10-22T12:00:00Z"
+      },
+      "notes": "AUTHORED and STARTED 2026-10-22 by EXECUTOR from the bug check of 2026-10-22. Id allocated with npm run id:free (P3-334 free). Migration number 0090: main holds 0089. Merging applies 0090 to production, so it waits for the owner OK."
     }
   ]
 }
