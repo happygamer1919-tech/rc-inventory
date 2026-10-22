@@ -147,6 +147,19 @@ jobs:
           node scripts/guide/screenshots.mjs
           kill "$(cat guide-server.pid)"
 
+      # P3-339. The new pictures are read from their pixels before anyone downloads them.
+      # The same check runs in quality.yml on the pull request that commits them.
+      - name: Restore the picture reading cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/guide-ocr
+          key: guide-ocr-${{ hashFiles('content/guide-images/*.png') }}
+          restore-keys: |
+            guide-ocr-
+
+      - name: Read the guide pictures and refuse a real name
+        run: npm run check:guide-ocr
+
       - name: Upload the pictures
         if: always()
         uses: actions/upload-artifact@v4

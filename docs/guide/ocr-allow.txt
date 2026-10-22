@@ -1,0 +1,11 @@
+# Words that may appear in a guide picture without a warning (card P3-339).
+#
+# `npm run check:guide-ocr` warns about any capitalised word in a picture that is not in the
+# invented data (scripts/guide/fixtures.mjs), the lessons (content/guide/), the text the
+# screenshot script captured for that picture, or this file. Put the platform's own labels
+# here, a word per line or several on a line. A warning never fails the check; a line of
+# docs/guide/real-names.txt in a picture does.
+#
+# Never add a real person, client or supplier here.
+
+Administrator

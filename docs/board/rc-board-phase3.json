@@ -8027,6 +8027,32 @@
         "at": "2026-10-22T19:00:00Z"
       },
       "notes": "Source: Fable bug check of 2026-10-22 17:50Z, findings 4 and 5 (zero based). Files: lib/data/schema-capability.ts, app/(app)/clienti/[id]/page.tsx, app/(app)/proiecte/[id]/page.tsx, components/tasks/TaskPanel.tsx."
+    },
+    {
+      "id": "P3-339",
+      "title": "The guide picture privacy check reads the pixels: npm run check:guide-ocr runs OCR (tesseract.js, Romanian and English) over every PNG in content/guide-images/, fails on a line of docs/guide/real-names.txt found in a picture, and lists capitalised names that are neither invented data nor the platform labels as warnings in the job summary; results are cached by picture sha256.",
+      "plain": "The guide pictures are now read the way a person reads them, not only through the text the screenshot tool says is on screen. If a real client or supplier name from the deny list is in a picture, the build stops. Unfamiliar names are listed as a warning for Max and Ivan to look at.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-320",
+        "P3-333"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/guide-ocr.spec.ts is green in this pull request own quality run on its head sha, including the case that runs the real OCR check on a committed picture, fails when a deny list name printed in it is on the list and passes when it is not. (b) `npm run check:guide-ocr` exits 0 on the committed 87 pictures and writes its warnings to the job summary. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "A deny list hit fails the check; an unknown name is only a warning, because OCR misreads words and a warning that failed the build would be switched off. Unknown means a capitalised word of four letters or more that is not in scripts/guide/fixtures.mjs, content/guide/, the text captured for that picture, or docs/guide/ocr-allow.txt. The step runs in quality only when a picture, docs/guide/, lib/guide/ocr or privacy, the OCR script, the fixtures or package-lock.json changed, and skips drafts; it also runs in the guide-screenshots workflow after the pictures are taken. The OCR cache (.cache/guide-ocr, keyed by picture sha256) is kept between CI runs with actions/cache.",
+      "last_checkpoint": "2026-10-22T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-339 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-guide-pictures-ocr.md",
+        "at": "2026-10-22T20:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, finding 7 (zero based). Files: lib/guide/ocr.mjs, lib/guide/ocr.d.mts, scripts/poc-free/check-guide-ocr.mjs, tests/e2e/guide-ocr.spec.ts, docs/guide/real-names.txt, docs/guide/ocr-allow.txt, .github/workflows/quality.yml, .github/workflows/guide-screenshots.yml."
     }
   ]
 }

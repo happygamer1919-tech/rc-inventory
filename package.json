@@ -27,6 +27,7 @@
     "check:card-ids": "node scripts/poc-free/check-card-ids.mjs",
     "check:guide-source": "node scripts/poc-free/check-guide-source.mjs",
     "check:guide-privacy": "node scripts/poc-free/check-guide-privacy.mjs",
+    "check:guide-ocr": "node scripts/poc-free/check-guide-ocr.mjs",
     "guide:screenshots": "node scripts/guide/screenshots.mjs",
     "guide:pdf": "node scripts/guide/pdf.mjs",
     "check:document-url": "node scripts/poc-free/check-document-url-contract.mjs",
@@ -83,6 +84,7 @@
     "pgsql-parser": "^18.2.6",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
+    "tesseract.js": "^7.0.0",
     "typescript": "^7.0.2"
   }
 }
