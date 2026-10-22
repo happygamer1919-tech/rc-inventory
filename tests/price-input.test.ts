@@ -6,7 +6,7 @@ test("P3-209: parsePriceText accepts Romanian comma decimal", () => {
   expect(result.kind).toBe("ok");
   if (result.kind === "ok") {
     expect(result.value).toBe(12.5);
-    expect(result.text).toBe("12.5");
+    expect(result.text).toBe("12.50");
   }
 });
 
@@ -15,7 +15,7 @@ test("P3-209: parsePriceText accepts dot decimal", () => {
   expect(result.kind).toBe("ok");
   if (result.kind === "ok") {
     expect(result.value).toBe(12.5);
-    expect(result.text).toBe("12.5");
+    expect(result.text).toBe("12.50");
   }
 });
 
@@ -33,7 +33,7 @@ test("P3-209: parsePriceText treats 1.200,50 as thousands and decimal", () => {
   expect(result.kind).toBe("ok");
   if (result.kind === "ok") {
     expect(result.value).toBe(1200.5);
-    expect(result.text).toBe("1200.5");
+    expect(result.text).toBe("1200.50");
   }
 });
 
