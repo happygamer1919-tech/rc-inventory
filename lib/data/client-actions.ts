@@ -47,6 +47,12 @@ import {
   type ClientStage,
 } from "./clients-types";
 import type { ActionResult } from "./inbound-types";
+import {
+  readGuardAnswer,
+  writeDuplicateReason,
+  type ImportGuardKeys,
+  type WriteDuplicate,
+} from "./import-write-guard";
 
 export type ClientInput = {
   name: string;
@@ -256,6 +262,37 @@ async function writeStage(
   return { ok: true };
 }
 
+type GuardedInsert =
+  | { kind: "inserted"; id: string }
+  | { kind: "duplicate"; duplicate: WriteDuplicate }
+  | { kind: "failed"; code: string | undefined; message: string }
+  /** Functia din 0090 nu exista inca: in cele doua minute dintre livrarea codului si aplicarea
+   *  migratiei importul scrie ca inainte, fara blocaj. */
+  | { kind: "absent" };
+
+/** P3-338. Insertul unui rand de import prin public.import_insert_client (0090). */
+async function insertGuarded(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  row: Record<string, unknown>,
+  keys: ImportGuardKeys,
+): Promise<GuardedInsert> {
+  const { data, error } = await supabase.rpc("import_insert_client", {
+    p_row: row,
+    p_email_key: keys.email,
+    p_name_key: keys.name,
+    p_phone_key: keys.phone,
+    ...(keys.phoneForms ? { p_phone_forms: keys.phoneForms } : {}),
+  });
+  if (error) {
+    // PGRST202: PostgREST nu gaseste functia in schema. 42883: Postgres nu o gaseste.
+    if (error.code === "PGRST202" || error.code === "42883") return { kind: "absent" };
+    return { kind: "failed", code: error.code, message: error.message };
+  }
+  const answer = readGuardAnswer(data);
+  if (!answer) return { kind: "failed", code: undefined, message: "Răspuns neașteptat de la bază." };
+  return answer;
+}
+
 export async function createClientRecord(
   input: ClientInput,
 ): Promise<ActionResult<{ id: string }>> {
@@ -313,12 +350,42 @@ export async function createWalkInClient(
   }, user.role === "owner" ? undefined : { stageInInsert: "client" });
 }
 
-/** Insertul comun al celor doua actiuni de mai sus. Rolul se verifica INAINTE, de
+/** P3-338. Raspunsul unui client scris de import: ca la createClientRecord, plus cazul in care
+ *  baza a gasit, sub blocaj, un client pe care randul l-ar dubla. Atunci nu s-a scris nimic. */
+export type ImportedClientResult =
+  | ActionResult<{ id: string }>
+  | { ok: false; message: string; duplicate: WriteDuplicate; field?: undefined; saved?: undefined };
+
+/** P3-338. CALEA PE CARE O FOLOSESC AMANDOUA IMPORTURILE (clienti si leaduri). Ca
+ *  createClientRecord, dar insertul trece prin public.import_insert_client (migratia 0090):
+ *  o tranzactie care ia un blocaj, cauta un client stocat cu cheile planului si scrie randul
+ *  numai daca nu gaseste niciunul. Doi administratori care importa fisiere suprapuse in
+ *  acelasi timp creeaza astfel un singur client. Formularul de client si cel de lead raman pe
+ *  createClientRecord: un om care scrie un client pe care il vede dublat decide singur. */
+export async function createImportedClientRecord(
+  input: ClientInput,
+  keys: ImportGuardKeys,
+): Promise<ImportedClientResult> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Sesiune expirată. Autentifică-te din nou." };
+  if (user.role !== "owner") return OWNER_ONLY;
+  return insertClientRecord(input, { guard: keys });
+}
+
+/** Insertul comun al actiunilor de mai sus. Rolul se verifica INAINTE, de
  *  fiecare actiune in felul ei; aceasta functie nu se exporta, deci nu este o usa. */
 async function insertClientRecord(
   input: ClientInput,
   opts?: { stageInInsert?: "client" },
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string }>>;
+async function insertClientRecord(
+  input: ClientInput,
+  opts: { guard: ImportGuardKeys },
+): Promise<ImportedClientResult>;
+async function insertClientRecord(
+  input: ClientInput,
+  opts?: { stageInInsert?: "client"; guard?: ImportGuardKeys },
+): Promise<ImportedClientResult> {
   const checked = validate(input);
   if (!checked.ok) return checked;
   const stage = validateStage(input);
@@ -346,19 +413,24 @@ async function insertClientRecord(
       ? { stage: opts.stageInInsert }
       : {};
 
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({
-      ...checked.value,
-      ...(leaduriAvailable ? leaduri.value : {}),
-      ...(nextAvailable ? next.value : {}),
-      ...stageNow,
-    })
-    .select("id")
-    .single();
+  const row: Record<string, unknown> = {
+    ...checked.value,
+    ...(leaduriAvailable ? leaduri.value : {}),
+    ...(nextAvailable ? next.value : {}),
+    ...stageNow,
+  };
 
-  if (error || !data) return translateWriteError(error?.code, error?.message ?? "");
-  const id = data.id as string;
+  let id: string;
+  const guarded = opts?.guard ? await insertGuarded(supabase, row, opts.guard) : null;
+  if (guarded?.kind === "duplicate")
+    return { ok: false, message: writeDuplicateReason(guarded.duplicate), duplicate: guarded.duplicate };
+  if (guarded?.kind === "failed") return translateWriteError(guarded.code, guarded.message);
+  if (guarded?.kind === "inserted") id = guarded.id;
+  else {
+    const { data, error } = await supabase.from("clients").insert(row).select("id").single();
+    if (error || !data) return translateWriteError(error?.code, error?.message ?? "");
+    id = data.id as string;
+  }
 
   // P3-43. RANDUL SE CREEAZA FARA ETAPA, deci `cold` din implicitul coloanei, iar
   // o alta etapa aleasa se pune prin functie, ca mutarea sa aiba randul ei de

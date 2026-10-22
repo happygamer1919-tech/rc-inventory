@@ -9852,3 +9852,18 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** probe
 **ERROR:** P3-276 moved the tasks probe and the column gates to `settleProbe`, but `hasPhase3Schema` still cached `false` for 60 s on any error or throw, so one network hiccup switched Azi and the CRM screens off for every user. Likewise P3-330 passed `teamFailed` on /sarcini only; the client and project pages called the helper that drops the flag.
 **SOLUTION:** `hasPhase3Schema` uses `settleProbe`; the record pages call `readTaskAssigneeChoices` and pass `teamFailed` down to `TaskPanel`. RULE: **when a fix changes how one gate or one page handles a failure, grep for every sibling that does the same read and fix them in the same card.**
+
+### P3-338: a browser-side lock does not stop two importers, and a database lock cannot span several PostgREST calls
+**Tag:** data
+**ERROR:** the "one import per kind" lock (`lib/import-lock.ts`) lives in localStorage, so it only stops a second tab of the same browser. The import read the stored clients once, planned, then inserted row by row, and `clients` has no unique key on email or phone, so two operators with overlapping files (or one on two machines) both read "not stored" and both created the client. The brief suggested an advisory lock held for a whole batch; through PostgREST every call is its own transaction on a pooled connection, so a transaction lock ends with the call and a session lock cannot be held across calls (the unlock may land on another connection and the lock would stay for good).
+**SOLUTION:** migration 0090 adds `public.import_insert_client`: in ONE transaction it takes `pg_advisory_xact_lock`, looks again for a stored client with the keys the plans use, and inserts only if none is found. Both imports write every new row through it (`createImportedClientRecord`), and a row the database reports as stored lands in the summary as "Dublat ...". RULE: **a check-then-insert race is closed by putting the check and the insert in the same database transaction under a lock; a lock taken in one request and an insert in the next closes nothing.**
+
+### P3-338: a SQL assertion that passes the first time proves nothing until a mutated function fails it
+**Tag:** ci
+**ERROR:** the first version of `0090_client_import_insert_guard.sql` passed on the first run, and a mutation that ignored the phone in the name-and-phone key still passed it: every case that used the phone also matched on the name.
+**SOLUTION:** a case with the same name and another phone (`j_other_phone`) was added and the mutant now fails. The proof was nine mutations of the function, each applied to a throwaway postgres and each required to turn the assertion red (no lock, email not lowercased, name not tidied, phone ignored, phone forms ignored, forms matching anything, inactive ignored, an email matching a client with another email, no owner check). RULE: **for every key a duplicate check uses, keep one case where only that key differs and the answer must be "not a duplicate".**
+
+### P3-338: an assertion that compares to a possibly null value skips instead of failing
+**Tag:** ci
+**ERROR:** `if x not in (select ...) or y <> 'phone' then raise` did not raise when the function answered `{"id": ...}`, because `(v_out -> 'duplicate' ->> 'id')::uuid` is null and a null condition is not true.
+**SOLUTION:** the condition is written as `coalesce(..., false) is not true` and `is distinct from`. RULE: **in a plpgsql assertion, write the refusing condition so that null raises.**

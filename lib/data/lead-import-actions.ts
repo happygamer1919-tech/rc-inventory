@@ -25,7 +25,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
-import { addClientNote, createClientRecord } from "./client-actions";
+import { addClientNote, createImportedClientRecord } from "./client-actions";
+import { leadGuardKeys } from "./import-write-guard";
 import { createContact } from "./contact-actions";
 import { readClientOwnerChoices, readInactiveOwnerNames } from "./clients";
 import {
@@ -564,29 +565,39 @@ export async function runLeadImport(
       continue;
     }
 
-    const result = await createClientRecord({
-      name: lead.name,
-      type: lead.type,
-      fiscalCode: lead.fiscalCode,
-      address: lead.address,
-      phone: lead.phone,
-      email: lead.email,
-      notes: lead.notes,
-      active: true,
-      stage: lead.stage,
-      followUpDate: lead.followUpDate,
-      source: lead.source,
-      interest: lead.interest,
-      ownerId: lead.ownerId,
-      nextAction: lead.nextAction,
-      // Celula goala nu este o stergere: fara valoare, validateNextAction aplica
-      // oglindirea "de reluat" ca in formular.
-      nextActionAt: importNextActionAt(lead.nextActionDate),
-      contactName: lead.contactName,
-      firstStage: true,
-    });
+    // P3-338. Ca la importul de clienti: scrierea trece prin functia din baza, care ia un blocaj
+    // si cauta din nou un client stocat cu aceleasi chei ca planul (telefon, email) chiar inainte
+    // de insert. Un rand dublat intre timp de alt import devine un rand nepreluat.
+    const result = await createImportedClientRecord(
+      {
+        name: lead.name,
+        type: lead.type,
+        fiscalCode: lead.fiscalCode,
+        address: lead.address,
+        phone: lead.phone,
+        email: lead.email,
+        notes: lead.notes,
+        active: true,
+        stage: lead.stage,
+        followUpDate: lead.followUpDate,
+        source: lead.source,
+        interest: lead.interest,
+        ownerId: lead.ownerId,
+        nextAction: lead.nextAction,
+        // Celula goala nu este o stergere: fara valoare, validateNextAction aplica
+        // oglindirea "de reluat" ca in formular.
+        nextActionAt: importNextActionAt(lead.nextActionDate),
+        contactName: lead.contactName,
+        firstStage: true,
+      },
+      leadGuardKeys(lead),
+    );
 
     if (!result.ok) {
+      if ("duplicate" in result) {
+        skippedRows.push({ line: entry.line, reason: result.message, raw: rawAt(entry.line) });
+        continue;
+      }
       // CLIENTUL EXISTA DEJA cand un pas de dupa insert a esuat (etapa, persoana de
       // contact): nu este un rand nepreluat si nu se pune in fisierul de erori, fiindca
       // incarcat din nou ar crea un al doilea client. Se numara ca creat si se spune
