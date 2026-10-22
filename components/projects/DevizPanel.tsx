@@ -32,6 +32,8 @@ import {
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { NumberNote } from "@/components/ui/NumberNote";
+import { quantityAmount, quantityProblem, quantityToField } from "@/lib/data/price-input";
 import {
   DEVIZ_STATUS_LABEL,
   isEditable,
@@ -331,16 +333,18 @@ export function DevizPanel({
                     <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       {editable && canWrite ? (
                         <Input
-                          type="number"
-                          min="0"
-                          step="any"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
                           className={`text-right rc-num w-24 max-md:w-full ${PHONE_CONTROL}`}
-                          defaultValue={String(l.quantity)}
+                          defaultValue={quantityToField(l.quantity)}
                           data-testid={`deviz-line-quantity-${l.sku}`}
                           disabled={busy}
                           onBlur={(e) => {
                             const next = e.currentTarget.value;
-                            if (Number(next) === l.quantity) return;
+                            // P3-332: acelasi cititor ca pe server; un text care nu se citeste
+                            // ajunge la server, care il refuza cu motivul lui.
+                            if (quantityAmount(next) === l.quantity) return;
                             run(() => updateDevizLineQuantity(l.id, projectId, next));
                           }}
                         />
@@ -503,14 +507,16 @@ export function DevizPanel({
                 </Field>
                 <Field label="Cantitate">
                   <Input
-                    type="number"
-                    min="0"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    aria-invalid={quantityProblem(quantity) !== null}
                     className={`text-right rc-num ${PHONE_CONTROL}`}
                     value={quantity}
                     data-testid="deviz-add-quantity"
                     onChange={(e) => setQuantity(e.target.value)}
                   />
+                  <NumberNote problem={quantityProblem(quantity)} testId="deviz-add-quantity" />
                 </Field>
                 <Button
                   type="button"

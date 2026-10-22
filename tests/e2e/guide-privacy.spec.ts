@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -33,11 +34,21 @@ test("P3-320: the committed fixtures, lessons and picture texts hold no name fro
 
 const NAMES = ["Ștefan Popescu", "Firma Reală SRL", "Ivan"];
 
+const PIC = "content/guide-images/a-desktop.png";
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+
+/** Manifestul unei poze a carei intrare se potriveste cu fisierul. */
+function manifestJson(over: Record<string, unknown> = {}): string {
+  return JSON.stringify({ images: [{ id: "a", file: PIC, sha256: sha("PNG-A"), text: "Autentificare Email Parolă", ...over }] }, null, 2);
+}
+
 function fakeRepo(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "guide-privacy-"));
   const all: Record<string, string> = {
     "scripts/guide/fixtures.mjs": 'export const CLIENT = "TEST Construct Nord SRL";\nexport const PHONE = "+373 00 000 101";\n',
     "content/guide/stoc/produs-nou.md": "---\nid: produs-nou\n---\n\nUn text.\n",
+    [PIC]: "PNG-A",
+    "docs/guide/screenshots.json": manifestJson(),
     ...files,
   };
   for (const [rel, text] of Object.entries(all)) {
@@ -67,9 +78,40 @@ test("P3-320: a planted real name in a lesson fails", () => {
 });
 
 test("P3-320: a real name in the text captured with a picture fails", () => {
-  const manifest = JSON.stringify({ images: [{ id: "client-nou", text: "Clienți Firma Reala SRL Activ" }] }, null, 2);
-  const root = fakeRepo({ "docs/guide/screenshots.json": manifest });
-  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain('docs/guide/screenshots.json:5: apare "Firma Reală SRL"');
+  const root = fakeRepo({ "docs/guide/screenshots.json": manifestJson({ text: "Clienți Firma Reala SRL Activ" }) });
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toMatch(/docs\/guide\/screenshots\.json:\d+: apare "Firma Reală SRL"/);
+});
+
+test("P3-333: a missing manifest fails", () => {
+  const root = fakeRepo({});
+  rmSync(join(root, "docs/guide/screenshots.json"));
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain("docs/guide/screenshots.json lipseste");
+});
+
+test("P3-333: a manifest that is not valid JSON fails", () => {
+  const root = fakeRepo({ "docs/guide/screenshots.json": "{ nu e json" });
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain("nu este JSON valid");
+});
+
+test("P3-333: a picture with no manifest entry fails", () => {
+  const root = fakeRepo({ "content/guide-images/b-mobile.png": "PNG-B" });
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain("content/guide-images/b-mobile.png: poza nu are intrare");
+});
+
+test("P3-333: a picture changed after its entry was written fails", () => {
+  const root = fakeRepo({ [PIC]: "PNG-A-RETUSAT" });
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain(`${PIC}: poza este mai noua decat intrarea`);
+});
+
+test("P3-333: an entry with no captured text fails", () => {
+  const root = fakeRepo({ "docs/guide/screenshots.json": manifestJson({ text: "  " }) });
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain("nu are textul de pe ecran");
+});
+
+test("P3-333: an entry whose picture file is gone fails", () => {
+  const root = fakeRepo({});
+  rmSync(join(root, PIC));
+  expect(checkPrivacy(root, NAMES).problems.join("\n")).toContain("nu are fisier");
 });
 
 test("P3-320: case and diacritics are ignored, and only whole words match", () => {

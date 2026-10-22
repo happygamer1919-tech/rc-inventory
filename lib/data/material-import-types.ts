@@ -56,6 +56,7 @@ import {
   isUnclearMoney,
   isUnclearQuantity,
   parseImportNumber,
+  realDecimals,
   unclearMoneyHint,
   unclearQuantityHint,
   type ImportNumberMode,
@@ -178,6 +179,9 @@ export const MATERIAL_IMPORT_REASON = {
   ambiguousCategory: (value: string) =>
     `Există mai multe categorii cu denumirea "${value}". Redenumește una dintre ele, apoi încearcă din nou.`,
   badNumber: (label: string, value: string) => `${label} "${value}" nu este un număr pozitiv.`,
+  /** P3-332: banii au cel mult 2 zecimale, cantitatile cel mult 3. */
+  tooManyDecimals: (label: string, value: string, places: number) =>
+    `${label} "${value}" are mai mult de ${places} zecimale.`,
   unclearNumber: (label: string, value: string) =>
     `${label} "${value}" este neclar. ${unclearQuantityHint(value)}`,
   /** P3-314: o suma cu o virgula singura si trei cifre dupa ea ("1,200") nu se ghiceste. */
@@ -259,9 +263,14 @@ function materialImportFields(categories: CategoryLookup): ImportFieldDescriptor
       return { ok: false as const, reason: MATERIAL_IMPORT_REASON.unclearMoney(label, raw) };
     }
     const read = readNumber(raw, mode);
-    return read === null
-      ? { ok: false as const, reason: MATERIAL_IMPORT_REASON.badNumber(label, raw) }
-      : { ok: true as const, value: read };
+    if (read === null) return { ok: false as const, reason: MATERIAL_IMPORT_REASON.badNumber(label, raw) };
+    // P3-332: pragul are 3 zecimale (numeric(14,3)), valoarea unitara 2 (numeric(14,2)); mai
+    // multe se refuza, nu se lasa rotunjite de baza.
+    const places = mode === "quantity" ? 3 : 2;
+    if (realDecimals(read) > places) {
+      return { ok: false as const, reason: MATERIAL_IMPORT_REASON.tooManyDecimals(label, raw, places) };
+    }
+    return { ok: true as const, value: read };
   };
 
   return [

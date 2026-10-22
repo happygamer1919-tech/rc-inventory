@@ -23,6 +23,7 @@ import { listActiveProducts } from "./products";
 import { listSelectableProjects } from "./projects";
 import { listClientOptions } from "./projects-list";
 import { chisinauToday } from "./format";
+import { quantityToField } from "./price-input";
 import { invoiceNumberText, invoiceSeriesFor } from "./facturare-types";
 import { isUnitCode, type UnitCode } from "./units";
 import { one } from "./row";
@@ -66,6 +67,13 @@ function shiftDay(day: string, days: number): string {
 function fieldNumber(value: unknown): string {
   const n = Number(value);
   return Number.isFinite(n) ? String(n) : "";
+}
+
+/** P3-332: o cantitate in casuta, cu cititorul comun (price-input.ts): "1.125" ar fi neclar
+ *  (1,125 sau 1125), deci se scrie "1.1250". Restul raman ca in fieldNumber. */
+function fieldQuantity(value: unknown): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? quantityToField(n) : "";
 }
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -414,7 +422,7 @@ async function draftView(
         productName: one(l.products ?? null)?.name ?? "",
         description: l.description ?? "",
         unit: (isUnitCode(l.unit) ? l.unit : "pcs") as UnitCode,
-        quantity: fieldNumber(l.quantity),
+        quantity: fieldQuantity(l.quantity),
         unitPrice: fieldNumber(l.unit_price_mdl),
       } satisfies InvoiceDraftLine,
       sortOrder: Number(l.sort_order ?? 0),
@@ -563,7 +571,7 @@ async function issueView(
       productName: product?.name ?? "",
       description: "",
       unit: (isUnitCode(product?.unit) ? (product!.unit as UnitCode) : "pcs") as UnitCode,
-      quantity: fieldNumber(l.quantity),
+      quantity: fieldQuantity(l.quantity),
       unitPrice: l.sale_price_mdl === null ? "" : fieldNumber(l.sale_price_mdl),
     };
   });

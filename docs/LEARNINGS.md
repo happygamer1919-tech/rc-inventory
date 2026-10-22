@@ -9822,3 +9822,28 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** data
 **ERROR:** `take-stock-guard.spec.ts` and `outbound-lines-deactivated.spec.ts` used the owner's direct line insert and price PATCH as the witness ("the owner still can") before proving a refusal for someone else. With both line policies dropped that witness can no longer pass, and `assertions/0075` expected the owner's price of 21 on the line.
 **SOLUTION:** the owner case is turned round (insert refused, PATCH of price and of quantity 0.01 touches no row, lines unchanged), and the witness becomes the nearest thing still allowed: the account sees its own line, written through the slip door. RULE: **when a right is taken from the last role that had it, find every test that used that role as the "still allowed" witness and give it a new witness that is still true, never delete the case.**
+
+### P3-332: six forms read a typed number their own way, and the database rounded the extra decimals
+**Tag:** data
+**ERROR:** after P3-311 made `lib/data/import-number.ts` the one reader for the counter, the product form, project budget, incoming order, quote and invoice editor still used `Number(text.replace(",", "."))`. On the product form 1.250 became 1,25 lei with no "Citit:" hint, and "1 250" or "1.200,50" were refused as "nu este un număr". Separately, money is numeric(14,2) and quantities numeric(14,3), but the counter accepted any number of decimals and showed "Citit: 1,255 lei" and a line total from the unrounded value, while Postgres stored 1.26. The incoming order also sent `Number("2,5")` as NaN on screen, so a line typed with a comma was not counted at all.
+**SOLUTION:** `lib/data/form-numbers.ts` wraps the one reader per field (threshold, unit value, package factor, budget, order quantity and price, quote quantity, invoice quantity and price) and the screens and the server actions call the same functions. `parsePriceText` and `parseQuantityText` return `tooManyDecimals` past 2 and 3 real decimals (trailing zeros do not count), refused with "Prețul are cel mult 2 zecimale." and "Cantitatea are cel mult 3 zecimale.". RULE: **a number box has one reader and one decimal limit equal to the column; a new form calls `form-numbers.ts`, never `Number(text.replace(...))`, and a percent is the only number that keeps its own reading.**
+
+### P3-332: a stored quantity written into an edit box can be unclear to the reader
+**Tag:** data
+**ERROR:** an edit form filled a stored threshold of 1.125 as "1.125". The quantity rule treats a single separator plus exactly three digits as unclear (1,125 or 1125), so saving the form untouched would have been refused.
+**SOLUTION:** `quantityToField` writes "1.1250", which reads back as 1,125; the product form, the quote line and the invoice editor prefill use it. RULE: **every prefill of a quantity box must read back to the same number through the screen reader.**
+
+### P3-332: tests that encode a rounding bug are fixed, not skipped
+**Tag:** ci
+**ERROR:** `number-reader.spec.ts` expected `priceReadLabel("1,255")` to be "Citit: 1,255 lei", `price-input.spec.ts` sent 999,123 as a valid price, and `facturare-create.spec.ts` typed the invoice quantities 1.005 and 8.165.
+**SOLUTION:** the first two now expect the refusal; the third types 1,0050 and 8,1650, which are the same numbers and are not unclear. RULE: **when a reader gets stricter, the test inputs change to the unambiguous spelling of the same number; the assertions on the numbers do not move.**
+
+### P3-332: `id:free` reports an id free when its branch exists on origin without a pull request
+**Tag:** ci
+**ERROR:** `npm run id:free -- P3-331` printed FREE while `origin/card/p3-331` held another worker's commits (no PR yet), and the local branch name already existed.
+**SOLUTION:** before taking an id, run `git ls-remote --heads origin 'card/<id>*'` as well; this card took P3-332.
+
+### P3-333: a privacy check that skips a missing input proves nothing
+**Tag:** guide
+**ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
+**SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**

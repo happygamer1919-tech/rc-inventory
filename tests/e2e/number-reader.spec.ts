@@ -54,8 +54,10 @@ test("P3-314: on screen the comma is always the decimal mark", () => {
   expect(priceReadLabel("1,250")).toBe("Citit: 1,25 lei");
   expect(priceReadLabel("1.250")).toBe("Citit: 1.250,00 lei");
   expect(priceReadLabel("12,5")).toBe("Citit: 12,50 lei");
-  // Mai mult de 2 zecimale nu se rotunjesc in tacere in ce se arata.
-  expect(priceReadLabel("1,255")).toBe("Citit: 1,255 lei");
+  // P3-332: mai mult de 2 zecimale nu se citesc deloc. Inainte aici scria "Citit: 1,255 lei",
+  // iar baza (numeric(14,2)) salva 1,26: ecranul si baza spuneau doua numere.
+  expect(priceReadLabel("1,255")).toBeNull();
+  expect(parsePriceText("1,255")).toEqual({ kind: "tooManyDecimals" });
   expect(priceReadLabel("")).toBeNull();
   expect(priceReadLabel("abc")).toBeNull();
 });
@@ -86,9 +88,14 @@ test("P3-311: every case reads the same through both entry points", () => {
     expect(parseImportNumber(raw, 11, "quantity"), `import quantity ${raw}`).toBe(quantity);
 
     const price = parsePriceText(raw);
+    // P3-332: a price with a third real decimal ("0,125") is refused, not rounded by the database.
+    const priceDecimals = (screen?.split(".")[1] ?? "").replace(/0+$/, "").length;
     if (screen === null) expect(price, `price ${raw}`).toEqual({ kind: "invalid" });
+    else if (priceDecimals > 2) expect(price, `price ${raw}`).toEqual({ kind: "tooManyDecimals" });
     else expect(price, `price ${raw}`).toEqual({ kind: "ok", value: Number(screen), text: screen });
-    expect(priceAmount(raw), `priceAmount ${raw}`).toBe(screen === null ? 0 : Number(screen));
+    expect(priceAmount(raw), `priceAmount ${raw}`).toBe(
+      screen === null || priceDecimals > 2 ? 0 : Number(screen),
+    );
 
     const qty = parseQuantityText(raw);
     if (quantity !== null) {

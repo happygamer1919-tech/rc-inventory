@@ -24,22 +24,36 @@
  * este 1250,50. Casuta arata valoarea citita ("Citit: 2,50 lei"), vezi priceReadLabel.
  * Cantitatea ramane neclara pentru un separator plus trei cifre (P3-275).
  */
-import { formatNumberExact, formatQtyNumber } from "./format";
-import { isUnclearQuantity, parseImportNumber } from "./import-number";
+import { formatNumberExact } from "./format";
+import { isUnclearQuantity, parseImportNumber, realDecimals } from "./import-number";
 import type { ImportNumberMode } from "./import-number";
 
 export type PriceInput =
   | { kind: "empty" }
   | { kind: "ok"; value: number; text: string }
-  | { kind: "invalid" };
+  | { kind: "invalid" }
+  | { kind: "tooManyDecimals" };
 
 export const PRICE_INVALID_MESSAGE = "Preț invalid. Exemplu: 12,50";
+
+/** Zecimalele coloanelor: banii sunt numeric(14,2), cantitatile numeric(14,3). */
+export const MONEY_DECIMALS = 2;
+export const QUANTITY_DECIMALS = 3;
+
+/** "Prețul are cel mult 2 zecimale." Substantivul vine de la camp ("Bugetul", "Pragul"). */
+export function decimalsMessage(noun: string, places: number): string {
+  return `${noun} are cel mult ${places} zecimale.`;
+}
+
+export const PRICE_DECIMALS_MESSAGE = decimalsMessage("Prețul", MONEY_DECIMALS);
+export const QUANTITY_DECIMALS_MESSAGE = decimalsMessage("Cantitatea", QUANTITY_DECIMALS);
 
 export type QuantityInput =
   | { kind: "empty" }
   | { kind: "ok"; value: number; text: string }
   | { kind: "invalid" }
-  | { kind: "ambiguous" };
+  | { kind: "ambiguous" }
+  | { kind: "tooManyDecimals" };
 
 export const QUANTITY_INVALID_MESSAGE = "Cantitate invalidă. Exemplu: 2,5";
 
@@ -52,6 +66,7 @@ export function quantityProblem(raw: string): string | null {
   const q = parseQuantityText(raw);
   if (q.kind === "invalid") return QUANTITY_INVALID_MESSAGE;
   if (q.kind === "ambiguous") return QUANTITY_AMBIGUOUS_MESSAGE;
+  if (q.kind === "tooManyDecimals") return QUANTITY_DECIMALS_MESSAGE;
   return null;
 }
 
@@ -75,6 +90,12 @@ function readNumberText(raw: string, mode: ImportNumberMode): PriceInput {
   if (text === null) return { kind: "invalid" };
   const value = Number(text);
   if (!Number.isFinite(value)) return { kind: "invalid" };
+  // P3-332: baza tine 2 zecimale la bani si 3 la cantitati. Mai multe se refuza, nu se rotunjesc
+  // in tacere (ecranul arata o valoare, baza salva alta). Zerourile de la coada nu conteaza:
+  // "2,500" este tot 2,5.
+  if (realDecimals(text) > (mode === "quantity" ? QUANTITY_DECIMALS : MONEY_DECIMALS)) {
+    return { kind: "tooManyDecimals" };
+  }
   return { kind: "ok", value, text };
 }
 
@@ -89,17 +110,25 @@ export function parsePriceText(raw: string): PriceInput {
   return readNumberText(raw, "screenMoney");
 }
 
+/** Mesajul de afisat pentru un pret refuzat, sau null cand textul se citeste ori e gol. */
+export function priceProblem(raw: string): string | null {
+  const p = parsePriceText(raw);
+  if (p.kind === "invalid") return PRICE_INVALID_MESSAGE;
+  if (p.kind === "tooManyDecimals") return PRICE_DECIMALS_MESSAGE;
+  return null;
+}
+
 /**
  * P3-314: ce a citit ecranul din casuta de pret, scris romaneste ("Citit: 2,50 lei"), ca o
  * greseala de virgula sa se vada inainte de salvare. null cand casuta e goala sau nu se
- * citeste. Cu mai mult de 2 zecimale ("1,255") le arata pe toate, nu rotunjeste in tacere.
+ * citeste. P3-332: cu mai mult de 2 zecimale ("1,255") textul nu se citeste (vezi
+ * PRICE_DECIMALS_MESSAGE), deci nu mai exista un "Citit: 1,255 lei" diferit de ce se salveaza.
+ * `unit` este moneda randului ("lei", sau EUR/RON/MDL pe comanda de intrare).
  */
-export function priceReadLabel(raw: string): string | null {
+export function priceReadLabel(raw: string, unit = "lei"): string | null {
   const p = parsePriceText(raw);
   if (p.kind !== "ok") return null;
-  const decimals = (p.text.split(".")[1] ?? "").replace(/0+$/, "").length;
-  const shown = decimals > 2 ? formatQtyNumber(p.value) : formatNumberExact(p.value);
-  return `Citit: ${shown} lei`;
+  return `Citit: ${formatNumberExact(p.value)} ${unit}`;
 }
 
 /**
@@ -131,4 +160,56 @@ export function priceAmount(raw: string): number {
 export function quantityAmount(raw: string): number {
   const q = parseQuantityText(raw);
   return q.kind === "ok" ? q.value : 0;
+}
+
+/**
+ * P3-332: UN SINGUR CITITOR PE TOATE FORMULARELE. Produsul (prag, valoare unitara), bugetul
+ * proiectului, comanda de intrare, devizul si factura citeau fiecare textul cu
+ * Number(text.replace(",", ".")), deci "1.250" era 1,25 acolo si 1250 la tejghea, iar
+ * "1 250" si "1.200,50" erau refuzate. Acum trec toate prin parsePriceText / parseQuantityText,
+ * pe ecran si pe server, cu aceleasi mesaje. `noun` este substantivul campului la nominativ
+ * ("Bugetul", "Pragul"), `invalid` mesajul pentru un text care nu este numar.
+ */
+export type NumberField =
+  | { kind: "empty" }
+  | { kind: "ok"; value: number; text: string }
+  | { kind: "error"; message: string };
+
+export type NumberFieldLabels = { noun: string; invalid: string };
+
+/** Bani: numeric(14,2). Gol ramane gol, zero este un numar. */
+export function readMoneyField(raw: string, labels: NumberFieldLabels): NumberField {
+  const p = parsePriceText(raw);
+  if (p.kind === "invalid") return { kind: "error", message: labels.invalid };
+  if (p.kind === "tooManyDecimals") {
+    return { kind: "error", message: decimalsMessage(labels.noun, MONEY_DECIMALS) };
+  }
+  return p;
+}
+
+/** Cantitati: numeric(14,3). Gol ramane gol, zero este un numar (pragul poate fi 0). */
+export function readQuantityField(raw: string, labels: NumberFieldLabels): NumberField {
+  if (isUnclearQuantity(raw)) return { kind: "error", message: QUANTITY_AMBIGUOUS_MESSAGE };
+  const q = readNumberText(raw, "quantity");
+  if (q.kind === "invalid") return { kind: "error", message: labels.invalid };
+  if (q.kind === "tooManyDecimals") {
+    return { kind: "error", message: decimalsMessage(labels.noun, QUANTITY_DECIMALS) };
+  }
+  return q;
+}
+
+/** Mesajul de afisat sub o casuta, sau null cand este goala ori se citeste. */
+export function numberFieldProblem(field: NumberField): string | null {
+  return field.kind === "error" ? field.message : null;
+}
+
+/**
+ * O cantitate din baza, scrisa in casuta de modificare ca sa se citeasca inapoi la fel. Una cu
+ * exact trei zecimale ("1.125") ar fi neclara (vezi P3-275: poate fi 1,125 sau 1125), deci
+ * primeste un zero la coada ("1.1250"), care se citeste tot 1,125. Restul raman neschimbate.
+ * Banii au cel mult 2 zecimale si se citesc deja cum sunt.
+ */
+export function quantityToField(value: number): string {
+  const text = String(value);
+  return isUnclearQuantity(text) ? `${text}0` : text;
 }

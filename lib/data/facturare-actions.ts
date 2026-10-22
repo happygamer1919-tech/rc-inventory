@@ -29,6 +29,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasCompanyContactFields, hasFacturareSettings } from "./schema-capability";
 import { isUnitCode } from "./units";
+import { lowerFirst, readInvoiceQuantity, readInvoiceUnitPrice } from "./form-numbers";
 import { chisinauToday, formatDate } from "./format";
 import { invoiceNumberText, type InvoiceStatus } from "./facturare-types";
 import { getIssueInvoiceability } from "./facturare-create";
@@ -296,28 +297,11 @@ const NOT_ACTIVE: Failure = {
   message: "Facturarea nu este încă activă pe această bază de date.",
 };
 
-/** O cantitate: strict pozitiva, cel mult trei zecimale, ca numeric(14,3) din 0063.
- *
- *  VIRGULA ZECIMALA ESTE ACCEPTATA, fiindca asa se scriu numerele pe un document
- *  romanesc, exact cum o accepta deja parseRate mai sus. */
-function parseQuantity(raw: string): number | null {
-  const clean = raw.trim().replace(",", ".");
-  if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
-  const value = Number(clean);
-  return Number.isFinite(value) && value > 0 ? value : null;
-}
-
-/** Un preț: zero sau pozitiv, cel mult doi bani, ca numeric(14,2) din 0063.
- *
- *  ZERO ESTE PERMIS si nu este o scapare: o poziție trecuta pe factura la zero lei
- *  este o poziție oferita, iar constrangerea invoice_lines_unit_price_non_negative
- *  spune acelasi lucru. Ce nu este permis este un camp gol, care nu este un preț. */
-function parseAmount(raw: string): number | null {
-  const clean = raw.trim().replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
-  const value = Number(clean);
-  return Number.isFinite(value) && value >= 0 ? value : null;
-}
+// P3-332: cantitatea (strict pozitiva, 3 zecimale, numeric(14,3) din 0063) si pretul (zero sau
+// pozitiv, 2 zecimale, numeric(14,2)) se citesc cu readInvoiceQuantity / readInvoiceUnitPrice din
+// form-numbers.ts, cititorul comun al ecranelor. ZERO ESTE PERMIS la pret si nu este o scapare:
+// o pozitie trecuta pe factura la zero lei este o pozitie oferita, iar constrangerea
+// invoice_lines_unit_price_non_negative spune acelasi lucru. Un camp gol nu este un pret.
 
 /** O zi `YYYY-MM-DD`, sau null cand casuta este goala sau nu este o zi. */
 function parseDay(raw: string): string | null {
@@ -495,29 +479,30 @@ export async function saveInvoiceDraft(input: InvoiceDraftInput): Promise<Invoic
     if (!isUnitCode(line.unit)) {
       return { ok: false, message: `Poziția ${index + 1}: alege unitatea de măsură.`, field: "lines" };
     }
-    const quantity = parseQuantity(line.quantity);
-    if (quantity === null) {
-      return {
-        ok: false,
-        message: `Poziția ${index + 1}: cantitatea trebuie să fie un număr mai mare decât zero.`,
-        field: "lines",
-      };
+    // P3-332: cantitatea si pretul se citesc cu cititorul comun al ecranelor (form-numbers.ts),
+    // exact ca pe ecranul facturii: "1.250" este 1250, mai multe zecimale decat tine coloana
+    // (3 la cantitate, 2 la pret) se refuza.
+    const quantity = readInvoiceQuantity(
+      line.quantity,
+      "cantitatea trebuie să fie un număr mai mare decât zero.",
+    );
+    if (!quantity.ok) {
+      return { ok: false, message: `Poziția ${index + 1}: ${lowerFirst(quantity.message)}`, field: "lines" };
     }
-    const unitPrice = parseAmount(line.unitPrice);
-    if (unitPrice === null) {
-      return {
-        ok: false,
-        message: `Poziția ${index + 1}: prețul unitar trebuie să fie un număr, cu cel mult doi bani.`,
-        field: "lines",
-      };
+    const unitPrice = readInvoiceUnitPrice(
+      line.unitPrice,
+      "prețul unitar trebuie să fie un număr, cu cel mult doi bani.",
+    );
+    if (!unitPrice.ok) {
+      return { ok: false, message: `Poziția ${index + 1}: ${lowerFirst(unitPrice.message)}`, field: "lines" };
     }
     clean.push({
       id: line.id.trim(),
       product_id: productId === "" ? null : productId,
       description: description === "" ? null : description,
       unit: line.unit,
-      quantity,
-      unit_price_mdl: unitPrice,
+      quantity: quantity.value,
+      unit_price_mdl: unitPrice.value,
       vat_rate: rate,
     });
   }

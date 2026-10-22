@@ -19,6 +19,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { ActionResult } from "./inbound-types";
+import { readDevizQuantity } from "./form-numbers";
 import { DEVIZ_STATUS_LABEL, isDevizStatus, type DevizStatus } from "./deviz-types";
 
 const OWNER_ONLY: ActionResult<never> = {
@@ -66,7 +67,9 @@ function refresh(projectId: string) {
   revalidatePath(`/proiecte/${projectId}`);
 }
 
-function parseNumber(raw: string): number | null {
+/** Adaosul in procente. NU trece prin cititorul de bani si cantitati (form-numbers.ts): un
+ *  procent nu are separator de mii, iar "12.500" nu este 12500%. */
+function parsePercent(raw: string): number | null {
   const cleaned = raw.trim().replace(",", ".");
   if (cleaned === "") return null;
   const n = Number(cleaned);
@@ -103,7 +106,7 @@ export async function createDeviz(input: NewDevizInput): Promise<ActionResult<{ 
   const denied = await requireOwner();
   if (denied) return denied;
 
-  const margin = parseNumber(input.marginPercent) ?? 0;
+  const margin = parsePercent(input.marginPercent) ?? 0;
   if (margin < 0)
     return { ok: false, message: "Adaosul nu poate fi negativ.", field: "marginPercent" };
 
@@ -187,9 +190,10 @@ export async function addDevizLine(
   if (!input.productId.trim())
     return { ok: false, message: "Alege produsul.", field: "productId" };
 
-  const quantity = parseNumber(input.quantity);
-  if (quantity === null || quantity <= 0)
-    return { ok: false, message: "Cantitatea trebuie să fie mai mare decât zero.", field: "quantity" };
+  // P3-332: cantitatea (numeric(14,3)) se citeste cu cititorul comun al ecranelor.
+  const read = readDevizQuantity(input.quantity);
+  if (!read.ok) return { ok: false, message: read.message, field: "quantity" };
+  const quantity = read.value;
 
   const supabase = await createClient();
 
@@ -240,9 +244,9 @@ export async function updateDevizLineQuantity(
   const denied = await requireOwner();
   if (denied) return denied;
 
-  const quantity = parseNumber(quantityRaw);
-  if (quantity === null || quantity <= 0)
-    return { ok: false, message: "Cantitatea trebuie să fie mai mare decât zero.", field: "quantity" };
+  const read = readDevizQuantity(quantityRaw);
+  if (!read.ok) return { ok: false, message: read.message, field: "quantity" };
+  const quantity = read.value;
 
   const supabase = await createClient();
   const { error } = await supabase.from("deviz_lines").update({ quantity }).eq("id", lineId);
@@ -340,7 +344,7 @@ export async function updateDevizHeader(
   const denied = await requireOwner();
   if (denied) return denied;
 
-  const margin = parseNumber(input.marginPercent) ?? 0;
+  const margin = parsePercent(input.marginPercent) ?? 0;
   if (margin < 0)
     return { ok: false, message: "Adaosul nu poate fi negativ.", field: "marginPercent" };
 

@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/primitives";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { DateField, useInvalidDates } from "@/components/ui/DateField";
+import { NumberNote } from "@/components/ui/NumberNote";
 import {
   PHONE_ACTIONS_CELL,
   PHONE_CELL,
@@ -83,6 +84,14 @@ import {
   lineFigures,
   scaledOrZero,
 } from "@/lib/data/facturare-money";
+import { lowerFirst, readInvoiceQuantity, readInvoiceUnitPrice } from "@/lib/data/form-numbers";
+import {
+  parsePriceText,
+  parseQuantityText,
+  priceProblem,
+  priceReadLabel,
+  quantityProblem,
+} from "@/lib/data/price-input";
 import { ALL_UNITS, unitLabel, type UnitCode } from "@/lib/data/units";
 import { invoiceSeriesFor, VAT_NOTE } from "@/lib/data/facturare-types";
 import type {
@@ -119,12 +128,10 @@ function emptyLine(): Line {
   };
 }
 
-/** Numarul dintr-un camp, cu virgula zecimala acceptata, sau 0 cand nu este un numar.
+/** Cota TVA dintr-un camp, cu virgula zecimala acceptata, sau 0 cand nu este un numar.
  *
- *  FOLOSIT NUMAI PENTRU REFUZURILE DE MAI JOS si nu pentru figuri: lista de probleme
- *  intreaba daca o cantitate este peste zero si daca un preț nu este negativ, iar
- *  pentru intrebarile acelea o virgula mobila este suficienta si comportamentul
- *  ecranului rămâne exact cel de dinainte. Figurile trec prin facturare-money.ts. */
+ *  P3-332: FOLOSIT NUMAI PENTRU COTA, un procent care nu are separator de mii. Cantitatea si
+ *  pretul trec prin cititorul comun (form-numbers.ts), ca la tejghea si pe server. */
 function num(raw: string): number {
   const value = Number(raw.trim().replace(",", "."));
   return Number.isFinite(value) ? value : 0;
@@ -208,13 +215,18 @@ export function FacturaEditor({
   // PE INTREGI, EXACT CA DECLANSATORUL. Cantitatea in miimi, banii in bani, cota in
   // sutimi, fiecare citita din sirul tastat. Vezi antetul lui facturare-money.ts.
   const rateHundredths = scaledOrZero(vatRate, RATE_DECIMALS);
-  const computed = lines.map((l) =>
-    lineFigures(
-      scaledOrZero(l.quantity, QUANTITY_DECIMALS),
-      scaledOrZero(l.unitPrice, MONEY_DECIMALS),
+  // P3-332: cantitatea si pretul se citesc cu cititorul comun, apoi textul normalizat (cu punct
+  // zecimal, cel mult 3 si respectiv 2 zecimale) se aduce la intregi scalati. Un text care nu se
+  // citeste da 0, ca previzualizarea sa arate ceva cat timp se tasteaza; refuzul il da lista de probleme.
+  const computed = lines.map((l) => {
+    const quantity = parseQuantityText(l.quantity);
+    const price = parsePriceText(l.unitPrice);
+    return lineFigures(
+      quantity.kind === "ok" ? scaledOrZero(quantity.text, QUANTITY_DECIMALS) : 0n,
+      price.kind === "ok" ? scaledOrZero(price.text, MONEY_DECIMALS) : 0n,
       rateHundredths,
-    ),
-  );
+    );
+  });
   const foot = invoiceFigures(computed);
 
   const problems: string[] = [];
@@ -226,12 +238,10 @@ export function FacturaEditor({
     if (l.productId === "" && l.description.trim() === "") {
       problems.push(`Poziția ${index + 1}: alege un produs sau scrie o denumire.`);
     }
-    if (!(num(l.quantity) > 0)) {
-      problems.push(`Poziția ${index + 1}: scrie o cantitate mai mare decât zero.`);
-    }
-    if (l.unitPrice.trim() === "" || num(l.unitPrice) < 0) {
-      problems.push(`Poziția ${index + 1}: scrie prețul unitar.`);
-    }
+    const quantity = readInvoiceQuantity(l.quantity, "scrie o cantitate mai mare decât zero.");
+    if (!quantity.ok) problems.push(`Poziția ${index + 1}: ${lowerFirst(quantity.message)}`);
+    const unitPrice = readInvoiceUnitPrice(l.unitPrice, "scrie prețul unitar.");
+    if (!unitPrice.ok) problems.push(`Poziția ${index + 1}: ${lowerFirst(unitPrice.message)}`);
   });
   if (anyInvalid) problems.push("O dată nu este scrisă complet. Verifică zilele de mai sus.");
 
@@ -489,14 +499,19 @@ export function FacturaEditor({
                     </Td>
                     <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={quantityProblem(l.quantity) !== null}
                         value={l.quantity}
                         onChange={(e) => setLine(l.key, { quantity: e.target.value })}
                         placeholder="0"
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         data-testid={`editor-cantitate-${index}`}
+                      />
+                      <NumberNote
+                        problem={quantityProblem(l.quantity)}
+                        testId={`editor-cantitate-${index}`}
                       />
                     </Td>
                     <Td data-label="Unitate" className={PHONE_CELL}>
@@ -515,14 +530,20 @@ export function FacturaEditor({
                     </Td>
                     <Td align="right" data-label="Preț unitar" className={PHONE_CELL}>
                       <Input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        aria-invalid={priceProblem(l.unitPrice) !== null}
                         value={l.unitPrice}
                         onChange={(e) => setLine(l.key, { unitPrice: e.target.value })}
                         placeholder="0,00"
                         className={`text-right rc-num ${PHONE_CONTROL}`}
                         data-testid={`editor-pret-${index}`}
+                      />
+                      <NumberNote
+                        problem={priceProblem(l.unitPrice)}
+                        read={priceReadLabel(l.unitPrice)}
+                        testId={`editor-pret-${index}`}
                       />
                     </Td>
                     <Td align="right" data-label="Total linie" className={PHONE_CELL}>

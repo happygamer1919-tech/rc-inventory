@@ -56,7 +56,7 @@ import {
   type ImportPreview,
   type RowNumber,
 } from "./import-shared";
-import { isUnclearMoney, parseImportNumber, unclearMoneyHint } from "./import-number";
+import { isUnclearMoney, parseImportNumber, realDecimals, unclearMoneyHint } from "./import-number";
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from "./projects-types";
 import { ALL_STATUSES } from "./projects-list-types";
 
@@ -158,6 +158,8 @@ export const PROJECT_IMPORT_REASON = {
   badDate: (value: string) => `Data "${value}" nu este o dată validă.`,
   unknownStatus: (value: string) => `Starea "${value}" nu este una dintre stările cunoscute.`,
   badBudget: (value: string) => `Bugetul "${value}" nu este un număr pozitiv.`,
+  /** P3-332: numeric(14,2) tine cel mult 2 zecimale. */
+  budgetDecimals: (value: string) => `Bugetul "${value}" are mai mult de 2 zecimale.`,
   /** P3-314: "1,200" nu se ghiceste; fisierele exportate de RC nu scriu forma aceasta. */
   unclearBudget: (value: string) => `Bugetul "${value}" este neclar. ${unclearMoneyHint(value)}`,
   endBeforeStart: "Termenul estimat nu poate fi înaintea datei de început.",
@@ -286,9 +288,12 @@ function projectImportFields(): ImportFieldDescriptor<ProjectImportField>[] {
       if (raw === "") return { ok: true, value: "" };
       if (isUnclearMoney(raw)) return { ok: false, reason: PROJECT_IMPORT_REASON.unclearBudget(raw) };
       const budget = readBudget(raw);
-      return budget === null
-        ? { ok: false, reason: PROJECT_IMPORT_REASON.badBudget(raw) }
-        : { ok: true, value: budget };
+      if (budget === null) return { ok: false, reason: PROJECT_IMPORT_REASON.badBudget(raw) };
+      // P3-332: bugetul este numeric(14,2); mai mult de 2 zecimale se refuza, nu le rotunjeste baza.
+      if (realDecimals(budget) > 2) {
+        return { ok: false, reason: PROJECT_IMPORT_REASON.budgetDecimals(raw) };
+      }
+      return { ok: true, value: budget };
     }),
     // MONEDA SE VALIDEAZA SI SE ARUNCA: validateCurrency (D8) refuza EUR si RON cu
     // un motiv care numeste MDL; un camp gol sau MDL trece, iar valoarea nu are

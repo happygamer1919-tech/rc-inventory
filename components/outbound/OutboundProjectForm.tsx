@@ -50,9 +50,8 @@ import type { ComboOption } from "@/components/ui/Combobox";
 import { DISPLAY_CURRENCY, formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import {
-  PRICE_INVALID_MESSAGE,
-  parsePriceText,
   priceAmount,
+  priceProblem,
   priceReadLabel,
   quantityAmount,
   quantityProblem,
@@ -213,9 +212,8 @@ export function OutboundProjectForm({
   // P3-303: pretul se citeste din text, ca pe iesirea pentru client direct: un text care
   // nu este pret opreste salvarea, o casuta goala ramane "fara pret".
   lines.forEach((l, index) => {
-    if (parsePriceText(l.price).kind === "invalid") {
-      problems.push(`Rândul ${index + 1}: ${PRICE_INVALID_MESSAGE}`);
-    }
+    const problem = priceProblem(l.price);
+    if (problem) problems.push(`Rândul ${index + 1}: ${problem}`);
   });
 
   // P3-311: o cantitate pe care cititorul o refuza ("2,500", "abc") opreste salvarea cu
@@ -445,7 +443,8 @@ export function OutboundProjectForm({
                 const product = byId.get(l.productId);
                 const over = product ? (wantedByProduct.get(l.productId) ?? 0) > product.stock : false;
                 const total = quantityAmount(l.quantity) * priceAmount(l.price);
-                const priceInvalid = parsePriceText(l.price).kind === "invalid";
+                const priceError = priceProblem(l.price);
+                const priceInvalid = priceError !== null;
                 const priceRead = priceReadLabel(l.price);
                 const quantityError = l.quantity !== "" ? quantityProblem(l.quantity) : null;
                 return (
@@ -517,7 +516,7 @@ export function OutboundProjectForm({
                           className="mt-1 text-[12px] text-rc-danger"
                           data-testid={`issue-price-error-${index}`}
                         >
-                          {PRICE_INVALID_MESSAGE}
+                          {priceError}
                         </p>
                       ) : null}
                       {/* P3-314: valoarea citita din casuta, ca o virgula gresita sa se vada. */}

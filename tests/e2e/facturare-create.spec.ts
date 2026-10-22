@@ -1288,10 +1288,12 @@ test.describe("P3-110: crearea si gestionarea unei facturi", () => {
    *  Cantitatea si preţul sunt scrise cu PUNCT zecimal fiindca amandoua casutele sunt
    *  `<input type="number">`, iar valoarea unui camp numeric este intotdeauna cu punct.
    *  Cota este 20, adica VAT. */
+  // P3-332: "1.005" si "8.165" sunt neclare ca cantitate (1,005 sau 1005), la fel ca la tejghea;
+  // aceleasi doua cantitati se scriu aici cu un zero la coada, care se citeste identic.
   const MEASURED = [
     { quantity: "0.333", price: "1000.00", subtotal: 333.0, vat: 66.6, total: 399.6 },
-    { quantity: "1.005", price: "1.00", subtotal: 1.01, vat: 0.2, total: 1.21 },
-    { quantity: "8.165", price: "1.00", subtotal: 8.17, vat: 1.63, total: 9.8 },
+    { quantity: "1,0050", price: "1.00", subtotal: 1.01, vat: 0.2, total: 1.21 },
+    { quantity: "8,1650", price: "1.00", subtotal: 8.17, vat: 1.63, total: 9.8 },
     { quantity: "1234.565", price: "1.00", subtotal: 1234.57, vat: 246.91, total: 1481.48 },
   ] as const;
 

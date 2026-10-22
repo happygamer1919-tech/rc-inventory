@@ -41,6 +41,14 @@ import {
   formatNumber,
 } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
+import { NumberNote } from "@/components/ui/NumberNote";
+import {
+  priceAmount,
+  priceProblem,
+  priceReadLabel,
+  quantityAmount,
+  quantityProblem,
+} from "@/lib/data/price-input";
 import type { CatalogProduct } from "@/lib/data/products";
 import { createInboundOrder } from "@/lib/data/inbound-actions";
 
@@ -131,19 +139,21 @@ export function InboundOrderForm({
   const removeLine = (key: string) => setLines((ls) => ls.filter((l) => l.key !== key));
   const addLine = () => setLines((ls) => [...ls, newLine()]);
 
+  // P3-332: cantitatea si pretul trec prin cititorul comun (price-input.ts), ca la tejghea si pe
+  // server. Inainte Number("2,5") era NaN, deci o pozitie cu virgula nu se numara deloc.
   const orderTotal = lines.reduce(
-    (s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0),
+    (s, l) => s + quantityAmount(l.quantity) * priceAmount(l.unitPrice),
     0,
   );
 
   // Valoarea in MDL nu este o conversie: nu exista sursa de curs valutar.
   // Se insumeaza valorile in MDL deja stocate pe fiecare produs din catalog.
   const totalMdl = lines.reduce(
-    (s, l) => s + (Number(l.quantity) || 0) * (byId.get(l.productId)?.unitValueMdl ?? 0),
+    (s, l) => s + quantityAmount(l.quantity) * (byId.get(l.productId)?.unitValueMdl ?? 0),
     0,
   );
 
-  const filledLines = lines.filter((l) => l.productId && Number(l.quantity) > 0);
+  const filledLines = lines.filter((l) => l.productId && quantityAmount(l.quantity) > 0);
 
   // P3-94, constatarea F8. O POZITIE UMPLUTA PE JUMATATE NU SE MAI PIERDE IN
   // TACERE. Filtrul de mai sus trimite catre server doar randurile cu produs SI
@@ -161,7 +171,7 @@ export function InboundOrderForm({
   const halfFilledProblems = lines
     .map((l, index) => {
       const hasProduct = Boolean(l.productId);
-      const hasQuantity = Number(l.quantity) > 0;
+      const hasQuantity = quantityAmount(l.quantity) > 0;
       if (hasProduct === hasQuantity) return null;
       return hasProduct
         ? `Poziția ${index + 1} nu are cantitate.`
@@ -179,6 +189,14 @@ export function InboundOrderForm({
   } else if (filledLines.length === 0) {
     problems.push("Adaugă cel puțin o poziție cu produs și cantitate.");
   }
+  // P3-332: un text pe care cititorul il refuza (litere, "2,500", prea multe zecimale) opreste
+  // salvarea cu motivul lui, la fel ca pe server, in loc sa dispara din comanda.
+  lines.forEach((l, index) => {
+    const quantityIssue = quantityProblem(l.quantity);
+    if (quantityIssue) problems.push(`Poziția ${index + 1}: ${quantityIssue}`);
+    const priceIssue = priceProblem(l.unitPrice);
+    if (priceIssue) problems.push(`Poziția ${index + 1}: ${priceIssue}`);
+  });
 
   const showProblems = touched && problems.length > 0;
 
@@ -326,7 +344,9 @@ export function InboundOrderForm({
           <tbody>
             {lines.map((l, index) => {
               const product = byId.get(l.productId);
-              const lineTotal = (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0);
+              const lineTotal = quantityAmount(l.quantity) * priceAmount(l.unitPrice);
+              const quantityIssue = quantityProblem(l.quantity);
+              const priceIssue = priceProblem(l.unitPrice);
               return (
                 <tr key={l.key} className={`align-top ${PHONE_ROW}`}>
                   <Td data-label="Produs" className={PHONE_WIDE}>
@@ -352,15 +372,17 @@ export function InboundOrderForm({
                   </Td>
                   <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      aria-invalid={quantityIssue !== null}
                       className="text-right rc-num"
                       value={l.quantity}
                       onChange={(e) => setLine(l.key, { quantity: e.target.value })}
                       placeholder="0"
                       data-testid={`line-quantity-${index}`}
                     />
+                    <NumberNote problem={quantityIssue} testId={`line-quantity-${index}`} />
                   </Td>
                   <Td data-label="Unitate" className={PHONE_CELL}>
                     <span className="inline-flex items-center h-[38px] px-2.5 rounded-[10px] bg-rc-paper border border-rc-line text-[13px] text-rc-muted max-md:h-11">
@@ -369,14 +391,20 @@ export function InboundOrderForm({
                   </Td>
                   <Td align="right" data-label={`Preț unitar (${currency})`} className={PHONE_CELL}>
                     <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      aria-invalid={priceIssue !== null}
                       className="text-right rc-num"
                       value={l.unitPrice}
                       onChange={(e) => setLine(l.key, { unitPrice: e.target.value })}
                       placeholder="0.00"
                       data-testid={`line-price-${index}`}
+                    />
+                    <NumberNote
+                      problem={priceIssue}
+                      read={priceReadLabel(l.unitPrice, currency)}
+                      testId={`line-price-${index}`}
                     />
                   </Td>
                   <Td align="right" data-label="Total linie" className={PHONE_CELL}>

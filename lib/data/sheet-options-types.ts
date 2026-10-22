@@ -12,6 +12,7 @@
 // pentru campul de valoare unitara. Nimic nu se blocheaza: operatorul scrie peste.
 
 import type { UnitCode } from "./units";
+import { parsePriceText } from "./price-input";
 
 /** O combinatie din lista: model, serie, grosime, finisaj si pretul liniei ei. */
 export type SheetOption = {
@@ -68,13 +69,12 @@ export function parseThicknessInput(value: string): string | null {
   return n.toFixed(2);
 }
 
-/** P3-68: pretul scris de proprietar, "150,50" sau "150.5". Null daca nu este un pret. */
+/** P3-68: pretul scris de proprietar, "150,50" sau "150.5". Null daca nu este un pret.
+ *  P3-332: cu cititorul comun al ecranelor (price-input.ts), deci "1.250" este 1250 si aici, ca
+ *  la tejghea; mai mult de 2 zecimale ramane refuzat. */
 export function parsePriceInput(value: string): number | null {
-  const text = value.trim().replace(",", ".");
-  if (!/^\d{1,12}(\.\d{1,2})?$/.test(text)) return null;
-  const n = Number(text);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
+  const p = parsePriceText(value);
+  return p.kind === "ok" && p.value > 0 ? p.value : null;
 }
 
 /** Furnizorul listei. Campul de furnizor il gaseste sau il creeaza dupa nume. */
