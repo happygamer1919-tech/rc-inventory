@@ -9852,3 +9852,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** probe
 **ERROR:** P3-276 moved the tasks probe and the column gates to `settleProbe`, but `hasPhase3Schema` still cached `false` for 60 s on any error or throw, so one network hiccup switched Azi and the CRM screens off for every user. Likewise P3-330 passed `teamFailed` on /sarcini only; the client and project pages called the helper that drops the flag.
 **SOLUTION:** `hasPhase3Schema` uses `settleProbe`; the record pages call `readTaskAssigneeChoices` and pass `teamFailed` down to `TaskPanel`. RULE: **when a fix changes how one gate or one page handles a failure, grep for every sibling that does the same read and fix them in the same card.**
+
+### P3-339: a privacy check on self-reported text never looked at the picture
+**Tag:** guide
+**ERROR:** `check:guide-privacy` matched a three-name list against text the screenshot script itself captured; nothing read the pixels, so a real client name rendered in a picture passed.
+**SOLUTION:** `npm run check:guide-ocr` runs tesseract.js (Romanian + English) over every PNG, fails on a line of docs/guide/real-names.txt and warns on unknown capitalised names; results are cached by picture sha256 (.cache/guide-ocr, kept with actions/cache). RULE: **a check on what a picture shows must read the picture; the proof is a test that plants a deny list name and sees it fail on a real picture.**

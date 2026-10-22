@@ -1,5 +1,11 @@
 # Names that must never appear in a guide picture or in the invented data behind it.
 #
+# MAX AND IVAN ADD REAL CLIENT AND SUPPLIER NAMES HERE (also real staff, company and
+# project names). Card P3-339: `npm run check:guide-ocr` reads the pixels of every PNG in
+# content/guide-images/ (OCR, Romanian and English) and fails when a line of this file is
+# in a picture, whatever the screenshot script reported. Add a name the day a real client
+# or supplier joins; a few names at a time.
+#
 # Card P3-320. One name per line. Lines starting with # are notes. Upper and lower case
 # and diacritics are ignored ("Ștefan" matches "stefan"), and a name only matches as
 # whole words. `npm run check:guide-privacy` (a step of the quality check) fails when a
