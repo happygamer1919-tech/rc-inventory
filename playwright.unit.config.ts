@@ -30,7 +30,13 @@ import { defineConfig } from "@playwright/test";
 // nu aici: fisierele de test se incarca in procesul principal, inainte ca
 // acest fisier sa mai poata schimba ceva.
 
+// FARA captureGitInfo. In CI, Playwright ruleaza singur `git fetch origin <baza>
+// --depth=1`, iar asta face depozitul superficial: istoricul de dinainte de baza
+// PR-ului dispare, iar `git log <baza>..HEAD` din check:board-edit numara 624 de
+// commit-uri in loc de 3 si cerea o editare de tabla pentru 375 de carduri. Pasul
+// "Unit tests" vine inaintea acelei verificari, deci nu are voie sa atinga git.
 export default defineConfig({
+  captureGitInfo: { commit: false, diff: false },
   testDir: "./tests",
   testMatch: "*.test.ts",
   fullyParallel: false,
