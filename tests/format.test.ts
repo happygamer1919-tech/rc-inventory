@@ -1,5 +1,5 @@
 import assert from "assert";
-import { formatQty, formatQtyNumber } from "../lib/data/format";
+import { formatDateTime, formatNumberExact, formatQty, formatQtyNumber } from "../lib/data/format";
 
 const tests = [
   {
@@ -20,14 +20,14 @@ const tests = [
     name: "shows two decimal places",
     run: () => {
       assert.strictEqual(formatQtyNumber(2.75), "2,75");
-      assert.strictEqual(formatQty(2.75, "m2"), "2,75 m2");
+      assert.strictEqual(formatQty(2.75, "m2"), "2,75 m²");
     },
   },
   {
     name: "shows three decimal places when needed",
     run: () => {
       assert.strictEqual(formatQtyNumber(0.125), "0,125");
-      assert.strictEqual(formatQty(0.125, "m3"), "0,125 m3");
+      assert.strictEqual(formatQty(0.125, "m3"), "0,125 m³");
     },
   },
   {
@@ -44,7 +44,7 @@ const tests = [
     run: () => {
       assert.strictEqual(formatQtyNumber(0), "0");
       assert.strictEqual(formatQtyNumber(0), "0");
-      assert.strictEqual(formatQty(0, "lm"), "0 lm");
+      assert.strictEqual(formatQty(0, "lm"), "0 ml");
     },
   },
   {
@@ -57,13 +57,13 @@ const tests = [
   {
     name: "handles various units",
     run: () => {
-      assert.strictEqual(formatQty(1.25, "m2"), "1,25 m2");
-      assert.strictEqual(formatQty(1.25, "lm"), "1,25 lm");
+      assert.strictEqual(formatQty(1.25, "m2"), "1,25 m²");
+      assert.strictEqual(formatQty(1.25, "lm"), "1,25 ml");
       assert.strictEqual(formatQty(1.25, "pcs"), "1,25 buc");
       assert.strictEqual(formatQty(1.25, "bag"), "1,25 sac");
       assert.strictEqual(formatQty(1.25, "kg"), "1,25 kg");
-      assert.strictEqual(formatQty(1.25, "roll"), "1,25 rola");
-      assert.strictEqual(formatQty(1.25, "m3"), "1,25 m3");
+      assert.strictEqual(formatQty(1.25, "roll"), "1,25 rolă");
+      assert.strictEqual(formatQty(1.25, "m3"), "1,25 m³");
     },
   },
   {
@@ -85,7 +85,33 @@ const tests = [
     name: "handles large numbers",
     run: () => {
       assert.strictEqual(formatQtyNumber(1000.125), "1.000,125");
-      assert.strictEqual(formatQty(1000.125, "m2"), "1.000,125 m2");
+      assert.strictEqual(formatQty(1000.125, "m2"), "1.000,125 m²");
+    },
+  },
+  {
+    name: "a threshold with decimals keeps them (P3-336)",
+    run: () => {
+      // formatNumber rounds to a whole number: 0,5 would show as 1 (or 0).
+      assert.strictEqual(formatQty(0.5, "bag"), "0,5 sac");
+      assert.strictEqual(formatQty(12.25, "m2"), "12,25 m²");
+    },
+  },
+  {
+    name: "a price shows two decimals, even when round (P3-336)",
+    run: () => {
+      assert.strictEqual(formatNumberExact(12.5), "12,50");
+      assert.strictEqual(formatNumberExact(100), "100,00");
+      assert.strictEqual(formatNumberExact(1199.5), "1.199,50");
+    },
+  },
+  {
+    name: "the Memento moment is in Chisinau time, not server time (P3-336)",
+    run: () => {
+      // Summer (UTC+3): 21:30 UTC is already the next day in Chisinau.
+      assert.strictEqual(formatDateTime("2026-10-22T21:30:00Z"), "23.10.2026, 00:30");
+      // Winter (UTC+2).
+      assert.strictEqual(formatDateTime("2026-12-01T10:05:00Z"), "01.12.2026, 12:05");
+      assert.strictEqual(formatDateTime(null), "-");
     },
   },
 ];

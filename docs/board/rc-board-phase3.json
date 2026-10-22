@@ -8001,6 +8001,29 @@
         "at": "2026-10-21T21:08:26Z"
       },
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
+    },
+    {
+      "id": "P3-336",
+      "title": "Quantities, thresholds, prices and batch quantities keep their decimals on the dashboard, Memento, inventory, orders, deviz and project screens (formatQty, formatQtyNumber, formatNumberExact instead of whole-number formatNumber), and the Memento alert moment is written in Chisinau time with formatDateTime instead of the server getHours.",
+      "plain": "Amounts like half a bag or a price of 12,50 were shown rounded to a whole number on several screens, and the time of a stock alert in Memento was off by a few hours. Both now show correctly.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/format-numbers-and-times.spec.ts is green in this pull request own quality run on its head sha. (b) `npx tsc --noEmit` and `npm run build` exit 0. (c) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (d) No file under supabase/migrations/ is added or changed.",
+      "defaults": "Percent values (deviz margin, variance) and true counts stay on formatNumber; the dashboard stock value stays whole lei through formatMoney. ExtractionReviewPanel has no getHours or getDate pattern, so it needed no change.",
+      "last_checkpoint": "2026-10-22T18:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-336 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-numbers-and-times-shown-right.md",
+        "at": "2026-10-22T18:30:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, findings 2 and 3 (zero based). Files: app/(app)/memento/page.tsx, tests/e2e/format-numbers-and-times.spec.ts, tests/format.test.ts and the screens that showed quantities through formatNumber."
     }
   ]
 }

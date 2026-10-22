@@ -11,8 +11,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Chip, Table, Td, Th } from "@/components/ui/primitives";
 import type { ChipTone } from "@/components/ui/primitives";
-import { formatTimestampDate, formatMoney, formatNumber } from "@/lib/data/format";
-import { unitLabel } from "@/lib/data/units";
+import { formatTimestampDate, formatMoney, formatNumberExact, formatQty, formatQtyNumber } from "@/lib/data/format";
 import { INBOUND_STATUS_LABEL } from "@/lib/data/inbound-types";
 import type { InboundBatch, InboundOrder } from "@/lib/data/inbound-types";
 import { loadInboundDetail } from "@/lib/data/inbound-detail";
@@ -175,14 +174,14 @@ export function InboundPanel({
                   </Td>
                   <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold whitespace-nowrap">
-                      {formatNumber(l.quantity)} {unitLabel(l.unit)}
+                      {formatQty(l.quantity, l.unit)}
                     </span>
                   </Td>
                   <Td align="right" data-label="Preț unitar" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
                       {l.unitPrice === null
                         ? "-"
-                        : `${formatNumber(l.unitPrice)} ${order.currency}`}
+                        : `${formatNumberExact(l.unitPrice)} ${order.currency}`}
                     </span>
                   </Td>
                 </tr>
@@ -218,7 +217,7 @@ export function InboundPanel({
                   </Td>
                   <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
                     <span className="rc-num text-[12.5px] font-semibold">
-                      {formatNumber(b.quantity)}
+                      {formatQtyNumber(b.quantity)}
                     </span>
                   </Td>
                   <Td align="right" data-label="Recepționat" className={PHONE_CELL}>

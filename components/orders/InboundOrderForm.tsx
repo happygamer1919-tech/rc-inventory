@@ -38,7 +38,7 @@ import {
   DISPLAY_CURRENCY,
   formatDateWords,
   formatMoney,
-  formatNumber,
+  formatNumberExact,
 } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { NumberNote } from "@/components/ui/NumberNote";
@@ -409,7 +409,7 @@ export function InboundOrderForm({
                   </Td>
                   <Td align="right" data-label="Total linie" className={PHONE_CELL}>
                     <span className="rc-num inline-block pt-2.5 text-[13.5px] font-semibold">
-                      {lineTotal > 0 ? `${formatNumber(lineTotal)} ${currency}` : "-"}
+                      {lineTotal > 0 ? `${formatNumberExact(lineTotal)} ${currency}` : "-"}
                     </span>
                   </Td>
                   {/* Fara max-md:text-left: butonul de eliminare ramane in dreapta cardului. */}
@@ -440,7 +440,7 @@ export function InboundOrderForm({
             <p className="text-[12.5px] text-rc-muted">
               Total comandă:{" "}
               <span className="rc-num font-bold text-rc-black text-[15px]">
-                {formatNumber(orderTotal)} {currency}
+                {formatNumberExact(orderTotal)} {currency}
               </span>
             </p>
             <p className="text-[12.5px] text-rc-muted mt-1">

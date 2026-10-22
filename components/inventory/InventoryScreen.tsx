@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/primitives";
 import { PHONE_CELL, PHONE_CONTROL, PHONE_ROW, PHONE_TABLE } from "@/components/ui/phone";
 import { formatMoney, formatNumber, formatQty, plural } from "@/lib/data/format";
-import { unitLabel, type UnitCode } from "@/lib/data/units";
+import { type UnitCode } from "@/lib/data/units";
 import type { CatalogProduct, Category } from "@/lib/data/products";
 import { ProductPanel } from "./ProductPanel";
 import { ProductForm } from "./ProductForm";
@@ -458,7 +458,7 @@ export function InventoryScreen({
                   </Td>
                   <Td align="right" data-label="Prag" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
-                      {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                      {formatQty(p.threshold, p.unit)}
                     </span>
                   </Td>
                   <Td align="right" data-label="Valoare" className={`${PHONE_CELL} max-md:[&>span]:whitespace-normal`}>

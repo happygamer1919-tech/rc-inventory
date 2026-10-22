@@ -30,7 +30,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, PageHeader, Table, Td, Th } from "@/components/ui/primitives";
-import { formatNumber, formatQty, plural } from "@/lib/data/format";
+import { formatNumber, formatQty, formatQtyNumber, plural } from "@/lib/data/format";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { ProjectStatus } from "@/lib/data/projects-types";
 import type { UnitCode } from "@/lib/data/units";
@@ -55,7 +55,7 @@ const NEED_STATUSES: ProjectStatus[] = ["lead", "offer", "contract", "active"];
 // setul de clase desenat ramane exact cel de azi.
 
 function qty(value: number, unit: UnitCode | null): string {
-  return unit ? formatQty(value, unit) : formatNumber(value);
+  return unit ? formatQty(value, unit) : formatQtyNumber(value);
 }
 
 function NeedRow({ row }: { row: ProcurementRow }) {
