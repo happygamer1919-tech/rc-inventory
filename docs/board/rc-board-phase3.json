@@ -8001,6 +8001,32 @@
         "at": "2026-10-21T21:08:26Z"
       },
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
+    },
+    {
+      "id": "P3-337",
+      "title": "A failed team read on a client or project page says so, and one probe hiccup no longer switches Azi and the CRM screens off.",
+      "plain": "On a client or project page, if the list of colleagues fails to load, the task panel now says 'Lista echipei nu s-a putut încărca.' and the Responsabil choice is switched off, as on the Tasks page. Also, one failed check of the database no longer hides Azi, clients, projects and requirements for a minute for everyone: they stay on unless the database really says the tables are missing.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-330",
+        "P3-276"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/phase3-probe-cache.spec.ts is green in this pull request own quality run on its head sha: a probe error that is not 'relation does not exist' is not cached as no; the real missing-table answer is cached as no; hasPhase3Schema and every other gate in lib/data/schema-capability.ts write their cache only through settleProbe. (b) tests/e2e/schema-probe.spec.ts, sarcini-team-list-failed.spec.ts and the existing tasks and azi specs stay green. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "clienti/[id] and proiecte/[id] call readTaskAssigneeChoices and pass teamFailed through ClientDetailScreen and ProjectDetailScreen to TaskPanel and TaskForm, which already disable the picker and show the message. hasPhase3Schema uses settleProbe: false is cached only for the real missing-object answer, any other error answers true and is not cached. The other gates already used settleProbe. No migration.",
+      "last_checkpoint": "2026-10-22T19:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-337 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-team-and-probe-failures-honest.md",
+        "at": "2026-10-22T19:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, findings 4 and 5 (zero based). Files: lib/data/schema-capability.ts, app/(app)/clienti/[id]/page.tsx, app/(app)/proiecte/[id]/page.tsx, components/tasks/TaskPanel.tsx."
     }
   ]
 }

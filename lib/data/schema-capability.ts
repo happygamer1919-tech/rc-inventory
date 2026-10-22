@@ -55,12 +55,12 @@ export async function hasPhase3Schema(): Promise<boolean> {
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("projects").select("id").limit(1);
-    cached = { value: !error, at: now };
-  } catch {
-    // O sonda care arunca inseamna ca nu se stie, si "nu se stie" se trateaza ca
-    // "nu": ecranul degradeaza in loc sa se prabuseasca, ceea ce este intreg
-    // rostul acestui fisier.
-    cached = { value: false, at: now };
+    cached = settleProbe(now, error);
+  } catch (thrown) {
+    // P3-337: "nu" se tine minte doar pentru raspunsul real "tabela lipseste". O sonda
+    // care arunca (timeout, retea) nu stinge ecranele pentru toti timp de un minut:
+    // se socoteste "da" si nu se tine minte, vezi schema-probe.ts.
+    cached = settleProbe(now, thrown);
   }
   return cached.value;
 }

@@ -67,6 +67,7 @@ export function TaskPanel({
   entityLabel,
   rows,
   assignees,
+  teamFailed = false,
   today,
   canWrite,
 }: {
@@ -77,6 +78,8 @@ export function TaskPanel({
   entityLabel: string;
   rows: Task[];
   assignees: TaskAssignee[];
+  /** Lista echipei nu s-a putut citi (P3-337): selectorul Responsabil se blocheaza cu anunt. */
+  teamFailed?: boolean;
   /** Ziua calendaristica din Chisinau, yyyy-mm-dd, aflata o singura data de pagina. */
   today: string;
   canWrite: boolean;
@@ -144,6 +147,7 @@ export function TaskPanel({
       {creating ? (
         <TaskForm
           assignees={assignees}
+          teamFailed={teamFailed}
           fixedEntity={fixedEntity}
           onClose={() => setCreating(false)}
         />
@@ -152,6 +156,7 @@ export function TaskPanel({
         <TaskForm
           task={editing}
           assignees={assignees}
+          teamFailed={teamFailed}
           fixedEntity={fixedEntity}
           onClose={() => setEditingId(null)}
         />
