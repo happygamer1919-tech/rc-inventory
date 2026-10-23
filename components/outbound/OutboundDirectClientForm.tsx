@@ -287,36 +287,42 @@ export function OutboundDirectClientForm({
     if (problems.length > 0) return;
 
     setPending(true);
-    const result = await createOutboundIssue({
-      // MODUL ESTE SINGURUL LUCRU IN PLUS pe care il trimite acest formular.
-      // Scaderea de stoc este aceeasi rutina, public.outbound_issue_take_stock, pe
-      // care o cheama si modul proiect: cardul P3-118 a asezat-o asa anume ca sa nu
-      // existe o a doua aritmetica.
-      mode: "direct_client",
-      clientId: client!.id,
-      pickupDate,
-      lines: filled.map((l) => ({
-        productId: l.productId,
-        quantity: quantityText(l.quantity),
-        salePriceMdl: priceTextForServer(l.price),
-      })),
-    });
+    // P3-340. Orice eroare aruncata (si numarul ieșirii care nu se poate citi)
+    // trebuie sa lase formularul liber, nu pe "se salveaza" pentru totdeauna.
+    try {
+      const result = await createOutboundIssue({
+        // MODUL ESTE SINGURUL LUCRU IN PLUS pe care il trimite acest formular.
+        // Scaderea de stoc este aceeasi rutina, public.outbound_issue_take_stock, pe
+        // care o cheama si modul proiect: cardul P3-118 a asezat-o asa anume ca sa nu
+        // existe o a doua aritmetica.
+        mode: "direct_client",
+        clientId: client!.id,
+        pickupDate,
+        lines: filled.map((l) => ({
+          productId: l.productId,
+          quantity: quantityText(l.quantity),
+          salePriceMdl: priceTextForServer(l.price),
+        })),
+      });
 
-    if (!result.ok) {
-      setServerError(result.message);
+      if (!result.ok) {
+        setServerError(result.message);
+        return;
+      }
+
+      router.refresh();
+      setCreated({
+        reference: result.value.reference,
+        clientName: client!.name,
+        pickupDate,
+        lineCount: filled.length,
+        becameClient: Boolean(client!.isLead),
+      });
+    } catch {
+      setServerError("Ieșirea nu a putut fi salvată. Încearcă din nou.");
+    } finally {
       setPending(false);
-      return;
     }
-
-    router.refresh();
-    setCreated({
-      reference: result.value.reference,
-      clientName: client!.name,
-      pickupDate,
-      lineCount: filled.length,
-      becameClient: Boolean(client!.isLead),
-    });
-    setPending(false);
   }
 
   if (created) {
