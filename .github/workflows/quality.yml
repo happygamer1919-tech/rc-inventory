@@ -130,6 +130,17 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # P3-335. The unit tests under tests/*.test.ts. Seven of those files ran
+      # nowhere until this card: Playwright's testDir is ./tests/e2e. No browser,
+      # no server, no database, about a second, so it runs on drafts too.
+      - name: Unit tests
+        run: npm test
+
+      # P3-335. A *.test.ts or *.spec.ts under tests/ that no config reads fails
+      # here, with its path.
+      - name: Every test file is run
+        run: npm run check:tests-run
+
       # P3-73. Skipped on a documentation-only diff. Nothing downstream in this
       # job consumes what it writes: `npm run build` appears exactly once in this
       # file, no step reads `.next`, and the production-mode Playwright server in
