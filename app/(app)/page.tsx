@@ -38,7 +38,6 @@ import {
   formatQty,
   plural,
 } from "@/lib/data/format";
-import { unitLabel } from "@/lib/data/units";
 
 export const dynamic = "force-dynamic";
 
@@ -226,7 +225,7 @@ export default async function Dashboard() {
                     </Td>
                     <Td align="right" data-label="Prag" className={PHONE_CELL}>
                       <span className="rc-num text-[13px] text-rc-muted">
-                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                        {formatQty(p.threshold, p.unit)}
                       </span>
                     </Td>
                   </tr>
