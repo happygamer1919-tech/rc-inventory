@@ -266,11 +266,11 @@ type GuardedInsert =
   | { kind: "inserted"; id: string }
   | { kind: "duplicate"; duplicate: WriteDuplicate }
   | { kind: "failed"; code: string | undefined; message: string }
-  /** Functia din 0090 nu exista inca: in cele doua minute dintre livrarea codului si aplicarea
+  /** Functia din 0091 nu exista inca: in cele doua minute dintre livrarea codului si aplicarea
    *  migratiei importul scrie ca inainte, fara blocaj. */
   | { kind: "absent" };
 
-/** P3-338. Insertul unui rand de import prin public.import_insert_client (0090). */
+/** P3-338. Insertul unui rand de import prin public.import_insert_client (0091). */
 async function insertGuarded(
   supabase: Awaited<ReturnType<typeof createClient>>,
   row: Record<string, unknown>,
@@ -357,7 +357,7 @@ export type ImportedClientResult =
   | { ok: false; message: string; duplicate: WriteDuplicate; field?: undefined; saved?: undefined };
 
 /** P3-338. CALEA PE CARE O FOLOSESC AMANDOUA IMPORTURILE (clienti si leaduri). Ca
- *  createClientRecord, dar insertul trece prin public.import_insert_client (migratia 0090):
+ *  createClientRecord, dar insertul trece prin public.import_insert_client (migratia 0091):
  *  o tranzactie care ia un blocaj, cauta un client stocat cu cheile planului si scrie randul
  *  numai daca nu gaseste niciunul. Doi administratori care importa fisiere suprapuse in
  *  acelasi timp creeaza astfel un singur client. Formularul de client si cel de lead raman pe

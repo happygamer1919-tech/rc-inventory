@@ -4,7 +4,7 @@ import { signIn } from "./support/auth";
 
 // P3-338. Doi administratori care importa fisiere suprapuse in acelasi timp creeaza UN singur
 // client. Blocajul din ecran sta in browser si nu opreste un al doilea calculator; aici se
-// dovedeste blocajul de pe server (functia import_insert_client, migratia 0090), cu cereri
+// dovedeste blocajul de pe server (functia import_insert_client, migratia 0091), cu cereri
 // reale in paralel, cu baza si cu ecranul. Planul pur nu s-a schimbat.
 //
 // Datele sunt inventate aici, cu eticheta rularii. Clientii de test raman, nu se sterg.

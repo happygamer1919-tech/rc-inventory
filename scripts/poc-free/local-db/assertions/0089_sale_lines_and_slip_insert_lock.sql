@@ -12,8 +12,9 @@
 --      lib/data/outbound.ts nextOutboundReference: prefix IES-<year in Chisinau>-,
 --      the highest reference with that prefix in text order, plus one, at least
 --      four digits. Other years and other prefixes do not count; a tail that is
---      not a whole number restarts at 0001 (Number() gives NaN there); 9999 is
---      followed by 10000, not cut to four digits.
+--      not a whole number is ignored (P3-334, 0090: it used to restart at 0001);
+--      9999 is followed by 10000, not cut to four digits. 0090 reads the highest
+--      by numeric value; its own assertion file proves 10000 to 10001.
 --   3. AN ACTIVE ACCOUNT MANAGER, with a real role switch and a JWT, so row level
 --      security and the guard apply exactly as for a PostgREST request:
 --        THE SCREEN PATHS STILL WORK (the witnesses):
@@ -199,11 +200,13 @@ begin
       raise exception 'P3-331: after 9999 the next number should be IES-%-10000, got %', v_year, v_got;
     end if;
 
+    -- P3-334 (0090) changed this edge: a tail that is not a whole number is
+    -- ignored, it no longer restarts the series at 0001 (already taken).
     insert into public.outbound_issues (reference, issue_mode, client_id, pickup_date)
     values ('IES-' || v_year || '-9999-X', 'direct_client', v_client, date '2026-10-21');
     v_got := public.outbound_next_reference();
-    if v_got <> 'IES-' || v_year || '-0001' then
-      raise exception 'P3-331: a highest number that is not a whole number should restart at IES-%-0001 as the app does, got %', v_year, v_got;
+    if v_got <> 'IES-' || v_year || '-10000' then
+      raise exception 'P3-331: a tail that is not a whole number should be ignored (P3-334), so the next after 9999 stays IES-%-10000, got %', v_year, v_got;
     end if;
 
     raise exception using errcode = 'P0331', message = 'undo the edge rows';

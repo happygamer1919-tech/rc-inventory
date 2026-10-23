@@ -4,7 +4,7 @@
 // blocajul "un import pe fel" din ecran sta in browser (lib/import-lock.ts): doi
 // administratori cu fisiere care se suprapun, sau unul pe doua calculatoare, citesc
 // amandoi "nu exista" si amandoi scriu. Functia import_insert_client din migratia
-// 0090 face intr-o singura tranzactie ce nu se poate face din doua cereri: ia un
+// 0091 face intr-o singura tranzactie ce nu se poate face din doua cereri: ia un
 // blocaj, cauta un client stocat cu aceleasi chei ca ale planului, si scrie randul
 // numai daca nu gaseste niciunul.
 //

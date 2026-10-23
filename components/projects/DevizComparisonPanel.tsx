@@ -35,7 +35,7 @@ import {
   PHONE_WIDE,
 } from "@/components/ui/phone";
 import { Card, CardHeader, Chip, EmptyState, Table, Td, Th } from "@/components/ui/primitives";
-import { formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { formatMoney, formatNumber, formatQty, formatQtyNumber } from "@/lib/data/format";
 import { DEVIZ_STATUS_LABEL } from "@/lib/data/deviz-types";
 import type { UnitCode } from "@/lib/data/units";
 import type { ComparisonRow, DevizComparison } from "@/lib/reporting/deviz-comparison";
@@ -43,7 +43,7 @@ import type { ComparisonRow, DevizComparison } from "@/lib/reporting/deviz-compa
 const PAGE = 25;
 
 function qty(value: number, unit: UnitCode | null): string {
-  return unit ? formatQty(value, unit) : formatNumber(value);
+  return unit ? formatQty(value, unit) : formatQtyNumber(value);
 }
 
 // P3-67. PE TELEFON (sub 768px) fiecare produs devine un card, iar peste 768px

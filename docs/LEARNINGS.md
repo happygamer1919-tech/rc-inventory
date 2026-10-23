@@ -9848,6 +9848,24 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
 **SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**
 
+### P3-334: a number series ordered as text breaks at the first extra digit
+**Tag:** data
+**ERROR:** `outbound_next_reference()` (0089) and `nextOutboundReference` took the highest `IES-<year>-` reference with `order by reference desc`. In text order IES-2026-9999 sorts above IES-2026-10000, so after slip 10000 both computed 10000 again, the guard agreed with the screen, and every insert died on the unique index for the rest of the year. The 0089 assertion proved 9999 to 10000 and stopped there, so it passed. A tail that is not a whole number (0041-X) also restarted the series at 0001, which is already taken.
+**SOLUTION:** 0090 takes `max(tail::numeric)` over the tails matching `^[0-9]+$` and ignores the rest; the app calls `rpc("outbound_next_reference")` and throws on an error, so the screen and the guard read one rule. The 0089 assertion edge that expected the restart at 0001 moved to the new rule. RULE: **a counter stored as text is read by value, never by text order; and a test of a rollover also proves the step after it.**
+
+### P3-336: formatNumber rounds to whole numbers, and server getHours is UTC
+**Tag:** display
+**ERROR:** thresholds, incoming quantities and prices, batch quantities, deviz and project material rows went through `formatNumber` (maximumFractionDigits 0), so 0,5 bags showed as a whole number; the Memento alert time used `getHours()`, which is UTC on Vercel, not Chisinau.
+**SOLUTION:** quantities use `formatQty` or `formatQtyNumber`, prices and money totals in a document currency use `formatNumberExact`, the alert time uses `formatDateTime`. RULE: `formatNumber` is for true counts only; never format a timestamp with Date getters.
+
+### P3-335: a test folder no config reads is green for ever
+**Tag:** ci
+**ERROR:** seven `tests/*.test.ts` files never ran: `playwright.config.ts` reads only `./tests/e2e`, and `npm test` ran one file through `node --loader ts-node/esm`, but ts-node is not installed, so the command failed at once. When they did run, `format.test.ts` and `price-input.test.ts` had eight stale expectations (old unit labels m2/lm/rola, and 12.5 where the shared reader now keeps the typed 12.50).
+**SOLUTION:** `playwright.unit.config.ts` (no browser, no server, no globalSetup) reads `tests/*.test.ts`; `npm test` runs it with `NODE_OPTIONS=--conditions=react-server` so a test can import a `server-only` module; the quality workflow has a Unit tests step; `npm run check:tests-run` fails on any test file outside tests/e2e, tests/perf or tests/*.test.ts. RULE: **a new test folder needs a config that reads it and a CI step that runs it, and `check:tests-run` says so by path.**
+
+**ERROR (second run, same card):** the new Unit tests step ran before `check:board-edit`, and `check:board-edit` then failed with "satisfied 1 of 375 card ids" and 624 commits on a branch of three. In CI Playwright runs `git fetch origin <base sha> --depth=1` by itself (its git commit info plugin, `captureGitInfo`), which turns the clone shallow; `git log <base>..HEAD` then walks the whole history behind the cut. The end to end config had the same plugin but runs after every check that reads history.
+**SOLUTION:** `captureGitInfo: { commit: false, diff: false }` in `playwright.unit.config.ts`. RULE: **a test step placed before a step that reads git history must not touch git; Playwright does in CI unless captureGitInfo is switched off.**
+
 ### P3-337: a fix to one probe gate leaves its sibling gate with the old shape
 **Tag:** probe
 **ERROR:** P3-276 moved the tasks probe and the column gates to `settleProbe`, but `hasPhase3Schema` still cached `false` for 60 s on any error or throw, so one network hiccup switched Azi and the CRM screens off for every user. Likewise P3-330 passed `teamFailed` on /sarcini only; the client and project pages called the helper that drops the flag.
@@ -9856,14 +9874,19 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 ### P3-338: a browser-side lock does not stop two importers, and a database lock cannot span several PostgREST calls
 **Tag:** data
 **ERROR:** the "one import per kind" lock (`lib/import-lock.ts`) lives in localStorage, so it only stops a second tab of the same browser. The import read the stored clients once, planned, then inserted row by row, and `clients` has no unique key on email or phone, so two operators with overlapping files (or one on two machines) both read "not stored" and both created the client. The brief suggested an advisory lock held for a whole batch; through PostgREST every call is its own transaction on a pooled connection, so a transaction lock ends with the call and a session lock cannot be held across calls (the unlock may land on another connection and the lock would stay for good).
-**SOLUTION:** migration 0090 adds `public.import_insert_client`: in ONE transaction it takes `pg_advisory_xact_lock`, looks again for a stored client with the keys the plans use, and inserts only if none is found. Both imports write every new row through it (`createImportedClientRecord`), and a row the database reports as stored lands in the summary as "Dublat ...". RULE: **a check-then-insert race is closed by putting the check and the insert in the same database transaction under a lock; a lock taken in one request and an insert in the next closes nothing.**
+**SOLUTION:** migration 0091 adds `public.import_insert_client`: in ONE transaction it takes `pg_advisory_xact_lock`, looks again for a stored client with the keys the plans use, and inserts only if none is found. Both imports write every new row through it (`createImportedClientRecord`), and a row the database reports as stored lands in the summary as "Dublat ...". RULE: **a check-then-insert race is closed by putting the check and the insert in the same database transaction under a lock; a lock taken in one request and an insert in the next closes nothing.**
 
 ### P3-338: a SQL assertion that passes the first time proves nothing until a mutated function fails it
 **Tag:** ci
-**ERROR:** the first version of `0090_client_import_insert_guard.sql` passed on the first run, and a mutation that ignored the phone in the name-and-phone key still passed it: every case that used the phone also matched on the name.
+**ERROR:** the first version of `0091_client_import_insert_guard.sql` passed on the first run, and a mutation that ignored the phone in the name-and-phone key still passed it: every case that used the phone also matched on the name.
 **SOLUTION:** a case with the same name and another phone (`j_other_phone`) was added and the mutant now fails. The proof was nine mutations of the function, each applied to a throwaway postgres and each required to turn the assertion red (no lock, email not lowercased, name not tidied, phone ignored, phone forms ignored, forms matching anything, inactive ignored, an email matching a client with another email, no owner check). RULE: **for every key a duplicate check uses, keep one case where only that key differs and the answer must be "not a duplicate".**
 
 ### P3-338: an assertion that compares to a possibly null value skips instead of failing
 **Tag:** ci
 **ERROR:** `if x not in (select ...) or y <> 'phone' then raise` did not raise when the function answered `{"id": ...}`, because `(v_out -> 'duplicate' ->> 'id')::uuid` is null and a null condition is not true.
 **SOLUTION:** the condition is written as `coalesce(..., false) is not true` and `is distinct from`. RULE: **in a plpgsql assertion, write the refusing condition so that null raises.**
+
+### P3-339: a privacy check on self-reported text never looked at the picture
+**Tag:** guide
+**ERROR:** `check:guide-privacy` matched a three-name list against text the screenshot script itself captured; nothing read the pixels, so a real client name rendered in a picture passed.
+**SOLUTION:** `npm run check:guide-ocr` runs tesseract.js (Romanian + English) over every PNG, fails on a line of docs/guide/real-names.txt and warns on unknown capitalised names; results are cached by picture sha256 (.cache/guide-ocr, kept with actions/cache). RULE: **a check on what a picture shows must read the picture; the proof is a test that plants a deny list name and sees it fail on a real picture.**

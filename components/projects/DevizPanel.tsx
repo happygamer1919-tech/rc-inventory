@@ -30,7 +30,7 @@ import {
   Th,
 } from "@/components/ui/primitives";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
-import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber } from "@/lib/data/format";
+import { DISPLAY_CURRENCY, formatDate, formatMoney, formatNumber, formatQtyNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { NumberNote } from "@/components/ui/NumberNote";
 import { quantityAmount, quantityProblem, quantityToField } from "@/lib/data/price-input";
@@ -350,7 +350,7 @@ export function DevizPanel({
                         />
                       ) : (
                         <span data-testid={`deviz-line-quantity-${l.sku}`}>
-                          {formatNumber(l.quantity)}
+                          {formatQtyNumber(l.quantity)}
                         </span>
                       )}
                     </Td>

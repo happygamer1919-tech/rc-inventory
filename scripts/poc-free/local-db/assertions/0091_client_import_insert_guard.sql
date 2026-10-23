@@ -1,4 +1,4 @@
--- assertions/0090_client_import_insert_guard.sql
+-- assertions/0091_client_import_insert_guard.sql
 -- Card P3-338. The client and lead imports write each new client through
 -- public.import_insert_client, which takes a transaction advisory lock, looks for
 -- a stored client the row would duplicate by the keys of the import plans (email;

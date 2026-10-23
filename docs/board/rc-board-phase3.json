@@ -8003,6 +8003,79 @@
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
     },
     {
+      "id": "P3-334",
+      "title": "Slip numbers keep counting past 9999 in the same year. public.outbound_next_reference() (0089) and lib/data/outbound.ts nextOutboundReference took the highest IES-<year>- reference in TEXT order, where IES-2026-9999 sorts above IES-2026-10000, so once slip 10000 existed both computed 10000 again and every insert died on outbound_issues_reference_unique for the rest of the year (bug check 2026-10-22, severity medium). One migration replaces the function body to take the highest NUMERIC tail among all-digit tails, plus one, at least four digits; the app calls that function by rpc so the screen and the guard share one rule.",
+      "plain": "Numerele avizelor de ieșire continuă corect după 9999 în același an. Until now, once a year reached slip number 10000, every new slip after it would have failed to save until January. After this the numbers go on 10000, 10001 and so on, and the screen and the database always agree on the next number. No existing slip is renumbered.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-331"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) a new migration supabase/migrations/0090_slip_number_past_9999.sql replaces only the body of public.outbound_next_reference() (same signature, SECURITY DEFINER, search_path and grants) so it returns the highest numeric all-digit tail of this year plus one, at least four digits; scripts/poc-free/local-db/assertions/0090_slip_number_past_9999.sql passes in npm run check:migrations, proving 9999 and 10000 give 10001, 0009 and 0010 give 0011, a tail that is not all digits is ignored, an empty year gives 0001, last year is not counted, and with a real role switch and JWT a signed-in insert carrying 10001 is accepted, an empty number is set to 10002 and 10000 again is refused by the guard. (b) lib/data/outbound.ts nextOutboundReference calls supabase.rpc(\"outbound_next_reference\") and throws a Romanian error when it fails; npx tsc --noEmit and npm run build exit 0. (c) the outbound, outbound-direct-client, take-stock-guard, take-stock-lines-guard, walkin-buyer-lead, client-material-walkin and facturare-create specs green in the pull request quality run on its head sha. (d) Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "defaults": "SOURCE: bug check 2026-10-22, verified on origin/main at 657d0119. ONE RULE: the app reads the number from the database function instead of computing it, so they cannot drift again; on an rpc error the app throws instead of falling back to the old text-order read. NON-NUMERIC TAILS (for example IES-2026-0001-X, refused for new slips since 0089 but possible in old rows) are ignored rather than restarting the series at 0001; the one 0089 assertion edge that expected the old restart was moved to the new rule, no case deleted. The guard, take stock, the two slip doors and every policy are untouched; no row is written or renumbered.",
+      "last_checkpoint": "2026-10-22T12:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-334 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0090_slip_number_past_9999.sql and the destructive-migration and applier proof steps; report in docs/reports/2026-10-22-executor-slip-number-past-9999.md",
+        "at": "2026-10-22T12:00:00Z"
+      },
+      "notes": "AUTHORED and STARTED 2026-10-22 by EXECUTOR from the bug check of 2026-10-22. Id allocated with npm run id:free (P3-334 free). Migration number 0090: main holds 0089. Merging applies 0090 to production, so it waits for the owner OK."
+    },
+    {
+      "id": "P3-336",
+      "title": "Quantities, thresholds, prices and batch quantities keep their decimals on the dashboard, Memento, inventory, orders, deviz and project screens (formatQty, formatQtyNumber, formatNumberExact instead of whole-number formatNumber), and the Memento alert moment is written in Chisinau time with formatDateTime instead of the server getHours.",
+      "plain": "Amounts like half a bag or a price of 12,50 were shown rounded to a whole number on several screens, and the time of a stock alert in Memento was off by a few hours. Both now show correctly.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/format-numbers-and-times.spec.ts is green in this pull request own quality run on its head sha. (b) `npx tsc --noEmit` and `npm run build` exit 0. (c) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (d) No file under supabase/migrations/ is added or changed.",
+      "defaults": "Percent values (deviz margin, variance) and true counts stay on formatNumber; the dashboard stock value stays whole lei through formatMoney. ExtractionReviewPanel has no getHours or getDate pattern, so it needed no change.",
+      "last_checkpoint": "2026-10-22T18:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-336 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-numbers-and-times-shown-right.md",
+        "at": "2026-10-22T18:30:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, findings 2 and 3 (zero based). Files: app/(app)/memento/page.tsx, tests/e2e/format-numbers-and-times.spec.ts, tests/format.test.ts and the screens that showed quantities through formatNumber."
+    },
+    {
+      "id": "P3-335",
+      "title": "Every unit test under tests/ runs in CI: a second Playwright config (playwright.unit.config.ts, no browser, no server) reads tests/*.test.ts, npm test runs it and the quality workflow has a Unit tests step; npm run check:tests-run fails when a *.test.ts or *.spec.ts under tests/ sits where no config reads it; the stale expectations in format.test.ts (unit labels) and price-input.test.ts (typed decimals) are corrected to what the code deliberately does.",
+      "plain": "Seven test files had never run, so nobody knew if they passed. They now run on every change, and a new test file left where nothing runs it stops the build.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-317"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: `npm test` exits 0 and its list shows tests/price-input.test.ts, tests/outbound-slip-year.test.ts, tests/import-batches.test.ts, tests/combobox-commit.test.ts, tests/import-sheet-close.test.ts, tests/client-import-instructions.test.ts, tests/parse-project-query.test.ts and tests/format.test.ts as run, in the Unit tests step of this pull request own quality run on its head sha. (b) `npm run check:tests-run` exits 0, and exits 1 naming the path when a test file is added under a folder no config reads. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "A second config file, not a project in playwright.config.ts, so the unit run inherits none of the end to end webServers or globalSetup (about 1 second against minutes). npm test sets the react-server condition so a test can import a server-only module. No application code changed: the red tests were stale. format.test.ts expected m2, lm and rola where lib/data/units.ts labels m², ml and rolă; price-input.test.ts expected 12.5 where the shared number reader keeps the typed 12.50 (P3-311, P3-327). The old npm test could not run at all (ts-node is not installed), so format.test.ts is now a Playwright test too.",
+      "last_checkpoint": "2026-10-22T18:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-335 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-unit-tests-in-ci.md",
+        "at": "2026-10-22T18:30:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, finding 1 (zero based). Files: playwright.unit.config.ts, package.json, .github/workflows/quality.yml, scripts/poc-free/check-tests-run.mjs, tests/format.test.ts, tests/price-input.test.ts."
+    },
+    {
       "id": "P3-337",
       "title": "A failed team read on a client or project page says so, and one probe hiccup no longer switches Azi and the CRM screens off.",
       "plain": "On a client or project page, if the list of colleagues fails to load, the task panel now says 'Lista echipei nu s-a putut încărca.' and the Responsabil choice is switched off, as on the Tasks page. Also, one failed check of the database no longer hides Azi, clients, projects and requirements for a minute for everyone: they stay on unless the database really says the tables are missing.",
@@ -8030,7 +8103,7 @@
     },
     {
       "id": "P3-338",
-      "title": "Two imports at the same time cannot create the same client. The 'one import per kind' lock lives in the browser (lib/import-lock.ts), the server read the stored clients once, planned, then inserted row by row, and clients has no unique key on email or phone, so two operators with overlapping files, or one on two machines, both created the row (bug check 2026-10-22, finding 6). Migration 0090 adds one function, public.import_insert_client, that takes a transaction advisory lock, looks again for a stored client with the keys the plans use (email, name plus phone for clients, phone for leads) and only then inserts; both imports write every new row through it, and a row it finds already stored becomes a 'Dublat ...' line in the summary, never a second client.",
+      "title": "Two imports at the same time cannot create the same client. The 'one import per kind' lock lives in the browser (lib/import-lock.ts), the server read the stored clients once, planned, then inserted row by row, and clients has no unique key on email or phone, so two operators with overlapping files, or one on two machines, both created the row (bug check 2026-10-22, finding 6). Migration 0091 adds one function, public.import_insert_client, that takes a transaction advisory lock, looks again for a stored client with the keys the plans use (email, name plus phone for clients, phone for leads) and only then inserts; both imports write every new row through it, and a row it finds already stored becomes a 'Dublat ...' line in the summary, never a second client.",
       "plain": "If two people imported a client list at the same moment, or one person did it on two computers, the same client could be created twice. Now each new client is checked again at the very moment it is saved, one at a time on the server, so the second import skips the row and shows it as a duplicate in the summary. Nothing changes when only one person imports.",
       "lane": "shipped",
       "home_lane": "in_flight",
@@ -8043,15 +8116,41 @@
       ],
       "blocked_on": null,
       "question": null,
-      "acceptance": "(a) a new migration supabase/migrations/0090_client_import_insert_guard.sql adds only the function public.import_insert_client(jsonb, text, text, text, text[]) (SECURITY INVOKER, owner only, executable by authenticated and not anon, taking pg_advisory_xact_lock) and changes no table, column, index, policy or trigger; scripts/poc-free/local-db/assertions/0090_client_import_insert_guard.sql passes in npm run check:migrations, proving with a real role switch and JWT that a new row is inserted with the column defaults, a stored email in any case or padding, a name plus the last 8 digits of the phone (a row with an email only against a stored client without one) and a lead's phone in any stored format are duplicates that write nothing, a switched-off client is a duplicate that says so, the same name with another phone or another email is a new client, the fiscal code still refuses with 23505, and an account manager is refused with 42501. (b) lib/data/client-import-actions.ts and lib/data/lead-import-actions.ts write every new row through createImportedClientRecord, and a row the database reports as already stored lands in skippedRows with a reason that starts with 'Dublat'; tests/e2e/p3-338-import-concurrent.spec.ts is green in the quality run: six parallel calls with one email create one client, four parallel calls with one name and phone and no email create one client, and two browsers importing the same file at once create one client with one created and one skipped; the existing import specs (clients-import, lead-import, import-batch-duplicates, p3-307-import-matching, p3-313-import-dup-and-leave, p3-329-import-idno) stay green. (c) Refuse a migration that removes rows and both applier proof steps RAN and passed.",
+      "acceptance": "(a) a new migration supabase/migrations/0091_client_import_insert_guard.sql adds only the function public.import_insert_client(jsonb, text, text, text, text[]) (SECURITY INVOKER, owner only, executable by authenticated and not anon, taking pg_advisory_xact_lock) and changes no table, column, index, policy or trigger; scripts/poc-free/local-db/assertions/0091_client_import_insert_guard.sql passes in npm run check:migrations, proving with a real role switch and JWT that a new row is inserted with the column defaults, a stored email in any case or padding, a name plus the last 8 digits of the phone (a row with an email only against a stored client without one) and a lead's phone in any stored format are duplicates that write nothing, a switched-off client is a duplicate that says so, the same name with another phone or another email is a new client, the fiscal code still refuses with 23505, and an account manager is refused with 42501. (b) lib/data/client-import-actions.ts and lib/data/lead-import-actions.ts write every new row through createImportedClientRecord, and a row the database reports as already stored lands in skippedRows with a reason that starts with 'Dublat'; tests/e2e/p3-338-import-concurrent.spec.ts is green in the quality run: six parallel calls with one email create one client, four parallel calls with one name and phone and no email create one client, and two browsers importing the same file at once create one client with one created and one skipped; the existing import specs (clients-import, lead-import, import-batch-duplicates, p3-307-import-matching, p3-313-import-dup-and-leave, p3-329-import-idno) stay green. (c) Refuse a migration that removes rows and both applier proof steps RAN and passed.",
       "defaults": "SOURCE: Fable bug check build-20261022T175022807Z, finding 6, zero based. THE LOCK: the brief suggested an advisory lock held for a whole batch. Through PostgREST every call is its own transaction on a pooled connection, so a transaction lock ends with the call and a session lock cannot be held across calls (the unlock may land on another connection and the lock would stay). The lock that works is the one taken in the same transaction as the check and the insert, so the function does all three; the imports are serialised row by row, which is what stops the double create. THE KEYS are the plans' keys: client import = email, then name plus the last 8 digits of the phone (a row with an email only against a stored client without one); lead import = email or phone alone. The IDNO needs nothing new, clients_fiscal_code_unique already refuses it and the app already words that. THE INSERT: SECURITY INVOKER with the column list taken from the keys of the row (jsonb_populate_record), so unsent columns keep their defaults and the clients policies and triggers apply as before. BEFORE THE APPLY: the app falls back to the plain insert when PostgREST says the function is missing (PGRST202), so no import breaks in the two minutes between code and migration. THE FORM AND THE SINGLE LEAD FORM keep createClientRecord: a person who types a client they see as duplicate decides alone. RULES: no DROP TABLE, TRUNCATE or DELETE; MERGE IS APPLY; no em or en dashes; owner approves the merge.",
       "last_checkpoint": "2026-10-22T19:30:00Z",
       "evidence": {
         "kind": "pr",
-        "ref": "Pull request on branch card/p3-338 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0090_client_import_insert_guard.sql, the destructive-migration and applier proof steps, tests/e2e/p3-338-import-concurrent.spec.ts and the import specs; report in docs/reports/2026-10-22-executor-client-import-no-double-create.md",
+        "ref": "Pull request on branch card/p3-338 against main: its quality run on the head sha runs npm run check:migrations with scripts/poc-free/local-db/assertions/0091_client_import_insert_guard.sql, the destructive-migration and applier proof steps, tests/e2e/p3-338-import-concurrent.spec.ts and the import specs; report in docs/reports/2026-10-22-executor-client-import-no-double-create.md",
         "at": "2026-10-22T19:30:00Z"
       },
-      "notes": "AUTHORED and STARTED 2026-10-22 by EXECUTOR from the Fable bug check of 2026-10-22 17:50Z, finding 6. Id allocated with npm run id:free (P3-338 free, no pull request open for it, no remote branch). Migration number 0090: main holds 0089 and no open pull request adds a migration. DEFAULT APPLIED (defaults, THE LOCK): check, lock and insert are one database function, because a lock for a whole batch cannot be held through PostgREST. PROOF ON THIS MACHINE (no Docker, throwaway Homebrew postgres, 90 migrations and 72 assertion files): the assertion passes and fails under nine mutations of the function (no lock, email not lowercased, name not tidied, phone ignored, phone forms ignored, forms matching anything, inactive ignored, a row with an email matching a client that has another email, no owner check); two real psql sessions called the function with the same email at the same moment, the second waited about two seconds for the first and answered duplicate, and one client existed afterwards. Merging applies 0090 to production, so it waits for the owner OK."
+      "notes": "AUTHORED and STARTED 2026-10-22 by EXECUTOR from the Fable bug check of 2026-10-22 17:50Z, finding 6. Id allocated with npm run id:free (P3-338 free, no pull request open for it, no remote branch). Migration number 0091 (renumbered from 0090 after P3-334 took 0090 on main): main held 0089 and no open pull request adds a migration. DEFAULT APPLIED (defaults, THE LOCK): check, lock and insert are one database function, because a lock for a whole batch cannot be held through PostgREST. PROOF ON THIS MACHINE (no Docker, throwaway Homebrew postgres, 90 migrations and 72 assertion files): the assertion passes and fails under nine mutations of the function (no lock, email not lowercased, name not tidied, phone ignored, phone forms ignored, forms matching anything, inactive ignored, a row with an email matching a client that has another email, no owner check); two real psql sessions called the function with the same email at the same moment, the second waited about two seconds for the first and answered duplicate, and one client existed afterwards. Merging applies 0091 to production, so it waits for the owner OK."
+    },
+    {
+      "id": "P3-339",
+      "title": "The guide picture privacy check reads the pixels: npm run check:guide-ocr runs OCR (tesseract.js, Romanian and English) over every PNG in content/guide-images/, fails on a line of docs/guide/real-names.txt found in a picture, and lists capitalised names that are neither invented data nor the platform labels as warnings in the job summary; results are cached by picture sha256.",
+      "plain": "The guide pictures are now read the way a person reads them, not only through the text the screenshot tool says is on screen. If a real client or supplier name from the deny list is in a picture, the build stops. Unfamiliar names are listed as a warning for Max and Ivan to look at.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-320",
+        "P3-333"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: every case in tests/e2e/guide-ocr.spec.ts is green in this pull request own quality run on its head sha, including the case that runs the real OCR check on a committed picture, fails when a deny list name printed in it is on the list and passes when it is not. (b) `npm run check:guide-ocr` exits 0 on the committed 87 pictures and writes its warnings to the job summary. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "A deny list hit fails the check; an unknown name is only a warning, because OCR misreads words and a warning that failed the build would be switched off. Unknown means a capitalised word of four letters or more that is not in scripts/guide/fixtures.mjs, content/guide/, the text captured for that picture, or docs/guide/ocr-allow.txt. The step runs in quality only when a picture, docs/guide/, lib/guide/ocr or privacy, the OCR script, the fixtures or package-lock.json changed, and skips drafts; it also runs in the guide-screenshots workflow after the pictures are taken. The OCR cache (.cache/guide-ocr, keyed by picture sha256) is kept between CI runs with actions/cache.",
+      "last_checkpoint": "2026-10-22T20:00:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-339 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-guide-pictures-ocr.md",
+        "at": "2026-10-22T20:00:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, finding 7 (zero based). Files: lib/guide/ocr.mjs, lib/guide/ocr.d.mts, scripts/poc-free/check-guide-ocr.mjs, tests/e2e/guide-ocr.spec.ts, docs/guide/real-names.txt, docs/guide/ocr-allow.txt, .github/workflows/quality.yml, .github/workflows/guide-screenshots.yml."
     }
   ]
 }

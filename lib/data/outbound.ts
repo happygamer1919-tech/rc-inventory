@@ -14,7 +14,6 @@ import { isUnitCode, type UnitCode } from "./units";
 import type { StatusEvent } from "./inbound-types";
 import type { OutboundIssue, OutboundMode, OutboundStatus } from "./outbound-types";
 import { one } from "./row";
-import { chisinauDateOf } from "./format";
 
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
@@ -399,23 +398,22 @@ export async function getOutboundIssue(id: string): Promise<OutboundIssue | null
   return toIssue(data as unknown as IssueRow, events);
 }
 
-/** Urmatoarea referinta de iesire, in formatul din faza 1: IES-AAAA-NNNN. */
+/** Urmatoarea referinta de iesire, in formatul din faza 1: IES-AAAA-NNNN.
+ *
+ *  Card P3-334. Numarul il da baza de date (public.outbound_next_reference,
+ *  migratia 0091), aceeasi functie pe care o cheama garda la salvare, deci
+ *  ecranul si garda nu mai pot avea doua reguli. Inainte, aici se lua cea mai
+ *  mare referinta in ordine de text, iar IES-2026-9999 iese peste IES-2026-10000:
+ *  de la iesirea 10000 orice salvare cadea pe indexul unic. Daca apelul cade, nu
+ *  ghicim un numar: aruncam eroarea. */
 export async function nextOutboundReference(): Promise<string> {
   const supabase = await createClient();
-  const chisinauDate = chisinauDateOf(new Date());
-  const year = chisinauDate.split("-")[0];
-  const prefix = `IES-${year}-`;
-
-  const { data } = await supabase
-    .from("outbound_issues")
-    .select("reference")
-    .like("reference", `${prefix}%`)
-    .order("reference", { ascending: false })
-    .limit(1);
-
-  const last = data?.[0]?.reference as string | undefined;
-  const n = last ? Number(last.slice(prefix.length)) : 0;
-  const next = Number.isFinite(n) ? n + 1 : 1;
-  return `${prefix}${String(next).padStart(4, "0")}`;
+  const { data, error } = await supabase.rpc("outbound_next_reference");
+  if (error || typeof data !== "string" || data === "") {
+    throw new Error(
+      `Nu s-a putut afla numărul următoarei ieșiri: ${error?.message ?? "răspuns gol"}`,
+    );
+  }
+  return data;
 }
 

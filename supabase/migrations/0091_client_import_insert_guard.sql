@@ -1,4 +1,4 @@
--- 0090_client_import_insert_guard.sql
+-- 0091_client_import_insert_guard.sql
 -- RC Inventory phase 3, card P3-338. Found by the bug check of 2026-10-22
 -- (finding 6): two people importing clients at the same time can both create the
 -- same client.
@@ -159,7 +159,7 @@ end;
 $$;
 
 comment on function public.import_insert_client(jsonb, text, text, text, text[]) is
-  'Card P3-338 (0090). Inserts one client for the client and lead imports, one row at a time under a transaction advisory lock, after looking for a stored client the row would duplicate by the keys of the import plans: the email; the name plus the last 8 digits of the phone (client import); the phone alone, as the list of digit forms of the canonical number (lead import). Answers {"id": ...} or {"duplicate": {"id", "name", "active", "by"}}. Owner only (42501). SECURITY INVOKER: the insert runs under the caller''s policies and triggers. Writes no row but the one insert; removes nothing.';
+  'Card P3-338 (0091). Inserts one client for the client and lead imports, one row at a time under a transaction advisory lock, after looking for a stored client the row would duplicate by the keys of the import plans: the email; the name plus the last 8 digits of the phone (client import); the phone alone, as the list of digit forms of the canonical number (lead import). Answers {"id": ...} or {"duplicate": {"id", "name", "active", "by"}}. Owner only (42501). SECURITY INVOKER: the insert runs under the caller''s policies and triggers. Writes no row but the one insert; removes nothing.';
 
 revoke all on function public.import_insert_client(jsonb, text, text, text, text[]) from public;
 revoke all on function public.import_insert_client(jsonb, text, text, text, text[]) from anon;

@@ -27,8 +27,7 @@ import { Card, CardHeader, Chip, PageHeader, Table, Td, Th } from "@/components/
 import { RecordLink } from "@/components/ui/RecordLink";
 import { loadThresholds } from "@/lib/data/dashboard";
 import { listFiredAlerts } from "@/lib/data/reminders";
-import { formatNumber, formatQty, plural } from "@/lib/data/format";
-import { unitLabel } from "@/lib/data/units";
+import { formatDateTime, formatQty, plural } from "@/lib/data/format";
 import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -41,14 +40,6 @@ export const dynamic = "force-dynamic";
 // P3-100. Cele cinci nume erau scrise aici, cuvant cu cuvant identice cu cele din
 // components/ui/phone.ts, deci copia a fost stearsa si se importa. Nimic nu se
 // schimba pe ecran.
-
-/** Data si ora, pentru randurile de alerta. */
-function formatMoment(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export default async function RemindersPage() {
   const [products, alerts, user] = await Promise.all([
@@ -120,15 +111,15 @@ export default async function RemindersPage() {
                     {canWrite ? (
                       <RecordLink
                         href={`/inventar?produs=${encodeURIComponent(p.sku)}&camp=prag`}
-                        fallback={`${formatNumber(p.threshold)} ${unitLabel(p.unit)}`}
+                        fallback={formatQty(p.threshold, p.unit)}
                         testId="threshold-edit-link"
                         className={`rc-num text-[13px] whitespace-nowrap ${PHONE_LINK}`}
                       >
-                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                        {formatQty(p.threshold, p.unit)}
                       </RecordLink>
                     ) : (
                       <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
-                        {formatNumber(p.threshold)} {unitLabel(p.unit)}
+                        {formatQty(p.threshold, p.unit)}
                       </span>
                     )}
                   </Td>
@@ -196,7 +187,7 @@ export default async function RemindersPage() {
                   </Td>
                   <Td data-label="Trimis" className={PHONE_WIDE}>
                     <span className="rc-num text-[12.5px] text-rc-muted whitespace-nowrap">
-                      {formatMoment(a.firedAt)}
+                      {formatDateTime(a.firedAt)}
                     </span>
                     {a.sendError ? (
                       <span
@@ -214,7 +205,7 @@ export default async function RemindersPage() {
                   </Td>
                   <Td align="right" data-label="Prag" className={PHONE_CELL}>
                     <span className="rc-num text-[13px] text-rc-muted whitespace-nowrap">
-                      {formatNumber(a.thresholdAtFire)} {unitLabel(a.unit)}
+                      {formatQty(a.thresholdAtFire, a.unit)}
                     </span>
                   </Td>
                   <Td align="right" data-label="Stare" className={PHONE_CELL}>
