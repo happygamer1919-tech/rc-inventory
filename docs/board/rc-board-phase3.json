@@ -8003,6 +8003,31 @@
       "notes": "Source: Fable bug check of 2026-10-21 19:18Z, finding 4 (zero based). Files: lib/guide/privacy.mjs, lib/guide/privacy.d.mts, scripts/guide/screenshots.mjs, tests/e2e/guide-privacy.spec.ts."
     },
     {
+      "id": "P3-335",
+      "title": "Every unit test under tests/ runs in CI: a second Playwright config (playwright.unit.config.ts, no browser, no server) reads tests/*.test.ts, npm test runs it and the quality workflow has a Unit tests step; npm run check:tests-run fails when a *.test.ts or *.spec.ts under tests/ sits where no config reads it; the stale expectations in format.test.ts (unit labels) and price-input.test.ts (typed decimals) are corrected to what the code deliberately does.",
+      "plain": "Seven test files had never run, so nobody knew if they passed. They now run on every change, and a new test file left where nothing runs it stops the build.",
+      "lane": "shipped",
+      "home_lane": "in_flight",
+      "status": "shipped",
+      "priority": "medium",
+      "owner_terminal": "executor",
+      "gate": "green_self_merge",
+      "depends_on": [
+        "P3-317"
+      ],
+      "blocked_on": null,
+      "question": null,
+      "acceptance": "(a) NAMED TEST: `npm test` exits 0 and its list shows tests/price-input.test.ts, tests/outbound-slip-year.test.ts, tests/import-batches.test.ts, tests/combobox-commit.test.ts, tests/import-sheet-close.test.ts, tests/client-import-instructions.test.ts, tests/parse-project-query.test.ts and tests/format.test.ts as run, in the Unit tests step of this pull request own quality run on its head sha. (b) `npm run check:tests-run` exits 0, and exits 1 naming the path when a test file is added under a folder no config reads. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
+      "defaults": "A second config file, not a project in playwright.config.ts, so the unit run inherits none of the end to end webServers or globalSetup (about 1 second against minutes). npm test sets the react-server condition so a test can import a server-only module. No application code changed: the red tests were stale. format.test.ts expected m2, lm and rola where lib/data/units.ts labels m², ml and rolă; price-input.test.ts expected 12.5 where the shared number reader keeps the typed 12.50 (P3-311, P3-327). The old npm test could not run at all (ts-node is not installed), so format.test.ts is now a Playwright test too.",
+      "last_checkpoint": "2026-10-22T18:30:00Z",
+      "evidence": {
+        "kind": "pr",
+        "ref": "Pull request on branch card/p3-335 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-22-executor-unit-tests-in-ci.md",
+        "at": "2026-10-22T18:30:00Z"
+      },
+      "notes": "Source: Fable bug check of 2026-10-22 17:50Z, finding 1 (zero based). Files: playwright.unit.config.ts, package.json, .github/workflows/quality.yml, scripts/poc-free/check-tests-run.mjs, tests/format.test.ts, tests/price-input.test.ts."
+    },
+    {
       "id": "P3-337",
       "title": "A failed team read on a client or project page says so, and one probe hiccup no longer switches Azi and the CRM screens off.",
       "plain": "On a client or project page, if the list of colleagues fails to load, the task panel now says 'Lista echipei nu s-a putut încărca.' and the Responsabil choice is switched off, as on the Tasks page. Also, one failed check of the database no longer hides Azi, clients, projects and requirements for a minute for everyone: they stay on unless the database really says the tables are missing.",
