@@ -9848,6 +9848,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
 **SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**
 
+### P3-334: a number series ordered as text breaks at the first extra digit
+**Tag:** data
+**ERROR:** `outbound_next_reference()` (0089) and `nextOutboundReference` took the highest `IES-<year>-` reference with `order by reference desc`. In text order IES-2026-9999 sorts above IES-2026-10000, so after slip 10000 both computed 10000 again, the guard agreed with the screen, and every insert died on the unique index for the rest of the year. The 0089 assertion proved 9999 to 10000 and stopped there, so it passed. A tail that is not a whole number (0041-X) also restarted the series at 0001, which is already taken.
+**SOLUTION:** 0090 takes `max(tail::numeric)` over the tails matching `^[0-9]+$` and ignores the rest; the app calls `rpc("outbound_next_reference")` and throws on an error, so the screen and the guard read one rule. The 0089 assertion edge that expected the restart at 0001 moved to the new rule. RULE: **a counter stored as text is read by value, never by text order; and a test of a rollover also proves the step after it.**
+
 ### P3-336: formatNumber rounds to whole numbers, and server getHours is UTC
 **Tag:** display
 **ERROR:** thresholds, incoming quantities and prices, batch quantities, deviz and project material rows went through `formatNumber` (maximumFractionDigits 0), so 0,5 bags showed as a whole number; the Memento alert time used `getHours()`, which is UTC on Vercel, not Chisinau.
