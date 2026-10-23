@@ -1,4 +1,5 @@
 import assert from "assert";
+import { test } from "@playwright/test";
 import { formatDateTime, formatNumberExact, formatQty, formatQtyNumber } from "../lib/data/format";
 
 const tests = [
@@ -116,20 +117,6 @@ const tests = [
   },
 ];
 
-let passed = 0;
-let failed = 0;
-
-for (const test of tests) {
-  try {
-    test.run();
-    console.log(`✓ ${test.name}`);
-    passed++;
-  } catch (err) {
-    console.error(`✗ ${test.name}`);
-    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
-    failed++;
-  }
+for (const t of tests) {
+  test(t.name, t.run);
 }
-
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);

@@ -9853,6 +9853,14 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** thresholds, incoming quantities and prices, batch quantities, deviz and project material rows went through `formatNumber` (maximumFractionDigits 0), so 0,5 bags showed as a whole number; the Memento alert time used `getHours()`, which is UTC on Vercel, not Chisinau.
 **SOLUTION:** quantities use `formatQty` or `formatQtyNumber`, prices and money totals in a document currency use `formatNumberExact`, the alert time uses `formatDateTime`. RULE: `formatNumber` is for true counts only; never format a timestamp with Date getters.
 
+### P3-335: a test folder no config reads is green for ever
+**Tag:** ci
+**ERROR:** seven `tests/*.test.ts` files never ran: `playwright.config.ts` reads only `./tests/e2e`, and `npm test` ran one file through `node --loader ts-node/esm`, but ts-node is not installed, so the command failed at once. When they did run, `format.test.ts` and `price-input.test.ts` had eight stale expectations (old unit labels m2/lm/rola, and 12.5 where the shared reader now keeps the typed 12.50).
+**SOLUTION:** `playwright.unit.config.ts` (no browser, no server, no globalSetup) reads `tests/*.test.ts`; `npm test` runs it with `NODE_OPTIONS=--conditions=react-server` so a test can import a `server-only` module; the quality workflow has a Unit tests step; `npm run check:tests-run` fails on any test file outside tests/e2e, tests/perf or tests/*.test.ts. RULE: **a new test folder needs a config that reads it and a CI step that runs it, and `check:tests-run` says so by path.**
+
+**ERROR (second run, same card):** the new Unit tests step ran before `check:board-edit`, and `check:board-edit` then failed with "satisfied 1 of 375 card ids" and 624 commits on a branch of three. In CI Playwright runs `git fetch origin <base sha> --depth=1` by itself (its git commit info plugin, `captureGitInfo`), which turns the clone shallow; `git log <base>..HEAD` then walks the whole history behind the cut. The end to end config had the same plugin but runs after every check that reads history.
+**SOLUTION:** `captureGitInfo: { commit: false, diff: false }` in `playwright.unit.config.ts`. RULE: **a test step placed before a step that reads git history must not touch git; Playwright does in CI unless captureGitInfo is switched off.**
+
 ### P3-337: a fix to one probe gate leaves its sibling gate with the old shape
 **Tag:** probe
 **ERROR:** P3-276 moved the tasks probe and the column gates to `settleProbe`, but `hasPhase3Schema` still cached `false` for 60 s on any error or throw, so one network hiccup switched Azi and the CRM screens off for every user. Likewise P3-330 passed `teamFailed` on /sarcini only; the client and project pages called the helper that drops the flag.
