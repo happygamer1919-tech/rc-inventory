@@ -16,7 +16,7 @@ import {
   PHONE_TABLE,
   PHONE_WIDE,
 } from "@/components/ui/phone";
-import { formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { formatTimestampDate, formatMoney, formatQty, formatQtyNumber } from "@/lib/data/format";
 import { unitLabel } from "@/lib/data/units";
 import { OUTBOUND_MODE_LABEL } from "@/lib/data/outbound-types";
 import type { CatalogProduct } from "@/lib/data/products";
@@ -152,7 +152,7 @@ export function ProductPanel({
             { l: "Stoc curent", v: formatQty(product.stock, product.unit), tone: low },
             {
               l: "Prag recomandă",
-              v: `${formatNumber(product.threshold)} ${unitLabel(product.unit)}`,
+              v: formatQty(product.threshold, product.unit),
               tone: false,
             },
             { l: "Valoare stoc", v: formatMoney(product.stock * product.unitValueMdl), tone: false },
@@ -183,7 +183,7 @@ export function ProductPanel({
           >
             Furnizorul facturează pe{" "}
             <span className="font-semibold">{product.packageUnit}</span>:{" "}
-            <span className="rc-num font-semibold">{formatNumber(product.packageFactor)}</span>{" "}
+            <span className="rc-num font-semibold">{formatQtyNumber(product.packageFactor)}</span>{" "}
             {unitLabel(product.unit)} într-un {product.packageUnit}.
           </p>
         ) : null}

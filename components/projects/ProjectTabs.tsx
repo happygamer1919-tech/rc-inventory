@@ -15,7 +15,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardHeader, Chip, EmptyState, Table, Td, Th } from "@/components/ui/primitives";
-import { formatTimestampDate, formatMoney, formatNumber, formatQty } from "@/lib/data/format";
+import { formatTimestampDate, formatMoney, formatQty, formatQtyNumber } from "@/lib/data/format";
 import { OUTBOUND_STATUS_LABEL, type OutboundStatus } from "@/lib/data/outbound-types";
 import { PROJECT_STATUS_LABEL } from "@/lib/data/projects-types";
 import type { ProjectMaterials } from "@/lib/data/projects-list";
@@ -70,7 +70,7 @@ function statusLabel(token: string): string {
 }
 
 function qtyLabel(quantity: number, unit: string | null): string {
-  return unit ? formatQty(quantity, unit as UnitCode) : formatNumber(quantity);
+  return unit ? formatQty(quantity, unit as UnitCode) : formatQtyNumber(quantity);
 }
 
 export function ProjectTabs({
@@ -182,7 +182,7 @@ export function ProjectTabs({
                           {r.lineCount}
                         </Td>
                         <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                          {formatNumber(r.quantity)}
+                          {formatQtyNumber(r.quantity)}
                         </Td>
                         <Td align="right" data-label="Valoare" className={PHONE_WIDE}>
                           {formatMoney(r.valueMdl)}
@@ -198,7 +198,7 @@ export function ProjectTabs({
                           {materials.total.lineCount}
                         </Td>
                         <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                          {formatNumber(materials.total.quantity)}
+                          {formatQtyNumber(materials.total.quantity)}
                         </Td>
                         <Td align="right" data-label="Valoare" className={PHONE_WIDE}>
                           {formatMoney(materials.total.valueMdl)}
@@ -272,7 +272,7 @@ export function ProjectTabs({
                 {formatMoney(cost.totalValueMdl)}
               </div>
               <div className="text-[12.5px] text-rc-muted" data-testid="cost-total-quantity">
-                {formatNumber(cost.totalQuantity)} unități eliberate
+                {formatQtyNumber(cost.totalQuantity)} unități eliberate
               </div>
             </div>
 
@@ -359,7 +359,7 @@ export function ProjectTabs({
                           <span className="font-semibold text-rc-black">{r.label}</span>
                         </Td>
                         <Td align="right" data-label="Cantitate" className={PHONE_CELL}>
-                          {formatNumber(r.quantity)}
+                          {formatQtyNumber(r.quantity)}
                         </Td>
                         <Td align="right" data-label="Valoare" className={PHONE_CELL}>
                           {formatMoney(r.valueMdl)}

@@ -1,6 +1,6 @@
 import assert from "assert";
 import { test } from "@playwright/test";
-import { formatQty, formatQtyNumber } from "../lib/data/format";
+import { formatDateTime, formatNumberExact, formatQty, formatQtyNumber } from "../lib/data/format";
 
 const tests = [
   {
@@ -87,6 +87,32 @@ const tests = [
     run: () => {
       assert.strictEqual(formatQtyNumber(1000.125), "1.000,125");
       assert.strictEqual(formatQty(1000.125, "m2"), "1.000,125 m²");
+    },
+  },
+  {
+    name: "a threshold with decimals keeps them (P3-336)",
+    run: () => {
+      // formatNumber rounds to a whole number: 0,5 would show as 1 (or 0).
+      assert.strictEqual(formatQty(0.5, "bag"), "0,5 sac");
+      assert.strictEqual(formatQty(12.25, "m2"), "12,25 m²");
+    },
+  },
+  {
+    name: "a price shows two decimals, even when round (P3-336)",
+    run: () => {
+      assert.strictEqual(formatNumberExact(12.5), "12,50");
+      assert.strictEqual(formatNumberExact(100), "100,00");
+      assert.strictEqual(formatNumberExact(1199.5), "1.199,50");
+    },
+  },
+  {
+    name: "the Memento moment is in Chisinau time, not server time (P3-336)",
+    run: () => {
+      // Summer (UTC+3): 21:30 UTC is already the next day in Chisinau.
+      assert.strictEqual(formatDateTime("2026-10-22T21:30:00Z"), "23.10.2026, 00:30");
+      // Winter (UTC+2).
+      assert.strictEqual(formatDateTime("2026-12-01T10:05:00Z"), "01.12.2026, 12:05");
+      assert.strictEqual(formatDateTime(null), "-");
     },
   },
 ];

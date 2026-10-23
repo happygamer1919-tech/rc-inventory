@@ -9848,6 +9848,11 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **ERROR:** `lib/guide/privacy.mjs` scanned docs/guide/screenshots.json only `if (existsSync(manifest))`, and the screenshot script wrote it only on a full run. With the file gone, or a picture added without an entry, `npm run check:guide-privacy` still printed ok and the 87 PNGs were never covered.
 **SOLUTION:** `manifestProblems` fails on a missing or invalid manifest, a picture with no entry, an entry with no text or no file, and a picture whose sha256 differs from its entry. The script always writes the manifest and a GUIDE_ONLY run merges into it. RULE: **a check whose input can be absent must fail when the input is absent; and "newer than" is a hash comparison, because git sets file dates at checkout.**
 
+### P3-336: formatNumber rounds to whole numbers, and server getHours is UTC
+**Tag:** display
+**ERROR:** thresholds, incoming quantities and prices, batch quantities, deviz and project material rows went through `formatNumber` (maximumFractionDigits 0), so 0,5 bags showed as a whole number; the Memento alert time used `getHours()`, which is UTC on Vercel, not Chisinau.
+**SOLUTION:** quantities use `formatQty` or `formatQtyNumber`, prices and money totals in a document currency use `formatNumberExact`, the alert time uses `formatDateTime`. RULE: `formatNumber` is for true counts only; never format a timestamp with Date getters.
+
 ### P3-335: a test folder no config reads is green for ever
 **Tag:** ci
 **ERROR:** seven `tests/*.test.ts` files never ran: `playwright.config.ts` reads only `./tests/e2e`, and `npm test` ran one file through `node --loader ts-node/esm`, but ts-node is not installed, so the command failed at once. When they did run, `format.test.ts` and `price-input.test.ts` had eight stale expectations (old unit labels m2/lm/rola, and 12.5 where the shared reader now keeps the typed 12.50).
