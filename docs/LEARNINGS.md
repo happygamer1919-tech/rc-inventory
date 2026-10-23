@@ -9890,3 +9890,8 @@ so a later card can page it. RULE: **check the read's own ceiling before promisi
 **Tag:** guide
 **ERROR:** `check:guide-privacy` matched a three-name list against text the screenshot script itself captured; nothing read the pixels, so a real client name rendered in a picture passed.
 **SOLUTION:** `npm run check:guide-ocr` runs tesseract.js (Romanian + English) over every PNG, fails on a line of docs/guide/real-names.txt and warns on unknown capitalised names; results are cached by picture sha256 (.cache/guide-ocr, kept with actions/cache). RULE: **a check on what a picture shows must read the picture; the proof is a test that plants a deny list name and sees it fail on a real picture.**
+
+### P3-340: a function that starts to throw needs every caller checked, not only the function
+**Tag:** forms
+**ERROR:** P3-334 made `nextOutboundReference` throw when the database call fails. `createOutboundIssue` did not catch it, and both sale forms awaited the action after `setPending(true)` with no catch, so a failed read left the form on "saving" for good with no message.
+**SOLUTION:** the action reads the number through `readSlipNumber` (lib/data/outbound-reference.ts) and returns `{ ok: false, message }`; both forms reset `pending` in a `finally`. RULE: **when a helper changes from returning a fallback to throwing, grep its callers in the same card; and any `setPending(true)` is paired with a `finally { setPending(false) }`.**

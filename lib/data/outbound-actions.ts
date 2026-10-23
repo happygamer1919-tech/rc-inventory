@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { checkThresholdsFor } from "@/lib/reminders/notify";
 import { nextOutboundReference } from "./outbound";
+import { readSlipNumber } from "./outbound-reference";
 import { unitLabel, isUnitCode } from "./units";
 import { validateNewIssue } from "./outbound-mode";
 import { processIssueLines } from "./outbound-lines";
@@ -160,7 +161,9 @@ export async function createOutboundIssue(
     return { ok: false, message: "Prețul de vânzare trebuie să fie un număr pozitiv.", field: "lines" };
 
   const supabase = await createClient();
-  const reference = await nextOutboundReference();
+  const slip = await readSlipNumber(nextOutboundReference);
+  if (!slip.ok) return slip;
+  const reference = slip.value;
 
   // DOUA USI, O SINGURA SCADERE, SI ASTA ESTE CHIAR CE CERE CARDUL. Migratia 0067
   // a scos partea de stoc din create_outbound_issue intr-o rutina cu nume,

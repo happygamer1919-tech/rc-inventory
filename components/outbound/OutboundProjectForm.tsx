@@ -231,34 +231,40 @@ export function OutboundProjectForm({
     if (problems.length > 0) return;
 
     setPending(true);
-    const result = await createOutboundIssue({
-      projectId: project!.id,
-      lines: filled.map((l) => ({
-        productId: l.productId,
-        quantity: l.quantity,
-        salePriceMdl: l.price,
-      })),
-    });
+    // P3-340. Orice eroare aruncata (si numarul ieșirii care nu se poate citi)
+    // trebuie sa lase formularul liber, nu pe "se salveaza" pentru totdeauna.
+    try {
+      const result = await createOutboundIssue({
+        projectId: project!.id,
+        lines: filled.map((l) => ({
+          productId: l.productId,
+          quantity: l.quantity,
+          salePriceMdl: l.price,
+        })),
+      });
 
-    if (!result.ok) {
-      setServerError(result.message);
+      if (!result.ok) {
+        setServerError(result.message);
+        return;
+      }
+
+      router.refresh();
+      setCreated({
+        id: result.value.id,
+        reference: result.value.reference,
+        // Numele afisate pe confirmare sunt cele ale proiectului ales, nu ce a
+        // scris cineva: aceleasi pe care le-a scris si baza de date, pentru ca
+        // 0018 le ia tot de la proiect.
+        clientName: project!.clientName,
+        projectName: project!.name,
+        lineCount: filled.length,
+        allPriced: filled.every((l) => l.price.trim() !== ""),
+      });
+    } catch {
+      setServerError("Ieșirea nu a putut fi salvată. Încearcă din nou.");
+    } finally {
       setPending(false);
-      return;
     }
-
-    router.refresh();
-    setCreated({
-      id: result.value.id,
-      reference: result.value.reference,
-      // Numele afisate pe confirmare sunt cele ale proiectului ales, nu ce a
-      // scris cineva: aceleasi pe care le-a scris si baza de date, pentru ca
-      // 0018 le ia tot de la proiect.
-      clientName: project!.clientName,
-      projectName: project!.name,
-      lineCount: filled.length,
-      allPriced: filled.every((l) => l.price.trim() !== ""),
-    });
-    setPending(false);
   }
 
   if (created) {
