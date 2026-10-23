@@ -401,7 +401,7 @@ export async function getOutboundIssue(id: string): Promise<OutboundIssue | null
 /** Urmatoarea referinta de iesire, in formatul din faza 1: IES-AAAA-NNNN.
  *
  *  Card P3-334. Numarul il da baza de date (public.outbound_next_reference,
- *  migratia 0090), aceeasi functie pe care o cheama garda la salvare, deci
+ *  migratia 0091), aceeasi functie pe care o cheama garda la salvare, deci
  *  ecranul si garda nu mai pot avea doua reguli. Inainte, aici se lua cea mai
  *  mare referinta in ordine de text, iar IES-2026-9999 iese peste IES-2026-10000:
  *  de la iesirea 10000 orice salvare cadea pe indexul unic. Daca apelul cade, nu

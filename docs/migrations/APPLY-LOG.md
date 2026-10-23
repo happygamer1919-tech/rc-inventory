@@ -86,6 +86,7 @@ The format is machine-read, so keep it exactly:
 - `0088_no_direct_stock_deletes.sql`, card de aplicare P3-326
 - `0089_sale_lines_and_slip_insert_lock.sql`, card de aplicare P3-331
 - `0090_slip_number_past_9999.sql`, card de aplicare P3-334
+- `0091_client_import_insert_guard.sql`, card de aplicare P3-338
 
 ### FORWARD FIX, 2026-09-21: the owner has SEEN three of these applied in production
 

@@ -22,7 +22,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { hasClientLeaduri, hasClientNextAction } from "./schema-capability";
-import { addClientNote, createClientRecord } from "./client-actions";
+import { addClientNote, createImportedClientRecord } from "./client-actions";
+import { clientGuardKeys } from "./import-write-guard";
 import { readClientOwnerChoices, readInactiveOwnerNames } from "./clients";
 import { loadOrRefuse, readAllClients } from "./import-clients-read";
 import { readAnchors, type FileAnchor } from "./import-file-anchors";
@@ -353,28 +354,39 @@ export async function runClientImport(
       continue;
     }
 
-    const result = await createClientRecord({
-      name: client.name,
-      type: client.type,
-      fiscalCode: client.fiscalCode,
-      address: client.address,
-      phone: client.phone,
-      email: client.email,
-      notes: client.notes,
-      active: true,
-      stage: client.stage,
-      followUpDate: client.followUpDate,
-      source: client.source,
-      interest: client.interest,
-      ownerId: client.ownerId,
-      nextAction: client.nextAction,
-      // Celula goala nu este o stergere: fara valoare, validateNextAction aplica
-      // oglindirea "de reluat" ca in formular.
-      nextActionAt: importNextActionAt(client.nextActionDate),
-      firstStage: true,
-    });
+    // P3-338. Scrierea trece prin functia din baza, care ia un blocaj si cauta din nou un client
+    // stocat cu aceleasi chei ca planul (email, nume + telefon) chiar inainte de insert. Planul
+    // s-a calculat dintr-o citire de la inceputul apelului; intre timp alt import putea scrie
+    // acelasi om. Un astfel de rand nu devine un al doilea client, ci un rand nepreluat.
+    const result = await createImportedClientRecord(
+      {
+        name: client.name,
+        type: client.type,
+        fiscalCode: client.fiscalCode,
+        address: client.address,
+        phone: client.phone,
+        email: client.email,
+        notes: client.notes,
+        active: true,
+        stage: client.stage,
+        followUpDate: client.followUpDate,
+        source: client.source,
+        interest: client.interest,
+        ownerId: client.ownerId,
+        nextAction: client.nextAction,
+        // Celula goala nu este o stergere: fara valoare, validateNextAction aplica
+        // oglindirea "de reluat" ca in formular.
+        nextActionAt: importNextActionAt(client.nextActionDate),
+        firstStage: true,
+      },
+      clientGuardKeys(client),
+    );
 
     if (!result.ok) {
+      if ("duplicate" in result) {
+        skippedRows.push({ line: entry.line, reason: result.message, raw: rawAt(entry.line) });
+        continue;
+      }
       // CLIENTUL EXISTA DEJA cand un pas de dupa insert a esuat (etapa, persoana de
       // contact): nu este un rand nepreluat si nu se pune in fisierul de erori, fiindca
       // incarcat din nou ar crea un al doilea client. Se numara ca creat si se spune

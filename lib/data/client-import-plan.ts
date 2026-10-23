@@ -109,7 +109,7 @@ export function duplicateReason(entry: Extract<PlanEntry, { kind: "duplicate" }>
 }
 
 /** Numele fara diferente de spatii sau de litere mari, cu diacriticele pastrate. */
-function nameKey(name: string): string {
+export function nameKey(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("ro");
 }
 
@@ -121,7 +121,7 @@ export function idnoKey(code: string | null | undefined): string | null {
 }
 
 /** Ultimele 8 cifre: 069123456 si +373 69 123 456 sunt acelasi numar. */
-function phoneKey(phone: string): string | null {
+export function phoneKey(phone: string): string | null {
   const digits = phone.replace(/\D/g, "");
   return digits === "" ? null : digits.slice(-8);
 }
