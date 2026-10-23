@@ -8169,11 +8169,11 @@
       "question": null,
       "acceptance": "(a) NAMED TEST: every case in tests/outbound-slip-number-read.test.ts is green in this pull request own quality run on its head sha: a slip number that reads comes back ok, one that throws comes back as { ok: false } with the message 'Numărul ieșirii nu a putut fi citit. Încearcă din nou.', and the thrown text never reaches the operator. (b) createOutboundIssue returns that message through readSlipNumber (lib/data/outbound-reference.ts) when nextOutboundReference throws; OutboundProjectForm and OutboundDirectClientForm call setPending(false) in a finally block. (c) `npx tsc --noEmit` and `npm run build` exit 0. (d) `node docs/board/validate-board.mjs docs/board/rc-board.json docs/board/rc-board-phase2.json docs/board/rc-board-phase3.json` exits 0. (e) No file under supabase/migrations/ is added or changed.",
       "defaults": "The catch lives in a small pure helper (readSlipNumber) so a unit test can run it without a database or the server client. A thrown error on the client side (network, refresh) shows 'Ieșirea nu a putut fi salvată. Încearcă din nou.' and also frees the form. No end to end case: it would need the database function to fail on purpose, which the local setup cannot do. No migration.",
-      "last_checkpoint": "2026-10-23T16:00:00Z",
+      "last_checkpoint": "2026-10-23T15:20:00Z",
       "evidence": {
         "kind": "pr",
         "ref": "Pull request on branch card/p3-340 against main; acceptance is the quality run on its head sha; report in docs/reports/2026-10-23-executor-slip-number-read-fails.md",
-        "at": "2026-10-23T16:00:00Z"
+        "at": "2026-10-23T15:20:00Z"
       },
       "notes": "Source: Fable bug check build-20261023T151853928Z, finding 0. Files: lib/data/outbound-reference.ts, lib/data/outbound-actions.ts, components/outbound/OutboundProjectForm.tsx, components/outbound/OutboundDirectClientForm.tsx, tests/outbound-slip-number-read.test.ts."
     }
